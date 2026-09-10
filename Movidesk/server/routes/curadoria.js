@@ -1523,13 +1523,68 @@ let enriquecimentoState = {
 let activeEnriquecimento = null;
 
 const ENRICH_SELECT = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
-// Nota: removido $expand=createdBy dentro de actions — ponto-e-vírgula aninhado
-// em OData causa 404 em alguns gateways mesmo que o ticket exista.
+// Expand em lote: sem nested $expand dentro de actions para evitar problemas de gateway.
+// clients usa $expand=organization que funciona no nível raiz (sem aninhamento duplo).
 const ENRICH_EXPAND = [
   'owner($select=businessName,email)',
-  'actions($select=id,type,origin,status,createdDate,description)',
+  'actions($select=id,type,origin,status,createdDate,description;$orderby=createdDate asc)',
   'clients($select=businessName,email;$expand=organization($select=businessName))',
 ].join(',');
+
+const ENRICH_BATCH = 15; // IDs por requisição (padrão do Movidesk)
+
+// Converte um objeto ticket da API em parâmetros para UPDATE no banco
+function enrichTicketToRow(t) {
+  const ownerName   = t.owner?.businessName || '';
+  const actions     = Array.isArray(t.actions) ? t.actions : [];
+  const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
+  const totalAcoes   = actions.length;
+  const totalCliente = actions.filter(a => a.type !== 1).length; // type 1 = agente/interno
+  const totalAgente  = actions.filter(a => a.type === 1).length;
+  let tempoResolDias = null;
+  if (t.createdDate && t.resolvedIn) {
+    const ms = new Date(t.resolvedIn) - new Date(t.createdDate);
+    if (ms > 0) tempoResolDias = String(Math.round(ms / 86400000 * 10) / 10);
+  }
+  return {
+    id: t.id, subject: t.subject || '', ownerName,
+    ownerTeam: t.ownerTeam || '', status: t.status || '', urgency: t.urgency || '',
+    solicitante: firstClient?.businessName || '',
+    organizacao: firstClient?.organization?.businessName || '',
+    actionsJson: JSON.stringify(actions),
+    totalAcoes, totalCliente, totalAgente, tempoResolDias,
+    createdDate: t.createdDate || null, resolvedIn: t.resolvedIn || null,
+  };
+}
+
+// Busca um lote de IDs em um endpoint e retorna Map<id, ticketObj>
+async function fetchBatch(fetch, sleep, baseUrl, token, batchIds) {
+  const filter = batchIds.map(id => `id eq ${id}`).join(' or ');
+  const params = new URLSearchParams({
+    '$select': ENRICH_SELECT,
+    '$expand': ENRICH_EXPAND,
+    '$filter': filter,
+    '$top':    String(batchIds.length),
+  });
+  const url = `${baseUrl}?${params.toString()}`;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
+      if (resp.status === 429) { await sleep(65000); continue; }
+      if (!resp.ok) { const b = await resp.text(); throw new Error(`HTTP ${resp.status}: ${b.slice(0,200)}`); }
+      const raw = await resp.json();
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+      const map = new Map();
+      list.forEach(t => t.id && map.set(t.id, t));
+      return map;
+    } catch (e) {
+      if (attempt === 4) throw e;
+      await sleep(2000 * (attempt + 1));
+    }
+  }
+  return new Map();
+}
 
 async function runEnriquecimentoLoop(anos = []) {
   const fetch = require('node-fetch');
@@ -1537,6 +1592,8 @@ async function runEnriquecimentoLoop(anos = []) {
 
   const RATE_MS = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
   const API_BASE = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
+  const URL_CURRENT = `${API_BASE}/public/v1/tickets`;
+  const URL_PAST    = `${API_BASE}/public/v1/tickets/past`;
 
   try {
     // Resolver token
@@ -1562,84 +1619,59 @@ async function runEnriquecimentoLoop(anos = []) {
     const ids = (pendingResult.rows || []).map(r => r.ticket_id);
     enriquecimentoState.total = ids.length;
 
-    for (const id of ids) {
+    for (let i = 0; i < ids.length; i += ENRICH_BATCH) {
       if (enriquecimentoState.stopRequested) break;
-      enriquecimentoState.currentTicketId = id;
+
+      const batch = ids.slice(i, i + ENRICH_BATCH);
+      enriquecimentoState.currentTicketId = batch[0];
 
       try {
-        // Token "integrator" lista mas não lê por ID individual — usa list+filter
-        const LIST_BASES = [
-          `${API_BASE}/public/v1/tickets`,
-          `${API_BASE}/public/v1/tickets/past`,
-        ];
+        // FASE A: tenta /tickets (abertos/atuais)
+        const fromCurrent = await fetchBatch(fetch, sleep, URL_CURRENT, token, batch);
 
-        let ticket = null;
-        for (const base of LIST_BASES) {
-          const params = new URLSearchParams({
-            '$select': ENRICH_SELECT, '$expand': ENRICH_EXPAND,
-            '$filter': `id eq ${id}`, '$top': '1',
-          });
-          const url = `${base}?${params.toString()}`;
-          let found = false;
-          for (let attempt = 0; attempt < 5; attempt++) {
-            try {
-              const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
-              if (resp.status === 429) { await sleep(65000); continue; }
-              if (!resp.ok) { const b = await resp.text(); throw new Error(`HTTP ${resp.status}: ${b.slice(0,200)}`); }
-              const raw = await resp.json();
-              const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
-              if (list.length > 0) { ticket = list[0]; found = true; }
-              break;
-            } catch (e) {
-              if (attempt === 4) throw e;
-              await sleep(2000 * (attempt + 1));
-            }
-          }
-          if (found) break;
-        }
+        // FASE B: os que não vieram → tenta /tickets/past (fechados)
+        const missingAfterCurrent = batch.filter(id => !fromCurrent.has(id));
+        const fromPast = missingAfterCurrent.length
+          ? await fetchBatch(fetch, sleep, URL_PAST, token, missingAfterCurrent)
+          : new Map();
 
-        if (!ticket) {
-          await db.queryDatabase('movidesk_curadoria',
-            `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`, [id]).catch(() => {});
-          enriquecimentoState.notFound++;
-        } else {
-          const t = ticket;
-          const ownerName  = t.owner?.businessName || '';
-          const ownerEmail = t.owner?.email || '';
-          const actions    = Array.isArray(t.actions) ? t.actions : [];
-          const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
-          const totalAcoes   = actions.length;
-          // type 1 = ação interna/agente; outros types = cliente
-          const totalCliente = actions.filter(a => a.type !== 1).length;
-          const totalAgente  = actions.filter(a => a.type === 1).length;
-          let tempoResolDias = null;
-          if (t.createdDate && t.resolvedIn) {
-            const ms = new Date(t.resolvedIn) - new Date(t.createdDate);
-            if (ms > 0) tempoResolDias = String(Math.round(ms / 86400000 * 10) / 10);
+        // Salva todos os encontrados
+        for (const id of batch) {
+          const t = fromCurrent.get(id) || fromPast.get(id);
+          if (!t) {
+            await db.queryDatabase('movidesk_curadoria',
+              `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`, [id]).catch(() => {});
+            enriquecimentoState.notFound++;
+          } else {
+            const row = enrichTicketToRow(t);
+            await db.queryDatabase('movidesk_curadoria',
+              `UPDATE public.curadoria_chamados SET
+                 servico=$2, owner=$3, owner_team=$4, status=$5, urgencia=$6,
+                 solicitante=$7, organizacao=$8, actions=$9, total_acoes=$10,
+                 total_cliente=$11, total_agente=$12, tempo_resol_dias=$13,
+                 aberto_em=$14, resolvido_em=$15
+               WHERE ticket_id = $1`,
+              [row.id, row.subject, row.ownerName, row.ownerTeam, row.status, row.urgency,
+               row.solicitante, row.organizacao, row.actionsJson,
+               row.totalAcoes, row.totalCliente, row.totalAgente,
+               row.tempoResolDias, row.createdDate, row.resolvedIn]
+            );
+            enriquecimentoState.updated++;
           }
-          await db.queryDatabase('movidesk_curadoria',
-            `UPDATE public.curadoria_chamados SET
-               servico=$2, owner=$3, owner_team=$4, status=$5, urgencia=$6,
-               solicitante=$7, organizacao=$8, actions=$9, total_acoes=$10,
-               total_cliente=$11, total_agente=$12, tempo_resol_dias=$13,
-               aberto_em=$14, resolvido_em=$15
-             WHERE ticket_id = $1`,
-            [t.id, t.subject||'', ownerName, t.ownerTeam||'', t.status||'', t.urgency||'',
-             firstClient?.businessName||'', firstClient?.organization?.businessName||'',
-             JSON.stringify(actions), totalAcoes, totalCliente, totalAgente,
-             tempoResolDias, t.createdDate||null, t.resolvedIn||null]
-          );
-          enriquecimentoState.updated++;
+          enriquecimentoState.done++;
         }
       } catch (e) {
-        enriquecimentoState.failed++;
-        enriquecimentoState.recentErrors.unshift({ ticket_id: id, error: e.message, at: new Date().toISOString() });
+        // Falha no lote inteiro — registra e conta todos como erro
+        enriquecimentoState.failed += batch.length;
+        enriquecimentoState.done   += batch.length;
+        enriquecimentoState.recentErrors.unshift({
+          ticket_id: `lote ${batch[0]}–${batch[batch.length-1]}`, error: e.message, at: new Date().toISOString()
+        });
         if (enriquecimentoState.recentErrors.length > 20) enriquecimentoState.recentErrors.length = 20;
-        console.error(`[enriquecimento] #${id}: ${e.message}`);
+        console.error(`[enriquecimento] lote ${batch[0]}–${batch[batch.length-1]}: ${e.message}`);
       }
 
-      enriquecimentoState.done++;
-      await sleep(RATE_MS);
+      if (i + ENRICH_BATCH < ids.length) await sleep(RATE_MS);
     }
   } catch (err) {
     console.error('[enriquecimento] Erro fatal:', err.message);
