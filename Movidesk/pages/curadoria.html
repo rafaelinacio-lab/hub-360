@@ -438,8 +438,78 @@
             <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
             <span>Resumo geral (PDF)</span>
         </button>
+        <!-- Botão de importação — visível apenas para admin (ocultado/exibido via JS) -->
+        <button
+            id="curadoriaImportBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container hidden"
+            onclick="openImportModal()"
+            title="Busca chamados diretamente da API Movidesk e insere para análise"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">cloud_download</span>
+            <span>Importar da API</span>
+        </button>
         <div id="curadoriaRefreshMeta" class="text-xs text-on-surface-variant"></div>
     </section>
+
+    <!-- Modal: Importar chamados da API Movidesk -->
+    <div id="curadoriaImportModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+        <div class="relative mx-4 w-full max-w-lg rounded-2xl bg-surface p-6 shadow-xl">
+            <div class="mb-5 flex items-start justify-between gap-4">
+                <div>
+                    <h2 id="importModalTitle" class="text-lg font-semibold text-on-surface">Importar chamados da API Movidesk</h2>
+                    <p class="mt-1 text-sm text-on-surface-variant">Os chamados serão inseridos com <code>processado=0</code> e entrarão automaticamente no pipeline de análise de IA na próxima carga.</p>
+                </div>
+                <button type="button" onclick="closeImportModal()" class="shrink-0 rounded-full p-1 hover:bg-surface-container-high" aria-label="Fechar">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="curadoriaImportForm" onsubmit="submitImport(event)" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-on-surface-variant mb-1" for="importDateFrom">De (data de abertura) *</label>
+                        <input id="importDateFrom" type="date" required class="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-on-surface-variant mb-1" for="importDateTo">Até</label>
+                        <input id="importDateTo" type="date" class="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none" />
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-on-surface-variant mb-1" for="importOwnerTeam">Equipe (ownerTeam — deixe vazio para todas)</label>
+                    <input id="importOwnerTeam" type="text" placeholder="Ex: Squad Enterprise" class="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-on-surface-variant mb-1" for="importOwnerEmail">E-mail do atendente (deixe vazio para todos)</label>
+                    <input id="importOwnerEmail" type="email" placeholder="Ex: atendente@empresa.com" class="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none" />
+                </div>
+
+                <!-- Status do job -->
+                <div id="importJobStatus" class="hidden rounded-xl border border-outline-variant bg-surface-container-low p-4 text-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span id="importJobIcon" class="material-symbols-outlined text-base">hourglass_empty</span>
+                        <span id="importJobLabel" class="font-medium text-on-surface">Aguardando…</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div><div id="importJobFetched" class="text-xl font-bold tabular-nums text-on-surface">0</div><div class="text-xs text-on-surface-variant">Buscados</div></div>
+                        <div><div id="importJobInserted" class="text-xl font-bold tabular-nums text-primary">0</div><div class="text-xs text-on-surface-variant">Inseridos</div></div>
+                        <div><div id="importJobSkipped" class="text-xl font-bold tabular-nums text-on-surface-variant">0</div><div class="text-xs text-on-surface-variant">Já existentes</div></div>
+                    </div>
+                    <p id="importJobMessage" class="mt-2 text-xs text-on-surface-variant truncate"></p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="cancelImport()" id="importCancelBtn" class="hidden rounded-full border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container">Cancelar importação</button>
+                    <button type="button" onclick="closeImportModal()" class="rounded-full border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container">Fechar</button>
+                    <button id="importSubmitBtn" type="submit" class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90">
+                        <span class="material-symbols-outlined" style="font-size:16px">cloud_download</span>
+                        Importar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Owner Strip -->
     <section class="mb-8 overflow-hidden">
@@ -3208,6 +3278,7 @@ async function refreshCuradoriaData({ showOverlay = false, showButtonLoading = f
         const [user, rows] = await Promise.all([loadPerfCategories().then(() => apiCall('/auth/me')), apiCall('/curadoria')]);
         currentUser = user;
         applyCuradoriaRows(rows);
+        updateImportBtnVisibility(user);
         const refreshedAt = new Date().toISOString();
         localStorage.setItem(CURADORIA_REFRESH_STORAGE_KEY, refreshedAt);
         updateCuradoriaRefreshMeta(refreshedAt);
@@ -3285,6 +3356,131 @@ function scheduleCuradoriaDailyRefresh() {
         }
     }, delay);
 }
+
+// ── Importação da API Movidesk ────────────────────────────────────────────────
+let importStatusInterval = null;
+
+function openImportModal() {
+    const modal = document.getElementById('curadoriaImportModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    // Data padrão: últimos 30 dias
+    const today = new Date();
+    const d30 = new Date(today); d30.setDate(d30.getDate() - 30);
+    const fmt = d => d.toISOString().slice(0, 10);
+    const fromEl = document.getElementById('importDateFrom');
+    const toEl   = document.getElementById('importDateTo');
+    if (fromEl && !fromEl.value) fromEl.value = fmt(d30);
+    if (toEl   && !toEl.value)   toEl.value   = fmt(today);
+    // Verifica se tem job em andamento
+    checkImportStatus();
+}
+
+function closeImportModal() {
+    const modal = document.getElementById('curadoriaImportModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    stopImportStatusPolling();
+}
+
+async function submitImport(e) {
+    e.preventDefault();
+    const dateFrom  = document.getElementById('importDateFrom')?.value?.trim();
+    const dateTo    = document.getElementById('importDateTo')?.value?.trim() || null;
+    const ownerTeam = document.getElementById('importOwnerTeam')?.value?.trim() || null;
+    const ownerEmail= document.getElementById('importOwnerEmail')?.value?.trim() || null;
+
+    if (!dateFrom) { alert('Informe a data de início.'); return; }
+
+    document.getElementById('importSubmitBtn').disabled = true;
+    document.getElementById('importCancelBtn').classList.remove('hidden');
+    showImportStatus({ status: 'running', message: 'Iniciando…', totalFetched: 0, totalInserted: 0, totalSkipped: 0 });
+
+    try {
+        const resp = await apiCall('/curadoria/import', 'POST', { dateFrom, dateTo, ownerTeam, ownerEmail });
+        if (resp.error) throw new Error(resp.error);
+        startImportStatusPolling();
+    } catch (err) {
+        showImportStatus({ status: 'error', message: `Erro: ${err.message}`, totalFetched: 0, totalInserted: 0, totalSkipped: 0 });
+        document.getElementById('importSubmitBtn').disabled = false;
+        document.getElementById('importCancelBtn').classList.add('hidden');
+    }
+}
+
+async function cancelImport() {
+    try {
+        await apiCall('/curadoria/import/cancel', 'DELETE');
+    } catch (e) { /* silencia */ }
+    stopImportStatusPolling();
+    document.getElementById('importCancelBtn').classList.add('hidden');
+    document.getElementById('importSubmitBtn').disabled = false;
+}
+
+function startImportStatusPolling() {
+    stopImportStatusPolling();
+    importStatusInterval = setInterval(checkImportStatus, 2000);
+}
+
+function stopImportStatusPolling() {
+    if (importStatusInterval) { clearInterval(importStatusInterval); importStatusInterval = null; }
+}
+
+async function checkImportStatus() {
+    try {
+        const state = await apiCall('/curadoria/import/status');
+        if (!state || state.error) return;
+        showImportStatus(state);
+        if (!state.running) {
+            stopImportStatusPolling();
+            document.getElementById('importSubmitBtn').disabled = false;
+            document.getElementById('importCancelBtn').classList.add('hidden');
+            // Se concluiu com sucesso, sugere recarregar os dados
+            if (state.status === 'completed' && (state.totalInserted || 0) > 0) {
+                const reload = confirm(`✅ Importação concluída!\n${state.totalInserted} chamado(s) inserido(s).\n\nDeseja iniciar o processamento de IA agora?`);
+                if (reload) {
+                    closeImportModal();
+                    await apiCall('/curadoria/full-load', 'POST');
+                    alert('Pipeline de enriquecimento iniciado (IA, satisfação, módulo x rotina). Os dados aparecerão na tela à medida que forem processados.');
+                }
+            }
+        }
+    } catch (e) { /* rede instável — tenta de novo */ }
+}
+
+function showImportStatus(state) {
+    const box = document.getElementById('importJobStatus');
+    if (!box) return;
+    box.classList.remove('hidden');
+
+    const iconMap = { running: 'sync', completed: 'check_circle', error: 'error', cancelled: 'cancel', idle: 'hourglass_empty' };
+    const colorMap = { running: 'text-primary', completed: 'text-green-600', error: 'text-red-600', cancelled: 'text-on-surface-variant', idle: 'text-on-surface-variant' };
+
+    const icon = document.getElementById('importJobIcon');
+    const label = document.getElementById('importJobLabel');
+    const msg = document.getElementById('importJobMessage');
+
+    if (icon) { icon.textContent = iconMap[state.status] || 'hourglass_empty'; icon.className = `material-symbols-outlined text-base ${colorMap[state.status] || ''} ${state.status === 'running' ? 'animate-spin' : ''}`; }
+    if (label) label.textContent = state.status === 'running' ? 'Importando…' : state.status === 'completed' ? 'Concluído' : state.status === 'error' ? 'Erro' : state.status === 'cancelled' ? 'Cancelado' : 'Aguardando…';
+    if (msg) msg.textContent = state.message || '';
+
+    const setNum = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = (val ?? 0).toLocaleString('pt-BR'); };
+    setNum('importJobFetched',  state.totalFetched);
+    setNum('importJobInserted', state.totalInserted);
+    setNum('importJobSkipped',  state.totalSkipped);
+}
+
+// Exibe botão de importação somente para admin
+function updateImportBtnVisibility(user) {
+    const btn = document.getElementById('curadoriaImportBtn');
+    if (btn) btn.classList.toggle('hidden', user?.role !== 'admin');
+}
+
+// Fecha modal ao clicar fora
+document.getElementById('curadoriaImportModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeImportModal();
+});
 
 window.addEventListener('load',loadCuradoria);
 </script>

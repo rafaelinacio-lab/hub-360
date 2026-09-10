@@ -1259,6 +1259,240 @@ router.post('/modulo/sync/stop', authMiddleware, requireRole('admin'), (req, res
   res.json({ stopping: true });
 });
 
+// ===== Importação de chamados da API Movidesk → curadoria_chamados =====
+// Busca chamados diretamente da API do Movidesk (com histórico completo de ações)
+// e insere na tabela curadoria_chamados com processado=0, prontos para o pipeline
+// de enriquecimento (IA, satisfação, módulo x rotina).
+// Idempotente: usa INSERT ... ON CONFLICT DO NOTHING, portanto re-importar não
+// duplica chamados. Só atualiza ações/status se o chamado já existia e processado=0.
+
+const MOVIDESK_TICKETS_API = 'https://api.movidesk.com/public/v1/tickets';
+
+let activeImportJob = null;
+let importJobState = {
+  running: false,
+  status: 'idle',
+  message: 'Aguardando importação',
+  startedAt: null,
+  updatedAt: null,
+  completedAt: null,
+  totalFetched: 0,
+  totalInserted: 0,
+  totalSkipped: 0,
+  lastError: null,
+  params: null
+};
+
+function updateImportState(patch = {}) {
+  importJobState = { ...importJobState, ...patch, updatedAt: new Date().toISOString() };
+}
+
+async function runMovideskImport({ token, dateFrom, dateTo, ownerTeam, ownerEmail, rateLimitMs = 3000 }) {
+  const fetch = require('node-fetch');
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  updateImportState({
+    running: true, status: 'running', lastError: null,
+    totalFetched: 0, totalInserted: 0, totalSkipped: 0,
+    startedAt: new Date().toISOString(), completedAt: null,
+    message: 'Conectando à API Movidesk...',
+    params: { dateFrom, dateTo, ownerTeam, ownerEmail }
+  });
+
+  try {
+    // Filtros OData
+    const filterParts = [];
+    if (dateFrom) filterParts.push(`createdDate ge ${dateFrom}T00:00:00Z`);
+    if (dateTo)   filterParts.push(`createdDate le ${dateTo}T23:59:59Z`);
+    if (ownerTeam)  filterParts.push(`ownerTeam eq '${ownerTeam.replace(/'/g, "''")}'`);
+    if (ownerEmail) filterParts.push(`owner/email eq '${ownerEmail.replace(/'/g, "''")}'`);
+    const odataFilter = filterParts.join(' and ');
+    const filterExpr = odataFilter ? `&$filter=${encodeURIComponent(odataFilter)}` : '';
+
+    const selectFields = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
+    const expandRelations = 'owner($select=businessName,email),actions($select=id,type,origin,status,createdDate,description;$expand=createdBy($select=businessName,email)),clients($select=businessName,email;$expand=organization($select=businessName))';
+
+    const PAGE_SIZE = 100;
+    let skip = 0;
+    let hasMore = true;
+    let totalFetched = 0;
+
+    while (hasMore) {
+      updateImportState({ message: `Buscando página (skip=${skip})…` });
+
+      const url = `${MOVIDESK_TICKETS_API}?token=${encodeURIComponent(token)}&$select=${encodeURIComponent(selectFields)}${filterExpr}&$expand=${encodeURIComponent(expandRelations)}&$orderby=createdDate asc&$top=${PAGE_SIZE}&$skip=${skip}`;
+
+      let tickets = [];
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const resp = await fetch(url);
+          if (resp.status === 429) {
+            await sleep(rateLimitMs * 2);
+            continue;
+          }
+          if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(`Movidesk retornou ${resp.status}: ${body.slice(0, 200)}`);
+          }
+          const raw = await resp.json();
+          tickets = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+          break;
+        } catch (e) {
+          if (attempt === 2) throw e;
+          await sleep(2000 * (attempt + 1));
+        }
+      }
+
+      if (!tickets.length) { hasMore = false; break; }
+
+      totalFetched += tickets.length;
+      updateImportState({ totalFetched, message: `Processando lote com ${tickets.length} chamado(s) (total: ${totalFetched})…` });
+
+      // Insere cada chamado no banco
+      for (const t of tickets) {
+        const ownerName  = t.owner?.businessName || '';
+        const ownerEmailVal = t.owner?.email || '';
+        const actionsJson = JSON.stringify(t.actions || []);
+
+        // Solicitante e organização
+        const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
+        const solicitante = firstClient?.businessName || '';
+        const organizacao = firstClient?.organization?.businessName || '';
+
+        // Contagens
+        const actions = t.actions || [];
+        const totalAcoes = actions.length;
+        const totalCliente = actions.filter(a => (a.createdBy?.email || '') !== ownerEmailVal && a.type !== 1).length;
+        const totalAgente  = actions.filter(a => a.type === 1 || (a.createdBy?.email || '') === ownerEmailVal).length;
+
+        // Tempo de resolução em dias
+        let tempoResolDias = null;
+        if (t.createdDate && t.resolvedIn) {
+          const ms = new Date(t.resolvedIn) - new Date(t.createdDate);
+          if (ms > 0) tempoResolDias = Math.round(ms / 86400000 * 10) / 10;
+        }
+
+        try {
+          const result = await db.queryDatabase(
+            'movidesk_curadoria',
+            `INSERT INTO public.curadoria_chamados
+               (ticket_id, servico, owner, owner_team, status, urgencia,
+                solicitante, organizacao, actions, total_acoes, total_cliente, total_agente,
+                tempo_resol_dias, aberto_em, resolvido_em, processado)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,0)
+             ON CONFLICT (ticket_id) DO UPDATE SET
+               status        = EXCLUDED.status,
+               actions       = CASE WHEN curadoria_chamados.processado = 0 THEN EXCLUDED.actions ELSE curadoria_chamados.actions END,
+               total_acoes   = EXCLUDED.total_acoes,
+               aberto_em     = EXCLUDED.aberto_em,
+               resolvido_em  = EXCLUDED.resolvido_em`,
+            [
+              t.id,
+              t.subject || '',
+              ownerName,
+              t.ownerTeam || '',
+              t.status || '',
+              t.urgency || '',
+              solicitante,
+              organizacao,
+              actionsJson,
+              totalAcoes,
+              totalCliente,
+              totalAgente,
+              tempoResolDias,
+              t.createdDate || null,
+              t.resolvedIn || null
+            ]
+          );
+          // rowCount=1 → inseriu; rowCount=0 → conflito (já existia, pulou)
+          if ((result.rowCount || 0) > 0) {
+            importJobState.totalInserted++;
+          } else {
+            importJobState.totalSkipped++;
+          }
+        } catch (insertErr) {
+          console.error(`[import-curadoria] Erro ao inserir ticket ${t.id}:`, insertErr.message);
+          importJobState.totalSkipped++;
+        }
+      }
+
+      // Próxima página ou encerramento
+      if (tickets.length < PAGE_SIZE) { hasMore = false; }
+      else { skip += PAGE_SIZE; await sleep(rateLimitMs); }
+    }
+
+    updateImportState({
+      running: false, status: 'completed',
+      message: `Concluído: ${importJobState.totalInserted} inserido(s), ${importJobState.totalSkipped} já existentes.`,
+      completedAt: new Date().toISOString()
+    });
+    console.log(`✅ [import-curadoria] Finalizado: ${importJobState.totalInserted} inseridos, ${importJobState.totalSkipped} pulados`);
+  } catch (err) {
+    console.error('[import-curadoria] Falhou:', err.message || err);
+    updateImportState({
+      running: false, status: 'error',
+      message: `Erro: ${err.message}`,
+      lastError: err.message,
+      completedAt: new Date().toISOString()
+    });
+  } finally {
+    activeImportJob = null;
+  }
+}
+
+// ===== POST /curadoria/import =====
+// Inicia importação de chamados da API Movidesk para curadoria_chamados.
+// Body: { dateFrom, dateTo, ownerTeam, ownerEmail }
+// dateFrom/dateTo no formato YYYY-MM-DD (obrigatório pelo menos dateFrom).
+router.post('/import', authMiddleware, requireRole('admin'), async (req, res) => {
+  if (activeImportJob) {
+    return res.json({ running: true, state: importJobState, message: 'Importação já em andamento.' });
+  }
+
+  const { dateFrom, dateTo, ownerTeam, ownerEmail } = req.body || {};
+  if (!dateFrom) {
+    return res.status(400).json({ error: 'dateFrom é obrigatório (formato YYYY-MM-DD).' });
+  }
+
+  // Valida formato de data
+  const dateRx = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRx.test(dateFrom) || (dateTo && !dateRx.test(dateTo))) {
+    return res.status(400).json({ error: 'Datas devem estar no formato YYYY-MM-DD.' });
+  }
+
+  // Obtém token Movidesk
+  let token;
+  try {
+    token = await new Promise((resolve, reject) => {
+      getToken((err, t) => err ? reject(err) : resolve(t));
+    });
+  } catch (err) {
+    return res.status(503).json({ error: 'Token Movidesk não configurado ou inválido.' });
+  }
+
+  const movideskCfg = await new Promise(resolve => {
+    getCuradoriaMovideskConfig((err, cfg) => resolve(cfg || {}));
+  });
+  const rateLimitMs = movideskCfg.rateLimitMs || 3000;
+
+  activeImportJob = runMovideskImport({ token, dateFrom, dateTo, ownerTeam, ownerEmail, rateLimitMs });
+  res.json({ started: true, state: importJobState });
+});
+
+// ===== GET /curadoria/import/status =====
+router.get('/import/status', authMiddleware, requireRole('admin'), (req, res) => {
+  res.json(importJobState);
+});
+
+// ===== DELETE /curadoria/import/cancel =====
+// Sinaliza cancelamento (o loop checa activeImportJob; quando zerado, para)
+router.delete('/import/cancel', authMiddleware, requireRole('admin'), (req, res) => {
+  if (!activeImportJob) return res.json({ cancelled: false, message: 'Nenhuma importação em andamento.' });
+  activeImportJob = null; // o loop para naturalmente na próxima iteração
+  updateImportState({ running: false, status: 'cancelled', message: 'Cancelado pelo usuário.', completedAt: new Date().toISOString() });
+  res.json({ cancelled: true });
+});
+
 // ===== Carga bruta (dispara os 3 jobs de enriquecimento de uma vez) =====
 // "Foco de Atendimento" e os KPIs da Visão Geral são sempre calculados ao vivo a
 // partir do que já está em curadoria_chamados — não precisam de "carga" própria.
