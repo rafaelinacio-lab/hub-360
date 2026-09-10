@@ -1523,9 +1523,11 @@ let enriquecimentoState = {
 let activeEnriquecimento = null;
 
 const ENRICH_SELECT = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
+// Nota: removido $expand=createdBy dentro de actions — ponto-e-vírgula aninhado
+// em OData causa 404 em alguns gateways mesmo que o ticket exista.
 const ENRICH_EXPAND = [
   'owner($select=businessName,email)',
-  'actions($select=id,type,origin,status,createdDate,description;$expand=createdBy($select=businessName,email))',
+  'actions($select=id,type,origin,status,createdDate,description)',
   'clients($select=businessName,email;$expand=organization($select=businessName))',
 ].join(',');
 
@@ -1604,8 +1606,9 @@ async function runEnriquecimentoLoop(anos = []) {
           const actions    = Array.isArray(t.actions) ? t.actions : [];
           const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
           const totalAcoes   = actions.length;
-          const totalCliente = actions.filter(a => a.type !== 1 && (a.createdBy?.email||'') !== ownerEmail).length;
-          const totalAgente  = actions.filter(a => a.type === 1 || (a.createdBy?.email||'') === ownerEmail).length;
+          // type 1 = ação interna/agente; outros types = cliente
+          const totalCliente = actions.filter(a => a.type !== 1).length;
+          const totalAgente  = actions.filter(a => a.type === 1).length;
           let tempoResolDias = null;
           if (t.createdDate && t.resolvedIn) {
             const ms = new Date(t.resolvedIn) - new Date(t.createdDate);

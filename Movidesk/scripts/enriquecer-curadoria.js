@@ -39,9 +39,12 @@ const BATCH_SIZE = parseInt(process.env.IMPORT_BATCH_SIZE || '1',    10);
 const API_BASE = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
 
 const SELECT_DETAILS = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
+// Nota: removido $expand=createdBy dentro de actions para simplificar a URL
+// (ponto-e-vírgula dentro de parênteses OData causa 404 em alguns gateways).
+// O createdBy dentro de cada action é menos crítico — o owner do chamado já vem separado.
 const EXPAND_DETAILS = [
   'owner($select=businessName,email)',
-  'actions($select=id,type,origin,status,createdDate,description;$expand=createdBy($select=businessName,email))',
+  'actions($select=id,type,origin,status,createdDate,description)',
   'clients($select=businessName,email;$expand=organization($select=businessName))',
 ].join(',');
 
@@ -147,8 +150,10 @@ async function updateTicket(t) {
   const organizacao = firstClient?.organization?.businessName || '';
 
   const totalAcoes   = actions.length;
-  const totalCliente = actions.filter(a => a.type !== 1 && (a.createdBy?.email || '') !== ownerEmail).length;
-  const totalAgente  = actions.filter(a => a.type === 1 || (a.createdBy?.email || '') === ownerEmail).length;
+  // type 1 = ação interna/agente; outros types = cliente
+  // (createdBy não vem mais na resposta para simplificar a URL)
+  const totalCliente = actions.filter(a => a.type !== 1).length;
+  const totalAgente  = actions.filter(a => a.type === 1).length;
 
   let tempoResolDias = null;
   if (t.createdDate && t.resolvedIn) {
