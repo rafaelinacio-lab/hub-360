@@ -327,9 +327,16 @@ async function query(sql, params = []) {
 }
 
 async function queryDatabase(databaseName, sql, params = []) {
+  const base = getBootstrapConfig();
+  // Bancos secundários (ex: movidesk_curadoria) podem não estar registrados no
+  // PgBouncer. Nesses casos, usa DB_DIRECT_PORT (padrão 5432) para conexão direta
+  // ao PostgreSQL, contornando o pooler sem afetar as conexões principais.
+  const directPort = process.env.DB_DIRECT_PORT ? Number(process.env.DB_DIRECT_PORT) : 5432;
+  const isMainDb = databaseName === base.database;
   const cfg = {
-    ...getBootstrapConfig(),
-    database: databaseName
+    ...base,
+    database: databaseName,
+    port: isMainDb ? base.port : directPort
   };
   const { text, values } = convertParams(sql, params);
 
