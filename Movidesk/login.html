@@ -104,12 +104,9 @@
         .lx-logo-mark {
             width: 40px;
             height: 40px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #10b981, #378add);
             display: grid;
             place-items: center;
             flex-shrink: 0;
-            box-shadow: 0 0 28px rgba(16, 185, 129, 0.4);
         }
 
         .lx-brand-name {
@@ -281,9 +278,13 @@
         <canvas class="lx-canvas" id="brandCanvas"></canvas>
 
         <div class="lx-brand-top">
-            <div class="lx-logo-mark">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="white"/>
+            <div class="lx-logo-mark" aria-hidden="true">
+                <svg width="40" height="40" viewBox="0 0 36 36" fill="none">
+                    <circle cx="18" cy="18" r="16" stroke="#10b981" stroke-width="2" stroke-dasharray="70 30" stroke-linecap="round"/>
+                    <circle cx="18" cy="18" r="9"  stroke="#378add" stroke-width="1.5" stroke-dasharray="38 18" stroke-linecap="round"/>
+                    <circle cx="18" cy="18" r="3.5" fill="#10b981"/>
+                    <circle cx="18" cy="2"  r="2.5" fill="#ffffff"/>
+                    <circle cx="32" cy="18" r="2"   fill="#378add"/>
                 </svg>
             </div>
             <span class="lx-brand-name">Hub 360</span>
