@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flux — Entrar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500&display=swap">
     <link rel="stylesheet" href="css/style.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
@@ -13,48 +16,415 @@
         })();
     </script>
     <style>
-        .login-sso-wrap { display:flex; justify-content:center; margin-top:6px; min-height:44px; }
-        .login-sso-hint { font-size:12px; color:var(--muted); text-align:center; margin-top:16px; line-height:1.5; }
-        .login-sso-hint b { color:var(--text); }
+        /* ── Token system ── */
+        :root {
+            --lx-form-bg:   #f5f7fa;
+            --lx-card-bg:   #ffffff;
+            --lx-text:      #1a2638;
+            --lx-sub:       #556a80;
+            --lx-hint:      #8fa3b8;
+            --lx-border:    #dde4ec;
+            --lx-err-bg:    #fef2f2;
+            --lx-err-text:  #991b1b;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --lx-form-bg:   #0d1420;
+                --lx-card-bg:   #141e2e;
+                --lx-text:      #e2e8f0;
+                --lx-sub:       #8fa3b8;
+                --lx-hint:      #4a627a;
+                --lx-border:    #1e2d40;
+                --lx-err-bg:    #2c1414;
+                --lx-err-text:  #fca5a5;
+            }
+        }
+        :root[data-theme="dark"] {
+            --lx-form-bg:   #0d1420;
+            --lx-card-bg:   #141e2e;
+            --lx-text:      #e2e8f0;
+            --lx-sub:       #8fa3b8;
+            --lx-hint:      #4a627a;
+            --lx-border:    #1e2d40;
+            --lx-err-bg:    #2c1414;
+            --lx-err-text:  #fca5a5;
+        }
+
+        /* ── Reset para contexto de login ── */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* Oculta a tela antiga do style.css */
+        .login-screen { display: none !important; }
+
+        /* ── Layout raiz ── */
+        .lx-root {
+            display: flex;
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* ── Painel esquerdo: identidade ── */
+        .lx-brand {
+            position: relative;
+            width: 42%;
+            min-width: 300px;
+            background: #0a1628;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 44px 44px;
+        }
+
+        .lx-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Gradiente sutil sobre o canvas para melhorar legibilidade do texto */
+        .lx-brand::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% 110%, rgba(16,185,129,0.08) 0%, transparent 70%),
+                linear-gradient(to top, rgba(10,22,40,0.82) 0%, rgba(10,22,40,0.2) 60%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .lx-brand-top {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .lx-logo-mark {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #10b981, #378add);
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            box-shadow: 0 0 28px rgba(16, 185, 129, 0.4);
+        }
+
+        .lx-brand-name {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 22px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.4px;
+        }
+
+        .lx-brand-bottom {
+            position: relative;
+            z-index: 2;
+            margin-top: auto;
+        }
+
+        .lx-brand-headline {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: clamp(22px, 2.6vw, 32px);
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1.2;
+            text-wrap: balance;
+            letter-spacing: -0.5px;
+            margin-bottom: 18px;
+        }
+
+        .lx-brand-headline em {
+            font-style: normal;
+            background: linear-gradient(90deg, #10b981 0%, #5bb8f5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .lx-brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.42);
+            letter-spacing: 0.3px;
+        }
+
+        .lx-brand-badge::before {
+            content: '';
+            display: block;
+            width: 20px;
+            height: 1px;
+            background: rgba(16, 185, 129, 0.55);
+            flex-shrink: 0;
+        }
+
+        /* ── Painel direito: formulário ── */
+        .lx-form-panel {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--lx-form-bg);
+            padding: 48px 32px;
+        }
+
+        .lx-form-inner {
+            width: 100%;
+            max-width: 340px;
+        }
+
+        .lx-form-heading {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 30px;
+            font-weight: 800;
+            color: var(--lx-text);
+            letter-spacing: -0.6px;
+            line-height: 1.1;
+            margin-bottom: 10px;
+        }
+
+        .lx-form-desc {
+            font-size: 15px;
+            color: var(--lx-sub);
+            line-height: 1.55;
+            margin-bottom: 36px;
+        }
+
+        .lx-sep {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .lx-sep-line {
+            flex: 1;
+            height: 1px;
+            background: var(--lx-border);
+        }
+
+        .lx-sep-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--lx-hint);
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .lx-sso-wrap {
+            display: flex;
+            justify-content: center;
+            min-height: 44px;
+            margin-bottom: 22px;
+        }
+
+        .lx-domain-hint {
+            text-align: center;
+            font-size: 13px;
+            color: var(--lx-hint);
+            line-height: 1.5;
+        }
+
+        .lx-domain-hint strong {
+            color: var(--lx-sub);
+            font-weight: 500;
+        }
+
+        .lx-error {
+            display: none;
+            margin-top: 18px;
+            padding: 13px 15px;
+            border-radius: 10px;
+            background: var(--lx-err-bg);
+            color: var(--lx-err-text);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* ── Responsivo: mobile ── */
+        @media (max-width: 680px) {
+            .lx-root { flex-direction: column; }
+
+            .lx-brand {
+                width: 100%;
+                min-width: 0;
+                padding: 28px 24px 36px;
+                min-height: 220px;
+            }
+
+            .lx-brand-bottom { margin-top: 28px; }
+
+            .lx-brand-headline {
+                font-size: 22px;
+                margin-bottom: 12px;
+            }
+
+            .lx-form-panel { padding: 40px 24px; }
+
+            .lx-form-heading { font-size: 26px; }
+        }
     </style>
 </head>
 <body>
 
-<div id="loginScreen" class="login-screen" style="display:flex;">
-    <div class="login-card">
+<div class="lx-root">
 
-        <!-- Marca -->
-        <div class="login-brand">
-            <div class="login-logo">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+    <!-- ── Painel esquerdo: identidade visual ── -->
+    <aside class="lx-brand">
+        <canvas class="lx-canvas" id="brandCanvas"></canvas>
+
+        <div class="lx-brand-top">
+            <div class="lx-logo-mark">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="white"/>
                 </svg>
             </div>
-            <div>
-                <h1>Flux</h1>
-                <p>Acesso ao painel de chamados</p>
-            </div>
+            <span class="lx-brand-name">Flux</span>
         </div>
 
-        <div class="login-sso-wrap" id="ssoBtn"></div>
-        <div id="loginError" class="login-error" style="display:none;"></div>
-        <div class="login-sso-hint" id="ssoHint">Entre com sua conta corporativa Google (<b>@viasoft.com.br</b>)</div>
+        <div class="lx-brand-bottom">
+            <h2 class="lx-brand-headline">
+                Visibilidade total<br>sobre seus <em>chamados</em>.
+            </h2>
+            <span class="lx-brand-badge">Painel centralizado · viasoft.com.br</span>
+        </div>
+    </aside>
 
-    </div>
+    <!-- ── Painel direito: login ── -->
+    <main class="lx-form-panel">
+        <div class="lx-form-inner">
+
+            <h1 class="lx-form-heading">Entrar</h1>
+            <p class="lx-form-desc">
+                Acesse o painel com sua conta corporativa Google.
+            </p>
+
+            <div class="lx-sep">
+                <div class="lx-sep-line"></div>
+                <span class="lx-sep-label">Autenticação SSO</span>
+                <div class="lx-sep-line"></div>
+            </div>
+
+            <div class="lx-sso-wrap" id="ssoBtn" role="region" aria-label="Botão de login com Google"></div>
+
+            <p class="lx-domain-hint" id="ssoHint">
+                Use sua conta <strong>@viasoft.com.br</strong>
+            </p>
+
+            <div id="loginError" class="lx-error" role="alert" aria-live="polite"></div>
+
+        </div>
+    </main>
+
 </div>
 
+<!-- ── Animação canvas: rede de nós ── -->
 <script>
-const API_BASE = window.location.origin + '/api';
+(function () {
+    const canvas = document.getElementById('brandCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let nodes = [];
+    let animId = null;
+    const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function resize() {
+        const p = canvas.parentElement;
+        canvas.width  = p.offsetWidth;
+        canvas.height = p.offsetHeight;
+    }
+
+    function makeNodes() {
+        nodes = [];
+        const area  = canvas.width * canvas.height;
+        const count = Math.max(14, Math.floor(area / 12000));
+        for (let i = 0; i < count; i++) {
+            nodes.push({
+                x:  Math.random() * canvas.width,
+                y:  Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * (REDUCED ? 0 : 0.28),
+                vy: (Math.random() - 0.5) * (REDUCED ? 0 : 0.28),
+                r:  Math.random() * 1.8 + 0.8
+            });
+        }
+    }
+
+    function frame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (const n of nodes) {
+            n.x += n.vx;
+            n.y += n.vy;
+            if (n.x < 0 || n.x > canvas.width)  n.vx *= -1;
+            if (n.y < 0 || n.y > canvas.height)  n.vy *= -1;
+        }
+
+        const MAX_DIST = 130;
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const dx   = nodes[i].x - nodes[j].x;
+                const dy   = nodes[i].y - nodes[j].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < MAX_DIST) {
+                    const a = (1 - dist / MAX_DIST) * 0.3;
+                    ctx.strokeStyle = `rgba(16,185,129,${a})`;
+                    ctx.lineWidth   = 0.9;
+                    ctx.beginPath();
+                    ctx.moveTo(nodes[i].x, nodes[i].y);
+                    ctx.lineTo(nodes[j].x, nodes[j].y);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        for (const n of nodes) {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(16,185,129,0.65)';
+            ctx.fill();
+        }
+
+        if (!REDUCED) animId = requestAnimationFrame(frame);
+    }
+
+    function start() {
+        resize();
+        makeNodes();
+        frame();
+    }
+
+    const ro = new ResizeObserver(() => {
+        cancelAnimationFrame(animId);
+        resize();
+        makeNodes();
+        if (!REDUCED) frame();
+    });
+    ro.observe(canvas.parentElement);
+
+    start();
+})();
+</script>
+
+<!-- ── Lógica de autenticação ── -->
+<script>
+const API_BASE  = window.location.origin + '/api';
 const TOKEN_KEY = 'token';
 
 function setError(msg) {
     const el = document.getElementById('loginError');
     if (!el) return;
-    el.textContent = msg || '';
-    el.style.display = msg ? 'block' : 'none';
+    el.textContent    = msg || '';
+    el.style.display  = msg ? 'block' : 'none';
 }
 
-// Se já existe uma sessão válida, pula direto pro painel.
+// Redireciona se já existe sessão válida
 (async function checkExistingSession() {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
@@ -70,9 +440,9 @@ async function handleCredentialResponse(response) {
     setError('');
     try {
         const res = await fetch(API_BASE + '/auth/google', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential: response.credential })
+            body:    JSON.stringify({ credential: response.credential })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Falha no login com Google.');
@@ -96,24 +466,23 @@ async function initGoogleSignIn() {
         }
 
         const hint = document.getElementById('ssoHint');
-        if (hint) hint.innerHTML = `Entre com sua conta corporativa Google (<b>@${cfg.allowedDomain}</b>)`;
+        if (hint) hint.innerHTML = `Use sua conta <strong>@${cfg.allowedDomain}</strong>`;
 
         google.accounts.id.initialize({
             client_id: cfg.clientId,
-            callback: handleCredentialResponse
+            callback:  handleCredentialResponse
         });
         google.accounts.id.renderButton(document.getElementById('ssoBtn'), {
-            theme: (localStorage.getItem('theme') === 'dark') ? 'filled_black' : 'outline',
-            size: 'large',
-            text: 'signin_with',
-            width: 280
+            theme:  (localStorage.getItem('theme') === 'dark') ? 'filled_black' : 'outline',
+            size:   'large',
+            text:   'signin_with',
+            width:  280
         });
     } catch (err) {
         setError('Não foi possível carregar o login com Google. Verifique sua conexão e recarregue a página.');
     }
 }
 
-// A lib do Google carrega assíncrona (defer) — espera ela existir antes de iniciar.
 (function waitForGoogleLib() {
     if (window.google && window.google.accounts && window.google.accounts.id) {
         initGoogleSignIn();
