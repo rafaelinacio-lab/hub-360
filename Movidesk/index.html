@@ -384,15 +384,16 @@
 
                         <!-- Progresso -->
                         <div id="cfgEnrichProgressWrap" style="display:none; margin-bottom:14px;">
-                            <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:12px; color:var(--muted); margin-bottom:4px;">
                                 <span id="cfgEnrichProgressLabel">Aguardando…</span>
-                                <span id="cfgEnrichProgressPct">0%</span>
+                                <span id="cfgEnrichProgressPct" style="font-variant-numeric:tabular-nums;">0%</span>
                             </div>
                             <div style="background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
                                 <div id="cfgEnrichProgressBar" style="height:100%; width:0%; background:var(--accent); border-radius:4px; transition:width .3s;"></div>
                             </div>
-                            <div style="margin-top:6px; font-size:12px; color:var(--muted);">
+                            <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;">
                                 <span id="cfgEnrichStats"></span>
+                                <span id="cfgEnrichEta" style="margin-left:auto;"></span>
                             </div>
                         </div>
 

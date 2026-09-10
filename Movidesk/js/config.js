@@ -2069,12 +2069,23 @@ async function loadEnrichCount() {
     } catch (_) {}
 }
 
+function fmtEta(ms) {
+    if (!ms || ms <= 0) return '';
+    const s = Math.round(ms / 1000);
+    if (s < 60)  return `${s}s`;
+    const m = Math.floor(s / 60), rs = s % 60;
+    if (m < 60)  return `${m}m ${rs}s`;
+    const h = Math.floor(m / 60), rm = m % 60;
+    return `${h}h ${rm}m`;
+}
+
 function renderEnrichStatus(state) {
     const progressWrap = document.getElementById('cfgEnrichProgressWrap');
     const bar          = document.getElementById('cfgEnrichProgressBar');
     const label        = document.getElementById('cfgEnrichProgressLabel');
     const pct          = document.getElementById('cfgEnrichProgressPct');
     const stats        = document.getElementById('cfgEnrichStats');
+    const etaEl        = document.getElementById('cfgEnrichEta');
     const startBtn     = document.getElementById('cfgStartEnrich');
     const stopBtn      = document.getElementById('cfgStopEnrich');
     const errorsWrap   = document.getElementById('cfgEnrichErrorsWrap');
@@ -2089,8 +2100,24 @@ function renderEnrichStatus(state) {
     const pctVal = total > 0 ? Math.round((done / total) * 100) : 0;
     if (bar)   bar.style.width = `${pctVal}%`;
     if (pct)   pct.textContent = `${pctVal}%`;
+
+    // ETA
+    if (etaEl) {
+        if (state.running && done > 0 && state.startedAt) {
+            const elapsed  = Date.now() - new Date(state.startedAt).getTime();
+            const remaining = total - done;
+            const etaMs    = remaining > 0 ? (elapsed / done) * remaining : 0;
+            etaEl.textContent = etaMs > 0 ? `⏱ Conclusão em ~${fmtEta(etaMs)}` : '';
+        } else if (!state.running && state.finishedAt && state.startedAt) {
+            const dur = new Date(state.finishedAt) - new Date(state.startedAt);
+            etaEl.textContent = `Duração total: ${fmtEta(dur)}`;
+        } else {
+            etaEl.textContent = '';
+        }
+    }
+
     if (label) {
-        if (state.running && state.currentTicketId) label.textContent = `Processando #${state.currentTicketId}…`;
+        if (state.running && state.currentTicketId) label.textContent = `Processando #${state.currentTicketId}… (${done}/${total})`;
         else if (state.stopRequested)               label.textContent = 'Parando…';
         else if (!state.running && done === total && total > 0) label.textContent = 'Concluído ✅';
         else label.textContent = `${done} / ${total}`;
