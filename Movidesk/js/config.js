@@ -2117,9 +2117,9 @@ function renderEnrichStatus(state) {
     }
 
     if (label) {
-        if (state.running && state.currentTicketId) label.textContent = `Processando #${state.currentTicketId}… (${done}/${total})`;
+        if (state.running && state.currentTicketId) label.textContent = `Varrendo ${state.currentTicketId} — ${done}/${total} processados`;
         else if (state.stopRequested)               label.textContent = 'Parando…';
-        else if (!state.running && done === total && total > 0) label.textContent = 'Concluído ✅';
+        else if (!state.running && total > 0)       label.textContent = 'Concluído ✅';
         else label.textContent = `${done} / ${total}`;
     }
     if (stats) stats.textContent = `✅ ${state.updated||0} enriquecidos  |  🔍 ${state.notFound||0} não encontrados  |  ❌ ${state.failed||0} erros`;

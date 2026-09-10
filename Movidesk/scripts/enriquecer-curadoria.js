@@ -2,21 +2,20 @@
 /**
  * enriquecer-curadoria.js
  *
- * FASE 2 do pipeline de importação: lê os ticket_ids que estão em
- * movidesk_curadoria.curadoria_chamados sem dados (actions nulo ou vazio)
- * e vai buscar cada chamado na API Movidesk em LOTES DE 15 IDs por requisição,
- * atualizando o registro com os detalhes completos.
+ * FASE 2 do pipeline de importação: para cada janela de mês, pagina a API
+ * Movidesk (/tickets e /tickets/past) com os campos completos e atualiza
+ * curadoria_chamados para os tickets que ainda estão sem dados.
  *
  * Uso:
- *   node scripts/enriquecer-curadoria.js              (todos os sem dados)
- *   node scripts/enriquecer-curadoria.js 2026          (só os do ano 2026)
- *   node scripts/enriquecer-curadoria.js 2025 2026     (dois anos)
+ *   node scripts/enriquecer-curadoria.js              (ano atual)
+ *   node scripts/enriquecer-curadoria.js 2026
+ *   node scripts/enriquecer-curadoria.js 2025 2026
  *
  * Variáveis de ambiente (.env):
- *   MOVIDESK_TOKEN    — X-Gateway-Token (alternativa ao token do banco)
+ *   MOVIDESK_TOKEN    — X-Gateway-Token
  *   MOVIDESK_API_BASE — URL base da API (default: https://apimovidesk.viasoftcloud.com.br)
- *   IMPORT_RATE_MS    — intervalo entre lotes (default: 2100ms → ≈28 req/min)
- *   ENRICH_BATCH      — IDs por lote (default: 15)
+ *   IMPORT_RATE_MS    — intervalo entre páginas (default: 2100ms)
+ *   ENRICH_PAGE_SIZE  — tickets por página (default: 100)
  */
 
 'use strict';
@@ -30,11 +29,13 @@ const { getToken } = require(path.join(__dirname, '..', 'server', 'routes', 'con
 
 // ── Configuração ────────────────────────────────────────────────────────────
 
-const args  = process.argv.slice(2);
-const ANOS  = args.length ? args.map(a => parseInt(a, 10)).filter(n => !isNaN(n)) : [];
+const args = process.argv.slice(2);
+const ANOS = args.length
+  ? args.map(a => parseInt(a, 10)).filter(n => !isNaN(n))
+  : [new Date().getFullYear()];
 
-const RATE_MS    = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
-const BATCH_SIZE = parseInt(process.env.ENRICH_BATCH   || '5',    10);
+const RATE_MS   = parseInt(process.env.IMPORT_RATE_MS  || '2100', 10);
+const PAGE_SIZE = parseInt(process.env.ENRICH_PAGE_SIZE || '100',  10);
 
 const API_BASE    = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
 const URL_CURRENT = `${API_BASE}/public/v1/tickets`;
@@ -63,6 +64,22 @@ function fmtDuration(ms) {
   return `${Math.floor(m / 60)}h ${m % 60}m ${rs}s`;
 }
 
+// Gera lista de janelas mensais para os anos pedidos
+function gerarJanelas(anos) {
+  const janelas = [];
+  for (const ano of anos) {
+    for (let mes = 1; mes <= 12; mes++) {
+      const ultimo = new Date(ano, mes, 0).getDate(); // último dia do mês
+      janelas.push({
+        label:    `${String(mes).padStart(2,'0')}/${ano}`,
+        dateFrom: `${ano}-${String(mes).padStart(2,'0')}-01T00:00:00Z`,
+        dateTo:   `${ano}-${String(mes).padStart(2,'0')}-${ultimo}T23:59:59Z`,
+      });
+    }
+  }
+  return janelas;
+}
+
 async function resolveToken() {
   if (process.env.MOVIDESK_TOKEN) {
     log(`Token lido de MOVIDESK_TOKEN (env). API: ${API_BASE}`);
@@ -77,67 +94,87 @@ async function resolveToken() {
   });
 }
 
-// ── Busca IDs sem dados no banco ─────────────────────────────────────────────
+// ── Busca IDs pendentes no banco (Set para lookup O(1)) ──────────────────────
 
-async function fetchPendingIds() {
-  let whereClause = `(actions IS NULL OR actions = '' OR actions = '[]')`;
-  if (ANOS.length) {
-    const anoConditions = ANOS.map(ano => `EXTRACT(YEAR FROM aberto_em::timestamptz) = ${ano}`).join(' OR ');
-    whereClause += ` AND (aberto_em IS NULL OR (${anoConditions}))`;
-  }
+async function fetchPendingSet() {
   const result = await db.queryDatabase(
     'movidesk_curadoria',
-    `SELECT ticket_id FROM public.curadoria_chamados WHERE ${whereClause} ORDER BY ticket_id ASC`
+    `SELECT ticket_id FROM public.curadoria_chamados
+     WHERE (actions IS NULL OR actions = '' OR actions = '[]')`
   );
-  return (result.rows || []).map(r => r.ticket_id);
+  return new Set((result.rows || []).map(r => r.ticket_id));
 }
 
-// ── Busca um lote de IDs em um endpoint → Map<id, ticket> ────────────────────
+// ── Pagina um endpoint por janela de mês e processa os tickets encontrados ───
 
-async function fetchBatch(token, baseUrl, batchIds) {
-  const filter = batchIds.map(id => `id eq ${id}`).join(' or ');
-  const params = new URLSearchParams({
-    '$select': SELECT_DETAILS,
-    '$expand': EXPAND_DETAILS,
-    '$filter': filter,
-    '$top':    String(batchIds.length),
-  });
-  const url = `${baseUrl}?${params.toString()}`;
+async function paginateWindow(token, baseUrl, dateFrom, dateTo, pendingSet, counters) {
+  const filter = `createdDate ge ${dateFrom} and createdDate le ${dateTo}`;
+  let skip = 0, page = 0;
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
-      if (resp.status === 429) {
-        log(`    ⏳ Rate limit (429). Aguardando 65s…`);
-        await sleep(65000);
-        continue;
+  while (true) {
+    page++;
+    const params = new URLSearchParams({
+      '$select':  SELECT_DETAILS,
+      '$expand':  EXPAND_DETAILS,
+      '$filter':  filter,
+      '$orderby': 'id asc',
+      '$top':     String(PAGE_SIZE),
+      '$skip':    String(skip),
+    });
+    const url = `${baseUrl}?${params.toString()}`;
+
+    let tickets = [];
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
+        if (resp.status === 429) {
+          log(`    ⏳ Rate limit (429). Aguardando 65s…`);
+          await sleep(65000);
+          continue;
+        }
+        if (!resp.ok) {
+          const body = await resp.text();
+          throw new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
+        }
+        const raw = await resp.json();
+        tickets = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+        break;
+      } catch (e) {
+        if (attempt === 4) throw e;
+        log(`    ⚠️  Tentativa ${attempt + 1} falhou (${e.message}). Aguardando…`);
+        await sleep(2000 * (attempt + 1));
       }
-      if (!resp.ok) {
-        const body = await resp.text();
-        throw new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
-      }
-      const raw  = await resp.json();
-      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
-      const map  = new Map();
-      list.forEach(t => t.id && map.set(t.id, t));
-      return map;
-    } catch (e) {
-      if (attempt === 4) throw e;
-      log(`    ⚠️  Tentativa ${attempt + 1} falhou (${e.message}). Aguardando…`);
-      await sleep(2000 * (attempt + 1));
     }
+
+    // Processa só os que estão pendentes
+    for (const t of tickets) {
+      if (!pendingSet.has(t.id)) continue;
+
+      try {
+        await updateTicket(t);
+        pendingSet.delete(t.id); // não processa de novo no /past
+        counters.updated++;
+      } catch (e) {
+        counters.failed++;
+        log(`    ❌ #${t.id}: ${e.message}`);
+      }
+      counters.done++;
+    }
+
+    if (tickets.length < PAGE_SIZE) break; // última página
+    skip += PAGE_SIZE;
+    await sleep(RATE_MS);
   }
-  return new Map();
 }
 
-// ── Atualiza os registros no banco ───────────────────────────────────────────
+// ── Atualiza um registro no banco ────────────────────────────────────────────
 
 async function updateTicket(t) {
   const ownerName   = t.owner?.businessName || '';
   const actions     = Array.isArray(t.actions) ? t.actions : [];
   const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
   const totalAcoes   = actions.length;
-  const totalCliente = actions.filter(a => a.type !== 1).length; // type 1 = agente/interno
+  const totalCliente = actions.filter(a => a.type !== 1).length;
   const totalAgente  = actions.filter(a => a.type === 1).length;
   let tempoResolDias = null;
   if (t.createdDate && t.resolvedIn) {
@@ -147,37 +184,16 @@ async function updateTicket(t) {
   await db.queryDatabase(
     'movidesk_curadoria',
     `UPDATE public.curadoria_chamados SET
-       servico       = $2,
-       owner         = $3,
-       owner_team    = $4,
-       status        = $5,
-       urgencia      = $6,
-       solicitante   = $7,
-       organizacao   = $8,
-       actions       = $9,
-       total_acoes   = $10,
-       total_cliente = $11,
-       total_agente  = $12,
-       tempo_resol_dias = $13,
-       aberto_em     = $14,
-       resolvido_em  = $15
+       servico=$2, owner=$3, owner_team=$4, status=$5, urgencia=$6,
+       solicitante=$7, organizacao=$8, actions=$9, total_acoes=$10,
+       total_cliente=$11, total_agente=$12, tempo_resol_dias=$13,
+       aberto_em=$14, resolvido_em=$15
      WHERE ticket_id = $1`,
     [
-      t.id,
-      t.subject    || '',
-      ownerName,
-      t.ownerTeam  || '',
-      t.status     || '',
-      t.urgency    || '',
-      firstClient?.businessName || '',
-      firstClient?.organization?.businessName || '',
-      JSON.stringify(actions),
-      totalAcoes,
-      totalCliente,
-      totalAgente,
-      tempoResolDias,
-      t.createdDate || null,
-      t.resolvedIn  || null,
+      t.id, t.subject||'', ownerName, t.ownerTeam||'', t.status||'', t.urgency||'',
+      firstClient?.businessName||'', firstClient?.organization?.businessName||'',
+      JSON.stringify(actions), totalAcoes, totalCliente, totalAgente,
+      tempoResolDias, t.createdDate||null, t.resolvedIn||null,
     ]
   );
 }
@@ -186,77 +202,58 @@ async function updateTicket(t) {
 
 async function main() {
   const startedAt = Date.now();
-  const filtro = ANOS.length ? ANOS.join(', ') : 'todos os anos';
-  log(`🚀 enriquecer-curadoria.js — período: ${filtro} | lote: ${BATCH_SIZE} IDs/req | rate: ${RATE_MS}ms`);
+  log(`🚀 enriquecer-curadoria.js — anos: ${ANOS.join(', ')} | page: ${PAGE_SIZE} | rate: ${RATE_MS}ms`);
   log(`   API: ${API_BASE}\n`);
 
   const token = await resolveToken();
   log(`🔑 Token obtido.\n`);
 
-  log('🔍 Buscando IDs sem dados no banco...');
-  const ids = await fetchPendingIds();
-  log(`📦 ${ids.length} chamado(s) sem dados encontrados.\n`);
+  log('🔍 Carregando IDs pendentes do banco...');
+  const pendingSet = await fetchPendingSet();
+  log(`📦 ${pendingSet.size} chamado(s) sem dados.\n`);
 
-  if (!ids.length) {
+  if (!pendingSet.size) {
     log('✅ Nenhum chamado para enriquecer. Encerrando.');
     return;
   }
 
-  let done = 0, updated = 0, notFound = 0, failed = 0;
+  const janelas = gerarJanelas(ANOS);
+  const counters = { done: 0, updated: 0, failed: 0 };
 
-  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-    const batch = ids.slice(i, i + BATCH_SIZE);
+  for (const { label, dateFrom, dateTo } of janelas) {
+    if (!pendingSet.size) { log(`   ⏭️  Todos processados — pulando meses restantes.`); break; }
 
-    try {
-      // FASE A: tenta /tickets (abertos/atuais)
-      const fromCurrent = await fetchBatch(token, URL_CURRENT, batch);
+    log(`📅 ${label} — ${pendingSet.size} IDs ainda pendentes`);
 
-      // FASE B: os que não vieram → tenta /tickets/past (fechados)
-      const missing = batch.filter(id => !fromCurrent.has(id));
-      const fromPast = missing.length
-        ? await fetchBatch(token, URL_PAST, missing)
-        : new Map();
-
-      for (const id of batch) {
-        const t = fromCurrent.get(id) || fromPast.get(id);
-        if (!t) {
-          await db.queryDatabase('movidesk_curadoria',
-            `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`, [id]).catch(() => {});
-          notFound++;
-        } else {
-          await updateTicket(t);
-          updated++;
-        }
-        done++;
+    for (const baseUrl of [URL_CURRENT, URL_PAST]) {
+      const source = baseUrl.includes('/past') ? 'past' : 'current';
+      try {
+        await paginateWindow(token, baseUrl, dateFrom, dateTo, pendingSet, counters);
+      } catch (e) {
+        log(`  ❌ Erro fatal em ${source} ${label}: ${e.message}`);
+        counters.failed++;
       }
-    } catch (e) {
-      failed += batch.length;
-      done   += batch.length;
-      if (failed <= 30) log(`  ❌ lote ${batch[0]}–${batch[batch.length-1]}: ${e.message}`);
-      else if (failed === 31) log('  ❌ (erros repetidos — veja os acima)');
+      await sleep(RATE_MS);
     }
 
-    // Bail-out: se os primeiros 50 falharem 100%, token provavelmente inválido
-    if (done >= 50 && failed === done) {
-      log('\n💥 100% de erros — verifique o token e a URL do gateway.');
-      process.exit(1);
-    }
+    const pct = (((pendingSet.size === 0 ? 1 : 1 - pendingSet.size / (pendingSet.size + counters.updated)) * 100)).toFixed(1);
+    const elapsed = Date.now() - startedAt;
+    log(`  📊 ✅ ${counters.updated} enriquecidos | ❌ ${counters.failed} erros | pendentes restantes: ${pendingSet.size} | ${fmtDuration(elapsed)}\n`);
+  }
 
-    if (done % 150 < BATCH_SIZE || done >= ids.length) {
-      const elapsed   = Date.now() - startedAt;
-      const remaining = ids.length - done;
-      const eta       = done > 0 ? fmtDuration((elapsed / done) * remaining) : '–';
-      const pct       = ((done / ids.length) * 100).toFixed(1);
-      log(`  📊 ${done}/${ids.length} (${pct}%) | ✅ ${updated} enriquecidos | 🔍 ${notFound} não encontrados | ❌ ${failed} erros | ETA: ${eta}`);
+  // Marca como -1 os que ficaram no pendingSet sem aparecer na API
+  if (pendingSet.size > 0) {
+    log(`🔍 ${pendingSet.size} IDs não encontrados na API — marcando processado=-1…`);
+    for (const id of pendingSet) {
+      await db.queryDatabase('movidesk_curadoria',
+        `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`, [id]).catch(() => {});
     }
-
-    if (i + BATCH_SIZE < ids.length) await sleep(RATE_MS);
   }
 
   log(`\n✅ Concluído em ${fmtDuration(Date.now() - startedAt)}`);
-  log(`   ✅ Enriquecidos: ${updated}`);
-  log(`   🔍 Não encontrados na API (marcados -1): ${notFound}`);
-  log(`   ❌ Erros: ${failed}`);
+  log(`   ✅ Enriquecidos: ${counters.updated}`);
+  log(`   🔍 Não encontrados (marcados -1): ${pendingSet.size}`);
+  log(`   ❌ Erros: ${counters.failed}`);
   log(`\n💡 Próximo passo: Configurações → Curadoria → "Processar tudo agora"\n`);
 }
 
