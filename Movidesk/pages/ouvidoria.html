@@ -198,23 +198,24 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 .btn-refresh .sym{font-size:15px}
 
 /* ═══ KPI bar ══════════════════════════════════════════════════════════ */
-.kpi-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px}
-.kpi-in{display:flex;align-items:stretch;max-width:1480px;margin:0 auto}
+.kpi-bar{background:var(--bg);padding:16px 24px}
+.kpi-in{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:1480px;margin:0 auto}
 .kpi{
-  flex:1;display:flex;align-items:center;gap:12px;
-  padding:14px 20px;border-right:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;box-shadow:var(--sh-sm);
 }
-.kpi:last-child{border-right:none}
 .kpi-ico{
-  width:34px;height:34px;border-radius:8px;flex-shrink:0;
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
 }
-.kpi-ico .sym{font-size:17px}
+.kpi-ico .sym{font-size:18px}
 .kpi-ico.or{background:var(--orange-bg);color:var(--orange)}
 .kpi-ico.sl{background:var(--slate-bg);color:var(--slate)}
 .kpi-ico.pu{background:var(--purple-bg);color:var(--purple)}
 .kpi-ico.gr{background:var(--green-bg);color:var(--green)}
-.kpi-v{font-size:20px;font-weight:800;color:var(--t1);line-height:1;font-variant-numeric:tabular-nums}
+.kpi-v{font-size:22px;font-weight:800;color:var(--t1);line-height:1;font-variant-numeric:tabular-nums}
 .kpi-l{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:3px}
 
 /* ═══ Grid ═════════════════════════════════════════════════════════════ */
@@ -449,11 +450,8 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 /* ═══ Responsive ════════════════════════════════════════════════════ */
 @media(max-width:700px){
   .topbar{padding:0 14px}
-  .kpi-bar{padding:0 14px}
-  .kpi-in{flex-wrap:wrap}
-  .kpi{min-width:calc(50% - .5px);border-right:none;border-bottom:1px solid var(--border)}
-  .kpi:nth-child(odd){border-right:1px solid var(--border)}
-  .kpi:nth-last-child(-n+2){border-bottom:none}
+  .kpi-bar{padding:12px 14px}
+  .kpi-in{grid-template-columns:repeat(2,1fr);gap:8px}
   .grid-wrap{padding:14px}
   .chips{display:none}
   #ov-drawer{width:100vw}
