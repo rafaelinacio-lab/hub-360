@@ -640,6 +640,25 @@ async function persistCuradoriaAnalysis(ticketId, raw, timing) {
 }
 
 async function processOneCuradoriaTicket(row) {
+  // Verifica se o chamado tem dados mínimos para análise (precisa ter pelo menos actions com
+  // algum conteúdo). Tickets inseridos só com ticket_id (sem sync de detalhes) são marcados
+  // como processado = -1 ("sem dados") e pulados sem contar como erro.
+  let actionsArr = [];
+  try {
+    const a = row.actions;
+    actionsArr = Array.isArray(a) ? a : (typeof a === 'string' && a.trim() && a !== '[]' ? JSON.parse(a) : []);
+  } catch (_) {}
+
+  const temDados = actionsArr.length > 0 || (row.servico && row.servico.trim());
+  if (!temDados) {
+    await db.queryDatabase(
+      'movidesk_curadoria',
+      `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`,
+      [row.ticket_id]
+    );
+    return; // pula sem contar como erro
+  }
+
   const timing = calcularTiming(row.aberto_em, row.resolvido_em);
   const systemPrompt = await buildCuradoriaSystemPrompt(row, timing);
   const promptCfg = await getCuradoriaPromptAnalisePromise();
@@ -671,7 +690,7 @@ async function runCuradoriaProcessingLoop() {
 
     const pendingResult = await db.queryDatabase(
       'movidesk_curadoria',
-      `SELECT ticket_id, actions, fato, causa, modulo_x_rotina, owner, solicitante, aberto_em, resolvido_em, urgencia
+      `SELECT ticket_id, servico, actions, fato, causa, modulo_x_rotina, owner, solicitante, aberto_em, resolvido_em, urgencia
        FROM public.curadoria_chamados WHERE ${whereClause} ORDER BY ticket_id ${orderDir}`
     );
     curadoriaProcessingState.total = pendingResult.rows.length;
