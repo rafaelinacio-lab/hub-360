@@ -669,7 +669,7 @@ function render(){
   <div class="card-top">
     <div class="card-top-badges">
       <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${TIPO_LABEL[tk]}</span>
-      ${tot>=3?`<span class="tbadge t-amb"><span class="sym">repeat</span>Reincidente</span>`:''}
+      ${probs.length>0?`<span class="tbadge t-amb"><span class="sym">repeat</span>Reincidente</span>`:''}
     </div>
     <span class="card-date">${fmtShort(r.criado_em)}</span>
   </div>
@@ -680,7 +680,7 @@ function render(){
     ${flagsHtml?`<div class="card-flags">${flagsHtml}</div>`:''}
   </div>
   <div class="card-footer">
-    <span class="recpill${tot>=3?' warn':''}">
+    <span class="recpill${probs.length>0?' warn':''}">
       <span class="sym">history</span>${tot} chamado${tot===1?'':'s'} anterior${tot===1?'':'es'}
     </span>
     <button class="card-cta" data-cta="${esc(String(r.ticket_id))}">
@@ -727,11 +727,11 @@ function openDrawer(id){
     ${r.servico_ouvidoria_nome?`<div class="meta-chip"><span class="sym">category</span><div><span class="mc-l">Serviço</span><span class="mc-v">${esc(r.servico_ouvidoria_nome)}</span></div></div>`:''}
   `;
 
-  // recurrence warning
+  // recurrence warning — só mostra quando há chamados relacionados ao mesmo problema
   const warnEl=document.getElementById('d-warn');
-  if(tot>=3){
+  if(probs.length>0){
     warnEl.style.display='flex';
-    document.getElementById('d-warn-t').textContent=`Cliente recorrente — ${tot} chamados de suporte antes desta manifestação`;
+    document.getElementById('d-warn-t').textContent=`Reincidente — ${probs.length} problema${probs.length===1?'':'s'} identificado${probs.length===1?'':'s'} em chamados anteriores`;
   } else { warnEl.style.display='none'; }
 
   // body sections
