@@ -100,29 +100,38 @@ async function fetchTicketDetails(token, id) {
     '$select': SELECT_DETAILS,
     '$expand': EXPAND_DETAILS,
   });
-  const url = `${API_BASE}/public/v1/tickets/${id}?${params.toString()}`;
+  const qstr = params.toString();
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
-      if (resp.status === 429) {
-        log(`    ⏳ Rate limit (429). Aguardando 65s…`);
-        await sleep(65000);
-        continue;
+  // Chamados fechados/históricos vivem em /tickets/past — tenta ambos os endpoints
+  const ENDPOINTS = [
+    `${API_BASE}/public/v1/tickets/${id}?${qstr}`,
+    `${API_BASE}/public/v1/tickets/past/${id}?${qstr}`,
+  ];
+
+  for (const url of ENDPOINTS) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
+        if (resp.status === 429) {
+          log(`    ⏳ Rate limit (429). Aguardando 65s…`);
+          await sleep(65000);
+          continue;
+        }
+        if (resp.status === 404) break; // não está neste endpoint — tenta o próximo
+        if (!resp.ok) {
+          const body = await resp.text();
+          throw new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
+        }
+        return await resp.json(); // encontrado
+      } catch (e) {
+        if (attempt === 4) throw e;
+        log(`    ⚠️  Tentativa ${attempt + 1} falhou para #${id} (${e.message}). Aguardando…`);
+        await sleep(2000 * (attempt + 1));
       }
-      if (resp.status === 404) return null; // ticket removido
-      if (!resp.ok) {
-        const body = await resp.text();
-        throw new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
-      }
-      return await resp.json();
-    } catch (e) {
-      if (attempt === 4) throw e;
-      log(`    ⚠️  Tentativa ${attempt + 1} falhou para #${id} (${e.message}). Aguardando…`);
-      await sleep(2000 * (attempt + 1));
     }
   }
-  return null;
+
+  return null; // não encontrado em nenhum dos dois endpoints
 }
 
 // ── Atualiza o registro no banco ──────────────────────────────────────────────

@@ -1566,21 +1566,31 @@ async function runEnriquecimentoLoop(anos = []) {
 
       try {
         const params = new URLSearchParams({ '$select': ENRICH_SELECT, '$expand': ENRICH_EXPAND });
-        const url = `${API_BASE}/public/v1/tickets/${id}?${params.toString()}`;
+        const qstr = params.toString();
+        // Chamados fechados/históricos vivem em /tickets/past; tenta os dois endpoints
+        const ENDPOINTS = [
+          `${API_BASE}/public/v1/tickets/${id}?${qstr}`,
+          `${API_BASE}/public/v1/tickets/past/${id}?${qstr}`,
+        ];
 
         let ticket = null;
-        for (let attempt = 0; attempt < 5; attempt++) {
-          try {
-            const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
-            if (resp.status === 429) { await sleep(65000); continue; }
-            if (resp.status === 404) { ticket = null; break; }
-            if (!resp.ok) { const b = await resp.text(); throw new Error(`HTTP ${resp.status}: ${b.slice(0,200)}`); }
-            ticket = await resp.json();
-            break;
-          } catch (e) {
-            if (attempt === 4) throw e;
-            await sleep(2000 * (attempt + 1));
+        for (const url of ENDPOINTS) {
+          let found = false;
+          for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+              const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
+              if (resp.status === 429) { await sleep(65000); continue; }
+              if (resp.status === 404) { found = false; break; }
+              if (!resp.ok) { const b = await resp.text(); throw new Error(`HTTP ${resp.status}: ${b.slice(0,200)}`); }
+              ticket = await resp.json();
+              found = true;
+              break;
+            } catch (e) {
+              if (attempt === 4) throw e;
+              await sleep(2000 * (attempt + 1));
+            }
           }
+          if (found) break; // encontrou no primeiro endpoint, não precisa tentar o /past
         }
 
         if (!ticket) {
