@@ -1,0 +1,668 @@
+/*
+ * Hub 360 — Curadoria "Por Atendente" redesign
+ * Scoped to #curadoriaAtendenteView. Overrides MD3/Tailwind tokens
+ * without touching the Visão Geral or any other tab.
+ *
+ * Dark mode: curadoria.html uses html.dark (Tailwind darkMode:"class"),
+ * not data-theme. Both conventions are handled here.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+/* ══════════════════════════════════════════════════
+   1. Design tokens
+══════════════════════════════════════════════════ */
+#curadoriaAtendenteView {
+  --ca-surface:     #ffffff;
+  --ca-surface-low: #f4f7fb;
+  --ca-border:      #dde4ec;
+  --ca-text:        #0a1628;
+  --ca-sub:         #556a80;
+  --ca-muted:       #8fa3b8;
+  --ca-divider:     #e8edf4;
+
+  --ca-em:       #10b981;
+  --ca-em-bg:    rgba(16, 185, 129, 0.07);
+  --ca-em-soft:  rgba(16, 185, 129, 0.14);
+  --ca-blue:     #378add;
+  --ca-blue-bg:  rgba(55, 138, 221, 0.07);
+  --ca-purple:   #7c3aed;
+  --ca-purple-bg:rgba(124, 58, 237, 0.07);
+  --ca-amber:    #f59e0b;
+  --ca-amber-bg: rgba(245, 158, 11, 0.07);
+  --ca-red:      #ef4444;
+  --ca-red-bg:   rgba(239, 68, 68, 0.06);
+
+  --ca-shadow:   0 1px 3px rgba(10, 22, 40, 0.06), 0 4px 14px rgba(10, 22, 40, 0.05);
+  --ca-shadow-h: 0 6px 24px rgba(10, 22, 40, 0.12);
+
+  --ca-radius:   14px;
+  --ca-radius-sm:10px;
+  --ca-gap:      20px;
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Dark mode — html.dark (Tailwind class strategy) */
+html.dark #curadoriaAtendenteView {
+  --ca-surface:     #111c2e;
+  --ca-surface-low: #0d1724;
+  --ca-border:      #1e2d40;
+  --ca-text:        #e2e8f0;
+  --ca-sub:         #8fa3b8;
+  --ca-muted:       #4a627a;
+  --ca-divider:     #1a2738;
+
+  --ca-em-bg:    rgba(16, 185, 129, 0.10);
+  --ca-em-soft:  rgba(16, 185, 129, 0.18);
+  --ca-blue-bg:  rgba(55, 138, 221, 0.10);
+  --ca-purple-bg:rgba(124, 58, 237, 0.10);
+  --ca-amber-bg: rgba(245, 158, 11, 0.10);
+  --ca-red-bg:   rgba(239, 68, 68, 0.08);
+
+  --ca-shadow:   0 1px 4px rgba(0, 0, 0, 0.35), 0 4px 14px rgba(0, 0, 0, 0.25);
+  --ca-shadow-h: 0 6px 28px rgba(0, 0, 0, 0.40);
+}
+
+/* data-theme attribute (index.html parent) */
+:root[data-theme="dark"] #curadoriaAtendenteView {
+  --ca-surface:     #111c2e;
+  --ca-surface-low: #0d1724;
+  --ca-border:      #1e2d40;
+  --ca-text:        #e2e8f0;
+  --ca-sub:         #8fa3b8;
+  --ca-muted:       #4a627a;
+  --ca-divider:     #1a2738;
+  --ca-em-bg:    rgba(16, 185, 129, 0.10);
+  --ca-em-soft:  rgba(16, 185, 129, 0.18);
+  --ca-blue-bg:  rgba(55, 138, 221, 0.10);
+  --ca-purple-bg:rgba(124, 58, 237, 0.10);
+  --ca-amber-bg: rgba(245, 158, 11, 0.10);
+  --ca-red-bg:   rgba(239, 68, 68, 0.08);
+  --ca-shadow:   0 1px 4px rgba(0, 0, 0, 0.35), 0 4px 14px rgba(0, 0, 0, 0.25);
+  --ca-shadow-h: 0 6px 28px rgba(0, 0, 0, 0.40);
+}
+
+/* ══════════════════════════════════════════════════
+   2. Card baseline — override Tailwind/MD3
+══════════════════════════════════════════════════ */
+#curadoriaAtendenteView .bg-surface-container-lowest,
+#curadoriaAtendenteView .bg-surface-container-low.p-4.rounded-lg {
+  background: var(--ca-surface) !important;
+  border: 1px solid var(--ca-border) !important;
+  box-shadow: var(--ca-shadow) !important;
+}
+
+/* Main cards rendered by render*Card() */
+#ca-owner-card,
+#ca-focus-card,
+#ca-satisfaction-card,
+#score-card-root,
+#curadoria-analysis-card {
+  background: var(--ca-surface) !important;
+  border: 1px solid var(--ca-border) !important;
+  box-shadow: var(--ca-shadow) !important;
+  border-radius: var(--ca-radius) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+#ca-owner-card:hover,
+#ca-focus-card:hover,
+#ca-satisfaction-card:hover,
+#score-card-root:hover,
+#curadoria-analysis-card:hover {
+  box-shadow: var(--ca-shadow-h) !important;
+}
+
+/* Nested info tiles inside analysis card */
+#curadoriaAtendenteView .bg-surface-container-low {
+  background: var(--ca-surface-low) !important;
+  border: 1px solid var(--ca-border) !important;
+}
+
+/* Text color overrides */
+#curadoriaAtendenteView .text-primary {
+  color: var(--ca-text) !important;
+}
+#curadoriaAtendenteView .text-on-surface-variant,
+#curadoriaAtendenteView .text-outline {
+  color: var(--ca-sub) !important;
+}
+#curadoriaAtendenteView .text-secondary {
+  color: var(--ca-em) !important;
+}
+#curadoriaAtendenteView h3.font-label-md,
+#curadoriaAtendenteView span.font-label-md {
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════════════════
+   3. Owner strip — avatar navigation
+══════════════════════════════════════════════════ */
+#ownerStrip {
+  gap: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+/* Each avatar item */
+#ownerStrip > div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 10px 8px 10px !important;
+  width: 84px !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, transform 0.15s ease !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  position: relative;
+}
+
+#ownerStrip > div:hover {
+  background: var(--ca-surface) !important;
+  border-color: var(--ca-border) !important;
+  transform: translateY(-1px);
+}
+
+/* Selected state */
+#ownerStrip > div[data-owner] {
+  /* default non-selected */
+}
+/* The selected item gets bg-secondary/10 from render — override */
+#ownerStrip > div.bg-secondary\/10,
+#ownerStrip > div.bg-secondary\/20,
+#ownerStrip > div[class*="bg-secondary"] {
+  background: var(--ca-em-bg) !important;
+  border-color: var(--ca-em) !important;
+}
+
+/* Avatar image wrapper ring */
+#ownerStrip > div .ring-2 {
+  box-shadow: 0 0 0 2px var(--ca-em), 0 0 0 4px var(--ca-em-bg) !important;
+  border: none !important;
+}
+#ownerStrip > div .ring-1 {
+  box-shadow: 0 0 0 1px var(--ca-border) !important;
+  border: none !important;
+}
+
+/* Avatar image */
+#ownerStrip img {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+
+/* Name label */
+#ownerStrip > div > span:first-of-type {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  color: var(--ca-sub) !important;
+  text-align: center !important;
+}
+#ownerStrip > div.bg-secondary\/10 > span,
+#ownerStrip > div.bg-secondary\/20 > span,
+#ownerStrip > div[class*="bg-secondary"] > span {
+  color: var(--ca-em) !important;
+}
+
+/* Selection dot indicator */
+#ownerStrip > div .bg-secondary {
+  background: var(--ca-em) !important;
+}
+
+/* Team label */
+#ownerStrip > div > span:last-child:not(:first-child) {
+  font-size: 9px !important;
+  color: var(--ca-muted) !important;
+  text-align: center !important;
+}
+
+/* ══════════════════════════════════════════════════
+   4. Owner profile card (#ca-owner-card)
+══════════════════════════════════════════════════ */
+#ca-owner-card {
+  border-top: 3px solid var(--ca-em) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+#ca-owner-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(180deg, var(--ca-em-bg) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+#ca-owner-card img {
+  width: 100px !important;
+  height: 100px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  border: 3px solid var(--ca-em) !important;
+  box-shadow: 0 0 0 4px var(--ca-em-bg), var(--ca-shadow) !important;
+}
+
+#ca-owner-card h2 {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  color: var(--ca-text) !important;
+  letter-spacing: -0.3px !important;
+}
+
+#ca-owner-card p {
+  color: var(--ca-sub) !important;
+  font-size: 13px !important;
+}
+
+/* Seniority badge inside owner card */
+#ca-owner-card .ca-seniority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* ══════════════════════════════════════════════════
+   5. Focus card (#ca-focus-card)
+══════════════════════════════════════════════════ */
+#ca-focus-card {
+  border-top: 3px solid var(--ca-blue) !important;
+}
+
+/* Icon boxes — override bg-blue-100 / bg-yellow-100 */
+#ca-focus-card .bg-blue-100 {
+  background: var(--ca-blue-bg) !important;
+  border: 1px solid rgba(55, 138, 221, 0.2) !important;
+  border-radius: 10px !important;
+}
+#ca-focus-card .bg-yellow-100 {
+  background: var(--ca-amber-bg) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+  border-radius: 10px !important;
+}
+#ca-focus-card .text-blue-600   { color: var(--ca-blue)  !important; }
+#ca-focus-card .text-yellow-600 { color: var(--ca-amber) !important; }
+
+#ca-focus-card h3 {
+  color: var(--ca-text) !important;
+}
+
+#ca-focus-card .font-semibold {
+  color: var(--ca-text) !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+}
+
+/* ══════════════════════════════════════════════════
+   6. Satisfaction card (#ca-satisfaction-card)
+══════════════════════════════════════════════════ */
+#ca-satisfaction-card {
+  border-top: 3px solid #22c55e !important;
+}
+
+#ca-satisfaction-card .text-4xl {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 48px !important;
+  font-weight: 800 !important;
+  color: #22c55e !important;
+  letter-spacing: -2px !important;
+  line-height: 1 !important;
+}
+
+/* Distribution rows */
+#ca-satisfaction-card .flex.items-center.justify-between.text-sm {
+  border-radius: 8px !important;
+  padding: 5px 8px !important;
+  transition: background 0.12s !important;
+}
+#ca-satisfaction-card .flex.items-center.justify-between.text-sm:hover {
+  background: var(--ca-surface-low) !important;
+}
+
+/* Comment cards */
+#ca-satisfaction-card .p-3.rounded-lg {
+  background: var(--ca-surface-low) !important;
+  border-color: var(--ca-border) !important;
+  transition: border-color 0.15s !important;
+}
+#ca-satisfaction-card .p-3.rounded-lg:hover {
+  border-color: var(--ca-em) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   7. Score card (#score-card-root)
+══════════════════════════════════════════════════ */
+#score-card-root {
+  border-top: 3px solid var(--ca-purple) !important;
+}
+
+/* Score number */
+#score-card-root [data-score-target] {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 60px !important;
+  font-weight: 800 !important;
+  letter-spacing: -3px !important;
+  line-height: 1 !important;
+}
+
+#score-card-root .text-on-surface-variant {
+  color: var(--ca-muted) !important;
+}
+
+/* Score label badge */
+#score-card-root #score-label-badge {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 3px 10px !important;
+  border-radius: 20px !important;
+  letter-spacing: 0.03em !important;
+}
+
+/* Main progress bar track */
+#score-card-root .bg-surface-container {
+  background: var(--ca-surface-low) !important;
+  border: 1px solid var(--ca-border) !important;
+}
+
+/* Dimension bars */
+#score-card-root .space-y-3 > div {
+  padding: 4px 0 !important;
+}
+
+/* History chart bars */
+#score-card-root .score-history-bar {
+  border-radius: 4px 4px 0 0 !important;
+  cursor: pointer !important;
+}
+
+/* History section divider */
+#score-card-root .border-t {
+  border-color: var(--ca-divider) !important;
+}
+
+/* Methodology link */
+#score-card-root .text-secondary {
+  color: var(--ca-em) !important;
+  font-size: 12px !important;
+}
+
+/* ══════════════════════════════════════════════════
+   8. Analysis card (#curadoria-analysis-card)
+══════════════════════════════════════════════════ */
+#curadoria-analysis-card {
+  border-top: 3px solid var(--ca-blue) !important;
+}
+
+/* Section title */
+#curadoria-analysis-card h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--ca-text) !important;
+  letter-spacing: -0.2px !important;
+}
+
+/* Metric tiles (Total, Média Ações, Total Ações) */
+#curadoria-analysis-card .bg-surface-container-low.p-4.rounded-lg {
+  border-radius: var(--ca-radius-sm) !important;
+  transition: background 0.15s !important;
+}
+#curadoria-analysis-card .bg-surface-container-low.p-4.rounded-lg:hover {
+  background: var(--ca-surface) !important;
+  border-color: var(--ca-em) !important;
+}
+
+/* Big numbers */
+#curadoria-analysis-card .text-3xl,
+#curadoria-analysis-card .text-2xl {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 800 !important;
+  letter-spacing: -1px !important;
+}
+#curadoria-analysis-card .text-3xl { font-size: 36px !important; }
+#curadoria-analysis-card .text-2xl { font-size: 28px !important; }
+
+/* SLA donut tiles */
+#curadoria-analysis-card .flex.items-center.gap-4.p-4 {
+  border-radius: var(--ca-radius-sm) !important;
+}
+
+/* Competências section */
+#curadoria-analysis-card .comp-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+#curadoria-analysis-card .comp-section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#curadoria-analysis-card .comp-ai-pulse {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ca-purple);
+  animation: ca-pulse 2s ease-in-out infinite;
+}
+@keyframes ca-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Difficulty warning banner */
+#curadoria-analysis-card .border-green-800 {
+  border-color: rgba(16, 185, 129, 0.25) !important;
+  background: var(--ca-em-bg) !important;
+  border-radius: var(--ca-radius-sm) !important;
+}
+#curadoria-analysis-card .border-yellow-800 {
+  border-color: rgba(245, 158, 11, 0.25) !important;
+  background: var(--ca-amber-bg) !important;
+  border-radius: var(--ca-radius-sm) !important;
+}
+#curadoria-analysis-card .border-red-800 {
+  border-color: rgba(239, 68, 68, 0.25) !important;
+  background: var(--ca-red-bg) !important;
+  border-radius: var(--ca-radius-sm) !important;
+}
+
+/* Difficulty icon colors — keep existing Tailwind */
+#curadoria-analysis-card .text-green-400 { color: var(--ca-em) !important; }
+
+/* Evidence panels — override hardcoded light colors */
+#curadoria-analysis-card .border-l-4.border-green-500 {
+  background: var(--ca-em-bg) !important;
+  border-left-color: var(--ca-em) !important;
+  border-radius: 0 var(--ca-radius-sm) var(--ca-radius-sm) 0 !important;
+  padding: 16px !important;
+}
+#curadoria-analysis-card .border-l-4.border-red-500 {
+  background: var(--ca-red-bg) !important;
+  border-left-color: var(--ca-red) !important;
+  border-radius: 0 var(--ca-radius-sm) var(--ca-radius-sm) 0 !important;
+  padding: 16px !important;
+}
+
+/* Evidence headings */
+#curadoria-analysis-card .text-green-800 { color: var(--ca-em) !important; }
+#curadoria-analysis-card .text-red-800   { color: var(--ca-red) !important; }
+#curadoria-analysis-card .text-green-900 { color: var(--ca-text) !important; }
+#curadoria-analysis-card .text-red-900   { color: var(--ca-text) !important; }
+
+/* Evidence icon colors */
+#curadoria-analysis-card .text-green-600 { color: var(--ca-em) !important; }
+#curadoria-analysis-card .text-red-600   { color: var(--ca-red) !important; }
+
+/* Verdict / Análise Final block */
+#curadoria-analysis-card .bg-primary-container {
+  background: var(--ca-blue-bg) !important;
+  border: 1px solid rgba(55, 138, 221, 0.20) !important;
+  border-radius: var(--ca-radius-sm) !important;
+}
+#curadoria-analysis-card .bg-primary-container .text-on-primary-container {
+  color: var(--ca-sub) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.1em !important;
+}
+#curadoria-analysis-card #seniority-verdict-label {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--ca-text) !important;
+  letter-spacing: -0.3px !important;
+  margin-bottom: 12px !important;
+}
+#curadoria-analysis-card #seniority-verdict-reason {
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: var(--ca-sub) !important;
+}
+
+/* Evidence list items */
+#curadoria-analysis-card ul li {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: flex-start !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  color: var(--ca-text) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   9. Card grid layout override
+══════════════════════════════════════════════════ */
+#curadoriaMount {
+  display: grid !important;
+  grid-template-columns: repeat(12, 1fr) !important;
+  gap: var(--ca-gap) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   10. Dark mode evidence panel fix (hardcoded green/red-50/900)
+══════════════════════════════════════════════════ */
+html.dark #curadoria-analysis-card .border-l-4.border-green-500 {
+  background: rgba(16, 185, 129, 0.10) !important;
+}
+html.dark #curadoria-analysis-card .border-l-4.border-red-500 {
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+html.dark #curadoria-analysis-card .bg-primary-container {
+  background: rgba(55, 138, 221, 0.10) !important;
+  border-color: rgba(55, 138, 221, 0.20) !important;
+}
+html.dark #curadoria-analysis-card .border-green-950,
+html.dark #curadoria-analysis-card .bg-green-950 {
+  background: rgba(16, 185, 129, 0.10) !important;
+  border-color: rgba(16, 185, 129, 0.20) !important;
+}
+html.dark #curadoria-analysis-card .border-red-950,
+html.dark #curadoria-analysis-card .bg-red-950 {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.20) !important;
+}
+html.dark #curadoria-analysis-card .border-yellow-950,
+html.dark #curadoria-analysis-card .bg-yellow-950 {
+  background: rgba(245, 158, 11, 0.10) !important;
+  border-color: rgba(245, 158, 11, 0.20) !important;
+}
+
+/* Dark mode: hardcoded bg-red-50, bg-green-50 (not under dark class in curadoria.html) */
+html.dark #curadoria-analysis-card .bg-red-50   { background: rgba(239, 68, 68, 0.08) !important; }
+html.dark #curadoria-analysis-card .bg-green-50 { background: rgba(16, 185, 129, 0.10) !important; }
+html.dark #curadoria-analysis-card .text-green-800 { color: #34d399 !important; }
+html.dark #curadoria-analysis-card .text-red-800   { color: #f87171 !important; }
+html.dark #curadoria-analysis-card .text-green-900 { color: #d1fae5 !important; }
+html.dark #curadoria-analysis-card .text-red-900   { color: #fee2e2 !important; }
+
+/* ══════════════════════════════════════════════════
+   11. Toolbar action buttons — pill style
+══════════════════════════════════════════════════ */
+#curadoriaAtendenteView .inline-flex.items-center.gap-2.rounded-full {
+  border-color: var(--ca-border) !important;
+  background: var(--ca-surface) !important;
+  color: var(--ca-text) !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
+  transition: background 0.15s, border-color 0.15s !important;
+}
+#curadoriaAtendenteView .inline-flex.items-center.gap-2.rounded-full:hover {
+  background: var(--ca-em-bg) !important;
+  border-color: var(--ca-em) !important;
+  color: var(--ca-em) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   12. Competência bars — comp-cards-grid
+══════════════════════════════════════════════════ */
+#curadoriaAtendenteView .perf-competencia-bars {
+  gap: 6px !important;
+}
+
+/* ══════════════════════════════════════════════════
+   13. Tab buttons — Visão Geral / Por Atendente
+══════════════════════════════════════════════════ */
+#curadoriaTabGeral.bg-secondary,
+#curadoriaTabAtendente.bg-secondary {
+  background: var(--ca-em) !important;
+  color: #fff !important;
+}
+#curadoriaTabGeral.bg-transparent,
+#curadoriaTabAtendente.bg-transparent {
+  background: transparent !important;
+  color: var(--ca-sub) !important;
+}
+#curadoriaTabGeral:hover,
+#curadoriaTabAtendente:hover {
+  color: var(--ca-text) !important;
+}
+
+/* Enclosing pill border */
+#curadoriaMain > .flex.justify-center > div {
+  border-color: var(--ca-border) !important;
+  background: var(--ca-surface) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   14. Section/strip container
+══════════════════════════════════════════════════ */
+#curadoriaAtendenteView > section:has(#ownerStrip) {
+  background: var(--ca-surface);
+  border: 1px solid var(--ca-border);
+  border-radius: var(--ca-radius);
+  padding: 16px !important;
+  margin-bottom: 20px !important;
+  box-shadow: var(--ca-shadow);
+}
+
+/* ══════════════════════════════════════════════════
+   15. Percent circle SVGs (SLA donuts)
+══════════════════════════════════════════════════ */
+#curadoriaAtendenteView svg circle[fill="none"] {
+  stroke-width: 2.5;
+}
+
+/* ══════════════════════════════════════════════════
+   16. Reduced motion
+══════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  #curadoriaAtendenteView .ca-pulse,
+  #curadoriaAtendenteView .comp-ai-pulse {
+    animation: none;
+  }
+}

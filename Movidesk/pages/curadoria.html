@@ -17,6 +17,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="../css/curadoria-atendente.css">
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -2387,7 +2388,7 @@ function renderOwnerStrip(rows,filtered) {
 function renderOwnerCard(owner, rows=[]) {
     const ownerRow=rows.find(r=>r.owner===owner);
     const equipe=ownerRow?String(ownerRow.owner_team||'Squad Enterprise').trim():'Squad Enterprise';
-    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow flex flex-col items-center text-center">
+    return `<div id="ca-owner-card" class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow flex flex-col items-center text-center">
         <div class="relative mb-4"><img class="w-32 h-32 rounded-full object-cover border-4 border-surface-container" src="${escapeHtml(photoByName(owner))}" alt="${escapeHtml(owner)}"></div>
         <h2 class="font-headline-lg text-headline-lg text-primary mb-1">${escapeHtml(owner)}</h2>
         <p class="font-body-md text-body-md text-on-surface-variant mb-6">Agente de Suporte • ${escapeHtml(equipe)}</p>
@@ -2407,7 +2408,7 @@ function renderFocusCard(owner, rows) {
     const moduloOnclick = moduloMais
         ? `showModuloModal(${JSON.stringify(moduloEntries).replace(/"/g,'&quot;')}, '${escapeHtml(owner)}')`
         : '';
-    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+    return `<div id="ca-focus-card" class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Foco de Atendimento</h3>
         <div class="space-y-6">
             <div class="flex gap-4 items-start ${causaMais?'cursor-pointer group':''}" ${causaMais?`onclick="${causaOnclick}"`:''} title="${causaMais?'Ver todas as causas atendidas':''}">
@@ -2640,7 +2641,7 @@ function renderSatisfactionCard(owner, rows) {
         ${commentsHtml ? `<h4 class="font-label-md text-label-md text-on-surface-variant uppercase text-xs font-bold mt-5 mb-2">Comentários (${comments.length})</h4><div class="max-h-[360px] overflow-y-auto pr-1">${commentsHtml}</div>` : ''}
     ` : `<p class="text-on-surface-variant text-sm">Nenhuma resposta de pesquisa de satisfação ainda para este atendente. Sincronize em Configurações → Curadoria.</p>`;
 
-    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+    return `<div id="ca-satisfaction-card" class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Satisfação do Cliente (Pesquisa)</h3>
         ${body}
     </div>`;
