@@ -1,600 +1,855 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ouvidoria</title>
-    <script>
-        (function() {
-            const t = localStorage.getItem('theme') || 'light';
-            document.documentElement.className = t;
-            window.addEventListener('storage', function(e) {
-                if (e.key === 'theme') document.documentElement.className = e.newValue || 'light';
-            });
-        })();
-    </script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "on-surface":"#191c1e","tertiary":"#000000","secondary-fixed":"#ffddb8","on-primary-fixed-variant":"#3f465c",
-                        "on-primary":"#ffffff","on-secondary":"#ffffff","on-secondary-container":"#684000","tertiary-fixed-dim":"#dec29a",
-                        "surface-bright":"#f7f9fb","primary-fixed":"#dae2fd","error-container":"#ffdad6","surface-container-lowest":"#ffffff",
-                        "surface-variant":"#e0e3e5","on-error-container":"#93000a","background":"#f7f9fb","surface-container-high":"#e6e8ea",
-                        "on-secondary-fixed":"#2a1700","on-tertiary-fixed":"#271901","surface-dim":"#d8dadc","surface-container-highest":"#e0e3e5",
-                        "outline-variant":"#c6c6cd","primary-container":"#131b2e","inverse-primary":"#bec6e0","surface-container":"#eceef0",
-                        "secondary-container":"#fea619","secondary":"#855300","on-error":"#ffffff","on-surface-variant":"#45464d",
-                        "secondary-fixed-dim":"#ffb95f","tertiary-fixed":"#fcdeb5","inverse-on-surface":"#eff1f3","inverse-surface":"#2d3133",
-                        "primary":"#000000","surface-container-low":"#f2f4f6","surface":"#f7f9fb","on-tertiary":"#ffffff",
-                        "primary-fixed-dim":"#bec6e0","on-secondary-fixed-variant":"#653e00","on-tertiary-fixed-variant":"#574425",
-                        "surface-tint":"#565e74","error":"#ba1a1a","tertiary-container":"#271901","on-primary-fixed":"#131b2e",
-                        "outline":"#76777d","on-background":"#191c1e","on-primary-container":"#7c839b","on-tertiary-container":"#98805d"
-                    },
-                    spacing: { "gutter":"24px","widget-gap":"24px","base":"8px","card-padding":"24px","container-padding":"32px" },
-                    fontSize: {
-                        "headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],
-                        "body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],
-                        "display-lg":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],
-                        "label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],
-                        "body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        html,body{scrollbar-width:none;-ms-overflow-style:none}
-        html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
-        *{scrollbar-width:none;-ms-overflow-style:none}
-        *::-webkit-scrollbar{display:none}
-        body{font-family:'Inter',sans-serif}
-        .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
-        .soft-shadow{box-shadow:0px 4px 20px rgba(15,23,42,0.05)}
-        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
-        .no-scrollbar::-webkit-scrollbar{display:none}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ouvidoria</title>
+<script>
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
+    });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+/* ═══ Tokens ══════════════════════════════════════════════════════════ */
+:root {
+  --bg:          #f2f1ee;
+  --surface:     #ffffff;
+  --surface-mid: #f7f6f3;
+  --surface-low: #f2f1ee;
+  --border:      #e5e3de;
+  --border-hi:   #cac8c2;
 
-        /* ── Dark Mode ───────────────────────────────────────────── */
-        html.dark body{background-color:#0f1117;color:#e8e8e2}
-        html.dark .bg-background{background-color:#0f1117}
-        html.dark .bg-surface{background-color:#1a1d27}
-        html.dark .bg-surface-container-lowest{background-color:#16181f}
-        html.dark .bg-surface-container-low{background-color:#1a1d27}
-        html.dark .bg-surface-container{background-color:#1e2232}
-        html.dark .bg-surface-container-high{background-color:#242840}
-        html.dark .bg-surface-variant{background-color:#2a2d3a}
-        html.dark .text-primary{color:#e2e8f0}
-        html.dark .text-on-surface{color:#e8e8e2}
-        html.dark .text-on-surface-variant{color:#9b9b92}
-        html.dark .text-secondary{color:#ffb95f}
-        html.dark .text-on-secondary-container{color:#ffe0b2}
-        html.dark .bg-secondary-container{background-color:#4a2e00}
-        html.dark .bg-secondary{background-color:#c68a1a}
-        html.dark .border-outline{border-color:#3a3d4a}
-        html.dark .border-outline-variant{border-color:#2a2d3a}
-        html.dark .bg-outline-variant{background-color:#2a2d3a}
-        html.dark .text-outline{color:#6b7280}
-        html.dark .soft-shadow{box-shadow:0px 4px 20px rgba(0,0,0,0.4)}
-        html.dark .hover\:bg-surface-container:hover{background-color:#1e2232}
-        html.dark #ouvidoriaLoadingOverlay{background-color:#0f1117}
-        html.dark .bg-error-container{background-color:#410002}
-        html.dark .text-error{color:#ffb4ab}
-        html.dark .bg-secondary-container\/15{background-color:rgba(74,46,0,0.35)}
-        html.dark .bg-secondary-container\/40{background-color:rgba(74,46,0,0.4)}
-        html.dark .bg-error-container\/25{background-color:rgba(65,0,2,0.35)}
-        html.dark .bg-error-container\/60{background-color:rgba(65,0,2,0.6)}
-        html.dark .bg-green-100{background-color:rgba(21,128,61,0.25)}
-        html.dark .text-green-700{color:#4ade80}
-        html.dark .bg-orange-100{background-color:rgba(194,65,12,0.25)}
-        html.dark .text-orange-700{color:#fb923c}
+  --t1: #1a1917;
+  --t2: #57554f;
+  --t3: #9b9892;
 
-        #ouvidoriaModalBackdrop{position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:9999;opacity:0;pointer-events:none;transition:opacity 0.2s ease}
-        #ouvidoriaModalBackdrop.open{opacity:1;pointer-events:auto}
-        #ouvidoriaModalCard{transform:translateY(12px) scale(0.98);transition:transform 0.2s ease}
-        #ouvidoriaModalBackdrop.open #ouvidoriaModalCard{transform:translateY(0) scale(1)}
-        #ouvidoriaDescricaoWrap{transition:max-height 0.25s ease}
-    </style>
+  --orange:     #e85d04;
+  --orange-bg:  #fff3ec;
+  --orange-bd:  rgba(232,93,4,0.25);
+
+  --green:      #15803d;
+  --green-bg:   #f0fdf4;
+  --green-bd:   rgba(21,128,61,0.25);
+
+  --purple:     #7c3aed;
+  --purple-bg:  #f5f3ff;
+  --purple-bd:  rgba(124,58,237,0.25);
+
+  --slate:      #64748b;
+  --slate-bg:   #f8fafc;
+  --slate-bd:   rgba(100,116,139,0.2);
+
+  --amber:      #b45309;
+  --amber-bg:   #fffbeb;
+  --amber-bd:   rgba(180,83,9,0.2);
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,.05),0 1px 4px rgba(0,0,0,.04);
+  --sh-md: 0 3px 12px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
+  --sh-xl: 0 16px 48px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.07);
+}
+
+html.dark {
+  --bg:          #0f1117;
+  --surface:     #1a1d27;
+  --surface-mid: #1e2232;
+  --surface-low: #161921;
+  --border:      #2a2d3a;
+  --border-hi:   #3c3f50;
+
+  --t1: #e8e7e3;
+  --t2: #9b9892;
+  --t3: #57554f;
+
+  --orange:     #fb923c;
+  --orange-bg:  rgba(251,146,60,.12);
+  --orange-bd:  rgba(251,146,60,.22);
+
+  --green:      #4ade80;
+  --green-bg:   rgba(74,222,128,.1);
+  --green-bd:   rgba(74,222,128,.2);
+
+  --purple:     #a78bfa;
+  --purple-bg:  rgba(167,139,250,.1);
+  --purple-bd:  rgba(167,139,250,.2);
+
+  --slate:      #94a3b8;
+  --slate-bg:   rgba(148,163,184,.08);
+  --slate-bd:   rgba(148,163,184,.15);
+
+  --amber:      #fbbf24;
+  --amber-bg:   rgba(251,191,36,.1);
+  --amber-bd:   rgba(251,191,36,.2);
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,.3);
+  --sh-md: 0 3px 12px rgba(0,0,0,.3);
+  --sh-xl: 0 16px 48px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ═══ Reset ═══════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;scrollbar-width:none;-ms-overflow-style:none}
+::-webkit-scrollbar{display:none}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit;background:none;border:none;padding:0}
+input,select{font-family:inherit}
+
+.sym{
+  font-family:'Material Symbols Outlined';
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+  line-height:1;display:inline-block;font-style:normal;user-select:none;
+  vertical-align:middle;
+}
+
+/* ═══ Loading ══════════════════════════════════════════════════════════ */
+#ov-loading{
+  position:fixed;inset:0;z-index:9998;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+.spin{
+  width:40px;height:40px;border-radius:50%;
+  border:3px solid var(--border);border-top-color:var(--orange);
+  animation:spin .75s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{font-size:13px;color:var(--t2);font-weight:500}
+
+/* ═══ Page ═════════════════════════════════════════════════════════════ */
+#ov-page{min-height:100vh;display:flex;flex-direction:column;visibility:hidden}
+
+/* ═══ Top bar ══════════════════════════════════════════════════════════ */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 24px;
+}
+.topbar-in{
+  display:flex;align-items:center;gap:12px;height:56px;
+  max-width:1480px;margin:0 auto;
+}
+.topbar-logo{
+  display:flex;align-items:center;gap:7px;
+  font-size:15px;font-weight:700;color:var(--t1);white-space:nowrap;flex-shrink:0;
+}
+.topbar-logo .sym{font-size:19px;color:var(--orange)}
+.vbar{width:1px;height:22px;background:var(--border);flex-shrink:0}
+
+.srch{position:relative;min-width:160px;flex:1;max-width:300px}
+.srch .sym{
+  position:absolute;left:9px;top:50%;transform:translateY(-50%);
+  font-size:17px;color:var(--t3);pointer-events:none
+}
+.srch input{
+  width:100%;padding:7px 10px 7px 33px;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t1);
+  font-size:13px;outline:none;transition:border-color .15s;
+}
+.srch input:focus{border-color:var(--orange);background:var(--surface)}
+.srch input::placeholder{color:var(--t3)}
+
+.chips{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 11px;border-radius:20px;
+  border:1px solid var(--border);background:var(--surface-low);
+  color:var(--t2);font-size:12px;font-weight:500;
+  transition:all .15s;white-space:nowrap;
+}
+.chip:hover{border-color:var(--border-hi);color:var(--t1)}
+.chip .cnt{
+  background:rgba(0,0,0,.07);border-radius:10px;
+  padding:1px 5px;font-size:10px;font-weight:700;
+}
+html.dark .chip .cnt{background:rgba(255,255,255,.1)}
+.chip.a-all   {background:var(--t1);border-color:var(--t1);color:var(--surface)}
+.chip.a-rec   {background:var(--orange-bg);border-color:var(--orange-bd);color:var(--orange)}
+.chip.a-elo   {background:var(--green-bg); border-color:var(--green-bd); color:var(--green)}
+.chip.a-sug   {background:var(--purple-bg);border-color:var(--purple-bd);color:var(--purple)}
+.chip.a-all .cnt{background:rgba(255,255,255,.2)}
+.chip.a-rec .cnt{background:rgba(232,93,4,.15)}
+.chip.a-elo .cnt{background:rgba(21,128,61,.15)}
+.chip.a-sug .cnt{background:rgba(124,58,237,.15)}
+
+.sort-sel{
+  padding:6px 26px 6px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;outline:none;appearance:none;flex-shrink:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9892' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 7px center;
+}
+.sort-sel:focus{border-color:var(--orange)}
+
+#ov-count{font-size:12px;color:var(--t3);white-space:nowrap;margin-left:auto}
+
+.btn-refresh{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+.btn-refresh:hover{border-color:var(--border-hi);color:var(--t1)}
+.btn-refresh .sym{font-size:15px}
+
+/* ═══ KPI bar ══════════════════════════════════════════════════════════ */
+.kpi-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px}
+.kpi-in{display:flex;align-items:stretch;max-width:1480px;margin:0 auto}
+.kpi{
+  flex:1;display:flex;align-items:center;gap:12px;
+  padding:14px 20px;border-right:1px solid var(--border);
+}
+.kpi:last-child{border-right:none}
+.kpi-ico{
+  width:34px;height:34px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.kpi-ico .sym{font-size:17px}
+.kpi-ico.or{background:var(--orange-bg);color:var(--orange)}
+.kpi-ico.sl{background:var(--slate-bg);color:var(--slate)}
+.kpi-ico.pu{background:var(--purple-bg);color:var(--purple)}
+.kpi-ico.gr{background:var(--green-bg);color:var(--green)}
+.kpi-v{font-size:20px;font-weight:800;color:var(--t1);line-height:1;font-variant-numeric:tabular-nums}
+.kpi-l{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:3px}
+
+/* ═══ Grid ═════════════════════════════════════════════════════════════ */
+.grid-wrap{flex:1;padding:20px 24px;max-width:1480px;margin:0 auto;width:100%}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:14px;
+}
+
+/* ═══ Card ═════════════════════════════════════════════════════════════ */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:var(--sh-sm);
+  display:flex;flex-direction:column;
+  cursor:pointer;
+  transition:box-shadow .2s,transform .2s,border-color .15s;
+  overflow:hidden;
+  border-left-width:3px;
+}
+.card:hover{box-shadow:var(--sh-md);transform:translateY(-1px);border-color:var(--border-hi)}
+.card.t-rec{border-left-color:var(--orange)}
+.card.t-elo{border-left-color:var(--green)}
+.card.t-sug{border-left-color:var(--purple)}
+.card.t-oth{border-left-color:var(--slate)}
+
+.card-top{
+  padding:12px 14px 10px;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+}
+.card-top-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.card-date{font-size:11px;color:var(--t3);white-space:nowrap;flex-shrink:0;margin-top:1px}
+
+.tbadge{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:3px 7px;border-radius:5px;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  border:1px solid transparent;
+}
+.tbadge .sym{font-size:11px}
+.tbadge.t-rec{background:var(--orange-bg);color:var(--orange);border-color:var(--orange-bd)}
+.tbadge.t-elo{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.tbadge.t-sug{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-bd)}
+.tbadge.t-oth{background:var(--slate-bg);color:var(--slate);border-color:var(--slate-bd)}
+.tbadge.t-amb{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
+
+.card-body{padding:0 14px 12px;flex:1}
+.card-tid{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;font-weight:500;margin-bottom:3px}
+.card-org{
+  font-size:14px;font-weight:700;color:var(--t1);line-height:1.3;margin-bottom:4px;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+}
+.card-sub{
+  font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:10px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+
+.card-flags{display:flex;flex-wrap:wrap;gap:4px;min-height:18px}
+.flag-tag{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:3px 6px;border-radius:5px;
+  font-size:10px;font-weight:500;
+  background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd);
+}
+.flag-tag .sym{font-size:10px}
+.flag-more{
+  display:inline-flex;align-items:center;
+  padding:3px 6px;border-radius:5px;
+  font-size:10px;font-weight:600;color:var(--t3);
+  background:var(--surface-low);border:1px solid var(--border);
+}
+
+.card-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 14px 11px;border-top:1px solid var(--border);
+}
+.recpill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--t2)}
+.recpill .sym{font-size:14px}
+.recpill.warn{color:var(--amber)}
+.recpill.warn .sym{color:var(--amber)}
+
+.card-cta{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;
+  border:1px solid var(--border);background:var(--surface-low);color:var(--t2);
+  transition:all .15s;
+}
+.card-cta:hover{border-color:var(--border-hi);color:var(--t1);background:var(--surface-mid)}
+.card-cta .sym{font-size:14px}
+
+/* empty */
+.empty{
+  grid-column:1/-1;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:60px 24px;color:var(--t3);
+}
+.empty .sym{font-size:38px;margin-bottom:10px}
+.empty p{font-size:14px}
+
+/* ═══ Drawer ═══════════════════════════════════════════════════════════ */
+#ov-backdrop{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.32);backdrop-filter:blur(2px);
+  opacity:0;pointer-events:none;transition:opacity .25s ease;
+}
+#ov-backdrop.open{opacity:1;pointer-events:auto}
+
+#ov-drawer{
+  position:absolute;top:0;right:0;bottom:0;
+  width:min(500px,100vw);
+  background:var(--surface);
+  display:flex;flex-direction:column;
+  box-shadow:var(--sh-xl);
+  transform:translateX(100%);
+  transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+#ov-backdrop.open #ov-drawer{transform:translateX(0)}
+
+/* drawer header */
+.dh{padding:18px 18px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.dh-row1{display:flex;align-items:flex-start;gap:11px;margin-bottom:9px}
+.dh-ico{
+  width:38px;height:38px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.dh-ico .sym{font-size:19px}
+.dh-ico.t-rec{background:var(--orange-bg);color:var(--orange)}
+.dh-ico.t-elo{background:var(--green-bg);color:var(--green)}
+.dh-ico.t-sug{background:var(--purple-bg);color:var(--purple)}
+.dh-ico.t-oth{background:var(--slate-bg);color:var(--slate)}
+.dh-org{font-size:16px;font-weight:700;color:var(--t1);line-height:1.3;flex:1;min-width:0}
+.dh-meta{font-size:11px;color:var(--t3);font-weight:500;margin-top:2px}
+.dh-sub{font-size:12px;color:var(--t2);line-height:1.5}
+
+.dh-close{
+  width:30px;height:30px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);background:var(--surface-low);color:var(--t2);
+  transition:all .15s;
+}
+.dh-close:hover{background:var(--surface-mid);color:var(--t1)}
+.dh-close .sym{font-size:17px}
+
+.dh-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.meta-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:6px 10px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface-low);
+}
+.meta-chip .sym{font-size:14px;color:var(--t3)}
+.mc-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;line-height:1;margin-bottom:2px}
+.mc-v{font-size:12px;font-weight:600;color:var(--t1);line-height:1}
+
+.dh-warn{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 11px;border-radius:8px;
+  background:var(--amber-bg);border:1px solid var(--amber-bd);
+  margin-top:10px;
+}
+.dh-warn .sym{font-size:17px;color:var(--amber)}
+.dh-warn-t{font-size:12px;font-weight:600;color:var(--amber)}
+
+/* drawer body */
+.db{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:18px}
+
+.sec-lbl{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--t3);margin-bottom:7px;
+  display:flex;align-items:center;gap:5px;
+}
+.sec-lbl .sym{font-size:13px}
+
+/* problems */
+.prob-item{
+  background:var(--orange-bg);
+  border:1px solid var(--orange-bd);
+  border-left:3px solid var(--orange);
+  border-radius:8px;
+  padding:9px 12px;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+}
+.prob-text{font-size:13px;color:var(--t1);line-height:1.5;flex:1}
+.prob-link{
+  font-size:11px;font-weight:700;color:var(--orange);
+  white-space:nowrap;flex-shrink:0;text-decoration:none;
+}
+.prob-link:hover{text-decoration:underline}
+
+/* desc */
+.desc-box{
+  background:var(--surface-low);border:1px solid var(--border);
+  border-radius:8px;padding:13px;position:relative;
+}
+.desc-box.collapsed{max-height:170px;overflow:hidden}
+.desc-fade{
+  position:absolute;bottom:0;inset-x:0;height:56px;
+  background:linear-gradient(to top,var(--surface-low),transparent);
+  pointer-events:none;
+}
+.desc-toggle{
+  font-size:11px;font-weight:700;color:var(--orange);
+  background:none;border:none;cursor:pointer;font-family:inherit;
+  padding:0;margin-top:5px;display:none;
+}
+.desc-toggle:hover{text-decoration:underline}
+.desc-plain{font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.6}
+
+.fields{display:flex;flex-direction:column}
+.fields>div{padding:8px 0;border-bottom:1px solid var(--border)}
+.fields>div:first-child{padding-top:0}
+.fields>div:last-child{border-bottom:none;padding-bottom:0}
+.fields dt{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:3px}
+.fields dd{font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.55}
+
+/* analise */
+.analise-item{
+  background:var(--surface-low);
+  border:1px solid var(--border);
+  border-left:3px solid var(--purple);
+  border-radius:8px;padding:11px 13px;
+}
+.analise-hd{
+  display:flex;align-items:center;gap:5px;
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--purple);margin-bottom:8px;
+}
+.analise-hd .sym{font-size:13px}
+.analise-text{font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.6}
+
+/* ═══ Responsive ════════════════════════════════════════════════════ */
+@media(max-width:700px){
+  .topbar{padding:0 14px}
+  .kpi-bar{padding:0 14px}
+  .kpi-in{flex-wrap:wrap}
+  .kpi{min-width:calc(50% - .5px);border-right:none;border-bottom:1px solid var(--border)}
+  .kpi:nth-child(odd){border-right:1px solid var(--border)}
+  .kpi:nth-last-child(-n+2){border-bottom:none}
+  .grid-wrap{padding:14px}
+  .chips{display:none}
+  #ov-drawer{width:100vw}
+}
+@media(max-width:940px){
+  .topbar-in{flex-wrap:wrap;height:auto;padding:8px 0;gap:8px}
+  .vbar{display:none}
+  .srch{max-width:100%;order:3;flex-basis:100%}
+}
+</style>
 </head>
-<body class="bg-background text-on-surface min-h-screen">
+<body>
 
-<!-- Loading Overlay -->
-<div id="ouvidoriaLoadingOverlay" class="fixed inset-0 z-[9998] bg-background flex flex-col items-center justify-center gap-6">
-    <div class="relative w-20 h-20">
-        <svg class="animate-spin w-20 h-20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="40" cy="40" r="34" stroke="currentColor" stroke-width="6" class="text-surface-container-high opacity-30"/>
-            <path d="M40 6 A34 34 0 0 1 74 40" stroke="#855300" stroke-width="6" stroke-linecap="round"/>
-        </svg>
-        <span class="material-symbols-outlined absolute inset-0 m-auto w-8 h-8 flex items-center justify-center text-secondary" style="font-size:32px">campaign</span>
-    </div>
-    <div class="text-center">
-        <p class="font-headline-lg text-headline-lg text-primary mb-1">Carregando Ouvidoria</p>
-        <p class="font-body-md text-body-md text-on-surface-variant">Buscando manifestações registradas...</p>
-    </div>
+<!-- Loading -->
+<div id="ov-loading">
+  <div class="spin"></div>
+  <p class="load-txt">Carregando manifestações…</p>
 </div>
 
-<main id="ouvidoriaMain" class="pt-6 pb-12 px-container-padding max-w-[1440px] mx-auto" style="visibility:hidden">
+<!-- Page -->
+<div id="ov-page">
 
-    <section class="mb-6 flex flex-wrap items-center gap-3">
-        <div class="mr-auto">
-            <h2 class="font-headline-lg text-headline-lg text-primary">Ouvidoria</h2>
-            <p class="text-body-md text-on-surface-variant">Manifestações abertas pelos clientes e a análise do que motivou o contato.</p>
-        </div>
-        <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="loadOuvidoria()">
-            <span class="material-symbols-outlined" style="font-size:18px">refresh</span><span>Atualizar dados</span>
-        </button>
-    </section>
-
-    <!-- KPIs -->
-    <div class="grid grid-cols-12 gap-widget-gap mb-6" id="ouvidoriaKpis">
-        <div class="col-span-12 text-center py-8 text-on-surface-variant">Carregando indicadores...</div>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="topbar-logo">
+        <span class="sym">campaign</span>Ouvidoria
+      </div>
+      <div class="vbar"></div>
+      <div class="srch">
+        <span class="sym">search</span>
+        <input id="ov-search" type="text" placeholder="Organização, assunto, #ticket…">
+      </div>
+      <div class="chips" id="ov-chips">
+        <button class="chip a-all" data-t="all">Todos <span class="cnt" id="c-all">0</span></button>
+        <button class="chip" data-t="rec">Reclamação <span class="cnt" id="c-rec">0</span></button>
+        <button class="chip" data-t="elo">Elogio <span class="cnt" id="c-elo">0</span></button>
+        <button class="chip" data-t="sug">Sugestão <span class="cnt" id="c-sug">0</span></button>
+      </div>
+      <div class="vbar"></div>
+      <select id="ov-sort" class="sort-sel">
+        <option value="rec">Mais recentes</option>
+        <option value="ant">Mais antigas</option>
+        <option value="rei">Maior reincidência</option>
+      </select>
+      <span id="ov-count"></span>
+      <button class="btn-refresh" onclick="loadOuvidoria()">
+        <span class="sym">refresh</span>Atualizar
+      </button>
     </div>
+  </header>
 
-    <!-- Busca / filtro -->
-    <section class="mb-4 flex flex-wrap items-center gap-3">
-        <div class="flex-1 min-w-[240px]">
-            <input id="ouvidoriaSearchInput" type="text" placeholder="Buscar por organização, assunto ou ticket..."
-                oninput="renderOuvidoriaTable()"
-                class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm text-on-surface outline-none focus:border-secondary">
-        </div>
-        <select id="ouvidoriaOrderSelect" onchange="renderOuvidoriaTable()" class="rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface">
-            <option value="recentes" selected>Mais recentes</option>
-            <option value="antigas">Mais antigas</option>
-            <option value="reincidencia">Maior reincidência</option>
-        </select>
-        <div id="ouvidoriaResultCount" class="text-xs text-on-surface-variant"></div>
-    </section>
-
-    <!-- Tabela -->
-    <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-surface-container-low text-label-md font-label-md text-on-surface-variant uppercase tracking-wide">
-                        <th class="px-4 py-3">Ticket</th>
-                        <th class="px-4 py-3">Organização</th>
-                        <th class="px-4 py-3">Serviço</th>
-                        <th class="px-4 py-3">Tipo Ouvidoria</th>
-                        <th class="px-4 py-3">Assunto</th>
-                        <th class="px-4 py-3">Problemas do cliente</th>
-                        <th class="px-4 py-3 text-center">Chamados anteriores</th>
-                        <th class="px-4 py-3">Registrado em</th>
-                        <th class="px-4 py-3"></th>
-                    </tr>
-                </thead>
-                <tbody id="ouvidoriaTableBody">
-                    <tr><td colspan="9" class="px-4 py-10 text-center text-on-surface-variant">Carregando...</td></tr>
-                </tbody>
-            </table>
-        </div>
+  <!-- KPIs -->
+  <div class="kpi-bar">
+    <div class="kpi-in" id="ov-kpis">
+      <div class="kpi"><div class="kpi-ico or"><span class="sym">campaign</span></div><div><div class="kpi-v" data-k="total">—</div><div class="kpi-l">Manifestações</div></div></div>
+      <div class="kpi"><div class="kpi-ico sl"><span class="sym">apartment</span></div><div><div class="kpi-v" data-k="orgs">—</div><div class="kpi-l">Organizações</div></div></div>
+      <div class="kpi"><div class="kpi-ico pu"><span class="sym">history</span></div><div><div class="kpi-v" data-k="media">—</div><div class="kpi-l">Reincidência média</div></div></div>
+      <div class="kpi"><div class="kpi-ico gr"><span class="sym">calendar_month</span></div><div><div class="kpi-v" data-k="d30">—</div><div class="kpi-l">Últimos 30 dias</div></div></div>
     </div>
-</main>
+  </div>
 
-<!-- Modal de detalhe -->
-<div id="ouvidoriaModalBackdrop" onclick="if(event.target===this) closeOuvidoriaModal()">
-    <div id="ouvidoriaModalCard" class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow w-[92%] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
-        <!-- Cabeçalho fixo -->
-        <div class="flex items-start gap-4 p-6 pb-5 border-b border-outline-variant bg-surface-container-low flex-shrink-0">
-            <div class="w-12 h-12 rounded-full bg-secondary-container/40 flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-secondary" style="font-size:24px">apartment</span>
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center flex-wrap gap-2 mb-0.5">
-                    <span class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide" id="ouvidoriaModalTicket"></span>
-                    <span id="ouvidoriaModalReincidenciaBadge"></span>
-                </div>
-                <h3 class="font-headline-lg text-headline-lg text-primary truncate" id="ouvidoriaModalOrg"></h3>
-                <p class="text-body-md text-on-surface-variant" id="ouvidoriaModalAssunto"></p>
-            </div>
-            <button type="button" onclick="closeOuvidoriaModal()" class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-full p-1.5 transition-colors flex-shrink-0" title="Fechar">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-
-        <!-- Corpo com scroll -->
-        <div class="p-6 overflow-y-auto flex-1">
-            <div class="flex flex-wrap gap-3 mb-6">
-                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
-                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">category</span>
-                    <div>
-                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Serviço</p>
-                        <p class="text-body-md font-semibold text-primary leading-none" id="ouvidoriaModalServico"></p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
-                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">history</span>
-                    <div>
-                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Chamados anteriores</p>
-                        <p class="text-body-md font-semibold text-primary leading-none" id="ouvidoriaModalTotalChamados"></p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
-                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">calendar_month</span>
-                    <div>
-                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Registrado em</p>
-                        <p class="text-body-md font-semibold text-primary leading-none" id="ouvidoriaModalData"></p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5 mb-2">
-                    <span class="material-symbols-outlined" style="font-size:16px">flag</span>
-                    Problemas recorrentes do cliente
-                </h4>
-                <div id="ouvidoriaModalProblemas"></div>
-            </div>
-
-            <div class="mb-6">
-                <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5 mb-2">
-                    <span class="material-symbols-outlined" style="font-size:16px">confirmation_number</span>
-                    Chamados que motivaram a Ouvidoria
-                </h4>
-                <div id="ouvidoriaModalChamadosRelacionados"></div>
-            </div>
-
-            <div class="mb-6">
-                <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5">
-                        <span class="material-symbols-outlined" style="font-size:16px">format_quote</span>
-                        Descrição do cliente
-                    </h4>
-                    <button type="button" onclick="toggleOuvidoriaDescricao()" id="ouvidoriaDescricaoToggle" class="text-xs font-semibold text-secondary hover:underline flex-shrink-0" style="display:none">Ver tudo</button>
-                </div>
-                <div id="ouvidoriaDescricaoWrap" class="relative rounded-xl bg-surface-container-low border border-outline-variant overflow-hidden" style="max-height:190px">
-                    <div class="p-4" id="ouvidoriaModalDescricao"></div>
-                    <div id="ouvidoriaDescricaoFade" class="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-surface-container-low to-transparent pointer-events-none" style="display:none"></div>
-                </div>
-            </div>
-
-            <div class="space-y-4" id="ouvidoriaAnaliseCards"></div>
-        </div>
-
-        <!-- Rodapé fixo -->
-        <div class="flex justify-end gap-2 p-4 border-t border-outline-variant bg-surface-container-low flex-shrink-0">
-            <button type="button" onclick="closeOuvidoriaModal()" class="rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors">Fechar</button>
-        </div>
+  <!-- Grid -->
+  <div class="grid-wrap">
+    <div class="grid" id="ov-grid">
+      <div class="empty"><span class="sym">hourglass_empty</span><p>Carregando…</p></div>
     </div>
+  </div>
+</div>
+
+<!-- Drawer backdrop -->
+<div id="ov-backdrop" onclick="if(event.target===this)closeDrawer()">
+  <div id="ov-drawer">
+    <!-- Header -->
+    <div class="dh">
+      <div class="dh-row1">
+        <div class="dh-ico" id="d-ico"><span class="sym">campaign</span></div>
+        <div style="flex:1;min-width:0">
+          <div class="dh-org" id="d-org"></div>
+          <div class="dh-meta" id="d-meta"></div>
+        </div>
+        <button class="dh-close" onclick="closeDrawer()"><span class="sym">close</span></button>
+      </div>
+      <p class="dh-sub" id="d-sub"></p>
+      <div class="dh-chips" id="d-chips"></div>
+      <div class="dh-warn" id="d-warn" style="display:none">
+        <span class="sym">warning</span>
+        <span class="dh-warn-t" id="d-warn-t"></span>
+      </div>
+    </div>
+    <!-- Body -->
+    <div class="db" id="d-body"></div>
+  </div>
 </div>
 
 <script>
-const API_BASE = `${window.location.origin}/api`;
-function getToken() { return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
-async function apiCall(endpoint) {
-    const res = await fetch(`${API_BASE}${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
-    if (!res.ok) throw new Error(`API error: ${res.statusText}`);
-    return res.json();
+// ── helpers ──────────────────────────────────────────────────────────
+const API = `${location.origin}/api`;
+function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function api(ep){ const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`}}); if(!r.ok) throw new Error(r.statusText); return r.json(); }
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function fmtFull(v){ if(!v) return '—'; const d=new Date(v); return isNaN(d)?'—':d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function fmtShort(v){ if(!v) return '—'; const d=new Date(v); return isNaN(d)?'—':d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'}); }
+function trunc(s,n){ const t=String(s||''); return t.length>n?t.slice(0,n-1).trim()+'…':t; }
+function tiUrl(id){ return `https://atendimento.viasoft.com.br/Ticket/Edit/${id}`; }
+
+// ── type helpers ─────────────────────────────────────────────────────
+function rawTipo(r){
+  if(r.tipo) return String(r.tipo).trim();
+  const m=String(r.assunto_ouvidoria||'').match(/Ouvidoria\s+VIASOFT\s*-\s*([^-]+?)\s*-/i);
+  return m?m[1].trim():'';
 }
-function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str ?? ''; return d.innerHTML; }
-
-function ticketEditUrl(ticketId) { return `https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`; }
-
-// A coluna `tipo` vem pronta do banco (Reclamação, Elogio, Sugestão, etc.). Quando ela vem
-// nula (linhas antigas, antes dessa coluna existir), cai pro fallback de extrair do assunto,
-// que segue o padrão "Ouvidoria VIASOFT - {Tipo} - {resto}".
-function extractTipoOuvidoria(assunto) {
-    const m = String(assunto || '').match(/Ouvidoria\s+VIASOFT\s*-\s*([^-]+?)\s*-/i);
-    return m ? m[1].trim() : '';
+function tipoKey(tipo){
+  const t=(tipo||'').toLowerCase();
+  if(t.includes('reclama')) return 'rec';
+  if(t.includes('elogio'))  return 'elo';
+  if(t.includes('sugest'))  return 'sug';
+  return 'oth';
 }
+const TIPO_ICON  = {rec:'warning',elo:'thumb_up',sug:'lightbulb',oth:'campaign'};
+const TIPO_LABEL = {rec:'Reclamação',elo:'Elogio',sug:'Sugestão',oth:'Outro'};
 
-function renderTipoOuvidoriaBadge(tipoColuna, assunto) {
-    const tipo = tipoColuna || extractTipoOuvidoria(assunto);
-    if (!tipo) return '<span class="text-xs text-on-surface-variant">—</span>';
-    const tipoLower = tipo.toLowerCase();
-    let colorClasses = 'bg-secondary-container/30 text-secondary';
-    if (tipoLower.includes('elogio')) colorClasses = 'bg-green-100 text-green-700';
-    else if (tipoLower.includes('reclama')) colorClasses = 'bg-orange-100 text-orange-700';
-    return `<span class="inline-flex items-center rounded-full ${colorClasses} px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">${escapeHtml(tipo)}</span>`;
-}
+// ── state ────────────────────────────────────────────────────────────
+let _rows=[], _filter='all';
 
-// chamados_relacionados vem pronto do processo externo: uma lista de { motivo, ticket_id },
-// já com a explicação por extenso de por que aquele chamado de suporte do cliente pesa na
-// manifestação de ouvidoria (não é um rótulo/categoria solta).
-function truncateText(str, max) {
-    const text = String(str || '');
-    return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
-}
-
-// Badges compactas de "Problemas do cliente" pra tabela: mostra só as N primeiras
-// (já vêm na ordem definida pelo processo externo) e agrupa o resto num "+X".
-function renderProblemaBadgesCompact(chamadosRelacionados, limit = 2) {
-    const list = Array.isArray(chamadosRelacionados) ? chamadosRelacionados : [];
-    if (!list.length) return '<span class="text-xs text-on-surface-variant">—</span>';
-    const visiveis = list.slice(0, limit);
-    const resto = list.length - visiveis.length;
-    const badges = visiveis.map(c => `
-        <span class="inline-flex items-center gap-1 rounded-full bg-error-container/60 text-error px-2 py-0.5 text-[11px] font-medium" title="${escapeHtml(c.motivo || '')}">
-            <span class="material-symbols-outlined" style="font-size:12px">flag</span>${escapeHtml(truncateText(c.motivo, 28))}
-        </span>`).join('');
-    const extra = resto > 0 ? `<span class="inline-flex items-center rounded-full bg-surface-container-high text-on-surface-variant px-2 py-0.5 text-[11px] font-medium">+${resto}</span>` : '';
-    return `<div class="flex flex-wrap gap-1 max-w-[260px]">${badges}${extra}</div>`;
+// ── load ─────────────────────────────────────────────────────────────
+async function loadOuvidoria(){
+  try{
+    _rows=await api('/ouvidoria');
+    updateKpis(); updateCounts(); render();
+    document.getElementById('ov-page').style.visibility='visible';
+    document.getElementById('ov-loading').style.display='none';
+  } catch(e){
+    document.getElementById('ov-grid').innerHTML=`<div class="empty"><span class="sym">error</span><p>Erro ao carregar: ${esc(e.message)}</p></div>`;
+    document.getElementById('ov-page').style.visibility='visible';
+    document.getElementById('ov-loading').style.display='none';
+  }
 }
 
-// Cards completos de "Problemas do cliente" pro modal: mostra o motivo por extenso e um
-// link direto pro chamado de suporte que originou aquele ponto.
-function renderProblemaBadgesDetalhado(chamadosRelacionados) {
-    const list = Array.isArray(chamadosRelacionados) ? chamadosRelacionados : [];
-    if (!list.length) {
-        return `<p class="text-body-md text-on-surface-variant">Nenhum chamado de suporte relacionado foi identificado para esta organização.</p>`;
-    }
-    return `<div class="space-y-2">${list.map(c => `
-        <div class="rounded-xl bg-error-container/25 border border-outline-variant border-l-4 border-l-error p-3">
-            <div class="flex items-start justify-between gap-3">
-                <p class="text-sm text-on-surface flex-1"><span class="material-symbols-outlined align-middle mr-1 text-error" style="font-size:16px">flag</span>${escapeHtml(c.motivo || '')}</p>
-                ${c.ticket_id ? `<a href="${ticketEditUrl(c.ticket_id)}" target="_blank" rel="noopener" class="flex-shrink-0 text-[11px] font-semibold text-secondary hover:underline whitespace-nowrap">#${escapeHtml(String(c.ticket_id))}</a>` : ''}
-            </div>
-        </div>`).join('')}</div>`;
-}
-function formatDateTime(value) {
-    if (!value) return '—';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+function updateKpis(){
+  const n=_rows.length;
+  const orgs=new Set(_rows.map(r=>r.organizacao_id??r.organizacao)).size;
+  const soma=_rows.reduce((s,r)=>s+(Number(r.total_chamados_anteriores)||0),0);
+  const med=n?(soma/n).toFixed(1):'—';
+  const t30=Date.now()-30*24*60*60*1e3;
+  const d30=_rows.filter(r=>r.criado_em&&new Date(r.criado_em)>=t30).length;
+  document.querySelector('[data-k=total]').textContent=n;
+  document.querySelector('[data-k=orgs]').textContent=orgs;
+  document.querySelector('[data-k=media]').textContent=med;
+  document.querySelector('[data-k=d30]').textContent=d30;
 }
 
-let _ouvidoriaRows = [];
-
-async function loadOuvidoria() {
-    const main = document.getElementById('ouvidoriaMain');
-    const overlay = document.getElementById('ouvidoriaLoadingOverlay');
-    try {
-        _ouvidoriaRows = await apiCall('/ouvidoria');
-        renderOuvidoriaKpis();
-        renderOuvidoriaTable();
-        if (main) main.style.visibility = 'visible';
-        if (overlay) overlay.style.display = 'none';
-    } catch (error) {
-        console.error('Erro ao carregar ouvidoria:', error);
-        const tbody = document.getElementById('ouvidoriaTableBody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-10 text-center text-error">Erro ao carregar dados: ${escapeHtml(error.message)}</td></tr>`;
-        if (main) main.style.visibility = 'visible';
-        if (overlay) overlay.style.display = 'none';
-    }
+function updateCounts(){
+  const c={rec:0,elo:0,sug:0,oth:0};
+  _rows.forEach(r=>c[tipoKey(rawTipo(r))]++);
+  document.getElementById('c-all').textContent=_rows.length;
+  document.getElementById('c-rec').textContent=c.rec;
+  document.getElementById('c-elo').textContent=c.elo;
+  document.getElementById('c-sug').textContent=c.sug;
 }
 
-function renderOuvidoriaKpis() {
-    const wrap = document.getElementById('ouvidoriaKpis');
-    if (!wrap) return;
-    const rows = _ouvidoriaRows;
-    const total = rows.length;
-    const orgsUnicas = new Set(rows.map(r => r.organizacao_id ?? r.organizacao)).size;
-    const somaReincidencia = rows.reduce((s, r) => s + (Number(r.total_chamados_anteriores) || 0), 0);
-    const mediaReincidencia = total ? (somaReincidencia / total) : 0;
-    const trintaDiasAtras = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const ultimos30d = rows.filter(r => r.criado_em && new Date(r.criado_em).getTime() >= trintaDiasAtras).length;
-
-    const cards = [
-        { label: 'Total de manifestações', value: total, icon: 'campaign' },
-        { label: 'Organizações envolvidas', value: orgsUnicas, icon: 'apartment' },
-        { label: 'Reincidência média', value: mediaReincidencia.toFixed(1), icon: 'history' },
-        { label: 'Últimos 30 dias', value: ultimos30d, icon: 'calendar_month' }
-    ];
-
-    wrap.innerHTML = cards.map(c => `
-        <div class="col-span-12 sm:col-span-6 lg:col-span-3">
-            <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow p-5 flex items-center gap-4">
-                <div class="w-11 h-11 rounded-full bg-secondary-container/30 flex items-center justify-center flex-shrink-0">
-                    <span class="material-symbols-outlined text-secondary" style="font-size:22px">${c.icon}</span>
-                </div>
-                <div>
-                    <p class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide">${c.label}</p>
-                    <p class="text-headline-lg font-headline-lg text-primary">${c.value}</p>
-                </div>
-            </div>
-        </div>`).join('');
-}
-
-function renderOuvidoriaTable() {
-    const tbody = document.getElementById('ouvidoriaTableBody');
-    const countEl = document.getElementById('ouvidoriaResultCount');
-    if (!tbody) return;
-
-    const search = (document.getElementById('ouvidoriaSearchInput')?.value || '').toLowerCase().trim();
-    const order = document.getElementById('ouvidoriaOrderSelect')?.value || 'recentes';
-
-    let rows = _ouvidoriaRows.filter(r => {
-        if (!search) return true;
-        const problemasTxt = (r.chamados_relacionados || []).map(c => c.motivo).join(' ');
-        const haystack = `${r.organizacao || ''} ${r.assunto_ouvidoria || ''} ${r.ticket_id || ''} ${r.servico_ouvidoria_nome || ''} ${r.tipo || ''} ${problemasTxt}`.toLowerCase();
-        return haystack.includes(search);
-    });
-
-    rows = [...rows].sort((a, b) => {
-        if (order === 'reincidencia') return (Number(b.total_chamados_anteriores) || 0) - (Number(a.total_chamados_anteriores) || 0);
-        const da = a.criado_em ? new Date(a.criado_em).getTime() : 0;
-        const db_ = b.criado_em ? new Date(b.criado_em).getTime() : 0;
-        return order === 'antigas' ? da - db_ : db_ - da;
-    });
-
-    if (countEl) countEl.textContent = `${rows.length} manifestaç${rows.length === 1 ? 'ão' : 'ões'}`;
-
-    if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-10 text-center text-on-surface-variant">Nenhuma manifestação encontrada.</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = rows.map(r => `
-        <tr class="border-t border-outline-variant hover:bg-surface-container transition-colors">
-            <td class="px-4 py-3 text-body-md font-medium text-primary">#${escapeHtml(r.ticket_id)}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface">${escapeHtml(r.organizacao || '—')}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface-variant">${escapeHtml(r.servico_ouvidoria_nome || '—')}</td>
-            <td class="px-4 py-3">${renderTipoOuvidoriaBadge(r.tipo, r.assunto_ouvidoria)}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface-variant max-w-[320px] truncate" title="${escapeHtml(r.assunto_ouvidoria || '')}">${escapeHtml(r.assunto_ouvidoria || '—')}</td>
-            <td class="px-4 py-3">${renderProblemaBadgesCompact(r.chamados_relacionados)}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface text-center">${Number(r.total_chamados_anteriores) || 0}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface-variant">${formatDateTime(r.criado_em)}</td>
-            <td class="px-4 py-3 text-right">
-                <button type="button" onclick="openOuvidoriaModal('${escapeHtml(String(r.ticket_id))}')" class="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors">
-                    <span class="material-symbols-outlined" style="font-size:16px">visibility</span>Ver análise
-                </button>
-            </td>
-        </tr>`).join('');
-}
-
-/* ── Análise: quebra o texto livre em seções (Motivadores / Padrões / Recomendações) ──
-   O texto vem de um processo externo como parágrafos soltos com um cabeçalho de seção
-   próprio (ex: "Motivadores:") — nem sempre as 3 seções estão presentes ou na mesma ordem,
-   então a extração é por regex ao invés de posição fixa. */
-const OUVIDORIA_ANALISE_CARDS = [
-    { key: 'motivador', label: 'Motivador', icon: 'psychology', match: /motivador/i },
-    { key: 'padroes', label: 'Padrões', icon: 'insights', match: /padr(?:ão|ões|ao|oes)/i },
-    { key: 'recomendacoes', label: 'Recomendações', icon: 'lightbulb', match: /recomenda(?:c|ç)(?:ão|ões|ao|oes)/i }
-];
-
-function parseOuvidoriaAnalise(raw) {
-    const text = String(raw || '').trim();
-    const sections = {};
-    if (!text) return { sections, raw: '' };
-
-    const headerRegex = /^[ \t]*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ /]{0,40}?)\s*:[ \t]*$/gim;
-    const matches = [...text.matchAll(headerRegex)].filter(m =>
-        OUVIDORIA_ANALISE_CARDS.some(c => c.match.test(m[1]))
-    );
-    if (!matches.length) return { sections, raw: text };
-
-    for (let i = 0; i < matches.length; i++) {
-        const m = matches[i];
-        const card = OUVIDORIA_ANALISE_CARDS.find(c => c.match.test(m[1]));
-        const start = m.index + m[0].length;
-        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
-        if (card) sections[card.key] = text.slice(start, end).trim();
-    }
-    return { sections, raw: text };
-}
-
-function renderOuvidoriaAnaliseCards(analiseRaw) {
-    const wrap = document.getElementById('ouvidoriaAnaliseCards');
-    if (!wrap) return;
-
-    const { sections, raw } = parseOuvidoriaAnalise(analiseRaw);
-    const cardHtml = (icon, label, content) => `
-        <div>
-            <h4 class="text-label-md font-label-md text-secondary uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <span class="material-symbols-outlined" style="font-size:16px">${icon}</span>
-                ${label}
-            </h4>
-            <div class="rounded-xl bg-secondary-container/15 border border-outline-variant border-l-4 border-l-secondary p-4">
-                <p class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(content)}</p>
-            </div>
-        </div>`;
-
-    const hasAnySection = OUVIDORIA_ANALISE_CARDS.some(c => sections[c.key]);
-    if (!hasAnySection) {
-        wrap.innerHTML = cardHtml('psychology', 'Análise', raw || 'Análise ainda não disponível para este chamado.');
-        return;
-    }
-
-    wrap.innerHTML = OUVIDORIA_ANALISE_CARDS
-        .filter(c => sections[c.key])
-        .map(c => cardHtml(c.icon, c.label, sections[c.key]))
-        .join('');
-}
-
-/* ── Descrição: o cliente preenche um formulário e o texto chega como blocos
-   "Rótulo:\nValor" separados por linhas em branco — em vez de exibir esse dump cru,
-   quebra em pares rótulo/valor pra ficar legível. */
-function parseOuvidoriaDescricao(raw) {
-    const text = String(raw || '').trim();
-    if (!text) return { intro: '', fields: [] };
-
-    const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
-    const fields = [];
-    let intro = '';
-
-    for (const block of blocks) {
-        const m = block.match(/^([^\n:]{1,80}):\s*\n([\s\S]+)$/);
-        if (m) {
-            fields.push({ label: m[1].trim(), value: m[2].trim() });
-        } else if (fields.length) {
-            // Continuação sem rótulo próprio — anexa ao valor do campo anterior
-            fields[fields.length - 1].value += `\n${block}`;
-        } else {
-            intro = intro ? `${intro}\n${block}` : block;
-        }
-    }
-
-    return { intro, fields };
-}
-
-function renderOuvidoriaDescricao(raw) {
-    const content = document.getElementById('ouvidoriaModalDescricao');
-    if (!content) return;
-
-    const { intro, fields } = parseOuvidoriaDescricao(raw);
-
-    if (!fields.length) {
-        content.innerHTML = `<p class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(raw || 'Sem descrição registrada.')}</p>`;
-    } else {
-        const introHtml = intro ? `<p class="text-body-md text-on-surface-variant italic mb-3">${escapeHtml(intro)}</p>` : '';
-        content.innerHTML = introHtml + `<dl class="divide-y divide-outline-variant">${fields.map(f => `
-            <div class="py-2.5 first:pt-0 last:pb-0">
-                <dt class="text-[11px] font-label-md text-on-surface-variant uppercase tracking-wide mb-0.5">${escapeHtml(f.label)}</dt>
-                <dd class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(f.value)}</dd>
-            </div>`).join('')}</dl>`;
-    }
-
-    // Só mostra o botão "Ver tudo"/degradê se o conteúdo realmente ultrapassar a altura recolhida
-    const wrap = document.getElementById('ouvidoriaDescricaoWrap');
-    const toggle = document.getElementById('ouvidoriaDescricaoToggle');
-    const fade = document.getElementById('ouvidoriaDescricaoFade');
-    if (wrap) { wrap.classList.remove('expanded'); wrap.style.maxHeight = '190px'; }
-    if (toggle) toggle.textContent = 'Ver tudo';
-    const overflowing = content.scrollHeight > 190;
-    if (toggle) toggle.style.display = overflowing ? 'inline-block' : 'none';
-    if (fade) fade.style.display = overflowing ? 'block' : 'none';
-}
-
-function toggleOuvidoriaDescricao() {
-    const wrap = document.getElementById('ouvidoriaDescricaoWrap');
-    const fade = document.getElementById('ouvidoriaDescricaoFade');
-    const toggle = document.getElementById('ouvidoriaDescricaoToggle');
-    if (!wrap) return;
-    const expanded = wrap.classList.toggle('expanded');
-    wrap.style.maxHeight = expanded ? 'none' : '190px';
-    if (fade) fade.style.display = expanded ? 'none' : 'block';
-    if (toggle) toggle.textContent = expanded ? 'Ver menos' : 'Ver tudo';
-}
-
-function openOuvidoriaModal(ticketId) {
-    const row = _ouvidoriaRows.find(r => String(r.ticket_id) === String(ticketId));
-    if (!row) return;
-
-    const totalChamados = Number(row.total_chamados_anteriores) || 0;
-    document.getElementById('ouvidoriaModalTicket').textContent = `Ticket #${row.ticket_id}`;
-    document.getElementById('ouvidoriaModalOrg').textContent = row.organizacao || 'Organização não informada';
-    document.getElementById('ouvidoriaModalAssunto').textContent = row.assunto_ouvidoria || '';
-    document.getElementById('ouvidoriaModalTotalChamados').textContent = totalChamados;
-    document.getElementById('ouvidoriaModalData').textContent = formatDateTime(row.criado_em);
-    document.getElementById('ouvidoriaModalServico').textContent = row.servico_ouvidoria_nome || '—';
-    document.getElementById('ouvidoriaModalProblemas').innerHTML = renderProblemaBadgesDetalhado(row.chamados_relacionados);
-    document.getElementById('ouvidoriaModalChamadosRelacionados').innerHTML = renderProblemaBadgesDetalhado(row.chamados_relacionados);
-    renderOuvidoriaDescricao(row.descricao_ouvidoria);
-    renderOuvidoriaAnaliseCards(row.analise);
-
-    const badge = document.getElementById('ouvidoriaModalReincidenciaBadge');
-    if (badge) {
-        badge.innerHTML = totalChamados >= 3
-            ? `<span class="inline-flex items-center gap-1 rounded-full bg-error-container text-error px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Cliente recorrente</span>`
-            : '';
-    }
-
-    document.getElementById('ouvidoriaModalBackdrop').classList.add('open');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeOuvidoriaModal() {
-    document.getElementById('ouvidoriaModalBackdrop').classList.remove('open');
-    document.body.style.overflow = '';
-}
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeOuvidoriaModal();
+// ── filter chips ─────────────────────────────────────────────────────
+const chipCls={all:'a-all',rec:'a-rec',elo:'a-elo',sug:'a-sug'};
+document.getElementById('ov-chips').addEventListener('click',e=>{
+  const btn=e.target.closest('.chip'); if(!btn) return;
+  _filter=btn.dataset.t;
+  document.querySelectorAll('#ov-chips .chip').forEach(c=>{
+    c.className='chip'+(c===btn?' '+chipCls[_filter]:'');
+  });
+  render();
 });
 
-document.addEventListener('DOMContentLoaded', loadOuvidoria);
+// ── render ───────────────────────────────────────────────────────────
+function render(){
+  const q=(document.getElementById('ov-search').value||'').toLowerCase().trim();
+  const sort=document.getElementById('ov-sort').value;
+
+  let rows=_rows.filter(r=>{
+    if(_filter!=='all' && tipoKey(rawTipo(r))!==_filter) return false;
+    if(!q) return true;
+    const probs=(r.chamados_relacionados||[]).map(c=>c.motivo).join(' ');
+    const hay=`${r.organizacao||''} ${r.assunto_ouvidoria||''} ${r.ticket_id||''} ${r.servico_ouvidoria_nome||''} ${rawTipo(r)} ${probs}`.toLowerCase();
+    return hay.includes(q);
+  });
+
+  rows=[...rows].sort((a,b)=>{
+    if(sort==='rei') return (Number(b.total_chamados_anteriores)||0)-(Number(a.total_chamados_anteriores)||0);
+    const da=a.criado_em?+new Date(a.criado_em):0;
+    const db=b.criado_em?+new Date(b.criado_em):0;
+    return sort==='ant'?da-db:db-da;
+  });
+
+  const cnt=document.getElementById('ov-count');
+  cnt.textContent=`${rows.length} manifestaç${rows.length===1?'ão':'ões'}`;
+
+  const grid=document.getElementById('ov-grid');
+  if(!rows.length){
+    grid.innerHTML=`<div class="empty"><span class="sym">search_off</span><p>Nenhuma manifestação encontrada.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML=rows.map(r=>{
+    const tk=tipoKey(rawTipo(r));
+    const tot=Number(r.total_chamados_anteriores)||0;
+    const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
+    const vis=probs.slice(0,2);
+    const more=probs.length-vis.length;
+
+    const flagsHtml=vis.length
+      ? vis.map(p=>`<span class="flag-tag"><span class="sym">flag</span>${esc(trunc(p.motivo,26))}</span>`).join('')
+        +(more>0?`<span class="flag-more">+${more}</span>`:'')
+      : '';
+
+    return `<div class="card t-${tk}" data-id="${esc(String(r.ticket_id))}">
+  <div class="card-top">
+    <div class="card-top-badges">
+      <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${TIPO_LABEL[tk]}</span>
+      ${tot>=3?`<span class="tbadge t-amb"><span class="sym">repeat</span>Reincidente</span>`:''}
+    </div>
+    <span class="card-date">${fmtShort(r.criado_em)}</span>
+  </div>
+  <div class="card-body">
+    <div class="card-tid">#${esc(String(r.ticket_id))}</div>
+    <div class="card-org">${esc(r.organizacao||'Organização não informada')}</div>
+    <div class="card-sub">${esc(r.assunto_ouvidoria||'—')}</div>
+    ${flagsHtml?`<div class="card-flags">${flagsHtml}</div>`:''}
+  </div>
+  <div class="card-footer">
+    <span class="recpill${tot>=3?' warn':''}">
+      <span class="sym">history</span>${tot} chamado${tot===1?'':'s'} anterior${tot===1?'':'es'}
+    </span>
+    <button class="card-cta" data-cta="${esc(String(r.ticket_id))}">
+      <span class="sym">open_in_new</span>Ver análise
+    </button>
+  </div>
+</div>`;
+  }).join('');
+}
+
+// event delegation for grid
+document.getElementById('ov-grid').addEventListener('click',e=>{
+  const cta=e.target.closest('[data-cta]');
+  const card=cta?null:e.target.closest('.card');
+  const id=cta?cta.dataset.cta:card?.dataset.id;
+  if(id) openDrawer(id);
+});
+
+// search + sort events
+document.getElementById('ov-search').addEventListener('input',render);
+document.getElementById('ov-sort').addEventListener('change',render);
+
+// ── drawer ───────────────────────────────────────────────────────────
+function openDrawer(id){
+  const r=_rows.find(r=>String(r.ticket_id)===String(id));
+  if(!r) return;
+
+  const tk=tipoKey(rawTipo(r));
+  const tot=Number(r.total_chamados_anteriores)||0;
+
+  // icon
+  const icoEl=document.getElementById('d-ico');
+  icoEl.className=`dh-ico t-${tk}`;
+  icoEl.innerHTML=`<span class="sym">${TIPO_ICON[tk]}</span>`;
+
+  document.getElementById('d-org').textContent=r.organizacao||'Organização não informada';
+  document.getElementById('d-meta').textContent=`#${r.ticket_id} · ${TIPO_LABEL[tk]}${r.servico_ouvidoria_nome?' · '+r.servico_ouvidoria_nome:''}`;
+  document.getElementById('d-sub').textContent=r.assunto_ouvidoria||'';
+
+  // meta chips
+  document.getElementById('d-chips').innerHTML=`
+    <div class="meta-chip"><span class="sym">calendar_month</span><div><span class="mc-l">Registrado em</span><span class="mc-v">${fmtFull(r.criado_em)}</span></div></div>
+    <div class="meta-chip"><span class="sym">history</span><div><span class="mc-l">Chamados anteriores</span><span class="mc-v">${tot}</span></div></div>
+    ${r.servico_ouvidoria_nome?`<div class="meta-chip"><span class="sym">category</span><div><span class="mc-l">Serviço</span><span class="mc-v">${esc(r.servico_ouvidoria_nome)}</span></div></div>`:''}
+  `;
+
+  // recurrence warning
+  const warnEl=document.getElementById('d-warn');
+  if(tot>=3){
+    warnEl.style.display='flex';
+    document.getElementById('d-warn-t').textContent=`Cliente recorrente — ${tot} chamados de suporte antes desta manifestação`;
+  } else { warnEl.style.display='none'; }
+
+  // body sections
+  const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
+  const probsHtml=probs.length?`<div>
+    <div class="sec-lbl"><span class="sym">flag</span>Problemas que motivaram a Ouvidoria</div>
+    <div style="display:flex;flex-direction:column;gap:7px">${probs.map(p=>`
+      <div class="prob-item">
+        <p class="prob-text">${esc(p.motivo||'')}</p>
+        ${p.ticket_id?`<a class="prob-link" href="${tiUrl(p.ticket_id)}" target="_blank" rel="noopener">#${esc(String(p.ticket_id))}</a>`:''}
+      </div>`).join('')}
+    </div>
+  </div>`:'';
+
+  const descHtml=buildDesc(r.descricao_ouvidoria);
+  const analiseHtml=buildAnalise(r.analise);
+
+  document.getElementById('d-body').innerHTML=probsHtml+descHtml+analiseHtml;
+
+  // collapse check after paint
+  requestAnimationFrame(()=>{
+    const box=document.getElementById('_desc-box');
+    const tog=document.getElementById('_desc-tog');
+    const fade=document.getElementById('_desc-fade');
+    if(!box) return;
+    if(box.scrollHeight<=170){
+      box.classList.remove('collapsed');
+      if(fade) fade.style.display='none';
+    } else {
+      if(tog) tog.style.display='block';
+    }
+  });
+
+  document.getElementById('ov-backdrop').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function buildDesc(raw){
+  const text=String(raw||'').trim();
+  if(!text) return '';
+
+  const blocks=text.split(/\n{2,}/).map(b=>b.trim()).filter(Boolean);
+  const fields=[]; let intro='';
+  for(const blk of blocks){
+    const m=blk.match(/^([^\n:]{1,80}):\s*\n([\s\S]+)$/);
+    if(m) fields.push({l:m[1].trim(),v:m[2].trim()});
+    else if(fields.length) fields[fields.length-1].v+='\n'+blk;
+    else intro=intro?`${intro}\n${blk}`:blk;
+  }
+
+  let inner=fields.length
+    ? (intro?`<p class="desc-plain" style="font-style:italic;color:var(--t2);margin-bottom:10px">${esc(intro)}</p>`:'')
+      +`<dl class="fields">${fields.map(f=>`<div><dt>${esc(f.l)}</dt><dd>${esc(f.v)}</dd></div>`).join('')}</dl>`
+    : `<p class="desc-plain">${esc(text)}</p>`;
+
+  return `<div>
+    <div class="sec-lbl"><span class="sym">format_quote</span>Descrição do cliente</div>
+    <div class="desc-box collapsed" id="_desc-box">
+      ${inner}
+      <div class="desc-fade" id="_desc-fade"></div>
+    </div>
+    <button class="desc-toggle" id="_desc-tog" onclick="toggleDesc()">Ver tudo</button>
+  </div>`;
+}
+
+function toggleDesc(){
+  const box=document.getElementById('_desc-box');
+  const tog=document.getElementById('_desc-tog');
+  const fade=document.getElementById('_desc-fade');
+  if(!box) return;
+  const col=box.classList.toggle('collapsed');
+  if(fade) fade.style.display=col?'':'none';
+  if(tog) tog.textContent=col?'Ver tudo':'Ver menos';
+}
+
+const ANALISE_DEF=[
+  {key:'mot',label:'Motivador',      icon:'psychology', rx:/motivador/i},
+  {key:'pad',label:'Padrões',        icon:'insights',   rx:/padr(?:ão|ões|ao|oes)/i},
+  {key:'rec',label:'Recomendações',  icon:'lightbulb',  rx:/recomenda(?:c|ç)(?:ão|ões|ao|oes)/i},
+];
+
+function buildAnalise(raw){
+  const text=String(raw||'').trim();
+  if(!text) return '';
+
+  const rx=/^[ \t]*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ /]{0,40}?)\s*:[ \t]*$/gim;
+  const ms=[...text.matchAll(rx)].filter(m=>ANALISE_DEF.some(d=>d.rx.test(m[1])));
+  let cards=[];
+  if(ms.length){
+    for(let i=0;i<ms.length;i++){
+      const m=ms[i]; const def=ANALISE_DEF.find(d=>d.rx.test(m[1]));
+      const start=m.index+m[0].length;
+      const end=i+1<ms.length?ms[i+1].index:text.length;
+      if(def) cards.push({...def,content:text.slice(start,end).trim()});
+    }
+  }
+  if(!cards.length) cards=[{key:'a',label:'Análise',icon:'psychology',content:text}];
+
+  return `<div>
+    <div class="sec-lbl"><span class="sym">auto_awesome</span>Análise de IA</div>
+    <div style="display:flex;flex-direction:column;gap:7px">${cards.map(c=>`
+      <div class="analise-item">
+        <div class="analise-hd"><span class="sym">${c.icon}</span>${c.label}</div>
+        <div class="analise-text">${esc(c.content)}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function closeDrawer(){
+  document.getElementById('ov-backdrop').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); });
+document.addEventListener('DOMContentLoaded',loadOuvidoria);
 </script>
 </body>
 </html>
