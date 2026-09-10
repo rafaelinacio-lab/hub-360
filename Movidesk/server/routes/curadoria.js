@@ -1567,32 +1567,35 @@ async function runEnriquecimentoLoop(anos = []) {
       enriquecimentoState.currentTicketId = id;
 
       try {
-        const params = new URLSearchParams({ '$select': ENRICH_SELECT, '$expand': ENRICH_EXPAND });
-        const qstr = params.toString();
-        // Chamados fechados/históricos vivem em /tickets/past; tenta os dois endpoints
-        const ENDPOINTS = [
-          `${API_BASE}/public/v1/tickets/${id}?${qstr}`,
-          `${API_BASE}/public/v1/tickets/past/${id}?${qstr}`,
+        // Token "integrator" lista mas não lê por ID individual — usa list+filter
+        const LIST_BASES = [
+          `${API_BASE}/public/v1/tickets`,
+          `${API_BASE}/public/v1/tickets/past`,
         ];
 
         let ticket = null;
-        for (const url of ENDPOINTS) {
+        for (const base of LIST_BASES) {
+          const params = new URLSearchParams({
+            '$select': ENRICH_SELECT, '$expand': ENRICH_EXPAND,
+            '$filter': `id eq ${id}`, '$top': '1',
+          });
+          const url = `${base}?${params.toString()}`;
           let found = false;
           for (let attempt = 0; attempt < 5; attempt++) {
             try {
               const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
               if (resp.status === 429) { await sleep(65000); continue; }
-              if (resp.status === 404) { found = false; break; }
               if (!resp.ok) { const b = await resp.text(); throw new Error(`HTTP ${resp.status}: ${b.slice(0,200)}`); }
-              ticket = await resp.json();
-              found = true;
+              const raw = await resp.json();
+              const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+              if (list.length > 0) { ticket = list[0]; found = true; }
               break;
             } catch (e) {
               if (attempt === 4) throw e;
               await sleep(2000 * (attempt + 1));
             }
           }
-          if (found) break; // encontrou no primeiro endpoint, não precisa tentar o /past
+          if (found) break;
         }
 
         if (!ticket) {

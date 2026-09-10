@@ -99,19 +99,24 @@ async function fetchPendingIds() {
 // ── Busca detalhes de um ticket na API ───────────────────────────────────────
 
 async function fetchTicketDetails(token, id) {
-  const params = new URLSearchParams({
+  // O token "integrator" tem permissão de listar mas não de ler por ID individual.
+  // Usamos o endpoint de lista filtrado por id — mesmo caminho que o FASE 1 usa.
+  const BASE_PARAMS = {
     '$select': SELECT_DETAILS,
     '$expand': EXPAND_DETAILS,
-  });
-  const qstr = params.toString();
+    '$filter': `id eq ${id}`,
+    '$top': '1',
+  };
 
-  // Chamados fechados/históricos vivem em /tickets/past — tenta ambos os endpoints
-  const ENDPOINTS = [
-    `${API_BASE}/public/v1/tickets/${id}?${qstr}`,
-    `${API_BASE}/public/v1/tickets/past/${id}?${qstr}`,
+  const LIST_ENDPOINTS = [
+    `${API_BASE}/public/v1/tickets`,
+    `${API_BASE}/public/v1/tickets/past`,
   ];
 
-  for (const url of ENDPOINTS) {
+  for (const base of LIST_ENDPOINTS) {
+    const params = new URLSearchParams(BASE_PARAMS);
+    const url = `${base}?${params.toString()}`;
+
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
@@ -120,12 +125,14 @@ async function fetchTicketDetails(token, id) {
           await sleep(65000);
           continue;
         }
-        if (resp.status === 404) break; // não está neste endpoint — tenta o próximo
         if (!resp.ok) {
           const body = await resp.text();
           throw new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
         }
-        return await resp.json(); // encontrado
+        const raw = await resp.json();
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+        if (list.length > 0) return list[0]; // encontrado neste endpoint
+        break; // lista vazia — tenta o /past
       } catch (e) {
         if (attempt === 4) throw e;
         log(`    ⚠️  Tentativa ${attempt + 1} falhou para #${id} (${e.message}). Aguardando…`);
