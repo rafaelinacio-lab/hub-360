@@ -1935,6 +1935,27 @@ function _setFullLoadButtonLoading(running) {
     }
 }
 
+function _renderPipelineStep(key, barId, infoId, state) {
+    const bar  = document.getElementById(barId);
+    const info = document.getElementById(infoId);
+    if (!bar || !info) return;
+    if (!state) { bar.style.width = '0%'; info.textContent = 'Aguardando'; return; }
+    const done  = (state.processed || 0) + (state.failed || 0);
+    const total = state.total || 0;
+    const pct   = total > 0 ? Math.round((done / total) * 100) : (state.running ? 5 : 0);
+    bar.style.width  = pct + '%';
+    bar.style.background = state.running ? '#3b82f6' : (state.stopRequested ? '#f59e0b' : '#22c55e');
+    if (state.running) {
+        info.textContent = total > 0 ? `${done}/${total} (${pct}%)` : 'Iniciando…';
+    } else if (state.startedAt) {
+        info.textContent = state.stopRequested
+            ? `Parado — ${done}/${total}`
+            : `Concluído — ${done}/${total}`;
+    } else {
+        info.textContent = 'Aguardando';
+    }
+}
+
 function renderFullLoadStatus(data) {
     const lastRunEl = document.getElementById('cfgFullLoadLastRun');
     if (lastRunEl) {
@@ -1944,18 +1965,25 @@ function renderFullLoadStatus(data) {
             : 'Nunca rodou';
     }
 
-    const anyRunning = !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+    const anyRunning = !!(data.processamento?.running || data.slaEstouro?.running || data.survey?.running || data.modulo?.running);
     _setFullLoadButtonLoading(anyRunning);
 
-    if (anyRunning) {
-        const parts = [];
-        if (data.processamento?.running) parts.push(`Chamados: ${data.processamento.processed || 0}/${data.processamento.total || 0}`);
-        if (data.survey?.running) parts.push(`Satisfação: ${data.survey.processed || 0}/${data.survey.total || 0}`);
-        if (data.modulo?.running) parts.push(`Módulo x Rotina: ${data.modulo.processed || 0}/${data.modulo.total || 0}`);
-        setCfgStatus('cfgFullLoadStatus', `Em andamento — ${parts.join(' · ')}`, '');
-    } else if (data.lastRun?.at) {
-        setCfgStatus('cfgFullLoadStatus', 'Nenhum processo em andamento no momento.', 'ok');
+    // Botão Parar tudo
+    const stopBtn = document.getElementById('cfgStopFullLoad');
+    if (stopBtn) stopBtn.style.display = anyRunning ? '' : 'none';
+
+    // Mini-cards de cada etapa
+    _renderPipelineStep('ia',     'cfgPipeBar-ia',     'cfgPipeInfo-ia',     data.processamento);
+    _renderPipelineStep('sla',    'cfgPipeBar-sla',    'cfgPipeInfo-sla',    data.slaEstouro);
+    _renderPipelineStep('survey', 'cfgPipeBar-survey', 'cfgPipeInfo-survey', data.survey);
+    _renderPipelineStep('modulo', 'cfgPipeBar-modulo', 'cfgPipeInfo-modulo', data.modulo);
+
+    // Também atualiza erros de IA se disponíveis
+    if (data.processamento) {
+        renderCuradoriaErrorsList(data.processamento.recentErrors || [], 'cfgCuradoriaErrorsWrap', 'cfgCuradoriaErrorsList');
     }
+
+    setCfgStatus('cfgFullLoadStatus', anyRunning ? 'Pipeline em andamento — pode fechar esta tela, continua em segundo plano.' : (data.lastRun?.at ? 'Concluído.' : ''), anyRunning ? '' : 'ok');
 }
 
 async function loadFullLoadStatus() {
@@ -1974,17 +2002,28 @@ async function triggerCuradoriaFullLoad() {
     try {
         const response = await fetch(`${API_BASE}/curadoria/full-load`, { method: 'POST', headers: authHeaders() });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Falha ao disparar carga bruta');
+        if (!response.ok) throw new Error(data.error || 'Falha ao disparar pipeline');
         renderFullLoadStatus(data);
-        setCfgStatus('cfgFullLoadStatus', 'Carga bruta iniciada — os 3 processos estão rodando em segundo plano.', 'ok');
         startFullLoadPolling();
-        // Também atualiza a contagem de pendentes de cada card individual
-        loadCuradoriaPendingCount();
-        loadSurveyPendingCount();
-        loadModuloPendingCount();
     } catch (error) {
         _setFullLoadButtonLoading(false);
         setCfgStatus('cfgFullLoadStatus', `Erro ao iniciar: ${error.message}`, 'error');
+    }
+}
+
+async function stopFullPipeline() {
+    try {
+        await Promise.allSettled([
+            fetch(`${API_BASE}/curadoria/process-pending/stop`,      { method: 'POST', headers: authHeaders() }),
+            fetch(`${API_BASE}/curadoria/sla-estouro/recalcular/stop`, { method: 'POST', headers: authHeaders() }),
+            fetch(`${API_BASE}/curadoria/survey/sync/stop`,          { method: 'POST', headers: authHeaders() }),
+            fetch(`${API_BASE}/curadoria/modulo/sync/stop`,          { method: 'POST', headers: authHeaders() }),
+        ]);
+        setCfgStatus('cfgFullLoadStatus', 'Solicitação de parada enviada.', '');
+        const stopBtn = document.getElementById('cfgStopFullLoad');
+        if (stopBtn) stopBtn.disabled = true;
+    } catch (e) {
+        setCfgStatus('cfgFullLoadStatus', `Erro ao parar: ${e.message}`, 'error');
     }
 }
 
@@ -1993,7 +2032,7 @@ async function checkFullLoadOnLoad() {
     try {
         const response = await fetch(`${API_BASE}/curadoria/full-load/status`, { headers: authHeaders() });
         const data = await response.json();
-        const anyRunning = response.ok && !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+        const anyRunning = response.ok && !!(data.processamento?.running || data.slaEstouro?.running || data.survey?.running || data.modulo?.running);
         if (anyRunning) startFullLoadPolling();
     } catch (_) { /* não crítico */ }
 }
@@ -2007,10 +2046,12 @@ function startFullLoadPolling() {
             const data = await response.json();
             if (!response.ok) return;
             renderFullLoadStatus(data);
-            const anyRunning = !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+            const anyRunning = !!(data.processamento?.running || data.slaEstouro?.running || data.survey?.running || data.modulo?.running);
             if (!anyRunning) {
                 clearInterval(_fullLoadPollInterval);
                 _fullLoadPollInterval = null;
+                const stopBtn = document.getElementById('cfgStopFullLoad');
+                if (stopBtn) stopBtn.disabled = false;
             }
         } catch (_) { /* não crítico */ }
     }, 1500);

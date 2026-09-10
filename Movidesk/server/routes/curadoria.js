@@ -1505,6 +1505,7 @@ let fullLoadLastRun = { at: null, source: null };
 function runFullLoad(source = 'manual') {
   fullLoadLastRun = { at: new Date().toISOString(), source };
   startCuradoriaProcessingJob();
+  startSlaEstouroRecalcJob();
   startSurveySyncJob();
   startModuloSyncJob();
   return fullLoadLastRun;
@@ -1516,18 +1517,20 @@ router.post('/full-load', authMiddleware, requireRole('admin'), (req, res) => {
   res.json({
     lastRun,
     processamento: curadoriaProcessingState,
-    survey: surveyProcessingState,
-    modulo: moduloProcessingState
+    slaEstouro:    slaEstouroRecalcState,
+    survey:        surveyProcessingState,
+    modulo:        moduloProcessingState
   });
 });
 
 // ===== GET /curadoria/full-load/status =====
 router.get('/full-load/status', authMiddleware, requireRole('admin'), (req, res) => {
   res.json({
-    lastRun: fullLoadLastRun,
+    lastRun:       fullLoadLastRun,
     processamento: curadoriaProcessingState,
-    survey: surveyProcessingState,
-    modulo: moduloProcessingState
+    slaEstouro:    slaEstouroRecalcState,
+    survey:        surveyProcessingState,
+    modulo:        moduloProcessingState
   });
 });
 

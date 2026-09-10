@@ -20,6 +20,43 @@
             });
         })();
     </script>
+<style>
+/* ── Pipeline de Análise — mini-cards de etapa ──────────────────────────── */
+.config-pipeline-step {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.config-pipeline-step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted, #9aa0a6);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.config-pipeline-step-bar-wrap {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.config-pipeline-step-bar {
+    height: 100%;
+    width: 0%;
+    background: #3b82f6;
+    border-radius: 4px;
+    transition: width 0.4s ease, background 0.3s;
+}
+.config-pipeline-step-info {
+    font-size: 11px;
+    color: var(--muted, #9aa0a6);
+}
+</style>
 </head>
 <body>
 <div class="app-wrapper">
@@ -325,118 +362,104 @@
 
                 <!-- ABA: Curadoria -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-curadoria">
+
+                    <!-- ── Card único de pipeline ─────────────────────── -->
                     <div class="config-card">
-                        <h3 class="config-card-title">Carga Bruta (Todos os Processos)</h3>
-                        <p class="config-card-help">Dispara de uma vez os 3 processos abaixo (chamados pendentes, satisfação e módulo x rotina), para que os KPIs e o Foco de Atendimento da Visão Geral reflitam dados atualizados. Roda automaticamente às 08:00, 12:00 e 19:00 todos os dias — use o botão abaixo para forçar uma carga fora desses horários.</p>
+                        <h3 class="config-card-title">Pipeline de Análise</h3>
+                        <p class="config-card-help">Processa todos os chamados pendentes de uma vez só: análise de IA → estouro de SLA → satisfação (pesquisa Movidesk) → módulo x rotina. Roda no servidor em segundo plano — pode fechar esta tela que ele continua. Roda automaticamente às 08:00, 12:00 e 19:00.</p>
+
                         <div class="config-status-line">
-                            <span class="config-status-label">Última carga:</span>
+                            <span class="config-status-label">Última execução:</span>
                             <span id="cfgFullLoadLastRun" class="config-token-status config-token-status-off">-</span>
                         </div>
+
+                        <!-- Etapas em linha -->
+                        <div id="cfgPipelineSteps" style="margin: 14px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                            <!-- Etapa 1: IA -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-ia">
+                                <div class="config-pipeline-step-label">🤖 Análise de IA</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-ia"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-ia">Aguardando</div>
+                            </div>
+                            <!-- Etapa 2: SLA -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-sla">
+                                <div class="config-pipeline-step-label">⏱️ Estouro de SLA</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-sla"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-sla">Aguardando</div>
+                            </div>
+                            <!-- Etapa 3: Satisfação -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-survey">
+                                <div class="config-pipeline-step-label">⭐ Satisfação</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-survey"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-survey">Aguardando</div>
+                            </div>
+                            <!-- Etapa 4: Módulo -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-modulo">
+                                <div class="config-pipeline-step-label">📦 Módulo x Rotina</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-modulo"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-modulo">Aguardando</div>
+                            </div>
+                        </div>
+
                         <div class="config-actions">
-                            <button id="cfgTriggerFullLoad" class="config-btn" onclick="triggerCuradoriaFullLoad()">Rodar carga bruta agora</button>
+                            <button id="cfgTriggerFullLoad" class="config-btn" onclick="triggerCuradoriaFullLoad()">Processar tudo agora</button>
+                            <button id="cfgStopFullLoad" class="config-btn config-btn-muted" onclick="stopFullPipeline()" style="display:none;">Parar tudo</button>
                             <button class="config-btn config-btn-muted" onclick="loadFullLoadStatus()">Recarregar status</button>
                         </div>
                         <div id="cfgFullLoadStatus" class="config-status"></div>
-                    </div>
 
-                    <div class="config-card">
-                        <h3 class="config-card-title">Processamento de Chamados Pendentes</h3>
-                        <p class="config-card-help">Chamados sincronizados do Movidesk passam por uma análise de IA (comportamento do atendente, causa, urgência, etc.) antes de aparecerem na tela de Curadoria. Use esta seção para processar manualmente os chamados que ainda não foram analisados. O processamento roda no servidor — pode fechar esta tela que ele continua em segundo plano.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Pendentes:</span>
-                            <span id="cfgCuradoriaPendingCount" class="config-token-status config-token-status-off">-</span>
-                        </div>
-                        <div id="cfgCuradoriaProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgCuradoriaProgressLabel">Processando...</span>
-                                <span id="cfgCuradoriaProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgCuradoriaProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgProcessPending" class="config-btn" onclick="startCuradoriaProcessing()">Processar pendentes</button>
-                            <button id="cfgStopProcessPending" class="config-btn config-btn-muted" onclick="stopCuradoriaProcessing()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadCuradoriaPendingCount()">Recarregar contagem</button>
-                        </div>
-                        <div id="cfgCuradoriaProcessStatus" class="config-status"></div>
+                        <!-- Erros de IA (lista existente, mantida para diagnóstico) -->
                         <div id="cfgCuradoriaErrorsWrap" style="display:none; margin-top: 12px;">
-                            <div style="font-size:12px; font-weight:700; color: var(--muted); text-transform: uppercase; letter-spacing:0.3px; margin-bottom:6px;">Chamados com erro</div>
+                            <div style="font-size:12px; font-weight:700; color: var(--muted); text-transform: uppercase; letter-spacing:0.3px; margin-bottom:6px;">Chamados com erro na análise de IA</div>
                             <div id="cfgCuradoriaErrorsList" class="config-error-list"></div>
                         </div>
-                    </div>
 
-                    <div class="config-card">
-                        <h3 class="config-card-title">Recalcular Estouro de SLA (Cliente x Suporte)</h3>
-                        <p class="config-card-help">Recalcula, para todos os chamados já processados, se um eventual estouro do SLA de resolução foi causado pelo cliente ou pelo suporte — usando o critério configurável em Configurações → Curadoria Avançado → "Critério de Estouro de SLA". Não refaz o restante da análise comportamental, só este campo. Roda no servidor, pode fechar esta tela.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Chamados processados:</span>
-                            <span id="cfgSlaEstouroCount" class="config-token-status config-token-status-off">-</span>
+                        <!-- IDs ocultos necessários para compatibilidade com funções JS existentes -->
+                        <span id="cfgCuradoriaPendingCount" style="display:none"></span>
+                        <span id="cfgSlaEstouroCount" style="display:none"></span>
+                        <span id="cfgSurveyPendingCount" style="display:none"></span>
+                        <span id="cfgModuloPendingCount" style="display:none"></span>
+                        <div id="cfgCuradoriaProcessStatus" style="display:none"></div>
+                        <div id="cfgSlaEstouroStatus" style="display:none"></div>
+                        <div id="cfgSurveySyncStatus" style="display:none"></div>
+                        <div id="cfgModuloSyncStatus" style="display:none"></div>
+                        <div id="cfgCuradoriaProgressWrap" style="display:none">
+                            <div id="cfgCuradoriaProgressBar"></div>
+                            <span id="cfgCuradoriaProgressLabel"></span>
+                            <span id="cfgCuradoriaProgressPct"></span>
                         </div>
-                        <div id="cfgSlaEstouroProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgSlaEstouroProgressLabel">Processando...</span>
-                                <span id="cfgSlaEstouroProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgSlaEstouroProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
+                        <div id="cfgSlaEstouroProgressWrap" style="display:none">
+                            <div id="cfgSlaEstouroProgressBar"></div>
+                            <span id="cfgSlaEstouroProgressLabel"></span>
+                            <span id="cfgSlaEstouroProgressPct"></span>
                         </div>
-                        <div class="config-actions">
-                            <button id="cfgRecalcSlaEstouro" class="config-btn" onclick="startSlaEstouroRecalc()">Recalcular estouro de SLA de todos os chamados</button>
-                            <button id="cfgStopSlaEstouroRecalc" class="config-btn config-btn-muted" onclick="stopSlaEstouroRecalc()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadSlaEstouroCount()">Recarregar contagem</button>
+                        <div id="cfgSurveySyncProgressWrap" style="display:none">
+                            <div id="cfgSurveySyncProgressBar"></div>
+                            <span id="cfgSurveySyncProgressLabel"></span>
+                            <span id="cfgSurveySyncProgressPct"></span>
                         </div>
-                        <div id="cfgSlaEstouroStatus" class="config-status"></div>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Satisfação do Cliente (Pesquisa Movidesk)</h3>
-                        <p class="config-card-help">Busca, chamado por chamado, a resposta da pesquisa de satisfação embutida no próprio ticket do Movidesk e grava a nota real (1-5) nos chamados já existentes na curadoria — complementa a nota que a IA estima a partir da conversa. Só atualiza chamados que já estão na curadoria. Respeita o limite de ~10 requisições/minuto do Movidesk, então processar todos os chamados pendentes pode levar um tempo — roda em segundo plano, pode fechar esta tela.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Pendentes:</span>
-                            <span id="cfgSurveyPendingCount" class="config-token-status config-token-status-off">-</span>
+                        <div id="cfgModuloSyncProgressWrap" style="display:none">
+                            <div id="cfgModuloSyncProgressBar"></div>
+                            <span id="cfgModuloSyncProgressLabel"></span>
+                            <span id="cfgModuloSyncProgressPct"></span>
                         </div>
-                        <div id="cfgSurveySyncProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgSurveySyncProgressLabel">Sincronizando...</span>
-                                <span id="cfgSurveySyncProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgSurveySyncProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgSyncSurvey" class="config-btn" onclick="startSurveySync()">Sincronizar satisfação</button>
-                            <button id="cfgStopSurveySync" class="config-btn config-btn-muted" onclick="stopSurveySync()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadSurveyPendingCount()">Recarregar contagem</button>
-                        </div>
-                        <div id="cfgSurveySyncStatus" class="config-status"></div>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Módulo x Rotina (Campo Customizado Movidesk)</h3>
-                        <p class="config-card-help">Busca, chamado por chamado, o campo customizado "Módulo x Rotina" do Movidesk (ex: "Folha &gt; Férias") e grava na coluna correspondente dos chamados já existentes na curadoria. Assim como a sincronização de satisfação, respeita o limite de ~10 requisições/minuto do Movidesk — roda em segundo plano, pode fechar esta tela.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Pendentes:</span>
-                            <span id="cfgModuloPendingCount" class="config-token-status config-token-status-off">-</span>
-                        </div>
-                        <div id="cfgModuloSyncProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgModuloSyncProgressLabel">Sincronizando...</span>
-                                <span id="cfgModuloSyncProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgModuloSyncProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgSyncModulo" class="config-btn" onclick="startModuloSync()">Sincronizar módulo x rotina</button>
-                            <button id="cfgStopModuloSync" class="config-btn config-btn-muted" onclick="stopModuloSync()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadModuloPendingCount()">Recarregar contagem</button>
-                        </div>
-                        <div id="cfgModuloSyncStatus" class="config-status"></div>
+                        <!-- Botões ocultos mantidos para funções JS existentes -->
+                        <button id="cfgProcessPending" style="display:none" onclick="startCuradoriaProcessing()"></button>
+                        <button id="cfgStopProcessPending" style="display:none" onclick="stopCuradoriaProcessing()"></button>
+                        <button id="cfgRecalcSlaEstouro" style="display:none" onclick="startSlaEstouroRecalc()"></button>
+                        <button id="cfgStopSlaEstouroRecalc" style="display:none" onclick="stopSlaEstouroRecalc()"></button>
+                        <button id="cfgSyncSurvey" style="display:none" onclick="startSurveySync()"></button>
+                        <button id="cfgStopSurveySync" style="display:none" onclick="stopSurveySync()"></button>
+                        <button id="cfgSyncModulo" style="display:none" onclick="startModuloSync()"></button>
+                        <button id="cfgStopModuloSync" style="display:none" onclick="stopModuloSync()"></button>
                     </div>
 
                     <div class="config-card">
