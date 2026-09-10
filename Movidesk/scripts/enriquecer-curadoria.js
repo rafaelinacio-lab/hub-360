@@ -34,7 +34,7 @@ const args  = process.argv.slice(2);
 const ANOS  = args.length ? args.map(a => parseInt(a, 10)).filter(n => !isNaN(n)) : [];
 
 const RATE_MS    = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
-const BATCH_SIZE = parseInt(process.env.ENRICH_BATCH   || '15',   10);
+const BATCH_SIZE = parseInt(process.env.ENRICH_BATCH   || '5',    10);
 
 const API_BASE    = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
 const URL_CURRENT = `${API_BASE}/public/v1/tickets`;

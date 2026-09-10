@@ -1531,7 +1531,7 @@ const ENRICH_EXPAND = [
   'clients($select=businessName,email;$expand=organization($select=businessName))',
 ].join(',');
 
-const ENRICH_BATCH = 15; // IDs por requisição (padrão do Movidesk)
+const ENRICH_BATCH = parseInt(process.env.ENRICH_BATCH || '5', 10); // IDs por lote
 
 // Converte um objeto ticket da API em parâmetros para UPDATE no banco
 function enrichTicketToRow(t) {
