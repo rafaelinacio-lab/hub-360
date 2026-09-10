@@ -727,15 +727,15 @@ function openDrawer(id){
     ${r.servico_ouvidoria_nome?`<div class="meta-chip"><span class="sym">category</span><div><span class="mc-l">Serviço</span><span class="mc-v">${esc(r.servico_ouvidoria_nome)}</span></div></div>`:''}
   `;
 
+  // body sections
+  const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
+
   // recurrence warning — só mostra quando há chamados relacionados ao mesmo problema
   const warnEl=document.getElementById('d-warn');
   if(probs.length>0){
     warnEl.style.display='flex';
     document.getElementById('d-warn-t').textContent=`Reincidente — ${probs.length} problema${probs.length===1?'':'s'} identificado${probs.length===1?'':'s'} em chamados anteriores`;
   } else { warnEl.style.display='none'; }
-
-  // body sections
-  const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
   const probsHtml=probs.length?`<div>
     <div class="sec-lbl"><span class="sym">flag</span>Problemas que motivaram a Ouvidoria</div>
     <div style="display:flex;flex-direction:column;gap:7px">${probs.map(p=>`
