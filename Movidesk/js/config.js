@@ -856,7 +856,7 @@ function switchConfigTab(tab) {
     document.querySelector('.main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
     // Carregar consumo de IA ao abrir aba IA
     if (tab === 'ia') loadAiUsage();
-    if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); }
+    if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') loadTabPermissionsConfig();
 }
@@ -2054,6 +2054,111 @@ function startFullLoadPolling() {
                 if (stopBtn) stopBtn.disabled = false;
             }
         } catch (_) { /* não crítico */ }
+    }, 1500);
+}
+
+/* ── Enriquecimento de chamados (busca detalhes na API) ─────────────────────── */
+let _enrichPollInterval = null;
+
+async function loadEnrichCount() {
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/enriquecimento/count`, { headers: authHeaders() });
+        const data = await r.json();
+        const el = document.getElementById('cfgEnrichCount');
+        if (el) el.textContent = `${data.count ?? '–'} chamado(s)`;
+    } catch (_) {}
+}
+
+function renderEnrichStatus(state) {
+    const progressWrap = document.getElementById('cfgEnrichProgressWrap');
+    const bar          = document.getElementById('cfgEnrichProgressBar');
+    const label        = document.getElementById('cfgEnrichProgressLabel');
+    const pct          = document.getElementById('cfgEnrichProgressPct');
+    const stats        = document.getElementById('cfgEnrichStats');
+    const startBtn     = document.getElementById('cfgStartEnrich');
+    const stopBtn      = document.getElementById('cfgStopEnrich');
+    const errorsWrap   = document.getElementById('cfgEnrichErrorsWrap');
+    const errorsList   = document.getElementById('cfgEnrichErrorsList');
+
+    if (!state || (!state.running && !state.done && !state.total)) return;
+
+    if (progressWrap) progressWrap.style.display = '';
+
+    const total  = state.total  || 0;
+    const done   = state.done   || 0;
+    const pctVal = total > 0 ? Math.round((done / total) * 100) : 0;
+    if (bar)   bar.style.width = `${pctVal}%`;
+    if (pct)   pct.textContent = `${pctVal}%`;
+    if (label) {
+        if (state.running && state.currentTicketId) label.textContent = `Processando #${state.currentTicketId}…`;
+        else if (state.stopRequested)               label.textContent = 'Parando…';
+        else if (!state.running && done === total && total > 0) label.textContent = 'Concluído ✅';
+        else label.textContent = `${done} / ${total}`;
+    }
+    if (stats) stats.textContent = `✅ ${state.updated||0} enriquecidos  |  🔍 ${state.notFound||0} não encontrados  |  ❌ ${state.failed||0} erros`;
+
+    if (startBtn) startBtn.disabled = !!state.running;
+    if (stopBtn)  stopBtn.style.display = state.running ? '' : 'none';
+
+    if (errorsWrap && errorsList && Array.isArray(state.recentErrors) && state.recentErrors.length) {
+        errorsWrap.style.display = '';
+        errorsList.innerHTML = state.recentErrors.slice(0, 5).map(e =>
+            `<div class="config-error-item">Ticket #${e.ticket_id}: ${e.error}</div>`
+        ).join('');
+    }
+}
+
+async function loadEnrichStatus() {
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/enriquecimento/status`, { headers: authHeaders() });
+        const data = await r.json();
+        renderEnrichStatus(data);
+        if (data.running && !_enrichPollInterval) startEnrichPolling();
+    } catch (_) {}
+}
+
+async function startEnriquecimento() {
+    const anosInput = (document.getElementById('cfgEnrichAnos')?.value || '').trim();
+    const anos = anosInput ? anosInput.split(/[,\s]+/).map(a => parseInt(a, 10)).filter(n => !isNaN(n)) : [];
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/enriquecimento/start`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ anos })
+        });
+        const data = await r.json();
+        renderEnrichStatus(data);
+        startEnrichPolling();
+        const status = document.getElementById('cfgEnrichStatus');
+        if (status) { status.textContent = anos.length ? `Buscando detalhes — anos: ${anos.join(', ')}` : 'Buscando detalhes de todos os anos…'; }
+    } catch (e) {
+        const status = document.getElementById('cfgEnrichStatus');
+        if (status) status.textContent = `Erro: ${e.message}`;
+    }
+}
+
+async function stopEnriquecimento() {
+    try {
+        await fetch(`${API_BASE}/curadoria/enriquecimento/stop`, { method: 'POST', headers: authHeaders() });
+        const stopBtn = document.getElementById('cfgStopEnrich');
+        if (stopBtn) stopBtn.disabled = true;
+    } catch (_) {}
+}
+
+function startEnrichPolling() {
+    if (_enrichPollInterval) return;
+    _enrichPollInterval = setInterval(async () => {
+        try {
+            const r = await fetch(`${API_BASE}/curadoria/enriquecimento/status`, { headers: authHeaders() });
+            const data = await r.json();
+            if (!r.ok) return;
+            renderEnrichStatus(data);
+            if (!data.running) {
+                clearInterval(_enrichPollInterval);
+                _enrichPollInterval = null;
+                loadEnrichCount(); // atualiza contagem ao terminar
+            }
+        } catch (_) {}
     }, 1500);
 }
 

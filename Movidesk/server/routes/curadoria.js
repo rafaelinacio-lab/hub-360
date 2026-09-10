@@ -1513,6 +1513,170 @@ router.delete('/import/cancel', authMiddleware, requireRole('admin'), (req, res)
   res.json({ cancelled: true });
 });
 
+// ===== Job de Enriquecimento (busca detalhes dos tickets sem dados na API) =====
+
+let enriquecimentoState = {
+  running: false, total: 0, done: 0, updated: 0, notFound: 0, failed: 0,
+  currentTicketId: null, startedAt: null, finishedAt: null,
+  stopRequested: false, recentErrors: [], anos: []
+};
+let activeEnriquecimento = null;
+
+const ENRICH_SELECT = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
+const ENRICH_EXPAND = [
+  'owner($select=businessName,email)',
+  'actions($select=id,type,origin,status,createdDate,description;$expand=createdBy($select=businessName,email))',
+  'clients($select=businessName,email;$expand=organization($select=businessName))',
+].join(',');
+
+async function runEnriquecimentoLoop(anos = []) {
+  const fetch = require('node-fetch');
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  const RATE_MS = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
+  const API_BASE = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
+
+  try {
+    // Resolver token
+    let token;
+    if (process.env.MOVIDESK_TOKEN) {
+      token = process.env.MOVIDESK_TOKEN;
+    } else {
+      token = await new Promise((resolve, reject) =>
+        getToken((err, t) => err ? reject(err) : resolve(t))
+      );
+    }
+
+    // Buscar IDs pendentes
+    let whereClause = `(actions IS NULL OR actions = '' OR actions = '[]')`;
+    if (anos.length) {
+      const cond = anos.map(a => `EXTRACT(YEAR FROM aberto_em::timestamptz) = ${a}`).join(' OR ');
+      whereClause += ` AND (aberto_em IS NULL OR (${cond}))`;
+    }
+    const pendingResult = await db.queryDatabase(
+      'movidesk_curadoria',
+      `SELECT ticket_id FROM public.curadoria_chamados WHERE ${whereClause} ORDER BY ticket_id ASC`
+    );
+    const ids = (pendingResult.rows || []).map(r => r.ticket_id);
+    enriquecimentoState.total = ids.length;
+
+    for (const id of ids) {
+      if (enriquecimentoState.stopRequested) break;
+      enriquecimentoState.currentTicketId = id;
+
+      try {
+        const params = new URLSearchParams({ '$select': ENRICH_SELECT, '$expand': ENRICH_EXPAND });
+        const url = `${API_BASE}/public/v1/tickets/${id}?${params.toString()}`;
+
+        let ticket = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
+            if (resp.status === 429) { await sleep(65000); continue; }
+            if (resp.status === 404) { ticket = null; break; }
+            if (!resp.ok) { const b = await resp.text(); throw new Error(`HTTP ${resp.status}: ${b.slice(0,200)}`); }
+            ticket = await resp.json();
+            break;
+          } catch (e) {
+            if (attempt === 4) throw e;
+            await sleep(2000 * (attempt + 1));
+          }
+        }
+
+        if (!ticket) {
+          await db.queryDatabase('movidesk_curadoria',
+            `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`, [id]).catch(() => {});
+          enriquecimentoState.notFound++;
+        } else {
+          const t = ticket;
+          const ownerName  = t.owner?.businessName || '';
+          const ownerEmail = t.owner?.email || '';
+          const actions    = Array.isArray(t.actions) ? t.actions : [];
+          const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
+          const totalAcoes   = actions.length;
+          const totalCliente = actions.filter(a => a.type !== 1 && (a.createdBy?.email||'') !== ownerEmail).length;
+          const totalAgente  = actions.filter(a => a.type === 1 || (a.createdBy?.email||'') === ownerEmail).length;
+          let tempoResolDias = null;
+          if (t.createdDate && t.resolvedIn) {
+            const ms = new Date(t.resolvedIn) - new Date(t.createdDate);
+            if (ms > 0) tempoResolDias = String(Math.round(ms / 86400000 * 10) / 10);
+          }
+          await db.queryDatabase('movidesk_curadoria',
+            `UPDATE public.curadoria_chamados SET
+               servico=$2, owner=$3, owner_team=$4, status=$5, urgencia=$6,
+               solicitante=$7, organizacao=$8, actions=$9, total_acoes=$10,
+               total_cliente=$11, total_agente=$12, tempo_resol_dias=$13,
+               aberto_em=$14, resolvido_em=$15
+             WHERE ticket_id = $1`,
+            [t.id, t.subject||'', ownerName, t.ownerTeam||'', t.status||'', t.urgency||'',
+             firstClient?.businessName||'', firstClient?.organization?.businessName||'',
+             JSON.stringify(actions), totalAcoes, totalCliente, totalAgente,
+             tempoResolDias, t.createdDate||null, t.resolvedIn||null]
+          );
+          enriquecimentoState.updated++;
+        }
+      } catch (e) {
+        enriquecimentoState.failed++;
+        enriquecimentoState.recentErrors.unshift({ ticket_id: id, error: e.message, at: new Date().toISOString() });
+        if (enriquecimentoState.recentErrors.length > 20) enriquecimentoState.recentErrors.length = 20;
+        console.error(`[enriquecimento] #${id}: ${e.message}`);
+      }
+
+      enriquecimentoState.done++;
+      await sleep(RATE_MS);
+    }
+  } catch (err) {
+    console.error('[enriquecimento] Erro fatal:', err.message);
+  } finally {
+    enriquecimentoState.running = false;
+    enriquecimentoState.currentTicketId = null;
+    enriquecimentoState.finishedAt = new Date().toISOString();
+    activeEnriquecimento = null;
+  }
+}
+
+function startEnriquecimentoJob(anos = []) {
+  if (activeEnriquecimento) return enriquecimentoState;
+  enriquecimentoState = {
+    running: true, total: 0, done: 0, updated: 0, notFound: 0, failed: 0,
+    currentTicketId: null, startedAt: new Date().toISOString(), finishedAt: null,
+    stopRequested: false, recentErrors: [], anos
+  };
+  activeEnriquecimento = runEnriquecimentoLoop(anos);
+  return enriquecimentoState;
+}
+
+// POST /curadoria/enriquecimento/start
+router.post('/enriquecimento/start', authMiddleware, requireRole('admin'), (req, res) => {
+  const anos = Array.isArray(req.body.anos)
+    ? req.body.anos.map(a => parseInt(a, 10)).filter(n => !isNaN(n))
+    : [];
+  const state = startEnriquecimentoJob(anos);
+  res.json(state);
+});
+
+// GET /curadoria/enriquecimento/status
+router.get('/enriquecimento/status', authMiddleware, requireRole('admin'), (req, res) => {
+  res.json(enriquecimentoState);
+});
+
+// POST /curadoria/enriquecimento/stop
+router.post('/enriquecimento/stop', authMiddleware, requireRole('admin'), (req, res) => {
+  enriquecimentoState.stopRequested = true;
+  res.json({ stopping: true });
+});
+
+// GET /curadoria/enriquecimento/count
+router.get('/enriquecimento/count', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const r = await db.queryDatabase('movidesk_curadoria',
+      `SELECT COUNT(*) FROM public.curadoria_chamados WHERE (actions IS NULL OR actions = '' OR actions = '[]')`);
+    res.json({ count: Number(r.rows[0].count) || 0 });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao contar' });
+  }
+});
+
 // ===== Carga bruta (dispara os 3 jobs de enriquecimento de uma vez) =====
 // "Foco de Atendimento" e os KPIs da Visão Geral são sempre calculados ao vivo a
 // partir do que já está em curadoria_chamados — não precisam de "carga" própria.

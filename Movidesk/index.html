@@ -363,6 +363,53 @@
                 <!-- ABA: Curadoria -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-curadoria">
 
+                    <!-- ── Card de Enriquecimento de Chamados ────────── -->
+                    <div class="config-card">
+                        <h3 class="config-card-title">Busca de Detalhes dos Chamados</h3>
+                        <p class="config-card-help">Fase 2 do pipeline de importação: busca na API Movidesk os detalhes completos (actions, owner, serviço, etc.) de todos os chamados que ainda não têm dados. Deve ser rodada após "Importar IDs". Roda em segundo plano — pode fechar a tela.</p>
+
+                        <div class="config-status-line" style="gap:16px; flex-wrap:wrap;">
+                            <span class="config-status-label">Pendentes sem dados:</span>
+                            <span id="cfgEnrichCount" class="config-token-status config-token-status-off">–</span>
+                            <button class="config-btn config-btn-muted" style="padding:2px 10px; font-size:12px;" onclick="loadEnrichCount()">↻</button>
+                        </div>
+
+                        <!-- Filtro de ano(s) -->
+                        <div style="margin: 10px 0 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <label style="font-size:13px; color:var(--muted);">Filtrar por ano (opcional):</label>
+                            <input id="cfgEnrichAnos" type="text" placeholder="ex: 2026  ou  2025,2026"
+                                   style="padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; width:200px;">
+                            <span style="font-size:12px; color:var(--muted);">Deixe vazio para processar todos</span>
+                        </div>
+
+                        <!-- Progresso -->
+                        <div id="cfgEnrichProgressWrap" style="display:none; margin-bottom:14px;">
+                            <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px;">
+                                <span id="cfgEnrichProgressLabel">Aguardando…</span>
+                                <span id="cfgEnrichProgressPct">0%</span>
+                            </div>
+                            <div style="background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
+                                <div id="cfgEnrichProgressBar" style="height:100%; width:0%; background:var(--accent); border-radius:4px; transition:width .3s;"></div>
+                            </div>
+                            <div style="margin-top:6px; font-size:12px; color:var(--muted);">
+                                <span id="cfgEnrichStats"></span>
+                            </div>
+                        </div>
+
+                        <!-- Erros recentes -->
+                        <div id="cfgEnrichErrorsWrap" style="display:none; margin-bottom:10px;">
+                            <div style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px;">Erros recentes</div>
+                            <div id="cfgEnrichErrorsList" class="config-error-list"></div>
+                        </div>
+
+                        <div class="config-actions">
+                            <button id="cfgStartEnrich" class="config-btn" onclick="startEnriquecimento()">▶ Buscar detalhes</button>
+                            <button id="cfgStopEnrich" class="config-btn config-btn-muted" onclick="stopEnriquecimento()" style="display:none;">⏹ Parar</button>
+                            <button class="config-btn config-btn-muted" onclick="loadEnrichStatus()">Recarregar status</button>
+                        </div>
+                        <div id="cfgEnrichStatus" class="config-status"></div>
+                    </div>
+
                     <!-- ── Card único de pipeline ─────────────────────── -->
                     <div class="config-card">
                         <h3 class="config-card-title">Pipeline de Análise</h3>
