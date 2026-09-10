@@ -2386,12 +2386,68 @@ function renderOwnerStrip(rows,filtered) {
 
 /* ── Card templates ───────────────────────────────────────────── */
 function renderOwnerCard(owner, rows=[]) {
-    const ownerRow=rows.find(r=>r.owner===owner);
-    const equipe=ownerRow?String(ownerRow.owner_team||'Squad Enterprise').trim():'Squad Enterprise';
+    const ownerRow = rows.find(r => r.owner === owner);
+    const equipe = ownerRow ? String(ownerRow.owner_team || 'Squad Enterprise').trim() : 'Squad Enterprise';
+
+    // Métricas rápidas calculadas direto dos dados
+    const total = rows.length;
+    const abertos = rows.filter(r => {
+        const s = String(r.status || '').toLowerCase();
+        return s && !/fechad|resolvid|encerrad|finalizad|cancelad/i.test(s);
+    }).length;
+    const comPesquisa = rows.filter(r => r.satisfacao_pesquisa != null && r.satisfacao_pesquisa !== '').length;
+    const txPesquisa = total ? Math.round((comPesquisa / total) * 100) : 0;
+
+    // Período dos dados
+    const datas = rows.map(r => r.aberto_em).filter(Boolean).sort();
+    let periodoLabel = '';
+    if (datas.length >= 2) {
+        const fmt = d => new Date(d).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        const ini = fmt(datas[0]), fim = fmt(datas[datas.length - 1]);
+        periodoLabel = ini === fim ? ini : `${ini} – ${fim}`;
+    }
+
     return `<div id="ca-owner-card" class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow flex flex-col items-center text-center">
-        <div class="relative mb-4"><img class="w-32 h-32 rounded-full object-cover border-4 border-surface-container" src="${escapeHtml(photoByName(owner))}" alt="${escapeHtml(owner)}"></div>
-        <h2 class="font-headline-lg text-headline-lg text-primary mb-1">${escapeHtml(owner)}</h2>
-        <p class="font-body-md text-body-md text-on-surface-variant mb-6">Agente de Suporte • ${escapeHtml(equipe)}</p>
+
+        <!-- Avatar -->
+        <div class="relative mb-3">
+            <img class="w-28 h-28 rounded-full object-cover" src="${escapeHtml(photoByName(owner))}" alt="${escapeHtml(owner)}">
+        </div>
+
+        <!-- Nome e equipe -->
+        <h2 class="font-headline-lg text-headline-lg text-primary mb-0.5">${escapeHtml(owner)}</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant mb-4">Agente de Suporte • ${escapeHtml(equipe)}</p>
+
+        <!-- Badge de senioridade (atualizado pelo Score após a IA) -->
+        <div id="ca-seniority-wrap" class="mb-5">
+            <span id="ca-seniority-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+                  style="background:rgba(148,163,184,0.10);color:#8fa3b8;border:1px solid rgba(148,163,184,0.25)">
+                <span class="material-symbols-outlined" style="font-size:14px">workspace_premium</span>
+                <span id="ca-seniority-label">Calculando…</span>
+            </span>
+            <p id="ca-seniority-reason" class="mt-1.5 text-[11px] text-on-surface-variant leading-snug px-2" style="min-height:28px"></p>
+        </div>
+
+        <!-- Divisor -->
+        <div style="width:100%;height:1px;background:var(--ca-divider,rgba(148,163,184,0.18));margin-bottom:16px"></div>
+
+        <!-- Tiles de métricas rápidas -->
+        <div class="w-full grid grid-cols-3 gap-2 mb-4">
+            <div class="ca-stat-tile" style="border-left-color:var(--ca-em,#10b981)">
+                <span class="ca-stat-num">${total}</span>
+                <span class="ca-stat-label">Chamados</span>
+            </div>
+            <div class="ca-stat-tile" style="border-left-color:var(--ca-amber,#f59e0b)">
+                <span class="ca-stat-num">${abertos}</span>
+                <span class="ca-stat-label">Em aberto</span>
+            </div>
+            <div class="ca-stat-tile" style="border-left-color:var(--ca-blue,#378add)">
+                <span class="ca-stat-num">${txPesquisa}%</span>
+                <span class="ca-stat-label">Pesquisa</span>
+            </div>
+        </div>
+
+        ${periodoLabel ? `<p class="text-[10px] text-on-surface-variant opacity-60 tracking-wide uppercase">${escapeHtml(periodoLabel)}</p>` : ''}
     </div>`;
 }
 function renderFocusCard(owner, rows) {
@@ -2845,12 +2901,36 @@ function refreshScoreCard(owner, rows, aiResult) {
     savePerformanceSnapshot(owner, sd, seniority, a.totalTickets, period, /*skipReload*/ true);
 }
 
-// Atualiza o badge de senioridade no card de análise, se já estiver renderizado
+// Atualiza o badge de senioridade no card de análise e no card de perfil
 function updateSeniorityBadge(seniority) {
+    // Card de análise
     const badgeEl = document.getElementById('seniority-verdict-label');
     const reasonEl = document.getElementById('seniority-verdict-reason');
     if (badgeEl) badgeEl.textContent = seniority.label;
     if (reasonEl) reasonEl.textContent = seniority.reason;
+
+    // Card de perfil do atendente
+    const caLabel = document.getElementById('ca-seniority-label');
+    const caReason = document.getElementById('ca-seniority-reason');
+    const caBadge = document.getElementById('ca-seniority-badge');
+    if (caLabel) caLabel.textContent = seniority.label;
+    if (caReason) caReason.textContent = seniority.reason || '';
+    if (caBadge) {
+        const { color, bg } = scoreVisuals(0); // placeholder — cor real abaixo
+        // Cor baseada no label de senioridade
+        const senColors = {
+            'Especialista': { c:'#22c55e', b:'rgba(34,197,94,0.12)' },
+            'Sênior':       { c:'#3b82f6', b:'rgba(59,130,246,0.12)' },
+            'Pleno':        { c:'#f59e0b', b:'rgba(245,158,11,0.12)' },
+            'Júnior':       { c:'#f97316', b:'rgba(249,115,22,0.12)' },
+        };
+        const sc = senColors[seniority.label] || { c:'#94a3b8', b:'rgba(148,163,184,0.10)' };
+        caBadge.style.background = sc.b;
+        caBadge.style.color = sc.c;
+        caBadge.style.borderColor = sc.c + '40';
+        const icon = caBadge.querySelector('.material-symbols-outlined');
+        if (icon) icon.style.color = sc.c;
+    }
 }
 
 // Salva o snapshot do score no histórico (backend)

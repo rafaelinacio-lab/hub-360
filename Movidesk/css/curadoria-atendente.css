@@ -266,7 +266,8 @@ html.dark #curadoriaAtendenteView {
 }
 
 /* Seniority badge inside owner card */
-#ca-owner-card .ca-seniority-badge {
+#ca-owner-card .ca-seniority-badge,
+#ca-seniority-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -275,6 +276,42 @@ html.dark #curadoriaAtendenteView {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.03em;
+  transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+}
+
+#ca-seniority-reason {
+  color: var(--ca-muted) !important;
+}
+
+/* Quick-stat tiles inside owner card */
+.ca-stat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+  background: var(--ca-surface-low);
+  border: 1px solid var(--ca-border);
+  border-left-width: 3px;
+}
+
+.ca-stat-num {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  color: var(--ca-text);
+}
+
+.ca-stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ca-muted);
 }
 
 /* ══════════════════════════════════════════════════
