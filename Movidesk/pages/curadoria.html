@@ -2675,7 +2675,7 @@ function renderScoreCard(owner, rows) {
         { label:'Competências',  pct: bd.compHits != null ? Math.round((bd.compHits/Math.max(bd.totalComp,1))*100) : 0, icon:'workspace_premium', color:'#a78bfa' },
     ];
 
-    return `<div id="score-card-root" class="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+    return `<div id="score-card-root" class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <div class="flex justify-between items-start mb-5">
             <span class="font-label-md text-label-md text-primary font-bold uppercase">Score de Performance</span>
             <div class="flex items-center gap-2">
@@ -2985,9 +2985,11 @@ function renderCards() {
         avatarPageY=ar.top+ar.height/2;
     }
 
+    // Opção A: Perfil | Score | Foco — linha 1
+    //          Análise (8) | Satisfação (4) — linha 2
     mount.innerHTML=renderOwnerCard(currentOwner,ownerRows)
-        +renderFocusCard(currentOwner,ownerRows)
         +renderScoreCard(currentOwner,ownerRows)
+        +renderFocusCard(currentOwner,ownerRows)
         +renderAnalysisCard(currentOwner,ownerRows)
         +renderSatisfactionCard(currentOwner,ownerRows);
 

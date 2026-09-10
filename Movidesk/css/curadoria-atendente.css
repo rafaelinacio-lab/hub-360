@@ -545,12 +545,52 @@ html.dark #curadoriaAtendenteView {
 }
 
 /* ══════════════════════════════════════════════════
-   9. Card grid layout override
+   9. Card grid layout — Opção A
+   Linha 1: Owner(4) | Score(4) | Foco(4)
+   Linha 2: Análise(8) | Satisfação(4)
 ══════════════════════════════════════════════════ */
 #curadoriaMount {
   display: grid !important;
   grid-template-columns: repeat(12, 1fr) !important;
+  grid-template-rows: auto auto !important;
   gap: var(--ca-gap) !important;
+}
+
+/* Linha 1 — os três cards do topo ficam na mesma faixa de altura */
+#ca-owner-card,
+#score-card-root,
+#ca-focus-card {
+  grid-row: 1 !important;
+  align-self: stretch !important;
+}
+
+#ca-owner-card   { grid-column: span 4 !important; }
+#score-card-root { grid-column: span 4 !important; }
+#ca-focus-card   { grid-column: span 4 !important; }
+
+/* Linha 2 — análise (8) e satisfação (4) */
+#curadoria-analysis-card { grid-column: span 8 !important; grid-row: 2 !important; align-self: stretch !important; }
+#ca-satisfaction-card    { grid-column: span 4 !important; grid-row: 2 !important; align-self: stretch !important; }
+
+/* Telas médias (tablet) — topo em 2 colunas, linha 2 empilha */
+@media (max-width: 1100px) {
+  #ca-owner-card   { grid-column: span 6 !important; }
+  #score-card-root { grid-column: span 6 !important; }
+  #ca-focus-card   { grid-column: span 12 !important; grid-row: auto !important; }
+  #curadoria-analysis-card { grid-column: span 12 !important; grid-row: auto !important; }
+  #ca-satisfaction-card    { grid-column: span 12 !important; grid-row: auto !important; }
+}
+
+/* Mobile — tudo empilha em coluna única */
+@media (max-width: 680px) {
+  #ca-owner-card,
+  #score-card-root,
+  #ca-focus-card,
+  #curadoria-analysis-card,
+  #ca-satisfaction-card {
+    grid-column: span 12 !important;
+    grid-row: auto !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════
