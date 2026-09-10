@@ -50,7 +50,8 @@ const FILTER    = ALL
   ? null
   : `createdDate ge ${DATE_FROM} and createdDate le ${DATE_TO}`;
 
-const RATE_MS  = parseInt(process.env.IMPORT_RATE_MS || '1000', 10);
+// 30 req/min = 1 req a cada 2s. Usamos 2100ms para ficar abaixo do limite.
+const RATE_MS  = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
 const PAGE_SIZE = 1000;
 const INSERT_BATCH = 500; // IDs por lote de INSERT
 
@@ -120,13 +121,16 @@ async function collectIds(token) {
 
       const url = `${baseUrl}?${params.toString()}`;
       let tickets = [];
+      let got429 = false;
 
-      for (let attempt = 0; attempt < 3; attempt++) {
+      // Tenta até 5 vezes; ao receber 429 aguarda 65s (reset da janela de 1min)
+      for (let attempt = 0; attempt < 5; attempt++) {
         try {
           const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
           if (resp.status === 429) {
-            log(`    ⏳ Rate limit (429). Aguardando ${RATE_MS * 2}ms…`);
-            await sleep(RATE_MS * 2);
+            got429 = true;
+            log(`    ⏳ Rate limit (429). Aguardando 65s para resetar a janela…`);
+            await sleep(65000);
             continue;
           }
           if (!resp.ok) {
@@ -139,10 +143,25 @@ async function collectIds(token) {
                   : [];
           break;
         } catch (e) {
-          if (attempt === 2) throw e;
-          log(`    ⚠️  Tentativa ${attempt + 1} falhou (${e.message}). Tentando novamente…`);
+          if (attempt === 4) throw e;
+          log(`    ⚠️  Tentativa ${attempt + 1} falhou (${e.message}). Aguardando ${2000 * (attempt + 1)}ms…`);
           await sleep(2000 * (attempt + 1));
         }
+      }
+
+      // Se houve 429 e voltou vazio, pode ser falso-fim — tenta mais uma vez
+      if (got429 && tickets.length === 0) {
+        log(`    🔄 Resultado vazio após 429 — retentando página ${page}…`);
+        await sleep(5000);
+        try {
+          const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
+          if (resp.ok) {
+            const raw = await resp.json();
+            tickets = Array.isArray(raw) ? raw
+                    : Array.isArray(raw?.value) ? raw.value
+                    : [];
+          }
+        } catch (_) {}
       }
 
       const pageIds = tickets.map(t => t.id).filter(Boolean);
