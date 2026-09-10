@@ -293,10 +293,18 @@ async function main() {
         else skipped++;
       } catch (e) {
         failed++;
-        log(`  ❌ ID ${id}: ${e.message}`);
+        // Loga o erro completo nas primeiras 3 ocorrências para diagnóstico
+        if (failed <= 3) log(`  ❌ ID ${id}: ${e.message}`);
+        else if (failed === 4) log('  ❌ (suprimindo erros repetidos — veja os 3 acima)');
       }
       done++;
     }));
+
+    // Bail-out antecipado: se os primeiros 10 derem 100% de erro, algo está errado
+    if (done === 10 && failed === 10) {
+      log('\n💥 100% de erros nos primeiros 10 chamados — abortando. Verifique a URL e o token do gateway.');
+      process.exit(1);
+    }
 
     // Progresso a cada 50 chamados
     if (done % 50 < BATCH_SIZE || done === ids.length) {
