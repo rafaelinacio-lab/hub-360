@@ -120,7 +120,7 @@ async function upsertBatch(rows) {
            (ticket_id, servico, owner, owner_team, status, urgencia,
             solicitante, organizacao, actions, total_acoes, total_cliente, total_agente,
             tempo_resol_dias, aberto_em, resolvido_em, processado)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,0)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,0)
          ON CONFLICT (ticket_id) DO UPDATE SET
            status       = EXCLUDED.status,
            owner_team   = EXCLUDED.owner_team,
@@ -138,13 +138,15 @@ async function upsertBatch(rows) {
           row.urgencia     || '',
           row.solicitante  || '',
           row.organizacao  || '',
-          row.actions      || '[]',
+          // actions column is TEXT — serialize to string if needed
+          (typeof row.actions === 'string' ? row.actions : JSON.stringify(row.actions || [])) || '[]',
           row.total_acoes  || 0,
           totalCliente,
           totalAgente,
-          tempoResolDias,
-          row.aberto_em    || null,
-          row.resolvido_em || null,
+          // tempo_resol_dias column is TEXT
+          tempoResolDias !== null ? String(tempoResolDias) : null,
+          row.aberto_em    ? String(row.aberto_em) : null,
+          row.resolvido_em ? String(row.resolvido_em) : null,
         ]
       );
       if ((res.rowCount || 0) > 0) inserted++;

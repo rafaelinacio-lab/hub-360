@@ -221,7 +221,7 @@ async function upsertTicket(t) {
        (ticket_id, servico, owner, owner_team, status, urgencia,
         solicitante, organizacao, actions, total_acoes, total_cliente, total_agente,
         tempo_resol_dias, aberto_em, resolvido_em, processado)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,0)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,0)
      -- Chamados já analisados (processado > 0) nunca são tocados.
      -- O WHERE no DO UPDATE faz a instrução inteira virar no-op para esses casos:
      -- o PostgreSQL conta como "conflito sem atualização" (rowCount=0 → skipped).
@@ -246,7 +246,7 @@ async function upsertTicket(t) {
       totalAcoes,
       totalCliente,
       totalAgente,
-      tempoResolDias,
+      tempoResolDias !== null ? String(tempoResolDias) : null,
       t.createdDate || null,
       t.resolvedIn  || null,
     ]
