@@ -2117,7 +2117,9 @@ function renderEnrichStatus(state) {
     }
 
     if (label) {
-        if (state.running && state.currentTicketId) label.textContent = `Varrendo ${state.currentTicketId} — ${done}/${total} processados`;
+        const anosStr = (state.anosAlvo && state.anosAlvo.length)
+            ? ` [${state.anosAlvo[0]}–${state.anosAlvo[state.anosAlvo.length-1]}]` : '';
+        if (state.running && state.currentTicketId) label.textContent = `Varrendo ${state.currentTicketId}${anosStr} — ${done}/${total} processados`;
         else if (state.stopRequested)               label.textContent = 'Parando…';
         else if (!state.running && total > 0)       label.textContent = 'Concluído ✅';
         else label.textContent = `${done} / ${total}`;

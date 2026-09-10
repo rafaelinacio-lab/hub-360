@@ -1602,9 +1602,15 @@ async function runEnriquecimentoLoop(anos = []) {
 
     if (!pendingSet.size) return;
 
-    // Determinar anos a varrer (padrão: ano atual se nenhum informado)
-    const anosAlvo = anos.length ? anos : [new Date().getFullYear()];
+    // Determinar anos a varrer
+    // Se nenhum informado, varre de 2020 até o ano atual (cobre todo o histórico)
+    let anosAlvo = anos;
+    if (!anosAlvo.length) {
+      const cur = new Date().getFullYear();
+      for (let y = 2020; y <= cur; y++) anosAlvo.push(y);
+    }
     const janelas  = gerarJanelasEnrich(anosAlvo);
+    enriquecimentoState.anosAlvo = anosAlvo;
 
     for (const { label, dateFrom, dateTo } of janelas) {
       if (enriquecimentoState.stopRequested) break;
@@ -1689,7 +1695,7 @@ function startEnriquecimentoJob(anos = []) {
   enriquecimentoState = {
     running: true, total: 0, done: 0, updated: 0, notFound: 0, failed: 0,
     currentTicketId: null, startedAt: new Date().toISOString(), finishedAt: null,
-    stopRequested: false, recentErrors: [], anos
+    stopRequested: false, recentErrors: [], anos, anosAlvo: []
   };
   activeEnriquecimento = runEnriquecimentoLoop(anos);
   return enriquecimentoState;
