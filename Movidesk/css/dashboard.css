@@ -1,0 +1,319 @@
+/*
+ * Hub 360 — Dashboard redesign
+ * Sobrescreve seletores do style.css apenas para #dashboardView e seus filhos.
+ * Importa Plus Jakarta Sans para os números dos KPIs.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&display=swap');
+
+/* ── Variáveis locais que complementam as do style.css ── */
+:root {
+    --db-em:     #10b981;
+    --db-blue:   #378add;
+    --db-purple: #7c3aed;
+    --db-amber:  #f59e0b;
+    --db-red:    #ef4444;
+
+    --db-em-bg:     rgba(16, 185, 129, 0.06);
+    --db-blue-bg:   rgba(55, 138, 221, 0.06);
+    --db-purple-bg: rgba(124, 58, 237, 0.06);
+    --db-amber-bg:  rgba(245, 158, 11, 0.06);
+}
+
+/* ════════════════════════════════════════
+   Layout
+════════════════════════════════════════ */
+#dashboardView .dashboard-layout {
+    display: grid;
+    grid-template-columns: 1fr 248px;
+    gap: 24px;
+    align-items: start;
+}
+
+/* ════════════════════════════════════════
+   Status cards — fileira de 4 KPIs
+════════════════════════════════════════ */
+#dashboardView .status-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+#dashboardView .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 14px;
+    padding: 18px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    box-shadow: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#dashboardView .summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* Acento esquerdo + tint de fundo por categoria */
+#dashboardView .summary-new {
+    border-left-color: var(--db-em);
+    background: var(--db-em-bg);
+}
+#dashboardView .summary-inattendance {
+    border-left-color: var(--db-blue);
+    background: var(--db-blue-bg);
+}
+#dashboardView .summary-stopped {
+    border-left-color: var(--db-amber);
+    background: var(--db-amber-bg);
+}
+#dashboardView .summary-total {
+    border-left-color: var(--db-purple);
+    background: var(--db-purple-bg);
+}
+
+#dashboardView .summary-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#dashboardView .summary-count {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+#dashboardView .summary-new .summary-count        { color: var(--db-em); }
+#dashboardView .summary-inattendance .summary-count { color: var(--db-blue); }
+#dashboardView .summary-stopped .summary-count    { color: var(--db-amber); }
+#dashboardView .summary-total .summary-count      { color: var(--db-purple); }
+
+#dashboardView .summary-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* ════════════════════════════════════════
+   SLA row — 2 cards com donut
+════════════════════════════════════════ */
+#dashboardView .sla-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+#dashboardView .sla-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 14px;
+    padding: 22px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+#dashboardView .sla-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+#dashboardView .sla-ontime {
+    border-left-color: var(--db-em);
+    background: var(--db-em-bg);
+}
+#dashboardView .sla-overdue {
+    border-left-color: var(--db-red);
+    background: rgba(239,68,68,0.05);
+}
+
+#dashboardView .sla-count {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -2px;
+}
+#dashboardView .sla-ontime .sla-count  { color: var(--db-em); }
+#dashboardView .sla-overdue .sla-count { color: var(--db-red); }
+
+#dashboardView .sla-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* donut menor e mais limpo */
+#dashboardView .sla-donut-wrap {
+    width: 88px;
+    height: 88px;
+}
+
+/* ════════════════════════════════════════
+   Section header & toggle
+════════════════════════════════════════ */
+#dashboardView .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+
+#dashboardView .toggle-section-btn {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    letter-spacing: -0.2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ════════════════════════════════════════
+   Filter bar — pill selects
+════════════════════════════════════════ */
+#dashboardView .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+    align-items: center;
+}
+
+#dashboardView .filter-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+}
+#dashboardView .filter-select:focus,
+#dashboardView .filter-select:hover {
+    border-color: var(--db-em);
+}
+
+#dashboardView .filter-clear {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+#dashboardView .filter-clear:hover {
+    color: var(--db-red);
+    border-color: var(--db-red);
+}
+
+#dashboardView .filter-count {
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: 4px;
+}
+
+/* ════════════════════════════════════════
+   Ticket cards
+════════════════════════════════════════ */
+#dashboardView .cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+
+#dashboardView .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+}
+
+#dashboardView .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* ════════════════════════════════════════
+   Sidebar de atendentes
+════════════════════════════════════════ */
+#dashboardView .sidebar-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+}
+
+#dashboardView .attendant-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#dashboardView .attendant-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+}
+
+/* ════════════════════════════════════════
+   Responsivo — tablet / mobile
+════════════════════════════════════════ */
+@media (max-width: 1100px) {
+    #dashboardView .dashboard-layout {
+        grid-template-columns: 1fr;
+    }
+    #dashboardView .status-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    #dashboardView .status-summary {
+        grid-template-columns: 1fr 1fr;
+    }
+    #dashboardView .sla-row {
+        grid-template-columns: 1fr;
+    }
+    #dashboardView .summary-count {
+        font-size: 30px;
+    }
+    #dashboardView .sla-count {
+        font-size: 36px;
+    }
+}
