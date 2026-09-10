@@ -19,8 +19,9 @@
  *   node scripts/import-curadoria-ano.js 2025
  *
  * Variáveis de ambiente (.env):
- *   MOVIDESK_TOKEN   — token em texto claro (alternativa ao token no banco)
- *   IMPORT_RATE_MS   — intervalo entre requisições de detalhe (default: 3000ms)
+ *   MOVIDESK_TOKEN    — token/gateway-token em texto claro (alternativa ao token no banco)
+ *   MOVIDESK_API_BASE — URL base da API (default: https://apimovidesk.viasoftcloud.com.br)
+ *   IMPORT_RATE_MS    — intervalo entre requisições de detalhe (default: 3000ms)
  *   IMPORT_BATCH_SIZE — tamanho do lote de upserts paralelos (default: 5)
  */
 
@@ -50,9 +51,13 @@ const RATE_MS       = parseInt(process.env.IMPORT_RATE_MS   || '3000', 10);
 const BATCH_SIZE    = parseInt(process.env.IMPORT_BATCH_SIZE || '5',    10);
 const PAGE_SIZE     = 1000;
 
+// Gateway proxy Viasoft — usa X-Gateway-Token no header em vez de ?token= na query.
+// Fallback para a API oficial do Movidesk se a env não estiver definida.
+const API_BASE = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
+
 const BASE_URLS = [
-  'https://api.movidesk.com/public/v1/tickets',       // chamados abertos / atuais
-  'https://api.movidesk.com/public/v1/tickets/past',  // chamados históricos / fechados
+  `${API_BASE}/public/v1/tickets`,       // chamados abertos / atuais
+  `${API_BASE}/public/v1/tickets/past`,  // chamados históricos / fechados
 ];
 
 const SELECT_IDS     = 'id,createdDate';
@@ -86,15 +91,17 @@ function fmtDuration(ms) {
   return `${h}h ${rm}m ${rs}s`;
 }
 
-// Obtém o token Movidesk: variável de ambiente tem precedência, senão lê do banco.
+// Obtém o gateway token: MOVIDESK_TOKEN (env) tem precedência, senão lê do banco.
+// Para o gateway apimovidesk.viasoftcloud.com.br o valor vai como X-Gateway-Token no header.
 async function resolveToken() {
   if (process.env.MOVIDESK_TOKEN) {
-    log('Token lido de MOVIDESK_TOKEN (env).');
+    log(`Token lido de MOVIDESK_TOKEN (env). API: ${API_BASE}`);
     return process.env.MOVIDESK_TOKEN;
   }
   return new Promise((resolve, reject) => {
     getToken((err, t) => {
-      if (err) return reject(new Error(`Não foi possível obter o token Movidesk: ${err.message}`));
+      if (err) return reject(new Error(`Não foi possível obter o token: ${err.message}`));
+      log(`Token lido do banco. API: ${API_BASE}`);
       resolve(t);
     });
   });
@@ -116,7 +123,6 @@ async function collectIds(token) {
     while (true) {
       page++;
       const params = new URLSearchParams({
-        token,
         '$select': SELECT_IDS,
         '$filter': FILTER,
         '$top':    String(PAGE_SIZE),
@@ -129,7 +135,7 @@ async function collectIds(token) {
       let tickets = [];
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const resp = await fetch(url);
+          const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
           if (resp.status === 429) {
             log(`    ⏳ Rate limit (429). Aguardando ${RATE_MS * 2}ms…`);
             await sleep(RATE_MS * 2);
@@ -169,14 +175,13 @@ async function collectIds(token) {
 
 async function fetchTicketDetails(token, id) {
   const params = new URLSearchParams({
-    token,
     '$select': SELECT_DETAILS,
     '$expand': EXPAND_DETAILS,
   });
-  const url = `https://api.movidesk.com/public/v1/tickets/${id}?${params.toString()}`;
+  const url = `${API_BASE}/public/v1/tickets/${id}?${params.toString()}`;
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    const resp = await fetch(url);
+    const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
     if (resp.status === 429) { await sleep(RATE_MS * 2); continue; }
     if (resp.status === 404) return null; // removido da API
     if (!resp.ok) {
