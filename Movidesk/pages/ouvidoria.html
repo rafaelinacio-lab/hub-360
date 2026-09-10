@@ -405,6 +405,11 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
   white-space:nowrap;flex-shrink:0;text-decoration:none;
 }
 .prob-link:hover{text-decoration:underline}
+/* elogio: chamados relacionados em verde */
+.db.is-elogio .prob-item{background:var(--green-bg);border-color:var(--green-bd);border-left-color:var(--green)}
+.db.is-elogio .prob-link{color:var(--green)}
+.db.is-elogio .sec-lbl{color:var(--green)}
+.db.is-elogio .sec-lbl .sym{color:var(--green)}
 
 /* desc */
 .desc-box{
@@ -669,7 +674,7 @@ function render(){
   <div class="card-top">
     <div class="card-top-badges">
       <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${TIPO_LABEL[tk]}</span>
-      ${probs.length>0?`<span class="tbadge t-amb"><span class="sym">repeat</span>Reincidente</span>`:''}
+      ${probs.length>0&&tk!=='elo'?`<span class="tbadge t-amb"><span class="sym">repeat</span>Reincidente</span>`:''}
     </div>
     <span class="card-date">${fmtShort(r.criado_em)}</span>
   </div>
@@ -680,7 +685,7 @@ function render(){
     ${flagsHtml?`<div class="card-flags">${flagsHtml}</div>`:''}
   </div>
   <div class="card-footer">
-    <span class="recpill${probs.length>0?' warn':''}">
+    <span class="recpill${probs.length>0&&tk!=='elo'?' warn':''}">
       <span class="sym">history</span>${tot} chamado${tot===1?'':'s'} anterior${tot===1?'':'es'}
     </span>
     <button class="card-cta" data-cta="${esc(String(r.ticket_id))}">
@@ -730,9 +735,9 @@ function openDrawer(id){
   // body sections
   const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
 
-  // recurrence warning — só mostra quando há chamados relacionados ao mesmo problema
+  // recurrence warning — não se aplica a elogios
   const warnEl=document.getElementById('d-warn');
-  if(probs.length>0){
+  if(probs.length>0 && tk!=='elo'){
     warnEl.style.display='flex';
     document.getElementById('d-warn-t').textContent=`Reincidente — ${probs.length} problema${probs.length===1?'':'s'} identificado${probs.length===1?'':'s'} em chamados anteriores`;
   } else { warnEl.style.display='none'; }
@@ -750,6 +755,7 @@ function openDrawer(id){
   const analiseHtml=buildAnalise(r.analise);
 
   document.getElementById('d-body').innerHTML=probsHtml+descHtml+analiseHtml;
+  document.getElementById('d-body').classList.toggle('is-elogio', tk==='elo');
 
   // collapse check after paint
   requestAnimationFrame(()=>{
