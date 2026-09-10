@@ -1525,8 +1525,8 @@ let activeEnriquecimento = null;
 const ENRICH_SELECT = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
 const ENRICH_EXPAND = [
   'owner($select=businessName,email)',
-  'actions($select=id,type,origin,status,createdDate,description;$orderby=createdDate asc)',
-  'clients($select=businessName,email;$expand=organization($select=businessName))',
+  'actions($select=id,type,origin,status,createdDate,description)',
+  'clients($select=businessName,email)',
 ].join(',');
 const ENRICH_PAGE_SIZE = parseInt(process.env.ENRICH_PAGE_SIZE || '100', 10);
 
