@@ -217,18 +217,17 @@ async function upsertTicket(t) {
         solicitante, organizacao, actions, total_acoes, total_cliente, total_agente,
         tempo_resol_dias, aberto_em, resolvido_em, processado)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,0)
+     -- Chamados já analisados (processado > 0) nunca são tocados.
+     -- O WHERE no DO UPDATE faz a instrução inteira virar no-op para esses casos:
+     -- o PostgreSQL conta como "conflito sem atualização" (rowCount=0 → skipped).
      ON CONFLICT (ticket_id) DO UPDATE SET
        status       = EXCLUDED.status,
        owner_team   = EXCLUDED.owner_team,
        total_acoes  = EXCLUDED.total_acoes,
        aberto_em    = EXCLUDED.aberto_em,
        resolvido_em = EXCLUDED.resolvido_em,
-       -- só sobrescreve ações se o chamado ainda não foi processado pela IA
-       -- (processado=0), para não perder análises já feitas
-       actions      = CASE
-                        WHEN curadoria_chamados.processado = 0 THEN EXCLUDED.actions
-                        ELSE curadoria_chamados.actions
-                      END`,
+       actions      = EXCLUDED.actions
+     WHERE curadoria_chamados.processado = 0`,
     [
       t.id,
       t.subject   || '',

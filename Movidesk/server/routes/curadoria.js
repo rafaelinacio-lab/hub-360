@@ -1382,10 +1382,11 @@ async function runMovideskImport({ token, dateFrom, dateTo, ownerTeam, ownerEmai
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,0)
              ON CONFLICT (ticket_id) DO UPDATE SET
                status        = EXCLUDED.status,
-               actions       = CASE WHEN curadoria_chamados.processado = 0 THEN EXCLUDED.actions ELSE curadoria_chamados.actions END,
+               actions       = EXCLUDED.actions,
                total_acoes   = EXCLUDED.total_acoes,
                aberto_em     = EXCLUDED.aberto_em,
-               resolvido_em  = EXCLUDED.resolvido_em`,
+               resolvido_em  = EXCLUDED.resolvido_em
+             WHERE curadoria_chamados.processado = 0`,
             [
               t.id,
               t.subject || '',
