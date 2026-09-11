@@ -4,7 +4,7 @@ const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
 const fetch = require('node-fetch');
-const { syncState, runSync, stopSync } = require('./ticket-sync');
+const { syncState, runSync, stopSync, backfillManifesto } = require('./ticket-sync');
 
 // Tabela public.ouvidoria é alimentada por um processo externo (fora deste painel), que já
 // grava prontos: a análise de IA (coluna `analise`), o serviço identificado da manifestação
@@ -35,6 +35,9 @@ const OUVIDORIA_COLUMNS = `
   manifesto_direcionado_a
 `;
 
+// Throttle do backfill automático: no máximo 1 execução a cada 5 minutos
+let _lastAutoBackfill = 0;
+
 // ===== GET /ouvidoria =====
 router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
   try {
@@ -42,7 +45,21 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
       OUVIDORIA_DB,
       `SELECT ${OUVIDORIA_COLUMNS} FROM public.ouvidoria ORDER BY criado_em DESC`
     );
-    res.json(result.rows || []);
+    const rows = result.rows || [];
+    res.json(rows);
+
+    // Dispara backfill em background se houver tickets sem manifesto_direcionado_a
+    const hasMissing = rows.some(r => !r.manifesto_direcionado_a);
+    const now = Date.now();
+    if (hasMissing && now - _lastAutoBackfill > 5 * 60 * 1000) {
+      _lastAutoBackfill = now;
+      getToken((err, token) => {
+        if (!err && token) {
+          backfillManifesto(token, OUVIDORIA_DB, 'public.ouvidoria')
+            .catch(e => console.error('[ouvidoria] auto-backfill error:', e.message));
+        }
+      });
+    }
   } catch (error) {
     console.error('Erro ao buscar ouvidoria:', error);
     res.status(500).json({ error: 'Erro ao carregar dados de ouvidoria' });

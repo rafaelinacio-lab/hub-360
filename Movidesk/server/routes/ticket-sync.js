@@ -402,4 +402,4 @@ function stopSync(stateKey) {
   syncState[stateKey].running = false;
 }
 
-module.exports = { syncState, runSync, stopSync, ensureColumns };
+module.exports = { syncState, runSync, stopSync, ensureColumns, backfillManifesto };
