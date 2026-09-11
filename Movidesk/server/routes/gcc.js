@@ -43,7 +43,10 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
   try {
     const result = await db.queryDatabase(
       GCC_DB,
-      `SELECT ${GCC_COLUMNS} FROM public.gcc ORDER BY criado_em DESC`
+      `SELECT ${GCC_COLUMNS} FROM public.gcc
+       WHERE base_status IS NULL
+          OR base_status NOT IN ('Resolved','Closed','Cancelled','Resolvido','Fechado','Cancelado')
+       ORDER BY criado_em DESC`
     );
     res.json(result.rows || []);
   } catch (error) {
