@@ -148,4 +148,4 @@ function stopSync(stateKey) {
   syncState[stateKey].running = false;
 }
 
-module.exports = { syncState, runSync, stopSync };
+module.exports = { syncState, runSync, stopSync, ensureColumns };

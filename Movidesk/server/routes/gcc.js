@@ -30,7 +30,11 @@ const GCC_COLUMNS = `
   motivo_churn,
   cf_24986,
   cf_24523,
-  criado_em
+  criado_em,
+  status_movidesk,
+  base_status,
+  resolvido_em,
+  sincronizado_em
 `;
 
 // ===== GET /gcc =====
@@ -85,4 +89,9 @@ router.get('/sync/status', authMiddleware, requireTabAccess('gcc'), (req, res) =
 });
 
 router.runSync = () => runSync('gcc', GCC_DB, 'public.gcc');
+
+// Garante que as colunas de sincronização existam assim que o módulo for carregado.
+const { ensureColumns: _ensureGcc } = require('./ticket-sync');
+_ensureGcc(GCC_DB, 'public.gcc').catch(() => {});
+
 module.exports = router;

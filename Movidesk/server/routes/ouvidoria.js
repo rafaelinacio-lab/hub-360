@@ -26,7 +26,11 @@ const OUVIDORIA_COLUMNS = `
   servico_ouvidoria,
   servico_ouvidoria_nome,
   tipo,
-  criado_em
+  criado_em,
+  status_movidesk,
+  base_status,
+  resolvido_em,
+  sincronizado_em
 `;
 
 // ===== GET /ouvidoria =====
@@ -81,4 +85,10 @@ router.get('/sync/status', authMiddleware, requireTabAccess('ouvidoria'), (req, 
 });
 
 router.runSync = () => runSync('ouvidoria', OUVIDORIA_DB, 'public.ouvidoria');
+
+// Garante que as colunas de sincronização existam assim que o módulo for carregado,
+// antes de qualquer SELECT que as liste.
+const { ensureColumns: _ensureOuvidoria } = require('./ticket-sync');
+_ensureOuvidoria(OUVIDORIA_DB, 'public.ouvidoria').catch(() => {});
+
 module.exports = router;
