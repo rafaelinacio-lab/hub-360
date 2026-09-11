@@ -938,7 +938,7 @@ router.post('/prompt-analise/test', authMiddleware, requireRole('admin'), async 
 // sincronização busca UM CHAMADO POR VEZ (fila de pendentes, igual ao processamento de IA),
 // respeitando o limite de ~10 requisições/minuto do Movidesk.
 
-const API_TICKET_URL = 'https://api.movidesk.com/public/v1/tickets';
+const API_TICKET_URL = 'https://apimovidesk.viasoftcloud.com.br/tickets';
 
 function normalizeSurveyValue(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -1285,7 +1285,7 @@ router.post('/modulo/sync/stop', authMiddleware, requireRole('admin'), (req, res
 // Idempotente: usa INSERT ... ON CONFLICT DO NOTHING, portanto re-importar não
 // duplica chamados. Só atualiza ações/status se o chamado já existia e processado=0.
 
-const MOVIDESK_TICKETS_API = 'https://api.movidesk.com/public/v1/tickets';
+const MOVIDESK_TICKETS_API = 'https://apimovidesk.viasoftcloud.com.br/tickets';
 
 let activeImportJob = null;
 let importJobState = {

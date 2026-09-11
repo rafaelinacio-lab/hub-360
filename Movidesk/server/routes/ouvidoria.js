@@ -137,8 +137,8 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
 });
 
 // ===== GET /ouvidoria/:ticketId/actions — ações e campos do Movidesk =====
-const MOVIDESK_TICKETS_API = 'https://api.movidesk.com/public/v1/tickets';
-const MOVIDESK_FIELDS_API  = 'https://api.movidesk.com/public/v1/customFields';
+const MOVIDESK_TICKETS_API = 'https://apimovidesk.viasoftcloud.com.br/tickets';
+const MOVIDESK_FIELDS_API  = 'https://apimovidesk.viasoftcloud.com.br/customFields';
 
 // Cache de definições de campos personalizados (válido por 1 hora)
 let _cfCache = null, _cfCacheAt = 0;

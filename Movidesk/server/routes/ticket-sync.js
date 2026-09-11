@@ -26,8 +26,8 @@ const db         = require('../db/remote');
 const fetch      = require('node-fetch');
 const { getToken } = require('./config');
 
-// API pública do Movidesk — token vai na query string (?token=...).
-const MOVIDESK_PUBLIC_API = 'https://api.movidesk.com/public/v1';
+// API gateway do Movidesk — token vai na query string (?token=...).
+const MOVIDESK_PUBLIC_API = 'https://apimovidesk.viasoftcloud.com.br';
 const RATE_MS   = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
 const BATCH     = 10;   // IDs por requisição OData (filter OR chain)
 const PAGE_SIZE = 50;   // tickets por página na importação
@@ -182,12 +182,8 @@ async function fetchByFilter(token, oDataFilter, endpoint = 'tickets') {
 
 /**
  * Fase 1 — Sincronização completa de tickets:
- *   1. Busca todos os tickets ABERTOS (sem limite de data) com o classificação certa
- *   2. Busca tickets recentes (últimos IMPORT_WINDOW_DAYS) para capturar os
- *      que foram criados e já fechados no período
- *   3. Para cada ticket encontrado:
- *        - Se não existe no banco → INSERT
- *        - Se existe e status/manifesto mudou → UPDATE
+ *   Busca tickets dos últimos IMPORT_WINDOW_DAYS (ou desde o mais recente no banco)
+ *   e faz UPSERT: INSERT se não existe, UPDATE se status/manifesto mudou.
  *
  * @returns {{ inserted: number, updated: number }}
  */
@@ -198,12 +194,8 @@ async function importPhase(token, stateKey, dbName, table) {
   // Nome da tabela sem schema (para o ON CONFLICT ... WHERE clause)
   const tableAlias = table.split('.').pop();
 
-  // ── 1. Tickets abertos (sem limite de data) ────────────────────────────────
-  const openFilter = CLOSED_STATUSES
-    .map(s => `baseStatus ne '${s}'`).join(' and ');
-  const openTickets = await fetchByFilter(token, openFilter);
-
-  // ── 2. Tickets recentes (podem incluir os já encerrados) ───────────────────
+  // ── Janela de importação: desde o ticket mais recente no banco (−1 dia)
+  //    ou IMPORT_WINDOW_DAYS atrás, o que for mais antigo ─────────────────────
   let since = new Date();
   since.setDate(since.getDate() - IMPORT_WINDOW_DAYS);
   try {
@@ -217,12 +209,11 @@ async function importPhase(token, stateKey, dbName, table) {
   } catch {}
 
   const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const recentTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`);
+  const allTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`);
 
-  // ── Deduplica por id (open tem prioridade — dados mais recentes) ───────────
+  // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
-  for (const t of recentTickets) ticketMap.set(t.id, t);
-  for (const t of openTickets)   ticketMap.set(t.id, t); // sobrescreve com o aberto
+  for (const t of allTickets) ticketMap.set(t.id, t);
 
   // ── UPSERT para cada ticket da classificação certa ─────────────────────────
   let inserted = 0, updated = 0;
