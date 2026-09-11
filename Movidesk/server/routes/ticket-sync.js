@@ -211,7 +211,14 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
 
   const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
   const onProgress = state ? (n => { state.importFetched = n; }) : null;
-  const allTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`, 'tickets', onProgress);
+
+  // Filtra diretamente na API pelo campo personalizado 23946 (Classificação de Ticket)
+  // usando OData lambda — só baixa os tickets da classificação certa
+  const cfFilter = `customFieldValues/any(f: f/customFieldId eq ${CF_CLASSIFICACAO}` +
+                   ` and f/items/any(i: i/customFieldItem eq '${expectedClass}'))`;
+  const oDataFilter = `createdDate ge ${dateStr} and ${cfFilter}`;
+
+  const allTickets = await fetchByFilter(token, oDataFilter, 'tickets', onProgress);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
