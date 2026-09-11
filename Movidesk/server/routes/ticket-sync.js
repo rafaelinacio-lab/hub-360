@@ -150,7 +150,7 @@ async function fetchByFilter(token, oDataFilter, endpoint = 'tickets', onProgres
   while (true) {
     const params = new URLSearchParams({
       token,
-      '$select':  'id,subject,baseStatus,status,resolvedIn,createdDate,ownerTeam,owner',
+      '$select':  'id,subject,baseStatus,status,resolvedIn,createdDate,ownerTeam,owner,customFieldValues',
       '$filter':  oDataFilter,
       '$expand':  'customFieldValues,owner',
       '$orderby': 'createdDate desc',
