@@ -209,6 +209,8 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
     const cfSample = (sample.customFieldValues || []).find(f => f.customFieldId === CF_CLASSIFICACAO);
     console.log(`[ticket-sync][${stateKey}] sample ticket ${sample.id} customFieldValues[23946]:`, JSON.stringify(cfSample));
   }
+  const classified = allTickets.filter(t => getClassification(t) === expectedClass);
+  console.log(`[ticket-sync][${stateKey}] ${classified.length}/${allTickets.length} tickets passaram no filtro de classificação "${expectedClass}"`);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
