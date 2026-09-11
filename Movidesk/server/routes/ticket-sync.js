@@ -212,13 +212,9 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
   const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
   const onProgress = state ? (n => { state.importFetched = n; }) : null;
 
-  // Filtra diretamente na API pelo campo personalizado 23946 (Classificação de Ticket)
-  // usando OData lambda — só baixa os tickets da classificação certa
-  const cfFilter = `customFieldValues/any(f: f/customFieldId eq ${CF_CLASSIFICACAO}` +
-                   ` and f/items/any(i: i/customFieldItem eq '${expectedClass}'))`;
-  const oDataFilter = `createdDate ge ${dateStr} and ${cfFilter}`;
-
-  const allTickets = await fetchByFilter(token, oDataFilter, 'tickets', onProgress);
+  // Busca por data — classificação filtrada client-side (Movidesk não suporta OData lambda)
+  const allTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`, 'tickets', onProgress);
+  console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets baixados, filtrando por classificação "${expectedClass}"…`);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
