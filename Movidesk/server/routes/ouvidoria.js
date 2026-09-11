@@ -45,7 +45,7 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
       OUVIDORIA_DB,
       `SELECT ${OUVIDORIA_COLUMNS} FROM public.ouvidoria
        WHERE base_status IS NULL
-          OR base_status NOT IN ('Resolved','Closed','Cancelled','Resolvido','Fechado','Cancelado')
+          OR base_status NOT IN ('Resolved','Closed','Canceled','Resolvido','Fechado','Cancelado')
        ORDER BY criado_em DESC`
     );
     const rows = result.rows || [];

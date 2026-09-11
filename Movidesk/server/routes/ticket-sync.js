@@ -134,7 +134,10 @@ function getClassification(ticket) {
 }
 
 // Status que indicam ticket encerrado (usado no filtro da API e na query de fase 2)
-const CLOSED_STATUSES = ['Resolved', 'Closed', 'Cancelled'];
+const CLOSED_STATUSES = ['Resolved', 'Closed', 'Canceled'];
+
+// Rule ID do campo personalizado 23946 (Classificação de Ticket) no Movidesk
+const CF_CLASSIFICACAO_RULE = 11397;
 
 /**
  * Busca tickets da API pública com um filtro OData arbitrário, paginando.
@@ -197,11 +200,13 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
 
   const onProgress = state ? (n => { state.importFetched = n; }) : null;
 
-  // Filtra status + classificação diretamente na API
+  // Filtra status + classificação diretamente na API do Movidesk
   const statusFilter = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
-  const cfFilter     = `customFieldValues/any(f: f/customFieldId eq ${CF_CLASSIFICACAO} and f/value eq '${expectedClass}')`;
+  const cfFilter     = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+                       ` and cf/customFieldRuleId eq ${CF_CLASSIFICACAO_RULE}` +
+                       ` and cf/items/any(item: item/customFieldItem eq '${expectedClass}'))`;
   const allTickets   = await fetchByFilter(token, `${statusFilter} and ${cfFilter}`, 'tickets', onProgress);
-  console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets baixados com filtro de classificação`);
+  console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets baixados com filtro de classificação "${expectedClass}"`);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
@@ -365,7 +370,7 @@ async function runSync(stateKey, dbName, table) {
         `SELECT ticket_id FROM ${table}
          WHERE sincronizado_em IS NULL
             OR base_status IS NULL
-            OR base_status NOT IN ('Closed','Resolved','Cancelled','Cancelado','Fechado','Resolvido')
+            OR base_status NOT IN ('Closed','Resolved','Canceled','Cancelado','Fechado','Resolvido')
          ORDER BY criado_em DESC`);
 
       state.total = rows.length;
