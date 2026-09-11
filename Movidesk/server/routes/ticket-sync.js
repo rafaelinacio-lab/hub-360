@@ -218,9 +218,8 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
   // ── UPSERT para cada ticket da classificação certa ─────────────────────────
   let inserted = 0, updated = 0;
 
+  // A classificação já foi filtrada pela API via OData — não revalida client-side
   for (const t of ticketMap.values()) {
-    if (getClassification(t) !== expectedClass) continue;
-
     const owner   = t.owner;
     const orgName = owner?.organization?.businessName
                  || owner?.businessName
