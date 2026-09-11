@@ -397,13 +397,17 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 
 .dh-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
 .meta-chip{
-  display:inline-flex;align-items:center;gap:7px;
+  display:inline-flex;align-items:flex-start;gap:7px;
   padding:6px 10px;border-radius:8px;
   border:1px solid var(--border);background:var(--surface-low);
+  cursor:default;
 }
-.meta-chip .sym{font-size:14px;color:var(--t3)}
+.meta-chip.mc-long{cursor:pointer}
+.meta-chip .sym{font-size:14px;color:var(--t3);margin-top:2px;flex-shrink:0}
 .mc-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;line-height:1;margin-bottom:2px}
-.mc-v{font-size:12px;font-weight:600;color:var(--t1);line-height:1}
+.mc-v{font-size:12px;font-weight:600;color:var(--t1);line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:180px}
+.meta-chip.mc-open .mc-v{-webkit-line-clamp:unset;display:block;max-width:260px}
 
 .dh-warn{
   display:flex;align-items:center;gap:7px;
@@ -812,11 +816,18 @@ function openDrawer(id){
   document.getElementById('d-sub').textContent=r.assunto_ouvidoria||'';
 
   // meta chips
-  document.getElementById('d-chips').innerHTML=`
-    <div class="meta-chip"><span class="sym">calendar_month</span><div><span class="mc-l">Registrado em</span><span class="mc-v">${fmtFull(r.criado_em)}</span></div></div>
-    <div class="meta-chip"><span class="sym">history</span><div><span class="mc-l">Chamados anteriores</span><span class="mc-v">${tot}</span></div></div>
-    ${r.servico_ouvidoria_nome?`<div class="meta-chip"><span class="sym">category</span><div><span class="mc-l">Serviço</span><span class="mc-v">${esc(r.servico_ouvidoria_nome)}</span></div></div>`:''}
-  `;
+  function mkChip(sym,label,val){
+    const v=String(val||'');
+    const long=v.length>40;
+    return `<div class="meta-chip${long?' mc-long':''}" ${long?'onclick="this.classList.toggle(\'mc-open\')"':''}>
+      <span class="sym">${sym}</span>
+      <div><span class="mc-l">${label}</span><span class="mc-v">${esc(v)}</span></div>
+    </div>`;
+  }
+  document.getElementById('d-chips').innerHTML=
+    mkChip('calendar_month','Registrado em',fmtFull(r.criado_em))+
+    mkChip('history','Chamados anteriores',tot)+
+    (r.servico_ouvidoria_nome?mkChip('category','Serviço',r.servico_ouvidoria_nome):'');
 
   // body sections
   const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
