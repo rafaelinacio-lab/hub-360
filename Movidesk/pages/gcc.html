@@ -197,13 +197,6 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 .fil-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .fil-ico{font-size:16px;color:var(--t3)}
 .fil-label{font-size:11px;color:var(--t3);white-space:nowrap;font-weight:500;letter-spacing:.02em}
-.fil-date{
-  padding:5px 9px;border:1px solid var(--border);border-radius:7px;
-  background:var(--surface-low);color:var(--t1);
-  font-size:12px;font-family:inherit;outline:none;cursor:pointer;max-width:132px;
-}
-.fil-date:focus{border-color:var(--orange)}
-html.dark .fil-date{color-scheme:dark}
 
 #gcc-count{font-size:12px;color:var(--t3);white-space:nowrap;margin-left:auto}
 
@@ -617,13 +610,18 @@ html.dark .fil-date{color-scheme:dark}
       <div class="fil-group">
         <span class="sym fil-ico">event</span>
         <span class="fil-label">Resolução</span>
-        <select class="sort-sel" id="gcc-year" onchange="setYearFilter('gcc')">
+        <select class="sort-sel" id="gcc-year" onchange="applyFilters()">
           <option value="">Todos os anos</option>
         </select>
-        <span class="fil-label">ou</span>
-        <input type="date" class="fil-date" id="gcc-date-from" onchange="document.getElementById('gcc-year').value='';applyFilters()" title="Data de resolução (de)">
-        <span class="fil-label">até</span>
-        <input type="date" class="fil-date" id="gcc-date-to" onchange="document.getElementById('gcc-year').value='';applyFilters()" title="Data de resolução (até)">
+        <select class="sort-sel" id="gcc-month" onchange="applyFilters()">
+          <option value="">Todos os meses</option>
+          <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+          <option value="3">Março</option><option value="4">Abril</option>
+          <option value="5">Maio</option><option value="6">Junho</option>
+          <option value="7">Julho</option><option value="8">Agosto</option>
+          <option value="9">Setembro</option><option value="10">Outubro</option>
+          <option value="11">Novembro</option><option value="12">Dezembro</option>
+        </select>
       </div>
       <div class="vbar"></div>
       <select class="sort-sel" id="gcc-org" onchange="applyFilters()">
@@ -830,33 +828,25 @@ function setLocusFilter(k){
   applyFilters();
 }
 
-// ── Filtro rápido por ano ─────────────────────────────────────────────────────
-function setYearFilter(prefix){
-  const year=document.getElementById(prefix+'-year').value;
-  document.getElementById(prefix+'-date-from').value=year?year+'-01-01':'';
-  document.getElementById(prefix+'-date-to').value  =year?year+'-12-31':'';
-  applyFilters();
-}
-
 // ── Filtrar + Renderizar ──────────────────────────────────────────────────────
 function applyFilters(){
   const q=(document.getElementById('gcc-search')?.value||'').toLowerCase().trim();
   const order=document.getElementById('gcc-sort')?.value||'recentes';
   const servicoFil=document.getElementById('gcc-servico')?.value||'';
   const orgFil=document.getElementById('gcc-org')?.value||'';
-  const dateFrom=document.getElementById('gcc-date-from')?.value||''; // YYYY-MM-DD
-  const dateTo=document.getElementById('gcc-date-to')?.value||'';
+  const yearFil=parseInt(document.getElementById('gcc-year')?.value)||0;
+  const monthFil=parseInt(document.getElementById('gcc-month')?.value)||0;
 
   let rows=_rows.filter(r=>{
     if(_filterLocus!=='all'&&locusKey(r.classificacao_locus)!==_filterLocus) return false;
     if(servicoFil&&r.servico_gcc!==servicoFil) return false;
     if(orgFil&&r.organizacao!==orgFil) return false;
-    // Filtro por data de resolução
-    if(dateFrom||dateTo){
+    // Filtro por ano/mês de resolução
+    if(yearFil||monthFil){
       const d=r.resolvido_em?new Date(r.resolvido_em):null;
-      if(!d) return false; // sem data de resolução → exclui quando há filtro de data
-      if(dateFrom&&d<new Date(dateFrom+'T00:00:00')) return false;
-      if(dateTo&&d>new Date(dateTo+'T23:59:59')) return false;
+      if(!d) return false;
+      if(yearFil&&d.getFullYear()!==yearFil) return false;
+      if(monthFil&&(d.getMonth()+1)!==monthFil) return false;
     }
     if(!q) return true;
     const rel=(r.chamados_relacionados||[]).map(c=>c.motivo).join(' ');
