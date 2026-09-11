@@ -19,7 +19,10 @@ const db         = require('../db/remote');
 const fetch      = require('node-fetch');
 const { getToken } = require('./config');
 
-const API_BASE  = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
+// API pública do Movidesk — token vai na query string (?token=...).
+// O gateway interno (apimovidesk.viasoftcloud.com.br / X-Gateway-Token) usa
+// credenciais diferentes e retorna 401 com o token do config.
+const MOVIDESK_PUBLIC_API = 'https://api.movidesk.com/public/v1';
 const RATE_MS   = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
 const BATCH     = 10;   // IDs por requisição OData (filter OR chain)
 
@@ -50,39 +53,35 @@ async function ensureColumns(dbName, table) {
   }
 }
 
-// ── Busca na API (tenta /tickets e depois /tickets/past) ─────────────────────
-// Retenta o mesmo endpoint até MAX_RETRIES vezes em caso de 429 antes de
-// passar para o próximo, pois ambos compartilham o mesmo rate-limit e avançar
-// logo após um 429 apenas repete o erro.
+// ── Busca na API pública do Movidesk (token na query string) ─────────────────
+// Tenta /tickets e depois /tickets/past. Retenta o mesmo endpoint até
+// MAX_RETRIES vezes em caso de 429 com backoff exponencial.
 const MAX_RETRIES = 4;
 
 async function apiFetch(token, ids) {
   const filter = ids.map(id => `id eq ${id}`).join(' or ');
-  const params = new URLSearchParams({
+  const baseParams = {
+    'token':    token,
     '$select':  'id,status,baseStatus,resolvedIn',
     '$filter':  filter,
     '$orderby': 'id asc',
     '$top':     String(ids.length),
-  });
+  };
 
-  for (const base of [`${API_BASE}/public/v1/tickets`, `${API_BASE}/public/v1/tickets/past`]) {
-    const url = `${base}?${params.toString()}`;
+  for (const endpoint of ['tickets', 'tickets/past']) {
+    const url = `${MOVIDESK_PUBLIC_API}/${endpoint}?${new URLSearchParams(baseParams).toString()}`;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const resp = await fetch(url, {
-          headers: { 'X-Gateway-Token': token },
-          timeout: 15000,
-        });
+        const resp = await fetch(url, { timeout: 15000 });
         if (resp.status === 429) {
-          // Retenta o mesmo endpoint após backoff exponencial
-          await sleep(65000 * (attempt + 1));
+          await sleep(65000 * (attempt + 1)); // backoff: 65s, 130s, 195s, 260s
           continue;
         }
-        if (!resp.ok) { await sleep(RATE_MS); break; } // erro diferente → próximo endpoint
+        if (!resp.ok) { await sleep(RATE_MS); break; } // outro erro → próximo endpoint
         const raw  = await resp.json();
         const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
         if (list.length) return list;
-        break; // resposta ok mas vazia → tenta tickets/past
+        break; // ok mas vazio → tenta tickets/past
       } catch { break; /* erro de rede → próximo endpoint */ }
     }
     await sleep(RATE_MS);
