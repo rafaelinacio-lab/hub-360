@@ -27,7 +27,7 @@ const fetch      = require('node-fetch');
 const { getToken } = require('./config');
 
 // API gateway do Movidesk — token vai na query string (?token=...).
-const MOVIDESK_PUBLIC_API = 'https://apimovidesk.viasoftcloud.com.br';
+const MOVIDESK_PUBLIC_API = 'https://apimovidesk.viasoftcloud.com.br/public/v1';
 const RATE_MS   = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
 const BATCH     = 10;   // IDs por requisição OData (filter OR chain)
 const PAGE_SIZE = 50;   // tickets por página na importação

@@ -73,8 +73,8 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
 });
 
 // ===== GET /gcc/:ticketId/actions — ações e campos do Movidesk =====
-const MOVIDESK_TICKETS_API = 'https://apimovidesk.viasoftcloud.com.br/tickets';
-const MOVIDESK_FIELDS_API  = 'https://apimovidesk.viasoftcloud.com.br/customFields';
+const MOVIDESK_TICKETS_API = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
+const MOVIDESK_FIELDS_API  = 'https://apimovidesk.viasoftcloud.com.br/public/v1/customFields';
 
 let _cfCache = null, _cfCacheAt = 0;
 async function getCustomFieldDefs(token) {

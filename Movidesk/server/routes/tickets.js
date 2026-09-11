@@ -7,7 +7,7 @@ const { decryptToken } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
 const datalake = require('../utils/datalakeClient');
 
-const MOVIDESK_API = 'https://apimovidesk.viasoftcloud.com.br/tickets';
+const MOVIDESK_API = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
 
 // Sentinela pro filtro de status da aba Movidesk representar chamados com
 // baseStatus NULL/vazio no banco (linhas "stub" — só id, sem os outros dados
