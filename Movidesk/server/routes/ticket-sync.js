@@ -197,10 +197,11 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
 
   const onProgress = state ? (n => { state.importFetched = n; }) : null;
 
-  // Busca todos os tickets abertos (sem filtro de data) — classificação filtrada client-side
+  // Filtra status + classificação diretamente na API
   const statusFilter = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
-  const allTickets   = await fetchByFilter(token, statusFilter, 'tickets', onProgress);
-  console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets abertos baixados, filtrando por classificação "${expectedClass}"…`);
+  const cfFilter     = `customFieldValues/any(f: f/customFieldId eq ${CF_CLASSIFICACAO} and f/value eq '${expectedClass}')`;
+  const allTickets   = await fetchByFilter(token, `${statusFilter} and ${cfFilter}`, 'tickets', onProgress);
+  console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets baixados com filtro de classificação`);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
