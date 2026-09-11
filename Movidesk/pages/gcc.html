@@ -1137,7 +1137,7 @@ function tlItem(a){
     <div style="min-width:0">
       <div class="tl-meta">
         <span class="tl-author">${esc(author)}</span>
-        <span class="tl-date">${a.date?fmtFull(a.date):''}</span>
+        <span class="tl-date">${fmtFull(a.createdDate||a.date)}</span>
         <span class="tl-badge">${label}</span>
         ${statusBadge}
       </div>
