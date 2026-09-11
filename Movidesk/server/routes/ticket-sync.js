@@ -195,27 +195,11 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
   // Nome da tabela sem schema (para o ON CONFLICT ... WHERE clause)
   const tableAlias = table.split('.').pop();
 
-  // ── Janela de importação: desde o ticket mais recente no banco (−1 dia)
-  //    ou IMPORT_WINDOW_DAYS atrás, o que for mais antigo ─────────────────────
-  let since = new Date();
-  since.setDate(since.getDate() - IMPORT_WINDOW_DAYS);
-  try {
-    const { rows } = await db.queryDatabase(dbName,
-      `SELECT MAX(criado_em) AS last FROM ${table}`);
-    if (rows[0]?.last) {
-      const d = new Date(rows[0].last);
-      d.setDate(d.getDate() - 1);
-      if (d > since) since = d;
-    }
-  } catch {}
-
-  const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
   const onProgress = state ? (n => { state.importFetched = n; }) : null;
 
-  // Busca apenas tickets abertos no período — classificação filtrada client-side
+  // Busca todos os tickets abertos (sem filtro de data) — classificação filtrada client-side
   const statusFilter = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
-  const oDataFilter  = `createdDate ge ${dateStr} and ${statusFilter}`;
-  const allTickets   = await fetchByFilter(token, oDataFilter, 'tickets', onProgress);
+  const allTickets   = await fetchByFilter(token, statusFilter, 'tickets', onProgress);
   console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets abertos baixados, filtrando por classificação "${expectedClass}"…`);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
