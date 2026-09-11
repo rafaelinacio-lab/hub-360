@@ -336,6 +336,7 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 .tbadge.t-sug{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-bd)}
 .tbadge.t-oth{background:var(--slate-bg);color:var(--slate);border-color:var(--slate-bd)}
 .tbadge.t-amb{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
+.tbadge.t-mani{background:var(--slate-bg);color:var(--slate);border-color:var(--slate-bd)}
 
 .card-body{padding:0 14px 12px;flex:1}
 .card-tid{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;font-weight:500;margin-bottom:3px}
@@ -614,7 +615,6 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
       <select id="ov-sort" class="sort-sel">
         <option value="rec">Mais recentes</option>
         <option value="ant">Mais antigas</option>
-        <option value="rei">Maior reincidência</option>
       </select>
       <span id="ov-count"></span>
       <button class="btn-refresh" onclick="loadOuvidoria()">
@@ -898,7 +898,7 @@ function render(){
   <div class="card-top">
     <div class="card-top-badges">
       <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${TIPO_LABEL[tk]}</span>
-      ${probs.length>0&&tk!=='elo'?`<span class="tbadge t-amb"><span class="sym">repeat</span>Reincidente</span>`:''}
+      ${manifesto?`<span class="tbadge t-mani">${manifesto}</span>`:''}
       ${statusBadge(r.status_movidesk,r.base_status)}
     </div>
     <span class="card-date">${fmtShort(r.criado_em)}</span>
@@ -907,7 +907,6 @@ function render(){
     <div class="card-tid">#${esc(String(r.ticket_id))}</div>
     <div class="card-org">${esc(r.organizacao||'Organização não informada')}</div>
     <div class="card-sub">${esc(r.assunto_ouvidoria||'—')}</div>
-    ${manifesto?`<div class="card-manifesto"><span class="sym">person_pin</span>${manifesto}</div>`:''}
   </div>
   <div class="card-footer">
     <span class="recpill${probs.length>0&&tk!=='elo'?' warn':''}">
