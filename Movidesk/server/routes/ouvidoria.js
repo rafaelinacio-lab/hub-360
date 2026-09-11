@@ -90,7 +90,7 @@ router.get('/manifesto-batch', authMiddleware, requireTabAccess('ouvidoria'), as
       try {
         const resp = await fetch(
           `${MOVIDESK_TICKETS_API}?${new URLSearchParams({
-            token, '$expand': 'customFieldValues', '$filter': filter, '$top': String(batch.length),
+            token, '$select': 'id,customFieldValues', '$expand': 'customFieldValues', '$filter': filter, '$top': String(batch.length),
           })}`,
           { timeout: 15000 }
         );
