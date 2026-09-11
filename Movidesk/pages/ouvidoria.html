@@ -898,7 +898,6 @@ function render(){
   <div class="card-top">
     <div class="card-top-badges">
       <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${TIPO_LABEL[tk]}</span>
-      ${manifesto?`<span class="tbadge t-mani">${manifesto}</span>`:''}
       ${statusBadge(r.status_movidesk,r.base_status)}
     </div>
     <span class="card-date">${fmtShort(r.criado_em)}</span>
@@ -906,6 +905,7 @@ function render(){
   <div class="card-body">
     <div class="card-tid">#${esc(String(r.ticket_id))}</div>
     <div class="card-org">${esc(r.organizacao||'Organização não informada')}</div>
+    ${manifesto?`<div class="card-sub">${manifesto}</div>`:''}
   </div>
   <div class="card-footer">
     <span class="recpill${probs.length>0&&tk!=='elo'?' warn':''}">
