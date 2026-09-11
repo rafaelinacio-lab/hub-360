@@ -102,10 +102,13 @@ async function runSync(stateKey, dbName, table) {
     try {
       await ensureColumns(dbName, table);
 
-      // Tickets que ainda não foram fechados OU nunca sincronizados
+      // Tickets que ainda não foram fechados OU nunca sincronizados OU cujo
+      // status ainda não foi preenchido (base_status IS NULL não é capturado
+      // pelo NOT IN, pois NULL NOT IN (...) = NULL em SQL).
       const { rows } = await db.queryDatabase(dbName,
         `SELECT ticket_id FROM ${table}
          WHERE sincronizado_em IS NULL
+            OR base_status IS NULL
             OR base_status NOT IN ('Closed','Resolved','Cancelled','Cancelado','Fechado','Resolvido')
          ORDER BY criado_em DESC`);
 
