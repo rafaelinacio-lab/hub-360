@@ -51,6 +51,11 @@ async function ensureColumns(dbName, table) {
 }
 
 // ── Busca na API (tenta /tickets e depois /tickets/past) ─────────────────────
+// Retenta o mesmo endpoint até MAX_RETRIES vezes em caso de 429 antes de
+// passar para o próximo, pois ambos compartilham o mesmo rate-limit e avançar
+// logo após um 429 apenas repete o erro.
+const MAX_RETRIES = 4;
+
 async function apiFetch(token, ids) {
   const filter = ids.map(id => `id eq ${id}`).join(' or ');
   const params = new URLSearchParams({
@@ -62,17 +67,24 @@ async function apiFetch(token, ids) {
 
   for (const base of [`${API_BASE}/public/v1/tickets`, `${API_BASE}/public/v1/tickets/past`]) {
     const url = `${base}?${params.toString()}`;
-    try {
-      const resp = await fetch(url, {
-        headers: { 'X-Gateway-Token': token },
-        timeout: 15000,
-      });
-      if (resp.status === 429) { await sleep(65000); continue; }
-      if (!resp.ok) { await sleep(RATE_MS); continue; }
-      const raw  = await resp.json();
-      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
-      if (list.length) return list;
-    } catch { /* tenta próximo endpoint */ }
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const resp = await fetch(url, {
+          headers: { 'X-Gateway-Token': token },
+          timeout: 15000,
+        });
+        if (resp.status === 429) {
+          // Retenta o mesmo endpoint após backoff exponencial
+          await sleep(65000 * (attempt + 1));
+          continue;
+        }
+        if (!resp.ok) { await sleep(RATE_MS); break; } // erro diferente → próximo endpoint
+        const raw  = await resp.json();
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+        if (list.length) return list;
+        break; // resposta ok mas vazia → tenta tickets/past
+      } catch { break; /* erro de rede → próximo endpoint */ }
+    }
     await sleep(RATE_MS);
   }
   return [];
