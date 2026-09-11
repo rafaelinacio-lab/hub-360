@@ -54,7 +54,7 @@ const syncState = {
 
 function mkState() {
   return { running: false, phase: 'idle', done: 0, total: 0, updated: 0, failed: 0,
-           imported: 0, importInserted: 0, importUpdated: 0,
+           imported: 0, importInserted: 0, importUpdated: 0, importFetched: 0,
            startedAt: null, finishedAt: null, error: null };
 }
 
@@ -142,7 +142,7 @@ const CLOSED_STATUSES = ['Resolved', 'Closed', 'Cancelled'];
  * @param {string} oDataFilter  - ex: "baseStatus ne 'Resolved' and ..."
  * @param {string} [endpoint]   - 'tickets' ou 'tickets/past'
  */
-async function fetchByFilter(token, oDataFilter, endpoint = 'tickets') {
+async function fetchByFilter(token, oDataFilter, endpoint = 'tickets', onProgress = null) {
   const tickets = [];
   let skip = 0;
 
@@ -172,6 +172,7 @@ async function fetchByFilter(token, oDataFilter, endpoint = 'tickets') {
 
     if (!list.length) break;
     tickets.push(...list);
+    if (onProgress) onProgress(tickets.length);
     if (list.length < PAGE_SIZE) break;
     skip += PAGE_SIZE;
     await sleep(RATE_MS);
@@ -187,7 +188,7 @@ async function fetchByFilter(token, oDataFilter, endpoint = 'tickets') {
  *
  * @returns {{ inserted: number, updated: number }}
  */
-async function importPhase(token, stateKey, dbName, table) {
+async function importPhase(token, stateKey, dbName, table, state = null) {
   const expectedClass = CF_CLASS_BY_KEY[stateKey];
   if (!expectedClass) return { inserted: 0, updated: 0 };
 
@@ -209,7 +210,8 @@ async function importPhase(token, stateKey, dbName, table) {
   } catch {}
 
   const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const allTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`);
+  const onProgress = state ? (n => { state.importFetched = n; }) : null;
+  const allTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`, 'tickets', onProgress);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
@@ -358,7 +360,7 @@ async function runSync(stateKey, dbName, table) {
       // ── Fase 1: importar tickets novos ──────────────────────────────────────
       state.phase = 'importando';
       try {
-        const imp = await importPhase(token, stateKey, dbName, table);
+        const imp = await importPhase(token, stateKey, dbName, table, state);
         state.imported = (imp?.inserted ?? 0) + (imp?.updated ?? 0);
         state.importInserted = imp?.inserted ?? 0;
         state.importUpdated  = imp?.updated  ?? 0;
