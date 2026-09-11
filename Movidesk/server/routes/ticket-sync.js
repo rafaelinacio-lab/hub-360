@@ -212,9 +212,11 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
   const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
   const onProgress = state ? (n => { state.importFetched = n; }) : null;
 
-  // Busca por data — classificação filtrada client-side (Movidesk não suporta OData lambda)
-  const allTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`, 'tickets', onProgress);
-  console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets baixados, filtrando por classificação "${expectedClass}"…`);
+  // Busca apenas tickets abertos no período — classificação filtrada client-side
+  const statusFilter = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+  const oDataFilter  = `createdDate ge ${dateStr} and ${statusFilter}`;
+  const allTickets   = await fetchByFilter(token, oDataFilter, 'tickets', onProgress);
+  console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets abertos baixados, filtrando por classificação "${expectedClass}"…`);
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
