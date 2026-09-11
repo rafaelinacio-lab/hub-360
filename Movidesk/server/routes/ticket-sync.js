@@ -53,7 +53,7 @@ const syncState = {
 };
 
 function mkState() {
-  return { running: false, done: 0, total: 0, updated: 0, failed: 0,
+  return { running: false, phase: 'idle', done: 0, total: 0, updated: 0, failed: 0,
            imported: 0, importInserted: 0, importUpdated: 0,
            startedAt: null, finishedAt: null, error: null };
 }
@@ -356,6 +356,7 @@ async function runSync(stateKey, dbName, table) {
         getToken((e, t) => e ? fail(e) : ok(t)));
 
       // ── Fase 1: importar tickets novos ──────────────────────────────────────
+      state.phase = 'importando';
       try {
         const imp = await importPhase(token, stateKey, dbName, table);
         state.imported = (imp?.inserted ?? 0) + (imp?.updated ?? 0);
@@ -367,6 +368,7 @@ async function runSync(stateKey, dbName, table) {
       }
 
       // ── Fase 2: atualizar status dos tickets existentes ─────────────────────
+      state.phase = 'sincronizando';
       const { rows } = await db.queryDatabase(dbName,
         `SELECT ticket_id FROM ${table}
          WHERE sincronizado_em IS NULL
@@ -416,6 +418,7 @@ async function runSync(stateKey, dbName, table) {
     } catch (e) {
       state.error = e.message;
     } finally {
+      state.phase      = 'idle';
       state.running    = false;
       state.finishedAt = new Date().toISOString();
     }

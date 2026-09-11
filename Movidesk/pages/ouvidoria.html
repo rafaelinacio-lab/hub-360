@@ -1148,7 +1148,10 @@ async function checkSyncStatus(){
     const s=await apiFetch('/ouvidoria/sync/status','GET');
     if(s.running){
       const pct=s.total?Math.round(s.done/s.total*100):0;
-      showToast(`Sincronizando tickets…`,`${s.done}/${s.total} (${pct}%) · ${s.updated} atualizados`);
+      const phaseLabel = s.phase==='importando'
+        ? `Importando tickets da API…`
+        : `${s.done}/${s.total} (${pct}%) · ${s.updated} atualizados`;
+      showToast(`Sincronizando tickets…`, phaseLabel);
       document.getElementById('btn-sync').disabled=true;
     } else {
       if(_syncPoll){ clearInterval(_syncPoll); _syncPoll=null; }
