@@ -1000,6 +1000,33 @@ async function apiFetch(path,method='GET'){
 const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
 const TL_COLLAPSED=4; // ações visíveis antes de expandir
 
+// Mapa estático de IDs → nomes (fallback quando a API /customFields falha)
+const STATIC_CF_NAMES={
+  22000:'Tipo de Manifesto',22003:'Manifesto Procedente',23946:'Classificação de Ticket',
+  24523:'GCC - Locus Externo',24986:'GCC - Locus Interno',26214:'GCC - MRR',26215:'GCC - Data',
+  38595:'Manifesto direcionado a',43724:'GCC - Data Rescisão',58049:'GCC - Data Reversão',
+  59012:'GCC - Real Motivo',61982:'GCC - Tipo de Locus',67575:'AC - 2020 (R$)',
+  67576:'AC - 2021 (R$)',67577:'AC - Acordado (R$)',71424:'Valor do AC',
+  72413:'A eficácia do serviço foi atendida?',78145:'GCC - Data Rescisão Programada',
+  79437:'Ouvidoria: Ação tomada',80108:'Ouvidoria: Tipo de acesso',
+  87894:'GCC - Tipo Rescisão',92847:'GCC - MRR pós churn',94219:'GCC - Data do Contrato',
+  96401:'GCC - Sistema Que Irá Utilizar',98697:'GCC - Verticais Insatisfação',
+  98699:'Observação - Inteligência de mercado',102445:'GCC - Data Solicitação de Rescisão',
+  151926:'GCC - Produto',172975:'Agente da Ouvidoria',
+  216954:'GCC - Tipo de Rescisão Parcial',216958:'GCC - Módulos',240113:'Analise IA',
+  37169:'Analista/Desenvolvedor responsável',54937:'Consultor Atendimento',
+  71417:'Situação da Melhoria',71427:'Case de sucesso?',71461:'Valor - AC',
+  71486:'Atendimento Financeiro',72103:'Cidade',73907:'Bug procedente?',
+  77260:'Triagem Acertou Urgência?',77281:'Analista de Triagem',77399:'Atendimento em plantão?',
+  83250:'Classificação de Recusa',148916:'Causa',173931:'Triagem Automática',
+  180036:'Caracteristica do Atendimento',185288:'Urgência Raiz',
+  224107:'Motivo da Insatisfação:',224109:'Motivo da Improcedência:',
+  227770:'Departamento',227833:'Motivo da Improcedência Reabertura:',
+  227837:'Motivo da procedência Reabertura:',230757:'Área que Reportou',
+  230908:'Equipe Responsável',230909:'Atendentes Envolvidos',
+  239481:'Sentimento:',239482:'Satisfação:',245078:'ID NLU',245945:'Origem',
+};
+
 function tlDot(type,isPrivate){
   if(isPrivate) return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">lock</span></div>`;
   if(type===1)  return `<div class="tl-dot tp-client"><span class="sym" style="font-size:15px">person</span></div>`;
@@ -1036,7 +1063,7 @@ function renderActions(data){
     html+=`<div>
       <div class="sec-lbl"><span class="sym">tune</span>Campos personalizados</div>
       <div class="cf-grid">${fields.map(f=>{
-        const name=fieldDefs[String(f.customFieldId)]||`Campo ${f.customFieldId}`;
+        const name=fieldDefs[String(f.customFieldId)]||STATIC_CF_NAMES[f.customFieldId]||`Campo ${f.customFieldId}`;
         const val=f.value||(f.items||[]).map(i=>i.customFieldItem||'').filter(Boolean).join(', ')||'—';
         return `<div class="cf-item"><span class="cf-lbl">${esc(name)}</span><span class="cf-val">${esc(String(val))}</span></div>`;
       }).join('')}</div>
