@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess } = require('./config');
+const { syncState, runSync, stopSync } = require('./ticket-sync');
 
 // Tabela public.ouvidoria é alimentada por um processo externo (fora deste painel), que já
 // grava prontos: a análise de IA (coluna `analise`), o serviço identificado da manifestação
@@ -62,4 +63,22 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
   }
 });
 
+// ===== POST /ouvidoria/sync — inicia sincronização de andamento =====
+router.post('/sync', authMiddleware, requireTabAccess('ouvidoria'), (req, res) => {
+  const state = runSync('ouvidoria', OUVIDORIA_DB, 'public.ouvidoria');
+  res.json(state);
+});
+
+// ===== POST /ouvidoria/sync/stop =====
+router.post('/sync/stop', authMiddleware, requireTabAccess('ouvidoria'), (req, res) => {
+  stopSync('ouvidoria');
+  res.json(syncState.ouvidoria);
+});
+
+// ===== GET /ouvidoria/sync/status =====
+router.get('/sync/status', authMiddleware, requireTabAccess('ouvidoria'), (req, res) => {
+  res.json(syncState.ouvidoria);
+});
+
+router.runSync = () => runSync('ouvidoria', OUVIDORIA_DB, 'public.ouvidoria');
 module.exports = router;

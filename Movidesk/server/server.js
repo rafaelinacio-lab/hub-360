@@ -123,8 +123,10 @@ function checkCuradoriaFullLoadSchedule() {
     // Evita crescimento infinito do Set — mantém só as chaves do dia atual
     curadoriaFullLoadFiredKeys.forEach((k) => { if (!k.startsWith(dayKey)) curadoriaFullLoadFiredKeys.delete(k); });
 
-    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga bruta agendada da Curadoria (${hhmm})`);
+    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga bruta agendada da Curadoria + sync Ouvidoria/GCC (${hhmm})`);
     curadoriaRoutes.runFullLoad('scheduled');
+    ouvidoriaRoutes.runSync();
+    gccRoutes.runSync();
   });
 }
 

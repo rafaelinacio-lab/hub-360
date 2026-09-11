@@ -199,6 +199,36 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 .btn-refresh:hover{border-color:var(--border-hi);color:var(--t1)}
 .btn-refresh .sym{font-size:15px}
 
+.btn-sync{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px;border:1px solid var(--green-bd);border-radius:8px;
+  background:var(--green-bg);color:var(--green);
+  font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+.btn-sync:hover{filter:brightness(.96)}
+.btn-sync .sym{font-size:15px}
+.btn-sync:disabled{opacity:.5;cursor:default}
+
+#sync-toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:11px 18px;box-shadow:var(--sh-md);
+  display:flex;align-items:center;gap:10px;font-size:13px;color:var(--t1);
+  z-index:300;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+#sync-toast.show{opacity:1;pointer-events:auto}
+#sync-toast .sym{font-size:16px;color:var(--green)}
+#sync-toast .st-prog{font-size:11px;color:var(--t3);margin-left:2px}
+
+.status-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 6px;border-radius:4px;
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+}
+.status-badge.closed{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.status-badge.open  {background:var(--slate-bg);color:var(--slate);border:1px solid var(--slate-bd)}
+
 /* ═══ KPI bar ══════════════════════════════════════════════════════════ */
 .kpi-bar{background:var(--bg);padding:16px 24px}
 .kpi-in{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:1480px;margin:0 auto}
@@ -526,6 +556,14 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
       <button class="btn-refresh" onclick="loadGcc()">
         <span class="sym">refresh</span>Atualizar
       </button>
+      <button class="btn-sync" id="btn-sync" onclick="startSync()">
+        <span class="sym">sync</span>Sincronizar tickets
+      </button>
+    </div>
+    <div id="sync-toast">
+      <span class="sym">sync</span>
+      <span id="sync-toast-txt">Sincronizando…</span>
+      <span class="st-prog" id="sync-toast-prog"></span>
     </div>
   </header>
 
@@ -604,6 +642,15 @@ function locusKey(locus){
   return 'oth';
 }
 const LOCUS_ICON={int:'home',ext:'public',mix:'device_hub',oth:'place'};
+
+function statusBadge(status, base){
+  if(!status) return '';
+  const b=(base||'').toLowerCase();
+  const isClosed=b==='closed'||b==='resolved'||b==='cancelled'
+    ||/fecha|resolv|cancel/i.test(status);
+  if(isClosed) return `<span class="status-badge closed"><span class="sym" style="font-size:9px">check_circle</span>${esc(status)}</span>`;
+  return '';
+}
 
 // churn motivos: texto livre separado por vírgula maiúscula
 function parseMotivos(raw){
@@ -744,6 +791,7 @@ function renderGrid(rows){
       <div class="card-top">
         <div class="card-top-badges">
           <span class="tbadge l-${lk}"><span class="sym">${LOCUS_ICON[lk]}</span>${esc(locusLabel)}</span>
+          ${statusBadge(r.status_movidesk,r.base_status)}
         </div>
         <span class="card-date">${fmt(r.criado_em)}</span>
       </div>
@@ -946,7 +994,65 @@ function closeDrawer(){
 }
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
-document.addEventListener('DOMContentLoaded',loadGcc);
+document.addEventListener('DOMContentLoaded',()=>{ loadGcc(); checkSyncStatus(); });
+
+// ── Sync de andamento ──────────────────────────────────────────────────────────
+let _syncPoll=null;
+
+function showToast(txt,prog){
+  document.getElementById('sync-toast-txt').textContent=txt;
+  document.getElementById('sync-toast-prog').textContent=prog||'';
+  document.getElementById('sync-toast').classList.add('show');
+}
+function hideToast(){ document.getElementById('sync-toast').classList.remove('show'); }
+
+async function startSync(){
+  const btn=document.getElementById('btn-sync');
+  btn.disabled=true;
+  showToast('Sincronizando tickets com o Movidesk…','');
+  try{
+    await apiFetch('/gcc/sync','POST');
+    pollSyncStatus();
+  }catch(e){
+    showToast('Erro ao iniciar sync: '+e.message,'');
+    btn.disabled=false;
+    setTimeout(hideToast,4000);
+  }
+}
+
+function pollSyncStatus(){
+  if(_syncPoll) clearInterval(_syncPoll);
+  _syncPoll=setInterval(checkSyncStatus,2000);
+}
+
+async function checkSyncStatus(){
+  try{
+    const s=await apiFetch('/gcc/sync/status','GET');
+    if(s.running){
+      const pct=s.total?Math.round(s.done/s.total*100):0;
+      showToast(`Sincronizando tickets…`,`${s.done}/${s.total} (${pct}%) · ${s.updated} atualizados`);
+      document.getElementById('btn-sync').disabled=true;
+    } else {
+      if(_syncPoll){ clearInterval(_syncPoll); _syncPoll=null; }
+      document.getElementById('btn-sync').disabled=false;
+      if(s.finishedAt){
+        const msg=s.error?`Sync concluído com erro: ${s.error}`:`Sync concluído — ${s.updated} atualizado${s.updated===1?'':'s'}`;
+        showToast(msg,`${s.done} verificados`);
+        setTimeout(hideToast,5000);
+        if(s.updated>0) loadGcc();
+      }
+    }
+  }catch{ /* ignora */ }
+}
+
+async function apiFetch(path,method='GET'){
+  const token=localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
+  const r=await fetch(`${window.location.origin}/api${path}`,{
+    method,headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'}
+  });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 </script>
 </body>
 </html>

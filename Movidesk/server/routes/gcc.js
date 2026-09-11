@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess } = require('./config');
+const { syncState, runSync, stopSync } = require('./ticket-sync');
 
 // Tabela public.gcc segue o mesmo padrão de public.ouvidoria: alimentada por um processo
 // externo (fora deste painel), que já grava prontos a análise de IA (coluna `analise`), o
@@ -66,4 +67,22 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
   }
 });
 
+// ===== POST /gcc/sync — inicia sincronização de andamento =====
+router.post('/sync', authMiddleware, requireTabAccess('gcc'), (req, res) => {
+  const state = runSync('gcc', GCC_DB, 'public.gcc');
+  res.json(state);
+});
+
+// ===== POST /gcc/sync/stop =====
+router.post('/sync/stop', authMiddleware, requireTabAccess('gcc'), (req, res) => {
+  stopSync('gcc');
+  res.json(syncState.gcc);
+});
+
+// ===== GET /gcc/sync/status =====
+router.get('/sync/status', authMiddleware, requireTabAccess('gcc'), (req, res) => {
+  res.json(syncState.gcc);
+});
+
+router.runSync = () => runSync('gcc', GCC_DB, 'public.gcc');
 module.exports = router;
