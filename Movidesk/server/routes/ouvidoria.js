@@ -66,6 +66,56 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
   }
 });
 
+// ===== GET /ouvidoria/manifesto-batch?ids=1,2,3 =====
+// Busca manifesto_direcionado_a (CF 38595) na API do Movidesk para os IDs pedidos,
+// salva no banco e devolve { ticketId: valor }.
+const CF_MANIFESTO = 38595;
+const MANIFESTO_BATCH = 10;
+
+router.get('/manifesto-batch', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
+  const ids = String(req.query.ids || '')
+    .split(',').map(Number).filter(n => Number.isFinite(n) && n > 0).slice(0, 200);
+  if (!ids.length) return res.json({});
+
+  try {
+    const token = await new Promise((ok, fail) => getToken((e, t) => e ? fail(e) : ok(t)));
+    const result = {};
+
+    for (let i = 0; i < ids.length; i += MANIFESTO_BATCH) {
+      const batch  = ids.slice(i, i + MANIFESTO_BATCH);
+      const filter = batch.map(id => `id eq ${id}`).join(' or ');
+      try {
+        const resp = await fetch(
+          `${MOVIDESK_TICKETS_API}?${new URLSearchParams({
+            token, '$expand': 'customFieldValues', '$filter': filter, '$top': String(batch.length),
+          })}`,
+          { timeout: 15000 }
+        );
+        if (!resp.ok) continue;
+        const raw  = await resp.json();
+        const list = Array.isArray(raw) ? raw : (raw?.value || []);
+
+        for (const t of list) {
+          const cf = (t.customFieldValues || []).find(f => f.customFieldId === CF_MANIFESTO);
+          if (!cf) continue;
+          const val = (cf.items?.length
+            ? cf.items.map(i => String(i.customFieldItem || i.name || i.value || '').trim()).filter(Boolean).join(', ')
+            : String(cf.value || '').trim()) || null;
+          if (!val) continue;
+          result[t.id] = val;
+          db.queryDatabase(OUVIDORIA_DB,
+            `UPDATE public.ouvidoria SET manifesto_direcionado_a = $2 WHERE ticket_id = $1`,
+            [t.id, val]).catch(() => {});
+        }
+      } catch {}
+    }
+    res.json(result);
+  } catch (e) {
+    console.error('[manifesto-batch]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ===== GET /ouvidoria/:ticketId =====
 router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
   const ticketId = Number(req.params.ticketId);

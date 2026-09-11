@@ -786,6 +786,31 @@ function populateMs(id,items,allLabel,onChange){
 // ── state ────────────────────────────────────────────────────────────
 let _rows=[], _filter='all';
 
+// Busca manifesto_direcionado_a do servidor (que consulta a API Movidesk)
+// para os tickets que ainda não têm o campo, e atualiza os cards no DOM.
+async function fetchManigestos(){
+  const missing=_rows.filter(r=>!r.manifesto_direcionado_a).map(r=>r.ticket_id);
+  if(!missing.length) return;
+  try{
+    const map=await api(`/ouvidoria/manifesto-batch?ids=${missing.join(',')}`);
+    let updated=false;
+    for(const [id,val] of Object.entries(map)){
+      const row=_rows.find(r=>String(r.ticket_id)===String(id));
+      if(row){ row.manifesto_direcionado_a=val; updated=true; }
+      const card=document.querySelector(`.card[data-id="${id}"]`);
+      if(card){
+        let sub=card.querySelector('.card-sub');
+        if(!sub){
+          sub=document.createElement('div');
+          sub.className='card-sub';
+          card.querySelector('.card-body')?.appendChild(sub);
+        }
+        sub.textContent=val;
+      }
+    }
+  }catch{}
+}
+
 // ── load ─────────────────────────────────────────────────────────────
 async function loadOuvidoria(){
   try{
@@ -794,6 +819,8 @@ async function loadOuvidoria(){
     updateKpis(); updateCounts(); render();
     document.getElementById('ov-page').style.visibility='visible';
     document.getElementById('ov-loading').style.display='none';
+    // Busca manifesto_direcionado_a em background para tickets sem o campo
+    fetchManigestos();
   } catch(e){
     document.getElementById('ov-grid').innerHTML=`<div class="empty"><span class="sym">error</span><p>Erro ao carregar: ${esc(e.message)}</p></div>`;
     document.getElementById('ov-page').style.visibility='visible';
