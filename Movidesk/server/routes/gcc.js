@@ -4,14 +4,12 @@ const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
 const fetch = require('node-fetch');
-const { syncState, runSync, stopSync } = require('./ticket-sync');
 
-// Tabela public.gcc segue o mesmo padrão de public.ouvidoria: alimentada por um processo
-// externo (fora deste painel), que já grava prontos a análise de IA (coluna `analise`), o
-// tipo/serviço identificados (tipo, servico_gcc/servico_gcc_nome) e os chamados de suporte
-// do cliente que explicam a reincidência, com o motivo já redigido pela IA
-// (chamados_relacionados). Esta rota só lê e expõe esses dados.
+// Lê de public.gcc (populada pelo sync do datalake silver.*)
 const GCC_DB = 'movidesk_tickets';
+
+// CF IDs no datalake
+const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
 
 const GCC_COLUMNS = `
   ticket_id,
@@ -43,7 +41,15 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
   try {
     const result = await db.queryDatabase(
       GCC_DB,
-      `SELECT ${GCC_COLUMNS} FROM public.gcc
+      `SELECT
+         ticket_id, organizacao, organizacao_id, assunto_gcc,
+         descricao_gcc, total_chamados_anteriores, analise,
+         chamados_organizacao_ids, chamados_relacionados, servicos_chamados,
+         servico_gcc, servico_gcc_nome,
+         tipo_rescisao AS tipo, classificacao_locus, motivo_churn,
+         cf_24986, cf_24523,
+         criado_em, status_movidesk, base_status, resolvido_em, sincronizado_em
+       FROM public.gcc
        WHERE base_status IS NULL
           OR base_status NOT IN ('Resolved','Closed','Canceled','Resolvido','Fechado','Cancelado')
        ORDER BY criado_em DESC`
@@ -63,8 +69,16 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
   try {
     const result = await db.queryDatabase(
       GCC_DB,
-      `SELECT ${GCC_COLUMNS} FROM public.gcc WHERE ticket_id = $1`,
-      [ticketId]
+      `SELECT
+         ticket_id, organizacao, organizacao_id, assunto_gcc,
+         descricao_gcc, total_chamados_anteriores, analise,
+         chamados_organizacao_ids, chamados_relacionados, servicos_chamados,
+         servico_gcc, servico_gcc_nome,
+         tipo_rescisao AS tipo, classificacao_locus, motivo_churn,
+         cf_24986, cf_24523,
+         criado_em, status_movidesk, base_status, resolvido_em, sincronizado_em
+       FROM public.gcc WHERE ticket_id = $1`,
+      [String(ticketId)]
     );
     const row = result.rows?.[0];
     if (!row) return res.status(404).json({ error: 'Registro não encontrado' });
@@ -114,27 +128,76 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('gcc'), async 
   }
 });
 
-// ===== POST /gcc/sync — inicia sincronização de andamento =====
-router.post('/sync', authMiddleware, requireTabAccess('gcc'), (req, res) => {
-  const state = runSync('gcc', GCC_DB, 'public.gcc');
-  res.json(state);
+// ===== POST /gcc/sync — sincroniza do datalake (silver.* → public.gcc) =====
+router.post('/sync', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
+  const startedAt = new Date().toISOString();
+  try {
+    const result = await db.queryDatabase(GCC_DB, `
+      INSERT INTO public.gcc (
+        ticket_id,
+        organizacao,
+        organizacao_id,
+        assunto_gcc,
+        criado_em,
+        status_movidesk,
+        base_status,
+        sincronizado_em
+      )
+      SELECT
+        t.ticket_id::varchar(20),
+        COALESCE(tc.organizacao_nome, t.clientorganization),
+        tc.organizacao_id,
+        t.subject,
+        t.createddate,
+        t.status,
+        t.basestatus,
+        NOW()
+      FROM silver.ticket t
+      JOIN silver.ticket_campo_customizado cf_class
+        ON cf_class.ticket_id = t.ticket_id
+        AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
+        AND cf_class.valor_texto = 'Gestão de Combate ao Churn'
+      LEFT JOIN LATERAL (
+        SELECT organizacao_id, organizacao_nome
+        FROM silver.ticket_cliente
+        WHERE ticket_id = t.ticket_id
+        LIMIT 1
+      ) tc ON true
+      ON CONFLICT (ticket_id) DO UPDATE SET
+        organizacao     = EXCLUDED.organizacao,
+        organizacao_id  = EXCLUDED.organizacao_id,
+        assunto_gcc     = EXCLUDED.assunto_gcc,
+        status_movidesk = EXCLUDED.status_movidesk,
+        base_status     = EXCLUDED.base_status,
+        sincronizado_em = EXCLUDED.sincronizado_em
+      WHERE
+        public.gcc.status_movidesk  IS DISTINCT FROM EXCLUDED.status_movidesk
+        OR public.gcc.base_status   IS DISTINCT FROM EXCLUDED.base_status
+        OR public.gcc.assunto_gcc   IS DISTINCT FROM EXCLUDED.assunto_gcc
+    `);
+
+    res.json({
+      running: false,
+      done: result.rowCount,
+      updated: result.rowCount,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      error: null,
+    });
+  } catch (error) {
+    console.error('[gcc] sync datalake error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ===== POST /gcc/sync/stop =====
 router.post('/sync/stop', authMiddleware, requireTabAccess('gcc'), (req, res) => {
-  stopSync('gcc');
-  res.json(syncState.gcc);
+  res.json({ running: false, message: 'Sync via datalake é instantâneo, não há processo para parar.' });
 });
 
 // ===== GET /gcc/sync/status =====
 router.get('/sync/status', authMiddleware, requireTabAccess('gcc'), (req, res) => {
-  res.json(syncState.gcc);
+  res.json({ running: false, phase: 'idle', done: 0, total: 0 });
 });
-
-router.runSync = () => runSync('gcc', GCC_DB, 'public.gcc');
-
-// Garante que as colunas de sincronização existam assim que o módulo for carregado.
-const { ensureColumns: _ensureGcc } = require('./ticket-sync');
-_ensureGcc(GCC_DB, 'public.gcc').catch(() => {});
 
 module.exports = router;

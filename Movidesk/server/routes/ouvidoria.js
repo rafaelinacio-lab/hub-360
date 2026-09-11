@@ -4,14 +4,16 @@ const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
 const fetch = require('node-fetch');
-const { syncState, runSync, stopSync, backfillManifesto } = require('./ticket-sync');
 
-// Tabela public.ouvidoria é alimentada por um processo externo (fora deste painel), que já
-// grava prontos: a análise de IA (coluna `analise`), o serviço identificado da manifestação
-// (servico_ouvidoria/servico_ouvidoria_nome) e os chamados de suporte do cliente que
-// explicam a reincidência, com o motivo já redigido pela IA (chamados_relacionados).
-// Esta rota só lê e expõe esses dados, sem cruzar com nenhuma outra base.
+// Lê de public.ouvidoria (populada pelo sync do datalake silver.*)
+// e do datalake diretamente para o modal de detalhes.
 const OUVIDORIA_DB = 'movidesk_tickets';
+
+// CF IDs no datalake
+const CF_CLASSIFICACAO    = 23946; // Classificação de Ticket
+const CF_TIPO_MANIFESTO   = 22000; // Tipo de Manifesto
+const CF_MANIFESTO_PROC   = 22003; // Manifesto Procedente
+const CF_MANIFESTO_DIR    = 38595; // Manifesto direcionado a
 
 const OUVIDORIA_COLUMNS = `
   ticket_id,
@@ -27,6 +29,8 @@ const OUVIDORIA_COLUMNS = `
   servico_ouvidoria,
   servico_ouvidoria_nome,
   tipo,
+  manifesto_procedente,
+  manifesto_direcionado_a,
   criado_em,
   status_movidesk,
   base_status,
@@ -35,87 +39,27 @@ const OUVIDORIA_COLUMNS = `
   manifesto_direcionado_a
 `;
 
-// Throttle do backfill automático: no máximo 1 execução a cada 5 minutos
-let _lastAutoBackfill = 0;
-
 // ===== GET /ouvidoria =====
 router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
   try {
     const result = await db.queryDatabase(
       OUVIDORIA_DB,
-      `SELECT ${OUVIDORIA_COLUMNS} FROM public.ouvidoria
+      `SELECT
+         ticket_id, organizacao, organizacao_id, assunto_ouvidoria,
+         descricao_ouvidoria, total_chamados_anteriores, analise,
+         chamados_organizacao_ids, chamados_relacionados, servicos_chamados,
+         servico_ouvidoria, servico_ouvidoria_nome,
+         tipo, manifesto_procedente, manifesto_direcionado_a,
+         criado_em, status_movidesk, base_status, resolvido_em, sincronizado_em
+       FROM public.ouvidoria
        WHERE base_status IS NULL
           OR base_status NOT IN ('Resolved','Closed','Canceled','Resolvido','Fechado','Cancelado')
        ORDER BY criado_em DESC`
     );
-    const rows = result.rows || [];
-    res.json(rows);
-
-    // Dispara backfill em background se houver tickets sem manifesto_direcionado_a
-    const hasMissing = rows.some(r => !r.manifesto_direcionado_a);
-    const now = Date.now();
-    if (hasMissing && now - _lastAutoBackfill > 5 * 60 * 1000) {
-      _lastAutoBackfill = now;
-      getToken((err, token) => {
-        if (!err && token) {
-          backfillManifesto(token, OUVIDORIA_DB, 'public.ouvidoria')
-            .catch(e => console.error('[ouvidoria] auto-backfill error:', e.message));
-        }
-      });
-    }
+    res.json(result.rows || []);
   } catch (error) {
     console.error('Erro ao buscar ouvidoria:', error);
     res.status(500).json({ error: 'Erro ao carregar dados de ouvidoria' });
-  }
-});
-
-// ===== GET /ouvidoria/manifesto-batch?ids=1,2,3 =====
-// Busca manifesto_direcionado_a (CF 38595) na API do Movidesk para os IDs pedidos,
-// salva no banco e devolve { ticketId: valor }.
-const CF_MANIFESTO = 38595;
-const MANIFESTO_BATCH = 10;
-
-router.get('/manifesto-batch', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
-  const ids = String(req.query.ids || '')
-    .split(',').map(Number).filter(n => Number.isFinite(n) && n > 0).slice(0, 200);
-  if (!ids.length) return res.json({});
-
-  try {
-    const token = await new Promise((ok, fail) => getToken((e, t) => e ? fail(e) : ok(t)));
-    const result = {};
-
-    for (let i = 0; i < ids.length; i += MANIFESTO_BATCH) {
-      const batch  = ids.slice(i, i + MANIFESTO_BATCH);
-      const filter = batch.map(id => `id eq ${id}`).join(' or ');
-      try {
-        const resp = await fetch(
-          `${MOVIDESK_TICKETS_API}?${new URLSearchParams({
-            token, '$select': 'id,customFieldValues', '$expand': 'customFieldValues', '$filter': filter, '$top': String(batch.length),
-          })}`,
-          { timeout: 15000 }
-        );
-        if (!resp.ok) continue;
-        const raw  = await resp.json();
-        const list = Array.isArray(raw) ? raw : (raw?.value || []);
-
-        for (const t of list) {
-          const cf = (t.customFieldValues || []).find(f => f.customFieldId === CF_MANIFESTO);
-          if (!cf) continue;
-          const val = (Array.isArray(cf.items) && cf.items.length
-            ? cf.items.map(i => String(i.customFieldItem || i.name || i.value || '').trim()).filter(Boolean).join(', ')
-            : String(cf.value || '').trim()) || null;
-          if (!val) continue;
-          result[String(t.id)] = val;
-          db.queryDatabase(OUVIDORIA_DB,
-            `UPDATE public.ouvidoria SET manifesto_direcionado_a = $2 WHERE ticket_id = $1`,
-            [String(t.id), val]).catch(() => {});
-        }
-      } catch {}
-    }
-    res.json(result);
-  } catch (e) {
-    console.error('[manifesto-batch]', e.message);
-    res.status(500).json({ error: e.message });
   }
 });
 
@@ -127,8 +71,15 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
   try {
     const result = await db.queryDatabase(
       OUVIDORIA_DB,
-      `SELECT ${OUVIDORIA_COLUMNS} FROM public.ouvidoria WHERE ticket_id = $1`,
-      [ticketId]
+      `SELECT
+         ticket_id, organizacao, organizacao_id, assunto_ouvidoria,
+         descricao_ouvidoria, total_chamados_anteriores, analise,
+         chamados_organizacao_ids, chamados_relacionados, servicos_chamados,
+         servico_ouvidoria, servico_ouvidoria_nome,
+         tipo, manifesto_procedente, manifesto_direcionado_a,
+         criado_em, status_movidesk, base_status, resolvido_em, sincronizado_em
+       FROM public.ouvidoria WHERE ticket_id = $1`,
+      [String(ticketId)]
     );
     const row = result.rows?.[0];
     if (!row) return res.status(404).json({ error: 'Manifestação não encontrada' });
@@ -143,7 +94,6 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
 const MOVIDESK_TICKETS_API = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
 const MOVIDESK_FIELDS_API  = 'https://apimovidesk.viasoftcloud.com.br/public/v1/customFields';
 
-// Cache de definições de campos personalizados (válido por 1 hora)
 let _cfCache = null, _cfCacheAt = 0;
 async function getCustomFieldDefs(token) {
   if (_cfCache && Date.now() - _cfCacheAt < 3600000) return _cfCache;
@@ -179,29 +129,100 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), 
   }
 });
 
-// ===== POST /ouvidoria/sync — inicia sincronização de andamento =====
-router.post('/sync', authMiddleware, requireTabAccess('ouvidoria'), (req, res) => {
-  const state = runSync('ouvidoria', OUVIDORIA_DB, 'public.ouvidoria');
-  res.json(state);
+// ===== POST /ouvidoria/sync — sincroniza do datalake (silver.* → public.ouvidoria) =====
+// Uma única query INSERT...SELECT no mesmo banco — sem chamada de API, sem rate limit.
+router.post('/sync', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
+  const startedAt = new Date().toISOString();
+  try {
+    const result = await db.queryDatabase(OUVIDORIA_DB, `
+      INSERT INTO public.ouvidoria (
+        ticket_id,
+        organizacao,
+        organizacao_id,
+        assunto_ouvidoria,
+        tipo,
+        manifesto_procedente,
+        manifesto_direcionado_a,
+        criado_em,
+        status_movidesk,
+        base_status,
+        sincronizado_em
+      )
+      SELECT
+        t.ticket_id::varchar(20),
+        COALESCE(tc.organizacao_nome, t.clientorganization),
+        tc.organizacao_id,
+        t.subject,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_MANIFESTO} THEN cf.valor_texto END),
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_PROC} THEN cf.valor_texto END),
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_DIR}  THEN cf.valor_texto END),
+        t.createddate,
+        t.status,
+        t.basestatus,
+        NOW()
+      FROM silver.ticket t
+      JOIN silver.ticket_campo_customizado cf_class
+        ON cf_class.ticket_id = t.ticket_id
+        AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
+        AND cf_class.valor_texto = 'Ouvidoria'
+      LEFT JOIN silver.ticket_campo_customizado cf
+        ON cf.ticket_id = t.ticket_id
+      LEFT JOIN LATERAL (
+        SELECT organizacao_id, organizacao_nome
+        FROM silver.ticket_cliente
+        WHERE ticket_id = t.ticket_id
+        LIMIT 1
+      ) tc ON true
+      GROUP BY
+        t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
+        t.subject, t.createddate, t.status, t.basestatus
+      ON CONFLICT (ticket_id) DO UPDATE SET
+        organizacao            = EXCLUDED.organizacao,
+        organizacao_id         = EXCLUDED.organizacao_id,
+        assunto_ouvidoria      = EXCLUDED.assunto_ouvidoria,
+        tipo                   = EXCLUDED.tipo,
+        manifesto_procedente   = EXCLUDED.manifesto_procedente,
+        manifesto_direcionado_a = EXCLUDED.manifesto_direcionado_a,
+        status_movidesk        = EXCLUDED.status_movidesk,
+        base_status            = EXCLUDED.base_status,
+        sincronizado_em        = EXCLUDED.sincronizado_em
+      WHERE
+        public.ouvidoria.status_movidesk         IS DISTINCT FROM EXCLUDED.status_movidesk
+        OR public.ouvidoria.base_status          IS DISTINCT FROM EXCLUDED.base_status
+        OR public.ouvidoria.manifesto_direcionado_a IS DISTINCT FROM EXCLUDED.manifesto_direcionado_a
+        OR public.ouvidoria.manifesto_procedente IS DISTINCT FROM EXCLUDED.manifesto_procedente
+        OR public.ouvidoria.tipo                 IS DISTINCT FROM EXCLUDED.tipo
+        OR public.ouvidoria.assunto_ouvidoria    IS DISTINCT FROM EXCLUDED.assunto_ouvidoria
+    `);
+
+    res.json({
+      running: false,
+      done: result.rowCount,
+      updated: result.rowCount,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      error: null,
+    });
+  } catch (error) {
+    console.error('[ouvidoria] sync datalake error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// ===== POST /ouvidoria/sync/stop =====
+// ===== POST /ouvidoria/sync/stop — não aplicável com sync instantâneo =====
 router.post('/sync/stop', authMiddleware, requireTabAccess('ouvidoria'), (req, res) => {
-  stopSync('ouvidoria');
-  res.json(syncState.ouvidoria);
+  res.json({ running: false, message: 'Sync via datalake é instantâneo, não há processo para parar.' });
 });
 
 // ===== GET /ouvidoria/sync/status =====
 router.get('/sync/status', authMiddleware, requireTabAccess('ouvidoria'), (req, res) => {
-  res.json(syncState.ouvidoria);
+  res.json({ running: false, phase: 'idle', done: 0, total: 0 });
 });
 
-router.runSync = () => runSync('ouvidoria', OUVIDORIA_DB, 'public.ouvidoria');
-
-// Garante que as colunas de sincronização existam assim que o módulo for carregado,
-// antes de qualquer SELECT que as liste.
-const { ensureColumns: _ensureOuvidoria } = require('./ticket-sync');
-_ensureOuvidoria(OUVIDORIA_DB, 'public.ouvidoria').catch(() => {});
+// Garante que as colunas existam ao carregar o módulo
+db.queryDatabase(OUVIDORIA_DB,
+  `ALTER TABLE public.ouvidoria ADD COLUMN IF NOT EXISTS manifesto_procedente VARCHAR(200)`)
+  .catch(() => {});
 db.queryDatabase(OUVIDORIA_DB,
   `ALTER TABLE public.ouvidoria ADD COLUMN IF NOT EXISTS manifesto_direcionado_a VARCHAR(200)`)
   .catch(() => {});
