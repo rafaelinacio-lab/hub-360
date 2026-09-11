@@ -53,7 +53,8 @@ const syncState = {
 };
 
 function mkState() {
-  return { running: false, done: 0, total: 0, updated: 0, failed: 0, imported: 0,
+  return { running: false, done: 0, total: 0, updated: 0, failed: 0,
+           imported: 0, importInserted: 0, importUpdated: 0,
            startedAt: null, finishedAt: null, error: null };
 }
 
@@ -132,12 +133,16 @@ function getClassification(ticket) {
   return extractCfValue(ticket.customFieldValues, CF_CLASSIFICACAO);
 }
 
+// Status que indicam ticket encerrado (usado no filtro da API e na query de fase 2)
+const CLOSED_STATUSES = ['Resolved', 'Closed', 'Cancelled'];
+
 /**
- * Busca tickets criados a partir de `since` na API pública, paginando.
- * Retorna array com todos os registros (pode ser grande).
+ * Busca tickets da API pública com um filtro OData arbitrário, paginando.
+ * @param {string} token
+ * @param {string} oDataFilter  - ex: "baseStatus ne 'Resolved' and ..."
+ * @param {string} [endpoint]   - 'tickets' ou 'tickets/past'
  */
-async function fetchTicketsSince(token, since) {
-  const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z'); // ex: 2024-01-01T00:00:00Z
+async function fetchByFilter(token, oDataFilter, endpoint = 'tickets') {
   const tickets = [];
   let skip = 0;
 
@@ -145,32 +150,29 @@ async function fetchTicketsSince(token, since) {
     const params = new URLSearchParams({
       token,
       '$select':  'id,subject,baseStatus,status,resolvedIn,createdDate,ownerTeam,owner',
-      '$filter':  `createdDate ge ${dateStr}`,
+      '$filter':  oDataFilter,
       '$expand':  'customFieldValues,owner',
-      '$orderby': 'createdDate asc',
+      '$orderby': 'createdDate desc',
       '$top':     String(PAGE_SIZE),
       '$skip':    String(skip),
     });
 
-    const url = `${MOVIDESK_PUBLIC_API}/tickets?${params}`;
-    let list = [];
+    const url = `${MOVIDESK_PUBLIC_API}/${endpoint}?${params}`;
+    let list  = [];
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         const resp = await fetch(url, { timeout: 30000 });
-        if (resp.status === 429) {
-          await sleep(65000 * (attempt + 1));
-          continue;
-        }
+        if (resp.status === 429) { await sleep(65000 * (attempt + 1)); continue; }
         if (!resp.ok) break;
         const raw = await resp.json();
-        list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+        list = Array.isArray(raw) ? raw : (raw?.value || []);
         break;
       } catch { break; }
     }
 
     if (!list.length) break;
     tickets.push(...list);
-    if (list.length < PAGE_SIZE) break; // última página
+    if (list.length < PAGE_SIZE) break;
     skip += PAGE_SIZE;
     await sleep(RATE_MS);
   }
@@ -179,94 +181,128 @@ async function fetchTicketsSince(token, since) {
 }
 
 /**
- * Fase 1: busca tickets novos na API e insere os que ainda não existem.
- * Filtra apenas tickets com CF 23946 igual à classificação esperada.
+ * Fase 1 — Sincronização completa de tickets:
+ *   1. Busca todos os tickets ABERTOS (sem limite de data) com o classificação certa
+ *   2. Busca tickets recentes (últimos IMPORT_WINDOW_DAYS) para capturar os
+ *      que foram criados e já fechados no período
+ *   3. Para cada ticket encontrado:
+ *        - Se não existe no banco → INSERT
+ *        - Se existe e status/manifesto mudou → UPDATE
  *
- * @returns {number} quantidade de tickets inseridos
+ * @returns {{ inserted: number, updated: number }}
  */
 async function importPhase(token, stateKey, dbName, table) {
   const expectedClass = CF_CLASS_BY_KEY[stateKey];
-  if (!expectedClass) return 0;
+  if (!expectedClass) return { inserted: 0, updated: 0 };
 
-  // Determina a data de corte: MAX(criado_em) da tabela ou 90 dias atrás
+  // Nome da tabela sem schema (para o ON CONFLICT ... WHERE clause)
+  const tableAlias = table.split('.').pop();
+
+  // ── 1. Tickets abertos (sem limite de data) ────────────────────────────────
+  const openFilter = CLOSED_STATUSES
+    .map(s => `baseStatus ne '${s}'`).join(' and ');
+  const openTickets = await fetchByFilter(token, openFilter);
+
+  // ── 2. Tickets recentes (podem incluir os já encerrados) ───────────────────
   let since = new Date();
   since.setDate(since.getDate() - IMPORT_WINDOW_DAYS);
-
   try {
     const { rows } = await db.queryDatabase(dbName,
       `SELECT MAX(criado_em) AS last FROM ${table}`);
     if (rows[0]?.last) {
       const d = new Date(rows[0].last);
-      // Subtrai 1 dia da última data para evitar gaps por diferença de fuso
       d.setDate(d.getDate() - 1);
       if (d > since) since = d;
     }
-  } catch { /* usa o padrão de 90 dias */ }
+  } catch {}
 
-  const allTickets = await fetchTicketsSince(token, since);
+  const dateStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const recentTickets = await fetchByFilter(token, `createdDate ge ${dateStr}`);
 
-  let imported = 0;
-  for (const t of allTickets) {
-    const cls = getClassification(t);
-    if (cls !== expectedClass) continue;
+  // ── Deduplica por id (open tem prioridade — dados mais recentes) ───────────
+  const ticketMap = new Map();
+  for (const t of recentTickets) ticketMap.set(t.id, t);
+  for (const t of openTickets)   ticketMap.set(t.id, t); // sobrescreve com o aberto
 
-    // Tenta extrair nome da organização do proprietário expandido
-    const owner = t.owner;
+  // ── UPSERT para cada ticket da classificação certa ─────────────────────────
+  let inserted = 0, updated = 0;
+
+  for (const t of ticketMap.values()) {
+    if (getClassification(t) !== expectedClass) continue;
+
+    const owner   = t.owner;
     const orgName = owner?.organization?.businessName
                  || owner?.businessName
                  || owner?.organizationName
                  || null;
-    const orgId = owner?.organization?.id
-               || owner?.organizationId
-               || null;
-
-    // Para Ouvidoria, extrai o campo "Manifesto direcionado a" (CF 38595)
+    const orgId   = owner?.organization?.id ?? owner?.organizationId ?? null;
     const manifesto = stateKey === 'ouvidoria'
       ? extractCfValue(t.customFieldValues, CF_MANIFESTO_DIRIGIDO)
       : null;
 
     try {
       if (stateKey === 'ouvidoria') {
-        await db.queryDatabase(dbName,
+        const r = await db.queryDatabase(dbName,
           `INSERT INTO ${table}
              (ticket_id, assunto, organizacao, organizacao_id, criado_em,
-              status_movidesk, base_status, manifesto_direcionado_a)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              status_movidesk, base_status, manifesto_direcionado_a, sincronizado_em)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
            ON CONFLICT (ticket_id) DO UPDATE SET
-             manifesto_direcionado_a = EXCLUDED.manifesto_direcionado_a
-             WHERE ${table}.manifesto_direcionado_a IS NULL`,
+             status_movidesk         = EXCLUDED.status_movidesk,
+             base_status             = EXCLUDED.base_status,
+             manifesto_direcionado_a = COALESCE(EXCLUDED.manifesto_direcionado_a,
+                                                ${tableAlias}.manifesto_direcionado_a),
+             sincronizado_em         = NOW()
+           WHERE ${tableAlias}.status_movidesk  IS DISTINCT FROM EXCLUDED.status_movidesk
+              OR ${tableAlias}.base_status       IS DISTINCT FROM EXCLUDED.base_status
+              OR (EXCLUDED.manifesto_direcionado_a IS NOT NULL
+                  AND ${tableAlias}.manifesto_direcionado_a
+                      IS DISTINCT FROM EXCLUDED.manifesto_direcionado_a)`,
           [
             String(t.id),
-            t.subject    ?? null,
+            t.subject     ?? null,
             orgName,
             orgId != null ? String(orgId) : null,
             t.createdDate ?? null,
-            t.status     ?? null,
-            t.baseStatus ?? null,
+            t.status      ?? null,
+            t.baseStatus  ?? null,
             manifesto,
           ]);
+        // xmax = 0 → INSERT; xmax != 0 → UPDATE
+        if (r.rowCount > 0) {
+          const wasInsert = !r.rows?.[0]; // DO UPDATE retorna linha; INSERT não retorna
+          // Verifica pelo rowCount se houve alteração
+          if (r.command === 'INSERT') inserted++; else updated++;
+        }
       } else {
-        await db.queryDatabase(dbName,
+        const r = await db.queryDatabase(dbName,
           `INSERT INTO ${table}
              (ticket_id, assunto, organizacao, organizacao_id, criado_em,
-              status_movidesk, base_status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           ON CONFLICT (ticket_id) DO NOTHING`,
+              status_movidesk, base_status, sincronizado_em)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+           ON CONFLICT (ticket_id) DO UPDATE SET
+             status_movidesk = EXCLUDED.status_movidesk,
+             base_status     = EXCLUDED.base_status,
+             sincronizado_em = NOW()
+           WHERE ${tableAlias}.status_movidesk IS DISTINCT FROM EXCLUDED.status_movidesk
+              OR ${tableAlias}.base_status      IS DISTINCT FROM EXCLUDED.base_status`,
           [
             String(t.id),
-            t.subject    ?? null,
+            t.subject     ?? null,
             orgName,
             orgId != null ? String(orgId) : null,
             t.createdDate ?? null,
-            t.status     ?? null,
-            t.baseStatus ?? null,
+            t.status      ?? null,
+            t.baseStatus  ?? null,
           ]);
+        if (r.command === 'INSERT') inserted++; else if (r.rowCount > 0) updated++;
       }
-      imported++;
-    } catch { /* ignora erros de constraint — pode faltar coluna */ }
+    } catch (e) {
+      console.error(`[ticket-sync] upsert ticket ${t.id}:`, e.message);
+    }
   }
 
-  return imported;
+  return { inserted, updated };
 }
 
 // ── Backfill de "Manifesto direcionado a" para tickets de Ouvidoria ──────────
@@ -330,7 +366,10 @@ async function runSync(stateKey, dbName, table) {
 
       // ── Fase 1: importar tickets novos ──────────────────────────────────────
       try {
-        state.imported = await importPhase(token, stateKey, dbName, table);
+        const imp = await importPhase(token, stateKey, dbName, table);
+        state.imported = (imp?.inserted ?? 0) + (imp?.updated ?? 0);
+        state.importInserted = imp?.inserted ?? 0;
+        state.importUpdated  = imp?.updated  ?? 0;
       } catch (e) {
         // Falha na importação não impede a sincronização de status
         console.error(`[ticket-sync] importPhase(${stateKey}) error:`, e.message);
