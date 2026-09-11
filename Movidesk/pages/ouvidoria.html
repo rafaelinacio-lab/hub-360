@@ -906,7 +906,6 @@ function render(){
   <div class="card-body">
     <div class="card-tid">#${esc(String(r.ticket_id))}</div>
     <div class="card-org">${esc(r.organizacao||'Organização não informada')}</div>
-    <div class="card-sub">${esc(r.assunto_ouvidoria||'—')}</div>
   </div>
   <div class="card-footer">
     <span class="recpill${probs.length>0&&tk!=='elo'?' warn':''}">
