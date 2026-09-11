@@ -617,9 +617,13 @@ html.dark .fil-date{color-scheme:dark}
       <div class="fil-group">
         <span class="sym fil-ico">event</span>
         <span class="fil-label">Resolução</span>
-        <input type="date" class="fil-date" id="gcc-date-from" onchange="applyFilters()" title="Data de resolução (de)">
+        <select class="sort-sel" id="gcc-year" onchange="setYearFilter('gcc')">
+          <option value="">Todos os anos</option>
+        </select>
+        <span class="fil-label">ou</span>
+        <input type="date" class="fil-date" id="gcc-date-from" onchange="document.getElementById('gcc-year').value='';applyFilters()" title="Data de resolução (de)">
         <span class="fil-label">até</span>
-        <input type="date" class="fil-date" id="gcc-date-to" onchange="applyFilters()" title="Data de resolução (até)">
+        <input type="date" class="fil-date" id="gcc-date-to" onchange="document.getElementById('gcc-year').value='';applyFilters()" title="Data de resolução (até)">
       </div>
       <div class="vbar"></div>
       <select class="sort-sel" id="gcc-org" onchange="applyFilters()">
@@ -805,6 +809,16 @@ function renderChips(){
   const orgs=[...new Set(_rows.map(r=>r.organizacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
   orgSel.innerHTML=`<option value="">Todos os clientes</option>`
     +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
+
+  // select de ano (a partir de resolvido_em)
+  const yearSel=document.getElementById('gcc-year');
+  const curYear=yearSel.value;
+  const years=[...new Set(_rows
+    .map(r=>r.resolvido_em?new Date(r.resolvido_em).getFullYear():null)
+    .filter(Boolean)
+  )].sort((a,b)=>b-a);
+  yearSel.innerHTML=`<option value="">Todos os anos</option>`
+    +years.map(y=>`<option value="${y}"${String(curYear)===String(y)?' selected':''}>${y}</option>`).join('');
 }
 
 function setLocusFilter(k){
@@ -813,6 +827,14 @@ function setLocusFilter(k){
   document.querySelectorAll('#gcc-chips .chip').forEach(c=>{
     c.classList.toggle('active',c.dataset.f===k);
   });
+  applyFilters();
+}
+
+// ── Filtro rápido por ano ─────────────────────────────────────────────────────
+function setYearFilter(prefix){
+  const year=document.getElementById(prefix+'-year').value;
+  document.getElementById(prefix+'-date-from').value=year?year+'-01-01':'';
+  document.getElementById(prefix+'-date-to').value  =year?year+'-12-31':'';
   applyFilters();
 }
 

@@ -602,7 +602,11 @@ html.dark .fil-date{color-scheme:dark}
     <div class="topbar-filters">
       <div class="fil-group">
         <span class="sym fil-ico">event</span>
-        <span class="fil-label">Data criação</span>
+        <span class="fil-label">Criação</span>
+        <select class="sort-sel" id="ov-year" onchange="setYearFilter('ov')">
+          <option value="">Todos os anos</option>
+        </select>
+        <span class="fil-label">ou</span>
         <input type="date" class="fil-date" id="ov-date-from" title="Data de criação (de)">
         <span class="fil-label">até</span>
         <input type="date" class="fil-date" id="ov-date-to" title="Data de criação (até)">
@@ -743,6 +747,24 @@ function updateCounts(){
   const orgs=[...new Set(_rows.map(r=>r.organizacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
   orgSel.innerHTML=`<option value="">Todos os clientes</option>`
     +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
+
+  // popula select de ano (a partir de criado_em)
+  const yearSel=document.getElementById('ov-year');
+  const curYear=yearSel.value;
+  const years=[...new Set(_rows
+    .map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null)
+    .filter(Boolean)
+  )].sort((a,b)=>b-a);
+  yearSel.innerHTML=`<option value="">Todos os anos</option>`
+    +years.map(y=>`<option value="${y}"${String(curYear)===String(y)?' selected':''}>${y}</option>`).join('');
+}
+
+// ── Filtro rápido por ano ─────────────────────────────────────────────────────
+function setYearFilter(prefix){
+  const year=document.getElementById(prefix+'-year').value;
+  document.getElementById(prefix+'-date-from').value=year?year+'-01-01':'';
+  document.getElementById(prefix+'-date-to').value  =year?year+'-12-31':'';
+  render();
 }
 
 // ── filter chips ─────────────────────────────────────────────────────
@@ -846,8 +868,12 @@ document.getElementById('ov-grid').addEventListener('click',e=>{
 // search + sort + filter events
 document.getElementById('ov-search').addEventListener('input',render);
 document.getElementById('ov-sort').addEventListener('change',render);
-document.getElementById('ov-date-from').addEventListener('change',render);
-document.getElementById('ov-date-to').addEventListener('change',render);
+document.getElementById('ov-date-from').addEventListener('change',()=>{
+  document.getElementById('ov-year').value=''; render();
+});
+document.getElementById('ov-date-to').addEventListener('change',()=>{
+  document.getElementById('ov-year').value=''; render();
+});
 document.getElementById('ov-org').addEventListener('change',render);
 
 // ── drawer ───────────────────────────────────────────────────────────
