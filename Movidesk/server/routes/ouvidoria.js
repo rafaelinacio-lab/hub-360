@@ -69,20 +69,38 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
 });
 
 // ===== GET /ouvidoria/:ticketId/actions — ações e campos do Movidesk =====
-const MOVIDESK_API = 'https://api.movidesk.com/public/v1/tickets';
+const MOVIDESK_TICKETS_API = 'https://api.movidesk.com/public/v1/tickets';
+const MOVIDESK_FIELDS_API  = 'https://api.movidesk.com/public/v1/customFields';
+
+// Cache de definições de campos personalizados (válido por 1 hora)
+let _cfCache = null, _cfCacheAt = 0;
+async function getCustomFieldDefs(token) {
+  if (_cfCache && Date.now() - _cfCacheAt < 3600000) return _cfCache;
+  try {
+    const resp = await fetch(`${MOVIDESK_FIELDS_API}?token=${encodeURIComponent(token)}`, { timeout: 10000 });
+    if (!resp.ok) return {};
+    const list = await resp.json();
+    _cfCache = Object.fromEntries((Array.isArray(list) ? list : []).map(f => [String(f.id), f.name || `Campo ${f.id}`]));
+    _cfCacheAt = Date.now();
+    return _cfCache;
+  } catch { return {}; }
+}
 
 router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
   const ticketId = Number(req.params.ticketId);
   if (!Number.isFinite(ticketId)) return res.status(400).json({ error: 'ticket_id inválido' });
   try {
     const token = await new Promise((ok, fail) => getToken((e, t) => e ? fail(e) : ok(t)));
-    const params = new URLSearchParams({ token, id: String(ticketId), '$expand': 'actions,customFieldValues' });
-    const resp = await fetch(`${MOVIDESK_API}?${params}`, { timeout: 15000 });
-    if (!resp.ok) return res.status(resp.status).json({ error: `Movidesk devolveu ${resp.status}` });
-    const data = await resp.json();
+    const [ticketResp, fieldDefs] = await Promise.all([
+      fetch(`${MOVIDESK_TICKETS_API}?${new URLSearchParams({ token, id: String(ticketId), '$expand': 'actions,customFieldValues' })}`, { timeout: 15000 }),
+      getCustomFieldDefs(token),
+    ]);
+    if (!ticketResp.ok) return res.status(ticketResp.status).json({ error: `Movidesk devolveu ${ticketResp.status}` });
+    const data = await ticketResp.json();
     res.json({
       actions: Array.isArray(data.actions) ? data.actions : [],
       customFieldValues: Array.isArray(data.customFieldValues) ? data.customFieldValues : [],
+      fieldDefs,
     });
   } catch (e) {
     console.error('Erro ao buscar ações de ouvidoria:', e.message);

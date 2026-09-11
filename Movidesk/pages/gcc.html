@@ -360,21 +360,23 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 /* ═══ Drawer ═══════════════════════════════════════════════════════════ */
 #gcc-backdrop{
   position:fixed;inset:0;z-index:200;
-  background:rgba(0,0,0,.32);backdrop-filter:blur(2px);
-  opacity:0;pointer-events:none;transition:opacity .25s ease;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;
+  display:flex;align-items:center;justify-content:center;padding:16px;
 }
 #gcc-backdrop.open{opacity:1;pointer-events:auto}
 
 #gcc-drawer{
-  position:absolute;top:0;right:0;bottom:0;
-  width:min(520px,100vw);
+  width:min(700px,100%);
+  max-height:90vh;
   background:var(--surface);
   display:flex;flex-direction:column;
   box-shadow:var(--sh-xl);
-  transform:translateX(100%);
-  transition:transform .3s cubic-bezier(.32,.72,0,1);
+  border-radius:14px;
+  transform:scale(.96) translateY(10px);
+  transition:transform .2s cubic-bezier(.32,.72,0,1);
 }
-#gcc-backdrop.open #gcc-drawer{transform:translateX(0)}
+#gcc-backdrop.open #gcc-drawer{transform:scale(1) translateY(0)}
 
 /* drawer header */
 .dh{padding:18px 18px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
@@ -543,6 +545,8 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 .cf-lbl{font-size:11px;color:var(--muted);display:block;margin-bottom:2px}
 .cf-val{font-size:13px;color:var(--text);word-break:break-word}
 .tl-loading{padding:16px 0;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
+.tl-expand-btn{display:flex;align-items:center;gap:4px;margin-top:10px;padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface-mid,var(--surface2));color:var(--t2,var(--muted));font-size:13px;cursor:pointer;width:100%;justify-content:center}
+.tl-expand-btn:hover{background:var(--border)}
 </style>
 </head>
 <body>
@@ -1082,6 +1086,7 @@ async function apiFetch(path,method='GET'){
 
 // ── Ações e campos personalizados do Movidesk ────────────────────────
 const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+const TL_COLLAPSED=4; // ações visíveis antes de expandir
 
 function tlDot(type,isPrivate){
   if(isPrivate) return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">lock</span></div>`;
@@ -1091,8 +1096,27 @@ function tlDot(type,isPrivate){
   return `<div class="tl-dot tp-auto"><span class="sym" style="font-size:15px">settings</span></div>`;
 }
 
+function tlItem(a){
+  const author=a.createdBy?(a.createdBy.businessName||a.createdBy.email||'Sistema'):'Sistema';
+  const label=a.isPrivate?'Nota interna':(ACTION_TYPE[a.type]||`Tipo ${a.type}`);
+  const statusBadge=a.status?`<span class="tl-badge">${esc(a.status)}</span>`:'';
+  return `<div class="tl-item">
+    ${tlDot(a.type,a.isPrivate)}
+    <div>
+      <div class="tl-meta">
+        <span class="tl-author">${esc(author)}</span>
+        <span class="tl-date">${a.date?fmtFull(a.date):''}</span>
+        <span class="tl-badge">${label}</span>
+        ${statusBadge}
+      </div>
+      <div class="tl-desc">${a.description||''}</div>
+    </div>
+  </div>`;
+}
+
 function renderActions(data){
   const actions=(data.actions||[]);
+  const fieldDefs=data.fieldDefs||{};
   const fields=(data.customFieldValues||[]).filter(f=>f.value||(f.items&&f.items.length));
   let html='';
 
@@ -1100,32 +1124,23 @@ function renderActions(data){
     html+=`<div>
       <div class="sec-lbl"><span class="sym">tune</span>Campos personalizados</div>
       <div class="cf-grid">${fields.map(f=>{
+        const name=fieldDefs[String(f.customFieldId)]||`Campo ${f.customFieldId}`;
         const val=f.value||(f.items||[]).map(i=>i.customFieldItem||'').filter(Boolean).join(', ')||'—';
-        return `<div class="cf-item"><span class="cf-lbl">Campo ${f.customFieldId}</span><span class="cf-val">${esc(String(val))}</span></div>`;
+        return `<div class="cf-item"><span class="cf-lbl">${esc(name)}</span><span class="cf-val">${esc(String(val))}</span></div>`;
       }).join('')}</div>
     </div>`;
   }
 
   if(actions.length){
+    const visible=actions.slice(0,TL_COLLAPSED);
+    const hidden=actions.slice(TL_COLLAPSED);
+    const moreBtn=hidden.length?`<button class="tl-expand-btn" onclick="this.previousElementSibling.innerHTML+=\`${hidden.map(tlItem).join('').replace(/`/g,'\\`')}\`;this.remove()">
+      <span class="sym">expand_more</span>Ver mais ${hidden.length} ação${hidden.length===1?'':'ões'}
+    </button>`:'';
     html+=`<div>
       <div class="sec-lbl"><span class="sym">history</span>Histórico (${actions.length} ações)</div>
-      <div class="tl-list">${actions.map(a=>{
-        const author=a.createdBy?(a.createdBy.businessName||a.createdBy.email||'Sistema'):'Sistema';
-        const label=a.isPrivate?'Nota interna':(ACTION_TYPE[a.type]||`Tipo ${a.type}`);
-        const statusBadge=a.status?`<span class="tl-badge">${esc(a.status)}</span>`:'';
-        return `<div class="tl-item">
-          ${tlDot(a.type,a.isPrivate)}
-          <div>
-            <div class="tl-meta">
-              <span class="tl-author">${esc(author)}</span>
-              <span class="tl-date">${a.date?fmtFull(a.date):''}</span>
-              <span class="tl-badge">${label}</span>
-              ${statusBadge}
-            </div>
-            <div class="tl-desc">${a.description||''}</div>
-          </div>
-        </div>`;
-      }).join('')}</div>
+      <div class="tl-list">${visible.map(tlItem).join('')}</div>
+      ${moreBtn}
     </div>`;
   }
   return html;
