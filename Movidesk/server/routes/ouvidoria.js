@@ -102,10 +102,10 @@ router.get('/manifesto-batch', authMiddleware, requireTabAccess('ouvidoria'), as
             ? cf.items.map(i => String(i.customFieldItem || i.name || i.value || '').trim()).filter(Boolean).join(', ')
             : String(cf.value || '').trim()) || null;
           if (!val) continue;
-          result[t.id] = val;
+          result[String(t.id)] = val;
           db.queryDatabase(OUVIDORIA_DB,
             `UPDATE public.ouvidoria SET manifesto_direcionado_a = $2 WHERE ticket_id = $1`,
-            [t.id, val]).catch(() => {});
+            [String(t.id), val]).catch(() => {});
         }
       } catch {}
     }

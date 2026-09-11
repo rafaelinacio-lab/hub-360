@@ -236,10 +236,10 @@ async function importPhase(token, stateKey, dbName, table) {
              manifesto_direcionado_a = EXCLUDED.manifesto_direcionado_a
              WHERE ${table}.manifesto_direcionado_a IS NULL`,
           [
-            t.id,
+            String(t.id),
             t.subject    ?? null,
             orgName,
-            orgId        ?? null,
+            orgId != null ? String(orgId) : null,
             t.createdDate ?? null,
             t.status     ?? null,
             t.baseStatus ?? null,
@@ -253,10 +253,10 @@ async function importPhase(token, stateKey, dbName, table) {
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            ON CONFLICT (ticket_id) DO NOTHING`,
           [
-            t.id,
+            String(t.id),
             t.subject    ?? null,
             orgName,
-            orgId        ?? null,
+            orgId != null ? String(orgId) : null,
             t.createdDate ?? null,
             t.status     ?? null,
             t.baseStatus ?? null,
@@ -301,14 +301,11 @@ async function backfillManifesto(token, dbName, table) {
       const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
 
       for (const t of list) {
-        const cfv = Array.isArray(t.customFieldValues) ? t.customFieldValues : [];
-        const cf  = cfv.find(f => f.customFieldId === CF_MANIFESTO_DIRIGIDO);
-        if (!cf) continue;
         const manifesto = extractCfValue(t.customFieldValues, CF_MANIFESTO_DIRIGIDO);
         if (!manifesto) continue;
         await db.queryDatabase(dbName,
           `UPDATE ${table} SET manifesto_direcionado_a = $2 WHERE ticket_id = $1`,
-          [t.id, manifesto]).catch(() => {});
+          [String(t.id), manifesto]).catch(() => {});
       }
     } catch {}
     await sleep(RATE_MS);
