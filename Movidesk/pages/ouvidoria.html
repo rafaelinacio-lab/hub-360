@@ -348,6 +348,8 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
 
+.card-manifesto{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--t2);margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.card-manifesto .sym{font-size:12px;color:var(--t3);flex-shrink:0}
 .card-flags{display:flex;flex-wrap:wrap;gap:4px;min-height:18px}
 .flag-tag{
   display:inline-flex;align-items:center;gap:3px;
@@ -890,13 +892,7 @@ function render(){
     const tk=tipoKey(rawTipo(r));
     const tot=Number(r.total_chamados_anteriores)||0;
     const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
-    const vis=probs.slice(0,2);
-    const more=probs.length-vis.length;
-
-    const flagsHtml=vis.length
-      ? vis.map(p=>`<span class="flag-tag"><span class="sym">flag</span>${esc(trunc(p.motivo,26))}</span>`).join('')
-        +(more>0?`<span class="flag-more">+${more}</span>`:'')
-      : '';
+    const manifesto = r.manifesto_direcionado_a ? esc(r.manifesto_direcionado_a) : '';
 
     return `<div class="card t-${tk}" data-id="${esc(String(r.ticket_id))}">
   <div class="card-top">
@@ -911,7 +907,7 @@ function render(){
     <div class="card-tid">#${esc(String(r.ticket_id))}</div>
     <div class="card-org">${esc(r.organizacao||'Organização não informada')}</div>
     <div class="card-sub">${esc(r.assunto_ouvidoria||'—')}</div>
-    ${flagsHtml?`<div class="card-flags">${flagsHtml}</div>`:''}
+    ${manifesto?`<div class="card-manifesto"><span class="sym">person_pin</span>${manifesto}</div>`:''}
   </div>
   <div class="card-footer">
     <span class="recpill${probs.length>0&&tk!=='elo'?' warn':''}">

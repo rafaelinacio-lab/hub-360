@@ -31,7 +31,8 @@ const OUVIDORIA_COLUMNS = `
   status_movidesk,
   base_status,
   resolvido_em,
-  sincronizado_em
+  sincronizado_em,
+  manifesto_direcionado_a
 `;
 
 // ===== GET /ouvidoria =====
@@ -131,5 +132,8 @@ router.runSync = () => runSync('ouvidoria', OUVIDORIA_DB, 'public.ouvidoria');
 // antes de qualquer SELECT que as liste.
 const { ensureColumns: _ensureOuvidoria } = require('./ticket-sync');
 _ensureOuvidoria(OUVIDORIA_DB, 'public.ouvidoria').catch(() => {});
+db.queryDatabase(OUVIDORIA_DB,
+  `ALTER TABLE public.ouvidoria ADD COLUMN IF NOT EXISTS manifesto_direcionado_a VARCHAR(200)`)
+  .catch(() => {});
 
 module.exports = router;

@@ -33,7 +33,9 @@ const BATCH     = 10;   // IDs por requisição OData (filter OR chain)
 const PAGE_SIZE = 50;   // tickets por página na importação
 
 // Campo personalizado que classifica o ticket por fluxo
-const CF_CLASSIFICACAO = 23946;
+const CF_CLASSIFICACAO    = 23946;
+// Campo "Manifesto direcionado a" — preenchido apenas em tickets de Ouvidoria
+const CF_MANIFESTO_DIRIGIDO = 38595;
 
 // Janela padrão de importação caso a tabela esteja vazia
 const IMPORT_WINDOW_DAYS = parseInt(process.env.IMPORT_WINDOW_DAYS || '90', 10);
@@ -210,27 +212,109 @@ async function importPhase(token, stateKey, dbName, table) {
                || owner?.organizationId
                || null;
 
+    // Para Ouvidoria, extrai o campo "Manifesto direcionado a" (CF 38595)
+    let manifesto = null;
+    if (stateKey === 'ouvidoria') {
+      const cfv2 = Array.isArray(t.customFieldValues) ? t.customFieldValues : [];
+      const cfm  = cfv2.find(f => f.customFieldId === CF_MANIFESTO_DIRIGIDO);
+      if (cfm) {
+        manifesto = (Array.isArray(cfm.items) && cfm.items.length)
+          ? (cfm.items[0].name || cfm.items[0].value || null)
+          : (cfm.value || null);
+      }
+    }
+
     try {
-      await db.queryDatabase(dbName,
-        `INSERT INTO ${table}
-           (ticket_id, assunto, organizacao, organizacao_id, criado_em,
-            status_movidesk, base_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (ticket_id) DO NOTHING`,
-        [
-          t.id,
-          t.subject   ?? null,
-          orgName,
-          orgId       ?? null,
-          t.createdDate ?? null,
-          t.status    ?? null,
-          t.baseStatus ?? null,
-        ]);
+      if (stateKey === 'ouvidoria') {
+        await db.queryDatabase(dbName,
+          `INSERT INTO ${table}
+             (ticket_id, assunto, organizacao, organizacao_id, criado_em,
+              status_movidesk, base_status, manifesto_direcionado_a)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (ticket_id) DO UPDATE SET
+             manifesto_direcionado_a = EXCLUDED.manifesto_direcionado_a
+             WHERE ${table}.manifesto_direcionado_a IS NULL`,
+          [
+            t.id,
+            t.subject    ?? null,
+            orgName,
+            orgId        ?? null,
+            t.createdDate ?? null,
+            t.status     ?? null,
+            t.baseStatus ?? null,
+            manifesto,
+          ]);
+      } else {
+        await db.queryDatabase(dbName,
+          `INSERT INTO ${table}
+             (ticket_id, assunto, organizacao, organizacao_id, criado_em,
+              status_movidesk, base_status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (ticket_id) DO NOTHING`,
+          [
+            t.id,
+            t.subject    ?? null,
+            orgName,
+            orgId        ?? null,
+            t.createdDate ?? null,
+            t.status     ?? null,
+            t.baseStatus ?? null,
+          ]);
+      }
       imported++;
     } catch { /* ignora erros de constraint — pode faltar coluna */ }
   }
 
   return imported;
+}
+
+// ── Backfill de "Manifesto direcionado a" para tickets de Ouvidoria ──────────
+/**
+ * Atualiza tickets de Ouvidoria onde manifesto_direcionado_a ainda é NULL,
+ * buscando o CF 38595 na API pública em lotes de BATCH tickets.
+ */
+async function backfillManifesto(token, dbName, table) {
+  let rows;
+  try {
+    ({ rows } = await db.queryDatabase(dbName,
+      `SELECT ticket_id FROM ${table}
+       WHERE manifesto_direcionado_a IS NULL
+       ORDER BY criado_em DESC
+       LIMIT 300`));
+  } catch { return; }
+
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const ids    = rows.slice(i, i + BATCH).map(r => r.ticket_id);
+    const filter = ids.map(id => `id eq ${id}`).join(' or ');
+    const url    = `${MOVIDESK_PUBLIC_API}/tickets?${new URLSearchParams({
+      token,
+      '$select':  'id',
+      '$expand':  'customFieldValues',
+      '$filter':  filter,
+      '$top':     String(ids.length),
+    })}`;
+
+    try {
+      const resp = await fetch(url, { timeout: 15000 });
+      if (!resp.ok) { await sleep(RATE_MS); continue; }
+      const raw  = await resp.json();
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+
+      for (const t of list) {
+        const cfv = Array.isArray(t.customFieldValues) ? t.customFieldValues : [];
+        const cf  = cfv.find(f => f.customFieldId === CF_MANIFESTO_DIRIGIDO);
+        if (!cf) continue;
+        const manifesto = (Array.isArray(cf.items) && cf.items.length)
+          ? (cf.items[0].name || cf.items[0].value || null)
+          : (cf.value || null);
+        if (!manifesto) continue;
+        await db.queryDatabase(dbName,
+          `UPDATE ${table} SET manifesto_direcionado_a = $2 WHERE ticket_id = $1`,
+          [t.id, manifesto]).catch(() => {});
+      }
+    } catch {}
+    await sleep(RATE_MS);
+  }
 }
 
 // ── Loop principal ─────────────────────────────────────────────────────────────
@@ -295,6 +379,15 @@ async function runSync(stateKey, dbName, table) {
 
         await sleep(RATE_MS);
       }
+      // ── Fase 3 (Ouvidoria): preencher manifesto_direcionado_a nos tickets sem ele ──
+      if (stateKey === 'ouvidoria') {
+        try {
+          await backfillManifesto(token, dbName, table);
+        } catch (e) {
+          console.error('[ticket-sync] backfillManifesto error:', e.message);
+        }
+      }
+
     } catch (e) {
       state.error = e.message;
     } finally {
