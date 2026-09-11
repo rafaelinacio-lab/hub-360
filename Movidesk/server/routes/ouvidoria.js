@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
-const { requireTabAccess } = require('./config');
+const { requireTabAccess, getToken } = require('./config');
+const fetch = require('node-fetch');
 const { syncState, runSync, stopSync } = require('./ticket-sync');
 
 // Tabela public.ouvidoria é alimentada por um processo externo (fora deste painel), que já
@@ -64,6 +65,28 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
   } catch (error) {
     console.error('Erro ao buscar manifestação de ouvidoria:', error);
     res.status(500).json({ error: 'Erro ao carregar manifestação' });
+  }
+});
+
+// ===== GET /ouvidoria/:ticketId/actions — ações e campos do Movidesk =====
+const MOVIDESK_API = 'https://api.movidesk.com/public/v1/tickets';
+
+router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
+  const ticketId = Number(req.params.ticketId);
+  if (!Number.isFinite(ticketId)) return res.status(400).json({ error: 'ticket_id inválido' });
+  try {
+    const token = await new Promise((ok, fail) => getToken((e, t) => e ? fail(e) : ok(t)));
+    const params = new URLSearchParams({ token, id: String(ticketId), '$expand': 'actions,customFieldValues' });
+    const resp = await fetch(`${MOVIDESK_API}?${params}`, { timeout: 15000 });
+    if (!resp.ok) return res.status(resp.status).json({ error: `Movidesk devolveu ${resp.status}` });
+    const data = await resp.json();
+    res.json({
+      actions: Array.isArray(data.actions) ? data.actions : [],
+      customFieldValues: Array.isArray(data.customFieldValues) ? data.customFieldValues : [],
+    });
+  } catch (e) {
+    console.error('Erro ao buscar ações de ouvidoria:', e.message);
+    res.status(500).json({ error: 'Erro ao buscar ações do chamado' });
   }
 });
 

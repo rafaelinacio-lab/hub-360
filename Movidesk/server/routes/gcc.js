@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
-const { requireTabAccess } = require('./config');
+const { requireTabAccess, getToken } = require('./config');
+const fetch = require('node-fetch');
 const { syncState, runSync, stopSync } = require('./ticket-sync');
 
 // Tabela public.gcc segue o mesmo padrão de public.ouvidoria: alimentada por um processo
@@ -68,6 +69,28 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
   } catch (error) {
     console.error('Erro ao buscar registro de GCC:', error);
     res.status(500).json({ error: 'Erro ao carregar registro' });
+  }
+});
+
+// ===== GET /gcc/:ticketId/actions — ações e campos do Movidesk =====
+const MOVIDESK_API = 'https://api.movidesk.com/public/v1/tickets';
+
+router.get('/:ticketId/actions', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
+  const ticketId = Number(req.params.ticketId);
+  if (!Number.isFinite(ticketId)) return res.status(400).json({ error: 'ticket_id inválido' });
+  try {
+    const token = await new Promise((ok, fail) => getToken((e, t) => e ? fail(e) : ok(t)));
+    const params = new URLSearchParams({ token, id: String(ticketId), '$expand': 'actions,customFieldValues' });
+    const resp = await fetch(`${MOVIDESK_API}?${params}`, { timeout: 15000 });
+    if (!resp.ok) return res.status(resp.status).json({ error: `Movidesk devolveu ${resp.status}` });
+    const data = await resp.json();
+    res.json({
+      actions: Array.isArray(data.actions) ? data.actions : [],
+      customFieldValues: Array.isArray(data.customFieldValues) ? data.customFieldValues : [],
+    });
+  } catch (e) {
+    console.error('Erro ao buscar ações de GCC:', e.message);
+    res.status(500).json({ error: 'Erro ao buscar ações do chamado' });
   }
 });
 

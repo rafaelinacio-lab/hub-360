@@ -518,6 +518,31 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
   .grid-wrap{padding:14px 12px}
   .kpi-bar{padding:12px}
 }
+
+/* ── Timeline de ações ───────────────────────────────────────────── */
+.tl-list{display:flex;flex-direction:column}
+.tl-item{display:grid;grid-template-columns:32px 1fr;gap:10px;padding:13px 0;border-bottom:1px solid var(--border)}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.tl-dot.tp-agent{background:var(--orange);color:#fff}
+.tl-dot.tp-client{background:var(--surface2);color:var(--text)}
+.tl-dot.tp-internal{background:#f59e0b;color:#fff}
+.tl-dot.tp-auto{background:var(--border);color:var(--muted)}
+.tl-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:baseline;margin-bottom:5px}
+.tl-author{font-weight:600;font-size:13px;color:var(--text)}
+.tl-date{font-size:11px;color:var(--muted)}
+.tl-badge{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.tl-desc{font-size:13px;line-height:1.55;color:var(--text);word-break:break-word}
+.tl-desc img{max-width:100%;border-radius:4px}
+.tl-desc a{color:var(--orange);text-decoration:none}
+.tl-desc p{margin:0 0 5px}.tl-desc p:last-child{margin:0}
+.tl-desc table{font-size:12px;border-collapse:collapse;width:100%}
+.tl-desc td,.tl-desc th{border:1px solid var(--border);padding:3px 6px}
+.cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:4px}
+.cf-item{background:var(--surface2);border-radius:6px;padding:8px 10px}
+.cf-lbl{font-size:11px;color:var(--muted);display:block;margin-bottom:2px}
+.cf-val{font-size:13px;color:var(--text);word-break:break-word}
+.tl-loading{padding:16px 0;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
 </style>
 </head>
 <body>
@@ -964,7 +989,8 @@ function openDrawer(id){
     <div style="display:flex;flex-direction:column;gap:10px">${buildAnalise(r.analise)}</div>
   </div>`:'';
 
-  document.getElementById('d-body').innerHTML=churnsHtml+probsHtml+descHtml+analiseHtml;
+  document.getElementById('d-body').innerHTML=churnsHtml+probsHtml+descHtml+analiseHtml+'<div id="_act-section"></div>';
+  loadDrawerActions(r.ticket_id,'gcc');
 
   // collapse desc check
   requestAnimationFrame(()=>{
@@ -1052,6 +1078,66 @@ async function apiFetch(path,method='GET'){
   });
   if(!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
+}
+
+// ── Ações e campos personalizados do Movidesk ────────────────────────
+const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+
+function tlDot(type,isPrivate){
+  if(isPrivate) return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">lock</span></div>`;
+  if(type===1)  return `<div class="tl-dot tp-client"><span class="sym" style="font-size:15px">person</span></div>`;
+  if(type===2)  return `<div class="tl-dot tp-agent"><span class="sym" style="font-size:15px">support_agent</span></div>`;
+  if(type===3)  return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">sticky_note_2</span></div>`;
+  return `<div class="tl-dot tp-auto"><span class="sym" style="font-size:15px">settings</span></div>`;
+}
+
+function renderActions(data){
+  const actions=(data.actions||[]);
+  const fields=(data.customFieldValues||[]).filter(f=>f.value||(f.items&&f.items.length));
+  let html='';
+
+  if(fields.length){
+    html+=`<div>
+      <div class="sec-lbl"><span class="sym">tune</span>Campos personalizados</div>
+      <div class="cf-grid">${fields.map(f=>{
+        const val=f.value||(f.items||[]).map(i=>i.customFieldItem||'').filter(Boolean).join(', ')||'—';
+        return `<div class="cf-item"><span class="cf-lbl">Campo ${f.customFieldId}</span><span class="cf-val">${esc(String(val))}</span></div>`;
+      }).join('')}</div>
+    </div>`;
+  }
+
+  if(actions.length){
+    html+=`<div>
+      <div class="sec-lbl"><span class="sym">history</span>Histórico (${actions.length} ações)</div>
+      <div class="tl-list">${actions.map(a=>{
+        const author=a.createdBy?(a.createdBy.businessName||a.createdBy.email||'Sistema'):'Sistema';
+        const label=a.isPrivate?'Nota interna':(ACTION_TYPE[a.type]||`Tipo ${a.type}`);
+        const statusBadge=a.status?`<span class="tl-badge">${esc(a.status)}</span>`:'';
+        return `<div class="tl-item">
+          ${tlDot(a.type,a.isPrivate)}
+          <div>
+            <div class="tl-meta">
+              <span class="tl-author">${esc(author)}</span>
+              <span class="tl-date">${a.date?fmtFull(a.date):''}</span>
+              <span class="tl-badge">${label}</span>
+              ${statusBadge}
+            </div>
+            <div class="tl-desc">${a.description||''}</div>
+          </div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }
+  return html;
+}
+
+function loadDrawerActions(ticketId,prefix){
+  const sec=document.getElementById('_act-section');
+  if(!sec) return;
+  sec.innerHTML='<div class="tl-loading"><span class="sym">hourglass_empty</span>Carregando ações…</div>';
+  apiFetch(`/${prefix}/${ticketId}/actions`).then(data=>{
+    sec.innerHTML=renderActions(data)||'';
+  }).catch(()=>{ sec.innerHTML=''; });
 }
 </script>
 </body>
