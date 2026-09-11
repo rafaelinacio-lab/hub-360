@@ -235,7 +235,7 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
       if (stateKey === 'ouvidoria') {
         const r = await db.queryDatabase(dbName,
           `INSERT INTO ${table}
-             (ticket_id, assunto, organizacao, organizacao_id, criado_em,
+             (ticket_id, assunto_ouvidoria, organizacao, organizacao_id, criado_em,
               status_movidesk, base_status, manifesto_direcionado_a, sincronizado_em)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
            ON CONFLICT (ticket_id) DO UPDATE SET
@@ -259,16 +259,11 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
             t.baseStatus  ?? null,
             manifesto,
           ]);
-        // xmax = 0 → INSERT; xmax != 0 → UPDATE
-        if (r.rowCount > 0) {
-          const wasInsert = !r.rows?.[0]; // DO UPDATE retorna linha; INSERT não retorna
-          // Verifica pelo rowCount se houve alteração
-          if (r.command === 'INSERT') inserted++; else updated++;
-        }
+        if (r.command === 'INSERT') inserted++; else if (r.rowCount > 0) updated++;
       } else {
         const r = await db.queryDatabase(dbName,
           `INSERT INTO ${table}
-             (ticket_id, assunto, organizacao, organizacao_id, criado_em,
+             (ticket_id, assunto_gcc, organizacao, organizacao_id, criado_em,
               status_movidesk, base_status, sincronizado_em)
            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
            ON CONFLICT (ticket_id) DO UPDATE SET
