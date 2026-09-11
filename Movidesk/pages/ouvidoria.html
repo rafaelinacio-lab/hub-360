@@ -1073,17 +1073,24 @@ function tlItem(a){
 function renderActions(data){
   const actions=(data.actions||[]);
   const fieldDefs=data.fieldDefs||{};
-  const fields=(data.customFieldValues||[]).filter(f=>f.value||(f.items&&f.items.length));
+  // só exibe campos com valor real preenchido
+  const cfItems=(data.customFieldValues||[]).reduce((acc,f)=>{
+    const val=String(f.value||'').trim()||
+      (f.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
+    if(!val) return acc;
+    const name=fieldDefs[String(f.customFieldId)]||STATIC_CF_NAMES[f.customFieldId]||null;
+    if(!name) return acc; // sem nome conhecido, não exibe
+    acc.push({name,val});
+    return acc;
+  },[]);
   let html='';
 
-  if(fields.length){
+  if(cfItems.length){
     html+=`<div>
       <div class="sec-lbl"><span class="sym">tune</span>Campos personalizados</div>
-      <div class="cf-grid">${fields.map(f=>{
-        const name=fieldDefs[String(f.customFieldId)]||STATIC_CF_NAMES[f.customFieldId]||`Campo ${f.customFieldId}`;
-        const val=f.value||(f.items||[]).map(i=>i.customFieldItem||'').filter(Boolean).join(', ')||'—';
-        return `<div class="cf-item"><span class="cf-lbl">${esc(name)}</span><span class="cf-val">${esc(String(val))}</span></div>`;
-      }).join('')}</div>
+      <div class="cf-grid">${cfItems.map(f=>
+        `<div class="cf-item"><span class="cf-lbl">${esc(f.name)}</span><span class="cf-val">${esc(f.val)}</span></div>`
+      ).join('')}</div>
     </div>`;
   }
 
