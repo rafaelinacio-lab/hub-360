@@ -186,6 +186,23 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 }
 .sort-sel:focus{border-color:var(--orange)}
 
+/* ─── Filter bar ─────────────────────────────────────────────────────── */
+.topbar-filters{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 0 10px;max-width:1480px;margin:0 auto;
+  flex-wrap:wrap;border-top:1px solid var(--border);
+}
+.fil-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.fil-ico{font-size:16px;color:var(--t3)}
+.fil-label{font-size:11px;color:var(--t3);white-space:nowrap;font-weight:500;letter-spacing:.02em}
+.fil-date{
+  padding:5px 9px;border:1px solid var(--border);border-radius:7px;
+  background:var(--surface-low);color:var(--t1);
+  font-size:12px;font-family:inherit;outline:none;cursor:pointer;max-width:132px;
+}
+.fil-date:focus{border-color:var(--orange)}
+html.dark .fil-date{color-scheme:dark}
+
 #ov-count{font-size:12px;color:var(--t3);white-space:nowrap;margin-left:auto}
 
 .btn-refresh{
@@ -581,6 +598,20 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
         <span class="sym">sync</span>Sincronizar tickets
       </button>
     </div>
+    <!-- Filter bar -->
+    <div class="topbar-filters">
+      <div class="fil-group">
+        <span class="sym fil-ico">event</span>
+        <span class="fil-label">Data criação</span>
+        <input type="date" class="fil-date" id="ov-date-from" title="Data de criação (de)">
+        <span class="fil-label">até</span>
+        <input type="date" class="fil-date" id="ov-date-to" title="Data de criação (até)">
+      </div>
+      <div class="vbar"></div>
+      <select class="sort-sel" id="ov-org">
+        <option value="">Todos os clientes</option>
+      </select>
+    </div>
     <!-- sync toast -->
     <div id="sync-toast">
       <span class="sym">sync</span>
@@ -705,6 +736,13 @@ function updateCounts(){
   document.getElementById('c-rec').textContent=c.rec;
   document.getElementById('c-elo').textContent=c.elo;
   document.getElementById('c-sug').textContent=c.sug;
+
+  // popula select de cliente
+  const orgSel=document.getElementById('ov-org');
+  const curOrg=orgSel.value;
+  const orgs=[...new Set(_rows.map(r=>r.organizacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  orgSel.innerHTML=`<option value="">Todos os clientes</option>`
+    +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
 }
 
 // ── filter chips ─────────────────────────────────────────────────────
@@ -722,9 +760,20 @@ document.getElementById('ov-chips').addEventListener('click',e=>{
 function render(){
   const q=(document.getElementById('ov-search').value||'').toLowerCase().trim();
   const sort=document.getElementById('ov-sort').value;
+  const orgFil=document.getElementById('ov-org')?.value||'';
+  const dateFrom=document.getElementById('ov-date-from')?.value||''; // YYYY-MM-DD
+  const dateTo=document.getElementById('ov-date-to')?.value||'';
 
   let rows=_rows.filter(r=>{
     if(_filter!=='all' && tipoKey(rawTipo(r))!==_filter) return false;
+    if(orgFil&&r.organizacao!==orgFil) return false;
+    // Filtro por data de criação
+    if(dateFrom||dateTo){
+      const d=r.criado_em?new Date(r.criado_em):null;
+      if(!d) return false;
+      if(dateFrom&&d<new Date(dateFrom+'T00:00:00')) return false;
+      if(dateTo&&d>new Date(dateTo+'T23:59:59')) return false;
+    }
     if(!q) return true;
     const probs=(r.chamados_relacionados||[]).map(c=>c.motivo).join(' ');
     const hay=`${r.organizacao||''} ${r.assunto_ouvidoria||''} ${r.ticket_id||''} ${r.servico_ouvidoria_nome||''} ${rawTipo(r)} ${probs}`.toLowerCase();
@@ -794,9 +843,12 @@ document.getElementById('ov-grid').addEventListener('click',e=>{
   if(id) openDrawer(id);
 });
 
-// search + sort events
+// search + sort + filter events
 document.getElementById('ov-search').addEventListener('input',render);
 document.getElementById('ov-sort').addEventListener('change',render);
+document.getElementById('ov-date-from').addEventListener('change',render);
+document.getElementById('ov-date-to').addEventListener('change',render);
+document.getElementById('ov-org').addEventListener('change',render);
 
 // ── drawer ───────────────────────────────────────────────────────────
 function openDrawer(id){
