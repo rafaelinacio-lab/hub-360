@@ -196,6 +196,37 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 .fil-ico{font-size:16px;color:var(--t3)}
 .fil-label{font-size:11px;color:var(--t3);white-space:nowrap;font-weight:500;letter-spacing:.02em}
 
+/* ─── Multi-select dropdown ─────────────────────────────────────────── */
+.multi-sel{position:relative;flex-shrink:0}
+.ms-btn{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;min-width:112px;
+  transition:border-color .15s,color .15s;
+}
+.ms-btn:hover,.ms-btn.ms-active,.multi-sel.open .ms-btn{border-color:var(--orange);color:var(--t1)}
+.ms-lbl{flex:1;text-align:left}
+.ms-arrow{font-size:15px;color:var(--t3);transition:transform .15s}
+.multi-sel.open .ms-arrow{transform:rotate(180deg)}
+.ms-drop{
+  position:absolute;top:calc(100% + 5px);left:0;z-index:400;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:var(--sh-md);padding:5px 0;min-width:155px;
+  max-height:260px;overflow-y:auto;display:none;
+}
+.multi-sel.open .ms-drop{display:block}
+.ms-item{
+  display:flex;align-items:center;gap:9px;padding:7px 12px;
+  cursor:pointer;font-size:13px;color:var(--t1);transition:background .1s;
+  user-select:none;
+}
+.ms-item:hover{background:var(--surface-mid)}
+.ms-item input[type=checkbox]{
+  accent-color:var(--orange);width:14px;height:14px;
+  cursor:pointer;flex-shrink:0;margin:0;
+}
+
 #ov-count{font-size:12px;color:var(--t3);white-space:nowrap;margin-left:auto}
 
 .btn-refresh{
@@ -596,18 +627,20 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
       <div class="fil-group">
         <span class="sym fil-ico">event</span>
         <span class="fil-label">Criação</span>
-        <select class="sort-sel" id="ov-year" onchange="render()">
-          <option value="">Todos os anos</option>
-        </select>
-        <select class="sort-sel" id="ov-month" onchange="render()">
-          <option value="">Todos os meses</option>
-          <option value="1">Janeiro</option><option value="2">Fevereiro</option>
-          <option value="3">Março</option><option value="4">Abril</option>
-          <option value="5">Maio</option><option value="6">Junho</option>
-          <option value="7">Julho</option><option value="8">Agosto</option>
-          <option value="9">Setembro</option><option value="10">Outubro</option>
-          <option value="11">Novembro</option><option value="12">Dezembro</option>
-        </select>
+        <div class="multi-sel" id="ov-year">
+          <button class="ms-btn" type="button" onclick="toggleMs(this)">
+            <span class="ms-lbl">Todos os anos</span>
+            <span class="sym ms-arrow">expand_more</span>
+          </button>
+          <div class="ms-drop"></div>
+        </div>
+        <div class="multi-sel" id="ov-month">
+          <button class="ms-btn" type="button" onclick="toggleMs(this)">
+            <span class="ms-lbl">Todos os meses</span>
+            <span class="sym ms-arrow">expand_more</span>
+          </button>
+          <div class="ms-drop"></div>
+        </div>
       </div>
       <div class="vbar"></div>
       <select class="sort-sel" id="ov-org">
@@ -701,6 +734,53 @@ function statusBadge(status, base){
   return '';  // tickets abertos: sem badge (padrão)
 }
 
+// ── Multi-select ─────────────────────────────────────────────────────
+const MONTHS=[
+  {v:1,l:'Janeiro'},{v:2,l:'Fevereiro'},{v:3,l:'Março'},{v:4,l:'Abril'},
+  {v:5,l:'Maio'},{v:6,l:'Junho'},{v:7,l:'Julho'},{v:8,l:'Agosto'},
+  {v:9,l:'Setembro'},{v:10,l:'Outubro'},{v:11,l:'Novembro'},{v:12,l:'Dezembro'},
+];
+function toggleMs(btn){
+  const ms=btn.closest('.multi-sel');
+  const wasOpen=ms.classList.contains('open');
+  document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+  if(!wasOpen) ms.classList.add('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.multi-sel'))
+    document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+});
+function getMsValues(id){
+  return [...document.querySelectorAll(`#${id} .ms-drop input:checked`)].map(i=>i.value);
+}
+function updateMsLabel(id,allLabel){
+  const vals=getMsValues(id);
+  const lbl=document.querySelector(`#${id} .ms-lbl`);
+  const btn=document.querySelector(`#${id} .ms-btn`);
+  if(!vals.length){lbl.textContent=allLabel;btn.classList.remove('ms-active');return;}
+  if(vals.length===1){
+    const span=[...document.querySelectorAll(`#${id} .ms-item`)].find(el=>el.querySelector('input').value===vals[0])?.querySelector('span');
+    lbl.textContent=span?span.textContent:vals[0];
+  } else {
+    lbl.textContent=`${vals.length} selecionados`;
+  }
+  btn.classList.add('ms-active');
+}
+function populateMs(id,items,allLabel,onChange){
+  const drop=document.querySelector(`#${id} .ms-drop`);
+  if(!drop) return;
+  const cur=new Set(getMsValues(id));
+  drop.innerHTML=items.map(({v,l})=>`
+    <label class="ms-item">
+      <input type="checkbox" value="${v}"${cur.has(String(v))?' checked':''}>
+      <span>${esc(String(l))}</span>
+    </label>`).join('');
+  drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
+    updateMsLabel(id,allLabel); onChange();
+  }));
+  updateMsLabel(id,allLabel);
+}
+
 // ── state ────────────────────────────────────────────────────────────
 let _rows=[], _filter='all';
 
@@ -708,6 +788,7 @@ let _rows=[], _filter='all';
 async function loadOuvidoria(){
   try{
     _rows=await api('/ouvidoria');
+    populateMs('ov-month',MONTHS,'Todos os meses',render);
     updateKpis(); updateCounts(); render();
     document.getElementById('ov-page').style.visibility='visible';
     document.getElementById('ov-loading').style.display='none';
@@ -746,15 +827,12 @@ function updateCounts(){
   orgSel.innerHTML=`<option value="">Todos os clientes</option>`
     +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
 
-  // popula select de ano (a partir de criado_em)
-  const yearSel=document.getElementById('ov-year');
-  const curYear=yearSel.value;
+  // multi-select de ano (a partir de criado_em)
   const years=[...new Set(_rows
     .map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null)
     .filter(Boolean)
   )].sort((a,b)=>b-a);
-  yearSel.innerHTML=`<option value="">Todos os anos</option>`
-    +years.map(y=>`<option value="${y}"${String(curYear)===String(y)?' selected':''}>${y}</option>`).join('');
+  populateMs('ov-year',years.map(y=>({v:y,l:y})),'Todos os anos',render);
 }
 
 // ── filter chips ─────────────────────────────────────────────────────
@@ -773,18 +851,18 @@ function render(){
   const q=(document.getElementById('ov-search').value||'').toLowerCase().trim();
   const sort=document.getElementById('ov-sort').value;
   const orgFil=document.getElementById('ov-org')?.value||'';
-  const yearFil=parseInt(document.getElementById('ov-year')?.value)||0;
-  const monthFil=parseInt(document.getElementById('ov-month')?.value)||0;
+  const yearFils=getMsValues('ov-year').map(Number);
+  const monthFils=getMsValues('ov-month').map(Number);
 
   let rows=_rows.filter(r=>{
     if(_filter!=='all' && tipoKey(rawTipo(r))!==_filter) return false;
     if(orgFil&&r.organizacao!==orgFil) return false;
-    // Filtro por ano/mês de criação
-    if(yearFil||monthFil){
+    // Filtro por ano/mês de criação (múltipla seleção)
+    if(yearFils.length||monthFils.length){
       const d=r.criado_em?new Date(r.criado_em):null;
       if(!d) return false;
-      if(yearFil&&d.getFullYear()!==yearFil) return false;
-      if(monthFil&&(d.getMonth()+1)!==monthFil) return false;
+      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
+      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
     }
     if(!q) return true;
     const probs=(r.chamados_relacionados||[]).map(c=>c.motivo).join(' ');
@@ -858,7 +936,6 @@ document.getElementById('ov-grid').addEventListener('click',e=>{
 // search + sort + filter events
 document.getElementById('ov-search').addEventListener('input',render);
 document.getElementById('ov-sort').addEventListener('change',render);
-document.getElementById('ov-month').addEventListener('change',render);
 document.getElementById('ov-org').addEventListener('change',render);
 
 // ── drawer ───────────────────────────────────────────────────────────
