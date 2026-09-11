@@ -111,17 +111,25 @@ async function apiFetch(token, ids) {
 // ── Importação de novos tickets ───────────────────────────────────────────────
 
 /**
- * Extrai o valor do campo personalizado 23946 ("Classificação de Ticket").
- * O campo pode ser do tipo lista (items[]) ou texto (value).
+ * Extrai o valor de um campo personalizado da lista customFieldValues.
+ * Tenta customFieldItem (lista), depois name, depois value (texto livre).
  */
-function getClassification(ticket) {
-  const cfv = Array.isArray(ticket.customFieldValues) ? ticket.customFieldValues : [];
-  const cf  = cfv.find(f => f.customFieldId === CF_CLASSIFICACAO);
+function extractCfValue(cfv, cfId) {
+  const cf = (Array.isArray(cfv) ? cfv : []).find(f => f.customFieldId === cfId);
   if (!cf) return null;
   if (Array.isArray(cf.items) && cf.items.length) {
-    return cf.items[0].name || cf.items[0].value || null;
+    return cf.items
+      .map(i => String(i.customFieldItem || i.name || i.value || '').trim())
+      .filter(Boolean).join(', ') || null;
   }
-  return cf.value || null;
+  return String(cf.value || '').trim() || null;
+}
+
+/**
+ * Extrai o valor do campo personalizado 23946 ("Classificação de Ticket").
+ */
+function getClassification(ticket) {
+  return extractCfValue(ticket.customFieldValues, CF_CLASSIFICACAO);
 }
 
 /**
@@ -213,16 +221,9 @@ async function importPhase(token, stateKey, dbName, table) {
                || null;
 
     // Para Ouvidoria, extrai o campo "Manifesto direcionado a" (CF 38595)
-    let manifesto = null;
-    if (stateKey === 'ouvidoria') {
-      const cfv2 = Array.isArray(t.customFieldValues) ? t.customFieldValues : [];
-      const cfm  = cfv2.find(f => f.customFieldId === CF_MANIFESTO_DIRIGIDO);
-      if (cfm) {
-        manifesto = (Array.isArray(cfm.items) && cfm.items.length)
-          ? (cfm.items[0].name || cfm.items[0].value || null)
-          : (cfm.value || null);
-      }
-    }
+    const manifesto = stateKey === 'ouvidoria'
+      ? extractCfValue(t.customFieldValues, CF_MANIFESTO_DIRIGIDO)
+      : null;
 
     try {
       if (stateKey === 'ouvidoria') {
@@ -303,9 +304,7 @@ async function backfillManifesto(token, dbName, table) {
         const cfv = Array.isArray(t.customFieldValues) ? t.customFieldValues : [];
         const cf  = cfv.find(f => f.customFieldId === CF_MANIFESTO_DIRIGIDO);
         if (!cf) continue;
-        const manifesto = (Array.isArray(cf.items) && cf.items.length)
-          ? (cf.items[0].name || cf.items[0].value || null)
-          : (cf.value || null);
+        const manifesto = extractCfValue(t.customFieldValues, CF_MANIFESTO_DIRIGIDO);
         if (!manifesto) continue;
         await db.queryDatabase(dbName,
           `UPDATE ${table} SET manifesto_direcionado_a = $2 WHERE ticket_id = $1`,

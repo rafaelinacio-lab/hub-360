@@ -98,7 +98,7 @@ router.get('/manifesto-batch', authMiddleware, requireTabAccess('ouvidoria'), as
         for (const t of list) {
           const cf = (t.customFieldValues || []).find(f => f.customFieldId === CF_MANIFESTO);
           if (!cf) continue;
-          const val = (cf.items?.length
+          const val = (Array.isArray(cf.items) && cf.items.length
             ? cf.items.map(i => String(i.customFieldItem || i.name || i.value || '').trim()).filter(Boolean).join(', ')
             : String(cf.value || '').trim()) || null;
           if (!val) continue;
