@@ -136,8 +136,6 @@ function getClassification(ticket) {
 // Status que indicam ticket encerrado (usado no filtro da API e na query de fase 2)
 const CLOSED_STATUSES = ['Resolved', 'Closed', 'Canceled'];
 
-// Rule ID do campo personalizado 23946 (Classificação de Ticket) no Movidesk
-const CF_CLASSIFICACAO_RULE = 11397;
 
 /**
  * Busca tickets da API pública com um filtro OData arbitrário, paginando.
@@ -203,10 +201,14 @@ async function importPhase(token, stateKey, dbName, table, state = null) {
   // Filtra status + classificação diretamente na API do Movidesk
   const statusFilter = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
   const cfFilter     = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
-                       ` and cf/customFieldRuleId eq ${CF_CLASSIFICACAO_RULE}` +
                        ` and cf/items/any(item: item/customFieldItem eq '${expectedClass}'))`;
   const allTickets   = await fetchByFilter(token, `${statusFilter} and ${cfFilter}`, 'tickets', onProgress);
   console.log(`[ticket-sync][${stateKey}] ${allTickets.length} tickets baixados com filtro de classificação "${expectedClass}"`);
+  if (allTickets.length > 0) {
+    const sample = allTickets[0];
+    const cfSample = (sample.customFieldValues || []).find(f => f.customFieldId === CF_CLASSIFICACAO);
+    console.log(`[ticket-sync][${stateKey}] sample ticket ${sample.id} customFieldValues[23946]:`, JSON.stringify(cfSample));
+  }
 
   // ── Deduplica por id ────────────────────────────────────────────────────────
   const ticketMap = new Map();
