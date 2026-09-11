@@ -1243,12 +1243,36 @@ function renderActions(data){
   return html;
 }
 
+const CF_MANIFESTO_ID=38595;
+function extractManifesto(cfValues){
+  const cf=(cfValues||[]).find(f=>f.customFieldId===CF_MANIFESTO_ID);
+  if(!cf) return null;
+  const fromItems=(cf.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
+  return fromItems||String(cf.value||'').trim()||null;
+}
+
 function loadDrawerActions(ticketId,prefix){
   const sec=document.getElementById('_act-section');
   if(!sec) return;
   sec.innerHTML='<div class="tl-loading"><span class="sym">hourglass_empty</span>Carregando ações…</div>';
   apiFetch(`/${prefix}/${ticketId}/actions`).then(data=>{
     sec.innerHTML=renderActions(data)||'';
+    // Atualiza manifesto no card e no cache de rows
+    const manifesto=extractManifesto(data.customFieldValues);
+    if(manifesto){
+      const row=_rows.find(r=>String(r.ticket_id)===String(ticketId));
+      if(row) row.manifesto_direcionado_a=manifesto;
+      const card=document.querySelector(`.card[data-id="${ticketId}"]`);
+      if(card){
+        let sub=card.querySelector('.card-sub');
+        if(!sub){
+          sub=document.createElement('div');
+          sub.className='card-sub';
+          card.querySelector('.card-body')?.appendChild(sub);
+        }
+        sub.textContent=manifesto;
+      }
+    }
   }).catch(()=>{ sec.innerHTML=''; });
 }
 </script>
