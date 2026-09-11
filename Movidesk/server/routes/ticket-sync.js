@@ -288,7 +288,6 @@ async function backfillManifesto(token, dbName, table) {
     const filter = ids.map(id => `id eq ${id}`).join(' or ');
     const url    = `${MOVIDESK_PUBLIC_API}/tickets?${new URLSearchParams({
       token,
-      '$select':  'id',
       '$expand':  'customFieldValues',
       '$filter':  filter,
       '$top':     String(ids.length),
