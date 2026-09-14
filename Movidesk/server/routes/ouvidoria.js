@@ -227,4 +227,64 @@ db.queryDatabase(OUVIDORIA_DB,
   `ALTER TABLE public.ouvidoria ADD COLUMN IF NOT EXISTS manifesto_direcionado_a VARCHAR(200)`)
   .catch(() => {});
 
+// Chamado pelo agendador em server.js (08:00, 12:00, 19:00)
+router.runSync = async function () {
+  try {
+    await db.queryDatabase(OUVIDORIA_DB, `
+      INSERT INTO public.ouvidoria (
+        ticket_id, organizacao, organizacao_id, assunto_ouvidoria,
+        tipo, manifesto_procedente, manifesto_direcionado_a,
+        criado_em, status_movidesk, base_status, sincronizado_em
+      )
+      SELECT
+        t.ticket_id::varchar(20),
+        COALESCE(tc.organizacao_nome, t.clientorganization),
+        tc.organizacao_id,
+        t.subject,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_MANIFESTO} THEN cf.valor_texto END),
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_PROC} THEN cf.valor_texto END),
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_DIR}  THEN cf.valor_texto END),
+        t.createddate,
+        t.status,
+        t.basestatus,
+        NOW()
+      FROM silver.ticket t
+      JOIN silver.ticket_campo_customizado cf_class
+        ON cf_class.ticket_id = t.ticket_id
+        AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
+        AND cf_class.valor_texto = 'Ouvidoria'
+      LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id
+      LEFT JOIN LATERAL (
+        SELECT organizacao_id, organizacao_nome
+        FROM silver.ticket_cliente
+        WHERE ticket_id = t.ticket_id
+        LIMIT 1
+      ) tc ON true
+      GROUP BY
+        t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
+        t.subject, t.createddate, t.status, t.basestatus
+      ON CONFLICT (ticket_id) DO UPDATE SET
+        organizacao             = EXCLUDED.organizacao,
+        organizacao_id          = EXCLUDED.organizacao_id,
+        assunto_ouvidoria       = EXCLUDED.assunto_ouvidoria,
+        tipo                    = EXCLUDED.tipo,
+        manifesto_procedente    = EXCLUDED.manifesto_procedente,
+        manifesto_direcionado_a = EXCLUDED.manifesto_direcionado_a,
+        status_movidesk         = EXCLUDED.status_movidesk,
+        base_status             = EXCLUDED.base_status,
+        sincronizado_em         = EXCLUDED.sincronizado_em
+      WHERE
+        public.ouvidoria.status_movidesk          IS DISTINCT FROM EXCLUDED.status_movidesk
+        OR public.ouvidoria.base_status           IS DISTINCT FROM EXCLUDED.base_status
+        OR public.ouvidoria.manifesto_direcionado_a IS DISTINCT FROM EXCLUDED.manifesto_direcionado_a
+        OR public.ouvidoria.manifesto_procedente  IS DISTINCT FROM EXCLUDED.manifesto_procedente
+        OR public.ouvidoria.tipo                  IS DISTINCT FROM EXCLUDED.tipo
+        OR public.ouvidoria.assunto_ouvidoria     IS DISTINCT FROM EXCLUDED.assunto_ouvidoria
+    `);
+    console.log('[ouvidoria] sync datalake concluído');
+  } catch (e) {
+    console.error('[ouvidoria] sync datalake error:', e.message);
+  }
+};
+
 module.exports = router;

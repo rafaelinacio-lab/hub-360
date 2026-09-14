@@ -200,4 +200,50 @@ router.get('/sync/status', authMiddleware, requireTabAccess('gcc'), (req, res) =
   res.json({ running: false, phase: 'idle', done: 0, total: 0 });
 });
 
+// Chamado pelo agendador em server.js (08:00, 12:00, 19:00)
+router.runSync = async function () {
+  try {
+    await db.queryDatabase(GCC_DB, `
+      INSERT INTO public.gcc (
+        ticket_id, organizacao, organizacao_id, assunto_gcc,
+        criado_em, status_movidesk, base_status, sincronizado_em
+      )
+      SELECT
+        t.ticket_id::varchar(20),
+        COALESCE(tc.organizacao_nome, t.clientorganization),
+        tc.organizacao_id,
+        t.subject,
+        t.createddate,
+        t.status,
+        t.basestatus,
+        NOW()
+      FROM silver.ticket t
+      JOIN silver.ticket_campo_customizado cf_class
+        ON cf_class.ticket_id = t.ticket_id
+        AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
+        AND cf_class.valor_texto = 'Gestão de Combate ao Churn'
+      LEFT JOIN LATERAL (
+        SELECT organizacao_id, organizacao_nome
+        FROM silver.ticket_cliente
+        WHERE ticket_id = t.ticket_id
+        LIMIT 1
+      ) tc ON true
+      ON CONFLICT (ticket_id) DO UPDATE SET
+        organizacao     = EXCLUDED.organizacao,
+        organizacao_id  = EXCLUDED.organizacao_id,
+        assunto_gcc     = EXCLUDED.assunto_gcc,
+        status_movidesk = EXCLUDED.status_movidesk,
+        base_status     = EXCLUDED.base_status,
+        sincronizado_em = EXCLUDED.sincronizado_em
+      WHERE
+        public.gcc.status_movidesk IS DISTINCT FROM EXCLUDED.status_movidesk
+        OR public.gcc.base_status  IS DISTINCT FROM EXCLUDED.base_status
+        OR public.gcc.assunto_gcc  IS DISTINCT FROM EXCLUDED.assunto_gcc
+    `);
+    console.log('[gcc] sync datalake concluído');
+  } catch (e) {
+    console.error('[gcc] sync datalake error:', e.message);
+  }
+};
+
 module.exports = router;
