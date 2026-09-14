@@ -903,15 +903,20 @@
                             <span id="dlMeta" style="font-size:13px;color:var(--muted,#71717a);">–</span>
                         </div>
 
-                        <!-- Barra de progresso (visível só durante carga) -->
-                        <div id="dlProgressWrap" style="display:none;margin-top:10px;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#71717a);margin-bottom:4px;">
-                                <span id="dlProgressLabel">Carregando…</span>
-                                <span id="dlProgressCount" style="font-variant-numeric:tabular-nums;">0 tickets</span>
+                        <!-- Progresso live (visível só durante carga) -->
+                        <div id="dlProgressWrap" style="display:none;margin-top:12px;">
+                            <!-- Contador grande -->
+                            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px;">
+                                <span id="dlProgressCount" style="font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text,#f4f4f5);line-height:1;">0</span>
+                                <span style="font-size:14px;color:var(--muted,#71717a);">chamados coletados</span>
+                                <span id="dlProgressPages" style="margin-left:auto;font-size:12px;color:var(--muted,#71717a);font-variant-numeric:tabular-nums;"></span>
                             </div>
-                            <div style="background:var(--border,#333);border-radius:4px;height:6px;overflow:hidden;">
+                            <!-- Barra de progresso -->
+                            <div style="background:var(--border,#333);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px;">
                                 <div id="dlProgressBar" style="height:100%;width:0%;border-radius:4px;transition:width .4s;background:linear-gradient(90deg,#3b82f6,#06b6d4);"></div>
                             </div>
+                            <!-- Fase atual -->
+                            <div id="dlProgressLabel" style="font-size:12px;color:var(--muted,#71717a);">Carregando…</div>
                         </div>
                     </div>
 

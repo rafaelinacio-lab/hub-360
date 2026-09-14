@@ -2533,9 +2533,11 @@ function dlRenderStatus(cur, tokenSuffix) {
         metaParts.push(`Início: ${cur.startedAt ? new Date(cur.startedAt).toLocaleTimeString('pt-BR') : '–'}`);
         meta.textContent = metaParts.join(' · ');
 
+        const pages = document.getElementById('dlProgressPages');
         wrap.style.display = 'block';
         label.textContent = phaseLabel;
-        count.textContent = `${cur.ticketsDone.toLocaleString('pt-BR')} tickets`;
+        count.textContent = cur.ticketsDone.toLocaleString('pt-BR');
+        if (pages) pages.textContent = `${cur.pagesDone} pág${cur.pagesDone !== 1 ? 's' : ''}· endpoint: ${cur.endpoint || '–'}`;
 
         // barra de progresso: por anos se selecionados, senão cíclica
         let pct = 0;
