@@ -123,14 +123,24 @@ function checkCuradoriaFullLoadSchedule() {
     // Evita crescimento infinito do Set — mantém só as chaves do dia atual
     curadoriaFullLoadFiredKeys.forEach((k) => { if (!k.startsWith(dayKey)) curadoriaFullLoadFiredKeys.delete(k); });
 
-    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga bruta agendada da Curadoria + sync Ouvidoria/GCC (${hhmm})`);
+    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga bruta agendada da Curadoria (${hhmm})`);
     curadoriaRoutes.runFullLoad('scheduled');
-    ouvidoriaRoutes.runSync();
-    gccRoutes.runSync();
   });
 }
 
 setInterval(checkCuradoriaFullLoadSchedule, 30 * 1000);
+
+// ===== Sync Ouvidoria/GCC do datalake (a cada 2 horas) =====
+// INSERT...SELECT direto no mesmo banco — instantâneo, sem chamada de API.
+// Roda também 1 vez na inicialização (após 10s) para popular na subida do servidor.
+function runOuvidoriaGccSync() {
+  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Sync automático Ouvidoria/GCC via datalake`);
+  ouvidoriaRoutes.runSync();
+  gccRoutes.runSync();
+}
+
+setTimeout(runOuvidoriaGccSync, 10 * 1000);
+setInterval(runOuvidoriaGccSync, 2 * 60 * 60 * 1000);
 
 // Iniciar servidor
 app.listen(PORT, () => {
