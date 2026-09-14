@@ -2412,6 +2412,26 @@ async function dlLoad() {
         }
     } catch (e) {
         console.error('[datalake] erro ao buscar status:', e.message);
+        // mostra erro visível no badge e restaura botões
+        const badge   = document.getElementById('dlBadge');
+        const meta    = document.getElementById('dlMeta');
+        const btnFull = document.getElementById('dlBtnFull');
+        const btnInc  = document.getElementById('dlBtnInc');
+        if (badge) {
+            badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">error</span> Erro ao buscar status';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = e.message;
+        if (btnFull) {
+            btnFull.disabled = false;
+            btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora';
+        }
+        if (btnInc) {
+            btnInc.disabled = false;
+            btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+        }
+        clearInterval(_dlPollTimer);
+        _dlPollTimer = null;
     }
 }
 
@@ -2509,8 +2529,14 @@ function dlRenderStatus(cur) {
             meta.textContent = cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–';
         }
         wrap.style.display = 'none';
-        if (btnFull) { btnFull.disabled = false; }
-        if (btnInc)  { btnInc.disabled  = false; }
+        if (btnFull) {
+            btnFull.disabled = false;
+            btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora';
+        }
+        if (btnInc) {
+            btnInc.disabled = false;
+            btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+        }
     }
 }
 
@@ -2523,7 +2549,7 @@ function dlRenderHistory(rows) {
     }
     const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171' };
     const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
-    const modeLabel   = { full: 'Full', incremental: 'Incremental' };
+    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental' };
 
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
