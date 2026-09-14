@@ -220,6 +220,9 @@
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
+                    <button class="cfg-tab-btn" data-tab="datalake" onclick="switchConfigTab('datalake')">
+                        <span class="material-symbols-outlined">database</span> Carga Datalake
+                    </button>
                 </div>
 
                 <!-- ABA: Movidesk -->
@@ -905,6 +908,75 @@
                             <button class="config-btn config-btn-muted" onclick="resetTabPermissionsConfig()">Restaurar padrão</button>
                         </div>
                         <div id="cfgTabPermissionsStatus" class="config-status"></div>
+                    </div>
+                </div>
+
+                <!-- ABA: Carga Datalake -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-datalake">
+
+                    <!-- Status atual -->
+                    <div class="config-card">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:4px;">Status da Carga</h3>
+                                <p class="config-card-help" style="margin:0;">Movidesk API → silver.* (datalake)</p>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button class="config-btn config-btn-muted" onclick="dlLoad()" id="dlBtnRefresh" title="Atualizar status">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">refresh</span> Atualizar
+                                </button>
+                                <button class="config-btn config-btn-muted" onclick="dlTrigger('incremental')" id="dlBtnInc">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora
+                                </button>
+                                <button class="config-btn" onclick="dlTrigger('full')" id="dlBtnFull">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Badge de estado + métricas live -->
+                        <div id="dlCurrentStatus" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:10px;background:var(--bg,#18181b);border:1px solid var(--border,#333);margin-bottom:4px;">
+                            <span id="dlBadge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;">
+                                <span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso
+                            </span>
+                            <span id="dlMeta" style="font-size:13px;color:var(--muted,#71717a);">–</span>
+                        </div>
+
+                        <!-- Barra de progresso (visível só durante carga) -->
+                        <div id="dlProgressWrap" style="display:none;margin-top:10px;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#71717a);margin-bottom:4px;">
+                                <span id="dlProgressLabel">Carregando…</span>
+                                <span id="dlProgressCount" style="font-variant-numeric:tabular-nums;">0 tickets</span>
+                            </div>
+                            <div style="background:var(--border,#333);border-radius:4px;height:6px;overflow:hidden;">
+                                <div id="dlProgressBar" style="height:100%;width:0%;border-radius:4px;transition:width .4s;background:linear-gradient(90deg,#3b82f6,#06b6d4);"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Histórico -->
+                    <div class="config-card">
+                        <h3 class="config-card-title" style="margin-bottom:12px;">Histórico de Execuções</h3>
+                        <div id="dlHistory" style="overflow-x:auto;">
+                            <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
+                        </div>
+                    </div>
+
+                    <!-- Agendamento -->
+                    <div class="config-card">
+                        <h3 class="config-card-title">Agendamento</h3>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+                            <div style="padding:12px 16px;border-radius:8px;background:var(--bg,#18181b);border:1px solid var(--border,#333);">
+                                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#71717a);margin-bottom:4px;">Incremental</div>
+                                <div style="font-weight:600;font-size:14px;">Todo dia às 05:00</div>
+                                <div style="font-size:12px;color:var(--muted,#71717a);margin-top:4px;">Abertos + atualizados nas últimas 25h</div>
+                            </div>
+                            <div style="padding:12px 16px;border-radius:8px;background:var(--bg,#18181b);border:1px solid var(--border,#333);">
+                                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#71717a);margin-bottom:4px;">Full</div>
+                                <div style="font-weight:600;font-size:14px;">Sábados às 03:00</div>
+                                <div style="font-size:12px;color:var(--muted,#71717a);margin-top:4px;">Todos os tickets de todos os tempos</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

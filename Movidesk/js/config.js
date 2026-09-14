@@ -859,6 +859,7 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') loadTabPermissionsConfig();
+    if (tab === 'datalake') dlLoad();
 }
 
 // ─── Acesso: quais abas cada perfil vê no menu ─────────────────────────────
@@ -2423,5 +2424,146 @@ async function checkModuloSyncOnLoad() {
             startModuloSyncPolling();
         }
     } catch (_) { /* não crítico */ }
+}
+
+// ─── Aba Carga Datalake ────────────────────────────────────────────────────────
+let _dlPollTimer = null;
+
+async function dlLoad() {
+    try {
+        const resp = await fetch('/api/loader/status');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        dlRenderStatus(data.current);
+        dlRenderHistory(data.history || []);
+        // polling automático enquanto estiver rodando
+        if (data.current?.running) {
+            if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+        } else {
+            clearInterval(_dlPollTimer);
+            _dlPollTimer = null;
+        }
+    } catch (e) {
+        console.error('[datalake] erro ao buscar status:', e.message);
+    }
+}
+
+async function dlTrigger(mode) {
+    const btn = document.getElementById(mode === 'full' ? 'dlBtnFull' : 'dlBtnInc');
+    const label = mode === 'full' ? 'Full' : 'Incremental';
+    if (!confirm(`Disparar carga ${label} agora? Pode demorar vários minutos.`)) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Iniciando…';
+    try {
+        const resp = await fetch(`/api/loader/${mode}`, { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlLoad();
+        if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+    } catch (e) {
+        alert(`Erro ao iniciar carga: ${e.message}`);
+        btn.disabled = false;
+        btn.textContent = label;
+    }
+}
+
+function dlRenderStatus(cur) {
+    if (!cur) return;
+
+    const badge   = document.getElementById('dlBadge');
+    const meta    = document.getElementById('dlMeta');
+    const wrap    = document.getElementById('dlProgressWrap');
+    const bar     = document.getElementById('dlProgressBar');
+    const label   = document.getElementById('dlProgressLabel');
+    const count   = document.getElementById('dlProgressCount');
+    const btnFull = document.getElementById('dlBtnFull');
+    const btnInc  = document.getElementById('dlBtnInc');
+    if (!badge) return;
+
+    if (cur.running) {
+        const modeLabel = cur.mode === 'full' ? 'Full' : 'Incremental';
+        const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
+        badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
+        badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
+        meta.textContent = `Endpoint: ${cur.endpoint || '–'} · Páginas: ${cur.pagesDone} · Início: ${cur.startedAt ? new Date(cur.startedAt).toLocaleTimeString('pt-BR') : '–'}`;
+        wrap.style.display = 'block';
+        label.textContent = phaseLabel;
+        count.textContent = `${cur.ticketsDone.toLocaleString('pt-BR')} tickets`;
+        // barra animada — sem total, anima em ciclos
+        const pct = Math.min(100, (cur.ticketsDone % 10000) / 100);
+        bar.style.width = pct + '%';
+        if (btnFull) { btnFull.disabled = true; }
+        if (btnInc)  { btnInc.disabled  = true; }
+    } else {
+        const last = cur.lastResult;
+        badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Ocioso`;
+        badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;';
+        if (last) {
+            const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
+            meta.textContent = `Última: ${last.mode === 'full' ? 'Full' : 'Incremental'} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}`;
+        } else {
+            meta.textContent = cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–';
+        }
+        wrap.style.display = 'none';
+        if (btnFull) { btnFull.disabled = false; }
+        if (btnInc)  { btnInc.disabled  = false; }
+    }
+}
+
+function dlRenderHistory(rows) {
+    const el = document.getElementById('dlHistory');
+    if (!el) return;
+    if (!rows.length) {
+        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma execução registrada.</div>';
+        return;
+    }
+    const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171' };
+    const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
+    const modeLabel   = { full: 'Full', incremental: 'Incremental' };
+
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
+                <th style="padding:6px 10px;">Tipo</th>
+                <th style="padding:6px 10px;">Início</th>
+                <th style="padding:6px 10px;">Fim</th>
+                <th style="padding:6px 10px;text-align:right;">Tickets</th>
+                <th style="padding:6px 10px;">Status</th>
+                <th style="padding:6px 10px;">Erro</th>
+            </tr>
+        </thead>
+        <tbody>
+        ${rows.map(r => {
+            const st = r.status || 'running';
+            const ini = r.started_at ? new Date(r.started_at).toLocaleString('pt-BR') : '–';
+            const fin = r.finished_at ? new Date(r.finished_at).toLocaleString('pt-BR') : '–';
+            const dur = (r.started_at && r.finished_at)
+                ? (() => { const s = Math.round((new Date(r.finished_at) - new Date(r.started_at)) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; })()
+                : '–';
+            return `<tr style="border-bottom:1px solid var(--border,#222);">
+                <td style="padding:8px 10px;font-weight:600;">${modeLabel[r.mode] || r.mode}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${ini}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${fin} <span style="color:var(--muted,#71717a);font-size:11px;">(${dur})</span></td>
+                <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;">${(r.tickets_loaded || 0).toLocaleString('pt-BR')}</td>
+                <td style="padding:8px 10px;">
+                    <span style="display:inline-flex;align-items:center;gap:4px;${statusStyle[st]||''}">
+                        <span class="material-symbols-outlined" style="font-size:14px;">${statusIcon[st]||'help'}</span>
+                        ${st}
+                    </span>
+                </td>
+                <td style="padding:8px 10px;color:#f87171;font-size:12px;">${r.error_msg ? cfgEsc(r.error_msg).slice(0, 80) : ''}</td>
+            </tr>`;
+        }).join('')}
+        </tbody>
+    </table>`;
+}
+
+// Animação de rotação para o ícone de loading
+if (!document.getElementById('dlSpinStyle')) {
+    const s = document.createElement('style');
+    s.id = 'dlSpinStyle';
+    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
 }
 
