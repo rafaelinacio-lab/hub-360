@@ -2410,7 +2410,7 @@ async function dlLoad() {
         const resp = await fetch('/api/loader/status', { headers: authHeaders(), cache: 'no-store' });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
-        dlRenderStatus(data.current);
+        dlRenderStatus(data.current, data.tokenSuffix);
         dlRenderHistory(data.history || []);
         // polling automático enquanto estiver rodando
         if (data.current?.running) {
@@ -2502,7 +2502,7 @@ async function dlCancel() {
     }
 }
 
-function dlRenderStatus(cur) {
+function dlRenderStatus(cur, tokenSuffix) {
     if (!cur) return;
 
     const badge   = document.getElementById('dlBadge');
@@ -2558,11 +2558,12 @@ function dlRenderStatus(cur) {
         const last = cur.lastResult;
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Ocioso`;
         badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;';
+        const tokenInfo = tokenSuffix ? ` · Token: ${tokenSuffix}` : '';
         if (last) {
             const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
-            meta.textContent = `Última: ${last.mode === 'full' ? 'Full' : 'Incremental'} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}`;
+            meta.textContent = `Última: ${last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : 'Incremental'} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
         } else {
-            meta.textContent = cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–';
+            meta.textContent = (cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–') + tokenInfo;
         }
         wrap.style.display = 'none';
         if (btnFull) {

@@ -13,6 +13,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
+const { getToken } = require('./config');
 const { runFull, runIncremental, cancelLoad, state: loaderState } = require('../scripts/movidesk-loader');
 const loader  = { runFull, runIncremental, cancelLoad, state: loaderState };
 
@@ -67,9 +68,18 @@ router.get('/status', authMiddleware, async (req, res) => {
       LIMIT 10
     `).catch(() => ({ rows: [] }));
 
+    // token mascarado — mostra só os últimos 6 chars para diagnóstico
+    let tokenSuffix = null;
+    try {
+      await new Promise((ok, fail) => getToken((e, t) => e ? fail(e) : ok(t)))
+        .then(t => { tokenSuffix = t ? `...${t.slice(-6)}` : null; })
+        .catch(() => {});
+    } catch (_) {}
+
     res.json({
       current: sanitizeState(loader.state),
       history: log.rows || [],
+      tokenSuffix,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

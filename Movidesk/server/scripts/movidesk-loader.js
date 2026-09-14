@@ -511,6 +511,7 @@ async function runFull({ years = [] } = {}) {
 
   try {
     const token = await getMovideskToken();
+    console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
 
     if (sortedYears.length) {
       // ── Carga por ano selecionado ──────────────────────────────────────────
@@ -607,6 +608,7 @@ async function runIncremental() {
 
   try {
     const token = await getMovideskToken();
+    console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
 
     // Filtro 1 — atualizados nas últimas 25h (margem de 1h)
     const since = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
