@@ -648,6 +648,9 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
       <select class="sort-sel" id="ov-org">
         <option value="">Todos os clientes</option>
       </select>
+      <select class="sort-sel" id="ov-status">
+        <option value="">Todos os status</option>
+      </select>
     </div>
     <!-- sync toast -->
     <div id="sync-toast">
@@ -856,6 +859,13 @@ function updateCounts(){
   orgSel.innerHTML=`<option value="">Todos os clientes</option>`
     +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
 
+  // popula select de status
+  const statusSel=document.getElementById('ov-status');
+  const curStatus=statusSel.value;
+  const statuses=[...new Set(_rows.map(r=>r.status_movidesk).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  statusSel.innerHTML=`<option value="">Todos os status</option>`
+    +statuses.map(s=>`<option value="${esc(s)}"${curStatus===s?' selected':''}>${esc(s)}</option>`).join('');
+
   // multi-select de ano (a partir de criado_em)
   const years=[...new Set(_rows
     .map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null)
@@ -880,12 +890,14 @@ function render(){
   const q=(document.getElementById('ov-search').value||'').toLowerCase().trim();
   const sort=document.getElementById('ov-sort').value;
   const orgFil=document.getElementById('ov-org')?.value||'';
+  const statusFil=document.getElementById('ov-status')?.value||'';
   const yearFils=getMsValues('ov-year').map(Number);
   const monthFils=getMsValues('ov-month').map(Number);
 
   let rows=_rows.filter(r=>{
     if(_filter!=='all' && tipoKey(rawTipo(r))!==_filter) return false;
     if(orgFil&&r.organizacao!==orgFil) return false;
+    if(statusFil&&r.status_movidesk!==statusFil) return false;
     // Filtro por ano/mês de criação (múltipla seleção)
     if(yearFils.length||monthFils.length){
       const d=r.criado_em?new Date(r.criado_em):null;
@@ -958,6 +970,7 @@ document.getElementById('ov-grid').addEventListener('click',e=>{
 document.getElementById('ov-search').addEventListener('input',render);
 document.getElementById('ov-sort').addEventListener('change',render);
 document.getElementById('ov-org').addEventListener('change',render);
+document.getElementById('ov-status').addEventListener('change',render);
 
 // ── drawer ───────────────────────────────────────────────────────────
 function openDrawer(id){

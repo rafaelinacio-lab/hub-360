@@ -663,6 +663,9 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
       <select class="sort-sel" id="gcc-servico" onchange="applyFilters()">
         <option value="">Todos os serviços</option>
       </select>
+      <select class="sort-sel" id="gcc-status" onchange="applyFilters()">
+        <option value="">Todos os status</option>
+      </select>
     </div>
     <div id="sync-toast">
       <span class="sym">sync</span>
@@ -889,6 +892,13 @@ function renderChips(){
   orgSel.innerHTML=`<option value="">Todos os clientes</option>`
     +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
 
+  // select de status
+  const statusSel=document.getElementById('gcc-status');
+  const curStatus=statusSel.value;
+  const statuses=[...new Set(_rows.map(r=>r.status_movidesk).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  statusSel.innerHTML=`<option value="">Todos os status</option>`
+    +statuses.map(s=>`<option value="${esc(s)}"${curStatus===s?' selected':''}>${esc(s)}</option>`).join('');
+
   // multi-select de ano (a partir de resolvido_em)
   const years=[...new Set(_rows
     .map(r=>r.resolvido_em?new Date(r.resolvido_em).getFullYear():null)
@@ -912,6 +922,7 @@ function applyFilters(){
   const order=document.getElementById('gcc-sort')?.value||'recentes';
   const servicoFil=document.getElementById('gcc-servico')?.value||'';
   const orgFil=document.getElementById('gcc-org')?.value||'';
+  const statusFil=document.getElementById('gcc-status')?.value||'';
   const yearFils=getMsValues('gcc-year').map(Number);
   const monthFils=getMsValues('gcc-month').map(Number);
 
@@ -919,6 +930,7 @@ function applyFilters(){
     if(_filterLocus!=='all'&&locusKey(r.classificacao_locus)!==_filterLocus) return false;
     if(servicoFil&&r.servico_gcc!==servicoFil) return false;
     if(orgFil&&r.organizacao!==orgFil) return false;
+    if(statusFil&&r.status_movidesk!==statusFil) return false;
     // Filtro por ano/mês de resolução (múltipla seleção)
     if(yearFils.length||monthFils.length){
       const d=r.resolvido_em?new Date(r.resolvido_em):null;
