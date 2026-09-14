@@ -14,6 +14,8 @@ const curadoriaRoutes = require('./routes/curadoria');
 const ouvidoriaRoutes = require('./routes/ouvidoria');
 const gccRoutes = require('./routes/gcc');
 const jiraRoutes = require('./routes/jira');
+const loaderRoutes = require('./routes/loader');
+const movideskLoader = require('./scripts/movidesk-loader');
 const { getCuradoriaMovideskConfig } = require('./routes/config');
 
 const app = express();
@@ -58,6 +60,7 @@ app.use('/api/gcc', gccRoutes);
 app.use('/api/jira', jiraRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/tickets', ticketsRoutes);
+app.use('/api/loader', loaderRoutes);
 
 // Rota raiz
 // Também respondemos em /index.html (não só "/"): as páginas em pages/*.html
@@ -129,6 +132,41 @@ function checkCuradoriaFullLoadSchedule() {
 }
 
 setInterval(checkCuradoriaFullLoadSchedule, 30 * 1000);
+
+// ===== Carga Movidesk → silver.* (datalake) =====
+// Incremental diária: todo dia às 05h00 — atualiza tickets em aberto + atualizados nas últimas 25h
+// Full semanal:       todo domingo às 02h00 — recarrega toda a base (todos os tickets)
+//
+// O agendador checa a cada minuto; cada carga roda em background sem bloquear o processo.
+
+let _loaderLastIncDay = null;
+let _loaderLastFullWeek = null;
+
+function checkLoaderSchedule() {
+  if (movideskLoader.state.running) return; // não sobrepõe
+
+  const now  = new Date();
+  const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const day  = now.toISOString().slice(0, 10); // yyyy-MM-dd
+  const dow  = now.getDay(); // 0 = domingo
+
+  // Full semanal — domingos às 02:00
+  if (dow === 0 && hhmm === '02:00' && _loaderLastFullWeek !== day) {
+    _loaderLastFullWeek = day;
+    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Carga FULL Movidesk → datalake (agendada semanal)`);
+    movideskLoader.runFull().catch(e => console.error('[loader] full erro:', e.message));
+    return;
+  }
+
+  // Incremental diária — todo dia às 05:00
+  if (hhmm === '05:00' && _loaderLastIncDay !== day) {
+    _loaderLastIncDay = day;
+    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Carga INCREMENTAL Movidesk → datalake (agendada diária)`);
+    movideskLoader.runIncremental().catch(e => console.error('[loader] incremental erro:', e.message));
+  }
+}
+
+setInterval(checkLoaderSchedule, 60 * 1000); // checa todo minuto
 
 // ===== Sync Ouvidoria/GCC do datalake (a cada 2 horas) =====
 // INSERT...SELECT direto no mesmo banco — instantâneo, sem chamada de API.
