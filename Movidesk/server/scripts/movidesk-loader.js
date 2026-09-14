@@ -34,7 +34,7 @@ const CLOSED_STATUSES = [
 // ── Estado em memória (acessado pela rota de status) ─────────────────────────
 const state = {
   running:    false,
-  mode:       null,       // 'full' | 'incremental'
+  mode:       null,       // 'full' | 'full-anos' | 'incremental'
   startedAt:  null,
   phase:      'idle',     // 'fetching' | 'saving' | 'idle'
   endpoint:   null,       // '/tickets' | '/tickets/past'
@@ -43,6 +43,11 @@ const state = {
   errors:     [],
   lastFinish: null,
   lastResult: null,
+  // carga por anos
+  years:       [],        // anos selecionados ([] = todos)
+  currentYear: null,      // ano sendo processado agora
+  yearsTotal:  0,
+  yearsDone:   0,
 };
 module.exports.state = state;
 
@@ -442,41 +447,74 @@ async function saveBatch(tickets) {
 
 /**
  * Carga COMPLETA — todos os tickets de todos os tempos.
- * Chama /tickets e /tickets/past sem filtro de data.
- * Ideal para rodar semanal (domingos madrugada).
+ * Chama /tickets e /tickets/past sem filtro de data (ou filtrado por anos).
+ * Ideal para rodar semanal (sábados madrugada) ou manualmente por ano.
+ *
+ * @param {object} [options]
+ * @param {number[]} [options.years] - Anos a carregar. Vazio = todos os anos.
  */
-async function runFull() {
+async function runFull({ years = [] } = {}) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
   await ensureTables();
 
-  state.running    = true;
-  state.mode       = 'full';
-  state.startedAt  = new Date().toISOString();
-  state.phase      = 'fetching';
-  state.pagesDone  = 0;
+  const sortedYears = [...years].map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()).sort();
+  const modeLabel   = sortedYears.length ? 'full-anos' : 'full';
+
+  state.running     = true;
+  state.mode        = modeLabel;
+  state.startedAt   = new Date().toISOString();
+  state.phase       = 'fetching';
+  state.pagesDone   = 0;
   state.ticketsDone = 0;
-  state.errors     = [];
+  state.errors      = [];
+  state.years       = sortedYears;
+  state.currentYear = null;
+  state.yearsTotal  = sortedYears.length;
+  state.yearsDone   = 0;
 
   const logRow = await db.query(
-    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('full', NOW(), 'running') RETURNING id`
+    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ($1, NOW(), 'running') RETURNING id`,
+    [modeLabel]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
 
-  console.log('[loader] ▶ Carga FULL iniciada');
+  const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
+  console.log(`[loader] ▶ Carga FULL iniciada — ${yearsDesc}`);
 
   try {
     const token = await getMovideskToken();
 
-    for (const ep of ['/tickets', '/tickets/past']) {
-      console.log(`[loader]   endpoint ${ep}`);
-      await fetchEndpoint(token, ep, null, saveBatch);
+    if (sortedYears.length) {
+      // ── Carga por ano selecionado ──────────────────────────────────────────
+      for (const year of sortedYears) {
+        state.currentYear = year;
+        // Inclui jan do ano seguinte no filtro para pegar horários de fuseau diferente
+        const from   = `${year}-01-01T00:00:00Z`;
+        const to     = `${year}-12-31T23:59:59Z`;
+        const filter = `createdDate ge ${from} and createdDate le ${to}`;
+
+        console.log(`[loader]   ── Ano ${year} ──`);
+        for (const ep of ['/tickets', '/tickets/past']) {
+          console.log(`[loader]     endpoint ${ep}`);
+          await fetchEndpoint(token, ep, filter, saveBatch);
+        }
+        state.yearsDone++;
+        console.log(`[loader]   ✓ Ano ${year} concluído — ${state.ticketsDone} tickets acumulados`);
+      }
+      state.currentYear = null;
+    } else {
+      // ── Carga total sem filtro de data ─────────────────────────────────────
+      for (const ep of ['/tickets', '/tickets/past']) {
+        console.log(`[loader]   endpoint ${ep}`);
+        await fetchEndpoint(token, ep, null, saveBatch);
+      }
     }
 
     state.phase     = 'idle';
     state.running   = false;
     state.lastFinish = new Date().toISOString();
-    state.lastResult = { mode: 'full', tickets: state.ticketsDone };
+    state.lastResult = { mode: modeLabel, tickets: state.ticketsDone, years: sortedYears };
 
     if (logId) {
       await db.query(
@@ -489,6 +527,7 @@ async function runFull() {
   } catch (err) {
     state.running   = false;
     state.phase     = 'idle';
+    state.currentYear = null;
     state.errors.push(err.message);
     if (logId) {
       await db.query(

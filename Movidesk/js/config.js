@@ -2429,7 +2429,51 @@ async function checkModuloSyncOnLoad() {
 // ─── Aba Carga Datalake ────────────────────────────────────────────────────────
 let _dlPollTimer = null;
 
+// ── Seleção de anos ───────────────────────────────────────────────────────────
+let _dlYearsInited = false;
+function dlInitYears() {
+    if (_dlYearsInited) return;
+    const grid = document.getElementById('dlYearGrid');
+    if (!grid) return;
+    _dlYearsInited = true;
+    const currentYear = new Date().getFullYear();
+    const firstYear   = 2018;
+    for (let y = currentYear; y >= firstYear; y--) {
+        const id  = `dlYear_${y}`;
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--border,#333);font-size:13px;font-weight:500;user-select:none;transition:border-color .15s;';
+        lbl.innerHTML = `<input type="checkbox" id="${id}" value="${y}" onchange="dlUpdateYearNote()" style="accent-color:#3b82f6;"> ${y}`;
+        grid.appendChild(lbl);
+    }
+    dlUpdateYearNote();
+}
+
+function dlYearsSelectAll(check) {
+    document.querySelectorAll('#dlYearGrid input[type=checkbox]').forEach(cb => { cb.checked = check; });
+    dlUpdateYearNote();
+}
+
+function dlGetSelectedYears() {
+    return [...document.querySelectorAll('#dlYearGrid input[type=checkbox]:checked')].map(cb => Number(cb.value));
+}
+
+function dlUpdateYearNote() {
+    const note   = document.getElementById('dlYearNote');
+    const btnFull = document.getElementById('dlBtnFull');
+    if (!note) return;
+    const years = dlGetSelectedYears();
+    if (!years.length) {
+        note.textContent = '⚡ Nenhum ano marcado → a carga full carregará TODOS os anos (pode demorar horas).';
+        if (btnFull) btnFull.title = 'Carga full — todos os anos';
+    } else {
+        const sorted = [...years].sort();
+        note.textContent = `📅 Anos selecionados: ${sorted.join(', ')} (${sorted.length} ano${sorted.length > 1 ? 's' : ''})`;
+        if (btnFull) btnFull.title = `Carga full — ${sorted.join(', ')}`;
+    }
+}
+
 async function dlLoad() {
+    dlInitYears(); // inicializa o grid de anos na primeira abertura da aba
     try {
         const resp = await fetch('/api/loader/status');
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -2449,14 +2493,33 @@ async function dlLoad() {
 }
 
 async function dlTrigger(mode) {
-    const btn = document.getElementById(mode === 'full' ? 'dlBtnFull' : 'dlBtnInc');
+    const btn   = document.getElementById(mode === 'full' ? 'dlBtnFull' : 'dlBtnInc');
     const label = mode === 'full' ? 'Full' : 'Incremental';
-    if (!confirm(`Disparar carga ${label} agora? Pode demorar vários minutos.`)) return;
+
+    let years = [];
+    let confirmMsg = `Disparar carga ${label} agora? Pode demorar vários minutos.`;
+
+    if (mode === 'full') {
+        years = dlGetSelectedYears();
+        if (years.length) {
+            const sorted = [...years].sort();
+            confirmMsg = `Disparar carga Full para os anos ${sorted.join(', ')}?\nIsso pode demorar vários minutos por ano.`;
+        } else {
+            confirmMsg = `Disparar carga Full de TODOS os anos?\n⚠️ Isso pode demorar horas!`;
+        }
+    }
+
+    if (!confirm(confirmMsg)) return;
 
     btn.disabled = true;
     btn.textContent = 'Iniciando…';
     try {
-        const resp = await fetch(`/api/loader/${mode}`, { method: 'POST' });
+        const body = mode === 'full' ? { years } : {};
+        const resp = await fetch(`/api/loader/${mode}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
         dlLoad();
@@ -2482,16 +2545,33 @@ function dlRenderStatus(cur) {
     if (!badge) return;
 
     if (cur.running) {
-        const modeLabel = cur.mode === 'full' ? 'Full' : 'Incremental';
+        const modeLabel  = cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : 'Incremental';
         const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
         badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
-        meta.textContent = `Endpoint: ${cur.endpoint || '–'} · Páginas: ${cur.pagesDone} · Início: ${cur.startedAt ? new Date(cur.startedAt).toLocaleTimeString('pt-BR') : '–'}`;
+
+        // meta: mostra ano atual quando for carga por anos
+        let metaParts = [];
+        if (cur.currentYear) {
+            const yearProgress = cur.yearsTotal > 1 ? ` (${cur.yearsDone + 1}/${cur.yearsTotal})` : '';
+            metaParts.push(`Ano: ${cur.currentYear}${yearProgress}`);
+        }
+        metaParts.push(`Endpoint: ${cur.endpoint || '–'}`);
+        metaParts.push(`Páginas: ${cur.pagesDone}`);
+        metaParts.push(`Início: ${cur.startedAt ? new Date(cur.startedAt).toLocaleTimeString('pt-BR') : '–'}`);
+        meta.textContent = metaParts.join(' · ');
+
         wrap.style.display = 'block';
         label.textContent = phaseLabel;
         count.textContent = `${cur.ticketsDone.toLocaleString('pt-BR')} tickets`;
-        // barra animada — sem total, anima em ciclos
-        const pct = Math.min(100, (cur.ticketsDone % 10000) / 100);
+
+        // barra de progresso: por anos se selecionados, senão cíclica
+        let pct = 0;
+        if (cur.yearsTotal > 1) {
+            pct = Math.min(99, ((cur.yearsDone / cur.yearsTotal) * 100));
+        } else {
+            pct = Math.min(99, (cur.ticketsDone % 10000) / 100);
+        }
         bar.style.width = pct + '%';
         if (btnFull) { btnFull.disabled = true; }
         if (btnInc)  { btnInc.disabled  = true; }

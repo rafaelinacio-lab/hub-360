@@ -33,10 +33,13 @@ router.post('/full', authMiddleware, requireAdmin, (req, res) => {
     });
   }
 
-  // Roda em background — não bloqueia o HTTP
-  loader.runFull().catch(e => console.error('[loader/full] erro:', e.message));
+  // years: array de inteiros enviado pelo front ([] = todos os anos)
+  const years = Array.isArray(req.body?.years) ? req.body.years : [];
 
-  res.json({ started: true, mode: 'full', startedAt: loader.state.startedAt });
+  // Roda em background — não bloqueia o HTTP
+  loader.runFull({ years }).catch(e => console.error('[loader/full] erro:', e.message));
+
+  res.json({ started: true, mode: loader.state.mode, years, startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/incremental ─────────────────────────────────────────────
@@ -84,6 +87,11 @@ function sanitizeState(s) {
     errors:       s.errors,
     lastFinish:   s.lastFinish,
     lastResult:   s.lastResult,
+    // carga por anos
+    years:        s.years       || [],
+    currentYear:  s.currentYear || null,
+    yearsTotal:   s.yearsTotal  || 0,
+    yearsDone:    s.yearsDone   || 0,
   };
 }
 

@@ -954,6 +954,22 @@
                         </div>
                     </div>
 
+                    <!-- Seleção de Anos para Carga Full -->
+                    <div class="config-card" id="dlYearCard">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:2px;">Seleção de Anos — Carga Full</h3>
+                                <p class="config-card-help" style="margin:0;">Marque os anos desejados. Sem nenhum marcado = carrega tudo.</p>
+                            </div>
+                            <div style="display:flex;gap:6px;">
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlYearsSelectAll(true)">Todos</button>
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlYearsSelectAll(false)">Nenhum</button>
+                            </div>
+                        </div>
+                        <div id="dlYearGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                        <p id="dlYearNote" style="margin:10px 0 0;font-size:12px;color:var(--muted,#71717a);"></p>
+                    </div>
+
                     <!-- Histórico -->
                     <div class="config-card">
                         <h3 class="config-card-title" style="margin-bottom:12px;">Histórico de Execuções</h3>
