@@ -673,6 +673,13 @@ async function runIncremental() {
 
 function cancelLoad() {
   if (!state.running) return false;
+  // Protege contra cancel residual de carga anterior que chega após nova carga iniciar:
+  // ignora cancel se a carga tem menos de 2 segundos.
+  const ageMs = state.startedAt ? Date.now() - new Date(state.startedAt).getTime() : 9999;
+  if (ageMs < 2000) {
+    console.warn('[loader] cancel ignorado — carga acabou de iniciar (< 2s)');
+    return false;
+  }
   state.cancelRequested = true;
   state.phase = 'cancelling';
   console.log('[loader] ⏹ Cancelamento solicitado');
