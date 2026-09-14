@@ -36,13 +36,14 @@ const state = {
   running:    false,
   mode:       null,       // 'full' | 'full-anos' | 'incremental'
   startedAt:  null,
-  phase:      'idle',     // 'fetching' | 'saving' | 'idle'
+  phase:      'idle',     // 'fetching' | 'saving' | 'cancelling' | 'idle'
   endpoint:   null,       // '/tickets' | '/tickets/past'
   pagesDone:  0,
   ticketsDone: 0,
   errors:     [],
   lastFinish: null,
   lastResult: null,
+  cancelRequested: false,
   // carga por anos
   years:       [],        // anos selecionados ([] = todos)
   currentYear: null,      // ano sendo processado agora
@@ -128,6 +129,11 @@ async function fetchEndpoint(token, endpoint, filter, onBatch) {
   state.endpoint = endpoint;
 
   while (true) {
+    if (state.cancelRequested) {
+      console.log('[loader] cancelamento solicitado — interrompendo fetchEndpoint');
+      throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    }
+
     state.phase = 'fetching';
     const batch = await fetchPage(token, endpoint, filter, skip);
     if (!batch.length) break;
@@ -479,17 +485,18 @@ async function runFull({ years = [] } = {}) {
   const modeLabel   = sortedYears.length ? 'full-anos' : 'full';
 
   // marca como running ANTES de qualquer await para que /status reflita imediatamente
-  state.running     = true;
-  state.mode        = modeLabel;
-  state.startedAt   = new Date().toISOString();
-  state.phase       = 'preparando';
-  state.pagesDone   = 0;
-  state.ticketsDone = 0;
-  state.errors      = [];
-  state.years       = sortedYears;
-  state.currentYear = null;
-  state.yearsTotal  = sortedYears.length;
-  state.yearsDone   = 0;
+  state.running          = true;
+  state.cancelRequested  = false;
+  state.mode             = modeLabel;
+  state.startedAt        = new Date().toISOString();
+  state.phase            = 'preparando';
+  state.pagesDone        = 0;
+  state.ticketsDone      = 0;
+  state.errors           = [];
+  state.years            = sortedYears;
+  state.currentYear      = null;
+  state.yearsTotal       = sortedYears.length;
+  state.yearsDone        = 0;
 
   await ensureTables();
 
@@ -545,18 +552,26 @@ async function runFull({ years = [] } = {}) {
     console.log(`[loader] ✔ Carga FULL concluída — ${state.ticketsDone} tickets`);
     return state.lastResult;
   } catch (err) {
-    state.running   = false;
-    state.phase     = 'idle';
-    state.currentYear = null;
-    state.errors.push(err.message);
+    state.running          = false;
+    state.phase            = 'idle';
+    state.currentYear      = null;
+    state.cancelRequested  = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
     if (logId) {
       await db.query(
-        `UPDATE silver.carga_log SET finished_at=NOW(), status='error', error_msg=$1 WHERE id=$2`,
-        [err.message, logId]
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
       ).catch(() => {});
     }
-    console.error('[loader] ✖ Carga FULL com erro:', err.message);
-    throw err;
+    if (wasCancelled) {
+      console.log(`[loader] ⏹ Carga FULL cancelada — ${state.ticketsDone} tickets salvos`);
+      state.lastResult = { mode: modeLabel, tickets: state.ticketsDone, cancelled: true };
+    } else {
+      console.error('[loader] ✖ Carga FULL com erro:', err.message);
+      throw err;
+    }
   }
 }
 
@@ -572,13 +587,14 @@ async function runFull({ years = [] } = {}) {
 async function runIncremental() {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
-  state.running    = true;
-  state.mode       = 'incremental';
-  state.startedAt  = new Date().toISOString();
-  state.phase      = 'preparando';
-  state.pagesDone  = 0;
-  state.ticketsDone = 0;
-  state.errors     = [];
+  state.running         = true;
+  state.cancelRequested = false;
+  state.mode            = 'incremental';
+  state.startedAt       = new Date().toISOString();
+  state.phase           = 'preparando';
+  state.pagesDone       = 0;
+  state.ticketsDone     = 0;
+  state.errors          = [];
 
   await ensureTables();
 
@@ -631,18 +647,34 @@ async function runIncremental() {
     console.log(`[loader] ✔ Carga INCREMENTAL concluída — ${state.ticketsDone} tickets`);
     return state.lastResult;
   } catch (err) {
-    state.running   = false;
-    state.phase     = 'idle';
-    state.errors.push(err.message);
+    state.running         = false;
+    state.phase           = 'idle';
+    state.cancelRequested = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
     if (logId) {
       await db.query(
-        `UPDATE silver.carga_log SET finished_at=NOW(), status='error', error_msg=$1 WHERE id=$2`,
-        [err.message, logId]
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
       ).catch(() => {});
     }
-    console.error('[loader] ✖ Carga INCREMENTAL com erro:', err.message);
-    throw err;
+    if (wasCancelled) {
+      console.log(`[loader] ⏹ Carga INCREMENTAL cancelada — ${state.ticketsDone} tickets salvos`);
+      state.lastResult = { mode: 'incremental', tickets: state.ticketsDone, cancelled: true };
+    } else {
+      console.error('[loader] ✖ Carga INCREMENTAL com erro:', err.message);
+      throw err;
+    }
   }
 }
 
-module.exports = { runFull, runIncremental, state };
+function cancelLoad() {
+  if (!state.running) return false;
+  state.cancelRequested = true;
+  state.phase = 'cancelling';
+  console.log('[loader] ⏹ Cancelamento solicitado');
+  return true;
+}
+
+module.exports = { runFull, runIncremental, cancelLoad, state };

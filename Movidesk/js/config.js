@@ -861,10 +861,12 @@ function switchConfigTab(tab) {
     if (tab === 'acesso') loadTabPermissionsConfig();
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba
-        const btnFull = document.getElementById('dlBtnFull');
-        const btnInc  = document.getElementById('dlBtnInc');
-        if (btnFull) { btnFull.disabled = false; btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora'; }
-        if (btnInc)  { btnInc.disabled  = false; btnInc.innerHTML  = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora'; }
+        const btnFull   = document.getElementById('dlBtnFull');
+        const btnInc    = document.getElementById('dlBtnInc');
+        const btnCancel = document.getElementById('dlBtnCancel');
+        if (btnFull)   { btnFull.disabled = false; btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora'; }
+        if (btnInc)    { btnInc.disabled  = false; btnInc.innerHTML  = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora'; }
+        if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
         dlLoad();
     }
 }
@@ -2478,6 +2480,28 @@ async function dlTrigger(mode) {
     }
 }
 
+async function dlCancel() {
+    const btn = document.getElementById('dlBtnCancel');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">hourglass_top</span> Cancelando…';
+    try {
+        const resp = await fetch('/api/loader/cancel', {
+            method: 'POST',
+            headers: authHeaders(),
+        });
+        if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            console.warn('[dlCancel] erro:', data.error);
+        }
+        dlLoad();
+    } catch (e) {
+        console.error('[dlCancel] falha:', e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar';
+    }
+}
+
 function dlRenderStatus(cur) {
     if (!cur) return;
 
@@ -2487,8 +2511,9 @@ function dlRenderStatus(cur) {
     const bar     = document.getElementById('dlProgressBar');
     const label   = document.getElementById('dlProgressLabel');
     const count   = document.getElementById('dlProgressCount');
-    const btnFull = document.getElementById('dlBtnFull');
-    const btnInc  = document.getElementById('dlBtnInc');
+    const btnFull   = document.getElementById('dlBtnFull');
+    const btnInc    = document.getElementById('dlBtnInc');
+    const btnCancel = document.getElementById('dlBtnCancel');
     if (!badge) return;
 
     if (cur.running) {
@@ -2520,8 +2545,15 @@ function dlRenderStatus(cur) {
             pct = Math.min(99, (cur.ticketsDone % 10000) / 100);
         }
         bar.style.width = pct + '%';
-        if (btnFull) { btnFull.disabled = true; }
-        if (btnInc)  { btnInc.disabled  = true; }
+        if (btnFull)   { btnFull.disabled = true; }
+        if (btnInc)    { btnInc.disabled  = true; }
+        if (btnCancel) {
+            btnCancel.style.display = '';
+            btnCancel.disabled = cur.cancelRequested || cur.phase === 'cancelling';
+            btnCancel.innerHTML = cur.cancelRequested
+                ? '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">hourglass_top</span> Cancelando…'
+                : '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar';
+        }
     } else {
         const last = cur.lastResult;
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Ocioso`;
@@ -2541,6 +2573,7 @@ function dlRenderStatus(cur) {
             btnInc.disabled = false;
             btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
         }
+        if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
     }
 }
 

@@ -13,7 +13,8 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
-const loader  = require('../scripts/movidesk-loader');
+const { runFull, runIncremental, cancelLoad, state: loaderState } = require('../scripts/movidesk-loader');
+const loader  = { runFull, runIncremental, cancelLoad, state: loaderState };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
 router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
@@ -47,6 +48,15 @@ router.post('/incremental', authMiddleware, requireRole('admin', 'supervisor'), 
   res.json({ started: true, mode: 'incremental', startedAt: loader.state.startedAt });
 });
 
+// ── POST /api/loader/cancel ───────────────────────────────────────────────────
+router.post('/cancel', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  if (!loader.state.running) {
+    return res.status(409).json({ error: 'Nenhuma carga em andamento' });
+  }
+  const ok = loader.cancelLoad();
+  res.json({ cancelled: ok, state: sanitizeState(loader.state) });
+});
+
 // ── GET /api/loader/status ────────────────────────────────────────────────────
 router.get('/status', authMiddleware, async (req, res) => {
   try {
@@ -68,21 +78,22 @@ router.get('/status', authMiddleware, async (req, res) => {
 
 function sanitizeState(s) {
   return {
-    running:      s.running,
-    mode:         s.mode,
-    phase:        s.phase,
-    startedAt:    s.startedAt,
-    endpoint:     s.endpoint,
-    pagesDone:    s.pagesDone,
-    ticketsDone:  s.ticketsDone,
-    errors:       s.errors,
-    lastFinish:   s.lastFinish,
-    lastResult:   s.lastResult,
+    running:          s.running,
+    cancelRequested:  s.cancelRequested || false,
+    mode:             s.mode,
+    phase:            s.phase,
+    startedAt:        s.startedAt,
+    endpoint:         s.endpoint,
+    pagesDone:        s.pagesDone,
+    ticketsDone:      s.ticketsDone,
+    errors:           s.errors,
+    lastFinish:       s.lastFinish,
+    lastResult:       s.lastResult,
     // carga por anos
-    years:        s.years       || [],
-    currentYear:  s.currentYear || null,
-    yearsTotal:   s.yearsTotal  || 0,
-    yearsDone:    s.yearsDone   || 0,
+    years:            s.years       || [],
+    currentYear:      s.currentYear || null,
+    yearsTotal:       s.yearsTotal  || 0,
+    yearsDone:        s.yearsDone   || 0,
   };
 }
 
