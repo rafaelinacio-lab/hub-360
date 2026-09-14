@@ -497,6 +497,11 @@ async function runFull({ years = [] } = {}) {
 
   await ensureTables();
 
+  // Limpa registros "running" anteriores que ficaram travados (crash/restart)
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+
   const logRow = await db.query(
     `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ($1, NOW(), 'running') RETURNING id`,
     [modeLabel]
@@ -595,6 +600,11 @@ async function runIncremental() {
   state.errors          = [];
 
   await ensureTables();
+
+  // Limpa registros "running" anteriores que ficaram travados (crash/restart)
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
 
   const logRow = await db.query(
     `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('incremental', NOW(), 'running') RETURNING id`
