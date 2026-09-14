@@ -2405,7 +2405,7 @@ function dlUpdateYearNote() {
 async function dlLoad() {
     dlInitYears(); // inicializa o grid de anos na primeira abertura da aba
     try {
-        const resp = await fetch('/api/loader/status', { headers: authHeaders() });
+        const resp = await fetch('/api/loader/status', { headers: authHeaders(), cache: 'no-store' });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         dlRenderStatus(data.current);
