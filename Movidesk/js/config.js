@@ -2442,27 +2442,58 @@ async function dlLoad() {
     }
 }
 
+// confirm/alert são bloqueados em iframe — usamos confirmação inline (2 cliques)
+const _dlConfirmTimers = {};
+
 async function dlTrigger(mode) {
-    const btn   = document.getElementById(mode === 'full' ? 'dlBtnFull' : 'dlBtnInc');
-    const label = mode === 'full' ? 'Full' : 'Incremental';
+    const btn    = document.getElementById(mode === 'full' ? 'dlBtnFull' : 'dlBtnInc');
+    const iconFull = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span>';
+    const iconInc  = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span>';
+    const originalHTML = mode === 'full'
+        ? `${iconFull} Full agora`
+        : `${iconInc} Incremental agora`;
 
-    let years = [];
-    let confirmMsg = `Disparar carga ${label} agora? Pode demorar vários minutos.`;
+    // ── passo 1: aguardando confirmação ──────────────────────────────────────
+    if (!btn.dataset.confirming) {
+        btn.dataset.confirming = '1';
 
-    if (mode === 'full') {
-        years = dlGetSelectedYears();
-        if (years.length) {
+        let years = [];
+        if (mode === 'full') {
+            years = dlGetSelectedYears();
             const sorted = [...years].sort();
-            confirmMsg = `Disparar carga Full para os anos ${sorted.join(', ')}?\nIsso pode demorar vários minutos por ano.`;
+            const yearsHint = years.length ? ` (${sorted.join(', ')})` : ' (todos os anos)';
+            btn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">warning</span> Confirmar${yearsHint}?`;
         } else {
-            confirmMsg = `Disparar carga Full de TODOS os anos?\n⚠️ Isso pode demorar horas!`;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">warning</span> Confirmar?';
         }
+        btn.style.background = '#7c3aed';
+
+        // cancela sozinho após 4s
+        _dlConfirmTimers[mode] = setTimeout(() => {
+            delete btn.dataset.confirming;
+            btn.style.background = '';
+            btn.innerHTML = originalHTML;
+        }, 4000);
+        return;
     }
 
-    if (!confirm(confirmMsg)) return;
+    // ── passo 2: confirmado — dispara a carga ─────────────────────────────────
+    clearTimeout(_dlConfirmTimers[mode]);
+    delete btn.dataset.confirming;
+    btn.style.background = '';
+
+    const years = mode === 'full' ? dlGetSelectedYears() : [];
 
     btn.disabled = true;
-    btn.textContent = 'Iniciando…';
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+
+    // limpa erro anterior no badge
+    const badge = document.getElementById('dlBadge');
+    if (badge && badge.style.color === 'rgb(248, 113, 113)') {
+        badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso';
+        badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;';
+    }
+
     try {
         const body = mode === 'full' ? { years } : {};
         const resp = await fetch(`/api/loader/${mode}`, {
@@ -2475,9 +2506,15 @@ async function dlTrigger(mode) {
         dlLoad();
         if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
     } catch (e) {
-        alert(`Erro ao iniciar carga: ${e.message}`);
+        // mostra erro no badge — sem alert() que é bloqueado em iframe
+        if (badge) {
+            badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">error</span> ${e.message}`;
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        const meta = document.getElementById('dlMeta');
+        if (meta) meta.textContent = 'Clique em Atualizar para ver o status atual.';
         btn.disabled = false;
-        btn.textContent = label;
+        btn.innerHTML = originalHTML;
     }
 }
 
