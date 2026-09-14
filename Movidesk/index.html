@@ -214,9 +214,6 @@
                     <button class="cfg-tab-btn" data-tab="ia" onclick="switchConfigTab('ia')">
                         <span class="material-symbols-outlined">smart_toy</span> Inteligência Artificial
                     </button>
-                    <button class="cfg-tab-btn" data-tab="sistema" onclick="switchConfigTab('sistema')">
-                        <span class="material-symbols-outlined">settings</span> Sistema
-                    </button>
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
@@ -802,45 +799,6 @@
                         <div id="cfgUsageChart" style="margin-top:8px"></div>
 
                         <div id="cfgUsageStatus" class="config-status" style="margin-top:8px"></div>
-                    </div>
-                </div>
-
-                <!-- ABA: Sistema -->
-                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-sistema">
-                    <div class="config-card">
-                        <h3 class="config-card-title">Banco de Dados Remoto</h3>
-                        <p class="config-card-help">Salve aqui os dados de conexão do banco que ficará em outra máquina.</p>
-                        <div class="config-form-grid">
-                            <input id="cfgDbHost" type="text" class="config-input" placeholder="Host">
-                            <input id="cfgDbPort" type="text" class="config-input" placeholder="Porta">
-                            <input id="cfgDbName" type="text" class="config-input" placeholder="Nome do banco">
-                            <input id="cfgDbUser" type="text" class="config-input" placeholder="Usuário">
-                            <input id="cfgDbPassword" type="password" class="config-input" placeholder="Senha">
-                            <select id="cfgDbDialect" class="config-input">
-                                <option value="postgres">PostgreSQL</option>
-                                <option value="mysql">MySQL</option>
-                            </select>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgSaveDbConfig" class="config-btn">Salvar banco</button>
-                            <button id="cfgReloadDbConfig" class="config-btn config-btn-muted">Carregar salvo</button>
-                        </div>
-                        <div id="cfgDbStatus" class="config-status"></div>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Seguranca</h3>
-                        <ul class="config-security-list">
-                            <li>Token Movidesk e chave GPT sao armazenados de forma criptografada no servidor.</li>
-                            <li>Somente perfil admin pode acessar esta area de configuracoes.</li>
-                            <li>A analise executiva utiliza o prompt tecnico ja definido no backend.</li>
-                        </ul>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Administracao Avancada</h3>
-                        <p class="config-card-help">Se quiser manter o fluxo antigo, voce tambem pode abrir a tela de admin legada.</p>
-                        <a href="/admin/" target="_blank" rel="noopener noreferrer" class="config-link-btn">Abrir http://localhost:3000/admin/</a>
                     </div>
                 </div>
 
