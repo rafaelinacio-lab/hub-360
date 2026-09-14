@@ -859,7 +859,14 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') loadTabPermissionsConfig();
-    if (tab === 'datalake') dlLoad();
+    if (tab === 'datalake') {
+        // garante que os botões nunca fiquem travados ao abrir a aba
+        const btnFull = document.getElementById('dlBtnFull');
+        const btnInc  = document.getElementById('dlBtnInc');
+        if (btnFull) { btnFull.disabled = false; btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora'; }
+        if (btnInc)  { btnInc.disabled  = false; btnInc.innerHTML  = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora'; }
+        dlLoad();
+    }
 }
 
 // ─── Acesso: quais abas cada perfil vê no menu ─────────────────────────────
