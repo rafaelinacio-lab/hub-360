@@ -495,18 +495,22 @@ async function runFull({ years = [] } = {}) {
   state.yearsTotal       = sortedYears.length;
   state.yearsDone        = 0;
 
+  console.log('[loader] ensureTables...');
   await ensureTables();
+  console.log('[loader] ensureTables OK');
 
   // Limpa registros "running" anteriores que ficaram travados (crash/restart)
   await db.query(
     `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
   ).catch(() => {});
+  console.log('[loader] carga_log cleanup OK');
 
   const logRow = await db.query(
     `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ($1, NOW(), 'running') RETURNING id`,
     [modeLabel]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
+  console.log('[loader] carga_log insert OK, id:', logId);
 
   const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
   console.log(`[loader] ▶ Carga FULL iniciada — ${yearsDesc}`);
@@ -599,17 +603,21 @@ async function runIncremental() {
   state.ticketsDone     = 0;
   state.errors          = [];
 
+  console.log('[loader] ensureTables...');
   await ensureTables();
+  console.log('[loader] ensureTables OK');
 
   // Limpa registros "running" anteriores que ficaram travados (crash/restart)
   await db.query(
     `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
   ).catch(() => {});
+  console.log('[loader] carga_log cleanup OK');
 
   const logRow = await db.query(
     `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('incremental', NOW(), 'running') RETURNING id`
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
+  console.log('[loader] carga_log insert OK, id:', logId);
 
   console.log('[loader] ▶ Carga INCREMENTAL iniciada');
 
