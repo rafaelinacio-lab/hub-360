@@ -2545,8 +2545,14 @@ function dlRenderStatus(cur, tokenSuffix) {
             pct = Math.min(99, (cur.ticketsDone % 10000) / 100);
         }
         bar.style.width = pct + '%';
-        if (btnFull)   { btnFull.disabled = true; }
-        if (btnInc)    { btnInc.disabled  = true; }
+        if (btnFull) {
+            btnFull.disabled = true;
+            btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora';
+        }
+        if (btnInc) {
+            btnInc.disabled = true;
+            btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+        }
         if (btnCancel) {
             btnCancel.style.display = '';
             btnCancel.disabled = cur.cancelRequested || cur.phase === 'cancelling';
