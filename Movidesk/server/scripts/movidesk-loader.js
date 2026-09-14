@@ -97,12 +97,9 @@ const SELECT_FIELDS = [
   'lastUpdate', 'stoppedTime', 'stoppedTimeWorkingTime', 'slaRealResponseDate',
 ].join(',');
 
-const EXPAND_FIELDS = [
-  'owner($select=id,businessName)',
-  'clients($select=id,businessName,personType;$expand=organization($select=id,businessName))',
-  'customFieldValues($select=customFieldId,customFieldRuleId,value,items;$expand=items($select=customFieldItem,value))',
-  'actions($select=id,type,description,isPublic,createdDate,status;$orderby=createdDate asc)',
-].join(',');
+// Movidesk OData não suporta sintaxe aninhada v4 (semicolons, $select dentro de $expand).
+// Expande apenas os nomes das entidades — o servidor retorna todos os campos delas.
+const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
 
 // ── Busca uma página da API ───────────────────────────────────────────────────
 async function fetchPage(token, endpoint, filter, skip) {
