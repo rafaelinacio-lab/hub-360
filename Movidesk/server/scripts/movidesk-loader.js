@@ -148,6 +148,25 @@ async function fetchEndpoint(token, endpoint, filter, onBatch) {
 
 // ── Garantir tabelas / colunas ────────────────────────────────────────────────
 async function ensureTables() {
+  // Schema primeiro — sem ele todos os CREATE TABLE falham
+  await db.query('CREATE SCHEMA IF NOT EXISTS silver').catch(e => {
+    console.error('[loader] erro ao criar schema silver:', e.message);
+    throw e; // propaga — sem schema não há como continuar
+  });
+
+  // silver.ticket — cria se não existir (o extractor Java pode ter criado antes)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS silver.ticket (
+      ticket_id          varchar(20) PRIMARY KEY,
+      subject            text,
+      status             text,
+      basestatus         text,
+      createddate        timestamptz,
+      ownerteam          text,
+      clientorganization text
+    )
+  `).catch(() => {});
+
   // Colunas extras em silver.ticket (o extractor Java já criou a tabela)
   const alterTicket = [
     'last_update timestamptz',
@@ -456,15 +475,14 @@ async function saveBatch(tickets) {
 async function runFull({ years = [] } = {}) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
-  await ensureTables();
-
   const sortedYears = [...years].map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()).sort();
   const modeLabel   = sortedYears.length ? 'full-anos' : 'full';
 
+  // marca como running ANTES de qualquer await para que /status reflita imediatamente
   state.running     = true;
   state.mode        = modeLabel;
   state.startedAt   = new Date().toISOString();
-  state.phase       = 'fetching';
+  state.phase       = 'preparando';
   state.pagesDone   = 0;
   state.ticketsDone = 0;
   state.errors      = [];
@@ -472,6 +490,8 @@ async function runFull({ years = [] } = {}) {
   state.currentYear = null;
   state.yearsTotal  = sortedYears.length;
   state.yearsDone   = 0;
+
+  await ensureTables();
 
   const logRow = await db.query(
     `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ($1, NOW(), 'running') RETURNING id`,
@@ -552,15 +572,15 @@ async function runFull({ years = [] } = {}) {
 async function runIncremental() {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
-  await ensureTables();
-
   state.running    = true;
   state.mode       = 'incremental';
   state.startedAt  = new Date().toISOString();
-  state.phase      = 'fetching';
+  state.phase      = 'preparando';
   state.pagesDone  = 0;
   state.ticketsDone = 0;
   state.errors     = [];
+
+  await ensureTables();
 
   const logRow = await db.query(
     `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('incremental', NOW(), 'running') RETURNING id`
