@@ -22,7 +22,7 @@ const { getToken } = require('../routes/config');
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const MOVI_BASE   = 'https://apimovidesk.viasoftcloud.com.br/public/v1';
-const PAGE_SIZE   = 50;   // 500 com expand completo causa timeout no Movidesk
+const PAGE_SIZE   = 100;  // 500 com expand completo causa timeout no Movidesk
 const MAX_RETRIES = 5;
 
 // baseStatus que indicam chamado FECHADO (incremental não precisa incluir)
