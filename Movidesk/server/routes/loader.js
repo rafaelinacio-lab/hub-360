@@ -12,20 +12,11 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db/remote');
-const { authMiddleware } = require('./auth');
+const { authMiddleware, requireRole } = require('./auth');
 const loader  = require('../scripts/movidesk-loader');
 
-// Apenas admins e supervisores podem disparar cargas
-function requireAdmin(req, res, next) {
-  const role = req.user?.role || req.user?.roleName || '';
-  if (!['admin', 'supervisor'].includes(role)) {
-    return res.status(403).json({ error: 'Sem permissão para disparar carga' });
-  }
-  next();
-}
-
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
-router.post('/full', authMiddleware, requireAdmin, (req, res) => {
+router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
   if (loader.state.running) {
     return res.status(409).json({
       error: 'Já existe uma carga em andamento',
@@ -43,7 +34,7 @@ router.post('/full', authMiddleware, requireAdmin, (req, res) => {
 });
 
 // ── POST /api/loader/incremental ─────────────────────────────────────────────
-router.post('/incremental', authMiddleware, requireAdmin, (req, res) => {
+router.post('/incremental', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
   if (loader.state.running) {
     return res.status(409).json({
       error: 'Já existe uma carga em andamento',
