@@ -150,10 +150,10 @@ function checkLoaderSchedule() {
   const day  = now.toISOString().slice(0, 10); // yyyy-MM-dd
   const dow  = now.getDay(); // 0 = domingo
 
-  // Full semanal — domingos às 02:00
-  if (dow === 0 && hhmm === '02:00' && _loaderLastFullWeek !== day) {
+  // Full semanal — sábados às 03:00
+  if (dow === 6 && hhmm === '03:00' && _loaderLastFullWeek !== day) {
     _loaderLastFullWeek = day;
-    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Carga FULL Movidesk → datalake (agendada semanal)`);
+    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Carga FULL Movidesk → datalake (agendada semanal — sábado 03h)`);
     movideskLoader.runFull().catch(e => console.error('[loader] full erro:', e.message));
     return;
   }
