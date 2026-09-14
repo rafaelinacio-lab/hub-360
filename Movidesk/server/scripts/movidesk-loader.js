@@ -21,7 +21,7 @@ const db      = require('../db/remote');
 const { getToken } = require('../routes/config');
 
 // ── Constantes ────────────────────────────────────────────────────────────────
-const MOVI_BASE   = 'https://api.movidesk.com/public/v1';
+const MOVI_BASE   = 'https://apimovidesk.viasoftcloud.com.br/public/v1';
 const PAGE_SIZE   = 500;
 const MAX_RETRIES = 5;
 
