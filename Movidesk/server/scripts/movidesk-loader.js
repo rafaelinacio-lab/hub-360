@@ -172,6 +172,7 @@ async function ensureTables() {
 
   // Colunas extras em silver.ticket (o extractor Java já criou a tabela)
   const alterTicket = [
+    'ownerteam text',
     'last_update timestamptz',
     'owner_id varchar(50)',
     'owner_name text',
