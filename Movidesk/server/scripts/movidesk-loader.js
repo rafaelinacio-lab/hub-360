@@ -286,7 +286,7 @@ async function saveBatch(tickets) {
        resolved_in, closed_in, stopped_time_wt, stopped_time,
        sla_response_date, clientorganization, extracted_at)
     SELECT
-      u.ticket_id, u.subject, u.status, u.basestatus, u.createddate::timestamptz,
+      u.ticket_id::bigint, u.subject, u.status, u.basestatus, u.createddate::timestamptz,
       u.last_update::timestamptz, u.ownerteam, u.owner_id, u.owner_name,
       u.urgency, u.category, u.service_full,
       u.resolved_in::timestamptz, u.closed_in::timestamptz,
