@@ -121,6 +121,64 @@ async function fetchPage(token, endpoint, filter, skip) {
   return Array.isArray(data) ? data : [];
 }
 
+// ── Descoberta leve de IDs (sem $expand) ──────────────────────────────────────
+// O filtro aninhado customFieldValues/any(...) combinado com $expand completo
+// é caro demais pra API do Movidesk processar junto (timeout/429). Descobrir
+// só os IDs primeiro (sem $expand) é rápido mesmo com filtro complexo — depois
+// buscamos os detalhes completos só desses IDs específicos.
+const ID_PAGE_SIZE = 1000;
+
+async function fetchIdPage(token, endpoint, filter, skip) {
+  const params = { token, '$select': 'id', '$top': ID_PAGE_SIZE, '$skip': skip };
+  if (filter) params['$filter'] = filter;
+  const url = `${MOVI_BASE}${endpoint}?${qs(params)}`;
+  const resp = await fetchWithRetry(url);
+  const data = await resp.json();
+  return Array.isArray(data) ? data.map(t => t.id) : [];
+}
+
+async function fetchAllIds(token, endpoints, filter) {
+  const ids = [];
+  for (const ep of endpoints) {
+    let skip = 0;
+    while (true) {
+      if (state.cancelRequested) {
+        throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+      }
+      const page = await fetchIdPage(token, ep, filter, skip);
+      if (!page.length) break;
+      ids.push(...page);
+      if (page.length < ID_PAGE_SIZE) break;
+      skip += ID_PAGE_SIZE;
+      await sleep(150);
+    }
+  }
+  return [...new Set(ids)];
+}
+
+// Busca os detalhes completos (com $expand) de uma lista de IDs, em lotes de
+// PAGE_SIZE, salvando cada lote via onBatch. Usado quando o filtro original é
+// complexo demais pra combinar direto com $expand (ver fetchAllIds acima).
+async function fetchDetailsAndSave(token, ids, onBatch) {
+  let total = 0;
+  for (let i = 0; i < ids.length; i += PAGE_SIZE) {
+    if (state.cancelRequested) {
+      throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    }
+    const chunk = ids.slice(i, i + PAGE_SIZE);
+    const idsOr = chunk.map(id => `id eq ${id}`).join(' or ');
+    state.phase = 'fetching';
+    const batch = await fetchPage(token, '/tickets', idsOr, 0);
+    state.phase = 'saving';
+    await onBatch(batch);
+    state.pagesDone++;
+    state.ticketsDone += batch.length;
+    total += batch.length;
+    await sleep(150);
+  }
+  return total;
+}
+
 // ── Itera todas as páginas de um endpoint, chamando onBatch a cada página ────
 async function fetchEndpoint(token, endpoint, filter, onBatch) {
   let skip = 0;
@@ -572,6 +630,28 @@ async function runFull({ years = [], classification = '' } = {}) {
   const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
   console.log(`[loader] ▶ Carga FULL iniciada — ${yearsDesc}`);
 
+  // Quando há filtro de classificação, o filtro aninhado customFieldValues/any(...)
+  // combinado com $expand completo é caro demais pra API do Movidesk (mesmo bug
+  // de timeout/429 encontrado na carga de Ouvidoria/GCC). Nesse caso, buscamos os
+  // IDs primeiro (sem $expand — rápido mesmo com filtro complexo) e só então os
+  // detalhes completos desses IDs específicos. Também aplicamos o mesmo workaround
+  // pro bug de serialização (customFieldValues[].items ausente) da carga por
+  // classificação.
+  const saveWithClassPatch = classValue ? async (batch) => {
+    for (const t of batch) {
+      if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
+      let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
+      if (!cf) {
+        cf = { customFieldId: CF_CLASSIFICACAO };
+        t.customFieldValues.push(cf);
+      }
+      if (!Array.isArray(cf.items) || !cf.items.length) {
+        cf.items = [{ customFieldItem: classValue }];
+      }
+    }
+    await saveBatch(batch);
+  } : saveBatch;
+
   try {
     const token = await getMovideskToken();
     console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
@@ -583,24 +663,35 @@ async function runFull({ years = [], classification = '' } = {}) {
         // Inclui jan do ano seguinte no filtro para pegar horários de fuseau diferente
         const from = `${year}-01-01T00:00:00Z`;
         const to   = `${year}-12-31T23:59:59Z`;
-        let filter = `createdDate ge ${from} and createdDate le ${to}`;
-        if (classFilter) filter = `${filter} and ${classFilter}`;
+        const dateFilter = `createdDate ge ${from} and createdDate le ${to}`;
 
         console.log(`[loader]   ── Ano ${year}${classValue ? ` — classificação "${classValue}"` : ''} ──`);
-        for (const ep of ['/tickets', '/tickets/past']) {
-          console.log(`[loader]     endpoint ${ep}`);
-          await fetchEndpoint(token, ep, filter, saveBatch);
+        if (classFilter) {
+          const ids = await fetchAllIds(token, ['/tickets', '/tickets/past'], `${dateFilter} and ${classFilter}`);
+          console.log(`[loader]     ${ids.length} ticket(s) encontrados`);
+          await fetchDetailsAndSave(token, ids, saveWithClassPatch);
+        } else {
+          for (const ep of ['/tickets', '/tickets/past']) {
+            console.log(`[loader]     endpoint ${ep}`);
+            await fetchEndpoint(token, ep, dateFilter, saveBatch);
+          }
         }
         state.yearsDone++;
         console.log(`[loader]   ✓ Ano ${year} concluído — ${state.ticketsDone} tickets acumulados`);
       }
       state.currentYear = null;
+    } else if (classFilter) {
+      // ── Carga total filtrada só por classificação (sem filtro de data) ──────
+      console.log(`[loader]   classificação "${classValue}" — descobrindo IDs`);
+      const ids = await fetchAllIds(token, ['/tickets', '/tickets/past'], classFilter);
+      console.log(`[loader]   ${ids.length} ticket(s) encontrados`);
+      await fetchDetailsAndSave(token, ids, saveWithClassPatch);
     } else {
-      // ── Carga total, com filtro de classificação opcional ──────────────────
-      console.log(classValue ? `[loader]   classificação "${classValue}"` : '[loader]   sem filtro de data ou classificação');
+      // ── Carga total sem filtro nenhum ───────────────────────────────────────
+      console.log('[loader]   sem filtro de data ou classificação');
       for (const ep of ['/tickets', '/tickets/past']) {
         console.log(`[loader]   endpoint ${ep}`);
-        await fetchEndpoint(token, ep, classFilter, saveBatch);
+        await fetchEndpoint(token, ep, null, saveBatch);
       }
     }
 
