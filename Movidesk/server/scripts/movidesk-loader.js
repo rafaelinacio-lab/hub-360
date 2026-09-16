@@ -58,6 +58,18 @@ module.exports.state = state;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Extrai o valor de um campo personalizado de customFieldValues (já vem no ticket
+// via $expand=customFieldValues — não precisa de chamada extra por ticket).
+function extractCfValue(cfv, cfId) {
+  const cf = (Array.isArray(cfv) ? cfv : []).find(f => f.customFieldId === cfId);
+  if (!cf) return null;
+  if (Array.isArray(cf.items) && cf.items.length) {
+    return cf.items.map(i => String(i.customFieldItem || i.name || i.value || '').trim())
+      .filter(Boolean).join(', ') || null;
+  }
+  return String(cf.value || '').trim() || null;
+}
+
 function qs(params) {
   return Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -744,20 +756,22 @@ async function runOuvidoria() {
     const token = await getMovideskToken();
     console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
 
-    // Filtra direto na API — só tickets de Ouvidoria que estão EM ABERTO. Isso cobre
-    // tanto os novos (que nascem abertos) quanto a atualização dos já existentes em
-    // aberto. Tickets já fechados/cancelados não são revarridos a cada sync — já
-    // foram carregados uma vez e não mudam mais.
-    const cfFilter = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
-                     ` and cf/items/any(item: item/customFieldItem eq 'Ouvidoria'))`;
+    // O filtro OData aninhado customFieldValues/any(...) é caro pra API do Movidesk
+    // processar (dava timeout de 60s mesmo só em /tickets). Em vez disso, filtramos
+    // só por status na API (campo simples, rápido) e checamos a classificação aqui
+    // no servidor — o $expand=customFieldValues já traz esse dado junto na página,
+    // sem custo de chamada extra por ticket.
     const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
-    const openOuvidoriaFilter = `${cfFilter} and ${closedExclusion}`;
+
+    const saveOnlyOuvidoria = async (batch) => {
+      const ouvidoria = batch.filter(t => extractCfValue(t.customFieldValues, CF_CLASSIFICACAO) === 'Ouvidoria');
+      if (ouvidoria.length) await saveBatch(ouvidoria);
+    };
 
     // Só /tickets — tickets em aberto não vivem em /tickets/past (arquivo histórico
-    // de tickets antigos/fechados). Consultar /tickets/past com esse filtro só gerava
-    // timeout de rede varrendo um arquivo enorme atrás de algo que não existe lá.
-    console.log(`[loader]   /tickets — Ouvidoria em aberto`);
-    await fetchEndpoint(token, '/tickets', openOuvidoriaFilter, saveBatch);
+    // de tickets antigos/fechados).
+    console.log(`[loader]   /tickets — abertos, filtrando Ouvidoria no servidor`);
+    await fetchEndpoint(token, '/tickets', closedExclusion, saveOnlyOuvidoria);
 
     state.phase      = 'idle';
     state.running    = false;
