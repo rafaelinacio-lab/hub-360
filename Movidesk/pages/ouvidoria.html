@@ -108,10 +108,9 @@ input,select{font-family:inherit}
 }
 
 /* ═══ Loading ══════════════════════════════════════════════════════════ */
-#ov-loading{
-  position:fixed;inset:0;z-index:9998;background:var(--bg);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
-}
+/* Overlay de tela cheia removido do fluxo normal — a página aparece na hora
+   e só a grade mostra estado de carregamento (ver #ov-grid .empty). */
+#ov-loading{ display:none }
 .spin{
   width:40px;height:40px;border-radius:50%;
   border:3px solid var(--border);border-top-color:var(--orange);
@@ -121,7 +120,7 @@ input,select{font-family:inherit}
 .load-txt{font-size:13px;color:var(--t2);font-weight:500}
 
 /* ═══ Page ═════════════════════════════════════════════════════════════ */
-#ov-page{min-height:100vh;display:flex;flex-direction:column;visibility:hidden}
+#ov-page{min-height:100vh;display:flex;flex-direction:column}
 
 /* ═══ Top bar ══════════════════════════════════════════════════════════ */
 .topbar{
@@ -836,8 +835,6 @@ async function loadOuvidoria(){
     _rows=await api('/ouvidoria');
     populateMs('ov-month',MONTHS,'Todos os meses',render);
     updateKpis(); updateCounts(); render();
-    document.getElementById('ov-page').style.visibility='visible';
-    document.getElementById('ov-loading').style.display='none';
     // Busca manifesto_direcionado_a em background para tickets sem o campo
     fetchManigestos();
   } catch(e){
@@ -851,8 +848,6 @@ async function loadOuvidoria(){
       }
     }catch{}
     document.getElementById('ov-grid').innerHTML=`<div class="empty"><span class="sym">sync</span><p>${msg}</p></div>`;
-    document.getElementById('ov-page').style.visibility='visible';
-    document.getElementById('ov-loading').style.display='none';
   }
 }
 
