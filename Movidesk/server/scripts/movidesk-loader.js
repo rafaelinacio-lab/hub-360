@@ -150,110 +150,100 @@ async function fetchEndpoint(token, endpoint, filter, onBatch) {
 }
 
 // ── Garantir tabelas / colunas ────────────────────────────────────────────────
+// Roda tudo numa ÚNICA conexão dedicada com lock_timeout curto: o extractor Java
+// pode manter transações longas em silver.*, e DDL (CREATE/ALTER TABLE) exige lock
+// ACCESS EXCLUSIVE, que ficaria esperando indefinidamente sem esse timeout. Cada
+// statement roda isolado — se um não conseguir o lock a tempo, pulamos e seguimos
+// (a tabela/coluna já deve existir na maioria dos casos).
 async function ensureTables() {
-  // Schema primeiro — sem ele todos os CREATE TABLE falham
-  await db.query('CREATE SCHEMA IF NOT EXISTS silver').catch(e => {
-    console.error('[loader] erro ao criar schema silver:', e.message);
-    throw e; // propaga — sem schema não há como continuar
-  });
-
-  // silver.ticket — cria se não existir (o extractor Java pode ter criado antes)
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS silver.ticket (
-      ticket_id          varchar(20) PRIMARY KEY,
-      subject            text,
-      status             text,
-      basestatus         text,
-      createddate        timestamptz,
-      ownerteam          text,
-      clientorganization text
-    )
-  `).catch(() => {});
-
-  // Colunas extras em silver.ticket (o extractor Java já criou a tabela)
-  const alterTicket = [
-    'ownerteam text',
-    'last_update timestamptz',
-    'owner_id varchar(50)',
-    'owner_name text',
-    'urgency text',
-    'category text',
-    'service_full text',
-    'resolved_in timestamptz',
-    'closed_in timestamptz',
-    'stopped_time float',
-    'stopped_time_wt float',
-    'sla_response_date timestamptz',
-    'extracted_at timestamptz',
+  const statements = [
+    ['schema silver', 'CREATE SCHEMA IF NOT EXISTS silver'],
+    ['silver.ticket (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket (
+        ticket_id          varchar(20) PRIMARY KEY,
+        subject            text,
+        status             text,
+        basestatus         text,
+        createddate        timestamptz,
+        ownerteam          text,
+        clientorganization text
+      )
+    `],
+    ...[
+      'ownerteam text', 'last_update timestamptz', 'owner_id varchar(50)',
+      'owner_name text', 'urgency text', 'category text', 'service_full text',
+      'resolved_in timestamptz', 'closed_in timestamptz', 'stopped_time float',
+      'stopped_time_wt float', 'sla_response_date timestamptz', 'extracted_at timestamptz',
+    ].map(col => {
+      const [name] = col.split(' ');
+      return [`silver.ticket.${name}`, `ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`];
+    }),
+    ['silver.ticket._bronze_extracted_at default', `ALTER TABLE silver.ticket ALTER COLUMN _bronze_extracted_at SET DEFAULT NOW()`],
+    ['silver.ticket_acao (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_acao (
+        acao_id         bigint PRIMARY KEY,
+        ticket_id       bigint NOT NULL,
+        tipo            int,
+        descricao       text,
+        is_public       boolean,
+        status          text,
+        criado_em       timestamptz,
+        criado_por_id   text,
+        criado_por_nome text,
+        extracted_at    timestamptz DEFAULT NOW()
+      )
+    `],
+    ['silver.ticket_acao.criado_por_id', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_id text`],
+    ['silver.ticket_acao.criado_por_nome', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_nome text`],
+    ['silver.ticket_acao.is_public', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS is_public boolean`],
+    ['silver.ticket_acao.extracted_at', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`],
+    ['silver.ticket_campo_customizado (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_campo_customizado (
+        ticket_id        bigint NOT NULL,
+        custom_field_id  bigint NOT NULL,
+        valor_texto      text,
+        items_json       text,
+        extracted_at     timestamptz DEFAULT NOW()
+      )
+    `],
+    ['silver.ticket_campo_customizado.items_json', `ALTER TABLE silver.ticket_campo_customizado ADD COLUMN IF NOT EXISTS items_json text`],
+    ['silver.ticket_campo_customizado.extracted_at', `ALTER TABLE silver.ticket_campo_customizado ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`],
+    ['silver.ticket_campo_customizado idx', `CREATE INDEX IF NOT EXISTS idx_ticket_cf_ticket_id ON silver.ticket_campo_customizado(ticket_id)`],
+    ['silver.ticket_cliente (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_cliente (
+        ticket_id        bigint NOT NULL,
+        cliente_id       text,
+        nome             text,
+        email            text,
+        organizacao_id   text,
+        organizacao_nome text,
+        extracted_at     timestamptz DEFAULT NOW()
+      )
+    `],
+    ['silver.ticket_cliente.extracted_at', `ALTER TABLE silver.ticket_cliente ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`],
+    ['silver.carga_log (create)', `
+      CREATE TABLE IF NOT EXISTS silver.carga_log (
+        id           serial PRIMARY KEY,
+        mode         varchar(20) NOT NULL,
+        started_at   timestamptz NOT NULL,
+        finished_at  timestamptz,
+        tickets_loaded int DEFAULT 0,
+        status       varchar(20) DEFAULT 'running',
+        error_msg    text
+      )
+    `],
   ];
-  for (const col of alterTicket) {
-    const [name] = col.split(' ');
-    await db.query(`ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`).catch(() => {});
-  }
 
-  // Garante que _bronze_extracted_at (criado pelo extractor Java sem DEFAULT) não bloqueie INSERTs
-  await db.query(`ALTER TABLE silver.ticket ALTER COLUMN _bronze_extracted_at SET DEFAULT NOW()`).catch(() => {});
-
-  // silver.ticket_acao — criada pelo extractor Java com nomes em português
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS silver.ticket_acao (
-      acao_id         bigint PRIMARY KEY,
-      ticket_id       bigint NOT NULL,
-      tipo            int,
-      descricao       text,
-      is_public       boolean,
-      status          text,
-      criado_em       timestamptz,
-      criado_por_id   text,
-      criado_por_nome text,
-      extracted_at    timestamptz DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_id text`).catch(() => {});
-  await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_nome text`).catch(() => {});
-  await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS is_public boolean`).catch(() => {});
-  await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
-
-  // silver.ticket_campo_customizado — schema Java (sem PK, permite múltiplos via item_ordem)
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS silver.ticket_campo_customizado (
-      ticket_id        bigint NOT NULL,
-      custom_field_id  bigint NOT NULL,
-      valor_texto      text,
-      items_json       text,
-      extracted_at     timestamptz DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.query(`ALTER TABLE silver.ticket_campo_customizado ADD COLUMN IF NOT EXISTS items_json text`).catch(() => {});
-  await db.query(`ALTER TABLE silver.ticket_campo_customizado ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
-  await db.query(`CREATE INDEX IF NOT EXISTS idx_ticket_cf_ticket_id ON silver.ticket_campo_customizado(ticket_id)`).catch(() => {});
-
-  // silver.ticket_cliente — schema Java (cliente_id, nome, email em vez de pessoa_id/person_type)
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS silver.ticket_cliente (
-      ticket_id        bigint NOT NULL,
-      cliente_id       text,
-      nome             text,
-      email            text,
-      organizacao_id   text,
-      organizacao_nome text,
-      extracted_at     timestamptz DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.query(`ALTER TABLE silver.ticket_cliente ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
-
-  // silver.carga_log — histórico de execuções
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS silver.carga_log (
-      id           serial PRIMARY KEY,
-      mode         varchar(20) NOT NULL,
-      started_at   timestamptz NOT NULL,
-      finished_at  timestamptz,
-      tickets_loaded int DEFAULT 0,
-      status       varchar(20) DEFAULT 'running',  -- running | done | error
-      error_msg    text
-    )
-  `).catch(() => {});
+  await db.withClient(async (client) => {
+    await client.query(`SET lock_timeout = '5s'`).catch(() => {});
+    for (const [label, sql] of statements) {
+      try {
+        await client.query(sql);
+      } catch (e) {
+        console.warn(`[loader] ensureTables — pulando "${label}" (${e.code || ''}): ${e.message}`);
+      }
+    }
+  });
 }
 
 // ── Persistir um lote de tickets ──────────────────────────────────────────────

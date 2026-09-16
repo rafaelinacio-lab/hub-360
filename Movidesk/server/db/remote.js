@@ -361,6 +361,20 @@ async function queryDatabase(databaseName, sql, params = []) {
   throw lastError;
 }
 
+// Concede um client dedicado do pool principal para quem precisa garantir que
+// vários statements rodem na MESMA conexão/sessão (ex: SET lock_timeout seguido
+// de DDL). db.query() usa o pool e cada chamada pode pegar uma conexão diferente,
+// então SET não teria efeito garantido sobre a query seguinte.
+async function withClient(callback) {
+  const activePool = await createPoolIfNeeded();
+  const client = await activePool.connect();
+  try {
+    return await callback(client);
+  } finally {
+    client.release();
+  }
+}
+
 function get(sql, params, callback) {
   query(sql, params)
     .then((result) => {
@@ -408,4 +422,4 @@ async function close() {
   }
 }
 
-module.exports = { query, queryDatabase, get, all, run, close };
+module.exports = { query, queryDatabase, get, all, run, close, withClient };
