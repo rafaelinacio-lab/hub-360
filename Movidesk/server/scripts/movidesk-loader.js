@@ -433,26 +433,38 @@ async function saveBatch(tickets) {
   if (cfRows.length) {
     // Sem unique constraint em (ticket_id, custom_field_id) no schema do extractor Java
     // (permite múltiplas linhas via item_ordem) — usa DELETE + INSERT por ticket.
+    // DELETE e INSERT rodam na MESMA transação: se o INSERT falhar, o DELETE é
+    // desfeito também — sem isso, um erro no meio deixava tickets sem nenhuma linha
+    // de classificação (sumindo da Ouvidoria mesmo continuando em silver.ticket).
     const cfTicketIds = [...new Set(cfRows.map(r => r.ticket_id))];
-    await db.query(
-      `DELETE FROM silver.ticket_campo_customizado WHERE ticket_id = ANY($1::bigint[])`,
-      [cfTicketIds]
-    );
-    await db.query(`
-      INSERT INTO silver.ticket_campo_customizado
-        (ticket_id, custom_field_id, valor_texto, items_json, extracted_at)
-      SELECT
-        u.ticket_id::bigint, u.custom_field_id::bigint,
-        u.valor_texto, u.items_json, NOW()
-      FROM unnest(
-        $1::text[], $2::text[], $3::text[], $4::text[]
-      ) AS u(ticket_id, custom_field_id, valor_texto, items_json)
-    `, [
-      cfRows.map(r => r.ticket_id),
-      cfRows.map(r => r.custom_field_id),
-      cfRows.map(r => r.valor_texto),
-      cfRows.map(r => r.items_json),
-    ]);
+    await db.withClient(async (client) => {
+      await client.query('BEGIN');
+      try {
+        await client.query(
+          `DELETE FROM silver.ticket_campo_customizado WHERE ticket_id = ANY($1::bigint[])`,
+          [cfTicketIds]
+        );
+        await client.query(`
+          INSERT INTO silver.ticket_campo_customizado
+            (ticket_id, custom_field_id, valor_texto, items_json, extracted_at)
+          SELECT
+            u.ticket_id::bigint, u.custom_field_id::bigint,
+            u.valor_texto, u.items_json, NOW()
+          FROM unnest(
+            $1::text[], $2::text[], $3::text[], $4::text[]
+          ) AS u(ticket_id, custom_field_id, valor_texto, items_json)
+        `, [
+          cfRows.map(r => r.ticket_id),
+          cfRows.map(r => r.custom_field_id),
+          cfRows.map(r => r.valor_texto),
+          cfRows.map(r => r.items_json),
+        ]);
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      }
+    });
   }
 
   // ── 4. silver.ticket_cliente ── (schema Java: ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
@@ -471,29 +483,39 @@ async function saveBatch(tickets) {
     }
   }
   if (cliRows.length) {
-    // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT por ticket.
+    // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT
+    // por ticket, na mesma transação (mesmo motivo do bloco acima).
     const cliTicketIds = [...new Set(cliRows.map(r => r.ticket_id))];
-    await db.query(
-      `DELETE FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`,
-      [cliTicketIds]
-    );
-    await db.query(`
-      INSERT INTO silver.ticket_cliente
-        (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, extracted_at)
-      SELECT
-        u.ticket_id::bigint, NULLIF(u.cliente_id, ''), u.nome, u.email,
-        NULLIF(u.organizacao_id, ''), u.organizacao_nome, NOW()
-      FROM unnest(
-        $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[]
-      ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
-    `, [
-      cliRows.map(r => r.ticket_id),
-      cliRows.map(r => r.cliente_id),
-      cliRows.map(r => r.nome),
-      cliRows.map(r => r.email),
-      cliRows.map(r => r.organizacao_id),
-      cliRows.map(r => r.organizacao_nome),
-    ]);
+    await db.withClient(async (client) => {
+      await client.query('BEGIN');
+      try {
+        await client.query(
+          `DELETE FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`,
+          [cliTicketIds]
+        );
+        await client.query(`
+          INSERT INTO silver.ticket_cliente
+            (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, extracted_at)
+          SELECT
+            u.ticket_id::bigint, NULLIF(u.cliente_id, ''), u.nome, u.email,
+            NULLIF(u.organizacao_id, ''), u.organizacao_nome, NOW()
+          FROM unnest(
+            $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[]
+          ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
+        `, [
+          cliRows.map(r => r.ticket_id),
+          cliRows.map(r => r.cliente_id),
+          cliRows.map(r => r.nome),
+          cliRows.map(r => r.email),
+          cliRows.map(r => r.organizacao_id),
+          cliRows.map(r => r.organizacao_nome),
+        ]);
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      }
+    });
   }
 }
 
