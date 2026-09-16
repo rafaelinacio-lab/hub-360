@@ -214,31 +214,30 @@ async function ensureTables() {
   await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS is_public boolean`).catch(() => {});
   await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
 
-  // silver.ticket_campo_customizado — pode já existir
+  // silver.ticket_campo_customizado — schema Java (sem PK, permite múltiplos via item_ordem)
   await db.query(`
     CREATE TABLE IF NOT EXISTS silver.ticket_campo_customizado (
-      ticket_id           varchar(20) NOT NULL,
-      custom_field_id     int         NOT NULL,
-      custom_field_rule_id int,
-      valor_texto         text,
-      items_json          text,
-      extracted_at        timestamptz DEFAULT NOW(),
-      PRIMARY KEY (ticket_id, custom_field_id)
+      ticket_id        bigint NOT NULL,
+      custom_field_id  bigint NOT NULL,
+      valor_texto      text,
+      items_json       text,
+      extracted_at     timestamptz DEFAULT NOW()
     )
   `).catch(() => {});
   await db.query(`ALTER TABLE silver.ticket_campo_customizado ADD COLUMN IF NOT EXISTS items_json text`).catch(() => {});
   await db.query(`ALTER TABLE silver.ticket_campo_customizado ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_ticket_cf_ticket_id ON silver.ticket_campo_customizado(ticket_id)`).catch(() => {});
 
-  // silver.ticket_cliente — pode já existir
+  // silver.ticket_cliente — schema Java (cliente_id, nome, email em vez de pessoa_id/person_type)
   await db.query(`
     CREATE TABLE IF NOT EXISTS silver.ticket_cliente (
-      ticket_id        varchar(20) NOT NULL,
-      pessoa_id        varchar(50),
-      organizacao_id   varchar(50),
+      ticket_id        bigint NOT NULL,
+      cliente_id       text,
+      nome             text,
+      email            text,
+      organizacao_id   text,
       organizacao_nome text,
-      person_type      int,
-      extracted_at     timestamptz DEFAULT NOW(),
-      PRIMARY KEY (ticket_id, COALESCE(pessoa_id, ''))
+      extracted_at     timestamptz DEFAULT NOW()
     )
   `).catch(() => {});
   await db.query(`ALTER TABLE silver.ticket_cliente ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
@@ -416,68 +415,68 @@ async function saveBatch(tickets) {
     }
   }
   if (cfRows.length) {
+    // Sem unique constraint em (ticket_id, custom_field_id) no schema do extractor Java
+    // (permite múltiplas linhas via item_ordem) — usa DELETE + INSERT por ticket.
+    const cfTicketIds = [...new Set(cfRows.map(r => r.ticket_id))];
+    await db.query(
+      `DELETE FROM silver.ticket_campo_customizado WHERE ticket_id = ANY($1::bigint[])`,
+      [cfTicketIds]
+    );
     await db.query(`
       INSERT INTO silver.ticket_campo_customizado
-        (ticket_id, custom_field_id, custom_field_rule_id, valor_texto, items_json, extracted_at)
+        (ticket_id, custom_field_id, valor_texto, items_json, extracted_at)
       SELECT
-        u.ticket_id, u.custom_field_id::int, u.custom_field_rule_id::int,
+        u.ticket_id::bigint, u.custom_field_id::bigint,
         u.valor_texto, u.items_json, NOW()
       FROM unnest(
-        $1::text[], $2::text[], $3::text[], $4::text[], $5::text[]
-      ) AS u(ticket_id, custom_field_id, custom_field_rule_id, valor_texto, items_json)
-      ON CONFLICT (ticket_id, custom_field_id) DO UPDATE SET
-        custom_field_rule_id = EXCLUDED.custom_field_rule_id,
-        valor_texto          = EXCLUDED.valor_texto,
-        items_json           = EXCLUDED.items_json,
-        extracted_at         = EXCLUDED.extracted_at
+        $1::text[], $2::text[], $3::text[], $4::text[]
+      ) AS u(ticket_id, custom_field_id, valor_texto, items_json)
     `, [
       cfRows.map(r => r.ticket_id),
       cfRows.map(r => r.custom_field_id),
-      cfRows.map(r => r.custom_field_rule_id),
       cfRows.map(r => r.valor_texto),
       cfRows.map(r => r.items_json),
     ]);
   }
 
-  // ── 4. silver.ticket_cliente ──
+  // ── 4. silver.ticket_cliente ── (schema Java: ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
   const cliRows = [];
   for (const t of tickets) {
     if (!Array.isArray(t.clients)) continue;
     for (const c of t.clients) {
       cliRows.push({
         ticket_id:        String(t.id),
-        pessoa_id:        c.id ? String(c.id) : null,
+        cliente_id:       c.id ? String(c.id) : null,
+        nome:             c.businessName || null,
+        email:            c.email || null,
         organizacao_id:   c.organization?.id ? String(c.organization.id) : null,
         organizacao_nome: c.organization?.businessName || null,
-        person_type:      c.personType != null ? String(c.personType) : null,
       });
     }
   }
   if (cliRows.length) {
+    // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT por ticket.
+    const cliTicketIds = [...new Set(cliRows.map(r => r.ticket_id))];
+    await db.query(
+      `DELETE FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`,
+      [cliTicketIds]
+    );
     await db.query(`
       INSERT INTO silver.ticket_cliente
-        (ticket_id, pessoa_id, organizacao_id, organizacao_nome, person_type, extracted_at)
+        (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, extracted_at)
       SELECT
-        u.ticket_id,
-        NULLIF(u.pessoa_id, ''),
-        NULLIF(u.organizacao_id, ''),
-        u.organizacao_nome,
-        u.person_type::int,
-        NOW()
+        u.ticket_id::bigint, NULLIF(u.cliente_id, ''), u.nome, u.email,
+        NULLIF(u.organizacao_id, ''), u.organizacao_nome, NOW()
       FROM unnest(
-        $1::text[], $2::text[], $3::text[], $4::text[], $5::text[]
-      ) AS u(ticket_id, pessoa_id, organizacao_id, organizacao_nome, person_type)
-      ON CONFLICT (ticket_id, COALESCE(pessoa_id, '')) DO UPDATE SET
-        organizacao_id   = EXCLUDED.organizacao_id,
-        organizacao_nome = EXCLUDED.organizacao_nome,
-        person_type      = EXCLUDED.person_type,
-        extracted_at     = EXCLUDED.extracted_at
+        $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[]
+      ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
     `, [
       cliRows.map(r => r.ticket_id),
-      cliRows.map(r => r.pessoa_id || ''),
+      cliRows.map(r => r.cliente_id),
+      cliRows.map(r => r.nome),
+      cliRows.map(r => r.email),
       cliRows.map(r => r.organizacao_id),
       cliRows.map(r => r.organizacao_nome),
-      cliRows.map(r => r.person_type),
     ]);
   }
 }
