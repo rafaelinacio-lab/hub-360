@@ -153,12 +153,19 @@ async function fetchEndpoint(token, endpoint, filter, onBatch) {
 }
 
 // ── Garantir tabelas / colunas ────────────────────────────────────────────────
-// Roda tudo numa ÚNICA conexão dedicada com lock_timeout curto: o extractor Java
-// pode manter transações longas em silver.*, e DDL (CREATE/ALTER TABLE) exige lock
-// ACCESS EXCLUSIVE, que ficaria esperando indefinidamente sem esse timeout. Cada
-// statement roda isolado — se um não conseguir o lock a tempo, pulamos e seguimos
-// (a tabela/coluna já deve existir na maioria dos casos).
+// Roda tudo numa ÚNICA conexão dedicada com lock_timeout curto: DDL (CREATE/ALTER
+// TABLE) exige lock ACCESS EXCLUSIVE, que briga com autovacuum (SHARE UPDATE
+// EXCLUSIVE) rodando nas mesmas tabelas. Cada statement roda isolado — se um não
+// conseguir o lock a tempo, pulamos e seguimos (a tabela/coluna já deve existir
+// na maioria dos casos).
+//
+// Só roda de fato na PRIMEIRA chamada do processo — ALTER TABLE ADD COLUMN IF
+// NOT EXISTS é idempotente, então repetir a cada carga (a cada 2h) só gera
+// disputa de lock com autovacuum sem necessidade nenhuma depois que as colunas
+// já existem.
+let _tablesEnsured = false;
 async function ensureTables() {
+  if (_tablesEnsured) return;
   const statements = [
     ['schema silver', 'CREATE SCHEMA IF NOT EXISTS silver'],
     ['silver.ticket (create)', `
@@ -247,6 +254,7 @@ async function ensureTables() {
       }
     }
   });
+  _tablesEnsured = true;
 }
 
 // ── Persistir um lote de tickets ──────────────────────────────────────────────
