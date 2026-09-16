@@ -191,6 +191,9 @@ async function ensureTables() {
     await db.query(`ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`).catch(() => {});
   }
 
+  // Garante que _bronze_extracted_at (criado pelo extractor Java sem DEFAULT) não bloqueie INSERTs
+  await db.query(`ALTER TABLE silver.ticket ALTER COLUMN _bronze_extracted_at SET DEFAULT NOW()`).catch(() => {});
+
   // silver.ticket_acao — pode já existir; garantimos as colunas mínimas
   await db.query(`
     CREATE TABLE IF NOT EXISTS silver.ticket_acao (
