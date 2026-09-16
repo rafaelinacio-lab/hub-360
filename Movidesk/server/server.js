@@ -168,17 +168,15 @@ function checkLoaderSchedule() {
 
 setInterval(checkLoaderSchedule, 60 * 1000); // checa todo minuto
 
-// ===== Sync Ouvidoria/GCC do datalake (a cada 2 horas) =====
-// INSERT...SELECT direto no mesmo banco — instantâneo, sem chamada de API.
-// Roda também 1 vez na inicialização (após 10s) para popular na subida do servidor.
-function runOuvidoriaGccSync() {
-  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Sync automático Ouvidoria/GCC via datalake`);
-  ouvidoriaRoutes.runSync();
+// ===== Sync GCC do datalake (a cada 2 horas) =====
+// Ouvidoria agora lê direto de silver.* — só o GCC ainda usa public.gcc em movidesk_tickets.
+function runGccSync() {
+  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Sync automático GCC via datalake`);
   gccRoutes.runSync();
 }
 
-setTimeout(runOuvidoriaGccSync, 10 * 1000);
-setInterval(runOuvidoriaGccSync, 2 * 60 * 60 * 1000);
+setTimeout(runGccSync, 10 * 1000);
+setInterval(runGccSync, 2 * 60 * 60 * 1000);
 
 // Iniciar servidor
 app.listen(PORT, () => {
