@@ -168,16 +168,15 @@ function checkLoaderSchedule() {
 
 setInterval(checkLoaderSchedule, 60 * 1000); // checa todo minuto
 
-// ===== Sync Ouvidoria/GCC do datalake (a cada 2 horas) =====
-// Mantém public.ouvidoria e public.gcc em movidesk_tickets atualizados a partir do silver.*.
-function runOuvidoriaGccSync() {
-  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Sync automático Ouvidoria/GCC via datalake`);
-  ouvidoriaRoutes.runSync();
-  gccRoutes.runSync();
+// ===== Carga incremental Movidesk → silver.* (a cada 2 horas) =====
+// Mantém o datalake atualizado. Ouvidoria e GCC lêem de silver.* diretamente.
+function runDatalakeIncremental() {
+  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga incremental automática Movidesk → datalake`);
+  movideskLoader.runIncremental().catch(e => console.error('[loader] incremental auto erro:', e.message));
 }
 
-setTimeout(runOuvidoriaGccSync, 10 * 1000);
-setInterval(runOuvidoriaGccSync, 2 * 60 * 60 * 1000);
+setTimeout(runDatalakeIncremental, 10 * 1000);
+setInterval(runDatalakeIncremental, 2 * 60 * 60 * 1000);
 
 // Iniciar servidor
 app.listen(PORT, () => {
