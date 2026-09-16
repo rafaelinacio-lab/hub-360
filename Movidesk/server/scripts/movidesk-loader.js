@@ -744,13 +744,18 @@ async function runOuvidoria() {
     const token = await getMovideskToken();
     console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
 
-    // Filtra direto na API — só tickets com Classificação de Ticket = "Ouvidoria"
+    // Filtra direto na API — só tickets de Ouvidoria que estão EM ABERTO. Isso cobre
+    // tanto os novos (que nascem abertos) quanto a atualização dos já existentes em
+    // aberto. Tickets já fechados/cancelados não são revarridos a cada sync — já
+    // foram carregados uma vez e não mudam mais.
     const cfFilter = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
                      ` and cf/items/any(item: item/customFieldItem eq 'Ouvidoria'))`;
+    const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+    const openOuvidoriaFilter = `${cfFilter} and ${closedExclusion}`;
 
     for (const ep of ['/tickets', '/tickets/past']) {
-      console.log(`[loader]   ${ep} — classificação Ouvidoria`);
-      await fetchEndpoint(token, ep, cfFilter, saveBatch);
+      console.log(`[loader]   ${ep} — Ouvidoria em aberto`);
+      await fetchEndpoint(token, ep, openOuvidoriaFilter, saveBatch);
     }
 
     state.phase      = 'idle';
