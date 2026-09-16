@@ -100,73 +100,10 @@ setInterval(() => {
   db.query('DELETE FROM sessions WHERE expires_at < NOW()').catch(() => {});
 }, 60 * 60 * 1000);
 
-// ===== Carga bruta agendada da Curadoria (manhã, almoço e fim de tarde) =====
-// Dispara os jobs de enriquecimento (análise de IA, satisfação real, módulo x rotina)
-// automaticamente 3x ao dia, para que os KPIs e o Foco de Atendimento da Visão Geral
-// reflitam dados atualizados sem precisar de acionamento manual. Cada job já é
-// resumível e idempotente (só processa o que ainda não foi verificado), então disparar
-// de novo antes do anterior terminar não duplica trabalho.
-const DEFAULT_CURADORIA_FULL_LOAD_TIMES = ['08:00', '12:00', '19:00'];
-let curadoriaFullLoadFiredKeys = new Set();
-
-// Horários vêm de curadoria_movidesk_config (Configurações → Curadoria Avançado); o array
-// acima só é usado como fallback se ainda não houver nada configurado.
-function checkCuradoriaFullLoadSchedule() {
-  getCuradoriaMovideskConfig((err, cfg) => {
-    const times = (!err && Array.isArray(cfg?.fullLoadTimes) && cfg.fullLoadTimes.length) ? cfg.fullLoadTimes : DEFAULT_CURADORIA_FULL_LOAD_TIMES;
-
-    const now = new Date();
-    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    if (!times.includes(hhmm)) return;
-
-    const dayKey = now.toISOString().slice(0, 10);
-    const fireKey = `${dayKey}T${hhmm}`;
-    if (curadoriaFullLoadFiredKeys.has(fireKey)) return;
-    curadoriaFullLoadFiredKeys.add(fireKey);
-    // Evita crescimento infinito do Set — mantém só as chaves do dia atual
-    curadoriaFullLoadFiredKeys.forEach((k) => { if (!k.startsWith(dayKey)) curadoriaFullLoadFiredKeys.delete(k); });
-
-    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga bruta agendada da Curadoria (${hhmm})`);
-    curadoriaRoutes.runFullLoad('scheduled');
-  });
-}
-
-setInterval(checkCuradoriaFullLoadSchedule, 30 * 1000);
-
-// ===== Carga Movidesk → silver.* (datalake) =====
-// Incremental diária: todo dia às 05h00 — atualiza tickets em aberto + atualizados nas últimas 25h
-// Full semanal:       todo domingo às 02h00 — recarrega toda a base (todos os tickets)
-//
-// O agendador checa a cada minuto; cada carga roda em background sem bloquear o processo.
-
-let _loaderLastIncDay = null;
-let _loaderLastFullWeek = null;
-
-function checkLoaderSchedule() {
-  if (movideskLoader.state.running) return; // não sobrepõe
-
-  const now  = new Date();
-  const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const day  = now.toISOString().slice(0, 10); // yyyy-MM-dd
-  const dow  = now.getDay(); // 0 = domingo
-
-  // Full semanal — sábados às 03:00
-  if (dow === 6 && hhmm === '03:00' && _loaderLastFullWeek !== day) {
-    _loaderLastFullWeek = day;
-    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Carga FULL Movidesk → datalake (agendada semanal — sábado 03h)`);
-    movideskLoader.runFull().catch(e => console.error('[loader] full erro:', e.message));
-    return;
-  }
-
-  // Incremental diária — todo dia às 05:00
-  if (hhmm === '05:00' && _loaderLastIncDay !== day) {
-    _loaderLastIncDay = day;
-    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Carga INCREMENTAL Movidesk → datalake (agendada diária)`);
-    movideskLoader.runIncremental().catch(e => console.error('[loader] incremental erro:', e.message));
-  }
-}
-
-setInterval(checkLoaderSchedule, 60 * 1000); // checa todo minuto
+// ===== Crons desativadas a pedido — só a carga de Ouvidoria (abaixo) segue rodando =====
+// Curadoria (carga bruta 3x/dia) e o loader full/incremental (semanal/diário) foram
+// desligados. As funções e configs continuam no código para religar facilmente se
+// precisar (basta chamar setInterval de novo), só não são mais agendadas aqui.
 
 // ===== Carga Ouvidoria Movidesk → silver.* (a cada 2 horas) =====
 // Busca só tickets com Classificação de Ticket = "Ouvidoria" (filtro na própria
