@@ -834,7 +834,7 @@ async function loadOuvidoria(){
   try{
     _rows=await api('/ouvidoria');
     populateMs('ov-month',MONTHS,'Todos os meses',render);
-    updateKpis(); updateCounts(); render();
+    updateCounts(); render();
     // Busca manifesto_direcionado_a em background para tickets sem o campo
     fetchManigestos();
   } catch(e){
@@ -851,13 +851,13 @@ async function loadOuvidoria(){
   }
 }
 
-function updateKpis(){
-  const n=_rows.length;
-  const orgs=new Set(_rows.map(r=>r.organizacao_id??r.organizacao)).size;
-  const soma=_rows.reduce((s,r)=>s+(Number(r.total_chamados_anteriores)||0),0);
+function updateKpis(rows){
+  const n=rows.length;
+  const orgs=new Set(rows.map(r=>r.organizacao_id??r.organizacao)).size;
+  const soma=rows.reduce((s,r)=>s+(Number(r.total_chamados_anteriores)||0),0);
   const med=n?(soma/n).toFixed(1):'—';
   const t30=Date.now()-30*24*60*60*1e3;
-  const d30=_rows.filter(r=>r.criado_em&&new Date(r.criado_em)>=t30).length;
+  const d30=rows.filter(r=>r.criado_em&&new Date(r.criado_em)>=t30).length;
   document.querySelector('[data-k=total]').textContent=n;
   document.querySelector('[data-k=orgs]').textContent=orgs;
   document.querySelector('[data-k=media]').textContent=med;
@@ -937,6 +937,8 @@ function render(){
     const db=b.criado_em?+new Date(b.criado_em):0;
     return sort==='ant'?da-db:db-da;
   });
+
+  updateKpis(rows);
 
   const cnt=document.getElementById('ov-count');
   cnt.textContent=`${rows.length} manifestaç${rows.length===1?'ão':'ões'}`;
