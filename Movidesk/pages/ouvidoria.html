@@ -789,13 +789,18 @@ function populateMs(id,items,allLabel,onChange){
 // ── state ────────────────────────────────────────────────────────────
 let _rows=[], _filter='all';
 
-// Busca manifesto_direcionado_a do servidor (que consulta a API Movidesk)
-// para os tickets que ainda não têm o campo, e atualiza os cards no DOM.
+// Placeholder — dados vêm do datalake (silver.*) via sync; sem chamada à API Movidesk.
 async function fetchManigestos(){
+  // tipo e manifesto_direcionado_a são preenchidos pelo sync do datalake.
+  // Não há chamada à API do Movidesk aqui.
+}
+
+// (mantido para compatibilidade futura)
+async function _fetchManigstosLegacy(){
   const missing=_rows.filter(r=>!r.manifesto_direcionado_a).map(r=>r.ticket_id);
   if(!missing.length) return;
   try{
-    const map=await api(`/ouvidoria/manifesto-batch?ids=${missing.join(',')}`);
+    const map={};
     let updated=false;
     for(const [id,val] of Object.entries(map)){
       const row=_rows.find(r=>String(r.ticket_id)===String(id));

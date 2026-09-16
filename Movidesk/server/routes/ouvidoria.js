@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
-const { requireTabAccess, getToken } = require('./config');
-const fetch = require('node-fetch');
+const { requireTabAccess } = require('./config');
 
 // public.ouvidoria fica em movidesk_tickets.
 // silver.* fica em movidesk_painel (banco principal do app).
@@ -69,39 +68,57 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
   }
 });
 
-// ===== GET /ouvidoria/:ticketId/actions — ações e campos do Movidesk =====
-const MOVIDESK_TICKETS_API = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
-const MOVIDESK_FIELDS_API  = 'https://apimovidesk.viasoftcloud.com.br/public/v1/customFields';
-
-let _cfCache = null, _cfCacheAt = 0;
-async function getCustomFieldDefs(token) {
-  if (_cfCache && Date.now() - _cfCacheAt < 3600000) return _cfCache;
-  try {
-    const resp = await fetch(`${MOVIDESK_FIELDS_API}?token=${encodeURIComponent(token)}`, { timeout: 10000 });
-    if (!resp.ok) return {};
-    const list = await resp.json();
-    _cfCache = Object.fromEntries((Array.isArray(list) ? list : []).map(f => [String(f.id), f.name || `Campo ${f.id}`]));
-    _cfCacheAt = Date.now();
-    return _cfCache;
-  } catch { return {}; }
-}
+// ===== GET /ouvidoria/:ticketId/actions — ações e campos do datalake =====
+// Lê exclusivamente de silver.* (datalake), não chama a API do Movidesk.
+const STATIC_CF_NAMES = {
+  22000: 'Tipo de Manifesto', 22003: 'Manifesto Procedente', 23946: 'Classificação de Ticket',
+  24523: 'GCC - Locus Externo', 24986: 'GCC - Locus Interno', 26214: 'GCC - MRR', 26215: 'GCC - Data',
+  38595: 'Manifesto direcionado a', 43724: 'GCC - Data Rescisão', 58049: 'GCC - Data Reversão',
+  59012: 'GCC - Real Motivo', 61982: 'GCC - Tipo de Locus',
+};
 
 router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
-  const ticketId = Number(req.params.ticketId);
-  if (!Number.isFinite(ticketId)) return res.status(400).json({ error: 'ticket_id inválido' });
+  const ticketId = String(req.params.ticketId).trim();
+  if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
   try {
-    const token = await new Promise((ok, fail) => getToken((e, t) => e ? fail(e) : ok(t)));
-    const [ticketResp, fieldDefs] = await Promise.all([
-      fetch(`${MOVIDESK_TICKETS_API}?${new URLSearchParams({ token, id: String(ticketId), '$expand': 'actions,customFieldValues' })}`, { timeout: 15000 }),
-      getCustomFieldDefs(token),
+    const [acaoRes, cfRes] = await Promise.all([
+      db.query(
+        `SELECT id, type, description, is_public, status, created_date
+         FROM silver.ticket_acao
+         WHERE ticket_id = $1
+         ORDER BY created_date ASC`,
+        [ticketId]
+      ).catch(() => ({ rows: [] })),
+      db.query(
+        `SELECT custom_field_id, valor_texto, items_json
+         FROM silver.ticket_campo_customizado
+         WHERE ticket_id = $1`,
+        [ticketId]
+      ).catch(() => ({ rows: [] })),
     ]);
-    if (!ticketResp.ok) return res.status(ticketResp.status).json({ error: `Movidesk devolveu ${ticketResp.status}` });
-    const data = await ticketResp.json();
-    res.json({
-      actions: Array.isArray(data.actions) ? data.actions : [],
-      customFieldValues: Array.isArray(data.customFieldValues) ? data.customFieldValues : [],
-      fieldDefs,
-    });
+
+    // Mapeia para o formato esperado pelo frontend
+    const actions = acaoRes.rows.map(a => ({
+      id: a.id,
+      type: a.type,
+      description: a.description,
+      isPublic: a.is_public,
+      status: a.status,
+      createdDate: a.created_date,
+    }));
+
+    const customFieldValues = cfRes.rows.map(cf => ({
+      customFieldId: cf.custom_field_id,
+      value: cf.valor_texto,
+      items: cf.items_json ? (() => { try { return JSON.parse(cf.items_json); } catch { return []; } })() : [],
+    }));
+
+    // fieldDefs: nomes dos campos a partir do mapa estático
+    const fieldDefs = Object.fromEntries(
+      Object.entries(STATIC_CF_NAMES).map(([id, name]) => [id, name])
+    );
+
+    res.json({ actions, customFieldValues, fieldDefs });
   } catch (e) {
     console.error('Erro ao buscar ações de ouvidoria:', e.message);
     res.status(500).json({ error: 'Erro ao buscar ações do chamado' });
