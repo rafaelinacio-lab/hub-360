@@ -45,8 +45,6 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
         WHERE ticket_id = t.ticket_id
         LIMIT 1
       ) tc ON true
-      WHERE t.basestatus IS NULL
-         OR t.basestatus NOT IN ('Resolved','Closed','Canceled','Resolvido','Fechado','Cancelado')
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
                t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
                t.clientorganization
