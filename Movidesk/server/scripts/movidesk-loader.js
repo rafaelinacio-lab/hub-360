@@ -121,6 +121,18 @@ async function fetchPage(token, endpoint, filter, skip) {
   return Array.isArray(data) ? data : [];
 }
 
+// ── Busca um ticket individual com todos os detalhes ($expand completo) ──────
+// Usado quando o filtro "id eq X or id eq Y ..." não retorna customFieldValues
+// corretamente (observado na API do Movidesk para filtros compostos por ID) —
+// filtrar por um único id de cada vez não tem esse problema.
+async function fetchTicketDetail(token, id) {
+  const params = { token, '$select': SELECT_FIELDS, '$expand': EXPAND_FIELDS, '$filter': `id eq ${id}` };
+  const url = `${MOVI_BASE}/tickets?${qs(params)}`;
+  const resp = await fetchWithRetry(url);
+  const data = await resp.json();
+  return Array.isArray(data) && data.length ? data[0] : null;
+}
+
 // ── Itera todas as páginas de um endpoint, chamando onBatch a cada página ────
 async function fetchEndpoint(token, endpoint, filter, onBatch) {
   let skip = 0;
@@ -790,14 +802,18 @@ async function runOuvidoria() {
     const ids = (Array.isArray(idList) ? idList : []).map(t => t.id);
     console.log(`[loader]   ${ids.length} ticket(s) de Ouvidoria em aberto encontrados`);
 
-    for (let i = 0; i < ids.length; i += PAGE_SIZE) {
-      const chunk = ids.slice(i, i + PAGE_SIZE);
-      const chunkFilter = chunk.map(id => `id eq ${id}`).join(' or ');
-      const batch = await fetchPage(token, '/tickets', chunkFilter, 0);
-      await saveBatch(batch);
-      state.pagesDone++;
-      state.ticketsDone += batch.length;
+    // Busca um por um — o filtro composto "id eq X or id eq Y ..." não retorna
+    // customFieldValues corretamente na API do Movidesk (observado em produção:
+    // tickets salvos com classificação NULL apesar do ticket em si vir certo).
+    const details = [];
+    for (const id of ids) {
+      const t = await fetchTicketDetail(token, id);
+      if (t) details.push(t);
+      await sleep(150);
     }
+    if (details.length) await saveBatch(details);
+    state.pagesDone++;
+    state.ticketsDone += details.length;
 
     state.phase      = 'idle';
     state.running    = false;
