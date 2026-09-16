@@ -936,7 +936,7 @@ function render(){
     return `<div class="card t-${tk}" data-id="${esc(String(r.ticket_id))}">
   <div class="card-top">
     <div class="card-top-badges">
-      <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${TIPO_LABEL[tk]}</span>
+      <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${esc(rawTipo(r))||TIPO_LABEL[tk]}</span>
       ${statusBadge(r.status_movidesk,r.base_status)}
     </div>
     <span class="card-date">${fmtShort(r.criado_em)}</span>
@@ -986,7 +986,7 @@ function openDrawer(id){
   icoEl.innerHTML=`<span class="sym">${TIPO_ICON[tk]}</span>`;
 
   document.getElementById('d-org').textContent=r.organizacao||'Organização não informada';
-  document.getElementById('d-meta').textContent=`#${r.ticket_id} · ${TIPO_LABEL[tk]}${r.servico_ouvidoria_nome?' · '+r.servico_ouvidoria_nome:''}`;
+  document.getElementById('d-meta').textContent=`#${r.ticket_id} · ${rawTipo(r)||TIPO_LABEL[tk]}${r.servico_ouvidoria_nome?' · '+r.servico_ouvidoria_nome:''}`;
   document.getElementById('d-sub').textContent=r.assunto_ouvidoria||'';
 
   // meta chips
