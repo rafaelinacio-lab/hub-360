@@ -811,6 +811,9 @@ async function runOuvidoria() {
       if (t) details.push(t);
       await sleep(150);
     }
+    if (details[0]) {
+      console.log(`[loader] DEBUG ticket ${details[0].id} customFieldValues:`, JSON.stringify(details[0].customFieldValues));
+    }
     if (details.length) await saveBatch(details);
     state.pagesDone++;
     state.ticketsDone += details.length;
