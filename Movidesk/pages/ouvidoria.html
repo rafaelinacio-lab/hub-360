@@ -1165,9 +1165,9 @@ function hideToast(){ document.getElementById('sync-toast').classList.remove('sh
 async function startSync(){
   const btn=document.getElementById('btn-sync');
   btn.disabled=true;
-  showToast('Iniciando carga incremental do Movidesk…','');
+  showToast('Iniciando sincronização de Ouvidoria…','');
   try{
-    await apiFetch('/loader/incremental','POST');
+    await apiFetch('/loader/ouvidoria','POST');
     pollSyncStatus();
   }catch(e){
     if(e.message==='HTTP 409'){

@@ -31,6 +31,9 @@ const CLOSED_STATUSES = [
   'Resolvido', 'Fechado', 'Cancelado',
 ];
 
+// Campo personalizado "Classificação de Ticket" — usado pela carga Ouvidoria
+const CF_CLASSIFICACAO = 23946;
+
 // ── Estado em memória (acessado pela rota de status) ─────────────────────────
 const state = {
   running:    false,
@@ -692,6 +695,89 @@ async function runIncremental() {
   }
 }
 
+/**
+ * Carga OUVIDORIA — busca apenas tickets classificados como "Ouvidoria"
+ * (campo personalizado 23946 "Classificação de Ticket") e grava em silver.*.
+ * Mais leve que a incremental completa: filtra na própria API do Movidesk,
+ * então não precisa varrer todos os tickets em aberto. Ideal para rodar a
+ * cada 2h.
+ */
+async function runOuvidoria() {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+
+  state.running         = true;
+  state.cancelRequested = false;
+  state.mode            = 'ouvidoria';
+  state.startedAt       = new Date().toISOString();
+  state.phase           = 'preparando';
+  state.pagesDone       = 0;
+  state.ticketsDone     = 0;
+  state.errors          = [];
+
+  console.log('[loader] ensureTables...');
+  await ensureTables();
+  console.log('[loader] ensureTables OK');
+
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('ouvidoria', NOW(), 'running') RETURNING id`
+  ).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+
+  console.log('[loader] ▶ Carga OUVIDORIA iniciada');
+
+  try {
+    const token = await getMovideskToken();
+    console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
+
+    // Filtra direto na API — só tickets com Classificação de Ticket = "Ouvidoria"
+    const cfFilter = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+                     ` and cf/items/any(item: item/customFieldItem eq 'Ouvidoria'))`;
+
+    for (const ep of ['/tickets', '/tickets/past']) {
+      console.log(`[loader]   ${ep} — classificação Ouvidoria`);
+      await fetchEndpoint(token, ep, cfFilter, saveBatch);
+    }
+
+    state.phase      = 'idle';
+    state.running    = false;
+    state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode: 'ouvidoria', tickets: state.ticketsDone };
+
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
+        [state.ticketsDone, logId]
+      ).catch(() => {});
+    }
+    console.log(`[loader] ✔ Carga OUVIDORIA concluída — ${state.ticketsDone} tickets`);
+    return state.lastResult;
+  } catch (err) {
+    state.running         = false;
+    state.phase           = 'idle';
+    state.cancelRequested = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
+      ).catch(() => {});
+    }
+    if (wasCancelled) {
+      console.log(`[loader] ⏹ Carga OUVIDORIA cancelada — ${state.ticketsDone} tickets salvos`);
+      state.lastResult = { mode: 'ouvidoria', tickets: state.ticketsDone, cancelled: true };
+    } else {
+      console.error('[loader] ✖ Carga OUVIDORIA com erro:', err.message);
+      throw err;
+    }
+  }
+}
+
 function cancelLoad() {
   if (!state.running) return false;
   // Protege contra cancel residual de carga anterior que chega após nova carga iniciar:
@@ -707,4 +793,4 @@ function cancelLoad() {
   return true;
 }
 
-module.exports = { runFull, runIncremental, cancelLoad, state };
+module.exports = { runFull, runIncremental, runOuvidoria, cancelLoad, state };
