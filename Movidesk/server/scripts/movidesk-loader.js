@@ -753,10 +753,11 @@ async function runOuvidoria() {
     const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
     const openOuvidoriaFilter = `${cfFilter} and ${closedExclusion}`;
 
-    for (const ep of ['/tickets', '/tickets/past']) {
-      console.log(`[loader]   ${ep} — Ouvidoria em aberto`);
-      await fetchEndpoint(token, ep, openOuvidoriaFilter, saveBatch);
-    }
+    // Só /tickets — tickets em aberto não vivem em /tickets/past (arquivo histórico
+    // de tickets antigos/fechados). Consultar /tickets/past com esse filtro só gerava
+    // timeout de rede varrendo um arquivo enorme atrás de algo que não existe lá.
+    console.log(`[loader]   /tickets — Ouvidoria em aberto`);
+    await fetchEndpoint(token, '/tickets', openOuvidoriaFilter, saveBatch);
 
     state.phase      = 'idle';
     state.running    = false;
