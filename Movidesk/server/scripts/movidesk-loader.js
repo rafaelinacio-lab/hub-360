@@ -790,16 +790,35 @@ async function runOuvidoria() {
     const ids = (Array.isArray(idList) ? idList : []).map(t => t.id);
     console.log(`[loader]   ${ids.length} ticket(s) de Ouvidoria em aberto encontrados`);
 
-    // Fase 2 — busca os detalhes completos só desses IDs. Confirmado via debug:
-    // a API do Movidesk só popula customFieldValues[].items quando o filtro da
-    // consulta TOCA em customFieldValues — um filtro só por id (ou "id eq X or
-    // id eq Y") devolve value:null sem a chave "items". Por isso repetimos o
-    // classFilter aqui também (redundante — já sabemos que bate — mas é o que
-    // força a API a expandir os items corretamente).
+    // Fase 2 — busca os detalhes completos só desses IDs.
+    //
+    // Bug confirmado na API do Movidesk: para tickets abertos criados via
+    // formulário web/automação (como os de Ouvidoria), o customFieldValues[]
+    // retornado vem com value:null e SEM a chave "items" para o campo 23946
+    // — mesmo quando o próprio $filter usado pra localizar o ticket depende
+    // desse valor sendo 'Ouvidoria'. Confirmado com curl direto na API,
+    // com e sem o filtro de classificação combinado: mesmo resultado quebrado
+    // nos dois casos. É uma inconsistência da serialização da API do Movidesk,
+    // não do nosso código.
+    //
+    // Como a Fase 1 já PROVOU que esses tickets são de Ouvidoria (foi
+    // exatamente esse filtro que os trouxe), não precisamos confiar na
+    // resposta quebrada da Fase 2 pra esse campo específico — corrigimos o
+    // valor no objeto antes de salvar.
     if (ids.length) {
       const idsOr = ids.map(id => `id eq ${id}`).join(' or ');
-      const detailFilter = `(${idsOr}) and ${classFilter}`;
-      const details = await fetchPage(token, '/tickets', detailFilter, 0);
+      const details = await fetchPage(token, '/tickets', idsOr, 0);
+      for (const t of details) {
+        if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
+        let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
+        if (!cf) {
+          cf = { customFieldId: CF_CLASSIFICACAO };
+          t.customFieldValues.push(cf);
+        }
+        if (!Array.isArray(cf.items) || !cf.items.length) {
+          cf.items = [{ customFieldItem: 'Ouvidoria' }];
+        }
+      }
       await saveBatch(details);
       state.pagesDone++;
       state.ticketsDone += details.length;
