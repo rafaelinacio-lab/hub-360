@@ -54,8 +54,13 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
     `);
     res.json(result.rows || []);
   } catch (error) {
-    console.error('Erro ao buscar ouvidoria:', error);
-    res.status(500).json({ error: 'Erro ao carregar dados de ouvidoria' });
+    // Se as tabelas silver.* ainda não existem (datalake não carregado), retorna vazio
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
+      console.warn('[ouvidoria] silver.* ainda não existe — retornando vazio');
+      return res.json([]);
+    }
+    console.error('Erro ao buscar ouvidoria:', error.message);
+    res.status(500).json({ error: 'Erro ao carregar dados de ouvidoria: ' + error.message });
   }
 });
 
