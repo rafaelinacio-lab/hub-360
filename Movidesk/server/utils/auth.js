@@ -24,7 +24,8 @@ async function verifyPassword(password, hash) {
     const testHash = crypto
       .pbkdf2Sync(password, salt, 10000, 64, 'sha512')
       .toString('hex');
-    return crypto.timingSafeEqual(Buffer.from(testHash, 'hex'), Buffer.from(storedHash, 'hex'));
+    const actual = Buffer.from(storedHash, 'hex');
+    return actual.length === 64 && crypto.timingSafeEqual(Buffer.from(testHash, 'hex'), actual);
   }
   return bcrypt.compare(password, hash);
 }
@@ -86,6 +87,7 @@ function verifyBackupCode(code, codesJson) {
 
 function validatePasswordStrength(password) {
   const errors = [];
+  if (typeof password !== 'string') return { valid: false, errors: ['Senha deve ser texto'] };
   if (password.length < 8)           errors.push('Senha deve ter no mínimo 8 caracteres');
   if (!/[A-Z]/.test(password))       errors.push('Senha deve conter ao menos uma letra maiúscula');
   if (!/[a-z]/.test(password))       errors.push('Senha deve conter ao menos uma letra minúscula');

@@ -93,7 +93,7 @@ function renderSidebarUser() {
     const email = _currentUser.email || '';
     const avatar = createAvatarHTML(email, nome);
     sidebarUser.innerHTML = `
-        <div class="sidebar-user-avatar" title="${nome}${email ? ' (' + email + ')' : ''}">${avatar}</div>
+        <div class="sidebar-user-avatar" title="${escapeHtml(nome + (email ? ' (' + email + ')' : ''))}">${avatar}</div>
     `;
 }
 
@@ -142,7 +142,7 @@ function createAvatarHTML(email, name) {
                 onerror="this.style.display='none'; this.parentElement.querySelector('.avatar-initials').style.display='flex';"
                 onload="this.parentElement.querySelector('.avatar-initials').style.display='none';"
             />
-            <div class="avatar-initials">${initials}</div>
+            <div class="avatar-initials">${escapeHtml(initials)}</div>
         </div>
     `;
 }

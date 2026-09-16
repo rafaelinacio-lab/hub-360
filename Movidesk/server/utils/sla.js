@@ -6,7 +6,6 @@ const SLA_PRIMEIRO_CONTATO_MINUTOS = {
   "critica": 30,
   "alta": 60,
   "media": 120,
-  "media": 120,
   "baixa": 240,
 };
 
@@ -39,7 +38,7 @@ function normalizar(texto) {
 
 function parseData(dataStr) {
   if (!dataStr) return null;
-  if (dataStr instanceof Date) return dataStr;
+  if (dataStr instanceof Date) return Number.isFinite(dataStr.getTime()) ? dataStr : null;
   if (typeof dataStr === "object") {
     if (dataStr.createdDate) return parseData(dataStr.createdDate);
     if (dataStr.changedDate) return parseData(dataStr.changedDate);
@@ -47,7 +46,8 @@ function parseData(dataStr) {
   }
   
   try {
-    return new Date(dataStr);
+    const parsed = new Date(dataStr);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
   } catch (e) {
     return null;
   }
@@ -58,46 +58,37 @@ function ehDiaUtil(data) {
   return dia !== 0 && dia !== 6; // Não domingo (0) nem sábado (6)
 }
 
+const businessClock = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+});
+function wallClock(date) {
+  const p = Object.fromEntries(businessClock.formatToParts(date).map(x => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+}
+function businessInstant(day, hour, minute) {
+  const target = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), hour, minute);
+  let instant = target;
+  // Convert a local business boundary to UTC using the IANA zone, including historical DST.
+  for (let i = 0; i < 3; i++) instant += target - wallClock(new Date(instant));
+  return instant;
+}
 function minutosUteisEntre(inicio, fim) {
-  /**
-   * Calcula minutos úteis entre duas datas,
-   * considerando segunda a sexta e os horários:
-   * 07:45-12:00 e 13:30-18:00.
-   * 
-   * IMPORTANTE: Usa UTC para evitar problemas de fuso horário
-   */
-
+  inicio = parseData(inicio); fim = parseData(fim);
   if (!inicio || !fim || fim <= inicio) return 0;
-
-  let total = 0;
-  let diaAtual = new Date(inicio);
-  diaAtual.setUTCHours(0, 0, 0, 0);
-  
-  const diaFinal = new Date(fim);
-  diaFinal.setUTCHours(0, 0, 0, 0);
-
-  while (diaAtual <= diaFinal) {
-    if (ehDiaUtil(diaAtual)) {
-      for (const periodo of HORARIOS_ATENDIMENTO) {
-        const periodoInicio = new Date(diaAtual);
-        periodoInicio.setUTCHours(periodo.inicio, periodo.inicioMin, 0, 0);
-        
-        const periodoFim = new Date(diaAtual);
-        periodoFim.setUTCHours(periodo.fim, periodo.fimMin, 0, 0);
-
-        const inicioCalculo = new Date(Math.max(inicio.getTime(), periodoInicio.getTime()));
-        const fimCalculo = new Date(Math.min(fim.getTime(), periodoFim.getTime()));
-
-        if (fimCalculo > inicioCalculo) {
-          total += Math.floor((fimCalculo - inicioCalculo) / 60000); // Converter ms em minutos
-        }
-      }
+  if (fim - inicio > 100 * 366 * 86400000) throw new Error('Intervalo de SLA inválido');
+  const day = new Date(wallClock(inicio)); day.setUTCHours(0, 0, 0, 0);
+  const last = new Date(wallClock(fim)); last.setUTCHours(0, 0, 0, 0);
+  let elapsed = 0;
+  while (day <= last) {
+    if (ehDiaUtil(day)) for (const p of HORARIOS_ATENDIMENTO) {
+      const start = Math.max(inicio.getTime(), businessInstant(day, p.inicio, p.inicioMin));
+      const end = Math.min(fim.getTime(), businessInstant(day, p.fim, p.fimMin));
+      elapsed += Math.max(0, end - start);
     }
-
-    diaAtual.setUTCDate(diaAtual.getUTCDate() + 1);
+    day.setUTCDate(day.getUTCDate() + 1);
   }
-
-  return total;
+  return elapsed / 60000;
 }
 
 function obterMinutosSLAPorUrgencia(ticket) {
@@ -114,7 +105,7 @@ function obterMinutosSLAPorUrgencia(ticket) {
   if (urgencia.includes("media")) return 120;
   if (urgencia.includes("baixa")) return 240;
   
-  // Default: Média (16 horas úteis)
+  // Default: Média (2 horas úteis)
   return 120;
 }
 
@@ -156,6 +147,7 @@ function encontrarPrimeiroContato(ticket) {
     const criadoPorId = String((action.createdBy || {}).id || "");
     if (clientesIds.has(criadoPorId)) continue;
 
+    if (!parseData(action.createdDate)) continue;
     return {
       actionId: action.id,
       createdDate: parseData(action.createdDate),
@@ -218,7 +210,7 @@ function calcularMinutosUteisComPausas(ticket, inicio, fim) {
   }
 
   let total = 0;
-  let statusAtual = eventos[0].status;
+  let statusAtual = "Novo"; // A later pause must not apply retroactively to ticket creation.
   let cursor = inicio;
 
   for (const evento of eventos) {
@@ -308,4 +300,6 @@ module.exports = {
   minutosUteisEntre,
   normalizar,
   parseData,
+  calcularMinutosUteisComPausas,
+  encontrarPrimeiroContato,
 };

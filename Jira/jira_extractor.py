@@ -17,7 +17,9 @@ REGRAS DE PONTUACAO:
   DEV/AT_TEC → pts_dev + pts_at_tec
 """
 
-import requests, json, time, os, re
+import requests, json, time, os, re, tempfile
+from pathlib import Path
+from contextlib import contextmanager
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, date, timedelta
@@ -278,6 +280,24 @@ PROJETO_SEGMENTO = {
     "PERS":                         "PERS",
 }
 
+# Outputs always live next to the extractor, independent of scheduler cwd.
+DATA_DIR = Path(os.environ.get("JIRA_DATA_DIR", Path(__file__).resolve().parent)).resolve()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+@contextmanager
+def atomic_output(name):
+    target = DATA_DIR / name
+    fd, temporary = tempfile.mkstemp(prefix=target.name + ".", suffix=".tmp", dir=DATA_DIR)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            yield stream
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
 # ── helpers ───────────────────────────────────────────
 def get_auth():    return (JIRA_EMAIL, JIRA_API_TOKEN)
 def get_headers(): return {"Accept": "application/json"}
@@ -354,7 +374,7 @@ def fetch_jql_by_keys(keys, fields, label="", chunk_size=75, expand=None):
         try:
             resultado.extend(fetch_jql(jql, fields, f"{label} [{i//chunk_size+1}]", expand=expand))
         except Exception as e:
-            print(f"   ⚠ Erro no lote {i//chunk_size+1} de '{label}': {e}")
+            raise RuntimeError(f"Coleta incompleta: lote {i//chunk_size+1} de {label}") from e
     return resultado
 
 
@@ -1216,7 +1236,7 @@ def main():
 
     print(f"\n2. Normalizando {len(raw_issues)} issues...")
     issues = [normalize(i) for i in raw_issues]
-    with open("issues_raw.json","w",encoding="utf-8") as f:
+    with atomic_output("issues_raw.json") as f:
         json.dump(issues, f, ensure_ascii=False, separators=(',',':'))
 
     print(f"   Normalizando {len(raw_tdc)} issues TDC...")
@@ -1282,7 +1302,7 @@ def main():
     }
 
     fname = "dashboard_data.json" if ANO == str(ANO_ATUAL_INT) else f"dashboard_data_{ANO}.json"
-    with open(fname,"w",encoding="utf-8") as f:
+    with atomic_output(fname) as f:
         json.dump(output, f, ensure_ascii=False, separators=(',',':'))
 
     # Salvar TDC separado (sempre tdc_data.json — cobre os 3 anos dinâmicos)
@@ -1292,7 +1312,7 @@ def main():
         "total":        len(bugs_tdc),
         "gerado_em":    _agora().strftime("%d/%m/%Y %H:%M"),
     }
-    with open("tdc_data.json","w",encoding="utf-8") as f:
+    with atomic_output("tdc_data.json") as f:
         json.dump(tdc_output, f, ensure_ascii=False, separators=(',',':'))
 
 
@@ -1304,7 +1324,7 @@ def main():
         "total":     len(raw_abertos),
         "gerado_em": _agora().strftime("%d/%m/%Y %H:%M"),
     }
-    with open("abertos_data.json","w",encoding="utf-8") as f:
+    with atomic_output("abertos_data.json") as f:
         json.dump(abertos_output, f, ensure_ascii=False, separators=(',',':'))
 
     fechados_output = {
@@ -1312,7 +1332,7 @@ def main():
         "total":     len(raw_fechados),
         "gerado_em": _agora().strftime("%d/%m/%Y %H:%M"),
     }
-    with open("fechados_data.json","w",encoding="utf-8") as f:
+    with atomic_output("fechados_data.json") as f:
         json.dump(fechados_output, f, ensure_ascii=False, separators=(',',':'))
     print(f"   ✓ {len(raw_abertos)} abertos → abertos_data.json | {len(raw_fechados)} fechados → fechados_data.json")
 
@@ -1379,7 +1399,7 @@ def main():
         "total_closed":   len(sprint_itens_cl),
         "gerado_em":      _agora().strftime("%d/%m/%Y %H:%M"),
     }
-    with open("sprint_data.json","w",encoding="utf-8") as f:
+    with atomic_output("sprint_data.json") as f:
         json.dump(sprint_output, f, ensure_ascii=False, separators=(',',':'))
     print(f"   ✓ {len(sprint_itens)} itens abertos + {len(sprint_itens_cl)} fechados → sprint_data.json")
 
@@ -1417,14 +1437,14 @@ def main():
     # mesclamos ano a ano para não perder histórico entre execuções.
     qualidade_por_ano = {}
     bug_counts_por_ano = {}
-    if os.path.exists("qualidade_data.json"):
+    if (DATA_DIR / "qualidade_data.json").exists():
         try:
-            with open("qualidade_data.json", encoding="utf-8") as f:
+            with open(DATA_DIR / "qualidade_data.json", encoding="utf-8") as f:
                 existing = json.load(f)
                 qualidade_por_ano  = existing.get("por_ano", {})
                 bug_counts_por_ano = existing.get("bug_counts_por_ano", {})
         except Exception as e:
-            print(f"   ⚠ Não foi possível ler qualidade_data.json existente ({e}); começando do zero.")
+            raise RuntimeError("Histórico de qualidade inválido; arquivo preservado") from e
     qualidade_por_ano[str(ANO_INT)]  = qualidade_lista_ano
     bug_counts_por_ano[str(ANO_INT)] = bug_counts_ano
     anos_qualidade = sorted(int(a) for a in qualidade_por_ano.keys())
@@ -1448,7 +1468,7 @@ def main():
         "epic_progress":      epic_progress,
         "gerado_em":          _agora().strftime("%d/%m/%Y %H:%M"),
     }
-    with open("qualidade_data.json","w",encoding="utf-8") as f:
+    with atomic_output("qualidade_data.json") as f:
         json.dump(qualidade_output, f, ensure_ascii=False, separators=(',',':'))
     print(f"   ✓ Qualidade {ANO}: {len(qualidade_lista_ano)} devs (anos no arquivo: {anos_qualidade}) | "
           f"Bug ranking: {len(bug_ranking)} (acumulado de {len(bug_counts_por_ano)} ano(s)) | "

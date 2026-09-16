@@ -23,3 +23,8 @@ Jira/issues_raw.json
 # Editor/OS
 .DS_Store
 Thumbs.db
+
+# Python test/runtime cache
+__pycache__/
+*.pyc
+Jira/*.tmp

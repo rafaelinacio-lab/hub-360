@@ -60,6 +60,7 @@ async function datalakeGet(path, { query = {}, attempt = 0 } = {}) {
   try {
     response = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${API_TOKEN}` },
+      timeout: 15000,
     });
   } catch (error) {
     throw new DatalakeUnavailableError(`Falha de rede ao chamar apidatalake: ${error.message}`);
@@ -67,8 +68,9 @@ async function datalakeGet(path, { query = {}, attempt = 0 } = {}) {
 
   // 429 (rate limit por perfil) — respeita Retry-After se vier, senão backoff linear.
   if (response.status === 429 && attempt < 3) {
-    const retryAfterHeader = Number(response.headers.get('retry-after'));
-    const waitMs = retryAfterHeader > 0 ? retryAfterHeader * 1000 : 1000 * (attempt + 1);
+    const retry = response.headers.get('retry-after');
+    const waitMs = Math.max(1000, Number(retry) * 1000 || Date.parse(retry) - Date.now() || 1000 * (attempt + 1));
+    if (waitMs > 15000) throw new DatalakeUnavailableError('Limite temporário do datalake; tente mais tarde');
     console.warn(`[datalakeClient] 429 em ${path}. Aguardando ${waitMs}ms (tentativa ${attempt + 1}/3)...`);
     await sleep(waitMs);
     return datalakeGet(path, { query, attempt: attempt + 1 });
@@ -82,7 +84,8 @@ async function datalakeGet(path, { query = {}, attempt = 0 } = {}) {
     return datalakeGet(path, { query, attempt: attempt + 1 });
   }
 
-  const raw = await response.text();
+  let raw;
+  try { raw = await response.text(); } catch (_) { throw new DatalakeUnavailableError('Falha ao receber dados do datalake'); }
   let parsed = null;
   if (raw) {
     try {
@@ -102,6 +105,7 @@ async function datalakeGet(path, { query = {}, attempt = 0 } = {}) {
     throw new DatalakeApiError(message, response.status, parsed);
   }
 
+  if (!parsed || typeof parsed !== 'object') throw new DatalakeUnavailableError('Resposta inválida do datalake');
   return parsed;
 }
 

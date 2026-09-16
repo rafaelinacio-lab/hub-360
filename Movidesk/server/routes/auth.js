@@ -24,16 +24,17 @@ async function authMiddleware(req, res, next) {
 
   try {
     const result = await db.query(
-      `SELECT s.*, u.id as uid, u.email, u.role_id
+      `SELECT s.*, u.id as uid, u.email, u.role_id, u.vertical, r.name as role
        FROM sessions s
        JOIN users u ON s.user_id = u.id
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
+       JOIN roles r ON r.id = u.role_id
+       WHERE s.token = $1 AND s.expires_at > NOW() AND u.is_active = TRUE`,
       [token]
     );
     const session = result.rows[0];
     if (!session) return res.status(401).json({ error: 'Sessão inválida ou expirada' });
 
-    req.user = { id: session.uid, email: session.email, roleId: session.role_id };
+    req.user = { id: session.uid, email: session.email, roleId: session.role_id, role: session.role, vertical: session.vertical };
     req.sessionToken = token;
     next();
   } catch (err) {
@@ -153,7 +154,7 @@ router.post('/google', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password)
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password)
     return res.status(400).json({ error: 'Email e senha são obrigatórios' });
 
   try {
@@ -198,7 +199,7 @@ router.post('/login', async (req, res) => {
     if (mfa) {
       const tempToken = generateToken();
       await db.query(
-        `INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at)
+        `INSERT INTO mfa_challenges (user_id, token, ip_address, user_agent, expires_at)
          VALUES ($1, $2, $3, $4, NOW() + INTERVAL '10 minutes')`,
         [user.id, tempToken, req.ip, req.get('user-agent')]
       );
@@ -244,16 +245,16 @@ router.post('/login', async (req, res) => {
 
 router.post('/verify-mfa', async (req, res) => {
   const { tempToken, code } = req.body;
-  if (!tempToken || !code)
+  if (typeof tempToken !== 'string' || typeof code !== 'string' || !tempToken || !code)
     return res.status(400).json({ error: 'Token temporário e código MFA são obrigatórios' });
 
   try {
     const sessionResult = await db.query(
       `SELECT s.*, u.email, u.name, u.role_id, u.vertical, r.name as role
-       FROM sessions s
+       FROM mfa_challenges s
        JOIN users u ON s.user_id = u.id
        JOIN roles r ON u.role_id = r.id
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
+       WHERE s.token = $1 AND s.expires_at > NOW() AND s.attempts < 5 AND u.is_active = TRUE`,
       [tempToken]
     );
     const session = sessionResult.rows[0];
@@ -264,19 +265,21 @@ router.post('/verify-mfa', async (req, res) => {
       [session.user_id]
     );
     const mfa = mfaResult.rows[0];
-    if (!mfa) return res.status(500).json({ error: 'Erro ao verificar MFA' });
+    if (!mfa?.is_enabled) return res.status(401).json({ error: 'MFA não está habilitado' });
 
-    let verified = verifyTOTP(mfa.totp_secret, code);
+    const attempt = await db.query(`UPDATE mfa_challenges SET attempts = attempts + 1 WHERE token = $1 AND attempts < 5 RETURNING token`, [tempToken]);
+    if (!attempt.rowCount) return res.status(429).json({ error: 'Limite de tentativas MFA atingido' });
+    let verified = mfa.is_enabled && verifyTOTP(mfa.totp_secret, code);
     let usedBackup = false;
 
     if (!verified) {
       const backupResult = verifyBackupCode(code, mfa.backup_codes);
       if (backupResult.valid) {
-        await db.query(
-          `UPDATE mfa_settings SET backup_codes = $1 WHERE user_id = $2`,
-          [backupResult.remaining, session.user_id]
+        const used = await db.query(
+          `UPDATE mfa_settings SET backup_codes = $1 WHERE user_id = $2 AND backup_codes = $3 RETURNING user_id`,
+          [backupResult.remaining, session.user_id, mfa.backup_codes]
         );
-        verified = true;
+        verified = used.rowCount === 1;
         usedBackup = true;
       }
     }
@@ -285,7 +288,8 @@ router.post('/verify-mfa', async (req, res) => {
 
     const token = generateToken();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await db.query(`DELETE FROM sessions WHERE token = $1`, [tempToken]);
+    const consumed = await db.query(`DELETE FROM mfa_challenges WHERE token = $1 AND expires_at > NOW() RETURNING token`, [tempToken]);
+    if (!consumed.rowCount) return res.status(401).json({ error: 'Desafio MFA já utilizado ou expirado' });
     await db.query(
       `INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -328,7 +332,7 @@ router.post('/first-access', async (req, res) => {
 
   try {
     const userResult = await db.query(
-      `SELECT * FROM users WHERE email = $1 AND first_access = TRUE`,
+      `SELECT * FROM users WHERE email = $1 AND first_access = TRUE AND is_active = TRUE`,
       [email.toLowerCase()]
     );
     const user = userResult.rows[0];
@@ -359,12 +363,14 @@ router.post('/first-access', async (req, res) => {
 router.post('/setup-mfa', authMiddleware, async (req, res) => {
   try {
     const { secret, qrCode } = await generateTOTPSecret(req.user.email);
-    await db.query(
+    const setup = await db.query(
       `INSERT INTO mfa_settings (user_id, totp_secret, is_enabled, created_at)
        VALUES ($1, $2, FALSE, NOW())
-       ON CONFLICT (user_id) DO UPDATE SET totp_secret = $2, is_enabled = FALSE, updated_at = NOW()`,
+       ON CONFLICT (user_id) DO UPDATE SET totp_secret = $2, is_enabled = FALSE, updated_at = NOW()
+       WHERE mfa_settings.is_enabled = FALSE RETURNING user_id`,
       [req.user.id, secret]
     );
+    if (!setup.rowCount) return res.status(409).json({ error: 'MFA já está ativo. Não é possível substituir o segredo por esta rota.' });
     return res.json({ qrCode, secret, message: 'Escaneie o código QR com seu autenticador' });
   } catch (err) {
     console.error('POST /setup-mfa error:', err.message);

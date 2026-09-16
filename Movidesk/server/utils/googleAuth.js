@@ -48,9 +48,9 @@ async function verifyGoogleIdToken(credential) {
 
   const email = (payload.email || '').trim().toLowerCase();
   const emailDomain = email.split('@')[1] || '';
-  const hd = (payload.hd || emailDomain).trim().toLowerCase();
+  const hd = (payload.hd || '').trim().toLowerCase();
 
-  if (!payload.email_verified || hd !== ALLOWED_DOMAIN) {
+  if (!payload.email_verified || hd !== ALLOWED_DOMAIN || emailDomain !== ALLOWED_DOMAIN) {
     const err = new Error(`domínio não permitido (${hd || 'desconhecido'})`);
     err.publicMessage = `Acesso restrito a contas @${ALLOWED_DOMAIN}.`;
     err.status = 403;

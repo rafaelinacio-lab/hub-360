@@ -81,6 +81,8 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
 // PUT /api/pessoas/:id
 router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
+  if (req.body.is_active !== undefined && typeof req.body.is_active !== 'boolean') return res.status(400).json({ error: 'is_active deve ser booleano' });
+  if (String(id) === String(req.user.id) && (req.body.is_active === false || (req.body.role && req.body.role !== 'admin'))) return res.status(400).json({ error: 'Não é possível remover seu próprio acesso administrativo' });
   const { email, name, role, is_active, vertical } = req.body;
 
   if (email === undefined && name === undefined && role === undefined &&
@@ -121,6 +123,10 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Usuário não encontrado' });
 
+    if (is_active === false) {
+      await db.query('DELETE FROM sessions WHERE user_id = $1', [id]);
+      await db.query('DELETE FROM mfa_challenges WHERE user_id = $1', [id]);
+    }
     return res.json({ message: 'Atualizado com sucesso' });
   } catch (err) {
     console.error('PUT /pessoas/:id error:', err.message);
@@ -170,6 +176,7 @@ router.get('/foto/:email', (req, res) => {
   const fs = require('fs');
   const path = require('path');
   const email = req.params.email;
+  if (!/^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+$/.test(email)) return res.status(400).json({ error: 'Email inválido' });
   const emailFileName = email.replace('@', '_');
   const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
   const dirs = [

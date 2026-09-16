@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
+<script src="/js/html-safety.js"></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GCC</title>
@@ -291,7 +292,7 @@ async function apiCall(endpoint) {
     if (!res.ok) throw new Error(`API error: ${res.statusText}`);
     return res.json();
 }
-function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str ?? ''; return d.innerHTML; }
+function escapeHtml(str) { return hubEscapeHtml(str); }
 
 function ticketEditUrl(ticketId) { return `https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`; }
 
@@ -479,7 +480,7 @@ function renderGccTable() {
             <td class="px-4 py-3 text-body-md text-on-surface text-center">${Number(r.total_chamados_anteriores) || 0}</td>
             <td class="px-4 py-3 text-body-md text-on-surface-variant">${formatDateTime(r.criado_em)}</td>
             <td class="sticky right-0 z-[1] min-w-[132px] bg-surface-container-lowest px-4 py-3 text-right">
-                <button type="button" onclick="openGccModal('${escapeHtml(String(r.ticket_id))}')" class="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors">
+                <button type="button" onclick="openGccModal(${hubJsArg(String(r.ticket_id))})" class="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors">
                     <span class="material-symbols-outlined" style="font-size:16px">visibility</span>Ver análise
                 </button>
             </td>

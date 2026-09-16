@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
 <head>
+<script src="/js/html-safety.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Jira — Indicadores</title>
@@ -1227,7 +1228,7 @@ function renderSupLista(){
 
   document.getElementById('sup-lista-count').textContent = items.length.toLocaleString('pt-BR')+' tarefas';
 
-  const esc=v=>String(v||'').replace(/</g,'&lt;');
+  const esc = hubEscapeHtml;
   const pill=(v,ok)=>v?`<span class="pill ${ok?'ok':''}" style="font-size:9px;white-space:nowrap">${esc(v)}</span>`:'—';
 
   if(!items.length){
@@ -1568,11 +1569,11 @@ function render(){
   document.getElementById('tbody').innerHTML=rows.map(d=>{
     rank++;
     const isOpen=selNome===d.nome;
-    return `<tr onclick="sel('${d.nome.replace(/'/g,"\\'")}') " class="${isOpen?'sel':''}" style="cursor:pointer">
+    return `<tr onclick="sel(${hubJsArg(d.nome)}) " class="${isOpen?'sel':''}" style="cursor:pointer">
       <td><span style="color:var(--text3);margin-right:5px;font-size:10px">${rank}</span>
         <span style="margin-right:4px;font-size:10px;color:var(--text3);transition:transform .2s;display:inline-block;transform:${isOpen?'rotate(90deg)':'rotate(0deg)'}"">▶</span>
-        ${d.nome}</td>
-      <td><span class="bdg bdg-${d.cargo}">${d.cargo}</span></td>
+        ${hubEscapeHtml(d.nome)}</td>
+      <td><span class="bdg bdg-${hubEscapeHtml(d.cargo)}">${hubEscapeHtml(d.cargo)}</span></td>
       <td class="r">${bar(d.qtd_tarefas,maxT,CC[d.cargo])}${d.qtd_tarefas}</td>
       <td class="r" style="font-weight:600">${bar(d.pontos,maxP,CC[d.cargo])}${fmtN(d.pontos)}</td>
       <td class="r">${bugFalhaPill(d)}</td>
@@ -1647,7 +1648,7 @@ function openDet(d){
   const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';
   const tc=dark?'#9ba3bf':'#888';
 
-  document.getElementById('det-name').innerHTML=`${d.nome} <span class="bdg bdg-${d.cargo}">${CL[d.cargo]}</span>`;
+  document.getElementById('det-name').innerHTML=`${hubEscapeHtml(d.nome)} <span class="bdg bdg-${hubEscapeHtml(d.cargo)}">${CL[d.cargo]}</span>`;
   document.getElementById('det-sub').textContent=`${d.qtd_tarefas} tarefas · ${d.finalizadas} finalizadas · ${d.reprovadas} reprovadas`;
 
   const bugMain=d.cargo==='AR'?(d.bugs_falha_req||0):d.cargo==='AT'?(d.bugs_falha_test||0):(d.bugs_falha_dev||0);
@@ -1741,11 +1742,11 @@ function renderTasks(){
     return;
   }
   document.getElementById('tbdy').innerHTML=tasks.map(t=>`<tr>
-    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
-    <td>${t.tipo||'—'}</td>
-    <td style="font-size:11px;color:var(--text2)">${t.projeto||'—'}</td>
-    <td style="font-size:11px;color:var(--text2)">${t.squad||'—'}</td>
-    <td>${ML[t.mes]||t.mes||'—'}</td>
+    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(t.chave)}" target="_blank" style="color:var(--blue);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${hubEscapeHtml(t.chave)}</a></td>
+    <td>${hubEscapeHtml(t.tipo||'—')}</td>
+    <td style="font-size:11px;color:var(--text2)">${hubEscapeHtml(t.projeto||'—')}</td>
+    <td style="font-size:11px;color:var(--text2)">${hubEscapeHtml(t.squad||'—')}</td>
+    <td>${hubEscapeHtml(ML[t.mes]||t.mes||'—')}</td>
     <td><span class="pill ${t.status==='Finalizada'?'ok':'dn'}" style="font-size:9px">${t.status==='Finalizada'?'Finalizada':'Reprovada'}</span></td>
     <td class="r" style="color:var(--text2)">${t.pts_p1>0?fmtP(t.pts_p1):'—'}</td>
     <td class="r" style="color:var(--blue)">${t.pts_p2>0?fmtP(t.pts_p2):'—'}</td>
@@ -1776,15 +1777,15 @@ function renderBugs(d){
       </div>
       ${g.bugs.map(b=>`
         <div class="bug-card" style="border-left-color:${g.cor}">
-          <a href="https://nimitz.atlassian.net/browse/${b.chave}" target="_blank" class="bug-chave" style="text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${b.chave}</a>
+          <a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(b.chave)}" target="_blank" class="bug-chave" style="text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${hubEscapeHtml(b.chave)}</a>
           <div class="bug-info">
-            <div style="font-weight:500;color:var(--text)">${b.summary||'—'}</div>
+            <div style="font-weight:500;color:var(--text)">${hubEscapeHtml(b.summary||'—')}</div>
             <div style="font-size:10px;margin-top:2px;color:var(--text3)">
-              ${b.projeto||''}${b.squad?' · '+b.squad:''} · ${ML[b.mes]||b.mes||'—'}
-              ${b.crit_bug?' · <b>'+b.crit_bug+'</b>':''}
+              ${hubEscapeHtml(b.projeto||'')}${b.squad?' · '+hubEscapeHtml(b.squad):''} · ${ML[b.mes]||b.mes||'—'}
+              ${b.crit_bug?' · <b>'+hubEscapeHtml(b.crit_bug)+'</b>':''}
             </div>
           </div>
-          <span class="bug-tipo">${b.tipo_falha}</span>
+          <span class="bug-tipo">${hubEscapeHtml(b.tipo_falha)}</span>
         </div>`).join('')}
     </div>`).join('');
 }
@@ -2176,7 +2177,7 @@ function buildMSList(key, vals){
   MS_VALS_MAP[key] = vals;
   const stateSet = (MS_AB_STATE&&MS_AB_STATE[key]) ? MS_AB_STATE[key] : (key==='ind-resp'?MS_IND_RESP:(MS_STATE[key]||new Set()));
   list.innerHTML = vals.map((v,i)=>{
-    const safe = v.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    const safe = hubEscapeHtml(v);
     return `<label class="ms-item"><input type="checkbox" data-mskey="${key}" data-msidx="${i}" ${stateSet.has(v)?'checked':''}><span> ${safe}</span></label>`;
   }).join('');
 }
@@ -2672,12 +2673,12 @@ function renderFluxoIssuesTable(){
   const fmtData=d=>d?d.slice(0,10).split('-').reverse().join('/'):'—';
   const LIMIT=500;
   tbody.innerHTML = sorted.slice(0,LIMIT).map(t=>`<tr>
-    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
-    <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${(t.summary||'').replace(/"/g,'')}">${t.summary||'—'}</td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.tipo||'—'}</td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.status||'—'}</td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.class_bug||'—'}</td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.class_melhoria||'—'}</td>
+    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(t.chave)}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${hubEscapeHtml(t.chave)}</a></td>
+    <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${(t.summary||'').replace(/"/g,'')}">${hubEscapeHtml(t.summary||'—')}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.tipo||'—')}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.status||'—')}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.class_bug||'—')}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.class_melhoria||'—')}</td>
     <td style="font-size:11px;color:var(--text2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(t.modulo||'').replace(/"/g,'')}">${t.modulo||'—'}</td>
     <td style="font-size:11px;color:var(--text2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(t.rotina||'').replace(/"/g,'')}">${t.rotina||'—'}</td>
     <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(t.clientes||[]).join(', ')||'—'}</td>
@@ -3071,9 +3072,9 @@ function renderAberto(){
   }
 
   document.getElementById('resp-list').innerHTML = lista.map((g,idx)=>`
-    <div class="resp-card" data-resp="${g.responsavel}">
+    <div class="resp-card" data-resp="${hubEscapeHtml(g.responsavel)}">
       <div class="resp-header" onclick="toggleResp(${idx})">
-        <span class="resp-name">👤 ${g.responsavel}</span>
+        <span class="resp-name">👤 ${hubEscapeHtml(g.responsavel)}</span>
         <div class="resp-stats">
           <span class="stat-badge stat-total">${g.tarefas.length} tarefas</span>
           ${g.vencidas>0?`<span class="stat-badge stat-venc">⚠️ ${g.vencidas} vencida${g.vencidas>1?'s':''}</span>`:''}
@@ -3106,18 +3107,18 @@ function renderAberto(){
           }
           const prazoFmt = t.prazo ? t.prazo.split('-').reverse().join('/') : '—';
           return `<tr>
-            <td style="font-family:monospace;font-size:10px;white-space:nowrap"><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
-            <td style="white-space:nowrap">${t.tipo||'—'}</td>
-            <td><span class="pill ok" style="font-size:9px;white-space:nowrap">${t.status||'—'}</span></td>
-            <td style="white-space:nowrap;font-size:11px;color:var(--text2)">${t.projeto||'—'}</td>
-            <td style="white-space:nowrap;font-size:11px;color:var(--text2)">${t.squad||'—'}</td>
+            <td style="font-family:monospace;font-size:10px;white-space:nowrap"><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(t.chave)}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${hubEscapeHtml(t.chave)}</a></td>
+            <td style="white-space:nowrap">${hubEscapeHtml(t.tipo||'—')}</td>
+            <td><span class="pill ok" style="font-size:9px;white-space:nowrap">${hubEscapeHtml(t.status||'—')}</span></td>
+            <td style="white-space:nowrap;font-size:11px;color:var(--text2)">${hubEscapeHtml(t.projeto||'—')}</td>
+            <td style="white-space:nowrap;font-size:11px;color:var(--text2)">${hubEscapeHtml(t.squad||'—')}</td>
             <td style="white-space:nowrap;font-size:11px;color:var(--text2)">${t.modulo||'—'}</td>
             <td style="white-space:nowrap;font-size:11px;color:var(--text2)">${t.rotina||'—'}</td>
             <td style="white-space:nowrap;font-size:11px;color:var(--text2)">${(t.clientes||[]).join(', ')||'—'}</td>
             <td style="white-space:nowrap;font-size:11px">${prazoFmt}</td>
             <td class="r">${diasHtml}</td>
             <td class="r">${diasAberto}</td>
-            <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.summary||'').replace(/"/g,'')}">${t.summary||'—'}</td>
+            <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.summary||'').replace(/"/g,'')}">${hubEscapeHtml(t.summary||'—')}</td>
           </tr>`;
         }).join('')}</tbody></table>
       </div>
@@ -3161,15 +3162,15 @@ function renderTDCList(filtradas){
   if(el) el.textContent=dir===1?'▲':'▼';
   const critClass={'Crítico':'crit-critico','Alto':'crit-alto','Médio':'crit-medio','Baixo':'crit-baixo'};
   document.getElementById('tdc-list-tbody').innerHTML=sorted.slice(0,300).map(t=>`<tr>
-    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
-    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${(t.summary||'').replace(/"/g,'')}">${t.summary||'—'}</td>
-    <td style="font-size:11px;white-space:nowrap"><span style="padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600;background:${t.class_bug==='Cliente/externo'?'var(--info-bg)':'var(--bg3)'};color:${t.class_bug==='Cliente/externo'?'var(--info-c)':'var(--text3)'}">${t.class_bug||'Sem class.'}</span></td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.segmento||'—'}</td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.squad||'—'}</td>
-    <td><span class="${critClass[t.criticidade]||''}" style="font-size:11px;white-space:nowrap">${t.criticidade||'—'}</span></td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.bug_gerado||'—'}</td>
+    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(t.chave)}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${hubEscapeHtml(t.chave)}</a></td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${(t.summary||'').replace(/"/g,'')}">${hubEscapeHtml(t.summary||'—')}</td>
+    <td style="font-size:11px;white-space:nowrap"><span style="padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600;background:${t.class_bug==='Cliente/externo'?'var(--info-bg)':'var(--bg3)'};color:${t.class_bug==='Cliente/externo'?'var(--info-c)':'var(--text3)'}">${hubEscapeHtml(t.class_bug||'Sem class.')}</span></td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.segmento||'—')}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.squad||'—')}</td>
+    <td><span class="${critClass[t.criticidade]||''}" style="font-size:11px;white-space:nowrap">${hubEscapeHtml(t.criticidade||'—')}</span></td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.bug_gerado||'—')}</td>
     <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.criado?t.criado.slice(0,10).split('-').reverse().join('/'):'—'}</td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.status||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${hubEscapeHtml(t.status||'—')}</td>
   </tr>`).join('')+(sorted.length>300?`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:8px;font-size:11px">... e mais ${sorted.length-300} bugs</td></tr>`:'');
 }
 
@@ -3776,33 +3777,33 @@ function renderSprint(){
 
   const typeBadge=t=>{
     const m={'Bug':'sp-badge-bug','Melhoria':'sp-badge-mel','Nova Funcionalidade':'sp-badge-mel','Tarefa':'sp-badge-task'};
-    return `<span class="sp-badge ${m[t]||'sp-badge-other'}">${t||'—'}</span>`;
+    return `<span class="sp-badge ${m[t]||'sp-badge-other'}">${hubEscapeHtml(t||'—')}</span>`;
   };
   const DONE_ST=new Set(['Finalizada','Análise Reprovada','Finalizado','Done']);
   const statusBadge=s=>{
     const cls=DONE_ST.has(s)?'sp-status-done':
               (s||'').match(/[Aa]nd|[Dd]esenv/)?'sp-status-wip':'sp-status-open';
-    return `<span class="sp-status ${cls}">${s||'—'}</span>`;
+    return `<span class="sp-status ${cls}">${hubEscapeHtml(s||'—')}</span>`;
   };
   const priColor={'Highest':'#dc2626','High':'#d97706','Medium':'#6366f1','Low':'#22c55e','Lowest':'#888'};
 
   document.getElementById('sp-tbl-body').innerHTML = sorted.map(x=>`
     <tr>
-      <td><a href="https://nimitz.atlassian.net/browse/${x.chave}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${x.chave}</a></td>
+      <td><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(x.chave)}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${hubEscapeHtml(x.chave)}</a></td>
       <td>${typeBadge(x.tipo)}</td>
-      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(x.summary||'').replace(/"/g,'&quot;')}">${x.summary||'—'}</td>
-      <td style="color:var(--text2);font-size:10px">${x.sprint||'—'}</td>
-      <td>${x.projeto||'—'}</td>
-      <td>${x.squad||'—'}</td>
-      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${x.responsavel||''}">${x.responsavel||'—'}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${hubEscapeHtml(x.summary)}">${hubEscapeHtml(x.summary||'—')}</td>
+      <td style="color:var(--text2);font-size:10px">${hubEscapeHtml(x.sprint||'—')}</td>
+      <td>${hubEscapeHtml(x.projeto||'—')}</td>
+      <td>${hubEscapeHtml(x.squad||'—')}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${hubEscapeHtml(x.responsavel||'')}">${hubEscapeHtml(x.responsavel||'—')}</td>
       <td>${statusBadge(x.status)}</td>
       <td style="text-align:center;font-weight:600;color:${x.story_points?'var(--indigo)':'var(--text3)'}">${x.story_points??'—'}</td>
-      <td style="color:${priColor[x.prioridade]||'var(--text3)'};font-size:10px;font-weight:600">${x.prioridade||'—'}</td>
-      <td style="font-size:10px">${x.class_bug||'—'}</td>
-      <td style="font-size:10px;color:${x.crit_bug==='Alto'?'#dc2626':x.crit_bug==='Médio'?'#d97706':'var(--text3)'}">${x.crit_bug||'—'}</td>
-      <td style="font-size:10px">${x.produto||'—'}</td>
-      <td style="font-size:10px;color:var(--text3)">${x.criado||'—'}</td>
-      <td style="font-size:10px;color:var(--text3)">${x.resolvido||'—'}</td>
+      <td style="color:${priColor[x.prioridade]||'var(--text3)'};font-size:10px;font-weight:600">${hubEscapeHtml(x.prioridade||'—')}</td>
+      <td style="font-size:10px">${hubEscapeHtml(x.class_bug||'—')}</td>
+      <td style="font-size:10px;color:${x.crit_bug==='Alto'?'#dc2626':x.crit_bug==='Médio'?'#d97706':'var(--text3)'}">${hubEscapeHtml(x.crit_bug||'—')}</td>
+      <td style="font-size:10px">${hubEscapeHtml(x.produto||'—')}</td>
+      <td style="font-size:10px;color:var(--text3)">${hubEscapeHtml(x.criado||'—')}</td>
+      <td style="font-size:10px;color:var(--text3)">${hubEscapeHtml(x.resolvido||'—')}</td>
     </tr>`).join('');
 
   document.getElementById('sp-tbl-info').textContent =
@@ -3820,9 +3821,9 @@ function renderSprintStatusCards(sprints){
   const sdColor = v => v==null?'var(--text3)':v>=80?'#22c55e':v>=60?'#d97706':'#dc2626';
 
   container.innerHTML = sprints.map(s=>`
-    <div onclick="openSpModal('${s.sprint.replace(/'/g,"\\'")}')" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;border-top:3px solid #6366f1;min-width:240px;cursor:pointer;transition:box-shadow .15s,border-color .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(99,102,241,.2)';this.style.borderColor='var(--indigo)'" onmouseout="this.style.boxShadow='';this.style.borderColor='var(--border)'"">
+    <div onclick="openSpModal(${hubJsArg(s.sprint)})" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;border-top:3px solid #6366f1;min-width:240px;cursor:pointer;transition:box-shadow .15s,border-color .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(99,102,241,.2)';this.style.borderColor='var(--indigo)'" onmouseout="this.style.boxShadow='';this.style.borderColor='var(--border)'"">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:700;color:var(--text)">${s.sprint}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${hubEscapeHtml(s.sprint)}</div>
         <span style="font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;background:${s.sprint_state==='closed'?'#fee2e2':'#d1fae5'};color:${s.sprint_state==='closed'?'#991b1b':'#065f46'}">
           ${s.sprint_state==='closed'?'ENCERRADA':'ATIVA'}
         </span>
@@ -3927,7 +3928,7 @@ function renderClosedSprints(sprintsSummary){
 
   document.getElementById('sp-closed-tbl-body').innerHTML = sorted.map(s=>`
     <tr>
-      <td style="font-weight:600;color:var(--indigo);white-space:nowrap">${s.sprint}</td>
+      <td style="font-weight:600;color:var(--indigo);white-space:nowrap">${hubEscapeHtml(s.sprint)}</td>
       <td style="font-size:10px;color:var(--text3)">${fmt(s.sprint_start)}</td>
       <td style="font-size:10px;color:var(--text3)">${fmt(s.sprint_end)}</td>
       <td style="font-size:10px;color:var(--text3)">${fmt(s.sprint_complete)}</td>
@@ -4327,13 +4328,13 @@ function renderSpModal(){
 
   const typeBadge=t=>{
     const m={'Bug':'sp-badge-bug','Melhoria':'sp-badge-mel','Nova Funcionalidade':'sp-badge-mel','Tarefa':'sp-badge-task'};
-    return `<span class="sp-badge ${m[t]||'sp-badge-other'}">${t||'—'}</span>`;
+    return `<span class="sp-badge ${m[t]||'sp-badge-other'}">${hubEscapeHtml(t||'—')}</span>`;
   };
   const DONE_ST=new Set(['Finalizada','Análise Reprovada','Finalizado','Done']);
   const statusBadge=s=>{
     const cls=DONE_ST.has(s)?'sp-status-done':
       (s||'').match(/[Aa]nd|[Dd]esenv/)?'sp-status-wip':'sp-status-open';
-    return `<span class="sp-status ${cls}">${s||'—'}</span>`;
+    return `<span class="sp-status ${cls}">${hubEscapeHtml(s||'—')}</span>`;
   };
   const priColor={'Highest':'#dc2626','High':'#d97706','Medium':'#6366f1','Low':'#22c55e','Lowest':'#888'};
 
@@ -4352,20 +4353,20 @@ function renderSpModal(){
       : null;
     return `
     <tr>
-      <td><a href="https://nimitz.atlassian.net/browse/${x.chave}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${x.chave}</a></td>
+      <td><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(x.chave)}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${hubEscapeHtml(x.chave)}</a></td>
       <td>${typeBadge(x.tipo)}</td>
-      <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(x.summary||'').replace(/"/g,'&quot;')}">${x.summary||'—'}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis" title="${x.responsavel||''}">${x.responsavel||'—'}</td>
+      <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${hubEscapeHtml(x.summary)}">${hubEscapeHtml(x.summary||'—')}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis" title="${hubEscapeHtml(x.responsavel||'')}">${hubEscapeHtml(x.responsavel||'—')}</td>
       <td>${statusBadge(x.status)}</td>
       <td style="text-align:center;font-weight:600;color:${x.story_points?'var(--indigo)':'var(--text3)'}">${x.story_points??'—'}</td>
-      <td style="color:${priColor[x.prioridade]||'var(--text3)'};font-size:10px;font-weight:600">${x.prioridade||'—'}</td>
-      <td style="font-size:10px">${x.class_bug||'—'}</td>
-      <td style="font-size:10px;color:${x.crit_bug==='Alto'?'#dc2626':x.crit_bug==='Médio'?'#d97706':'var(--text3)'}">${x.crit_bug||'—'}</td>
-      <td style="font-size:10px">${x.squad||'—'}</td>
-      <td style="font-size:10px">${x.projeto||'—'}</td>
-      <td style="font-size:10px">${x.produto||'—'}</td>
-      <td style="font-size:10px;color:var(--text3)">${x.criado||'—'}</td>
-      <td style="font-size:10px;color:var(--text3)">${x.resolvido||'—'}</td>
+      <td style="color:${priColor[x.prioridade]||'var(--text3)'};font-size:10px;font-weight:600">${hubEscapeHtml(x.prioridade||'—')}</td>
+      <td style="font-size:10px">${hubEscapeHtml(x.class_bug||'—')}</td>
+      <td style="font-size:10px;color:${x.crit_bug==='Alto'?'#dc2626':x.crit_bug==='Médio'?'#d97706':'var(--text3)'}">${hubEscapeHtml(x.crit_bug||'—')}</td>
+      <td style="font-size:10px">${hubEscapeHtml(x.squad||'—')}</td>
+      <td style="font-size:10px">${hubEscapeHtml(x.projeto||'—')}</td>
+      <td style="font-size:10px">${hubEscapeHtml(x.produto||'—')}</td>
+      <td style="font-size:10px;color:var(--text3)">${hubEscapeHtml(x.criado||'—')}</td>
+      <td style="font-size:10px;color:var(--text3)">${hubEscapeHtml(x.resolvido||'—')}</td>
       <td style="text-align:center;font-weight:600;color:var(--text2)">${dias!=null?dias+'d':'—'}</td>
     </tr>`;
   }).join('');
@@ -4435,8 +4436,8 @@ function buildMSListQa(key, vals){
   const stateSet = QA_MS_STATE[key];
   const fmtLabel = key === 'qa-mes' ? qaMesLabel : (v=>v);
   list.innerHTML = vals.map(v=>{
-    const safe = v.replace(/&/g,'&amp;').replace(/</g,'&lt;');
-    const shown = fmtLabel(v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    const safe = hubEscapeHtml(v);
+    const shown = hubEscapeHtml(fmtLabel(v));
     return `<label class="ms-item"><input type="checkbox" data-qamskey="${key}" data-qamsval="${safe}" ${stateSet.has(v)?'checked':''}><span> ${shown}</span></label>`;
   }).join('');
 }
@@ -4580,10 +4581,10 @@ function renderQualidade(){
 
   document.getElementById('qa-tbody').innerHTML = lista.map(d => {
     const isOpen = qaSelNome === d.nome;
-    return `<tr onclick="qaSel('${d.nome.replace(/'/g,"\\'")}')" class="${isOpen?'sel':''}" style="cursor:pointer">
+    return `<tr onclick="qaSel(${hubJsArg(d.nome)})" class="${isOpen?'sel':''}" style="cursor:pointer">
       <td style="font-weight:600">
         <span style="margin-right:4px;font-size:10px;color:var(--text3);display:inline-block;transform:${isOpen?'rotate(90deg)':'rotate(0deg)'}">▶</span>
-        ${d.nome}</td>
+        ${hubEscapeHtml(d.nome)}</td>
       <td style="text-align:right">${d.qtd_tarefas}</td>
       <td style="text-align:right">${d.rep_codigo}</td>
       <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_codigo>20?'var(--red)':d.tx_qualidade_codigo>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_codigo,1)}%</td>
@@ -4611,9 +4612,9 @@ let qaTaskSortKey = 'mes', qaTaskSortAsc = false;
 
 function qaRenderTaskRow(t){
   return `<tr>
-    <td><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none;font-family:monospace;font-size:10px;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
-    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(t.summary||'').replace(/"/g,'&quot;')}">${t.summary||'—'}</td>
-    <td style="font-size:10px">${t.status||'—'}</td>
+    <td><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(t.chave)}" target="_blank" style="color:var(--blue);text-decoration:none;font-family:monospace;font-size:10px;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${hubEscapeHtml(t.chave)}</a></td>
+    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${hubEscapeHtml(t.summary)}">${hubEscapeHtml(t.summary||'—')}</td>
+    <td style="font-size:10px">${hubEscapeHtml(t.status||'—')}</td>
     <td style="text-align:right">${t.reprov_codigo||0}</td>
     <td style="text-align:right">${t.reprov_interna||0}</td>
   </tr>`;
@@ -4633,16 +4634,16 @@ function qaRenderDetail(d){
   const safeId = qaSafeId(d.nome);
   const tarefas = qaSortTarefas(d.tarefas || []);
   const bugs = d.bugs_tarefas || [];
-  const nomeEsc = d.nome.replace(/'/g,"\\'");
+  const nomeEsc = hubJsArg(d.nome);
   const arrow = (key) => qaTaskSortKey===key ? (qaTaskSortAsc?' ▲':' ▼') : '';
-  const th = (label, key, extraClass='') => `<th class="${extraClass}" style="cursor:pointer;user-select:none" onclick="qaTaskSortBy('${nomeEsc}','${key}')">${label}${arrow(key)}</th>`;
+  const th = (label, key, extraClass='') => `<th class="${extraClass}" style="cursor:pointer;user-select:none" onclick="qaTaskSortBy(${nomeEsc},'${key}')">${label}${arrow(key)}</th>`;
 
   return `<tr><td colspan="8" style="padding:0;border-bottom:2px solid var(--indigo)">
     <div style="background:var(--bg2);padding:14px;animation:accFade .2s ease">
       <div class="cbox" style="margin-bottom:${bugs.length?'10px':'0'}">
-        <div class="ctitle">📋 Tarefas de ${d.nome} — ${d.qtd_tarefas} no ano</div>
+        <div class="ctitle">📋 Tarefas de ${hubEscapeHtml(d.nome)} — ${d.qtd_tarefas} no ano</div>
         <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input type="text" id="qa-tsrch-${safeId}" placeholder="Filtrar chave ou resumo..." oninput="qaFilterTarefas('${nomeEsc}')"
+          <input type="text" id="qa-tsrch-${safeId}" placeholder="Filtrar chave ou resumo..." oninput="qaFilterTarefas(${nomeEsc})"
                  style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text)">
         </div>
         <div style="overflow-x:auto;max-height:280px;overflow-y:auto">
@@ -4657,14 +4658,14 @@ function qaRenderDetail(d){
         <div class="bugs-title">🐛 Bugs por Falha de Programação (Cliente/externo)<span class="bug-count">${bugs.length}</span></div>
         ${bugs.map(b=>`
           <div class="bug-card" style="border-left-color:#7c3aed">
-            <a href="https://nimitz.atlassian.net/browse/${b.chave}" target="_blank" class="bug-chave" style="text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${b.chave}</a>
+            <a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(b.chave)}" target="_blank" class="bug-chave" style="text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${hubEscapeHtml(b.chave)}</a>
             <div class="bug-info">
-              <div style="font-weight:500;color:var(--text)">${b.summary||'—'}</div>
+              <div style="font-weight:500;color:var(--text)">${hubEscapeHtml(b.summary||'—')}</div>
               <div style="font-size:10px;margin-top:2px;color:var(--text3)">
-                ${b.projeto||''}${b.squad?' · '+b.squad:''} · ${b.mes||'—'}${b.crit_bug?' · <b>'+b.crit_bug+'</b>':''}
+                ${hubEscapeHtml(b.projeto||'')}${b.squad?' · '+hubEscapeHtml(b.squad):''} · ${hubEscapeHtml(b.mes||'—')}${b.crit_bug?' · <b>'+hubEscapeHtml(b.crit_bug)+'</b>':''}
               </div>
             </div>
-            <span class="bug-tipo">${b.tipo_falha||''}</span>
+            <span class="bug-tipo">${hubEscapeHtml(b.tipo_falha||'')}</span>
           </div>`).join('')}
       </div>` : ''}
     </div>
@@ -4758,8 +4759,8 @@ function renderDevBugRanking(){
   } else {
     tbody.innerHTML = lista.map(b => `
       <tr>
-        <td><a href="https://nimitz.atlassian.net/browse/${b.chave_origem}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${b.chave_origem}</a></td>
-        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(b.summary||'').replace(/"/g,'&quot;')}">${b.summary||'—'}</td>
+        <td><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(b.chave_origem)}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${hubEscapeHtml(b.chave_origem)}</a></td>
+        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(b.summary||'').replace(/"/g,'&quot;')}">${hubEscapeHtml(b.summary||'—')}</td>
         <td style="text-align:center;font-weight:700;color:var(--red)">${b.qtd_bugs}</td>
         <td>${(b.fix_versions&&b.fix_versions.length) ? b.fix_versions.join(', ') : '—'}</td>
       </tr>`).join('');
@@ -4925,9 +4926,9 @@ function renderDevWeeklyTable(){
 
   tbody.innerHTML = lista.map(r => {
     const isSel = devSemanaSelDev === r.dev;
-    const nomeEsc = r.dev.replace(/'/g,"\\'");
-    return `<tr onclick="devSemanaSelectDev('${nomeEsc}')" style="cursor:pointer${isSel?';background:rgba(99,102,241,.15)':''}">
-      <td style="${isSel?'font-weight:700;color:var(--indigo)':''}">${r.dev}</td>
+    const nomeEsc = hubJsArg(r.dev);
+    return `<tr onclick="devSemanaSelectDev(${nomeEsc})" style="cursor:pointer${isSel?';background:rgba(99,102,241,.15)':''}">
+      <td style="${isSel?'font-weight:700;color:var(--indigo)':''}">${hubEscapeHtml(r.dev)}</td>
       <td style="text-align:right;font-weight:600">${r.qtd}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="2" style="text-align:center;color:var(--text3);padding:12px">Nenhum resultado para o filtro selecionado.</td></tr>';
@@ -4947,10 +4948,10 @@ function renderDevEpicProgress(){
   }
   tbody.innerHTML = lista.map(e => `
     <tr>
-      <td><a href="https://nimitz.atlassian.net/browse/${e.chave}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${e.chave}</a></td>
-      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis" title="${(e.summary||'').replace(/"/g,'&quot;')}">${e.summary||'—'}</td>
-      <td>${e.status||'—'}</td>
-      <td style="font-size:10px">${e.projeto||'—'}</td>
+      <td><a href="https://nimitz.atlassian.net/browse/${hubEscapeHtml(e.chave)}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${hubEscapeHtml(e.chave)}</a></td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis" title="${(e.summary||'').replace(/"/g,'&quot;')}">${hubEscapeHtml(e.summary||'—')}</td>
+      <td>${hubEscapeHtml(e.status||'—')}</td>
+      <td style="font-size:10px">${hubEscapeHtml(e.projeto||'—')}</td>
       <td style="text-align:center">${e.total_filhos}</td>
       <td style="text-align:center">${e.filhos_concluidos}</td>
       <td style="min-width:140px">

@@ -1,11 +1,13 @@
 {
   "name": "movidesk-dashboard",
   "version": "1.4.3",
-  "description": "Dashboard de chamados do Movidesk com integração de SLA",
+  "description": "Dashboard de chamados do Movidesk com integra\u00e7\u00e3o de SLA",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "node server/server.js"
+    "dev": "node server/server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check-syntax.js"
   },
   "keywords": [
     "movidesk",
@@ -16,15 +18,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
-    "express": "^4.18.2",
-    "google-auth-library": "^9.15.1",
+    "express": "^4.22.3",
+    "google-auth-library": "^10.9.1",
     "helmet": "^8.0.0",
     "node-fetch": "^2.6.11",
     "pg": "^8.20.0",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

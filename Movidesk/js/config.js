@@ -1236,7 +1236,7 @@ async function loadDbConfig() {
         if (port) port.value = data.port || '';
         if (name) name.value = data.name || '';
         if (user) user.value = data.user || '';
-        if (password) password.value = data.password || '';
+        if (password) { password.value = ''; password.placeholder = data.passwordConfigured ? 'Senha configurada — deixe em branco para manter' : 'Informe a senha'; }
         if (dialect) dialect.value = data.dialect || 'postgres';
 
         setCfgStatus('cfgDbStatus', data.configured ? 'Configurações do banco carregadas.' : 'Banco ainda não configurado.');
@@ -1258,8 +1258,8 @@ async function saveDbConfig() {
     const password = document.getElementById('cfgDbPassword')?.value?.trim();
     const dialect = document.getElementById('cfgDbDialect')?.value || 'postgres';
 
-    if (!host || !port || !name || !user || !password) {
-        setCfgStatus('cfgDbStatus', 'Preencha host, porta, nome, usuário e senha.', 'error');
+    if (!host || !port || !name || !user) {
+        setCfgStatus('cfgDbStatus', 'Preencha host, porta, nome e usuário. A senha em branco mantém a atual.', 'error');
         return;
     }
 

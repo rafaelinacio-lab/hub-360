@@ -68,6 +68,23 @@ router.delete('/roles/:id', authMiddleware, requireRole('admin'), async (req, re
   } catch (_) { return res.status(500).json({ error: 'Erro ao remover perfil' }); }
 });
 
+// GET /users/roles (deve vir ANTES de /:id para não conflitar)
+// GET /users/access-logs
+router.get('/access-logs', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT l.*, u.email, u.name FROM access_logs l
+       LEFT JOIN users u ON l.user_id = u.id
+       WHERE l.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY l.created_at DESC LIMIT 1000`
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao buscar logs' });
+  }
+});
+
+
 // GET /users/:id
 router.get('/:id', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
@@ -139,6 +156,8 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
 // PUT /users/:id
 router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
+  if (req.body.is_active !== undefined && typeof req.body.is_active !== 'boolean') return res.status(400).json({ error: 'is_active deve ser booleano' });
+  if (String(id) === String(req.user.id) && (req.body.is_active === false || (req.body.role && req.body.role !== 'admin'))) return res.status(400).json({ error: 'Não é possível remover seu próprio acesso administrativo' });
   const { name, role, is_active, vertical } = req.body;
 
   if (!name && role === undefined && is_active === undefined && vertical === undefined)
@@ -177,6 +196,10 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
       [req.user.id, id]
     );
 
+    if (is_active === false) {
+      await db.query('DELETE FROM sessions WHERE user_id = $1', [id]);
+      await db.query('DELETE FROM mfa_challenges WHERE user_id = $1', [id]);
+    }
     return res.json({ message: 'Usuário atualizado com sucesso' });
   } catch (err) {
     console.error('PUT /users/:id error:', err.message);
@@ -239,22 +262,6 @@ router.post('/:id/reset-password', authMiddleware, requireRole('admin'), async (
   } catch (err) {
     console.error('POST /users/:id/reset-password error:', err.message);
     return res.status(500).json({ error: 'Erro ao resetar senha' });
-  }
-});
-
-// GET /users/roles (deve vir ANTES de /:id para não conflitar)
-// GET /users/access-logs
-router.get('/access-logs', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT l.*, u.email, u.name FROM access_logs l
-       LEFT JOIN users u ON l.user_id = u.id
-       WHERE l.created_at >= NOW() - INTERVAL '30 days'
-       ORDER BY l.created_at DESC LIMIT 1000`
-    );
-    return res.json(result.rows);
-  } catch (err) {
-    return res.status(500).json({ error: 'Erro ao buscar logs' });
   }
 });
 

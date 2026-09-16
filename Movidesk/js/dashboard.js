@@ -1227,14 +1227,7 @@ function createCardHTML(ticket) {
 }
 
 // Utilitários
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+function escapeHtml(str) { return hubEscapeHtml(str); }
 
 function formatDate(dateString) {
     if (!dateString) return '—';

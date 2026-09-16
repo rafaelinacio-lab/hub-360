@@ -38,7 +38,10 @@ async function createPoolForConfig(cfg, ensureSchema = false) {
   }
 
   const existingPool = pools.get(key);
-  if (existingPool) return existingPool;
+  if (existingPool) {
+    if (ensureSchema) await initSchema(existingPool, key);
+    return existingPool;
+  }
 
   const pool = new Pool({
     host: cfg.host,
@@ -46,7 +49,7 @@ async function createPoolForConfig(cfg, ensureSchema = false) {
     database: cfg.database,
     user: cfg.user,
     password: cfg.password,
-    ssl: cfg.ssl ? { rejectUnauthorized: false } : false,
+    ssl: cfg.ssl ? { rejectUnauthorized: true, ...(process.env.DB_SSL_CA ? { ca: process.env.DB_SSL_CA.replace(/\\n/g, '\n') } : {}) } : false,
     max: 30,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000
@@ -60,7 +63,10 @@ async function createPoolForConfig(cfg, ensureSchema = false) {
   });
 
   if (ensureSchema) {
-    await initSchema(pool, key);
+    try { await initSchema(pool, key); } catch (error) {
+      pools.delete(key); schemaInitPromises.delete(key);
+      await pool.end().catch(() => {}); throw error;
+    }
   }
   return pool;
 }
@@ -160,6 +166,13 @@ async function initSchema(activePool, key) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await activePool.query(`CREATE TABLE IF NOT EXISTS mfa_challenges (
+      token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ip_address TEXT, user_agent TEXT, attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    // Legacy MFA challenges were stored as ordinary sessions with a ten-minute TTL.
+    await activePool.query(`DELETE FROM sessions WHERE expires_at - created_at <= INTERVAL '11 minutes'`);
     await activePool.query(`
       CREATE TABLE IF NOT EXISTS password_resets (
         id SERIAL PRIMARY KEY,
@@ -229,6 +242,7 @@ async function initSchema(activePool, key) {
       ADD COLUMN IF NOT EXISTS owner_team TEXT
     `).catch(() => {});
 
+    await activePool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS cf_classificacao_de_ticket TEXT, ADD COLUMN IF NOT EXISTS urgencia TEXT`);
     await activePool.query(`
       CREATE TABLE IF NOT EXISTS ai_usage_log (
         id SERIAL PRIMARY KEY,
@@ -355,6 +369,7 @@ async function queryDatabase(databaseName, sql, params = []) {
 }
 
 function get(sql, params, callback) {
+  if (typeof params === 'function') { callback = params; params = []; }
   query(sql, params)
     .then((result) => {
       if (typeof callback === 'function') callback(null, result.rows[0] || undefined);
@@ -365,6 +380,7 @@ function get(sql, params, callback) {
 }
 
 function all(sql, params, callback) {
+  if (typeof params === 'function') { callback = params; params = []; }
   query(sql, params)
     .then((result) => {
       if (typeof callback === 'function') callback(null, result.rows || []);
@@ -375,6 +391,7 @@ function all(sql, params, callback) {
 }
 
 function run(sql, params, callback) {
+  if (typeof params === 'function') { callback = params; params = []; }
   query(sql, params)
     .then((result) => {
       if (typeof callback === 'function') {

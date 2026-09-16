@@ -481,6 +481,7 @@ async function callCuradoriaLLM(systemPrompt, actionsText, ticketId, model = CUR
   if (!apiKey) throw new Error('Chave da API GPT nao configurada no servidor');
 
   const response = await fetch('https://api.openai.com/v1/responses', {
+    timeout: 60000,
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -984,7 +985,7 @@ async function fetchTicketSatisfaction(token, ticketId, movideskCfg, attempt = 0
 
   let res;
   try {
-    res = await fetch(url);
+    res = await fetch(url, { timeout: 30000 });
   } catch (networkErr) {
     if (attempt < 4) {
       await new Promise(r => setTimeout(r, (attempt + 1) * rateLimitMs));
@@ -994,8 +995,9 @@ async function fetchTicketSatisfaction(token, ticketId, movideskCfg, attempt = 0
   }
 
   if (!res.ok) {
-    if (attempt < 4) {
-      await new Promise(r => setTimeout(r, (attempt + 1) * rateLimitMs));
+    if ((res.status === 429 || res.status >= 500) && attempt < 4) {
+      const retry = res.headers.get('retry-after');
+      await new Promise(r => setTimeout(r, Math.max((attempt + 1) * rateLimitMs, Number(retry) * 1000 || Date.parse(retry) - Date.now() || 0)));
       return fetchTicketSatisfaction(token, ticketId, movideskCfg, attempt + 1);
     }
     throw new Error(`Falha ao buscar satisfação do chamado ${ticketId}: ${res.status}`);

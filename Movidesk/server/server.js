@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 require('dotenv').config();
+require('./utils/crypto').validateEncryptionKey();
 
 const db = require('./db/remote');
 const configRoutes = require('./routes/config').router;
@@ -49,7 +50,8 @@ app.use('/pages', express.static(path.join(__dirname, '../pages')));
 // que express.static faria ao servir um diretório pelo path exato do mount).
 
 // Rotas
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', require('./utils/rateLimit').rateLimit({ limit: 60 }), authRoutes);
+app.use('/api/ai', require('./routes/ai'));
 app.use('/api/users', usersRoutes);
 app.use('/api/pessoas', pessoasRoutes);
 app.use('/api/curadoria', curadoriaRoutes);
@@ -95,6 +97,7 @@ app.use((err, req, res, next) => {
 // Limpeza periódica de sessões expiradas (a cada hora)
 setInterval(() => {
   db.query('DELETE FROM sessions WHERE expires_at < NOW()').catch(() => {});
+  db.query('DELETE FROM mfa_challenges WHERE expires_at < NOW()').catch(() => {});
 }, 60 * 60 * 1000);
 
 // ===== Carga bruta agendada da Curadoria (manhã, almoço e fim de tarde) =====
@@ -113,10 +116,10 @@ function checkCuradoriaFullLoadSchedule() {
     const times = (!err && Array.isArray(cfg?.fullLoadTimes) && cfg.fullLoadTimes.length) ? cfg.fullLoadTimes : DEFAULT_CURADORIA_FULL_LOAD_TIMES;
 
     const now = new Date();
-    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const hhmm = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now);
     if (!times.includes(hhmm)) return;
 
-    const dayKey = now.toISOString().slice(0, 10);
+    const dayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
     const fireKey = `${dayKey}T${hhmm}`;
     if (curadoriaFullLoadFiredKeys.has(fireKey)) return;
     curadoriaFullLoadFiredKeys.add(fireKey);

@@ -89,9 +89,7 @@ async function applyRoleBasedNavigation() {
     } else {
         // Fallback otimista enquanto a config não carrega — guest sempre
         // parte do fallback restrito, mesmo se a chamada abaixo falhar.
-        let allowed = isCurrentUserGuest()
-            ? ['dashboard']
-            : ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'];
+        let allowed = [];
         try {
             const res = await fetch(`${API_BASE}/config/tab-permissions`, { headers: authHeaders() });
             if (res.ok) {

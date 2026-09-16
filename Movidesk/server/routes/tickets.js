@@ -6,6 +6,36 @@ const { getToken, getPrompt } = require('./config');
 const { decryptToken } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
 const datalake = require('../utils/datalakeClient');
+const { requireTabAccess } = require('./config');
+const { rateLimit } = require('../utils/rateLimit');
+const aiLimit = rateLimit({ limit: 20 });
+router.use(authMiddleware, requireTabAccess(['dashboard', 'movidesk', 'chamados']));
+router.use((req, res, next) => {
+  if (req.query.scope === 'all' || req.path === '/past') return requireTabAccess('movidesk')(req, res, next);
+  next();
+});
+
+router.param('id', async (req, res, next, id) => {
+  if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'ID de ticket inválido' });
+  try {
+    let ticket;
+    try {
+      const detail = await datalake.fetchNativeTicketDetail(id);
+      if (!detail) throw new datalake.DatalakeApiError('Ticket não encontrado', 404, null);
+      ticket = nativeRowToTicketShape(detail);
+    } catch (error) {
+      if (!shouldFallbackToLocalDb(error, { allow404: true })) throw error;
+      ticket = await fetchTicketByIdFromLocalDb(id);
+    }
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
+    if (!canViewTicket(req.user, ticket)) return res.status(403).json({ error: 'Ticket fora da sua vertical' });
+    req.ticket = { ...ticket, ...normalizeTicketRow(ticket) };
+    next();
+  } catch (error) {
+    console.error('Erro ao carregar ticket autorizado:', error.message);
+    res.status(502).json({ error: 'Não foi possível carregar o ticket' });
+  }
+});
 
 const MOVIDESK_API = 'https://api.movidesk.com/public/v1/tickets';
 
@@ -457,6 +487,7 @@ async function generateExecutiveSummaryFromLLM(context) {
     });
   });
   const response = await fetch('https://api.openai.com/v1/responses', {
+    timeout: 60000,
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -633,33 +664,12 @@ function extractFirstJsonObject(text) {
 }
 
 function resolveViewerContext(req) {
-  return new Promise((resolve) => {
-    const token = req.headers.authorization?.replace('Bearer ', '').trim();
-    if (!token) {
-      return resolve({
-        role: req.query.viewerRole || null,
-        vertical: req.query.viewerVertical || null,
-      });
-    }
+  return Promise.resolve({ role: req.user.role, vertical: req.user.vertical || null });
+}
 
-    db.get(
-      `SELECT r.name as role, u.vertical
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       JOIN roles r ON r.id = u.role_id
-       WHERE s.token = ? AND s.expires_at > NOW()`,
-      [token],
-      (err, row) => {
-        if (err || !row) {
-          return resolve({
-            role: req.query.viewerRole || null,
-            vertical: req.query.viewerVertical || null,
-          });
-        }
-        resolve({ role: row.role, vertical: row.vertical || null });
-      }
-    );
-  });
+function canViewTicket(viewer, ticket) {
+  return viewer.role !== 'supervisor' || Boolean(viewer.vertical &&
+    (ticket.serviceFirstLevel ?? ticket.servicefirstlevel) === viewer.vertical);
 }
 
 function sleep(ms) {
@@ -754,6 +764,13 @@ function ticketMatchesAnyConfiguredCondition(ticket, conditions) {
   return ticketMatchesCustomFieldFilter(ticket, conditions.customFieldId, conditions.customFieldValue);
 }
 
+let lastSyncRequest = 0;
+async function throttleSyncRequest() {
+  const delay = Math.max(0, lastSyncRequest + 6100 - Date.now());
+  lastSyncRequest = Date.now() + delay;
+  if (delay) await sleep(delay);
+}
+
 async function fetchTicketsFromApi(token, skip = 0, attempt = 0, conditions = null, options = {}) {
   const endpointPath = options.endpointPath || '';
   const applyStatusFilter = options.applyStatusFilter !== false;
@@ -813,8 +830,9 @@ async function fetchTicketsFromApi(token, skip = 0, attempt = 0, conditions = nu
 
   try {
     const requestUrl = `${MOVIDESK_API}${endpointPath}${query}`;
-    console.log(`Movidesk URL [${endpointPath || '/'} | skip=${skip}]: ${requestUrl}`);
-    const response = await fetch(requestUrl);
+    console.log(`Movidesk consulta [${endpointPath || '/'} | skip=${skip}]`);
+    await throttleSyncRequest();
+    const response = await fetch(requestUrl, { timeout: 30000 });
     const raw = await response.text();
     let parsed = null;
     if (raw) {
@@ -830,7 +848,8 @@ async function fetchTicketsFromApi(token, skip = 0, attempt = 0, conditions = nu
       const msg = `API Movidesk retornou: ${response.status}${errDetail ? ` - ${errDetail}` : ''}`;
 
       if (response.status === 429 && attempt < 3) {
-        const waitMs = 1500 * (attempt + 1);
+        const retry = response.headers.get('retry-after');
+        const waitMs = Math.max(6000, Number(retry) * 1000 || Date.parse(retry) - Date.now() || 60000);
         console.warn(`Movidesk rate limit (429). Tentando novamente em ${waitMs}ms...`);
         await sleep(waitMs);
         return fetchTicketsFromApi(token, skip, attempt + 1, conditions, options);
@@ -852,8 +871,7 @@ async function fetchTicketsFromApi(token, skip = 0, attempt = 0, conditions = nu
         await sleep(waitMs);
         return fetchTicketsFromApi(token, skip, attempt + 1, conditions, options);
       }
-      console.warn(`Movidesk encerrou conexão no skip=${skip}. Tratando como fim de dados.`);
-      return null; // sinaliza fim de paginação
+      throw new Error(`Coleta incompleta no lote ${skip}; reconciliação cancelada`);
     }
 
     // DNS instável da API Movidesk
@@ -864,8 +882,8 @@ async function fetchTicketsFromApi(token, skip = 0, attempt = 0, conditions = nu
       return fetchTicketsFromApi(token, skip, attempt + 1, conditions, options);
     }
 
-    console.error('Erro ao buscar tickets:', error);
-    throw error;
+    console.error('Erro ao buscar tickets:', error.code || 'falha de API');
+    throw new Error('Falha na coleta Movidesk: ' + (error.code || String(error.message).replace(/token=[^&\s]+/g, 'token=[redacted]')));
   }
 }
 
@@ -1037,9 +1055,11 @@ async function collectCurrentOpenTicketIds(token, conditions) {
   let skip = 0;
   const ids = new Set();
 
-  while (true) {
+  for (const endpointPath of ['', '/past']) {
+    skip = 0;
+    while (true) {
     const tickets = await fetchTicketsFromApi(token, skip, 0, conditions, {
-      endpointPath: '',
+      endpointPath,
       applyStatusFilter: true,
       customFilter: baseFilter,
       skipConfiguredFilters: true,
@@ -1062,6 +1082,7 @@ async function collectCurrentOpenTicketIds(token, conditions) {
     skip += pageSize;
   }
 
+  }
   return Array.from(ids);
 }
 
@@ -1179,11 +1200,11 @@ async function fetchCandidateTicketsFromDatalake(conditions, { basestatuses } = 
           }
         }
         page += 1;
-        if (!result?.pageInfo?.hasMore || !result?.pageInfo?.nextCursor) break;
+        if (!result?.pageInfo?.hasMore || !result?.pageInfo?.nextCursor) { cursor = null; break; }
         cursor = result.pageInfo.nextCursor;
       }
-      if (page >= 20) {
-        console.warn(`[tickets] Equipe "${team}"${basestatus ? ` (status ${basestatus})` : ''} atingiu o teto de paginação da apidatalake — lista pode estar incompleta.`);
+      if (page >= 20 && cursor) {
+        throw new datalake.DatalakeApiError('Consulta excedeu o limite de paginação; refine o período/equipe', 422, null);
       }
     }
   }
@@ -1207,7 +1228,7 @@ async function filterByCustomFieldCondition(rows, conditions) {
         && String(c.valor_texto || '').trim().toLowerCase() === targetValue);
       if (match) kept.push(row);
     } catch (err) {
-      console.warn(`[tickets] Falha ao checar customField do ticket ${row.ticket_id} na apidatalake, ignorando na lista:`, err.message);
+      throw err; // A partial list must never be reported as a complete success.
     }
   }
   return kept;
@@ -1281,7 +1302,7 @@ router.get('/', async (req, res) => {
       includeAll ? {} : { basestatuses: ACTIVE_BASE_STATUSES }
     );
     if (!includeAll) {
-      candidates = candidates.filter((r) => ACTIVE_BASE_STATUSES.includes(r.basestatus));
+      candidates = candidates.filter((r) => ACTIVE_BASE_STATUSES.includes(r.basestatus) && canViewTicket(req.user, r));
     }
     if (viewer.role === 'supervisor') {
       candidates = candidates.filter((r) => (r.servicefirstlevel || '') === viewer.vertical);
@@ -1487,39 +1508,7 @@ function fetchTicketByIdFromLocalDb(id) {
 // cada 10-60min), enquanto o banco local pode já ter uma cópia mais recente
 // via scripts/sync-movidesk.js. Qualquer outro erro (config ausente,
 // token/escopo inválido) propaga como 502 em vez de cair no banco local.
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const detail = await datalake.fetchNativeTicketDetail(id);
-    if (!detail) {
-      throw new datalake.DatalakeApiError('Ticket não encontrado na apidatalake', 404, null);
-    }
-    const shaped = nativeRowToTicketShape(detail);
-    return res.json(normalizeTicketRow(datalakeRowToTicketShape(shaped)));
-  } catch (error) {
-    if (!shouldFallbackToLocalDb(error, { allow404: true })) {
-      console.error(`[tickets] Erro na apidatalake em GET /:id (${id}) (não é indisponibilidade nem 404 — não cai no banco local):`, error);
-      return res.status(502).json({ error: 'apidatalake indisponível ou retornou erro', detail: error.message });
-    }
-    const isNotFound = error instanceof datalake.DatalakeApiError && error.status === 404;
-    if (!isNotFound) {
-      console.warn(`[tickets] apidatalake indisponível em GET /:id (${id}), usando fallback do banco local:`, error.message);
-    }
-    try {
-      const row = await fetchTicketByIdFromLocalDb(id);
-      if (!row) {
-        return res.status(404).json({ error: 'Ticket não encontrado' });
-      }
-      if (row.customFields) {
-        row.customFields = safeJsonParse(row.customFields, []);
-      }
-      return res.json(normalizeTicketRow(row));
-    } catch (dbErr) {
-      return res.status(500).json({ error: 'Erro ao buscar ticket' });
-    }
-  }
-});
+router.get('/:id', (req, res) => res.json(normalizeTicketRow(req.ticket)));
 
 function fetchTicketForExecutiveSummaryFromLocalDb(id) {
   return new Promise((resolve, reject) => {
@@ -1548,30 +1537,10 @@ function fetchTicketForExecutiveSummaryFromLocalDb(id) {
 // actions/clients/statusHistories adaptados via nativeRowToTicketShape (ver
 // comentário acima de inferTicketContext), sem heurística: tipo/origem da
 // ação já vêm como os códigos numéricos reais do Movidesk.
-router.post('/:id/executive-summary', async (req, res) => {
+router.post('/:id/executive-summary', aiLimit, async (req, res) => {
   const { id } = req.params;
   try {
-    let ticket;
-    try {
-      const detail = await datalake.fetchNativeTicketDetail(id);
-      if (!detail) throw new datalake.DatalakeApiError('Ticket não encontrado na apidatalake', 404, null);
-      ticket = nativeRowToTicketShape(detail);
-    } catch (error) {
-      if (!shouldFallbackToLocalDb(error, { allow404: true })) {
-        console.error(`[tickets] Erro na apidatalake em POST /:id/executive-summary (${id}) (não é indisponibilidade nem 404 — não cai no banco local):`, error);
-        return res.status(502).json({ error: 'apidatalake indisponível ou retornou erro', detail: error.message });
-      }
-      const isNotFound = error instanceof datalake.DatalakeApiError && error.status === 404;
-      if (!isNotFound) {
-        console.warn(`[tickets] apidatalake indisponível em POST /:id/executive-summary (${id}), usando fallback do banco local:`, error.message);
-      }
-      ticket = await fetchTicketForExecutiveSummaryFromLocalDb(id);
-    }
-
-    if (!ticket) {
-      return res.status(404).json({ error: 'Ticket nao encontrado' });
-    }
-
+    const ticket = req.ticket;
     const context = inferTicketContext(ticket);
     const summary = await generateExecutiveSummaryFromLLM(context);
 
@@ -1736,7 +1705,7 @@ async function runSync() {
             console.error('Banco indisponivel durante persistencia de tickets. Interrompendo sync.', error);
             throw new Error('Sincronizacao interrompida: conexao com banco indisponivel. Dados parciais ja foram salvos.');
           }
-          console.error(`Erro ao salvar ticket ${ticket.id}:`, error);
+          throw error;
         }
       }
 
@@ -1826,20 +1795,14 @@ async function runSync() {
 // indisponibilidade da apidatalake (ver shouldFallbackToLocalDb acima). As
 // rotas HTTP deste arquivo leem a apidatalake primeiro.
 
-function fetchStatsOverviewFromLocalDb() {
-  return new Promise((resolve, reject) => {
-    db.get(`
-      SELECT
-        COUNT(*) FILTER (WHERE baseStatus IN ('New', 'InAttendance', 'Stopped', 'InProgress')) as total,
-        SUM(CASE WHEN baseStatus = 'New' THEN 1 ELSE 0 END) as novo,
-        SUM(CASE WHEN baseStatus = 'InAttendance' THEN 1 ELSE 0 END) as emAtendimento,
-        SUM(CASE WHEN baseStatus = 'Stopped' THEN 1 ELSE 0 END) as parado
-      FROM tickets
-    `, (err, row) => {
-      if (err) reject(err);
-      else resolve(row || { total: 0, novo: 0, emAtendimento: 0, parado: 0 });
-    });
-  });
+async function fetchStatsOverviewFromLocalDb(viewer) {
+  const result = await db.query(`SELECT COUNT(*)::int AS total,
+    COUNT(*) FILTER (WHERE basestatus = 'New')::int AS novo,
+    COUNT(*) FILTER (WHERE basestatus = 'InAttendance')::int AS "emAtendimento",
+    COUNT(*) FILTER (WHERE basestatus = 'Stopped')::int AS parado
+    FROM tickets WHERE basestatus IN ('New','InAttendance','Stopped','InProgress')
+    AND ($1::text <> 'supervisor' OR servicefirstlevel = $2)`, [viewer.role, viewer.vertical || null]);
+  return result.rows[0];
 }
 
 // GET - Estatísticas
@@ -1850,10 +1813,11 @@ function fetchStatsOverviewFromLocalDb() {
 // aplicar o filtro de customField ("Suporte Técnico") que os KPIs de hoje
 // consideram; usaria um universo diferente do que a rota mostra.
 router.get('/stats/overview', async (req, res) => {
+  const viewer = await resolveViewerContext(req);
   try {
     const conditions = await getConditionsPromise();
     let candidates = await fetchCandidateTicketsFromDatalake(conditions, { basestatuses: ACTIVE_BASE_STATUSES });
-    candidates = candidates.filter((r) => ACTIVE_BASE_STATUSES.includes(r.basestatus));
+    candidates = candidates.filter((r) => ACTIVE_BASE_STATUSES.includes(r.basestatus) && canViewTicket(req.user, r));
     candidates = await filterByCustomFieldCondition(candidates, conditions);
 
     const stats = { total: candidates.length, novo: 0, emAtendimento: 0, parado: 0 };
@@ -1870,7 +1834,7 @@ router.get('/stats/overview', async (req, res) => {
     }
     console.warn('[tickets] apidatalake indisponível em GET /stats/overview, usando fallback do banco local:', error.message);
     try {
-      const row = await fetchStatsOverviewFromLocalDb();
+      const row = await fetchStatsOverviewFromLocalDb(viewer);
       return res.json(row);
     } catch (dbErr) {
       return res.status(500).json({ error: 'Erro ao obter estatísticas' });
@@ -1922,58 +1886,20 @@ function emptySlaResult(id, abertura, motivo) {
 // em GET /:id e no resumo executivo) e adapta pro shape que
 // calcularSLAPrimeiroContato() espera (ver nativeRowToTicketShape) — sem
 // heurística, tipo/origem da ação já vêm como os códigos numéricos reais.
-router.get('/:id/sla', async (req, res) => {
-  const { id } = req.params;
-
+router.get('/:id/sla', (req, res) => {
   try {
-    let ticket = null;
-    try {
-      const detail = await datalake.fetchNativeTicketDetail(id);
-      if (detail) ticket = nativeRowToTicketShape(detail);
-    } catch (error) {
-      if (!shouldFallbackToLocalDb(error, { allow404: true })) {
-        console.error(`[tickets] Erro na apidatalake em GET /:id/sla (${id}) (não é indisponibilidade nem 404 — não cai no banco local):`, error);
-        return res.status(502).json({ error: 'apidatalake indisponível ou retornou erro', detail: error.message });
-      }
-      const isNotFound = error instanceof datalake.DatalakeApiError && error.status === 404;
-      if (!isNotFound) {
-        console.warn(`[tickets] apidatalake indisponível em GET /:id/sla (${id}), usando fallback do banco local:`, error.message);
-      }
-    }
-
-    if (!ticket) {
-      const ticketLocal = await fetchTicketForSlaFromLocalDb(id);
-      if (ticketLocal && ticketLocal.createdDate) {
-        ticket = {
-          id: ticketLocal.id,
-          slaAgreementRule: ticketLocal.slaAgreementRule,
-          createdDate: ticketLocal.createdDate,
-          actions: safeJsonParse(ticketLocal.actionsJson, []),
-          clients: safeJsonParse(ticketLocal.clientsJson, []),
-          statusHistories: safeJsonParse(ticketLocal.statusHistoriesJson, [])
-        };
-      }
-    }
-
-    const createdDate = ticket?.createdDate ?? ticket?.createddate ?? null;
-    if (!ticket || !createdDate) {
-      return res.json(emptySlaResult(id, null, ticket ? undefined : 'Ticket não encontrado na apidatalake nem no banco local.'));
-    }
-
-    try {
-      const slaResult = calcularSLAPrimeiroContato({
-        ...ticket,
-        createdDate,
-        slaAgreementRule: ticket.slaAgreementRule ?? ticket.slaagreementrule ?? null,
-      });
-      return res.json(slaResult);
-    } catch (calcError) {
-      console.error('Cálculo de SLA falhou:', calcError);
-      return res.json(emptySlaResult(id, new Date(createdDate).toISOString?.() || null));
-    }
+    const t = req.ticket;
+    const result = calcularSLAPrimeiroContato({
+      ...t, createdDate: t.createdDate ?? t.createddate,
+      urgency: t.urgency ?? t.urgencia,
+      slaAgreementRule: t.slaAgreementRule ?? t.slaagreementrule,
+      actions: t.actions || safeJsonParse(t.actionsJson ?? t.actionsjson, []),
+      clients: t.clients || safeJsonParse(t.clientsJson ?? t.clientsjson, []),
+      statusHistories: t.statusHistories || safeJsonParse(t.statusHistoriesJson ?? t.statushistoriesjson, [])
+    });
+    res.json(result);
   } catch (error) {
-    console.error('Erro ao calcular SLA:', error);
-    res.status(500).json({ error: error.message });
+    res.status(422).json({ error: 'Dados inválidos para cálculo do SLA' });
   }
 });
 
@@ -2031,7 +1957,7 @@ async function runIncrementalSync() {
   // Pegar o timestamp mais recente do banco
   const lastRow = await new Promise((resolve, reject) => {
     db.get(
-      `SELECT MAX(COALESCE(updatedat, syncedat)) AS lastTs FROM tickets`,
+      `SELECT value AS lastts FROM config WHERE key = 'movidesk_sync_watermark'`,
       [],
       (err, row) => { if (err) reject(err); else resolve(row); }
     );
@@ -2055,6 +1981,7 @@ async function runIncrementalSync() {
 
   let skip = 0;
   let totalUpdated = 0;
+  let latestSourceUpdate = lastTsRaw ? new Date(lastTsRaw) : new Date(0);
   const pageSize = Number(conditions.syncLimit) || 100;
 
   console.log(`🔍 Incremental sync desde: ${lastTsIso}`);
@@ -2075,9 +2002,11 @@ async function runIncrementalSync() {
       try {
         await saveTicketToDb(ticket);
         totalUpdated++;
+        const sourceUpdate = new Date(ticket.lastUpdate);
+        if (Number.isFinite(sourceUpdate.getTime()) && sourceUpdate > latestSourceUpdate) latestSourceUpdate = sourceUpdate;
       } catch (err) {
         if (isDbUnavailableError(err)) throw err;
-        console.error(`[incremental] Erro ao salvar ticket ${ticket.id}:`, err.message);
+        throw err;
       }
     }
 
@@ -2091,12 +2020,14 @@ async function runIncrementalSync() {
     const currentOpenIds = await collectCurrentOpenTicketIds(token, conditions);
     await markMissingTicketsAsClosed(currentOpenIds);
   } catch (err) {
-    console.error('⚠️  Incremental sync: falha ao reconciliar chamados ausentes:', err.message || err);
+    throw err;
   }
 
   if (totalUpdated > 0) {
     console.log(`✅ Incremental sync: ${totalUpdated} ticket(s) atualizados`);
   }
+  await db.query(`INSERT INTO config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    ['movidesk_sync_watermark', latestSourceUpdate.toISOString()]);
   return totalUpdated;
 }
 

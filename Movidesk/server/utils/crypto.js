@@ -1,54 +1,32 @@
 const crypto = require('crypto');
 
-// Chave de criptografia - em produção, usar variável de ambiente
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'sua-chave-secreta-aqui-min-32-caracteres!!!!!';
-const ALGORITHM = 'aes-256-cbc';
-
-// Garantir que a chave tenha 32 caracteres
 function getKey() {
-  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').substring(0, 32));
+  const value = process.env.ENCRYPTION_KEY || '';
+  if (Buffer.byteLength(value) < 32 || value.startsWith('sua-chave-secreta')) {
+    throw new Error('Configure ENCRYPTION_KEY com uma chave secreta de pelo menos 32 bytes');
+  }
+  // Preserve the legacy key derivation to read existing encrypted configuration.
+  const key = Buffer.from(value.substring(0, 32));
+  if (key.length !== 32) throw new Error('ENCRYPTION_KEY deve usar caracteres ASCII');
   return key;
 }
 
 function encryptToken(token) {
-  try {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(ALGORITHM, getKey(), iv);
-    
-    let encrypted = cipher.update(token, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    // Retornar IV + encrypted token
-    return iv.toString('hex') + ':' + encrypted;
-  } catch (error) {
-    console.error('Erro ao criptografar token:', error);
-    throw new Error('Erro ao criptografar token');
-  }
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getKey(), iv);
+  const data = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+  return ['v2', iv.toString('hex'), cipher.getAuthTag().toString('hex'), data.toString('hex')].join(':');
 }
 
-function decryptToken(encryptedData) {
-  try {
-    const parts = encryptedData.split(':');
-    if (parts.length !== 2) {
-      throw new Error('Formato de token criptografado inválido');
-    }
-    
-    const iv = Buffer.from(parts[0], 'hex');
-    const encrypted = parts[1];
-    
-    const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), iv);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  } catch (error) {
-    console.error('Erro ao descriptografar token:', error);
-    throw new Error('Erro ao descriptografar token');
+function decryptToken(value) {
+  const parts = String(value).split(':');
+  if (parts[0] === 'v2' && parts.length === 4) {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getKey(), Buffer.from(parts[1], 'hex'));
+    decipher.setAuthTag(Buffer.from(parts[2], 'hex'));
+    return Buffer.concat([decipher.update(Buffer.from(parts[3], 'hex')), decipher.final()]).toString('utf8');
   }
+  if (parts.length !== 2) throw new Error('Formato de token criptografado inválido');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', getKey(), Buffer.from(parts[0], 'hex'));
+  return Buffer.concat([decipher.update(Buffer.from(parts[1], 'hex')), decipher.final()]).toString('utf8');
 }
-
-module.exports = {
-  encryptToken,
-  decryptToken
-};
+module.exports = { encryptToken, decryptToken, validateEncryptionKey: getKey };

@@ -1,211 +1,209 @@
-/**
- * sla-standalone.js
- * ─────────────────────────────────────────────────────────────────
- * Cálculo de SLA de primeiro contato — sem dependências externas.
- * Funciona em Node.js 14+ e navegadores modernos.
- *
- * Uso (CommonJS):
- *   const { calcularSLAPrimeiroContato } = require('./sla-standalone');
- *
- * Uso (ESM / Browser):
- *   import { calcularSLAPrimeiroContato } from './sla-standalone.js';
- *
- * Ver docs/sla-calculo.md para documentação completa.
- * ─────────────────────────────────────────────────────────────────
- */
+// Generated from server/utils/sla.js; keep both versions in sync.
+// =========================
+// Parâmetros do SLA
+// =========================
 
-// ─── Configuração ────────────────────────────────────────────────
-
-/**
- * Prazo de primeiro contato em minutos úteis por urgência.
- * Ajuste conforme seu contrato de SLA.
- */
 const SLA_PRIMEIRO_CONTATO_MINUTOS = {
-  critica: 30,
-  alta:    60,
-  media:   120,
-  baixa:   240,
+  "critica": 30,
+  "alta": 60,
+  "media": 120,
+  "baixa": 240,
 };
 
-/**
- * Janelas de horário útil (segunda a sexta).
- * Cada entrada: { inicio: hora, inicioMin: minuto, fim: hora, fimMin: minuto }
- */
 const HORARIOS_ATENDIMENTO = [
-  { inicio: 7,  inicioMin: 45, fim: 12, fimMin: 0 },   // 07:45–12:00
-  { inicio: 13, inicioMin: 30, fim: 18, fimMin: 0 },   // 13:30–18:00
+  { inicio: 7, inicioMin: 45, fim: 12, fimMin: 0 },    // 07:45-12:00
+  { inicio: 13, inicioMin: 30, fim: 18, fimMin: 0 },   // 13:30-18:00
 ];
 
-/**
- * Status que pausam o contador de SLA (comparação sem acentos, minúsculo).
- * Adicione ou remova conforme seu fluxo de trabalho.
- */
 const STATUS_PAUSA_SLA = new Set([
   "aguardando retorno do cliente",
   "aguardando terceiro/fornecedor",
-  "aguardando validacao do cliente",
   "aguardando validação do cliente",
+  "aguardando validacao do cliente",
   "em atendimento - desenvolvimento",
   "em atendimento desenvolvimento",
 ]);
 
-// ─── Utilitários ─────────────────────────────────────────────────
+// =========================
+// Funções utilitárias
+// =========================
 
-/** Remove acentos e normaliza para minúsculo. */
 function normalizar(texto) {
   if (!texto) return "";
-  return texto
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+
+  texto = texto.trim().toLowerCase();
+  // Remove acentos usando decomposição Unicode
+  texto = texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return texto;
 }
 
-/** Converte string ISO ou Date para Date. Retorna null se inválido. */
-function parseData(valor) {
-  if (!valor) return null;
-  const d = valor instanceof Date ? valor : new Date(valor);
-  return isNaN(d.getTime()) ? null : d;
+function parseData(dataStr) {
+  if (!dataStr) return null;
+  if (dataStr instanceof Date) return Number.isFinite(dataStr.getTime()) ? dataStr : null;
+  if (typeof dataStr === "object") {
+    if (dataStr.createdDate) return parseData(dataStr.createdDate);
+    if (dataStr.changedDate) return parseData(dataStr.changedDate);
+    return null;
+  }
+
+  try {
+    const parsed = new Date(dataStr);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  } catch (e) {
+    return null;
+  }
 }
 
-/** Retorna true se a data cair em dia útil (seg–sex). */
 function ehDiaUtil(data) {
   const dia = data.getUTCDay();
-  return dia !== 0 && dia !== 6;
+  return dia !== 0 && dia !== 6; // Não domingo (0) nem sábado (6)
 }
 
-/** Retorna true se o status pausar o SLA. */
+const businessClock = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+});
+function wallClock(date) {
+  const p = Object.fromEntries(businessClock.formatToParts(date).map(x => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+}
+function businessInstant(day, hour, minute) {
+  const target = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), hour, minute);
+  let instant = target;
+  // Convert a local business boundary to UTC using the IANA zone, including historical DST.
+  for (let i = 0; i < 3; i++) instant += target - wallClock(new Date(instant));
+  return instant;
+}
+function minutosUteisEntre(inicio, fim) {
+  inicio = parseData(inicio); fim = parseData(fim);
+  if (!inicio || !fim || fim <= inicio) return 0;
+  if (fim - inicio > 100 * 366 * 86400000) throw new Error('Intervalo de SLA inválido');
+  const day = new Date(wallClock(inicio)); day.setUTCHours(0, 0, 0, 0);
+  const last = new Date(wallClock(fim)); last.setUTCHours(0, 0, 0, 0);
+  let elapsed = 0;
+  while (day <= last) {
+    if (ehDiaUtil(day)) for (const p of HORARIOS_ATENDIMENTO) {
+      const start = Math.max(inicio.getTime(), businessInstant(day, p.inicio, p.inicioMin));
+      const end = Math.min(fim.getTime(), businessInstant(day, p.fim, p.fimMin));
+      elapsed += Math.max(0, end - start);
+    }
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
+  return elapsed / 60000;
+}
+
+function obterMinutosSLAPorUrgencia(ticket) {
+  const urgencia = normalizar(ticket.urgency || ticket.slaAgreementRule || "");
+
+  // Tentar match direto
+  if (urgencia in SLA_PRIMEIRO_CONTATO_MINUTOS) {
+    return SLA_PRIMEIRO_CONTATO_MINUTOS[urgencia];
+  }
+
+  // Tentar match parcial
+  if (urgencia.includes("critica")) return 30;
+  if (urgencia.includes("alta")) return 60;
+  if (urgencia.includes("media")) return 120;
+  if (urgencia.includes("baixa")) return 240;
+
+  // Default: Média (2 horas úteis)
+  return 120;
+}
+
 function ehStatusPausado(status) {
   return STATUS_PAUSA_SLA.has(normalizar(status));
 }
 
-// ─── Tempo útil ──────────────────────────────────────────────────
+// =========================
+// Primeiro contato
+// =========================
 
-/**
- * Calcula minutos úteis entre dois instantes (Date).
- * Considera apenas dias úteis e as janelas em HORARIOS_ATENDIMENTO.
- *
- * @param {Date} inicio
- * @param {Date} fim
- * @returns {number} minutos úteis
- */
-function minutosUteisEntre(inicio, fim) {
-  if (!inicio || !fim || fim <= inicio) return 0;
-
-  let total = 0;
-  const diaAtual = new Date(inicio);
-  diaAtual.setUTCHours(0, 0, 0, 0);
-
-  const diaFinal = new Date(fim);
-  diaFinal.setUTCHours(0, 0, 0, 0);
-
-  while (diaAtual <= diaFinal) {
-    if (ehDiaUtil(diaAtual)) {
-      for (const janela of HORARIOS_ATENDIMENTO) {
-        const jInicio = new Date(diaAtual);
-        jInicio.setUTCHours(janela.inicio, janela.inicioMin, 0, 0);
-
-        const jFim = new Date(diaAtual);
-        jFim.setUTCHours(janela.fim, janela.fimMin, 0, 0);
-
-        const de = new Date(Math.max(inicio.getTime(), jInicio.getTime()));
-        const ate = new Date(Math.min(fim.getTime(), jFim.getTime()));
-
-        if (ate > de) {
-          total += Math.floor((ate - de) / 60000);
-        }
-      }
-    }
-    diaAtual.setUTCDate(diaAtual.getUTCDate() + 1);
-  }
-
-  return total;
-}
-
-// ─── Primeiro contato ─────────────────────────────────────────────
-
-/**
- * Encontra a primeira ação pública feita por um agente (não pelo cliente).
- *
- * Critérios:
- *  - action.type === 2  (ação pública)
- *  - action.isDeleted é falso
- *  - action.createdBy.id NÃO está em ticket.clients nem é ticket.createdBy
- *
- * @param {object} ticket
- * @returns {{ actionId, createdDate: Date, createdBy: string } | null}
- */
 function encontrarPrimeiroContato(ticket) {
+  /**
+   * Considera primeiro contato a primeira ação pública feita por um agente,
+   * excluindo ações criadas pelo solicitante/cliente.
+   */
+
   const actions = ticket.actions || [];
 
-  // Monta conjunto de IDs de clientes/solicitantes
   const clientesIds = new Set();
-  (ticket.clients || []).forEach(c => {
-    if (c.id != null) clientesIds.add(String(c.id));
+  (ticket.clients || []).forEach(cliente => {
+    if (cliente.id) clientesIds.add(String(cliente.id));
   });
-  if (ticket.createdBy && ticket.createdBy.id != null) {
+
+  if (ticket.createdBy && ticket.createdBy.id) {
     clientesIds.add(String(ticket.createdBy.id));
   }
 
-  // Ordena ações cronologicamente
-  const ordenadas = [...actions].sort((a, b) => {
-    const da = parseData(a.createdDate) || new Date(0);
-    const db = parseData(b.createdDate) || new Date(0);
-    return da - db;
+  const acoesOrdenadas = [...actions].sort((a, b) => {
+    const dataA = parseData(a.createdDate) || new Date(0);
+    const dataB = parseData(b.createdDate) || new Date(0);
+    return dataA - dataB;
   });
 
-  for (const action of ordenadas) {
+  for (const action of acoesOrdenadas) {
     if (action.isDeleted) continue;
-    if (action.type !== 2) continue;
+    if (action.type !== 2) continue; // type 2 = ação pública
 
-    const autorId = String((action.createdBy || {}).id ?? "");
-    if (clientesIds.has(autorId)) continue;
+    const criadoPorId = String((action.createdBy || {}).id || "");
+    if (clientesIds.has(criadoPorId)) continue;
 
+    if (!parseData(action.createdDate)) continue;
     return {
-      actionId:    action.id,
+      actionId: action.id,
       createdDate: parseData(action.createdDate),
-      createdBy:   (action.createdBy || {}).businessName || null,
+      createdBy: (action.createdBy || {}).businessName,
+      description: action.description,
     };
   }
 
   return null;
 }
 
-// ─── Linha do tempo de status ─────────────────────────────────────
+// =========================
+// Pausas de SLA
+// =========================
 
-/**
- * Constrói a linha do tempo de mudanças de status.
- * Prefere ticket.statusHistories; usa action.status como fallback.
- *
- * @param {object} ticket
- * @returns {{ data: Date, status: string }[]} ordenado por data
- */
 function montarLinhaDoTempoStatus(ticket) {
+  /**
+   * Preferência:
+   * 1. Usa statusHistories, se existir.
+   * 2. Caso contrário, usa os status das actions como aproximação.
+   */
+
   const eventos = [];
 
-  const fonte =
-    ticket.statusHistories && ticket.statusHistories.length > 0
-      ? ticket.statusHistories.map(h => ({ data: parseData(h.changedDate), status: h.status }))
-      : (ticket.actions || []).map(a => ({ data: parseData(a.createdDate), status: a.status }));
+  if (ticket.statusHistories && ticket.statusHistories.length > 0) {
+    ticket.statusHistories.forEach(item => {
+      const data = parseData(item.changedDate);
+      const status = item.status;
 
-  for (const e of fonte) {
-    if (e.data && e.status) eventos.push(e);
+      if (data && status) {
+        eventos.push({ data, status });
+      }
+    });
+  } else {
+    (ticket.actions || []).forEach(action => {
+      const data = parseData(action.createdDate);
+      const status = action.status;
+
+      if (data && status) {
+        eventos.push({ data, status });
+      }
+    });
   }
 
-  return eventos.sort((a, b) => a.data - b.data);
+  eventos.sort((a, b) => a.data - b.data);
+
+  return eventos;
 }
 
-// ─── Minutos úteis com pausas ─────────────────────────────────────
-
-/**
- * Como minutosUteisEntre, mas desconta períodos em status de pausa.
- *
- * @param {object} ticket
- * @param {Date} inicio
- * @param {Date} fim
- * @returns {number} minutos úteis ativos
- */
 function calcularMinutosUteisComPausas(ticket, inicio, fim) {
+  /**
+   * Calcula minutos úteis entre abertura e primeiro contato,
+   * descontando períodos em status de pausa.
+   */
+
   const eventos = montarLinhaDoTempoStatus(ticket);
 
   if (eventos.length === 0) {
@@ -213,24 +211,30 @@ function calcularMinutosUteisComPausas(ticket, inicio, fim) {
   }
 
   let total = 0;
-  let statusAtual = eventos[0].status;
+  let statusAtual = "Novo"; // A later pause must not apply retroactively to ticket creation.
   let cursor = inicio;
 
   for (const evento of eventos) {
-    if (evento.data <= inicio) {
+    const dataEvento = evento.data;
+
+    if (dataEvento <= inicio) {
       statusAtual = evento.status;
       continue;
     }
-    if (evento.data >= fim) break;
 
-    if (!ehStatusPausado(statusAtual)) {
-      total += minutosUteisEntre(cursor, evento.data);
+    if (dataEvento >= fim) {
+      break;
     }
 
-    cursor = evento.data;
+    if (!ehStatusPausado(statusAtual)) {
+      total += minutosUteisEntre(cursor, dataEvento);
+    }
+
+    cursor = dataEvento;
     statusAtual = evento.status;
   }
 
+  // Último trecho até o primeiro contato
   if (cursor < fim && !ehStatusPausado(statusAtual)) {
     total += minutosUteisEntre(cursor, fim);
   }
@@ -238,100 +242,68 @@ function calcularMinutosUteisComPausas(ticket, inicio, fim) {
   return total;
 }
 
-// ─── Urgência → prazo ─────────────────────────────────────────────
+// =========================
+// Cálculo principal
+// =========================
 
-/**
- * Determina o prazo em minutos a partir da urgência do ticket.
- * Tenta ticket.urgency primeiro, depois ticket.slaAgreementRule.
- *
- * @param {object} ticket
- * @returns {number} prazo em minutos
- */
-function obterMinutosSLAPorUrgencia(ticket) {
-  const texto = normalizar(ticket.urgency || ticket.slaAgreementRule || "");
-
-  if (texto in SLA_PRIMEIRO_CONTATO_MINUTOS) return SLA_PRIMEIRO_CONTATO_MINUTOS[texto];
-  if (texto.includes("critica")) return SLA_PRIMEIRO_CONTATO_MINUTOS.critica;
-  if (texto.includes("alta"))    return SLA_PRIMEIRO_CONTATO_MINUTOS.alta;
-  if (texto.includes("media"))   return SLA_PRIMEIRO_CONTATO_MINUTOS.media;
-  if (texto.includes("baixa"))   return SLA_PRIMEIRO_CONTATO_MINUTOS.baixa;
-
-  return SLA_PRIMEIRO_CONTATO_MINUTOS.media; // padrão: Média
-}
-
-// ─── Ponto de entrada principal ───────────────────────────────────
-
-/**
- * Calcula o SLA de primeiro contato de um ticket.
- *
- * @param {object} ticket - Objeto do ticket (ver estrutura em sla-calculo.md)
- * @returns {{
- *   ticketId: any,
- *   urgency: string,
- *   slaAgreementRule: string,
- *   slaPrevistoMinutos: number,
- *   abertura: string|null,
- *   primeiroContatoEncontrado: boolean,
- *   primeiroContato: { actionId, createdDate: string, createdBy: string } | null,
- *   minutosUteisConsumidos: number|null,
- *   dentroDoSLA: boolean|null,
- *   minutosEstouro: number|null
- * }}
- */
 function calcularSLAPrimeiroContato(ticket) {
   const abertura = parseData(ticket.createdDate);
+  const primeiroContato = encontrarPrimeiroContato(ticket);
+
   const slaPrevistoMinutos = obterMinutosSLAPorUrgencia(ticket);
 
   const resultado = {
-    ticketId:                 ticket.id,
-    urgency:                  ticket.urgency     || null,
-    slaAgreementRule:         ticket.slaAgreementRule || null,
+    ticketId: ticket.id,
+    urgency: ticket.urgency,
+    slaAgreementRule: ticket.slaAgreementRule,
     slaPrevistoMinutos,
-    abertura:                 abertura ? abertura.toISOString() : null,
+    abertura: abertura ? abertura.toISOString() : null,
     primeiroContatoEncontrado: false,
-    primeiroContato:          null,
-    minutosUteisConsumidos:   null,
-    dentroDoSLA:              null,
-    minutosEstouro:           null,
+    primeiroContato: null,
+    minutosUteisConsumidos: null,
+    dentroDoSLA: null,
+    minutosEstouro: null,
   };
 
-  if (!abertura) return resultado;
+  if (!abertura) {
+    return resultado;
+  }
 
-  const primeiroContato = encontrarPrimeiroContato(ticket);
-  if (!primeiroContato) return resultado;
+  if (!primeiroContato) {
+    return resultado;
+  }
+
+  const dataPrimeiroContato = primeiroContato.createdDate;
 
   const minutosConsumidos = calcularMinutosUteisComPausas(
     ticket,
     abertura,
-    primeiroContato.createdDate
+    dataPrimeiroContato
   );
+
+  const dentrodoSLA = minutosConsumidos <= slaPrevistoMinutos;
 
   resultado.primeiroContatoEncontrado = true;
   resultado.primeiroContato = {
-    actionId:    primeiroContato.actionId,
-    createdDate: primeiroContato.createdDate.toISOString(),
-    createdBy:   primeiroContato.createdBy,
+    actionId: primeiroContato.actionId,
+    createdDate: dataPrimeiroContato.toISOString(),
+    createdBy: primeiroContato.createdBy,
   };
   resultado.minutosUteisConsumidos = minutosConsumidos;
-  resultado.dentroDoSLA            = minutosConsumidos <= slaPrevistoMinutos;
-  resultado.minutosEstouro         = Math.max(0, minutosConsumidos - slaPrevistoMinutos);
+  resultado.dentroDoSLA = dentrodoSLA;
+  resultado.minutosEstouro = Math.max(0, minutosConsumidos - slaPrevistoMinutos);
 
   return resultado;
 }
 
-// ─── Exportações ──────────────────────────────────────────────────
-
-// Suporte a CommonJS (Node.js) e carregamento direto no browser
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    calcularSLAPrimeiroContato,
-    minutosUteisEntre,
-    calcularMinutosUteisComPausas,
-    encontrarPrimeiroContato,
-    normalizar,
-    parseData,
-  };
-}
+if (typeof module !== "undefined" && module.exports) module.exports = {
+  calcularSLAPrimeiroContato,
+  minutosUteisEntre,
+  normalizar,
+  parseData,
+  calcularMinutosUteisComPausas,
+  encontrarPrimeiroContato,
+};
 
 // ─── Exemplo de uso (execute: node sla-standalone.js) ────────────
 

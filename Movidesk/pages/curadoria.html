@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
+<script src="/js/html-safety.js"></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Performance Insights - Curadoria</title>
@@ -976,7 +977,7 @@ function showSlaModal(dentro, ownerName) {
             const badge = isClienteFault
                 ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-900 text-blue-300 shrink-0">Atraso do cliente</span>`
                 : '';
-            return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center justify-between gap-3 ${isClienteFault ? 'cursor-pointer hover:bg-surface-container transition-colors' : ''}"${isClienteFault ? ` onclick="showSlaEstouroDetail('${escapeHtml(String(r.ticket_id))}')"` : ''}>
+            return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center justify-between gap-3 ${isClienteFault ? 'cursor-pointer hover:bg-surface-container transition-colors' : ''}"${isClienteFault ? ` onclick="showSlaEstouroDetail(${hubJsArg(String(r.ticket_id))})"` : ''}>
                 <div class="flex items-center gap-2 min-w-0">
                     <span class="font-label-md text-label-md text-primary font-bold shrink-0">#${escapeHtml(String(r.ticket_id))}</span>
                     <span class="text-xs text-on-surface-variant truncate">${detalhe}</span>
@@ -1195,7 +1196,7 @@ function renderComparisonBars(metric, ownerStats) {
         return `
         <div class="flex items-center gap-3 py-1 px-1 -mx-1 rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors"
              title="${escapeHtml(it.name)}: ${escapeHtml(metric.formatValue(it.value))}"
-             onclick="switchCuradoriaView('atendente');selectOwner('${escapeHtml(it.name)}')">
+             onclick="switchCuradoriaView('atendente');selectOwner(${hubJsArg(it.name)})">
             <span class="text-xs text-on-surface-variant w-28 truncate shrink-0">${escapeHtml(shortName)}</span>
             <div class="flex-1 h-4 rounded-r bg-surface-container relative overflow-hidden">
                 <div class="h-full rounded-r transition-all duration-500" style="width:${pct}%;background:${color}"></div>
@@ -1304,32 +1305,22 @@ MENOR SCORE (podem precisar de apoio): ${values.precisamApoio}`;
 }
 
 async function callTeamNarrativeLLM(systemPrompt, userPrompt) {
-    const gptKey = window._gptApiKey || null;
-    if (!gptKey) throw new Error('Chave da API GPT não configurada em Configurações → Inteligência Artificial.');
+    const aiConfigured = window._aiConfigured || false;
+    if (!aiConfigured) throw new Error('Chave da API GPT não configurada em Configurações → Inteligência Artificial.');
 
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const resp = await fetch(`${API_BASE}/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({
-            model: 'gpt-4o-mini', temperature: 0.3, max_tokens: 700,
+            kind: 'narrativa',
             messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }]
         })
     });
     const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Falha ao gerar análise');
     const text = data.choices?.[0]?.message?.content?.trim();
     if (!text) throw new Error(data.error?.message || 'A IA não retornou nenhum texto.');
 
-    try {
-        const usage = data.usage || {};
-        if ((usage.prompt_tokens || 0) > 0) {
-            fetch(`${API_BASE}/config/ai-usage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                body: JSON.stringify({ source: 'team_narrative_curadoria', model: 'gpt-4o-mini',
-                    input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0 })
-            }).catch(() => {});
-        }
-    } catch (_) {}
 
     return text;
 }
@@ -1403,7 +1394,7 @@ function renderCuradoriaGeralView() {
     const compCardsHtml = sortedComp.map((c, idx) => renderSingleCompCard(c, idx, t.teamCatCount, aiResult, false, 'team')).join('');
 
     const rankingRows = t.ownerStats.map((o, idx) => `
-        <tr class="border-b border-outline-variant/30 cursor-pointer transition-colors ${idx === 0 ? 'bg-secondary/25 hover:bg-secondary/35' : 'hover:bg-surface-container-low'}" onclick="switchCuradoriaView('atendente');selectOwner('${escapeHtml(o.name)}')">
+        <tr class="border-b border-outline-variant/30 cursor-pointer transition-colors ${idx === 0 ? 'bg-secondary/25 hover:bg-secondary/35' : 'hover:bg-surface-container-low'}" onclick="switchCuradoriaView('atendente');selectOwner(${hubJsArg(o.name)})">
             <td class="py-2 px-3 text-on-surface-variant">${idx + 1}</td>
             <td class="py-2 px-3 font-medium">
                 <div class="flex items-center gap-2.5">
@@ -1575,7 +1566,7 @@ async function apiCall(endpoint, method='GET', body=null) {
     if(!res.ok) throw new Error(`API error: ${res.statusText}`);
     return res.json();
 }
-function escapeHtml(str) { const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
+function escapeHtml(str) { return hubEscapeHtml(str); }
 function normalizeOwnerName(name) { return String(name||'').toLowerCase().trim(); }
 function photoByName(name) { return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=random`; }
 
@@ -1655,8 +1646,8 @@ async function loadPerfCategories() {
 
     // Carrega chave GPT separadamente, sem bloquear
     try {
-        const keyData = await apiCall('/config/gpt-key-for-client').catch(()=>null);
-        if(keyData?.apiKey) window._gptApiKey = keyData.apiKey;
+        const keyData = await apiCall('/config/ai-status').catch(()=>null);
+        window._aiConfigured = Boolean(keyData?.configured);
     } catch(_) {}
 }
 
@@ -1795,12 +1786,12 @@ function showCompetenciaModal(key, scope = 'owner') {
 }
 
 // Chama a IA para classificar UM lote de chamados (~15-20) e retorna { ticket_id: {chave: percentual} }
-async function classifyCompetenciasBatch(batchRows, owner, gptKey, keyByNorm) {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+async function classifyCompetenciasBatch(batchRows, owner, keyByNorm) {
+    const resp = await fetch(`${API_BASE}/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({
-            model: 'gpt-4o-mini', temperature: 0, max_tokens: 1600,
+            kind: 'competencias',
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: CURADORIA_PROMPT_COMPETENCIAS },
@@ -1809,25 +1800,15 @@ async function classifyCompetenciasBatch(batchRows, owner, gptKey, keyByNorm) {
         })
     });
     const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Falha ao gerar análise');
     const raw = data.choices?.[0]?.message?.content?.trim() || '{}';
 
-    try {
-        const usage = data.usage || {};
-        if ((usage.prompt_tokens || 0) > 0) {
-            fetch(`${API_BASE}/config/ai-usage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                body: JSON.stringify({ source: 'competencias_curadoria', model: 'gpt-4o-mini',
-                    input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0,
-                    meta: { owner, batchSize: batchRows.length } })
-            }).catch(() => {});
-        }
-    } catch (_) {}
 
     const rawResults = JSON.parse(raw).results || {};
     const out = {};
     batchRows.forEach(r => {
-        const rawItem = rawResults[String(r.ticket_id)] || {};
+        const rawItem = rawResults[String(r.ticket_id)];
+        if (!rawItem || typeof rawItem !== 'object' || Array.isArray(rawItem)) throw new Error('A IA omitiu um chamado; avaliação mantida pendente');
         const remapped = {};
         Object.entries(rawItem).forEach(([k, v]) => {
             const real = keyByNorm[normalizeCompKey(k)];
@@ -1843,8 +1824,8 @@ async function classifyCompetenciasBatch(batchRows, owner, gptKey, keyByNorm) {
 // gravando o resultado no banco a cada lote. Chamados já processados nunca são reanalisados.
 const COMPETENCIAS_BATCH_SIZE = 15;
 async function processOwnerCompetencias(ownerRows, owner, onBatchDone) {
-    const gptKey = window._gptApiKey || null;
-    if (!gptKey) return;
+    const aiConfigured = window._aiConfigured || false;
+    if (!aiConfigured) return;
     const keyByNorm = competenciaKeyMap();
 
     let pending = ownerRows.filter(r => !r.competencias);
@@ -1855,27 +1836,19 @@ async function processOwnerCompetencias(ownerRows, owner, onBatchDone) {
         let results = {};
         if (withContent.length) {
             try {
-                results = await classifyCompetenciasBatch(withContent, owner, gptKey, keyByNorm);
+                results = await classifyCompetenciasBatch(withContent, owner, keyByNorm);
             } catch (e) {
-                console.warn('[AI] falha ao classificar lote de competências:', e.message);
+                throw e; // Keep tickets pending when the provider fails.
             }
         }
 
         const updates = batch.map(r => {
             const comp = results[r.ticket_id] || {};
-            r.competencias = comp; // marca como processado mesmo vazio, evita reprocessar
             return { ticket_id: r.ticket_id, competencias: comp };
         });
 
-        try {
-            await fetch(`${API_BASE}/curadoria/competencias`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                body: JSON.stringify({ updates })
-            });
-        } catch (e) {
-            console.warn('[AI] falha ao salvar competências:', e.message);
-        }
+        await apiCall('/curadoria/competencias', 'POST', { updates });
+        updates.forEach(u => { const row = batch.find(r => r.ticket_id === u.ticket_id); row.competencias = u.competencias; });
 
         if (onBatchDone) onBatchDone();
         pending = pending.slice(COMPETENCIAS_BATCH_SIZE);
@@ -2249,7 +2222,7 @@ function renderSingleCompCard(c, idx, catCount, aiResult, isLoading, scope = 'ow
         ? `<div class="comp-card-overlay"><div class="comp-card-spinner"></div></div>`
         : '';
     const doneClass = !isLoading ? ' comp-card--done' : '';
-    const clickAttr = !isLoading ? ` onclick="showCompetenciaModal('${escapeHtml(c.key)}','${scope}')"` : '';
+    const clickAttr = !isLoading ? ` onclick="showCompetenciaModal(${hubJsArg(c.key)},'${scope}')"` : '';
     return `<div class="comp-card${doneClass}" data-comp-key="${escapeHtml(c.key)}" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${idx*60}ms;${!isLoading ? 'cursor:pointer' : ''}"${clickAttr}>
         ${overlayHtml}
         <div class="comp-card-header">
@@ -2330,7 +2303,7 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
         return;
     }
 
-    if (!window._gptApiKey) {
+    if (!window._aiConfigured) {
         // Sem chave GPT configurada — não há como classificar os chamados pendentes.
         const sorted = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
         barsEl.innerHTML = sorted.map((c, idx) => renderSingleCompCard(c, idx, catCount, null, false)).join('');
@@ -2369,7 +2342,7 @@ function renderOwnerStrip(rows,filtered) {
         const initials=owner.name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
         const teamShort=owner.team?owner.team.replace(/\s*-\s*(Sup(orte)?|Sis(temas)?).*/i,'').trim():'';
         return `<div class="flex flex-col items-center gap-1.5 cursor-pointer group transition-all duration-150 w-[88px] shrink-0 px-1 pt-1 pb-2 rounded-xl ${isSel?'bg-secondary/10 dark:bg-secondary/20':'hover:bg-surface-container'}"
-            data-owner="${escapeHtml(owner.name)}" onclick="selectOwner('${escapeHtml(owner.name)}')"
+            data-owner="${escapeHtml(owner.name)}" onclick="selectOwner(${hubJsArg(owner.name)})"
             title="${escapeHtml(owner.name)}${owner.team?' · '+escapeHtml(owner.team):''}">
             <div class="relative">
                 <div class="w-14 h-14 rounded-full ${isSel?'ring-2 ring-secondary ring-offset-1 ring-offset-background':'ring-1 ring-outline-variant/40'} transition-all group-hover:scale-105">
@@ -2399,13 +2372,13 @@ function renderFocusCard(owner, rows) {
     const causaEntries=Object.entries(causaCount).sort((a,b)=>b[1]-a[1]);
     const causaMais=causaEntries[0];
     const causaOnclick = causaMais
-        ? `showCausaModal(${JSON.stringify(causaEntries).replace(/"/g,'&quot;')}, '${escapeHtml(owner)}')`
+        ? `showCausaModal(${hubEscapeHtml(JSON.stringify(causaEntries))}, ${hubJsArg(owner)})`
         : '';
     const moduloCount={};ownerRows.forEach(row=>{const m=String(row.modulo_x_rotina||'Sem módulo').trim();moduloCount[m]=(moduloCount[m]||0)+1;});
     const moduloEntries=Object.entries(moduloCount).sort((a,b)=>b[1]-a[1]);
     const moduloMais=moduloEntries[0];
     const moduloOnclick = moduloMais
-        ? `showModuloModal(${JSON.stringify(moduloEntries).replace(/"/g,'&quot;')}, '${escapeHtml(owner)}')`
+        ? `showModuloModal(${hubEscapeHtml(JSON.stringify(moduloEntries))}, ${hubJsArg(owner)})`
         : '';
     return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Foco de Atendimento</h3>
@@ -2609,7 +2582,7 @@ function renderSatisfactionCard(owner, rows) {
     const distCount = {};
     withSurvey.forEach(r => { const n = Number(r.satisfacao_pesquisa); distCount[n] = (distCount[n] || 0) + 1; });
     const distHtml = [5, 4, 3, 2, 1].filter(n => distCount[n]).map(n => `
-        <div class="flex items-center justify-between text-sm py-1 px-1 -mx-1 rounded cursor-pointer hover:bg-surface-container-low transition-colors" onclick="showSatisfactionModal(${n}, '${escapeHtml(owner)}')">
+        <div class="flex items-center justify-between text-sm py-1 px-1 -mx-1 rounded cursor-pointer hover:bg-surface-container-low transition-colors" onclick="showSatisfactionModal(${n}, ${hubJsArg(owner)})">
             <span>${SURVEY_NOTA_LABELS[n]}</span>
             <span class="font-bold">${distCount[n]}</span>
         </div>`).join('');
@@ -2621,7 +2594,7 @@ function renderSatisfactionCard(owner, rows) {
         const nota = Number(r.satisfacao_pesquisa);
         const color = nota >= 4 ? '#22c55e' : nota === 3 ? '#f59e0b' : '#ef4444';
         const texto = String(r.satisfacao_pesquisa_comentario);
-        return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 mb-2 cursor-pointer hover:border-primary/50 transition-colors" onclick="showCommentDetailModal('${escapeHtml(String(r.ticket_id))}')">
+        return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 mb-2 cursor-pointer hover:border-primary/50 transition-colors" onclick="showCommentDetailModal(${hubJsArg(String(r.ticket_id))})">
             <div class="flex justify-between items-center mb-1">
                 <span class="text-xs font-bold text-primary">#${escapeHtml(String(r.ticket_id))}</span>
                 <span class="text-xs font-bold" style="color:${color}">${SURVEY_NOTA_LABELS[nota] || nota}</span>
@@ -2678,7 +2651,7 @@ function renderScoreCard(owner, rows) {
         <div class="flex justify-between items-start mb-5">
             <span class="font-label-md text-label-md text-primary font-bold uppercase">Score de Performance</span>
             <div class="flex items-center gap-2">
-                <button onclick="showTicketsSampleModal(${JSON.stringify(rows.slice(0,10).map(r=>({id:r.ticket_id,org:r.organizacao,sol:r.solicitante,status:r.status}))).replace(/"/g,'&quot;')})" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Amostragem de tickets"><span class="material-symbols-outlined">table_rows</span></button>
+                <button onclick="showTicketsSampleModal(${hubEscapeHtml(JSON.stringify(rows.slice(0,10).map(r=>({id:r.ticket_id,org:r.organizacao,sol:r.solicitante,status:r.status}))))})" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Amostragem de tickets"><span class="material-symbols-outlined">table_rows</span></button>
                 <button onclick="toggleScoringModal()" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Ver metodologia"><span class="material-symbols-outlined">info</span></button>
             </div>
         </div>
@@ -2908,14 +2881,14 @@ function renderAnalysisCard(owner, rows) {
     return `<div id="curadoria-analysis-card" class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <div class="flex justify-between items-center mb-8"><h3 class="font-headline-lg text-headline-lg text-primary">Análise de Padrão de Atendimento</h3></div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
-            <div class="bg-surface-container-low p-4 rounded-lg cursor-pointer hover:bg-surface-container transition-colors" onclick="showTicketsByUrgencyModal(${JSON.stringify(a.urgenciaTickets).replace(/"/g,'&quot;')})">
+            <div class="bg-surface-container-low p-4 rounded-lg cursor-pointer hover:bg-surface-container transition-colors" onclick="showTicketsByUrgencyModal(${hubEscapeHtml(JSON.stringify(a.urgenciaTickets))})">
                 <span class="font-label-md text-label-md text-outline block mb-1">Total de Tickets</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalTickets}">0</span>
             </div>
             <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Média de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.mediaAcoes}">0</span></div>
             <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Total de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalAcoes}">0</span></div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10" title="Baseado no SLA de resolução por severidade (SLA SUPORTE MOVIDESK.pdf)">
-            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(true, '${escapeHtml(owner)}')">
+            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(true, ${hubJsArg(owner)})">
                 ${renderPercentCircle(slaDentroPct, '#22c55e')}
                 <div>
                     <span class="font-label-md text-label-md text-outline block mb-1">Dentro do SLA</span>
@@ -2923,7 +2896,7 @@ function renderAnalysisCard(owner, rows) {
                     <span class="text-xs text-on-surface-variant"> chamado${slaDentro !== 1 ? 's' : ''}</span>
                 </div>
             </div>
-            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(false, '${escapeHtml(owner)}')">
+            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(false, ${hubJsArg(owner)})">
                 ${renderPercentCircle(slaForaPct, '#ef4444')}
                 <div>
                     <span class="font-label-md text-label-md text-outline block mb-1">Fora do SLA</span>

@@ -72,18 +72,11 @@ router.get('/gpt-key', authMiddleware, requireRole('admin'), (req, res) => {
   });
 });
 
-// GET - Retorna chave GPT descriptografada para uso no frontend (qualquer usuário autenticado)
-// A chave é usada para chamadas diretas à OpenAI a partir do browser
-router.get('/gpt-key-for-client', authMiddleware, (req, res) => {
+// Only configuration status is public to authorized AI users; never return credentials.
+router.get('/ai-status', authMiddleware, requireTabAccess('chamados'), (req, res) => {
   getConfigValue('openai_api_key', (err, row) => {
-    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
-    if (!row) return res.json({ configured: false, apiKey: null });
-    try {
-      const apiKey = decryptToken(row.value);
-      res.json({ configured: true, apiKey });
-    } catch {
-      res.json({ configured: false, apiKey: null });
-    }
+    if (err) return res.status(500).json({ error: 'Erro ao consultar configuração' });
+    res.json({ configured: Boolean(row?.value) });
   });
 });
 
@@ -157,7 +150,7 @@ router.get('/database', authMiddleware, requireRole('admin'), (req, res) => {
         port: state.db_port || '',
         name: state.db_name || '',
         user: state.db_user || '',
-        password: state.db_password || '',
+        passwordConfigured: Boolean(state.db_password),
         dialect: state.db_dialect || 'postgres'
       });
     }
@@ -180,7 +173,7 @@ router.get('/database', authMiddleware, requireRole('admin'), (req, res) => {
 router.post('/database', authMiddleware, requireRole('admin'), (req, res) => {
   const { host, port, name, user, password, dialect } = req.body;
 
-  if (!host || !port || !name || !user || !password) {
+  if (!host || !port || !name || !user) {
     return res.status(400).json({ error: 'Host, porta, nome, usuário e senha são obrigatórios' });
   }
 
@@ -189,10 +182,10 @@ router.post('/database', authMiddleware, requireRole('admin'), (req, res) => {
     ['db_port', String(port).trim()],
     ['db_name', name.trim()],
     ['db_user', user.trim()],
-    ['db_password', encryptToken(password)],
     ['db_dialect', (dialect || 'postgres').trim()]
   ];
 
+  if (typeof password === 'string' && password) entries.push(['db_password', encryptToken(password)]);
   let remaining = entries.length;
   let failed = false;
 
@@ -1008,7 +1001,7 @@ router.get('/ai-usage', authMiddleware, requireRole('admin'), (req, res) => {
 // ============================================================
 
 // POST - salvar snapshot do score de um colaborador
-router.post('/performance-snapshot', authMiddleware, (req, res) => {
+router.post('/performance-snapshot', authMiddleware, requireTabAccess('chamados'), (req, res) => {
   const {
     owner_name, score, seniority_label, seniority_reason,
     total_tickets, avg_satisfaction, first_contact_rate,
@@ -1017,7 +1010,7 @@ router.post('/performance-snapshot', authMiddleware, (req, res) => {
     gaps_count, breakdown, period_start, period_end
   } = req.body;
 
-  if (!owner_name || score == null) {
+  if (typeof owner_name !== 'string' || !owner_name.trim() || !Number.isFinite(score) || score < 0 || score > 1000) {
     return res.status(400).json({ error: 'Campos obrigatórios: owner_name, score' });
   }
 
@@ -1045,9 +1038,9 @@ router.post('/performance-snapshot', authMiddleware, (req, res) => {
 });
 
 // GET - histórico de scores de um colaborador
-router.get('/performance-history', authMiddleware, (req, res) => {
+router.get('/performance-history', authMiddleware, requireTabAccess('chamados'), (req, res) => {
   const owner = req.query.owner;
-  const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
+  const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 50, 200));
   if (!owner) return res.status(400).json({ error: 'Parâmetro owner é obrigatório' });
 
   db.all(
@@ -1064,7 +1057,7 @@ router.get('/performance-history', authMiddleware, (req, res) => {
 });
 
 // GET - último snapshot de todos os colaboradores (para listagens/ranking)
-router.get('/performance-history-latest', authMiddleware, (req, res) => {
+router.get('/performance-history-latest', authMiddleware, requireTabAccess('chamados'), (req, res) => {
   db.all(
     `SELECT DISTINCT ON (owner_name) *
      FROM performance_score_history
@@ -1126,7 +1119,7 @@ function requireTabAccess(tabKey) {
           return res.status(500).json({ error: 'Erro ao verificar permissão' });
         }
         const allowed = perms[roleName] || [];
-        if (!allowed.includes(tabKey)) {
+        if (!(Array.isArray(tabKey) ? tabKey : [tabKey]).some(tab => allowed.includes(tab))) {
           return res.status(403).json({ error: 'Seu perfil não tem acesso a esta área.' });
         }
         next();

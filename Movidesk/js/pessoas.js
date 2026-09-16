@@ -119,13 +119,13 @@ function pessoasRenderTable(users) {
             <td>
                 <div class="pt-actions">
                     <button class="pt-btn pt-btn-edit" onclick="pessoasOpenEdit(${u.id})" title="Editar">✏️</button>
-                    <button class="pt-btn pt-btn-reset" onclick="pessoasRevogarSessoes(${u.id}, '${escapeHtml(u.name)}')" title="Encerrar sessões ativas">🔒</button>
+                    <button class="pt-btn pt-btn-reset" onclick="pessoasRevogarSessoes(${u.id}, ${hubJsArg(u.name)})" title="Encerrar sessões ativas">🔒</button>
                     <button class="pt-btn ${u.is_active ? 'pt-btn-deact' : 'pt-btn-act'}"
                         onclick="pessoasToggleAtivo(${u.id}, ${u.is_active})"
                         title="${u.is_active ? 'Desativar' : 'Ativar'}">
                         ${u.is_active ? '🚫' : '✅'}
                     </button>
-                    <button class="pt-btn pt-btn-delete" onclick="pessoasDelete(${u.id}, '${escapeHtml(u.name)}')" title="Excluir">🗑️</button>
+                    <button class="pt-btn pt-btn-delete" onclick="pessoasDelete(${u.id}, ${hubJsArg(u.name)})" title="Excluir">🗑️</button>
                 </div>
             </td>
         </tr>`;
