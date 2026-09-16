@@ -20,20 +20,38 @@ const CF_MANIFESTO_DIR  = 38595; // Manifesto direcionado a
 // ===== GET /ouvidoria =====
 router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
   try {
-    const result = await db.queryDatabase(
-      OUVIDORIA_DB,
-      `SELECT
-         ticket_id, organizacao, organizacao_id, assunto_ouvidoria,
-         descricao_ouvidoria, total_chamados_anteriores, analise,
-         chamados_organizacao_ids, chamados_relacionados, servicos_chamados,
-         servico_ouvidoria, servico_ouvidoria_nome,
-         tipo, manifesto_procedente, manifesto_direcionado_a,
-         criado_em, status_movidesk, base_status, resolvido_em, sincronizado_em
-       FROM public.ouvidoria
-       WHERE base_status IS NULL
-          OR base_status NOT IN ('Resolved','Closed','Canceled','Resolvido','Fechado','Cancelado')
-       ORDER BY criado_em DESC`
-    );
+    const result = await db.query(`
+      SELECT
+        t.ticket_id::varchar                                                         AS ticket_id,
+        COALESCE(tc.organizacao_nome, t.clientorganization)                          AS organizacao,
+        tc.organizacao_id,
+        t.subject                                                                    AS assunto_ouvidoria,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_MANIFESTO} THEN cf.valor_texto END) AS tipo,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_PROC} THEN cf.valor_texto END) AS manifesto_procedente,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_DIR}  THEN cf.valor_texto END) AS manifesto_direcionado_a,
+        t.createddate   AS criado_em,
+        t.status        AS status_movidesk,
+        t.basestatus    AS base_status,
+        t.resolved_in   AS resolvido_em
+      FROM silver.ticket t
+      JOIN silver.ticket_campo_customizado cf_class
+        ON cf_class.ticket_id = t.ticket_id
+        AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
+        AND cf_class.valor_texto = 'Ouvidoria'
+      LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id
+      LEFT JOIN LATERAL (
+        SELECT organizacao_id, organizacao_nome
+        FROM silver.ticket_cliente
+        WHERE ticket_id = t.ticket_id
+        LIMIT 1
+      ) tc ON true
+      WHERE t.basestatus IS NULL
+         OR t.basestatus NOT IN ('Resolved','Closed','Canceled','Resolvido','Fechado','Cancelado')
+      GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
+               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
+               t.clientorganization
+      ORDER BY t.createddate DESC
+    `);
     res.json(result.rows || []);
   } catch (error) {
     console.error('Erro ao buscar ouvidoria:', error);
@@ -43,22 +61,40 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
 
 // ===== GET /ouvidoria/:ticketId =====
 router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
-  const ticketId = Number(req.params.ticketId);
-  if (!Number.isFinite(ticketId)) return res.status(400).json({ error: 'ticket_id inválido' });
+  const ticketId = String(req.params.ticketId).trim();
+  if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
 
   try {
-    const result = await db.queryDatabase(
-      OUVIDORIA_DB,
-      `SELECT
-         ticket_id, organizacao, organizacao_id, assunto_ouvidoria,
-         descricao_ouvidoria, total_chamados_anteriores, analise,
-         chamados_organizacao_ids, chamados_relacionados, servicos_chamados,
-         servico_ouvidoria, servico_ouvidoria_nome,
-         tipo, manifesto_procedente, manifesto_direcionado_a,
-         criado_em, status_movidesk, base_status, resolvido_em, sincronizado_em
-       FROM public.ouvidoria WHERE ticket_id = $1`,
-      [String(ticketId)]
-    );
+    const result = await db.query(`
+      SELECT
+        t.ticket_id::varchar                                                         AS ticket_id,
+        COALESCE(tc.organizacao_nome, t.clientorganization)                          AS organizacao,
+        tc.organizacao_id,
+        t.subject                                                                    AS assunto_ouvidoria,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_MANIFESTO} THEN cf.valor_texto END) AS tipo,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_PROC} THEN cf.valor_texto END) AS manifesto_procedente,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MANIFESTO_DIR}  THEN cf.valor_texto END) AS manifesto_direcionado_a,
+        t.createddate   AS criado_em,
+        t.status        AS status_movidesk,
+        t.basestatus    AS base_status,
+        t.resolved_in   AS resolvido_em
+      FROM silver.ticket t
+      JOIN silver.ticket_campo_customizado cf_class
+        ON cf_class.ticket_id = t.ticket_id
+        AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
+        AND cf_class.valor_texto = 'Ouvidoria'
+      LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id
+      LEFT JOIN LATERAL (
+        SELECT organizacao_id, organizacao_nome
+        FROM silver.ticket_cliente
+        WHERE ticket_id = t.ticket_id
+        LIMIT 1
+      ) tc ON true
+      WHERE t.ticket_id = $1
+      GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
+               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
+               t.clientorganization
+    `, [ticketId]);
     const row = result.rows?.[0];
     if (!row) return res.status(404).json({ error: 'Manifestação não encontrada' });
     res.json(row);
