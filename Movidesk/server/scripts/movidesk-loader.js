@@ -58,18 +58,6 @@ module.exports.state = state;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// Extrai o valor de um campo personalizado de customFieldValues (já vem no ticket
-// via $expand=customFieldValues — não precisa de chamada extra por ticket).
-function extractCfValue(cfv, cfId) {
-  const cf = (Array.isArray(cfv) ? cfv : []).find(f => f.customFieldId === cfId);
-  if (!cf) return null;
-  if (Array.isArray(cf.items) && cf.items.length) {
-    return cf.items.map(i => String(i.customFieldItem || i.name || i.value || '').trim())
-      .filter(Boolean).join(', ') || null;
-  }
-  return String(cf.value || '').trim() || null;
-}
-
 function qs(params) {
   return Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -778,22 +766,31 @@ async function runOuvidoria() {
     const token = await getMovideskToken();
     console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
 
-    // O filtro OData aninhado customFieldValues/any(...) é caro pra API do Movidesk
-    // processar (dava timeout de 60s mesmo só em /tickets). Em vez disso, filtramos
-    // só por status na API (campo simples, rápido) e checamos a classificação aqui
-    // no servidor — o $expand=customFieldValues já traz esse dado junto na página,
-    // sem custo de chamada extra por ticket.
+    // O filtro OData aninhado customFieldValues/any(...) combinado com $expand=owner,
+    // clients,customFieldValues,actions é caro demais pra API do Movidesk processar
+    // junto (dava timeout de 60s). O filtro sozinho, SEM $expand, é rápido — então
+    // fazemos em duas fases: (1) descobre os IDs com uma consulta leve (só id,
+    // filtro completo), (2) busca os detalhes completos (com $expand) só desses IDs.
     const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+    const classFilter = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+                        ` and cf/items/any(item: item/customFieldItem eq 'Ouvidoria'))`;
+    const idFilter = `${classFilter} and ${closedExclusion}`;
 
-    const saveOnlyOuvidoria = async (batch) => {
-      const ouvidoria = batch.filter(t => extractCfValue(t.customFieldValues, CF_CLASSIFICACAO) === 'Ouvidoria');
-      if (ouvidoria.length) await saveBatch(ouvidoria);
-    };
+    console.log('[loader]   /tickets — descobrindo IDs de Ouvidoria em aberto');
+    const idUrl = `${MOVI_BASE}/tickets?${qs({ token, '$select': 'id', '$filter': idFilter, '$top': 1000 })}`;
+    const idResp = await fetchWithRetry(idUrl);
+    const idList = await idResp.json();
+    const ids = (Array.isArray(idList) ? idList : []).map(t => t.id);
+    console.log(`[loader]   ${ids.length} ticket(s) de Ouvidoria em aberto encontrados`);
 
-    // Só /tickets — tickets em aberto não vivem em /tickets/past (arquivo histórico
-    // de tickets antigos/fechados).
-    console.log(`[loader]   /tickets — abertos, filtrando Ouvidoria no servidor`);
-    await fetchEndpoint(token, '/tickets', closedExclusion, saveOnlyOuvidoria);
+    for (let i = 0; i < ids.length; i += PAGE_SIZE) {
+      const chunk = ids.slice(i, i + PAGE_SIZE);
+      const chunkFilter = chunk.map(id => `id eq ${id}`).join(' or ');
+      const batch = await fetchPage(token, '/tickets', chunkFilter, 0);
+      await saveBatch(batch);
+      state.pagesDone++;
+      state.ticketsDone += batch.length;
+    }
 
     state.phase      = 'idle';
     state.running    = false;
