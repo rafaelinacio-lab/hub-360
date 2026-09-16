@@ -194,7 +194,9 @@ async function ensureTables() {
   // Garante que _bronze_extracted_at (criado pelo extractor Java sem DEFAULT) não bloqueie INSERTs
   await db.query(`ALTER TABLE silver.ticket ALTER COLUMN _bronze_extracted_at SET DEFAULT NOW()`).catch(() => {});
 
-  // silver.ticket_acao — pode já existir; garantimos as colunas mínimas
+  // silver.ticket_acao — pode já existir (criada pelo extractor Java)
+  // O Java usa "action_id" como PK; nosso CREATE usa "id" — detectamos qual existe
+  // para montar o INSERT correto.
   await db.query(`
     CREATE TABLE IF NOT EXISTS silver.ticket_acao (
       id              bigint PRIMARY KEY,
@@ -207,6 +209,25 @@ async function ensureTables() {
       extracted_at    timestamptz DEFAULT NOW()
     )
   `).catch(() => {});
+  // Descobre qual é a coluna PK da tabela (id ou action_id)
+  let acaoPkCol = 'id';
+  try {
+    const pkRes = await db.query(`
+      SELECT kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+      WHERE tc.constraint_type = 'PRIMARY KEY'
+        AND tc.table_schema = 'silver'
+        AND tc.table_name = 'ticket_acao'
+      LIMIT 1
+    `);
+    if (pkRes.rows[0]?.column_name) acaoPkCol = pkRes.rows[0].column_name;
+  } catch {}
+  // Guarda para uso no saveBatch
+  ensureTables._acaoPkCol = acaoPkCol;
+
   await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS is_public boolean`).catch(() => {});
   await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
 
@@ -350,17 +371,18 @@ async function saveBatch(tickets) {
     }
   }
   if (actionRows.length) {
+    const pkCol = ensureTables._acaoPkCol || 'id';
     await db.query(`
       INSERT INTO silver.ticket_acao
-        (id, ticket_id, type, description, is_public, status, created_date, extracted_at)
+        ("${pkCol}", ticket_id, type, description, is_public, status, created_date, extracted_at)
       SELECT
-        u.id::bigint, u.ticket_id, u.type::int, u.description,
+        u.action_id::bigint, u.ticket_id, u.type::int, u.description,
         u.is_public::boolean, u.status, u.created_date::timestamptz, NOW()
       FROM unnest(
         $1::text[], $2::text[], $3::text[], $4::text[],
         $5::text[], $6::text[], $7::text[]
-      ) AS u(id, ticket_id, type, description, is_public, status, created_date)
-      ON CONFLICT (id) DO UPDATE SET
+      ) AS u(action_id, ticket_id, type, description, is_public, status, created_date)
+      ON CONFLICT ("${pkCol}") DO UPDATE SET
         description  = EXCLUDED.description,
         is_public    = EXCLUDED.is_public,
         status       = EXCLUDED.status,
