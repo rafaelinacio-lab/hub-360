@@ -116,10 +116,9 @@ input,select{font-family:inherit}
 }
 
 /* ═══ Loading ══════════════════════════════════════════════════════════ */
-#gcc-loading{
-  position:fixed;inset:0;z-index:9998;background:var(--bg);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
-}
+/* Overlay de tela cheia removido do fluxo normal — a página aparece na hora
+   e só a grade mostra estado de carregamento (ver #gcc-grid .empty). */
+#gcc-loading{ display:none }
 .spin{
   width:40px;height:40px;border-radius:50%;
   border:3px solid var(--border);border-top-color:var(--orange);
@@ -129,7 +128,7 @@ input,select{font-family:inherit}
 .load-txt{font-size:13px;color:var(--t2);font-weight:500}
 
 /* ═══ Page ═════════════════════════════════════════════════════════════ */
-#gcc-page{min-height:100vh;display:flex;flex-direction:column;visibility:hidden}
+#gcc-page{min-height:100vh;display:flex;flex-direction:column}
 
 /* ═══ Top bar ══════════════════════════════════════════════════════════ */
 .topbar{
@@ -720,9 +719,16 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 const API_BASE=`${window.location.origin}/api`;
 function getToken(){return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';}
 async function apiCall(ep){
-  const r=await fetch(`${API_BASE}${ep}`,{headers:{'Authorization':`Bearer ${getToken()}`}});
-  if(!r.ok) throw new Error(`API ${r.status}`);
-  return r.json();
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),60000);
+  try{
+    const r=await fetch(`${API_BASE}${ep}`,{headers:{'Authorization':`Bearer ${getToken()}`},signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||`API ${r.status}`); }
+    return r.json();
+  } catch(e){
+    if(e.name==='AbortError'||e.message==='signal is aborted without reason') throw new Error('Tempo limite excedido ao carregar dados');
+    throw e;
+  } finally { clearTimeout(t); }
 }
 function esc(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
 function fmt(v){
@@ -796,6 +802,8 @@ function locusKey(locus){
   return 'oth';
 }
 const LOCUS_ICON={int:'home',ext:'public',mix:'device_hub',oth:'place'};
+// Finalizado = base_status Resolvido/Fechado (PT-BR e EN, conforme a origem do dado); aberto = todo o resto.
+const FINALIZADO_STATUSES = ['Resolved','Closed','Resolvido','Fechado'];
 
 function statusBadge(status, base){
   if(!status) return '';
@@ -820,26 +828,30 @@ async function loadGcc(){
   try{
     _rows=await apiCall('/gcc');
     populateMs('gcc-month',MONTHS,'Todos os meses',applyFilters);
-    renderKpis();
     renderChips();
     applyFilters();
-    document.getElementById('gcc-page').style.visibility='visible';
-    document.getElementById('gcc-loading').style.display='none';
   }catch(e){
+    // Se timeout e loader está rodando, mostra mensagem específica e aguarda o fim do sync
+    let msg=`Erro ao carregar: ${esc(e.message)}`;
+    try{
+      const s=await apiFetch('/loader/status','GET');
+      if(s.current?.running){
+        msg='Sincronização em andamento — os dados aparecerão ao finalizar';
+        pollSyncStatus();
+      }
+    }catch{}
     document.getElementById('gcc-grid').innerHTML=
-      `<div class="empty"><span class="sym">error</span><p>Erro: ${esc(e.message)}</p></div>`;
-    document.getElementById('gcc-page').style.visibility='visible';
-    document.getElementById('gcc-loading').style.display='none';
+      `<div class="empty"><span class="sym">sync</span><p>${msg}</p></div>`;
   }
 }
 
 // ── KPIs ─────────────────────────────────────────────────────────────────────
-function renderKpis(){
-  const total=_rows.length;
-  const orgs=new Set(_rows.map(r=>r.organizacao_id??r.organizacao)).size;
-  const mediaReincid=total?((_rows.reduce((s,r)=>s+(Number(r.total_chamados_anteriores)||0),0))/total).toFixed(1):'0.0';
+function renderKpis(rows){
+  const total=rows.length;
+  const orgs=new Set(rows.map(r=>r.organizacao_id??r.organizacao)).size;
+  const mediaReincid=total?((rows.reduce((s,r)=>s+(Number(r.total_chamados_anteriores)||0),0))/total).toFixed(1):'0.0';
   const d30=Date.now()-30*24*60*60*1000;
-  const ult30=_rows.filter(r=>r.criado_em&&new Date(r.criado_em)>=d30).length;
+  const ult30=rows.filter(r=>r.criado_em&&new Date(r.criado_em)>=d30).length;
 
   const kpis=[
     {ico:'or',sym:'shield',        label:'Total de casos',         val:total},
@@ -892,12 +904,15 @@ function renderChips(){
   orgSel.innerHTML=`<option value="">Todos os clientes</option>`
     +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
 
-  // select de status
+  // select de status: só Em aberto / Finalizado (baseado em base_status)
   const statusSel=document.getElementById('gcc-status');
   const curStatus=statusSel.value;
-  const statuses=[...new Set(_rows.map(r=>r.status_movidesk).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-  statusSel.innerHTML=`<option value="">Todos os status</option>`
-    +statuses.map(s=>`<option value="${esc(s)}"${curStatus===s?' selected':''}>${esc(s)}</option>`).join('');
+  if(!statusSel.dataset.built){
+    statusSel.innerHTML=`<option value="">Todos os status</option>`
+      +`<option value="aberto"${curStatus==='aberto'?' selected':''}>Em aberto</option>`
+      +`<option value="finalizado"${curStatus==='finalizado'?' selected':''}>Finalizado</option>`;
+    statusSel.dataset.built='1';
+  }
 
   // multi-select de ano (a partir de resolvido_em)
   const years=[...new Set(_rows
@@ -930,7 +945,11 @@ function applyFilters(){
     if(_filterLocus!=='all'&&locusKey(r.classificacao_locus)!==_filterLocus) return false;
     if(servicoFil&&r.servico_gcc!==servicoFil) return false;
     if(orgFil&&r.organizacao!==orgFil) return false;
-    if(statusFil&&r.status_movidesk!==statusFil) return false;
+    if(statusFil){
+      const fin=FINALIZADO_STATUSES.includes(r.base_status);
+      if(statusFil==='aberto'&&fin) return false;
+      if(statusFil==='finalizado'&&!fin) return false;
+    }
     // Filtro por ano/mês de resolução (múltipla seleção)
     if(yearFils.length||monthFils.length){
       const d=r.resolvido_em?new Date(r.resolvido_em):null;
@@ -951,6 +970,7 @@ function applyFilters(){
     return order==='antigas'?da-db_:db_-da;
   });
 
+  renderKpis(rows);
   document.getElementById('gcc-count').textContent=`${rows.length} caso${rows.length===1?'':'s'}`;
   renderGrid(rows);
 }
@@ -1201,14 +1221,20 @@ function hideToast(){ document.getElementById('sync-toast').classList.remove('sh
 async function startSync(){
   const btn=document.getElementById('btn-sync');
   btn.disabled=true;
-  showToast('Sincronizando tickets com o Movidesk…','');
+  showToast('Iniciando sincronização de GCC…','');
   try{
-    await apiFetch('/gcc/sync','POST');
+    await apiFetch('/loader/gcc','POST');
     pollSyncStatus();
   }catch(e){
-    showToast('Erro ao iniciar sync: '+e.message,'');
-    btn.disabled=false;
-    setTimeout(hideToast,4000);
+    if(e.message==='HTTP 409'){
+      // Loader já em andamento — apenas acompanha o progresso
+      showToast('Carga já em andamento…','Acompanhando progresso');
+      pollSyncStatus();
+    } else {
+      showToast('Erro ao iniciar carga: '+e.message,'');
+      btn.disabled=false;
+      setTimeout(hideToast,4000);
+    }
   }
 }
 
@@ -1219,22 +1245,28 @@ function pollSyncStatus(){
 
 async function checkSyncStatus(){
   try{
-    const s=await apiFetch('/gcc/sync/status','GET');
-    if(s.running){
-      const pct=s.total?Math.round(s.done/s.total*100):0;
-      showToast(`Sincronizando tickets…`,`${s.done}/${s.total} (${pct}%) · ${s.updated} atualizados`);
+    const s=await apiFetch('/loader/status','GET');
+    const cur=s.current||{};
+    if(cur.running){
+      const tickets=(cur.ticketsDone||0).toLocaleString('pt-BR');
+      const phase=cur.phase||'';
+      const endpoint=cur.endpoint&&cur.endpoint!=='–'?` · ${cur.endpoint}`:'';
+      showToast(`Carregando tickets do Movidesk…`, `${tickets} coletados · ${phase}${endpoint}`);
       document.getElementById('btn-sync').disabled=true;
     } else {
       if(_syncPoll){ clearInterval(_syncPoll); _syncPoll=null; }
       document.getElementById('btn-sync').disabled=false;
-      if(s.finishedAt){
-        const msg=s.error?`Sync concluído com erro: ${s.error}`:`Sync concluído — ${s.updated} atualizado${s.updated===1?'':'s'}`;
-        showToast(msg,`${s.done} verificados`);
+      const last=s.history&&s.history[0];
+      if(last){
+        const msg=last.status==='error'
+          ?`Carga com erro: ${last.error_msg||'desconhecido'}`
+          :`Carga concluída — ${(last.tickets_loaded||0).toLocaleString('pt-BR')} tickets`;
+        showToast(msg,'');
         setTimeout(hideToast,5000);
-        if(s.updated>0) loadGcc();
+        if(last.status==='done') loadGcc();
       }
     }
-  }catch{ /* ignora */ }
+  }catch{ /* ignora erros de polling */ }
 }
 
 async function apiFetch(path,method='GET'){

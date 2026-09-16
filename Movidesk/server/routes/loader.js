@@ -14,8 +14,8 @@ const router  = express.Router();
 const db      = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { getToken } = require('./config');
-const { runFull, runIncremental, runOuvidoria, cancelLoad, state: loaderState } = require('../scripts/movidesk-loader');
-const loader  = { runFull, runIncremental, runOuvidoria, cancelLoad, state: loaderState };
+const { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, state: loaderState } = require('../scripts/movidesk-loader');
+const loader  = { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, state: loaderState };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
 router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
@@ -65,6 +65,22 @@ router.post('/ouvidoria', authMiddleware, requireRole('admin', 'supervisor'), (r
   loader.runOuvidoria().catch(e => console.error('[loader/ouvidoria] erro:', e.message));
 
   res.json({ started: true, mode: 'ouvidoria', startedAt: loader.state.startedAt });
+});
+
+// ── POST /api/loader/gcc ──────────────────────────────────────────────────────
+// Carga leve: só tickets classificados como "Gestão de Combate ao Churn"
+// (CF 23946). Usada pela cron de 2h e pelo botão "Sincronizar tickets" da aba GCC.
+router.post('/gcc', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  if (loader.state.running) {
+    return res.status(409).json({
+      error: 'Já existe uma carga em andamento',
+      state: sanitizeState(loader.state),
+    });
+  }
+
+  loader.runGcc().catch(e => console.error('[loader/gcc] erro:', e.message));
+
+  res.json({ started: true, mode: 'gcc', startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/cancel ───────────────────────────────────────────────────

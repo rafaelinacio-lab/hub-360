@@ -752,12 +752,22 @@ async function runIncremental() {
  * então não precisa varrer todos os tickets em aberto. Ideal para rodar a
  * cada 2h.
  */
-async function runOuvidoria() {
+/**
+ * Carga por CLASSIFICAÇÃO — busca apenas tickets em aberto cuja "Classificação
+ * de Ticket" (CF 23946) seja `classValue`, e grava em silver.*. Base genérica
+ * usada por runOuvidoria() e runGcc().
+ *
+ * @param {string} mode - rótulo curto pra state.mode / silver.carga_log (ex: 'ouvidoria', 'gcc')
+ * @param {string} classValue - valor exato do CF 23946 a filtrar (ex: 'Ouvidoria')
+ */
+async function runByClassification(mode, classValue) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
+
+  const modeUpper = mode.toUpperCase();
 
   state.running         = true;
   state.cancelRequested = false;
-  state.mode            = 'ouvidoria';
+  state.mode            = mode;
   state.startedAt       = new Date().toISOString();
   state.phase           = 'preparando';
   state.pagesDone       = 0;
@@ -773,11 +783,12 @@ async function runOuvidoria() {
   ).catch(() => {});
 
   const logRow = await db.query(
-    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('ouvidoria', NOW(), 'running') RETURNING id`
+    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ($1, NOW(), 'running') RETURNING id`,
+    [mode]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
 
-  console.log('[loader] ▶ Carga OUVIDORIA iniciada');
+  console.log(`[loader] ▶ Carga ${modeUpper} iniciada`);
 
   try {
     const token = await getMovideskToken();
@@ -790,31 +801,29 @@ async function runOuvidoria() {
     // filtro completo), (2) busca os detalhes completos (com $expand) só desses IDs.
     const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
     const classFilter = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
-                        ` and cf/items/any(item: item/customFieldItem eq 'Ouvidoria'))`;
+                        ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`;
     const idFilter = `${classFilter} and ${closedExclusion}`;
 
-    console.log('[loader]   /tickets — descobrindo IDs de Ouvidoria em aberto');
+    console.log(`[loader]   /tickets — descobrindo IDs de ${modeUpper} em aberto`);
     const idUrl = `${MOVI_BASE}/tickets?${qs({ token, '$select': 'id', '$filter': idFilter, '$top': 1000 })}`;
     const idResp = await fetchWithRetry(idUrl);
     const idList = await idResp.json();
     const ids = (Array.isArray(idList) ? idList : []).map(t => t.id);
-    console.log(`[loader]   ${ids.length} ticket(s) de Ouvidoria em aberto encontrados`);
+    console.log(`[loader]   ${ids.length} ticket(s) de ${modeUpper} em aberto encontrados`);
 
     // Fase 2 — busca os detalhes completos só desses IDs.
     //
     // Bug confirmado na API do Movidesk: para tickets abertos criados via
-    // formulário web/automação (como os de Ouvidoria), o customFieldValues[]
-    // retornado vem com value:null e SEM a chave "items" para o campo 23946
-    // — mesmo quando o próprio $filter usado pra localizar o ticket depende
-    // desse valor sendo 'Ouvidoria'. Confirmado com curl direto na API,
-    // com e sem o filtro de classificação combinado: mesmo resultado quebrado
-    // nos dois casos. É uma inconsistência da serialização da API do Movidesk,
-    // não do nosso código.
+    // formulário web/automação, o customFieldValues[] retornado vem com
+    // value:null e SEM a chave "items" para o campo 23946 — mesmo quando o
+    // próprio $filter usado pra localizar o ticket depende desse valor.
+    // Confirmado com curl direto na API, com e sem o filtro de classificação
+    // combinado: mesmo resultado quebrado nos dois casos. É uma inconsistência
+    // da serialização da API do Movidesk, não do nosso código.
     //
-    // Como a Fase 1 já PROVOU que esses tickets são de Ouvidoria (foi
-    // exatamente esse filtro que os trouxe), não precisamos confiar na
-    // resposta quebrada da Fase 2 pra esse campo específico — corrigimos o
-    // valor no objeto antes de salvar.
+    // Como a Fase 1 já PROVOU a classificação (foi exatamente esse filtro que
+    // trouxe o ticket), não precisamos confiar na resposta quebrada da Fase 2
+    // pra esse campo específico — corrigimos o valor no objeto antes de salvar.
     if (ids.length) {
       const idsOr = ids.map(id => `id eq ${id}`).join(' or ');
       const details = await fetchPage(token, '/tickets', idsOr, 0);
@@ -826,7 +835,7 @@ async function runOuvidoria() {
           t.customFieldValues.push(cf);
         }
         if (!Array.isArray(cf.items) || !cf.items.length) {
-          cf.items = [{ customFieldItem: 'Ouvidoria' }];
+          cf.items = [{ customFieldItem: classValue }];
         }
       }
       await saveBatch(details);
@@ -837,7 +846,7 @@ async function runOuvidoria() {
     state.phase      = 'idle';
     state.running    = false;
     state.lastFinish = new Date().toISOString();
-    state.lastResult = { mode: 'ouvidoria', tickets: state.ticketsDone };
+    state.lastResult = { mode, tickets: state.ticketsDone };
 
     if (logId) {
       await db.query(
@@ -845,7 +854,7 @@ async function runOuvidoria() {
         [state.ticketsDone, logId]
       ).catch(() => {});
     }
-    console.log(`[loader] ✔ Carga OUVIDORIA concluída — ${state.ticketsDone} tickets`);
+    console.log(`[loader] ✔ Carga ${modeUpper} concluída — ${state.ticketsDone} tickets`);
     return state.lastResult;
   } catch (err) {
     state.running         = false;
@@ -861,13 +870,21 @@ async function runOuvidoria() {
       ).catch(() => {});
     }
     if (wasCancelled) {
-      console.log(`[loader] ⏹ Carga OUVIDORIA cancelada — ${state.ticketsDone} tickets salvos`);
-      state.lastResult = { mode: 'ouvidoria', tickets: state.ticketsDone, cancelled: true };
+      console.log(`[loader] ⏹ Carga ${modeUpper} cancelada — ${state.ticketsDone} tickets salvos`);
+      state.lastResult = { mode, tickets: state.ticketsDone, cancelled: true };
     } else {
-      console.error('[loader] ✖ Carga OUVIDORIA com erro:', err.message);
+      console.error(`[loader] ✖ Carga ${modeUpper} com erro:`, err.message);
       throw err;
     }
   }
+}
+
+async function runOuvidoria() {
+  return runByClassification('ouvidoria', 'Ouvidoria');
+}
+
+async function runGcc() {
+  return runByClassification('gcc', 'Gestão de Combate ao Churn');
 }
 
 function cancelLoad() {
@@ -885,4 +902,4 @@ function cancelLoad() {
   return true;
 }
 
-module.exports = { runFull, runIncremental, runOuvidoria, cancelLoad, state };
+module.exports = { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, state };
