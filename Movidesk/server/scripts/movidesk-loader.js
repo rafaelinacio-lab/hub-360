@@ -523,12 +523,20 @@ async function saveBatch(tickets) {
  *
  * @param {object} [options]
  * @param {number[]} [options.years] - Anos a carregar. Vazio = todos os anos.
+ * @param {string} [options.classification] - Filtra pelo campo "Classificação de
+ *   Ticket" (CF 23946). Vazio = todas as classificações.
  */
-async function runFull({ years = [] } = {}) {
+async function runFull({ years = [], classification = '' } = {}) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
   const sortedYears = [...years].map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()).sort();
   const modeLabel   = sortedYears.length ? 'full-anos' : 'full';
+  const classValue   = String(classification || '').trim();
+  // Escapa aspas simples no valor pro filtro OData (padrão: '' representa um ' literal)
+  const classFilter  = classValue
+    ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+      ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`
+    : null;
 
   // marca como running ANTES de qualquer await para que /status reflita imediatamente
   state.running          = true;
@@ -573,11 +581,12 @@ async function runFull({ years = [] } = {}) {
       for (const year of sortedYears) {
         state.currentYear = year;
         // Inclui jan do ano seguinte no filtro para pegar horários de fuseau diferente
-        const from   = `${year}-01-01T00:00:00Z`;
-        const to     = `${year}-12-31T23:59:59Z`;
-        const filter = `createdDate ge ${from} and createdDate le ${to}`;
+        const from = `${year}-01-01T00:00:00Z`;
+        const to   = `${year}-12-31T23:59:59Z`;
+        let filter = `createdDate ge ${from} and createdDate le ${to}`;
+        if (classFilter) filter = `${filter} and ${classFilter}`;
 
-        console.log(`[loader]   ── Ano ${year} ──`);
+        console.log(`[loader]   ── Ano ${year}${classValue ? ` — classificação "${classValue}"` : ''} ──`);
         for (const ep of ['/tickets', '/tickets/past']) {
           console.log(`[loader]     endpoint ${ep}`);
           await fetchEndpoint(token, ep, filter, saveBatch);
@@ -587,10 +596,11 @@ async function runFull({ years = [] } = {}) {
       }
       state.currentYear = null;
     } else {
-      // ── Carga total sem filtro de data ─────────────────────────────────────
+      // ── Carga total, com filtro de classificação opcional ──────────────────
+      console.log(classValue ? `[loader]   classificação "${classValue}"` : '[loader]   sem filtro de data ou classificação');
       for (const ep of ['/tickets', '/tickets/past']) {
         console.log(`[loader]   endpoint ${ep}`);
-        await fetchEndpoint(token, ep, null, saveBatch);
+        await fetchEndpoint(token, ep, classFilter, saveBatch);
       }
     }
 

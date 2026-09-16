@@ -28,11 +28,13 @@ router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, r
 
   // years: array de inteiros enviado pelo front ([] = todos os anos)
   const years = Array.isArray(req.body?.years) ? req.body.years : [];
+  // classification: filtra pelo campo "Classificação de Ticket" (CF 23946); vazio = todas
+  const classification = typeof req.body?.classification === 'string' ? req.body.classification.trim() : '';
 
   // Roda em background — não bloqueia o HTTP
-  loader.runFull({ years }).catch(e => console.error('[loader/full] erro:', e.message));
+  loader.runFull({ years, classification }).catch(e => console.error('[loader/full] erro:', e.message));
 
-  res.json({ started: true, mode: loader.state.mode, years, startedAt: loader.state.startedAt });
+  res.json({ started: true, mode: loader.state.mode, years, classification, startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/incremental ─────────────────────────────────────────────

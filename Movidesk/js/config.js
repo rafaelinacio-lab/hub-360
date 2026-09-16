@@ -2460,10 +2460,11 @@ async function dlTrigger(mode) {
 
     try {
         const years = mode === 'full' ? dlGetSelectedYears() : [];
+        const classification = mode === 'full' ? (document.getElementById('dlClassification')?.value || '').trim() : '';
         const resp = await fetch(`/api/loader/${mode}`, {
             method: 'POST',
             headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify(mode === 'full' ? { years } : {}),
+            body: JSON.stringify(mode === 'full' ? { years, classification } : {}),
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
