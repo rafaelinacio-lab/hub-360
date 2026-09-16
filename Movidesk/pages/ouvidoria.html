@@ -1145,12 +1145,12 @@ function hideToast(){ document.getElementById('sync-toast').classList.remove('sh
 async function startSync(){
   const btn=document.getElementById('btn-sync');
   btn.disabled=true;
-  showToast('Sincronizando tickets com o Movidesk…','');
+  showToast('Iniciando carga incremental do Movidesk…','');
   try{
-    await apiFetch('/ouvidoria/sync','POST');
+    await apiFetch('/loader/incremental','POST');
     pollSyncStatus();
   }catch(e){
-    showToast('Erro ao iniciar sync: '+e.message,'');
+    showToast('Erro ao iniciar carga: '+e.message,'');
     btn.disabled=false;
     setTimeout(hideToast,4000);
   }
@@ -1163,28 +1163,25 @@ function pollSyncStatus(){
 
 async function checkSyncStatus(){
   try{
-    const s=await apiFetch('/ouvidoria/sync/status','GET');
-    if(s.running){
-      let phaseLabel;
-      if(s.phase==='importando'){
-        const n = s.importFetched||0;
-        phaseLabel = n>0 ? `Buscando da API… ${n} tickets carregados` : `Conectando à API…`;
-      } else {
-        const pct=s.total?Math.round(s.done/s.total*100):0;
-        const bar='█'.repeat(Math.round(pct/10))+'░'.repeat(10-Math.round(pct/10));
-        phaseLabel=`${bar} ${pct}% · ${s.done}/${s.total} · ${s.updated} atualizados`;
-      }
-      showToast(`Sincronizando tickets…`, phaseLabel);
+    const s=await apiFetch('/loader/status','GET');
+    const cur=s.current||{};
+    if(cur.running){
+      const tickets=(cur.ticketsDone||0).toLocaleString('pt-BR');
+      const phase=cur.phase||'';
+      const endpoint=cur.endpoint&&cur.endpoint!=='–'?` · ${cur.endpoint}`:'';
+      showToast(`Carregando tickets do Movidesk…`, `${tickets} coletados · ${phase}${endpoint}`);
       document.getElementById('btn-sync').disabled=true;
     } else {
       if(_syncPoll){ clearInterval(_syncPoll); _syncPoll=null; }
       document.getElementById('btn-sync').disabled=false;
-      if(s.finishedAt){
-        const msg=s.error?`Sync concluído com erro: ${s.error}`:`Sync concluído — ${s.updated} atualizado${s.updated===1?'':'s'}`;
-        showToast(msg,`${s.done} verificados`);
+      const last=s.history&&s.history[0];
+      if(last){
+        const msg=last.status==='error'
+          ?`Carga com erro: ${last.error_msg||'desconhecido'}`
+          :`Carga concluída — ${(last.tickets_loaded||0).toLocaleString('pt-BR')} tickets`;
+        showToast(msg,'');
         setTimeout(hideToast,5000);
-        // recarrega dados para refletir novos status
-        if(s.updated>0) loadOuvidoria();
+        if(last.status==='done') loadOuvidoria();
       }
     }
   }catch{ /* ignora erros de polling */ }

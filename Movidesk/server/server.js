@@ -168,15 +168,16 @@ function checkLoaderSchedule() {
 
 setInterval(checkLoaderSchedule, 60 * 1000); // checa todo minuto
 
-// ===== Sync GCC do datalake (a cada 2 horas) =====
-// Ouvidoria agora lê direto de silver.* — só o GCC ainda usa public.gcc em movidesk_tickets.
-function runGccSync() {
-  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Sync automático GCC via datalake`);
+// ===== Sync Ouvidoria/GCC do datalake (a cada 2 horas) =====
+// Mantém public.ouvidoria e public.gcc em movidesk_tickets atualizados a partir do silver.*.
+function runOuvidoriaGccSync() {
+  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Sync automático Ouvidoria/GCC via datalake`);
+  ouvidoriaRoutes.runSync();
   gccRoutes.runSync();
 }
 
-setTimeout(runGccSync, 10 * 1000);
-setInterval(runGccSync, 2 * 60 * 60 * 1000);
+setTimeout(runOuvidoriaGccSync, 10 * 1000);
+setInterval(runOuvidoriaGccSync, 2 * 60 * 60 * 1000);
 
 // Iniciar servidor
 app.listen(PORT, () => {
