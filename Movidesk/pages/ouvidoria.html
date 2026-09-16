@@ -709,11 +709,14 @@ const API = `${location.origin}/api`;
 function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
 async function api(ep){
   const ctrl=new AbortController();
-  const t=setTimeout(()=>ctrl.abort(),30000);
+  const t=setTimeout(()=>ctrl.abort(),60000);
   try{
     const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal});
     if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
     return r.json();
+  } catch(e){
+    if(e.name==='AbortError'||e.message==='signal is aborted without reason') throw new Error('Tempo limite excedido ao carregar dados');
+    throw e;
   } finally { clearTimeout(t); }
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
@@ -1158,9 +1161,15 @@ async function startSync(){
     await apiFetch('/loader/incremental','POST');
     pollSyncStatus();
   }catch(e){
-    showToast('Erro ao iniciar carga: '+e.message,'');
-    btn.disabled=false;
-    setTimeout(hideToast,4000);
+    if(e.message==='HTTP 409'){
+      // Loader já em andamento — apenas acompanha o progresso
+      showToast('Carga já em andamento…','Acompanhando progresso');
+      pollSyncStatus();
+    } else {
+      showToast('Erro ao iniciar carga: '+e.message,'');
+      btn.disabled=false;
+      setTimeout(hideToast,4000);
+    }
   }
 }
 
