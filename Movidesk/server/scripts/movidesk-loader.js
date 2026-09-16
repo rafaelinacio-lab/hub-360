@@ -362,7 +362,7 @@ async function saveBatch(tickets) {
          criado_por_id, criado_por_nome, extracted_at)
       SELECT
         u.acao_id::bigint, u.ticket_id::bigint, u.tipo::int, u.descricao,
-        u.is_public::boolean, u.status, u.criado_em::timestamptz,
+        u.is_public::boolean, u.status, COALESCE(u.criado_em::timestamptz, NOW()),
         u.criado_por_id, u.criado_por_nome, NOW()
       FROM unnest(
         $1::text[], $2::text[], $3::text[], $4::text[],
