@@ -841,7 +841,16 @@ async function loadOuvidoria(){
     // Busca manifesto_direcionado_a em background para tickets sem o campo
     fetchManigestos();
   } catch(e){
-    document.getElementById('ov-grid').innerHTML=`<div class="empty"><span class="sym">error</span><p>Erro ao carregar: ${esc(e.message)}</p></div>`;
+    // Se timeout e loader está rodando, mostra mensagem específica e aguarda o fim do sync
+    let msg=`Erro ao carregar: ${esc(e.message)}`;
+    try{
+      const s=await apiFetch('/loader/status','GET');
+      if(s.current?.running){
+        msg='Sincronização em andamento — os dados aparecerão ao finalizar';
+        pollSyncStatus();
+      }
+    }catch{}
+    document.getElementById('ov-grid').innerHTML=`<div class="empty"><span class="sym">sync</span><p>${msg}</p></div>`;
     document.getElementById('ov-page').style.visibility='visible';
     document.getElementById('ov-loading').style.display='none';
   }
