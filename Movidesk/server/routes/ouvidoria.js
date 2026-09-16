@@ -124,10 +124,12 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), 
   try {
     const [acaoRes, cfRes] = await Promise.all([
       db.query(
-        `SELECT id, type, description, is_public, status, created_date
+        `SELECT acao_id AS id, tipo AS type, descricao AS description,
+                is_public, status, criado_em AS created_date,
+                criado_por_nome
          FROM silver.ticket_acao
          WHERE ticket_id = $1
-         ORDER BY created_date ASC`,
+         ORDER BY criado_em ASC`,
         [ticketId]
       ).catch(() => ({ rows: [] })),
       db.query(
@@ -146,6 +148,7 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), 
       isPublic: a.is_public,
       status: a.status,
       createdDate: a.created_date,
+      createdByName: a.criado_por_nome,
     }));
 
     const customFieldValues = cfRes.rows.map(cf => ({

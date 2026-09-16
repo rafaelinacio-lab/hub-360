@@ -194,40 +194,23 @@ async function ensureTables() {
   // Garante que _bronze_extracted_at (criado pelo extractor Java sem DEFAULT) não bloqueie INSERTs
   await db.query(`ALTER TABLE silver.ticket ALTER COLUMN _bronze_extracted_at SET DEFAULT NOW()`).catch(() => {});
 
-  // silver.ticket_acao — pode já existir (criada pelo extractor Java)
-  // O Java usa "action_id" como PK; nosso CREATE usa "id" — detectamos qual existe
-  // para montar o INSERT correto.
+  // silver.ticket_acao — criada pelo extractor Java com nomes em português
   await db.query(`
     CREATE TABLE IF NOT EXISTS silver.ticket_acao (
-      id              bigint PRIMARY KEY,
-      ticket_id       varchar(20) NOT NULL,
-      type            int,
-      description     text,
+      acao_id         bigint PRIMARY KEY,
+      ticket_id       bigint NOT NULL,
+      tipo            int,
+      descricao       text,
       is_public       boolean,
       status          text,
-      created_date    timestamptz,
+      criado_em       timestamptz,
+      criado_por_id   text,
+      criado_por_nome text,
       extracted_at    timestamptz DEFAULT NOW()
     )
   `).catch(() => {});
-  // Descobre qual é a coluna PK da tabela (id ou action_id)
-  let acaoPkCol = 'id';
-  try {
-    const pkRes = await db.query(`
-      SELECT kcu.column_name
-      FROM information_schema.table_constraints tc
-      JOIN information_schema.key_column_usage kcu
-        ON tc.constraint_name = kcu.constraint_name
-       AND tc.table_schema = kcu.table_schema
-      WHERE tc.constraint_type = 'PRIMARY KEY'
-        AND tc.table_schema = 'silver'
-        AND tc.table_name = 'ticket_acao'
-      LIMIT 1
-    `);
-    if (pkRes.rows[0]?.column_name) acaoPkCol = pkRes.rows[0].column_name;
-  } catch {}
-  // Guarda para uso no saveBatch
-  ensureTables._acaoPkCol = acaoPkCol;
-
+  await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_id text`).catch(() => {});
+  await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_nome text`).catch(() => {});
   await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS is_public boolean`).catch(() => {});
   await db.query(`ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`).catch(() => {});
 
@@ -360,42 +343,50 @@ async function saveBatch(tickets) {
     for (const a of t.actions) {
       if (!a.id) continue;
       actionRows.push({
-        id:           String(a.id),
-        ticket_id:    String(t.id),
-        type:         a.type != null ? String(a.type) : null,
-        description:  a.description ? a.description.slice(0, 500000) : null,
-        is_public:    a.isPublic != null ? (a.isPublic ? 'true' : 'false') : null,
-        status:       a.status || null,
-        created_date: a.createdDate || null,
+        acao_id:        String(a.id),
+        ticket_id:      String(t.id),
+        tipo:           a.type != null ? String(a.type) : null,
+        descricao:      a.description ? a.description.slice(0, 500000) : null,
+        is_public:      a.isPublic != null ? (a.isPublic ? 'true' : 'false') : null,
+        status:         a.status || null,
+        criado_em:      a.createdDate || null,
+        criado_por_id:  a.createdBy?.id ? String(a.createdBy.id) : null,
+        criado_por_nome: a.createdBy?.businessName || null,
       });
     }
   }
   if (actionRows.length) {
-    const pkCol = ensureTables._acaoPkCol || 'id';
     await db.query(`
       INSERT INTO silver.ticket_acao
-        ("${pkCol}", ticket_id, type, description, is_public, status, created_date, extracted_at)
+        (acao_id, ticket_id, tipo, descricao, is_public, status, criado_em,
+         criado_por_id, criado_por_nome, extracted_at)
       SELECT
-        u.action_id::bigint, u.ticket_id, u.type::int, u.description,
-        u.is_public::boolean, u.status, u.created_date::timestamptz, NOW()
+        u.acao_id::bigint, u.ticket_id::bigint, u.tipo::int, u.descricao,
+        u.is_public::boolean, u.status, u.criado_em::timestamptz,
+        u.criado_por_id, u.criado_por_nome, NOW()
       FROM unnest(
         $1::text[], $2::text[], $3::text[], $4::text[],
-        $5::text[], $6::text[], $7::text[]
-      ) AS u(action_id, ticket_id, type, description, is_public, status, created_date)
-      ON CONFLICT ("${pkCol}") DO UPDATE SET
-        description  = EXCLUDED.description,
-        is_public    = EXCLUDED.is_public,
-        status       = EXCLUDED.status,
-        created_date = EXCLUDED.created_date,
-        extracted_at = EXCLUDED.extracted_at
+        $5::text[], $6::text[], $7::text[], $8::text[], $9::text[]
+      ) AS u(acao_id, ticket_id, tipo, descricao, is_public, status, criado_em,
+             criado_por_id, criado_por_nome)
+      ON CONFLICT (acao_id) DO UPDATE SET
+        descricao      = EXCLUDED.descricao,
+        is_public      = EXCLUDED.is_public,
+        status         = EXCLUDED.status,
+        criado_em      = EXCLUDED.criado_em,
+        criado_por_id  = EXCLUDED.criado_por_id,
+        criado_por_nome = EXCLUDED.criado_por_nome,
+        extracted_at   = EXCLUDED.extracted_at
     `, [
-      actionRows.map(r => r.id),
+      actionRows.map(r => r.acao_id),
       actionRows.map(r => r.ticket_id),
-      actionRows.map(r => r.type),
-      actionRows.map(r => r.description),
+      actionRows.map(r => r.tipo),
+      actionRows.map(r => r.descricao),
       actionRows.map(r => r.is_public),
       actionRows.map(r => r.status),
-      actionRows.map(r => r.created_date),
+      actionRows.map(r => r.criado_em),
+      actionRows.map(r => r.criado_por_id),
+      actionRows.map(r => r.criado_por_nome),
     ]);
   }
 
