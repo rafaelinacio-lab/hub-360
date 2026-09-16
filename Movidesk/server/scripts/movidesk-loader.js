@@ -249,12 +249,19 @@ async function ensureTables() {
 
   await db.withClient(async (client) => {
     await client.query(`SET lock_timeout = '5s'`).catch(() => {});
-    for (const [label, sql] of statements) {
-      try {
-        await client.query(sql);
-      } catch (e) {
-        console.warn(`[loader] ensureTables — pulando "${label}" (${e.code || ''}): ${e.message}`);
+    try {
+      for (const [label, sql] of statements) {
+        try {
+          await client.query(sql);
+        } catch (e) {
+          console.warn(`[loader] ensureTables — pulando "${label}" (${e.code || ''}): ${e.message}`);
+        }
       }
+    } finally {
+      // Essencial: sem isso, o pool reaproveita esta conexão em queries futuras
+      // completamente diferentes, que herdariam esse lock_timeout de 5s e
+      // falhariam por timeout mesmo sem disputa real de lock.
+      await client.query(`RESET lock_timeout`).catch(() => {});
     }
   });
   _tablesEnsured = true;
