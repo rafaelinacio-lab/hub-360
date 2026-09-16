@@ -189,6 +189,11 @@ async function ensureTables() {
       return [`silver.ticket.${name}`, `ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`];
     }),
     ['silver.ticket._bronze_extracted_at default', `ALTER TABLE silver.ticket ALTER COLUMN _bronze_extracted_at SET DEFAULT NOW()`],
+    // O extractor Java pode ter criado silver.ticket sem PRIMARY KEY — sem isso,
+    // o ON CONFLICT (ticket_id) do saveBatch falha. Se já existe (nome diferente
+    // ou mesmo nome), o erro "already exists" é ignorado pelo catch genérico abaixo.
+    // Se falhar por ticket_id duplicado, precisa de dedup manual antes.
+    ['silver.ticket pkey', `ALTER TABLE silver.ticket ADD CONSTRAINT silver_ticket_pkey PRIMARY KEY (ticket_id)`],
     ['silver.ticket_acao (create)', `
       CREATE TABLE IF NOT EXISTS silver.ticket_acao (
         acao_id         bigint PRIMARY KEY,
@@ -207,6 +212,8 @@ async function ensureTables() {
     ['silver.ticket_acao.criado_por_nome', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_nome text`],
     ['silver.ticket_acao.is_public', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS is_public boolean`],
     ['silver.ticket_acao.extracted_at', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`],
+    // Mesma proteção de silver.ticket — garante PK em acao_id para o ON CONFLICT do saveBatch.
+    ['silver.ticket_acao pkey', `ALTER TABLE silver.ticket_acao ADD CONSTRAINT silver_ticket_acao_pkey PRIMARY KEY (acao_id)`],
     ['silver.ticket_campo_customizado (create)', `
       CREATE TABLE IF NOT EXISTS silver.ticket_campo_customizado (
         ticket_id        bigint NOT NULL,
