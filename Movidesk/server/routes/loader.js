@@ -30,11 +30,14 @@ router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, r
   const years = Array.isArray(req.body?.years) ? req.body.years : [];
   // classification: filtra pelo campo "Classificação de Ticket" (CF 23946); vazio = todas
   const classification = typeof req.body?.classification === 'string' ? req.body.classification.trim() : '';
+  // ownerTeam: filtra direto pelo campo "Equipe" (ownerTeam) — mais barato pra
+  // API do que o filtro por Classificação; vazio = usa o mapeamento fixo (se houver)
+  const ownerTeam = typeof req.body?.ownerTeam === 'string' ? req.body.ownerTeam.trim() : '';
 
   // Roda em background — não bloqueia o HTTP
-  loader.runFull({ years, classification }).catch(e => console.error('[loader/full] erro:', e.message));
+  loader.runFull({ years, classification, ownerTeam }).catch(e => console.error('[loader/full] erro:', e.message));
 
-  res.json({ started: true, mode: loader.state.mode, years, classification, startedAt: loader.state.startedAt });
+  res.json({ started: true, mode: loader.state.mode, years, classification, ownerTeam, startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/incremental ─────────────────────────────────────────────

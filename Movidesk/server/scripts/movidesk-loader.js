@@ -601,24 +601,30 @@ async function saveBatch(tickets) {
  * @param {number[]} [options.years] - Anos a carregar. Vazio = todos os anos.
  * @param {string} [options.classification] - Filtra pelo campo "Classificação de
  *   Ticket" (CF 23946). Vazio = todas as classificações.
+ * @param {string} [options.ownerTeam] - Filtra direto pelo campo "Equipe"
+ *   (ownerTeam) da API — mais barato pra API do que o filtro por Classificação.
+ *   Tem prioridade sobre o mapeamento fixo de CLASS_TO_OWNER_TEAM. Vazio = usa
+ *   o mapeamento (se a classificação informada tiver uma equipe conhecida).
  */
-async function runFull({ years = [], classification = '' } = {}) {
+async function runFull({ years = [], classification = '', ownerTeam = '' } = {}) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
   const sortedYears = [...years].map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()).sort();
   const modeLabel   = sortedYears.length ? 'full-anos' : 'full';
-  const classValue   = String(classification || '').trim();
-  // Escapa aspas simples no valor pro filtro OData (padrão: '' representa um ' literal)
-  const ownerTeamVal = CLASS_TO_OWNER_TEAM[classValue];
-  // Quando a classificação tem uma equipe (ownerTeam) mapeada, filtramos por
-  // esse campo plano (bem mais barato pra API) em vez do filtro aninhado
-  // customFieldValues/any(...) — ver CLASS_TO_OWNER_TEAM.
-  const classFilter  = classValue
-    ? (ownerTeamVal
-        ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
-        : `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
-          ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`)
-    : null;
+  const classValue     = String(classification || '').trim();
+  const ownerTeamInput = String(ownerTeam || '').trim();
+  // ownerTeam explícito (campo da UI) tem prioridade sobre o mapeamento fixo
+  // (CLASS_TO_OWNER_TEAM) — permite testar/usar qualquer equipe sem precisar
+  // mexer no código, inclusive combinado com uma Classificação de Ticket (que
+  // nesse caso só serve pra conferir/corrigir o campo depois de buscar, não
+  // pro filtro da API). Escapa aspas simples pro filtro OData ('' = ' literal).
+  const ownerTeamVal = ownerTeamInput || CLASS_TO_OWNER_TEAM[classValue] || '';
+  const classFilter  = ownerTeamVal
+    ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
+    : (classValue
+        ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+          ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`
+        : null);
   const classPageSize = ownerTeamVal ? PAGE_SIZE : CLASS_FILTER_PAGE_SIZE;
 
   // marca como running ANTES de qualquer await para que /status reflita imediatamente

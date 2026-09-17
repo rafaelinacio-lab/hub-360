@@ -940,6 +940,12 @@
                             <p class="config-card-help" style="margin:0 0 8px;">Opcional. Filtra a carga full pelo campo "Classificação de Ticket" (ex: Ouvidoria, Suporte Técnico, Gestão de Combate ao Churn). Em branco = todas as classificações.</p>
                             <input type="text" id="dlClassification" placeholder="Ex: Ouvidoria" style="width:100%;max-width:320px;padding:7px 10px;border-radius:6px;border:1px solid var(--border,#333);background:var(--input-bg,#1a1a1a);color:inherit;font-size:13px;">
                         </div>
+
+                        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#333);">
+                            <h3 class="config-card-title" style="margin-bottom:2px;">Equipe (ownerTeam)</h3>
+                            <p class="config-card-help" style="margin:0 0 8px;">Opcional. Filtra direto pelo campo "Equipe" do Movidesk — bem mais rápido pra API do que a Classificação de Ticket. Pode usar sozinho ou junto com a Classificação acima (nesse caso a Classificação só confirma/corrige o valor depois de buscar, o filtro na API é feito pela Equipe). Em branco = usa o mapeamento automático quando a Classificação tiver equipe conhecida (ex: Ouvidoria).</p>
+                            <input type="text" id="dlOwnerTeam" placeholder="Ex: Ouvidoria" style="width:100%;max-width:320px;padding:7px 10px;border-radius:6px;border:1px solid var(--border,#333);background:var(--input-bg,#1a1a1a);color:inherit;font-size:13px;">
+                        </div>
                     </div>
 
                     <!-- Histórico -->
