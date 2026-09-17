@@ -31,8 +31,27 @@ const CLOSED_STATUSES = [
   'Resolvido', 'Fechado', 'Cancelado',
 ];
 
-// Campo personalizado "Classificação de Ticket" — usado pela carga Ouvidoria
+// Campo personalizado "Classificação de Ticket" — usado pela carga Ouvidoria.
+// customFieldId=23946 é o id "canônico" que usamos pra GRAVAR (é o que as
+// rotas ouvidoria.js/gcc.js filtram em silver.ticket_campo_customizado), mas
+// pra CONFERIR se um ticket é da classificação certa usamos customFieldRuleId
+// (ver RULE_ID_CLASSIFICACAO) — o Movidesk usa customFieldId diferentes por
+// formulário/equipe pra essa mesma pergunta ("Classificação de Ticket"), mas
+// o customFieldRuleId é estável entre eles. Confirmado: pro formulário da
+// equipe Ouvidoria, a classificação vem sob outro customFieldId — checar só
+// por 23946 nunca achava o campo certo e descartava todos os tickets.
 const CF_CLASSIFICACAO = 23946;
+const RULE_ID_CLASSIFICACAO = 11397;
+
+// Acha a entrada de customFieldValues que representa "Classificação de
+// Ticket", primeiro por customFieldRuleId (estável entre formulários),
+// com fallback pro customFieldId canônico caso o ruleId não venha na resposta.
+function acharCampoClassificacao(customFieldValues) {
+  if (!Array.isArray(customFieldValues)) return null;
+  return customFieldValues.find(c => Number(c.customFieldRuleId) === RULE_ID_CLASSIFICACAO)
+      || customFieldValues.find(c => Number(c.customFieldId) === CF_CLASSIFICACAO)
+      || null;
+}
 
 // Pra classificações com uma equipe (ownerTeam) dedicada no Movidesk, filtrar
 // por ownerTeam é MUITO mais barato pra API do que o filtro aninhado
@@ -64,8 +83,7 @@ function normalizar(v) {
 // alguns tickets abertos via formulário/automação — nesses casos o chamador
 // decide o que fazer, normalmente confiando no filtro que já trouxe o ticket).
 function checaClassificacao(customFieldValues, valorEsperado) {
-  if (!Array.isArray(customFieldValues)) return null;
-  const cf = customFieldValues.find(c => Number(c.customFieldId) === CF_CLASSIFICACAO);
+  const cf = acharCampoClassificacao(customFieldValues);
   if (!cf) return null;
   const items = Array.isArray(cf.items)
     ? cf.items.map(it => it.customFieldItem || it.value || it.text || '').filter(Boolean)
@@ -87,14 +105,19 @@ function makeSaveComClassificacao(classValue) {
       const confirmado = checaClassificacao(t.customFieldValues, classValue);
       if (confirmado === false) continue; // classificação explicitamente diferente — não é desse grupo
       if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
-      let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
-      if (!cf) {
-        cf = { customFieldId: CF_CLASSIFICACAO };
-        t.customFieldValues.push(cf);
+      // Garante uma entrada CANÔNICA sob CF_CLASSIFICACAO (23946) — é o id que
+      // silver.ticket_campo_customizado usa nas consultas de ouvidoria.js/gcc.js.
+      // O campo real da classificação pode vir sob outro customFieldId (form
+      // diferente por equipe — ver acharCampoClassificacao), caso em que o que
+      // porventura já exista sob 23946 é uma pergunta não relacionada desse
+      // form e precisa ser SOBRESCRITO (não só preenchido quando ausente),
+      // senão a Ouvidoria/GCC nunca encontra o ticket na consulta.
+      let cfCanonico = t.customFieldValues.find(c => Number(c.customFieldId) === CF_CLASSIFICACAO);
+      if (!cfCanonico) {
+        cfCanonico = { customFieldId: CF_CLASSIFICACAO };
+        t.customFieldValues.push(cfCanonico);
       }
-      if (!Array.isArray(cf.items) || !cf.items.length) {
-        cf.items = [{ customFieldItem: classValue }];
-      }
+      cfCanonico.items = [{ customFieldItem: classValue }];
       filtrados.push(t);
     }
     await saveBatch(filtrados);
