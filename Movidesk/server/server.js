@@ -100,34 +100,32 @@ setInterval(() => {
   db.query('DELETE FROM sessions WHERE expires_at < NOW()').catch(() => {});
 }, 60 * 60 * 1000);
 
-// ===== Crons desativadas a pedido — só a carga de Ouvidoria (abaixo) segue rodando =====
-// Curadoria (carga bruta 3x/dia) e o loader full/incremental (semanal/diário) foram
-// desligados. As funções e configs continuam no código para religar facilmente se
-// precisar (basta chamar setInterval de novo), só não são mais agendadas aqui.
-
-// ===== Carga Ouvidoria + GCC Movidesk → silver.* (a cada 2 horas) =====
-// Busca só tickets com Classificação de Ticket = "Ouvidoria" ou "Gestão de
-// Combate ao Churn" (filtro na própria API do Movidesk) — mais leve que a
-// incremental completa. Ambas as abas leem de silver.* diretamente. Roda em
-// sequência (nunca em paralelo — o loader só permite uma carga por vez).
-async function runOuvidoriaEGccLoad() {
-  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga Ouvidoria automática Movidesk → datalake`);
-  try {
-    await movideskLoader.runOuvidoria();
-  } catch (e) {
-    console.error('[loader] ouvidoria auto erro:', e.message);
-  }
-
-  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga GCC automática Movidesk → datalake`);
-  try {
-    await movideskLoader.runGcc();
-  } catch (e) {
-    console.error('[loader] gcc auto erro:', e.message);
-  }
-}
-
-setTimeout(runOuvidoriaEGccLoad, 10 * 1000);
-setInterval(runOuvidoriaEGccLoad, 2 * 60 * 60 * 1000);
+// ===== Crons desativadas a pedido — nenhuma carga roda sozinha =====
+// Curadoria (carga bruta 3x/dia), o loader full/incremental (semanal/diário)
+// e a carga automática de Ouvidoria + GCC (2h em 2h) foram desligados. Toda
+// carga agora só roda quando disparada manualmente em Configurações → Carga
+// Datalake (botões "Full agora" / "Sincronizar tickets" nas abas Ouvidoria e
+// GCC). As funções continuam no código para religar facilmente se precisar
+// (basta chamar setTimeout/setInterval de novo), só não são mais agendadas aqui.
+//
+// async function runOuvidoriaEGccLoad() {
+//   console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga Ouvidoria automática Movidesk → datalake`);
+//   try {
+//     await movideskLoader.runOuvidoria();
+//   } catch (e) {
+//     console.error('[loader] ouvidoria auto erro:', e.message);
+//   }
+//
+//   console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga GCC automática Movidesk → datalake`);
+//   try {
+//     await movideskLoader.runGcc();
+//   } catch (e) {
+//     console.error('[loader] gcc auto erro:', e.message);
+//   }
+// }
+//
+// setTimeout(runOuvidoriaEGccLoad, 10 * 1000);
+// setInterval(runOuvidoriaEGccLoad, 2 * 60 * 60 * 1000);
 
 // Iniciar servidor
 app.listen(PORT, () => {
