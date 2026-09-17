@@ -120,7 +120,7 @@ function makeSaveComClassificacao(classValue) {
       cfCanonico.items = [{ customFieldItem: classValue }];
       filtrados.push(t);
     }
-    await saveBatch(filtrados);
+    return saveBatch(filtrados);
   };
 }
 
@@ -133,6 +133,7 @@ const state = {
   endpoint:   null,       // '/tickets' | '/tickets/past'
   pagesDone:  0,
   ticketsDone: 0,
+  savedIds:   new Set(), // ids únicos salvos nesta carga (evita contar 2x um ticket que veio de /tickets e /tickets/past)
   errors:     [],
   lastFinish: null,
   lastResult: null,
@@ -239,10 +240,16 @@ async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_S
     if (!batch.length) break;
 
     state.phase = 'saving';
-    await onBatch(batch);
+    // onBatch retorna os tickets que de fato foram salvos (pode ser um
+    // subconjunto do lote buscado, quando a classificação descarta alguns —
+    // ver makeSaveComClassificacao). Usamos um Set de ids pro contador
+    // refletir tickets ÚNICOS salvos, não o bruto buscado — o mesmo ticket
+    // pode aparecer em /tickets E /tickets/past pro mesmo período.
+    const salvos = (await onBatch(batch)) || batch;
+    for (const t of salvos) state.savedIds.add(String(t.id));
 
     state.pagesDone++;
-    state.ticketsDone += batch.length;
+    state.ticketsDone = state.savedIds.size;
     total += batch.length;
 
     if (batch.length < pageSize) break;
@@ -369,7 +376,7 @@ async function ensureTables() {
 
 // ── Persistir um lote de tickets ──────────────────────────────────────────────
 async function saveBatch(tickets) {
-  if (!tickets.length) return;
+  if (!tickets.length) return [];
 
   // ── 1. silver.ticket (upsert) ──
   const ids         = tickets.map(t => String(t.id));
@@ -612,6 +619,8 @@ async function saveBatch(tickets) {
       }
     });
   }
+
+  return tickets;
 }
 
 // ── Lógica de carga ───────────────────────────────────────────────────────────
@@ -659,6 +668,7 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
   state.phase            = 'preparando';
   state.pagesDone        = 0;
   state.ticketsDone      = 0;
+  state.savedIds         = new Set();
   state.errors           = [];
   state.years            = sortedYears;
   state.currentYear      = null;
@@ -775,6 +785,7 @@ async function runIncremental() {
   state.phase           = 'preparando';
   state.pagesDone       = 0;
   state.ticketsDone     = 0;
+  state.savedIds        = new Set();
   state.errors          = [];
 
   console.log('[loader] ensureTables...');
@@ -814,6 +825,7 @@ async function runIncremental() {
       const fresh = batch.filter(t => !seen.has(String(t.id)));
       fresh.forEach(t => seen.add(String(t.id)));
       if (fresh.length) await saveBatch(fresh);
+      return fresh;
     };
 
     for (const ep of ['/tickets', '/tickets/past']) {
@@ -887,6 +899,7 @@ async function runByClassification(mode, classValue) {
   state.phase           = 'preparando';
   state.pagesDone       = 0;
   state.ticketsDone     = 0;
+  state.savedIds        = new Set();
   state.errors          = [];
 
   console.log('[loader] ensureTables...');
