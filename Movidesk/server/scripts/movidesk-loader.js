@@ -199,10 +199,14 @@ const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
 async function fetchPage(token, endpoint, filter, skip, pageSize = PAGE_SIZE) {
   const params = {
     token,
-    '$select': SELECT_FIELDS,
-    '$expand': EXPAND_FIELDS,
-    '$top':    pageSize,
-    '$skip':   skip,
+    '$select':  SELECT_FIELDS,
+    '$expand':  EXPAND_FIELDS,
+    '$top':     pageSize,
+    '$skip':    skip,
+    // Sem ordenação explícita, $skip pode repetir/pular linhas entre
+    // requisições se a ordem "natural" da API não for estável — mesma
+    // prática do fluxo n8n da equipe.
+    '$orderby': 'id asc',
   };
   if (filter) params['$filter'] = filter;
 
@@ -377,6 +381,15 @@ async function ensureTables() {
 // ── Persistir um lote de tickets ──────────────────────────────────────────────
 async function saveBatch(tickets) {
   if (!tickets.length) return [];
+
+  // Dedup por ticket_id: se o mesmo ticket vier duplicado na mesma página
+  // (paginação da API sem $orderby explícito pode repetir/pular linhas),
+  // o INSERT com ON CONFLICT (ticket_id) DO UPDATE quebra com "command
+  // cannot affect row a second time" ao tentar resolver o conflito duas
+  // vezes na mesma instrução. Mantemos a última ocorrência de cada id.
+  const porId = new Map();
+  for (const t of tickets) porId.set(String(t.id), t);
+  tickets = [...porId.values()];
 
   // ── 1. silver.ticket (upsert) ──
   const ids         = tickets.map(t => String(t.id));
