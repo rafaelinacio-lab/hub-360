@@ -39,9 +39,10 @@ const CF_CLASSIFICACAO = 23946;
 // customFieldValues/any(...): é um campo plano, sem lambda "any" pra avaliar
 // por ticket. Confirmado pelo fluxo n8n que a equipe já usa pra conferência
 // manual de contagem (ownerTeam eq 'Ouvidoria', $top=1000, sem timeout).
-// GCC ainda não tem ownerTeam mapeado — cai no filtro aninhado como fallback.
+// Classificações sem entrada aqui caem no filtro aninhado como fallback.
 const CLASS_TO_OWNER_TEAM = {
   'Ouvidoria': 'Ouvidoria',
+  'Gestão de Combate ao Churn': 'GCC - Gestão de Combate ao Churn',
 };
 
 function normalizar(v) {
