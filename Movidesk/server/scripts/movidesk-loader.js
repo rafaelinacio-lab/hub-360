@@ -34,6 +34,72 @@ const CLOSED_STATUSES = [
 // Campo personalizado "Classificação de Ticket" — usado pela carga Ouvidoria
 const CF_CLASSIFICACAO = 23946;
 
+// Pra classificações com uma equipe (ownerTeam) dedicada no Movidesk, filtrar
+// por ownerTeam é MUITO mais barato pra API do que o filtro aninhado
+// customFieldValues/any(...): é um campo plano, sem lambda "any" pra avaliar
+// por ticket. Confirmado pelo fluxo n8n que a equipe já usa pra conferência
+// manual de contagem (ownerTeam eq 'Ouvidoria', $top=1000, sem timeout).
+// GCC ainda não tem ownerTeam mapeado — cai no filtro aninhado como fallback.
+const CLASS_TO_OWNER_TEAM = {
+  'Ouvidoria': 'Ouvidoria',
+};
+
+function normalizar(v) {
+  // Remove marcas diacríticas (acentos) após normalize('NFD') separá-las da
+  // letra base — sem regex de unicode escape pra evitar mojibake de encoding.
+  let semAcento = '';
+  for (const ch of String(v || '').normalize('NFD')) {
+    const code = ch.codePointAt(0);
+    if (code >= 0x0300 && code <= 0x036f) continue;
+    semAcento += ch;
+  }
+  return semAcento.replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
+// Confere se o ticket já tem a classificação esperada, usando os dados que a
+// própria API devolveu (items, com fallback pra value). Retorna true/false
+// quando dá pra confirmar, ou null quando a API não devolveu nada usável
+// (bug de serialização confirmado: customFieldValues[].items ausente pra
+// alguns tickets abertos via formulário/automação — nesses casos o chamador
+// decide o que fazer, normalmente confiando no filtro que já trouxe o ticket).
+function checaClassificacao(customFieldValues, valorEsperado) {
+  if (!Array.isArray(customFieldValues)) return null;
+  const cf = customFieldValues.find(c => Number(c.customFieldId) === CF_CLASSIFICACAO);
+  if (!cf) return null;
+  const items = Array.isArray(cf.items)
+    ? cf.items.map(it => it.customFieldItem || it.value || it.text || '').filter(Boolean)
+    : [];
+  if (items.length) return items.some(v => normalizar(v).includes(normalizar(valorEsperado)));
+  if (cf.value !== null && cf.value !== undefined && cf.value !== '') {
+    return normalizar(String(cf.value)).includes(normalizar(valorEsperado));
+  }
+  return null;
+}
+
+// Monta o callback de save que confirma a classificação (descarta tickets que
+// vieram pelo filtro de ownerTeam mas são de outra classificação) e aplica o
+// patch pro bug de items ausente (ver checaClassificacao acima) nos que ficam.
+function makeSaveComClassificacao(classValue) {
+  return async (batch) => {
+    const filtrados = [];
+    for (const t of batch) {
+      const confirmado = checaClassificacao(t.customFieldValues, classValue);
+      if (confirmado === false) continue; // classificação explicitamente diferente — não é desse grupo
+      if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
+      let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
+      if (!cf) {
+        cf = { customFieldId: CF_CLASSIFICACAO };
+        t.customFieldValues.push(cf);
+      }
+      if (!Array.isArray(cf.items) || !cf.items.length) {
+        cf.items = [{ customFieldItem: classValue }];
+      }
+      filtrados.push(t);
+    }
+    await saveBatch(filtrados);
+  };
+}
+
 // ── Estado em memória (acessado pela rota de status) ─────────────────────────
 const state = {
   running:    false,
@@ -543,10 +609,17 @@ async function runFull({ years = [], classification = '' } = {}) {
   const modeLabel   = sortedYears.length ? 'full-anos' : 'full';
   const classValue   = String(classification || '').trim();
   // Escapa aspas simples no valor pro filtro OData (padrão: '' representa um ' literal)
+  const ownerTeamVal = CLASS_TO_OWNER_TEAM[classValue];
+  // Quando a classificação tem uma equipe (ownerTeam) mapeada, filtramos por
+  // esse campo plano (bem mais barato pra API) em vez do filtro aninhado
+  // customFieldValues/any(...) — ver CLASS_TO_OWNER_TEAM.
   const classFilter  = classValue
-    ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
-      ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`
+    ? (ownerTeamVal
+        ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
+        : `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+          ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`)
     : null;
+  const classPageSize = ownerTeamVal ? PAGE_SIZE : CLASS_FILTER_PAGE_SIZE;
 
   // marca como running ANTES de qualquer await para que /status reflita imediatamente
   state.running          = true;
@@ -582,25 +655,7 @@ async function runFull({ years = [], classification = '' } = {}) {
   const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
   console.log(`[loader] ▶ Carga FULL iniciada — ${yearsDesc}`);
 
-  // Quando há filtro de classificação, paginamos com $top reduzido
-  // (CLASS_FILTER_PAGE_SIZE) porque o filtro aninhado customFieldValues/any(...)
-  // combinado com $expand completo é mais custoso pra API do Movidesk processar.
-  // Também aplicamos o workaround pro bug de serialização (customFieldValues[].items
-  // ausente em alguns tickets) da carga por classificação.
-  const saveWithClassPatch = classValue ? async (batch) => {
-    for (const t of batch) {
-      if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
-      let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
-      if (!cf) {
-        cf = { customFieldId: CF_CLASSIFICACAO };
-        t.customFieldValues.push(cf);
-      }
-      if (!Array.isArray(cf.items) || !cf.items.length) {
-        cf.items = [{ customFieldItem: classValue }];
-      }
-    }
-    await saveBatch(batch);
-  } : saveBatch;
+  const saveWithClassPatch = classValue ? makeSaveComClassificacao(classValue) : saveBatch;
 
   try {
     const token = await getMovideskToken();
@@ -619,7 +674,7 @@ async function runFull({ years = [], classification = '' } = {}) {
         console.log(`[loader]   ── Ano ${year}${classValue ? ` — classificação "${classValue}"` : ''} ──`);
         for (const ep of ['/tickets', '/tickets/past']) {
           console.log(`[loader]     endpoint ${ep}`);
-          await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classFilter ? CLASS_FILTER_PAGE_SIZE : PAGE_SIZE);
+          await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classFilter ? classPageSize : PAGE_SIZE);
         }
         state.yearsDone++;
         console.log(`[loader]   ✓ Ano ${year} concluído — ${state.ticketsDone} tickets acumulados`);
@@ -630,7 +685,7 @@ async function runFull({ years = [], classification = '' } = {}) {
       console.log(`[loader]   ${classValue ? `classificação "${classValue}"` : 'sem filtro de data ou classificação'}`);
       for (const ep of ['/tickets', '/tickets/past']) {
         console.log(`[loader]   endpoint ${ep}`);
-        await fetchEndpoint(token, ep, classFilter, saveWithClassPatch, classFilter ? CLASS_FILTER_PAGE_SIZE : PAGE_SIZE);
+        await fetchEndpoint(token, ep, classFilter, saveWithClassPatch, classFilter ? classPageSize : PAGE_SIZE);
       }
     }
 
@@ -824,43 +879,22 @@ async function runByClassification(mode, classValue) {
     const token = await getMovideskToken();
     console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
 
-    // Paginamos direto com o filtro completo (classificação + em aberto) usando
-    // $top reduzido (CLASS_FILTER_PAGE_SIZE) — o filtro aninhado
-    // customFieldValues/any(...) combinado com $expand completo é mais custoso
-    // pra API do Movidesk processar do que uma busca simples.
+    // Quando a classificação tem ownerTeam mapeado (ver CLASS_TO_OWNER_TEAM),
+    // filtramos por esse campo plano — bem mais barato pra API do que o filtro
+    // aninhado customFieldValues/any(...), permitindo $top normal (PAGE_SIZE).
+    // Sem ownerTeam mapeado, cai no filtro aninhado com $top reduzido
+    // (CLASS_FILTER_PAGE_SIZE), mais custoso pra API processar junto com $expand.
+    const ownerTeamVal = CLASS_TO_OWNER_TEAM[classValue];
     const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
-    const classFilter = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
-                        ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`;
+    const classFilter = ownerTeamVal
+      ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
+      : `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+        ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`;
     const idFilter = `${classFilter} and ${closedExclusion}`;
-
-    // Bug confirmado na API do Movidesk: para tickets abertos criados via
-    // formulário web/automação, o customFieldValues[] retornado vem com
-    // value:null e SEM a chave "items" para o campo 23946 — mesmo quando o
-    // próprio $filter usado pra localizar o ticket depende desse valor.
-    // Confirmado com curl direto na API, com e sem o filtro de classificação
-    // combinado: mesmo resultado quebrado nos dois casos. É uma inconsistência
-    // da serialização da API do Movidesk, não do nosso código.
-    //
-    // Como o próprio $filter já PROVA a classificação (foi exatamente esse
-    // filtro que trouxe o ticket), não precisamos confiar na resposta quebrada
-    // pra esse campo específico — corrigimos o valor no objeto antes de salvar.
-    const savePatched = async (batch) => {
-      for (const t of batch) {
-        if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
-        let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
-        if (!cf) {
-          cf = { customFieldId: CF_CLASSIFICACAO };
-          t.customFieldValues.push(cf);
-        }
-        if (!Array.isArray(cf.items) || !cf.items.length) {
-          cf.items = [{ customFieldItem: classValue }];
-        }
-      }
-      await saveBatch(batch);
-    };
+    const pageSize = ownerTeamVal ? PAGE_SIZE : CLASS_FILTER_PAGE_SIZE;
 
     console.log(`[loader]   /tickets — buscando ${modeUpper} em aberto`);
-    await fetchEndpoint(token, '/tickets', idFilter, savePatched, CLASS_FILTER_PAGE_SIZE);
+    await fetchEndpoint(token, '/tickets', idFilter, makeSaveComClassificacao(classValue), pageSize);
     console.log(`[loader]   ${state.ticketsDone} ticket(s) de ${modeUpper} em aberto encontrados`);
 
     state.phase      = 'idle';
