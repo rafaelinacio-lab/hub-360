@@ -467,12 +467,17 @@ async function saveBatch(tickets) {
       slaRespDs, clientOrgs]);
 
   // ── 2. silver.ticket_acao ──
-  const actionRows = [];
+  // Dedup por (ticket_id, acao_id) — mesmo motivo do dedup de tickets acima:
+  // se a API devolver uma ação repetida dentro do array actions[] de um
+  // ticket (visto em tickets antigos/fechados, com histórico de ações bem
+  // maior), o INSERT com ON CONFLICT (ticket_id, acao_id) quebra do mesmo
+  // jeito. Mantemos a última ocorrência de cada par.
+  const actionRowsPorChave = new Map();
   for (const t of tickets) {
     if (!Array.isArray(t.actions)) continue;
     for (const a of t.actions) {
       if (!a.id) continue;
-      actionRows.push({
+      actionRowsPorChave.set(`${t.id}:${a.id}`, {
         acao_id:        String(a.id),
         ticket_id:      String(t.id),
         tipo:           a.type != null ? String(a.type) : null,
@@ -485,6 +490,7 @@ async function saveBatch(tickets) {
       });
     }
   }
+  const actionRows = [...actionRowsPorChave.values()];
   if (actionRows.length) {
     await db.query(`
       INSERT INTO silver.ticket_acao
