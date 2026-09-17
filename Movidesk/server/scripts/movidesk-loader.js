@@ -105,12 +105,12 @@ const SELECT_FIELDS = [
 const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
 
 // ── Busca uma página da API ───────────────────────────────────────────────────
-async function fetchPage(token, endpoint, filter, skip) {
+async function fetchPage(token, endpoint, filter, skip, pageSize = PAGE_SIZE) {
   const params = {
     token,
     '$select': SELECT_FIELDS,
     '$expand': EXPAND_FIELDS,
-    '$top':    PAGE_SIZE,
+    '$top':    pageSize,
     '$skip':   skip,
   };
   if (filter) params['$filter'] = filter;
@@ -121,79 +121,18 @@ async function fetchPage(token, endpoint, filter, skip) {
   return Array.isArray(data) ? data : [];
 }
 
-// ── Descoberta leve de IDs (sem $expand) ──────────────────────────────────────
-// O filtro aninhado customFieldValues/any(...) combinado com $expand completo
-// é caro demais pra API do Movidesk processar junto (timeout/429). Descobrir
-// só os IDs primeiro (sem $expand) é rápido mesmo com filtro complexo — depois
-// buscamos os detalhes completos só desses IDs específicos.
-const ID_PAGE_SIZE = 1000;
-
-// A API do Movidesk limita o $filter a 100 "nodes" — retorna HTTP 400 "node
-// count limit of '100' has been exceeded" se passar disso. Cada "id eq X"
-// conta como 3 nodes (propriedade + constante + comparação) e cada "or"
-// entre comparações conta mais 1 node, então um filtro com N ids em OR tem
-// 4N-1 nodes (confirmado: um lote de 40 ids — 159 nodes — ainda deu 400).
-// N=20 dá 79 nodes, com folga.
-const ID_FILTER_CHUNK = 20;
-
-function buildIdFilter(ids) {
-  return ids.map(id => `id eq ${id}`).join(' or ');
-}
-
-async function fetchIdPage(token, endpoint, filter, skip) {
-  const params = { token, '$select': 'id', '$top': ID_PAGE_SIZE, '$skip': skip };
-  if (filter) params['$filter'] = filter;
-  const url = `${MOVI_BASE}${endpoint}?${qs(params)}`;
-  const resp = await fetchWithRetry(url);
-  const data = await resp.json();
-  return Array.isArray(data) ? data.map(t => t.id) : [];
-}
-
-async function fetchAllIds(token, endpoints, filter) {
-  const ids = [];
-  for (const ep of endpoints) {
-    let skip = 0;
-    while (true) {
-      if (state.cancelRequested) {
-        throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
-      }
-      const page = await fetchIdPage(token, ep, filter, skip);
-      if (!page.length) break;
-      ids.push(...page);
-      if (page.length < ID_PAGE_SIZE) break;
-      skip += ID_PAGE_SIZE;
-      await sleep(150);
-    }
-  }
-  return [...new Set(ids)];
-}
-
-// Busca os detalhes completos (com $expand) de uma lista de IDs, em lotes de
-// ID_FILTER_CHUNK (limite de "nodes" do $filter da API), salvando cada lote
-// via onBatch. Usado quando o filtro original é complexo demais pra combinar
-// direto com $expand (ver fetchAllIds acima).
-async function fetchDetailsAndSave(token, ids, onBatch) {
-  let total = 0;
-  for (let i = 0; i < ids.length; i += ID_FILTER_CHUNK) {
-    if (state.cancelRequested) {
-      throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
-    }
-    const chunk = ids.slice(i, i + ID_FILTER_CHUNK);
-    const idsOr = buildIdFilter(chunk);
-    state.phase = 'fetching';
-    const batch = await fetchPage(token, '/tickets', idsOr, 0);
-    state.phase = 'saving';
-    await onBatch(batch);
-    state.pagesDone++;
-    state.ticketsDone += batch.length;
-    total += batch.length;
-    await sleep(150);
-  }
-  return total;
-}
+// Páginas menores pro filtro aninhado customFieldValues/any(...) (usado pela
+// carga por classificação): a montagem de "id eq X or ..." em lotes esbarrava
+// no limite de 100 "nodes" do $filter da API (HTTP 400) sempre que o filtro
+// combinado tinha muitos IDs. Paginar direto com o filtro original de
+// classificação (via $skip, como fetchEndpoint já faz) resolve isso de vez —
+// o filtro tem um número fixo de nodes, não cresce com a quantidade de
+// tickets. Um $top menor aqui é só cautela: $expand completo + esse filtro
+// aninhado já deu timeout/429 quando testado com $top=1000.
+const CLASS_FILTER_PAGE_SIZE = 50;
 
 // ── Itera todas as páginas de um endpoint, chamando onBatch a cada página ────
-async function fetchEndpoint(token, endpoint, filter, onBatch) {
+async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_SIZE) {
   let skip = 0;
   let total = 0;
 
@@ -206,7 +145,7 @@ async function fetchEndpoint(token, endpoint, filter, onBatch) {
     }
 
     state.phase = 'fetching';
-    const batch = await fetchPage(token, endpoint, filter, skip);
+    const batch = await fetchPage(token, endpoint, filter, skip, pageSize);
     if (!batch.length) break;
 
     state.phase = 'saving';
@@ -216,8 +155,8 @@ async function fetchEndpoint(token, endpoint, filter, onBatch) {
     state.ticketsDone += batch.length;
     total += batch.length;
 
-    if (batch.length < PAGE_SIZE) break;
-    skip += PAGE_SIZE;
+    if (batch.length < pageSize) break;
+    skip += pageSize;
     await sleep(150); // cortesia de rate-limit
   }
   return total;
@@ -643,13 +582,11 @@ async function runFull({ years = [], classification = '' } = {}) {
   const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
   console.log(`[loader] ▶ Carga FULL iniciada — ${yearsDesc}`);
 
-  // Quando há filtro de classificação, o filtro aninhado customFieldValues/any(...)
-  // combinado com $expand completo é caro demais pra API do Movidesk (mesmo bug
-  // de timeout/429 encontrado na carga de Ouvidoria/GCC). Nesse caso, buscamos os
-  // IDs primeiro (sem $expand — rápido mesmo com filtro complexo) e só então os
-  // detalhes completos desses IDs específicos. Também aplicamos o mesmo workaround
-  // pro bug de serialização (customFieldValues[].items ausente) da carga por
-  // classificação.
+  // Quando há filtro de classificação, paginamos com $top reduzido
+  // (CLASS_FILTER_PAGE_SIZE) porque o filtro aninhado customFieldValues/any(...)
+  // combinado com $expand completo é mais custoso pra API do Movidesk processar.
+  // Também aplicamos o workaround pro bug de serialização (customFieldValues[].items
+  // ausente em alguns tickets) da carga por classificação.
   const saveWithClassPatch = classValue ? async (batch) => {
     for (const t of batch) {
       if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
@@ -677,34 +614,23 @@ async function runFull({ years = [], classification = '' } = {}) {
         const from = `${year}-01-01T00:00:00Z`;
         const to   = `${year}-12-31T23:59:59Z`;
         const dateFilter = `createdDate ge ${from} and createdDate le ${to}`;
+        const filterStr = classFilter ? `${dateFilter} and ${classFilter}` : dateFilter;
 
         console.log(`[loader]   ── Ano ${year}${classValue ? ` — classificação "${classValue}"` : ''} ──`);
-        if (classFilter) {
-          const ids = await fetchAllIds(token, ['/tickets', '/tickets/past'], `${dateFilter} and ${classFilter}`);
-          console.log(`[loader]     ${ids.length} ticket(s) encontrados`);
-          await fetchDetailsAndSave(token, ids, saveWithClassPatch);
-        } else {
-          for (const ep of ['/tickets', '/tickets/past']) {
-            console.log(`[loader]     endpoint ${ep}`);
-            await fetchEndpoint(token, ep, dateFilter, saveBatch);
-          }
+        for (const ep of ['/tickets', '/tickets/past']) {
+          console.log(`[loader]     endpoint ${ep}`);
+          await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classFilter ? CLASS_FILTER_PAGE_SIZE : PAGE_SIZE);
         }
         state.yearsDone++;
         console.log(`[loader]   ✓ Ano ${year} concluído — ${state.ticketsDone} tickets acumulados`);
       }
       state.currentYear = null;
-    } else if (classFilter) {
-      // ── Carga total filtrada só por classificação (sem filtro de data) ──────
-      console.log(`[loader]   classificação "${classValue}" — descobrindo IDs`);
-      const ids = await fetchAllIds(token, ['/tickets', '/tickets/past'], classFilter);
-      console.log(`[loader]   ${ids.length} ticket(s) encontrados`);
-      await fetchDetailsAndSave(token, ids, saveWithClassPatch);
     } else {
-      // ── Carga total sem filtro nenhum ───────────────────────────────────────
-      console.log('[loader]   sem filtro de data ou classificação');
+      // ── Carga total (filtrada só por classificação, ou sem filtro nenhum) ───
+      console.log(`[loader]   ${classValue ? `classificação "${classValue}"` : 'sem filtro de data ou classificação'}`);
       for (const ep of ['/tickets', '/tickets/past']) {
         console.log(`[loader]   endpoint ${ep}`);
-        await fetchEndpoint(token, ep, null, saveBatch);
+        await fetchEndpoint(token, ep, classFilter, saveWithClassPatch, classFilter ? CLASS_FILTER_PAGE_SIZE : PAGE_SIZE);
       }
     }
 
@@ -898,25 +824,15 @@ async function runByClassification(mode, classValue) {
     const token = await getMovideskToken();
     console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
 
-    // O filtro OData aninhado customFieldValues/any(...) combinado com $expand=owner,
-    // clients,customFieldValues,actions é caro demais pra API do Movidesk processar
-    // junto (dava timeout de 60s). O filtro sozinho, SEM $expand, é rápido — então
-    // fazemos em duas fases: (1) descobre os IDs com uma consulta leve (só id,
-    // filtro completo), (2) busca os detalhes completos (com $expand) só desses IDs.
+    // Paginamos direto com o filtro completo (classificação + em aberto) usando
+    // $top reduzido (CLASS_FILTER_PAGE_SIZE) — o filtro aninhado
+    // customFieldValues/any(...) combinado com $expand completo é mais custoso
+    // pra API do Movidesk processar do que uma busca simples.
     const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
     const classFilter = `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
                         ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`;
     const idFilter = `${classFilter} and ${closedExclusion}`;
 
-    console.log(`[loader]   /tickets — descobrindo IDs de ${modeUpper} em aberto`);
-    const idUrl = `${MOVI_BASE}/tickets?${qs({ token, '$select': 'id', '$filter': idFilter, '$top': 1000 })}`;
-    const idResp = await fetchWithRetry(idUrl);
-    const idList = await idResp.json();
-    const ids = (Array.isArray(idList) ? idList : []).map(t => t.id);
-    console.log(`[loader]   ${ids.length} ticket(s) de ${modeUpper} em aberto encontrados`);
-
-    // Fase 2 — busca os detalhes completos só desses IDs.
-    //
     // Bug confirmado na API do Movidesk: para tickets abertos criados via
     // formulário web/automação, o customFieldValues[] retornado vem com
     // value:null e SEM a chave "items" para o campo 23946 — mesmo quando o
@@ -925,26 +841,27 @@ async function runByClassification(mode, classValue) {
     // combinado: mesmo resultado quebrado nos dois casos. É uma inconsistência
     // da serialização da API do Movidesk, não do nosso código.
     //
-    // Como a Fase 1 já PROVOU a classificação (foi exatamente esse filtro que
-    // trouxe o ticket), não precisamos confiar na resposta quebrada da Fase 2
+    // Como o próprio $filter já PROVA a classificação (foi exatamente esse
+    // filtro que trouxe o ticket), não precisamos confiar na resposta quebrada
     // pra esse campo específico — corrigimos o valor no objeto antes de salvar.
-    if (ids.length) {
-      const savePatched = async (batch) => {
-        for (const t of batch) {
-          if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
-          let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
-          if (!cf) {
-            cf = { customFieldId: CF_CLASSIFICACAO };
-            t.customFieldValues.push(cf);
-          }
-          if (!Array.isArray(cf.items) || !cf.items.length) {
-            cf.items = [{ customFieldItem: classValue }];
-          }
+    const savePatched = async (batch) => {
+      for (const t of batch) {
+        if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
+        let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
+        if (!cf) {
+          cf = { customFieldId: CF_CLASSIFICACAO };
+          t.customFieldValues.push(cf);
         }
-        await saveBatch(batch);
-      };
-      await fetchDetailsAndSave(token, ids, savePatched);
-    }
+        if (!Array.isArray(cf.items) || !cf.items.length) {
+          cf.items = [{ customFieldItem: classValue }];
+        }
+      }
+      await saveBatch(batch);
+    };
+
+    console.log(`[loader]   /tickets — buscando ${modeUpper} em aberto`);
+    await fetchEndpoint(token, '/tickets', idFilter, savePatched, CLASS_FILTER_PAGE_SIZE);
+    console.log(`[loader]   ${state.ticketsDone} ticket(s) de ${modeUpper} em aberto encontrados`);
 
     state.phase      = 'idle';
     state.running    = false;
