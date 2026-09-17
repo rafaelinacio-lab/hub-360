@@ -128,11 +128,13 @@ async function fetchPage(token, endpoint, filter, skip) {
 // buscamos os detalhes completos só desses IDs específicos.
 const ID_PAGE_SIZE = 1000;
 
-// A API do Movidesk limita o $filter a 100 "nodes" (cada "id eq X" conta como
-// nó, e cada "or" entre eles também) — retorna HTTP 400 "node count limit of
-// '100' has been exceeded" se passar disso. Um filtro com N ids em OR tem
-// aproximadamente 2N-1 nodes, então mantemos bem abaixo do limite.
-const ID_FILTER_CHUNK = 40;
+// A API do Movidesk limita o $filter a 100 "nodes" — retorna HTTP 400 "node
+// count limit of '100' has been exceeded" se passar disso. Cada "id eq X"
+// conta como 3 nodes (propriedade + constante + comparação) e cada "or"
+// entre comparações conta mais 1 node, então um filtro com N ids em OR tem
+// 4N-1 nodes (confirmado: um lote de 40 ids — 159 nodes — ainda deu 400).
+// N=20 dá 79 nodes, com folga.
+const ID_FILTER_CHUNK = 20;
 
 function buildIdFilter(ids) {
   return ids.map(id => `id eq ${id}`).join(' or ');
