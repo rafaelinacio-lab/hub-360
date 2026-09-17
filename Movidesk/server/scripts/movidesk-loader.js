@@ -128,6 +128,16 @@ async function fetchPage(token, endpoint, filter, skip) {
 // buscamos os detalhes completos só desses IDs específicos.
 const ID_PAGE_SIZE = 1000;
 
+// A API do Movidesk limita o $filter a 100 "nodes" (cada "id eq X" conta como
+// nó, e cada "or" entre eles também) — retorna HTTP 400 "node count limit of
+// '100' has been exceeded" se passar disso. Um filtro com N ids em OR tem
+// aproximadamente 2N-1 nodes, então mantemos bem abaixo do limite.
+const ID_FILTER_CHUNK = 40;
+
+function buildIdFilter(ids) {
+  return ids.map(id => `id eq ${id}`).join(' or ');
+}
+
 async function fetchIdPage(token, endpoint, filter, skip) {
   const params = { token, '$select': 'id', '$top': ID_PAGE_SIZE, '$skip': skip };
   if (filter) params['$filter'] = filter;
@@ -157,16 +167,17 @@ async function fetchAllIds(token, endpoints, filter) {
 }
 
 // Busca os detalhes completos (com $expand) de uma lista de IDs, em lotes de
-// PAGE_SIZE, salvando cada lote via onBatch. Usado quando o filtro original é
-// complexo demais pra combinar direto com $expand (ver fetchAllIds acima).
+// ID_FILTER_CHUNK (limite de "nodes" do $filter da API), salvando cada lote
+// via onBatch. Usado quando o filtro original é complexo demais pra combinar
+// direto com $expand (ver fetchAllIds acima).
 async function fetchDetailsAndSave(token, ids, onBatch) {
   let total = 0;
-  for (let i = 0; i < ids.length; i += PAGE_SIZE) {
+  for (let i = 0; i < ids.length; i += ID_FILTER_CHUNK) {
     if (state.cancelRequested) {
       throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
     }
-    const chunk = ids.slice(i, i + PAGE_SIZE);
-    const idsOr = chunk.map(id => `id eq ${id}`).join(' or ');
+    const chunk = ids.slice(i, i + ID_FILTER_CHUNK);
+    const idsOr = buildIdFilter(chunk);
     state.phase = 'fetching';
     const batch = await fetchPage(token, '/tickets', idsOr, 0);
     state.phase = 'saving';
@@ -916,22 +927,21 @@ async function runByClassification(mode, classValue) {
     // trouxe o ticket), não precisamos confiar na resposta quebrada da Fase 2
     // pra esse campo específico — corrigimos o valor no objeto antes de salvar.
     if (ids.length) {
-      const idsOr = ids.map(id => `id eq ${id}`).join(' or ');
-      const details = await fetchPage(token, '/tickets', idsOr, 0);
-      for (const t of details) {
-        if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
-        let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
-        if (!cf) {
-          cf = { customFieldId: CF_CLASSIFICACAO };
-          t.customFieldValues.push(cf);
+      const savePatched = async (batch) => {
+        for (const t of batch) {
+          if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
+          let cf = t.customFieldValues.find(c => c.customFieldId === CF_CLASSIFICACAO);
+          if (!cf) {
+            cf = { customFieldId: CF_CLASSIFICACAO };
+            t.customFieldValues.push(cf);
+          }
+          if (!Array.isArray(cf.items) || !cf.items.length) {
+            cf.items = [{ customFieldItem: classValue }];
+          }
         }
-        if (!Array.isArray(cf.items) || !cf.items.length) {
-          cf.items = [{ customFieldItem: classValue }];
-        }
-      }
-      await saveBatch(details);
-      state.pagesDone++;
-      state.ticketsDone += details.length;
+        await saveBatch(batch);
+      };
+      await fetchDetailsAndSave(token, ids, savePatched);
     }
 
     state.phase      = 'idle';
