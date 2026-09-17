@@ -944,7 +944,66 @@
                         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#333);">
                             <h3 class="config-card-title" style="margin-bottom:2px;">Equipe (ownerTeam)</h3>
                             <p class="config-card-help" style="margin:0 0 8px;">Opcional. Filtra direto pelo campo "Equipe" do Movidesk — bem mais rápido pra API do que a Classificação de Ticket. Pode usar sozinho ou junto com a Classificação acima (nesse caso a Classificação só confirma/corrige o valor depois de buscar, o filtro na API é feito pela Equipe). Em branco = usa o mapeamento automático quando a Classificação tiver equipe conhecida (ex: Ouvidoria).</p>
-                            <input type="text" id="dlOwnerTeam" placeholder="Ex: Ouvidoria" style="width:100%;max-width:320px;padding:7px 10px;border-radius:6px;border:1px solid var(--border,#333);background:var(--input-bg,#1a1a1a);color:inherit;font-size:13px;">
+                            <select id="dlOwnerTeam" style="width:100%;max-width:320px;padding:7px 10px;border-radius:6px;border:1px solid var(--border,#333);background:var(--input-bg,#1a1a1a);color:inherit;font-size:13px;">
+                                <option value="">— Automático (baseado na Classificação) —</option>
+                                <option value="Administradores">Administradores</option>
+                                <option value="Agente">Agente</option>
+                                <option value="Agrotitan - Equipe Técnica">Agrotitan - Equipe Técnica</option>
+                                <option value="Agrotitan - Suporte">Agrotitan - Suporte</option>
+                                <option value="Agrotitan Fazendas - Equipe Técnica">Agrotitan Fazendas - Equipe Técnica</option>
+                                <option value="Agrotitan Fazendas - Suporte">Agrotitan Fazendas - Suporte</option>
+                                <option value="Analytics - B.I">Analytics - B.I</option>
+                                <option value="Aut. Comercial - Suporte">Aut. Comercial - Suporte</option>
+                                <option value="Automação Comercial - Equipe Técnica">Automação Comercial - Equipe Técnica</option>
+                                <option value="Cliente - Relator">Cliente - Relator</option>
+                                <option value="Construshow - Equipe Técnica">Construshow - Equipe Técnica</option>
+                                <option value="Construshow - Suporte">Construshow - Suporte</option>
+                                <option value="CRM - Equipe Técnica">CRM - Equipe Técnica</option>
+                                <option value="CRM - Suporte">CRM - Suporte</option>
+                                <option value="CRM - VX">CRM - VX</option>
+                                <option value="Curadoria IA">Curadoria IA</option>
+                                <option value="Filt - Equipe Técnica">Filt - Equipe Técnica</option>
+                                <option value="Filt - Suporte">Filt - Suporte</option>
+                                <option value="Filt - VX">Filt - VX</option>
+                                <option value="Financeiro - VIASOFT">Financeiro - VIASOFT</option>
+                                <option value="FRANQUIA - AD TECH NEGOCIOS LTDA">FRANQUIA - AD TECH NEGOCIOS LTDA</option>
+                                <option value="FRANQUIA - Borges e Mazete - Suporte">FRANQUIA - Borges e Mazete - Suporte</option>
+                                <option value="FRANQUIA - Cands - Suporte">FRANQUIA - Cands - Suporte</option>
+                                <option value="FRANQUIA - Link - Suporte">FRANQUIA - Link - Suporte</option>
+                                <option value="FRANQUIA - LZ - Suporte">FRANQUIA - LZ - Suporte</option>
+                                <option value="FRANQUIA - MP AGROTECH - Suporte">FRANQUIA - MP AGROTECH - Suporte</option>
+                                <option value="FRANQUIA - PRODACON - Consultores">FRANQUIA - PRODACON - Consultores</option>
+                                <option value="FRANQUIA - PRODACON - Suporte">FRANQUIA - PRODACON - Suporte</option>
+                                <option value="GCC - Gestão de Combate ao Churn">GCC - Gestão de Combate ao Churn</option>
+                                <option value="Ouvidoria">Ouvidoria</option>
+                                <option value="Petroshow - Equipe Técnica">Petroshow - Equipe Técnica</option>
+                                <option value="Petroshow - Suporte">Petroshow - Suporte</option>
+                                <option value="Serviços Fiscais - Equipe Técnica">Serviços Fiscais - Equipe Técnica</option>
+                                <option value="Serviços Fiscais - Suporte">Serviços Fiscais - Suporte</option>
+                                <option value="TalentRH - Equipe Técnica">TalentRH - Equipe Técnica</option>
+                                <option value="TalentRH - Suporte">TalentRH - Suporte</option>
+                                <option value="VIABOT - Adm">VIABOT - Adm</option>
+                                <option value="VIASOFT - Canais">VIASOFT - Canais</option>
+                                <option value="VIASOFT - Comitê de IA">VIASOFT - Comitê de IA</option>
+                                <option value="VIASOFT - HOK">VIASOFT - HOK</option>
+                                <option value="VIASOFT - Migrações">VIASOFT - Migrações</option>
+                                <option value="VIASOFT - Sistemas Internos">VIASOFT - Sistemas Internos</option>
+                                <option value="VIASOFT - Suporte Oracle Cloud">VIASOFT - Suporte Oracle Cloud</option>
+                                <option value="VIASOFT - Support Leaders">VIASOFT - Support Leaders</option>
+                                <option value="VIASOFT - Tecnologia">VIASOFT - Tecnologia</option>
+                                <option value="VIASOFT - TESTE INTERNO">VIASOFT - TESTE INTERNO</option>
+                                <option value="VIASOFT - Tático">VIASOFT - Tático</option>
+                                <option value="Viasuper - Equipe Técnica">Viasuper - Equipe Técnica</option>
+                                <option value="Viasuper - Suporte">Viasuper - Suporte</option>
+                                <option value="VOORS - Equipe Técnica">VOORS - Equipe Técnica</option>
+                                <option value="VOORS - Suporte">VOORS - Suporte</option>
+                                <option value="VOORS - VX">VOORS - VX</option>
+                                <option value="VX - AGROTITAN">VX - AGROTITAN</option>
+                                <option value="VX - AGROTITAN FAZENDAS">VX - AGROTITAN FAZENDAS</option>
+                                <option value="VX - CONSTRUSHOW">VX - CONSTRUSHOW</option>
+                                <option value="VX - FISCO/TALENT">VX - FISCO/TALENT</option>
+                                <option value="VX - PETROSHOW">VX - PETROSHOW</option>
+                            </select>
                         </div>
                     </div>
 
