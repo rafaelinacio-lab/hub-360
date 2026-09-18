@@ -804,6 +804,8 @@ function locusKey(locus){
 const LOCUS_ICON={int:'home',ext:'public',mix:'device_hub',oth:'place'};
 // Finalizado = base_status Resolvido/Fechado (PT-BR e EN, conforme a origem do dado); aberto = todo o resto.
 const FINALIZADO_STATUSES = ['Resolved','Closed','Resolvido','Fechado'];
+// Cancelado é status próprio — não conta como "Em aberto" nem "Finalizado".
+const CANCELADO_STATUSES  = ['Canceled','Cancelado'];
 
 function statusBadge(status, base){
   if(!status) return '';
@@ -904,13 +906,14 @@ function renderChips(){
   orgSel.innerHTML=`<option value="">Todos os clientes</option>`
     +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
 
-  // select de status: só Em aberto / Finalizado (baseado em base_status)
+  // select de status: Em aberto / Finalizado / Cancelado (baseado em base_status)
   const statusSel=document.getElementById('gcc-status');
   const curStatus=statusSel.value;
   if(!statusSel.dataset.built){
     statusSel.innerHTML=`<option value="">Todos os status</option>`
       +`<option value="aberto"${curStatus==='aberto'?' selected':''}>Em aberto</option>`
-      +`<option value="finalizado"${curStatus==='finalizado'?' selected':''}>Finalizado</option>`;
+      +`<option value="finalizado"${curStatus==='finalizado'?' selected':''}>Finalizado</option>`
+      +`<option value="cancelado"${curStatus==='cancelado'?' selected':''}>Cancelado</option>`;
     statusSel.dataset.built='1';
   }
 
@@ -947,8 +950,10 @@ function applyFilters(){
     if(orgFil&&r.organizacao!==orgFil) return false;
     if(statusFil){
       const fin=FINALIZADO_STATUSES.includes(r.base_status);
-      if(statusFil==='aberto'&&fin) return false;
+      const canc=CANCELADO_STATUSES.includes(r.base_status);
+      if(statusFil==='aberto'&&(fin||canc)) return false;
       if(statusFil==='finalizado'&&!fin) return false;
+      if(statusFil==='cancelado'&&!canc) return false;
     }
     // Filtro por ano/mês de resolução (múltipla seleção)
     if(yearFils.length||monthFils.length){
