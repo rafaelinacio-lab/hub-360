@@ -190,9 +190,10 @@ input,select{font-family:inherit}
 .grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-2b{display:grid;grid-template-columns:0.85fr 1.15fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 @media (max-width:980px){
   .grid-4,.grid-5,.grid-6{grid-template-columns:repeat(2,1fr)}
-  .grid-2,.grid-2b{grid-template-columns:1fr}
+  .grid-2,.grid-2b,.grid-3{grid-template-columns:1fr}
 }
 @media (max-width:520px){.grid-4,.grid-5,.grid-6{grid-template-columns:1fr}}
 
@@ -237,6 +238,7 @@ input,select{font-family:inherit}
 .dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
 
 .data-panel.compact{padding:14px 16px}
+.data-panel.compact.danger{border-color:var(--orange-bd)}
 .data-panel.compact .panel-title{font-size:12px;margin-bottom:8px}
 .data-panel.compact .dtable{font-size:12px}
 .data-panel.compact .dtable th{padding:5px 8px;font-size:9.5px}
@@ -377,7 +379,7 @@ input,select{font-family:inherit}
     </div>
 
     <p class="section-label">Ação</p>
-    <div class="grid-2">
+    <div class="grid-3">
       <div class="data-panel compact">
         <p class="panel-title">Clientes com maior reincidência e procedência</p>
         <div class="dtable-wrap">
@@ -394,6 +396,16 @@ input,select{font-family:inherit}
           <table class="dtable">
             <thead><tr><th>Responsável</th><th class="num">Tickets</th><th class="num">Tempo médio</th><th class="num">Taxa procedência</th></tr></thead>
             <tbody id="tbl-responsavel"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="data-panel compact danger">
+        <p class="panel-title">Tickets vencidos — ação necessária</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Ticket</th><th>Responsável</th><th class="num">Dias venc.</th></tr></thead>
+            <tbody id="tbl-vencidos"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -681,6 +693,7 @@ function render(){
   renderDirecionadoChart(rowsFull);
   renderReincidenciaTable(rowsFull);
   renderResponsavelTable(rowsFull);
+  renderVencidosTable(rowsFull);
 }
 function setDelta(id,{text,cls}){
   const el=document.getElementById(id);
@@ -904,6 +917,33 @@ function renderResponsavelTable(rows){
       <td class="num${taxa>=15?' bad':''}">${taxaTxt}</td>
     </tr>`;
   }).join('');
+}
+
+// Abrevia "Raquiele Barbosa" → "Raquiele B." (primeiro nome + inicial do
+// sobrenome), só pra caber na coluna estreita do card de vencidos.
+function shortName(name){
+  if(!name) return 'Não atribuído';
+  const partes=String(name).trim().split(/\s+/);
+  if(partes.length<2) return partes[0];
+  return `${partes[0]} ${partes[partes.length-1][0]}.`;
+}
+
+function renderVencidosTable(rows){
+  const tbody=document.getElementById('tbl-vencidos');
+  const agora=Date.now();
+  const vencidos=rows
+    .filter(r=>!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status))
+    .filter(r=>r.sla_solucao&&new Date(r.sla_solucao).getTime()<agora)
+    .map(r=>({...r,diasVenc:Math.floor((agora-new Date(r.sla_solucao).getTime())/86400000)}))
+    .sort((a,b)=>b.diasVenc-a.diasVenc)
+    .slice(0,10);
+  if(!vencidos.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum ticket vencido no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=vencidos.map(r=>`
+    <tr>
+      <td>#${esc(r.ticket_id)}</td>
+      <td>${esc(shortName(r.responsavel))}</td>
+      <td class="num bad">${r.diasVenc}</td>
+    </tr>`).join('');
 }
 
 // ── sync ─────────────────────────────────────────────────────────────
