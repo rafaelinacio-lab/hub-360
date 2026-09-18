@@ -32,7 +32,9 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
         t.createddate   AS criado_em,
         t.status        AS status_movidesk,
         t.basestatus    AS base_status,
-        t.resolved_in   AS resolvido_em
+        t.resolved_in   AS resolvido_em,
+        t.owner_name    AS responsavel,
+        t.service_full  AS servico
       FROM silver.ticket t
       JOIN silver.ticket_campo_customizado cf_class
         ON cf_class.ticket_id = t.ticket_id
@@ -47,7 +49,7 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
       ) tc ON true
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
                t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
-               t.clientorganization
+               t.clientorganization, t.owner_name, t.service_full
       ORDER BY t.createddate DESC
     `);
     res.json(result.rows || []);

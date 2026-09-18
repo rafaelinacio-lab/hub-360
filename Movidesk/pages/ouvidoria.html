@@ -107,18 +107,6 @@ input,select{font-family:inherit}
   vertical-align:middle;
 }
 
-/* ═══ Loading ══════════════════════════════════════════════════════════ */
-/* Overlay de tela cheia removido do fluxo normal — a página aparece na hora
-   e só a grade mostra estado de carregamento (ver #ov-grid .empty). */
-#ov-loading{ display:none }
-.spin{
-  width:40px;height:40px;border-radius:50%;
-  border:3px solid var(--border);border-top-color:var(--orange);
-  animation:spin .75s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-.load-txt{font-size:13px;color:var(--t2);font-weight:500}
-
 /* ═══ Page ═════════════════════════════════════════════════════════════ */
 #ov-page{min-height:100vh;display:flex;flex-direction:column}
 
@@ -137,49 +125,14 @@ input,select{font-family:inherit}
   font-size:15px;font-weight:700;color:var(--t1);white-space:nowrap;flex-shrink:0;
 }
 .topbar-logo .sym{font-size:19px;color:var(--orange)}
+.topbar-sub{font-size:13px;color:var(--t2);font-weight:500;white-space:nowrap}
 .vbar{width:1px;height:22px;background:var(--border);flex-shrink:0}
-
-.srch{position:relative;min-width:160px;flex:1;max-width:300px}
-.srch .sym{
-  position:absolute;left:9px;top:50%;transform:translateY(-50%);
-  font-size:17px;color:var(--t3);pointer-events:none
-}
-.srch input{
-  width:100%;padding:7px 10px 7px 33px;
-  border:1px solid var(--border);border-radius:8px;
-  background:var(--surface-low);color:var(--t1);
-  font-size:13px;outline:none;transition:border-color .15s;
-}
-.srch input:focus{border-color:var(--orange);background:var(--surface)}
-.srch input::placeholder{color:var(--t3)}
-
-.chips{display:flex;align-items:center;gap:5px;flex-shrink:0}
-.chip{
-  display:inline-flex;align-items:center;gap:4px;
-  padding:5px 11px;border-radius:20px;
-  border:1px solid var(--border);background:var(--surface-low);
-  color:var(--t2);font-size:12px;font-weight:500;
-  transition:all .15s;white-space:nowrap;
-}
-.chip:hover{border-color:var(--border-hi);color:var(--t1)}
-.chip .cnt{
-  background:rgba(0,0,0,.07);border-radius:10px;
-  padding:1px 5px;font-size:10px;font-weight:700;
-}
-html.dark .chip .cnt{background:rgba(255,255,255,.1)}
-.chip.a-all   {background:var(--t1);border-color:var(--t1);color:var(--surface)}
-.chip.a-rec   {background:var(--orange-bg);border-color:var(--orange-bd);color:var(--orange)}
-.chip.a-elo   {background:var(--green-bg); border-color:var(--green-bd); color:var(--green)}
-.chip.a-sug   {background:var(--purple-bg);border-color:var(--purple-bd);color:var(--purple)}
-.chip.a-all .cnt{background:rgba(255,255,255,.2)}
-.chip.a-rec .cnt{background:rgba(232,93,4,.15)}
-.chip.a-elo .cnt{background:rgba(21,128,61,.15)}
-.chip.a-sug .cnt{background:rgba(124,58,237,.15)}
 
 .sort-sel{
   padding:6px 26px 6px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface-low);color:var(--t2);
-  font-size:12px;font-weight:500;outline:none;appearance:none;flex-shrink:0;
+  font-size:12px;font-weight:500;outline:none;appearance:none;flex-shrink:0;max-width:180px;
+  text-overflow:ellipsis;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9892' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 7px center;
 }
@@ -188,45 +141,9 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 /* ─── Filter bar ─────────────────────────────────────────────────────── */
 .topbar-filters{
   display:flex;align-items:center;gap:8px;
-  padding:7px 0 10px;max-width:1480px;margin:0 auto;
+  padding:9px 0 11px;max-width:1480px;margin:0 auto;
   flex-wrap:wrap;border-top:1px solid var(--border);
 }
-.fil-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.fil-ico{font-size:16px;color:var(--t3)}
-.fil-label{font-size:11px;color:var(--t3);white-space:nowrap;font-weight:500;letter-spacing:.02em}
-
-/* ─── Multi-select dropdown ─────────────────────────────────────────── */
-.multi-sel{position:relative;flex-shrink:0}
-.ms-btn{
-  display:flex;align-items:center;gap:6px;padding:6px 10px;
-  border:1px solid var(--border);border-radius:8px;
-  background:var(--surface-low);color:var(--t2);
-  font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;min-width:112px;
-  transition:border-color .15s,color .15s;
-}
-.ms-btn:hover,.ms-btn.ms-active,.multi-sel.open .ms-btn{border-color:var(--orange);color:var(--t1)}
-.ms-lbl{flex:1;text-align:left}
-.ms-arrow{font-size:15px;color:var(--t3);transition:transform .15s}
-.multi-sel.open .ms-arrow{transform:rotate(180deg)}
-.ms-drop{
-  position:absolute;top:calc(100% + 5px);left:0;z-index:400;
-  background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  box-shadow:var(--sh-md);padding:5px 0;min-width:155px;
-  max-height:260px;overflow-y:auto;display:none;
-}
-.multi-sel.open .ms-drop{display:block}
-.ms-item{
-  display:flex;align-items:center;gap:9px;padding:7px 12px;
-  cursor:pointer;font-size:13px;color:var(--t1);transition:background .1s;
-  user-select:none;
-}
-.ms-item:hover{background:var(--surface-mid)}
-.ms-item input[type=checkbox]{
-  accent-color:var(--orange);width:14px;height:14px;
-  cursor:pointer;flex-shrink:0;margin:0;
-}
-
-#ov-count{font-size:12px;color:var(--t3);white-space:nowrap;margin-left:auto}
 
 .btn-refresh{
   display:inline-flex;align-items:center;gap:5px;
@@ -260,362 +177,71 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 #sync-toast .sym{font-size:16px;color:var(--green)}
 #sync-toast .st-prog{font-size:11px;color:var(--t3);margin-left:2px}
 
-/* status badge on card */
-.status-badge{
-  display:inline-flex;align-items:center;gap:3px;
-  padding:2px 6px;border-radius:4px;
-  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+/* ═══ Dashboard ═══════════════════════════════════════════════════════ */
+.dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
+.section-label{
+  font-size:11.5px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.06em;font-weight:700;margin:30px 0 11px;
 }
-.status-badge.closed{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
-.status-badge.open  {background:var(--slate-bg);color:var(--slate);border:1px solid var(--slate-bd)}
+.section-label:first-child{margin-top:2px}
 
-/* ═══ KPI bar ══════════════════════════════════════════════════════════ */
-.kpi-bar{background:var(--bg);padding:16px 24px}
-.kpi-in{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:1480px;margin:0 auto}
-.kpi{
-  display:flex;align-items:center;gap:12px;
-  padding:14px 18px;
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:14px;box-shadow:var(--sh-sm);
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-2b{display:grid;grid-template-columns:0.85fr 1.15fr;gap:16px}
+@media (max-width:980px){
+  .grid-4{grid-template-columns:repeat(2,1fr)}
+  .grid-2,.grid-2b{grid-template-columns:1fr}
 }
-.kpi-ico{
-  width:38px;height:38px;border-radius:10px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-}
-.kpi-ico .sym{font-size:18px}
-.kpi-ico.or{background:var(--orange-bg);color:var(--orange)}
-.kpi-ico.sl{background:var(--slate-bg);color:var(--slate)}
-.kpi-ico.pu{background:var(--purple-bg);color:var(--purple)}
-.kpi-ico.gr{background:var(--green-bg);color:var(--green)}
-.kpi-v{font-size:22px;font-weight:800;color:var(--t1);line-height:1;font-variant-numeric:tabular-nums}
-.kpi-l{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:3px}
+@media (max-width:520px){.grid-4{grid-template-columns:1fr}}
 
-/* ═══ Grid ═════════════════════════════════════════════════════════════ */
-.grid-wrap{flex:1;padding:20px 24px;max-width:1480px;margin:0 auto;width:100%}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-  gap:14px;
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--sh-sm);
 }
+.stat-card.danger{border-color:var(--orange-bd)}
+.stat-card .label{font-size:12.5px;color:var(--t2);margin:0 0 6px;font-weight:500}
+.stat-card .value{
+  font-size:25px;font-weight:700;margin:0;color:var(--t1);
+  font-variant-numeric:tabular-nums;line-height:1.15;
+}
+.stat-card .value .pct{font-size:13px;color:var(--t2);font-weight:500}
+.stat-card .delta{
+  font-size:11.5px;margin:6px 0 5px;font-weight:600;
+  display:inline-flex;align-items:center;gap:2px;
+}
+.stat-card .delta.good{color:var(--green)}
+.stat-card .delta.bad{color:var(--orange)}
+.stat-card .delta.flat{color:var(--t3)}
+.stat-card .legend{font-size:11px;color:var(--t3);margin:0;line-height:1.4}
 
-/* ═══ Card ═════════════════════════════════════════════════════════════ */
-.card{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:20px;
-  box-shadow:var(--sh-sm);
-  display:flex;flex-direction:column;
-  cursor:pointer;
-  transition:box-shadow .2s,transform .2s,border-color .15s;
-  overflow:hidden;
-  border-left-width:3px;
+.chart-panel,.data-panel{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--sh-sm);
 }
-.card:hover{box-shadow:var(--sh-md);transform:translateY(-1px);border-color:var(--border-hi)}
-.card.t-rec{border-left-color:var(--orange)}
-.card.t-elo{border-left-color:var(--green)}
-.card.t-sug{border-left-color:var(--purple)}
-.card.t-oth{border-left-color:var(--slate)}
+.chart-title,.panel-title{font-size:13px;color:var(--t2);margin:0 0 12px;font-weight:600}
+.chart-wrap{position:relative;width:100%}
 
-.card-top{
-  padding:12px 14px 10px;
-  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+.dtable{width:100%;font-size:13px;border-collapse:collapse}
+.dtable th{
+  text-align:left;color:var(--t3);padding:7px 8px;font-weight:600;
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
+  border-bottom:1px solid var(--border);
 }
-.card-top-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.card-date{font-size:11px;color:var(--t3);white-space:nowrap;flex-shrink:0;margin-top:1px}
-
-.tbadge{
-  display:inline-flex;align-items:center;gap:3px;
-  padding:3px 7px;border-radius:5px;
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-  border:1px solid transparent;
-}
-.tbadge .sym{font-size:11px}
-.tbadge.t-rec{background:var(--orange-bg);color:var(--orange);border-color:var(--orange-bd)}
-.tbadge.t-elo{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
-.tbadge.t-sug{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-bd)}
-.tbadge.t-oth{background:var(--slate-bg);color:var(--slate);border-color:var(--slate-bd)}
-.tbadge.t-amb{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
-.tbadge.t-mani{background:var(--slate-bg);color:var(--slate);border-color:var(--slate-bd)}
-
-.card-body{padding:0 14px 12px;flex:1}
-.card-tid{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;font-weight:500;margin-bottom:3px}
-.card-org{
-  font-size:14px;font-weight:700;color:var(--t1);line-height:1.3;margin-bottom:4px;
-  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
-}
-.card-sub{
-  font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:10px;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-}
-
-.card-manifesto{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--t2);margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.card-manifesto .sym{font-size:12px;color:var(--t3);flex-shrink:0}
-.card-flags{display:flex;flex-wrap:wrap;gap:4px;min-height:18px}
-.flag-tag{
-  display:inline-flex;align-items:center;gap:3px;
-  padding:3px 6px;border-radius:5px;
-  font-size:10px;font-weight:500;
-  background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd);
-}
-.flag-tag .sym{font-size:10px}
-.flag-more{
-  display:inline-flex;align-items:center;
-  padding:3px 6px;border-radius:5px;
-  font-size:10px;font-weight:600;color:var(--t3);
-  background:var(--surface-low);border:1px solid var(--border);
-}
-
-.card-footer{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:9px 14px 11px;border-top:1px solid var(--border);
-}
-.recpill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--t2)}
-.recpill .sym{font-size:14px}
-.recpill.warn{color:var(--amber)}
-.recpill.warn .sym{color:var(--amber)}
-
-.card-cta{
-  display:inline-flex;align-items:center;gap:4px;
-  padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;
-  border:1px solid var(--border);background:var(--surface-low);color:var(--t2);
-  transition:all .15s;
-}
-.card-cta:hover{border-color:var(--border-hi);color:var(--t1);background:var(--surface-mid)}
-.card-cta .sym{font-size:14px}
-
-/* empty */
-.empty{
-  grid-column:1/-1;
-  display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:60px 24px;color:var(--t3);
-}
-.empty .sym{font-size:38px;margin-bottom:10px}
-.empty p{font-size:14px}
-
-/* ═══ Drawer ═══════════════════════════════════════════════════════════ */
-#ov-backdrop{
-  position:fixed;inset:0;z-index:200;
-  background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
-  opacity:0;pointer-events:none;transition:opacity .2s ease;
-  display:flex;align-items:center;justify-content:center;padding:16px;
-}
-#ov-backdrop.open{opacity:1;pointer-events:auto}
-
-#ov-drawer{
-  width:min(700px,100%);
-  max-height:90vh;
-  background:var(--surface);
-  display:flex;flex-direction:column;
-  box-shadow:var(--sh-xl);
-  border-radius:14px;
-  transform:scale(.96) translateY(10px);
-  transition:transform .2s cubic-bezier(.32,.72,0,1);
-}
-#ov-backdrop.open #ov-drawer{transform:scale(1) translateY(0)}
-
-/* drawer header */
-.dh{padding:18px 18px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
-.dh-row1{display:flex;align-items:flex-start;gap:11px;margin-bottom:9px}
-.dh-ico{
-  width:38px;height:38px;border-radius:9px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-}
-.dh-ico .sym{font-size:19px}
-.dh-ico.t-rec{background:var(--orange-bg);color:var(--orange)}
-.dh-ico.t-elo{background:var(--green-bg);color:var(--green)}
-.dh-ico.t-sug{background:var(--purple-bg);color:var(--purple)}
-.dh-ico.t-oth{background:var(--slate-bg);color:var(--slate)}
-.dh-org{font-size:16px;font-weight:700;color:var(--t1);line-height:1.3;flex:1;min-width:0}
-.dh-meta{font-size:11px;color:var(--t3);font-weight:500;margin-top:2px}
-.dh-sub{font-size:12px;color:var(--t2);line-height:1.5}
-
-.dh-close{
-  width:30px;height:30px;border-radius:7px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  border:1px solid var(--border);background:var(--surface-low);color:var(--t2);
-  transition:all .15s;
-}
-.dh-close:hover{background:var(--surface-mid);color:var(--t1)}
-.dh-close .sym{font-size:17px}
-
-.dh-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
-.meta-chip{
-  display:inline-flex;align-items:flex-start;gap:7px;
-  padding:6px 10px;border-radius:8px;
-  border:1px solid var(--border);background:var(--surface-low);
-  cursor:default;
-}
-.meta-chip.mc-long{cursor:pointer}
-.meta-chip .sym{font-size:14px;color:var(--t3);margin-top:2px;flex-shrink:0}
-.mc-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;line-height:1;margin-bottom:2px}
-.mc-v{font-size:12px;font-weight:600;color:var(--t1);line-height:1.4;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:180px}
-.meta-chip.mc-open .mc-v{-webkit-line-clamp:unset;display:block;max-width:260px}
-
-.dh-warn{
-  display:flex;align-items:center;gap:7px;
-  padding:9px 11px;border-radius:8px;
-  background:var(--amber-bg);border:1px solid var(--amber-bd);
-  margin-top:10px;
-}
-.dh-warn .sym{font-size:17px;color:var(--amber)}
-.dh-warn-t{font-size:12px;font-weight:600;color:var(--amber)}
-
-/* drawer body */
-.db{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:18px}
-
-.sec-lbl{
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--t3);margin-bottom:7px;
-  display:flex;align-items:center;gap:5px;
-}
-.sec-lbl .sym{font-size:13px}
-
-/* problems */
-.prob-item{
-  background:var(--orange-bg);
-  border:1px solid var(--orange-bd);
-  border-left:3px solid var(--orange);
-  border-radius:8px;
-  padding:9px 12px;
-  display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
-}
-.prob-text{font-size:13px;color:var(--t1);line-height:1.5;flex:1}
-.prob-link{
-  font-size:11px;font-weight:700;color:var(--orange);
-  white-space:nowrap;flex-shrink:0;text-decoration:none;
-}
-.prob-link:hover{text-decoration:underline}
-/* elogio: chamados relacionados em verde */
-.db.is-elogio .prob-item{background:var(--green-bg);border-color:var(--green-bd);border-left-color:var(--green)}
-.db.is-elogio .prob-link{color:var(--green)}
-.db.is-elogio .sec-lbl{color:var(--green)}
-.db.is-elogio .sec-lbl .sym{color:var(--green)}
-
-/* desc */
-.desc-box{
-  background:var(--surface-low);border:1px solid var(--border);
-  border-radius:8px;padding:13px;position:relative;
-}
-.desc-box.collapsed{max-height:170px;overflow:hidden}
-.desc-fade{
-  position:absolute;bottom:0;inset-x:0;height:56px;
-  background:linear-gradient(to top,var(--surface-low),transparent);
-  pointer-events:none;
-}
-.desc-toggle{
-  font-size:11px;font-weight:700;color:var(--orange);
-  background:none;border:none;cursor:pointer;font-family:inherit;
-  padding:0;margin-top:5px;display:none;
-}
-.desc-toggle:hover{text-decoration:underline}
-.desc-plain{font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.6}
-
-.fields{display:flex;flex-direction:column}
-.fields>div{padding:8px 0;border-bottom:1px solid var(--border)}
-.fields>div:first-child{padding-top:0}
-.fields>div:last-child{border-bottom:none;padding-bottom:0}
-.fields dt{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:3px}
-.fields dd{font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.55}
-
-/* analise */
-.analise-item{
-  background:var(--surface-low);
-  border:1px solid var(--border);
-  border-left:3px solid var(--purple);
-  border-radius:8px;padding:11px 13px;
-}
-.analise-hd{
-  display:flex;align-items:center;gap:5px;
-  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--purple);margin-bottom:8px;
-}
-.analise-hd .sym{font-size:13px}
-.analise-text{font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.6}
-
-/* ═══ Responsive ════════════════════════════════════════════════════ */
-@media(max-width:700px){
-  .topbar{padding:0 14px}
-  .kpi-bar{padding:12px 14px}
-  .kpi-in{grid-template-columns:repeat(2,1fr);gap:8px}
-  .grid-wrap{padding:14px}
-  .chips{display:none}
-  #ov-drawer{width:calc(100vw - 32px)}
-}
-@media(max-width:940px){
-  .topbar-in{flex-wrap:wrap;height:auto;padding:8px 0;gap:8px}
-  .vbar{display:none}
-  .srch{max-width:100%;order:3;flex-basis:100%}
-}
-
-/* ── Timeline de ações ───────────────────────────────────────────── */
-.tl-list{display:flex;flex-direction:column}
-.tl-item{display:grid;grid-template-columns:32px 1fr;gap:10px;padding:13px 0;border-bottom:1px solid var(--border)}
-.tl-item:last-child{border-bottom:none}
-.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.tl-dot.tp-agent{background:var(--orange);color:#fff}
-.tl-dot.tp-client{background:var(--surface2);color:var(--text)}
-.tl-dot.tp-internal{background:#f59e0b;color:#fff}
-.tl-dot.tp-auto{background:var(--border);color:var(--muted)}
-.tl-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:baseline;margin-bottom:5px}
-.tl-author{font-weight:600;font-size:13px;color:var(--text)}
-.tl-date{font-size:11px;color:var(--muted)}
-.tl-badge{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--surface2);color:var(--muted);white-space:nowrap}
-.tl-desc{font-size:13px;line-height:1.55;color:var(--text);word-break:break-word;max-height:4.65em;overflow:hidden;transition:max-height .25s ease}
-.tl-item.tl-open .tl-desc{max-height:2000px}
-.tl-desc img{max-width:100%;border-radius:4px}
-.tl-desc a{color:var(--orange);text-decoration:none}
-.tl-desc p{margin:0 0 5px}.tl-desc p:last-child{margin:0}
-.tl-desc table{font-size:12px;border-collapse:collapse;width:100%}
-.tl-desc td,.tl-desc th{border:1px solid var(--border);padding:3px 6px}
-.tl-item{cursor:pointer;user-select:none}
-.tl-toggle{display:flex;align-items:center;gap:3px;margin-top:5px;font-size:11px;color:var(--muted);font-weight:500}
-.tl-toggle .sym{font-size:15px;transition:transform .2s}
-.tl-item.tl-open .tl-toggle .sym{transform:rotate(180deg)}
-/* Campos personalizados */
-.cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:4px}
-.cf-item{background:var(--surface2);border-radius:6px;padding:8px 10px}
-.cf-lbl{font-size:11px;color:var(--muted);display:block;margin-bottom:2px}
-.cf-val{font-size:13px;color:var(--text);word-break:break-word}
-.tl-loading{padding:16px 0;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
-.tl-expand-btn{display:flex;align-items:center;gap:4px;margin-top:10px;padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface-mid,var(--surface2));color:var(--t2,var(--muted));font-size:13px;cursor:pointer;width:100%;justify-content:center}
-.tl-expand-btn:hover{background:var(--border)}
+.dtable td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--t1)}
+.dtable tbody tr:last-child td{border-bottom:none}
+.dtable .num{text-align:right;font-variant-numeric:tabular-nums}
+.dtable .bad{color:var(--orange);font-weight:700}
+.dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
 </style>
 </head>
 <body>
-
-<!-- Loading -->
-<div id="ov-loading">
-  <div class="spin"></div>
-  <p class="load-txt">Carregando manifestações…</p>
-</div>
-
-<!-- Page -->
 <div id="ov-page">
-
-  <!-- Top bar -->
   <header class="topbar">
     <div class="topbar-in">
-      <div class="topbar-logo">
-        <span class="sym">campaign</span>Ouvidoria
-      </div>
+      <div class="topbar-logo"><span class="sym">campaign</span>Ouvidoria</div>
       <div class="vbar"></div>
-      <div class="srch">
-        <span class="sym">search</span>
-        <input id="ov-search" type="text" placeholder="Organização, assunto, #ticket…">
-      </div>
-      <div class="chips" id="ov-chips">
-        <button class="chip a-all" data-t="all">Todos <span class="cnt" id="c-all">0</span></button>
-        <button class="chip" data-t="rec">Reclamação <span class="cnt" id="c-rec">0</span></button>
-        <button class="chip" data-t="elo">Elogio <span class="cnt" id="c-elo">0</span></button>
-        <button class="chip" data-t="sug">Sugestão <span class="cnt" id="c-sug">0</span></button>
-      </div>
-      <div class="vbar"></div>
-      <select id="ov-sort" class="sort-sel">
-        <option value="rec">Mais recentes</option>
-        <option value="ant">Mais antigas</option>
-      </select>
-      <span id="ov-count"></span>
+      <span class="topbar-sub">Visão de gestão</span>
+      <span style="margin-left:auto"></span>
       <button class="btn-refresh" onclick="loadOuvidoria()">
         <span class="sym">refresh</span>Atualizar
       </button>
@@ -623,43 +249,19 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
         <span class="sym">sync</span>Sincronizar tickets
       </button>
     </div>
-    <!-- Filter bar -->
     <div class="topbar-filters">
-      <div class="fil-group">
-        <span class="sym fil-ico">event</span>
-        <span class="fil-label">Criação</span>
-        <div class="multi-sel" id="ov-year">
-          <button class="ms-btn" type="button" onclick="toggleMs(this)">
-            <span class="ms-lbl">Todos os anos</span>
-            <span class="sym ms-arrow">expand_more</span>
-          </button>
-          <div class="ms-drop"></div>
-        </div>
-        <div class="multi-sel" id="ov-month">
-          <button class="ms-btn" type="button" onclick="toggleMs(this)">
-            <span class="ms-lbl">Todos os meses</span>
-            <span class="sym ms-arrow">expand_more</span>
-          </button>
-          <div class="ms-drop"></div>
-        </div>
-      </div>
-      <div class="vbar"></div>
-      <div class="multi-sel" id="ov-org">
-        <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Todos os clientes</span>
-          <span class="sym ms-arrow">expand_more</span>
-        </button>
-        <div class="ms-drop"></div>
-      </div>
-      <div class="multi-sel" id="ov-status">
-        <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Todos os status</span>
-          <span class="sym ms-arrow">expand_more</span>
-        </button>
-        <div class="ms-drop"></div>
-      </div>
+      <select id="f-resp" class="sort-sel" onchange="render()"><option value="">Responsável: todos</option></select>
+      <select id="f-org" class="sort-sel" onchange="render()"><option value="">Cliente: todos</option></select>
+      <select id="f-serv" class="sort-sel" onchange="render()"><option value="">Serviço: todos</option></select>
+      <select id="f-status" class="sort-sel" onchange="render()">
+        <option value="">Status: todos</option>
+        <option value="aberto">Em aberto</option>
+        <option value="finalizado">Finalizado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+      <select id="f-year" class="sort-sel" onchange="render()"><option value="">Ano: todos</option></select>
+      <select id="f-month" class="sort-sel" onchange="render()"><option value="">Mês: todos</option></select>
     </div>
-    <!-- sync toast -->
     <div id="sync-toast">
       <span class="sym">sync</span>
       <span id="sync-toast-txt">Sincronizando…</span>
@@ -667,49 +269,79 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
     </div>
   </header>
 
-  <!-- KPIs -->
-  <div class="kpi-bar">
-    <div class="kpi-in" id="ov-kpis">
-      <div class="kpi"><div class="kpi-ico or"><span class="sym">campaign</span></div><div><div class="kpi-v" data-k="total">—</div><div class="kpi-l">Manifestações</div></div></div>
-      <div class="kpi"><div class="kpi-ico sl"><span class="sym">apartment</span></div><div><div class="kpi-v" data-k="orgs">—</div><div class="kpi-l">Organizações</div></div></div>
-      <div class="kpi"><div class="kpi-ico pu"><span class="sym">history</span></div><div><div class="kpi-v" data-k="media">—</div><div class="kpi-l">Reincidência média</div></div></div>
-      <div class="kpi"><div class="kpi-ico gr"><span class="sym">calendar_month</span></div><div><div class="kpi-v" data-k="d30">—</div><div class="kpi-l">Últimos 30 dias</div></div></div>
+  <div class="dash-wrap" id="ov-dash">
+    <p class="section-label">Totais do período</p>
+    <div class="grid-4">
+      <div class="stat-card">
+        <p class="label">Elogios</p>
+        <p class="value" id="k-elo">0</p>
+        <p class="delta flat" id="k-elo-d">—</p>
+        <p class="legend">Manifestações positivas no período.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Reclamações</p>
+        <p class="value" id="k-rec">0</p>
+        <p class="delta flat" id="k-rec-d">—</p>
+        <p class="legend">Total no período, procedentes ou não.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Sugestões</p>
+        <p class="value" id="k-sug">0</p>
+        <p class="delta flat" id="k-sug-d">—</p>
+        <p class="legend">Ideias e melhorias enviadas.</p>
+      </div>
+      <div class="stat-card danger">
+        <p class="label">Procedentes</p>
+        <p class="value" id="k-proc">0 <span class="pct" id="k-proc-pct"></span></p>
+        <p class="delta flat" id="k-proc-d">—</p>
+        <p class="legend">Reclamações confirmadas como reais.</p>
+      </div>
     </div>
-  </div>
 
-  <!-- Grid -->
-  <div class="grid-wrap">
-    <div class="grid" id="ov-grid">
-      <div class="empty"><span class="sym">hourglass_empty</span><p>Carregando…</p></div>
+    <p class="section-label">Tendência</p>
+    <div class="chart-panel">
+      <p class="chart-title">Elogios vs reclamações por mês</p>
+      <div class="chart-wrap" style="height:230px"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <p class="section-label">Composição</p>
+    <div class="grid-2b">
+      <div class="chart-panel">
+        <p class="chart-title">Tipos de manifesto</p>
+        <div class="chart-wrap" style="height:190px"><canvas id="typeChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Volume por serviço</p>
+        <div class="chart-wrap" style="height:190px"><canvas id="areaChart"></canvas></div>
+      </div>
+    </div>
+
+    <p class="section-label">Ranking</p>
+    <div class="chart-panel">
+      <p class="chart-title">Top 10 clientes por volume de manifestações</p>
+      <div class="chart-wrap" style="height:250px"><canvas id="topClientChart"></canvas></div>
+    </div>
+
+    <p class="section-label">Ação</p>
+    <div class="data-panel">
+      <p class="panel-title">Clientes com maior reincidência e procedência</p>
+      <table class="dtable">
+        <thead><tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr></thead>
+        <tbody id="tbl-reincidencia"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="data-panel" style="margin-top:16px">
+      <p class="panel-title">Desempenho por responsável</p>
+      <table class="dtable">
+        <thead><tr><th>Responsável</th><th class="num">Tickets</th><th class="num">Tempo médio</th><th class="num">Taxa procedência</th></tr></thead>
+        <tbody id="tbl-responsavel"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+      </table>
     </div>
   </div>
 </div>
 
-<!-- Drawer backdrop -->
-<div id="ov-backdrop" onclick="if(event.target===this)closeDrawer()">
-  <div id="ov-drawer">
-    <!-- Header -->
-    <div class="dh">
-      <div class="dh-row1">
-        <div class="dh-ico" id="d-ico"><span class="sym">campaign</span></div>
-        <div style="flex:1;min-width:0">
-          <div class="dh-org" id="d-org"></div>
-          <div class="dh-meta" id="d-meta"></div>
-        </div>
-        <button class="dh-close" onclick="closeDrawer()"><span class="sym">close</span></button>
-      </div>
-      <p class="dh-sub" id="d-sub"></p>
-      <div class="dh-chips" id="d-chips"></div>
-      <div class="dh-warn" id="d-warn" style="display:none">
-        <span class="sym">warning</span>
-        <span class="dh-warn-t" id="d-warn-t"></span>
-      </div>
-    </div>
-    <!-- Body -->
-    <div class="db" id="d-body"></div>
-  </div>
-</div>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
@@ -727,15 +359,8 @@ async function api(ep){
   } finally { clearTimeout(t); }
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
-// esc() não precisa escapar aspas em contexto de texto — mas usado dentro de
-// um atributo HTML (value="...") uma aspa não-escapada quebra o atributo.
 function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
-function fmtFull(v){ if(!v) return '—'; const d=new Date(v); return isNaN(d)?'—':d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
-function fmtShort(v){ if(!v) return '—'; const d=new Date(v); return isNaN(d)?'—':d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'}); }
-function trunc(s,n){ const t=String(s||''); return t.length>n?t.slice(0,n-1).trim()+'…':t; }
-function tiUrl(id){ return `https://atendimento.viasoft.com.br/Ticket/Edit/${id}`; }
 
-// ── type helpers ─────────────────────────────────────────────────────
 function rawTipo(r){
   if(r.tipo) return String(r.tipo).trim();
   const m=String(r.assunto_ouvidoria||'').match(/Ouvidoria\s+VIASOFT\s*-\s*([^-]+?)\s*-/i);
@@ -748,112 +373,56 @@ function tipoKey(tipo){
   if(t.includes('sugest'))  return 'sug';
   return 'oth';
 }
-const TIPO_ICON  = {rec:'warning',elo:'thumb_up',sug:'lightbulb',oth:'campaign'};
 const TIPO_LABEL = {rec:'Reclamação',elo:'Elogio',sug:'Sugestão',oth:'Outro'};
-// Finalizado = base_status Resolvido/Fechado (PT-BR e EN, conforme a origem do dado); aberto = todo o resto.
+
+// Finalizado/Cancelado por base_status — mesmo critério das outras telas.
 const FINALIZADO_STATUSES = ['Resolved','Closed','Resolvido','Fechado'];
-// Cancelado é status próprio — não conta como "Em aberto" nem "Finalizado".
 const CANCELADO_STATUSES  = ['Canceled','Cancelado'];
 
-function statusBadge(status, base){
-  if(!status) return '';
-  const b=(base||'').toLowerCase();
-  const isClosed=b==='closed'||b==='resolved'||b==='cancelled'
-    ||/fecha|resolv|cancel/i.test(status);
-  if(isClosed) return `<span class="status-badge closed"><span class="sym" style="font-size:9px">check_circle</span>${esc(status)}</span>`;
-  return '';  // tickets abertos: sem badge (padrão)
+function normalizar(v){
+  let semAcento='';
+  for(const ch of String(v||'').normalize('NFD')){
+    const code=ch.codePointAt(0);
+    if(code>=0x0300&&code<=0x036f) continue;
+    semAcento+=ch;
+  }
+  return semAcento.replace(/\s+/g,' ').trim().toUpperCase();
 }
-
-// ── Multi-select ─────────────────────────────────────────────────────
+function isProcedente(v){
+  const n=normalizar(v);
+  if(!n) return false;
+  if(n.includes('IMPROCEDENTE')) return false;
+  if(n.includes('PROCEDENTE')) return true;
+  return n==='SIM';
+}
+// "Área" curta pro gráfico de volume — pega o primeiro segmento do serviço
+// hierárquico (ex: "Suporte Técnico > Sistema X" → "Suporte Técnico").
+function areaDoServico(servico){
+  if(!servico) return 'Não informado';
+  return String(servico).split('>')[0].trim();
+}
+function monthKeyOf(d){
+  const dt=new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+const MONTH_NAMES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MONTHS=[
   {v:1,l:'Janeiro'},{v:2,l:'Fevereiro'},{v:3,l:'Março'},{v:4,l:'Abril'},
   {v:5,l:'Maio'},{v:6,l:'Junho'},{v:7,l:'Julho'},{v:8,l:'Agosto'},
   {v:9,l:'Setembro'},{v:10,l:'Outubro'},{v:11,l:'Novembro'},{v:12,l:'Dezembro'},
 ];
-function toggleMs(btn){
-  const ms=btn.closest('.multi-sel');
-  const wasOpen=ms.classList.contains('open');
-  document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
-  if(!wasOpen) ms.classList.add('open');
-}
-document.addEventListener('click',e=>{
-  if(!e.target.closest('.multi-sel'))
-    document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
-});
-function getMsValues(id){
-  return [...document.querySelectorAll(`#${id} .ms-drop input:checked`)].map(i=>i.value);
-}
-function updateMsLabel(id,allLabel){
-  const vals=getMsValues(id);
-  const lbl=document.querySelector(`#${id} .ms-lbl`);
-  const btn=document.querySelector(`#${id} .ms-btn`);
-  if(!vals.length){lbl.textContent=allLabel;btn.classList.remove('ms-active');return;}
-  if(vals.length===1){
-    const span=[...document.querySelectorAll(`#${id} .ms-item`)].find(el=>el.querySelector('input').value===vals[0])?.querySelector('span');
-    lbl.textContent=span?span.textContent:vals[0];
-  } else {
-    lbl.textContent=`${vals.length} selecionados`;
-  }
-  btn.classList.add('ms-active');
-}
-function populateMs(id,items,allLabel,onChange){
-  const drop=document.querySelector(`#${id} .ms-drop`);
-  if(!drop) return;
-  const cur=new Set(getMsValues(id));
-  drop.innerHTML=items.map(({v,l})=>`
-    <label class="ms-item">
-      <input type="checkbox" value="${escAttr(String(v))}"${cur.has(String(v))?' checked':''}>
-      <span>${esc(String(l))}</span>
-    </label>`).join('');
-  drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
-    updateMsLabel(id,allLabel); onChange();
-  }));
-  updateMsLabel(id,allLabel);
-}
 
 // ── state ────────────────────────────────────────────────────────────
-let _rows=[], _filter='all';
-
-// Placeholder — dados vêm do datalake (silver.*) via sync; sem chamada à API Movidesk.
-async function fetchManigestos(){
-  // tipo e manifesto_direcionado_a são preenchidos pelo sync do datalake.
-  // Não há chamada à API do Movidesk aqui.
-}
-
-// (mantido para compatibilidade futura)
-async function _fetchManigstosLegacy(){
-  const missing=_rows.filter(r=>!r.manifesto_direcionado_a).map(r=>r.ticket_id);
-  if(!missing.length) return;
-  try{
-    const map={};
-    let updated=false;
-    for(const [id,val] of Object.entries(map)){
-      const row=_rows.find(r=>String(r.ticket_id)===String(id));
-      if(row){ row.manifesto_direcionado_a=val; updated=true; }
-      const card=document.querySelector(`.card[data-id="${id}"]`);
-      if(card){
-        let sub=card.querySelector('.card-sub');
-        if(!sub){
-          sub=document.createElement('div');
-          sub.className='card-sub';
-          card.querySelector('.card-body')?.appendChild(sub);
-        }
-        sub.textContent=val;
-      }
-    }
-  }catch{}
-}
+let _rows=[];
+let _charts={};
 
 // ── load ─────────────────────────────────────────────────────────────
 async function loadOuvidoria(){
   try{
     _rows=await api('/ouvidoria');
-    populateMs('ov-month',MONTHS,'Todos os meses',render);
-    updateCounts(); render();
-    // Busca manifesto_direcionado_a em background para tickets sem o campo
-    fetchManigestos();
+    buildFilterOptions();
+    render();
   } catch(e){
-    // Se timeout e loader está rodando, mostra mensagem específica e aguarda o fim do sync
     let msg=`Erro ao carregar: ${esc(e.message)}`;
     try{
       const s=await apiFetch('/loader/status','GET');
@@ -862,315 +431,295 @@ async function loadOuvidoria(){
         pollSyncStatus();
       }
     }catch{}
-    document.getElementById('ov-grid').innerHTML=`<div class="empty"><span class="sym">sync</span><p>${msg}</p></div>`;
+    document.getElementById('ov-dash').innerHTML=`<p style="padding:40px 0;text-align:center;color:var(--t3)">${msg}</p>`;
   }
 }
 
-function updateKpis(rows){
-  const n=rows.length;
-  const orgs=new Set(rows.map(r=>r.organizacao_id??r.organizacao)).size;
-  const soma=rows.reduce((s,r)=>s+(Number(r.total_chamados_anteriores)||0),0);
-  const med=n?(soma/n).toFixed(1):'—';
-  const t30=Date.now()-30*24*60*60*1e3;
-  const d30=rows.filter(r=>r.criado_em&&new Date(r.criado_em)>=t30).length;
-  document.querySelector('[data-k=total]').textContent=n;
-  document.querySelector('[data-k=orgs]').textContent=orgs;
-  document.querySelector('[data-k=media]').textContent=med;
-  document.querySelector('[data-k=d30]').textContent=d30;
+function buildFilterOptions(){
+  const fill=(id,label,values)=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+    sel.innerHTML=`<option value="">${label}: todos</option>`
+      +opts.map(v=>`<option value="${escAttr(v)}"${cur===v?' selected':''}>${esc(v)}</option>`).join('');
+  };
+  fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
+  fill('f-org','Cliente',_rows.map(r=>r.organizacao));
+  fill('f-serv','Serviço',_rows.map(r=>r.servico));
+
+  const yearSel=document.getElementById('f-year');
+  const curYear=yearSel.value;
+  const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
+  yearSel.innerHTML=`<option value="">Ano: todos</option>`
+    +years.map(y=>`<option value="${y}"${String(curYear)===String(y)?' selected':''}>${y}</option>`).join('');
+
+  const monthSel=document.getElementById('f-month');
+  const curMonth=monthSel.value;
+  monthSel.innerHTML=`<option value="">Mês: todos</option>`
+    +MONTHS.map(m=>`<option value="${m.v}"${String(curMonth)===String(m.v)?' selected':''}>${m.l}</option>`).join('');
 }
 
-function updateCounts(){
-  const c={rec:0,elo:0,sug:0,oth:0};
-  _rows.forEach(r=>c[tipoKey(rawTipo(r))]++);
-  document.getElementById('c-all').textContent=_rows.length;
-  document.getElementById('c-rec').textContent=c.rec;
-  document.getElementById('c-elo').textContent=c.elo;
-  document.getElementById('c-sug').textContent=c.sug;
-
-  // multi-select de cliente
-  const orgs=[...new Set(_rows.map(r=>r.organizacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-  populateMs('ov-org',orgs.map(o=>({v:o,l:o})),'Todos os clientes',render);
-
-  // multi-select de status: Em aberto / Finalizado / Cancelado (baseado em base_status)
-  populateMs('ov-status',[
-    {v:'aberto',l:'Em aberto'},
-    {v:'finalizado',l:'Finalizado'},
-    {v:'cancelado',l:'Cancelado'},
-  ],'Todos os status',render);
-
-  // multi-select de ano (a partir de criado_em)
-  const years=[...new Set(_rows
-    .map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null)
-    .filter(Boolean)
-  )].sort((a,b)=>b-a);
-  populateMs('ov-year',years.map(y=>({v:y,l:y})),'Todos os anos',render);
+// ── filtro ───────────────────────────────────────────────────────────
+// rowsCtx: filtrado por responsável/cliente/serviço/status, mas NÃO por
+// ano/mês — usado pra tendência e cálculo de delta (precisa de histórico).
+// rowsFull: rowsCtx + ano/mês — usado pros totais e demais gráficos/tabelas.
+function statusBate(r,statusFil){
+  if(!statusFil) return true;
+  const fin=FINALIZADO_STATUSES.includes(r.base_status);
+  const canc=CANCELADO_STATUSES.includes(r.base_status);
+  const aberto=!fin&&!canc;
+  if(statusFil==='aberto') return aberto;
+  if(statusFil==='finalizado') return fin;
+  if(statusFil==='cancelado') return canc;
+  return true;
 }
+function getFilteredRows(){
+  const respFil=document.getElementById('f-resp').value;
+  const orgFil=document.getElementById('f-org').value;
+  const servFil=document.getElementById('f-serv').value;
+  const statusFil=document.getElementById('f-status').value;
+  const yearFil=document.getElementById('f-year').value;
+  const monthFil=document.getElementById('f-month').value;
 
-// ── filter chips ─────────────────────────────────────────────────────
-const chipCls={all:'a-all',rec:'a-rec',elo:'a-elo',sug:'a-sug'};
-document.getElementById('ov-chips').addEventListener('click',e=>{
-  const btn=e.target.closest('.chip'); if(!btn) return;
-  _filter=btn.dataset.t;
-  document.querySelectorAll('#ov-chips .chip').forEach(c=>{
-    c.className='chip'+(c===btn?' '+chipCls[_filter]:'');
+  const rowsCtx=_rows.filter(r=>{
+    if(respFil&&r.responsavel!==respFil) return false;
+    if(orgFil&&r.organizacao!==orgFil) return false;
+    if(servFil&&r.servico!==servFil) return false;
+    if(!statusBate(r,statusFil)) return false;
+    return true;
   });
-  render();
-});
+  const rowsFull=rowsCtx.filter(r=>{
+    if(yearFil||monthFil){
+      if(!r.criado_em) return false;
+      const d=new Date(r.criado_em);
+      if(yearFil&&d.getFullYear()!==Number(yearFil)) return false;
+      if(monthFil&&(d.getMonth()+1)!==Number(monthFil)) return false;
+    }
+    return true;
+  });
+  return {rowsCtx,rowsFull};
+}
+
+// ── delta vs mês anterior ───────────────────────────────────────────
+function bucketPorMes(rows){
+  const by={};
+  rows.forEach(r=>{
+    if(!r.criado_em) return;
+    const mk=monthKeyOf(r.criado_em);
+    by[mk]=by[mk]||{elo:0,rec:0,sug:0,oth:0,proc:0};
+    const tk=tipoKey(rawTipo(r));
+    by[mk][tk]++;
+    if(tk==='rec'&&isProcedente(r.manifesto_procedente)) by[mk].proc++;
+  });
+  return by;
+}
+function fmtDeltaPct(curVal,prevVal,goodDirection){
+  if(prevVal===0&&curVal===0) return {text:'—',cls:'flat'};
+  if(prevVal===0) return {text:'novo',cls:goodDirection==='up'?'good':'bad'};
+  const pct=(curVal-prevVal)/prevVal*100;
+  const up=pct>=0;
+  const cls=pct===0?'flat':((up&&goodDirection==='up')||(!up&&goodDirection==='down')?'good':'bad');
+  return {text:`${up?'↑':'↓'}${Math.abs(pct).toFixed(0)}% vs mês ant.`,cls};
+}
+function fmtDeltaPts(curRate,prevRate,goodDirection){
+  if(!isFinite(curRate)||!isFinite(prevRate)) return {text:'—',cls:'flat'};
+  const diff=curRate-prevRate;
+  const up=diff>=0;
+  const cls=diff===0?'flat':((up&&goodDirection==='up')||(!up&&goodDirection==='down')?'good':'bad');
+  return {text:`${up?'↑':'↓'}${Math.abs(diff).toFixed(1)}pt vs mês ant.`,cls};
+}
 
 // ── render ───────────────────────────────────────────────────────────
 function render(){
-  const q=(document.getElementById('ov-search').value||'').toLowerCase().trim();
-  const sort=document.getElementById('ov-sort').value;
-  const orgFils=getMsValues('ov-org');
-  const statusFils=getMsValues('ov-status');
-  const yearFils=getMsValues('ov-year').map(Number);
-  const monthFils=getMsValues('ov-month').map(Number);
+  if(!_rows.length && document.getElementById('ov-dash').dataset.err) return;
+  const {rowsCtx,rowsFull}=getFilteredRows();
 
-  let rows=_rows.filter(r=>{
-    if(_filter!=='all' && tipoKey(rawTipo(r))!==_filter) return false;
-    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
-    if(statusFils.length){
-      const fin=FINALIZADO_STATUSES.includes(r.base_status);
-      const canc=CANCELADO_STATUSES.includes(r.base_status);
-      const aberto=!fin&&!canc;
-      const bate=(statusFils.includes('aberto')&&aberto)
-        ||(statusFils.includes('finalizado')&&fin)
-        ||(statusFils.includes('cancelado')&&canc);
-      if(!bate) return false;
-    }
-    // Filtro por ano/mês de criação (múltipla seleção)
-    if(yearFils.length||monthFils.length){
-      const d=r.criado_em?new Date(r.criado_em):null;
-      if(!d) return false;
-      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
-      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
-    }
-    if(!q) return true;
-    const probs=(r.chamados_relacionados||[]).map(c=>c.motivo).join(' ');
-    const hay=`${r.organizacao||''} ${r.assunto_ouvidoria||''} ${r.ticket_id||''} ${r.servico_ouvidoria_nome||''} ${rawTipo(r)} ${probs}`.toLowerCase();
-    return hay.includes(q);
+  // ── KPIs ──
+  const c={elo:0,rec:0,sug:0,oth:0,proc:0};
+  rowsFull.forEach(r=>{
+    const tk=tipoKey(rawTipo(r));
+    c[tk]++;
+    if(tk==='rec'&&isProcedente(r.manifesto_procedente)) c.proc++;
   });
+  document.getElementById('k-elo').textContent=c.elo.toLocaleString('pt-BR');
+  document.getElementById('k-rec').textContent=c.rec.toLocaleString('pt-BR');
+  document.getElementById('k-sug').textContent=c.sug.toLocaleString('pt-BR');
+  document.getElementById('k-proc').firstChild.textContent=c.proc.toLocaleString('pt-BR')+' ';
+  document.getElementById('k-proc-pct').textContent=c.rec?`(${(c.proc/c.rec*100).toFixed(1)}%)`:'';
 
-  rows=[...rows].sort((a,b)=>{
-    if(sort==='rei') return (Number(b.total_chamados_anteriores)||0)-(Number(a.total_chamados_anteriores)||0);
-    const da=a.criado_em?+new Date(a.criado_em):0;
-    const db=b.criado_em?+new Date(b.criado_em):0;
-    return sort==='ant'?da-db:db-da;
-  });
-
-  updateKpis(rows);
-
-  const cnt=document.getElementById('ov-count');
-  cnt.textContent=`${rows.length} manifestaç${rows.length===1?'ão':'ões'}`;
-
-  const grid=document.getElementById('ov-grid');
-  if(!rows.length){
-    grid.innerHTML=`<div class="empty"><span class="sym">search_off</span><p>Nenhuma manifestação encontrada.</p></div>`;
-    return;
+  const byMes=bucketPorMes(rowsCtx);
+  const meses=Object.keys(byMes).sort();
+  if(meses.length>=2){
+    const cur=byMes[meses[meses.length-1]], prev=byMes[meses[meses.length-2]];
+    setDelta('k-elo-d',fmtDeltaPct(cur.elo,prev.elo,'up'));
+    setDelta('k-rec-d',fmtDeltaPct(cur.rec,prev.rec,'down'));
+    setDelta('k-sug-d',fmtDeltaPct(cur.sug,prev.sug,'up'));
+    const curRate=cur.rec?cur.proc/cur.rec*100:0, prevRate=prev.rec?prev.proc/prev.rec*100:0;
+    setDelta('k-proc-d',fmtDeltaPts(curRate,prevRate,'down'));
+  } else {
+    ['k-elo-d','k-rec-d','k-sug-d','k-proc-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
   }
 
-  grid.innerHTML=rows.map(r=>{
-    const tk=tipoKey(rawTipo(r));
-    const tot=Number(r.total_chamados_anteriores)||0;
-    const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
-    const manifesto = r.manifesto_direcionado_a ? esc(r.manifesto_direcionado_a) : '';
+  renderTrendChart(byMes,meses);
+  renderTypeChart(c);
+  renderAreaChart(rowsFull);
+  renderTopClientChart(rowsFull);
+  renderReincidenciaTable(rowsFull);
+  renderResponsavelTable(rowsFull);
+}
+function setDelta(id,{text,cls}){
+  const el=document.getElementById(id);
+  el.textContent=text;
+  el.className='delta '+cls;
+}
 
-    return `<div class="card t-${tk}" data-id="${esc(String(r.ticket_id))}">
-  <div class="card-top">
-    <div class="card-top-badges">
-      <span class="tbadge t-${tk}"><span class="sym">${TIPO_ICON[tk]}</span>${esc(rawTipo(r))||TIPO_LABEL[tk]}</span>
-      ${statusBadge(r.status_movidesk,r.base_status)}
-    </div>
-    <span class="card-date">${fmtShort(r.criado_em)}</span>
-  </div>
-  <div class="card-body">
-    <div class="card-tid">#${esc(String(r.ticket_id))}</div>
-    <div class="card-org">${esc(r.organizacao||'Organização não informada')}</div>
-    ${manifesto?`<div class="card-sub">${manifesto}</div>`:''}
-  </div>
-  <div class="card-footer">
-    <span class="recpill${probs.length>0&&tk!=='elo'?' warn':''}">
-      <span class="sym">history</span>${tot} chamado${tot===1?'':'s'} anterior${tot===1?'':'es'}
-    </span>
-    <button class="card-cta" data-cta="${esc(String(r.ticket_id))}">
-      <span class="sym">open_in_new</span>Ver análise
-    </button>
-  </div>
-</div>`;
+// ── cores (tokens do tema) ──────────────────────────────────────────
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function chartColors(){
+  return {
+    t1:cssVar('--t1'), t2:cssVar('--t2'), t3:cssVar('--t3'), border:cssVar('--border'),
+    orange:cssVar('--orange'), green:cssVar('--green'), purple:cssVar('--purple'), slate:cssVar('--slate'),
+  };
+}
+function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
+
+function renderTrendChart(byMes,meses){
+  destroyChart('trendChart');
+  const col=chartColors();
+  const ultimos=meses.slice(-12);
+  const labels=ultimos.map(mk=>{
+    const [y,m]=mk.split('-');
+    return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`;
+  });
+  _charts.trendChart=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Elogios',data:ultimos.map(mk=>byMes[mk].elo),borderColor:col.green,backgroundColor:col.green+'26',fill:true,tension:.3,pointRadius:3},
+        {label:'Reclamações',data:ultimos.map(mk=>byMes[mk].rec),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:col.t2}}},
+      scales:{
+        y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        x:{grid:{display:false},ticks:{color:col.t2}}
+      }
+    }
+  });
+}
+function renderTypeChart(c){
+  destroyChart('typeChart');
+  const col=chartColors();
+  _charts.typeChart=new Chart(document.getElementById('typeChart'),{
+    type:'doughnut',
+    data:{
+      labels:['Reclamação','Elogio','Sugestão','Outro'],
+      datasets:[{data:[c.rec,c.elo,c.sug,c.oth],backgroundColor:[col.orange,col.green,col.purple,col.slate]}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
+      cutout:'62%'
+    }
+  });
+}
+function renderAreaChart(rows){
+  destroyChart('areaChart');
+  const col=chartColors();
+  const porArea={};
+  rows.forEach(r=>{ const a=areaDoServico(r.servico); porArea[a]=(porArea[a]||0)+1; });
+  const entries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _charts.areaChart=new Chart(document.getElementById('areaChart'),{
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      }
+    }
+  });
+}
+function renderTopClientChart(rows){
+  destroyChart('topClientChart');
+  const col=chartColors();
+  const porCliente={};
+  rows.forEach(r=>{ const o=r.organizacao||'Não informado'; porCliente[o]=(porCliente[o]||0)+1; });
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      }
+    }
+  });
+}
+
+function renderReincidenciaTable(rows){
+  const tbody=document.getElementById('tbl-reincidencia');
+  const porCliente={};
+  rows.forEach(r=>{
+    if(tipoKey(rawTipo(r))!=='rec') return;
+    const o=r.organizacao||'Não informado';
+    porCliente[o]=porCliente[o]||{rec:0,proc:0};
+    porCliente[o].rec++;
+    if(isProcedente(r.manifesto_procedente)) porCliente[o].proc++;
+  });
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1].rec-a[1].rec).slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhuma reclamação no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(([org,v])=>`
+    <tr>
+      <td>${esc(org)}</td>
+      <td class="num">${v.rec}</td>
+      <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
+    </tr>`).join('');
+}
+
+function renderResponsavelTable(rows){
+  const tbody=document.getElementById('tbl-responsavel');
+  const porResp={};
+  rows.forEach(r=>{
+    const nome=r.responsavel||'Não atribuído';
+    porResp[nome]=porResp[nome]||{tickets:0,somaDias:0,nResolvidos:0,rec:0,proc:0};
+    const p=porResp[nome];
+    p.tickets++;
+    if(r.criado_em&&r.resolvido_em){
+      const dias=(new Date(r.resolvido_em)-new Date(r.criado_em))/86400000;
+      if(dias>=0){ p.somaDias+=dias; p.nResolvidos++; }
+    }
+    if(tipoKey(rawTipo(r))==='rec'){
+      p.rec++;
+      if(isProcedente(r.manifesto_procedente)) p.proc++;
+    }
+  });
+  const entries=Object.entries(porResp).sort((a,b)=>b[1].tickets-a[1].tickets).slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum ticket no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(([nome,p])=>{
+    const tempoMedio=p.nResolvidos?`${(p.somaDias/p.nResolvidos).toFixed(1)} dias`:'—';
+    const taxa=p.rec?(p.proc/p.rec*100):0;
+    const taxaTxt=p.rec?`${taxa.toFixed(1)}%`:'—';
+    return `
+    <tr>
+      <td>${esc(nome)}</td>
+      <td class="num">${p.tickets}</td>
+      <td class="num">${tempoMedio}</td>
+      <td class="num${taxa>=15?' bad':''}">${taxaTxt}</td>
+    </tr>`;
   }).join('');
 }
 
-// event delegation for grid
-document.getElementById('ov-grid').addEventListener('click',e=>{
-  const cta=e.target.closest('[data-cta]');
-  const card=cta?null:e.target.closest('.card');
-  const id=cta?cta.dataset.cta:card?.dataset.id;
-  if(id) openDrawer(id);
-});
-
-// search + sort + filter events
-document.getElementById('ov-search').addEventListener('input',render);
-document.getElementById('ov-sort').addEventListener('change',render);
-// ov-org e ov-status agora são multi-sel (populateMs já liga o change dos checkboxes ao render)
-
-// ── drawer ───────────────────────────────────────────────────────────
-function openDrawer(id){
-  const r=_rows.find(r=>String(r.ticket_id)===String(id));
-  if(!r) return;
-
-  const tk=tipoKey(rawTipo(r));
-  const tot=Number(r.total_chamados_anteriores)||0;
-
-  // icon
-  const icoEl=document.getElementById('d-ico');
-  icoEl.className=`dh-ico t-${tk}`;
-  icoEl.innerHTML=`<span class="sym">${TIPO_ICON[tk]}</span>`;
-
-  document.getElementById('d-org').textContent=r.organizacao||'Organização não informada';
-  document.getElementById('d-meta').textContent=`#${r.ticket_id} · ${rawTipo(r)||TIPO_LABEL[tk]}${r.servico_ouvidoria_nome?' · '+r.servico_ouvidoria_nome:''}`;
-  document.getElementById('d-sub').textContent=r.assunto_ouvidoria||'';
-
-  // meta chips
-  function mkChip(sym,label,val){
-    const v=String(val||'');
-    const long=v.length>40;
-    return `<div class="meta-chip${long?' mc-long':''}" ${long?'onclick="this.classList.toggle(\'mc-open\')"':''}>
-      <span class="sym">${sym}</span>
-      <div><span class="mc-l">${label}</span><span class="mc-v">${esc(v)}</span></div>
-    </div>`;
-  }
-  document.getElementById('d-chips').innerHTML=
-    mkChip('calendar_month','Registrado em',fmtFull(r.criado_em))+
-    mkChip('history','Chamados anteriores',tot)+
-    (r.servico_ouvidoria_nome?mkChip('category','Serviço',r.servico_ouvidoria_nome):'');
-
-  // body sections
-  const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
-
-  // recurrence warning — não se aplica a elogios
-  const warnEl=document.getElementById('d-warn');
-  if(probs.length>0 && tk!=='elo'){
-    warnEl.style.display='flex';
-    document.getElementById('d-warn-t').textContent=`Reincidente — ${probs.length} problema${probs.length===1?'':'s'} identificado${probs.length===1?'':'s'} em chamados anteriores`;
-  } else { warnEl.style.display='none'; }
-  const probsHtml=probs.length?`<div>
-    <div class="sec-lbl"><span class="sym">flag</span>Problemas que motivaram a Ouvidoria</div>
-    <div style="display:flex;flex-direction:column;gap:7px">${probs.map(p=>`
-      <div class="prob-item">
-        <p class="prob-text">${esc(p.motivo||'')}</p>
-        ${p.ticket_id?`<a class="prob-link" href="${tiUrl(p.ticket_id)}" target="_blank" rel="noopener">#${esc(String(p.ticket_id))}</a>`:''}
-      </div>`).join('')}
-    </div>
-  </div>`:'';
-
-  const descHtml=buildDesc(r.descricao_ouvidoria);
-  const analiseHtml=buildAnalise(r.analise);
-
-  document.getElementById('d-body').innerHTML=probsHtml+descHtml+analiseHtml+'<div id="_act-section"></div>';
-  document.getElementById('d-body').classList.toggle('is-elogio', tk==='elo');
-  loadDrawerActions(r.ticket_id,'ouvidoria');
-
-  // collapse check after paint
-  requestAnimationFrame(()=>{
-    const box=document.getElementById('_desc-box');
-    const tog=document.getElementById('_desc-tog');
-    const fade=document.getElementById('_desc-fade');
-    if(!box) return;
-    if(box.scrollHeight<=170){
-      box.classList.remove('collapsed');
-      if(fade) fade.style.display='none';
-    } else {
-      if(tog) tog.style.display='block';
-    }
-  });
-
-  document.getElementById('ov-backdrop').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-
-function buildDesc(raw){
-  const text=String(raw||'').trim();
-  if(!text) return '';
-
-  const blocks=text.split(/\n{2,}/).map(b=>b.trim()).filter(Boolean);
-  const fields=[]; let intro='';
-  for(const blk of blocks){
-    const m=blk.match(/^([^\n:]{1,80}):\s*\n([\s\S]+)$/);
-    if(m) fields.push({l:m[1].trim(),v:m[2].trim()});
-    else if(fields.length) fields[fields.length-1].v+='\n'+blk;
-    else intro=intro?`${intro}\n${blk}`:blk;
-  }
-
-  let inner=fields.length
-    ? (intro?`<p class="desc-plain" style="font-style:italic;color:var(--t2);margin-bottom:10px">${esc(intro)}</p>`:'')
-      +`<dl class="fields">${fields.map(f=>`<div><dt>${esc(f.l)}</dt><dd>${esc(f.v)}</dd></div>`).join('')}</dl>`
-    : `<p class="desc-plain">${esc(text)}</p>`;
-
-  return `<div>
-    <div class="sec-lbl"><span class="sym">format_quote</span>Descrição do cliente</div>
-    <div class="desc-box collapsed" id="_desc-box">
-      ${inner}
-      <div class="desc-fade" id="_desc-fade"></div>
-    </div>
-    <button class="desc-toggle" id="_desc-tog" onclick="toggleDesc()">Ver tudo</button>
-  </div>`;
-}
-
-function toggleDesc(){
-  const box=document.getElementById('_desc-box');
-  const tog=document.getElementById('_desc-tog');
-  const fade=document.getElementById('_desc-fade');
-  if(!box) return;
-  const col=box.classList.toggle('collapsed');
-  if(fade) fade.style.display=col?'':'none';
-  if(tog) tog.textContent=col?'Ver tudo':'Ver menos';
-}
-
-const ANALISE_DEF=[
-  {key:'mot',label:'Motivador',      icon:'psychology', rx:/motivador/i},
-  {key:'pad',label:'Padrões',        icon:'insights',   rx:/padr(?:ão|ões|ao|oes)/i},
-  {key:'rec',label:'Recomendações',  icon:'lightbulb',  rx:/recomenda(?:c|ç)(?:ão|ões|ao|oes)/i},
-];
-
-function buildAnalise(raw){
-  const text=String(raw||'').trim();
-  if(!text) return '';
-
-  const rx=/^[ \t]*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ /]{0,40}?)\s*:[ \t]*$/gim;
-  const ms=[...text.matchAll(rx)].filter(m=>ANALISE_DEF.some(d=>d.rx.test(m[1])));
-  let cards=[];
-  if(ms.length){
-    for(let i=0;i<ms.length;i++){
-      const m=ms[i]; const def=ANALISE_DEF.find(d=>d.rx.test(m[1]));
-      const start=m.index+m[0].length;
-      const end=i+1<ms.length?ms[i+1].index:text.length;
-      if(def) cards.push({...def,content:text.slice(start,end).trim()});
-    }
-  }
-  if(!cards.length) cards=[{key:'a',label:'Análise',icon:'psychology',content:text}];
-
-  return `<div>
-    <div class="sec-lbl"><span class="sym">auto_awesome</span>Análise de IA</div>
-    <div style="display:flex;flex-direction:column;gap:7px">${cards.map(c=>`
-      <div class="analise-item">
-        <div class="analise-hd"><span class="sym">${c.icon}</span>${c.label}</div>
-        <div class="analise-text">${esc(c.content)}</div>
-      </div>`).join('')}
-    </div>
-  </div>`;
-}
-
-function closeDrawer(){
-  document.getElementById('ov-backdrop').classList.remove('open');
-  document.body.style.overflow='';
-}
-
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); });
-document.addEventListener('DOMContentLoaded',()=>{ loadOuvidoria(); checkSyncStatus(); });
-
-// ── Sync de andamento ──────────────────────────────────────────────────────────
+// ── sync ─────────────────────────────────────────────────────────────
 let _syncPoll=null;
-
 function showToast(txt,prog){
   document.getElementById('sync-toast-txt').textContent=txt;
   document.getElementById('sync-toast-prog').textContent=prog||'';
@@ -1187,7 +736,6 @@ async function startSync(){
     pollSyncStatus();
   }catch(e){
     if(e.message==='HTTP 409'){
-      // Loader já em andamento — apenas acompanha o progresso
       showToast('Carga já em andamento…','Acompanhando progresso');
       pollSyncStatus();
     } else {
@@ -1197,12 +745,10 @@ async function startSync(){
     }
   }
 }
-
 function pollSyncStatus(){
   if(_syncPoll) clearInterval(_syncPoll);
   _syncPoll=setInterval(checkSyncStatus,2000);
 }
-
 async function checkSyncStatus(){
   try{
     const s=await apiFetch('/loader/status','GET');
@@ -1228,7 +774,6 @@ async function checkSyncStatus(){
     }
   }catch{ /* ignora erros de polling */ }
 }
-
 async function apiFetch(path,method='GET'){
   const token=localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
   const r=await fetch(`${window.location.origin}/api${path}`,{
@@ -1238,135 +783,8 @@ async function apiFetch(path,method='GET'){
   return r.json();
 }
 
-// ── Ações e campos personalizados do Movidesk ────────────────────────
-const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
-const TL_COLLAPSED=4; // ações visíveis antes de expandir
-
-// Mapa estático de IDs → nomes (fallback quando a API /customFields falha)
-const STATIC_CF_NAMES={
-  22000:'Tipo de Manifesto',22003:'Manifesto Procedente',23946:'Classificação de Ticket',
-  24523:'GCC - Locus Externo',24986:'GCC - Locus Interno',26214:'GCC - MRR',26215:'GCC - Data',
-  38595:'Manifesto direcionado a',43724:'GCC - Data Rescisão',58049:'GCC - Data Reversão',
-  59012:'GCC - Real Motivo',61982:'GCC - Tipo de Locus',67575:'AC - 2020 (R$)',
-  67576:'AC - 2021 (R$)',67577:'AC - Acordado (R$)',71424:'Valor do AC',
-  72413:'A eficácia do serviço foi atendida?',78145:'GCC - Data Rescisão Programada',
-  79437:'Ouvidoria: Ação tomada',80108:'Ouvidoria: Tipo de acesso',
-  87894:'GCC - Tipo Rescisão',92847:'GCC - MRR pós churn',94219:'GCC - Data do Contrato',
-  96401:'GCC - Sistema Que Irá Utilizar',98697:'GCC - Verticais Insatisfação',
-  98699:'Observação - Inteligência de mercado',102445:'GCC - Data Solicitação de Rescisão',
-  151926:'GCC - Produto',172975:'Agente da Ouvidoria',
-  216954:'GCC - Tipo de Rescisão Parcial',216958:'GCC - Módulos',240113:'Analise IA',
-  37169:'Analista/Desenvolvedor responsável',54937:'Consultor Atendimento',
-  71417:'Situação da Melhoria',71427:'Case de sucesso?',71461:'Valor - AC',
-  71486:'Atendimento Financeiro',72103:'Cidade',73907:'Bug procedente?',
-  77260:'Triagem Acertou Urgência?',77281:'Analista de Triagem',77399:'Atendimento em plantão?',
-  83250:'Classificação de Recusa',148916:'Causa',173931:'Triagem Automática',
-  180036:'Caracteristica do Atendimento',185288:'Urgência Raiz',
-  224107:'Motivo da Insatisfação:',224109:'Motivo da Improcedência:',
-  227770:'Departamento',227833:'Motivo da Improcedência Reabertura:',
-  227837:'Motivo da procedência Reabertura:',230757:'Área que Reportou',
-  230908:'Equipe Responsável',230909:'Atendentes Envolvidos',
-  239481:'Sentimento:',239482:'Satisfação:',245078:'ID NLU',245945:'Origem',
-};
-
-function tlDot(type,isPrivate){
-  if(isPrivate) return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">lock</span></div>`;
-  if(type===1)  return `<div class="tl-dot tp-client"><span class="sym" style="font-size:15px">person</span></div>`;
-  if(type===2)  return `<div class="tl-dot tp-agent"><span class="sym" style="font-size:15px">support_agent</span></div>`;
-  if(type===3)  return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">sticky_note_2</span></div>`;
-  return `<div class="tl-dot tp-auto"><span class="sym" style="font-size:15px">settings</span></div>`;
-}
-
-function tlItem(a){
-  const author=a.createdBy?(a.createdBy.businessName||a.createdBy.email||'Sistema'):'Sistema';
-  const label=a.isPrivate?'Nota interna':(ACTION_TYPE[a.type]||`Tipo ${a.type}`);
-  const statusBadge=a.status?`<span class="tl-badge">${esc(a.status)}</span>`:'';
-  return `<div class="tl-item" onclick="this.classList.toggle('tl-open')">
-    ${tlDot(a.type,a.isPrivate)}
-    <div style="min-width:0">
-      <div class="tl-meta">
-        <span class="tl-author">${esc(author)}</span>
-        <span class="tl-date">${fmtFull(a.createdDate||a.date)}</span>
-        <span class="tl-badge">${label}</span>
-        ${statusBadge}
-      </div>
-      <div class="tl-desc">${a.description||''}</div>
-      <div class="tl-toggle"><span class="sym">expand_more</span>Ver completo</div>
-    </div>
-  </div>`;
-}
-
-function renderActions(data){
-  const actions=(data.actions||[]);
-  const fieldDefs=data.fieldDefs||{};
-  // só exibe campos com valor real preenchido
-  const cfItems=(data.customFieldValues||[]).reduce((acc,f)=>{
-    const val=String(f.value||'').trim()||
-      (f.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
-    if(!val) return acc;
-    const name=fieldDefs[String(f.customFieldId)]||STATIC_CF_NAMES[f.customFieldId]||null;
-    if(!name) return acc; // sem nome conhecido, não exibe
-    acc.push({name,val});
-    return acc;
-  },[]);
-  let html='';
-
-  if(cfItems.length){
-    html+=`<div>
-      <div class="sec-lbl"><span class="sym">tune</span>Campos personalizados</div>
-      <div class="cf-grid">${cfItems.map(f=>
-        `<div class="cf-item"><span class="cf-lbl">${esc(f.name)}</span><span class="cf-val">${esc(f.val)}</span></div>`
-      ).join('')}</div>
-    </div>`;
-  }
-
-  if(actions.length){
-    const visible=actions.slice(0,TL_COLLAPSED);
-    const hidden=actions.slice(TL_COLLAPSED);
-    const moreBtn=hidden.length?`<button class="tl-expand-btn" onclick="this.previousElementSibling.innerHTML+=\`${hidden.map(tlItem).join('').replace(/`/g,'\\`')}\`;this.remove()">
-      <span class="sym">expand_more</span>Ver mais ${hidden.length} ação${hidden.length===1?'':'ões'}
-    </button>`:'';
-    html+=`<div>
-      <div class="sec-lbl"><span class="sym">history</span>Histórico (${actions.length} ações)</div>
-      <div class="tl-list">${visible.map(tlItem).join('')}</div>
-      ${moreBtn}
-    </div>`;
-  }
-  return html;
-}
-
-const CF_MANIFESTO_ID=38595;
-function extractManifesto(cfValues){
-  const cf=(cfValues||[]).find(f=>f.customFieldId===CF_MANIFESTO_ID);
-  if(!cf) return null;
-  const fromItems=(cf.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
-  return fromItems||String(cf.value||'').trim()||null;
-}
-
-function loadDrawerActions(ticketId,prefix){
-  const sec=document.getElementById('_act-section');
-  if(!sec) return;
-  sec.innerHTML='<div class="tl-loading"><span class="sym">hourglass_empty</span>Carregando ações…</div>';
-  apiFetch(`/${prefix}/${ticketId}/actions`).then(data=>{
-    sec.innerHTML=renderActions(data)||'';
-    // Atualiza manifesto no card e no cache de rows
-    const manifesto=extractManifesto(data.customFieldValues);
-    if(manifesto){
-      const row=_rows.find(r=>String(r.ticket_id)===String(ticketId));
-      if(row) row.manifesto_direcionado_a=manifesto;
-      const card=document.querySelector(`.card[data-id="${ticketId}"]`);
-      if(card){
-        let sub=card.querySelector('.card-sub');
-        if(!sub){
-          sub=document.createElement('div');
-          sub.className='card-sub';
-          card.querySelector('.card-body')?.appendChild(sub);
-        }
-        sub.textContent=manifesto;
-      }
-    }
-  }).catch(()=>{ sec.innerHTML=''; });
-}
+// ── boot ─────────────────────────────────────────────────────────────
+loadOuvidoria();
 </script>
 </body>
 </html>
