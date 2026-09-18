@@ -235,6 +235,37 @@ const SELECT_FIELDS = [
 // Expande apenas os nomes das entidades — o servidor retorna todos os campos delas.
 const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
 
+// Bug confirmado na API do Movidesk: QUALQUER $filter (mesmo o mais simples,
+// tipo "ownerTeam eq 'Ouvidoria'") combinado com $expand=customFieldValues faz
+// os campos customizados virem com value:null e SEM a chave "items" — pra
+// TODOS os campos do ticket, não só a classificação. Confirmado via curl
+// comparando a mesma busca com e sem $filter (sem filtro, usando só
+// "id=<id>", os campos vêm certos). $select=customFieldValues sem $expand
+// também não funciona (a API ignora o campo). O único jeito confiável de
+// pegar os campos customizados certos é buscar o ticket individualmente por
+// "id=" — sem $filter algum. Isso custa 1 requisição extra por ticket, então
+// só aplicamos na carga leve (Ouvidoria/GCC em aberto — poucos tickets), não
+// no backfill completo (milhares de tickets históricos, ficaria lento demais).
+async function corrigirCustomFieldValues(token, tickets) {
+  for (const t of tickets) {
+    if (state.cancelRequested) {
+      throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    }
+    try {
+      const url = `${MOVI_BASE}/tickets?${qs({ token, id: t.id, '$select': 'id', '$expand': EXPAND_FIELDS })}`;
+      const resp = await fetchWithRetry(url);
+      const data = await resp.json();
+      const full = Array.isArray(data) ? data[0] : data;
+      if (full && Array.isArray(full.customFieldValues)) {
+        t.customFieldValues = full.customFieldValues;
+      }
+    } catch (e) {
+      console.warn(`[loader] correção de campos do ticket ${t.id} falhou: ${e.message}`);
+    }
+    await sleep(120);
+  }
+}
+
 // ── Busca uma página da API ───────────────────────────────────────────────────
 async function fetchPage(token, endpoint, filter, skip, pageSize = PAGE_SIZE) {
   const params = {
@@ -1002,8 +1033,19 @@ async function runByClassification(mode, classValue) {
     const idFilter = `${classFilter} and ${closedExclusion}`;
     const pageSize = ownerTeamVal ? PAGE_SIZE : CLASS_FILTER_PAGE_SIZE;
 
+    // Poucos tickets nessa carga (em aberto só) — vale a pena a chamada extra
+    // por ticket pra corrigir os campos customizados quebrados pelo bug do
+    // $filter+$expand (ver corrigirCustomFieldValues). No backfill completo
+    // (milhares de tickets históricos) isso não é feito, ficaria lento demais.
+    const baseSave = makeSaveComClassificacao(classValue);
+    const savePatched = async (batch) => {
+      state.phase = 'corrigindo';
+      await corrigirCustomFieldValues(token, batch);
+      return baseSave(batch);
+    };
+
     console.log(`[loader]   /tickets — buscando ${modeUpper} em aberto`);
-    await fetchEndpoint(token, '/tickets', idFilter, makeSaveComClassificacao(classValue), pageSize);
+    await fetchEndpoint(token, '/tickets', idFilter, savePatched, pageSize);
     console.log(`[loader]   ${state.ticketsDone} ticket(s) de ${modeUpper} em aberto encontrados`);
 
     state.phase      = 'idle';
