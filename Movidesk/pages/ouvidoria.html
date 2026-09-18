@@ -255,7 +255,8 @@ input,select{font-family:inherit}
 .modal-box{
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
   box-shadow:var(--sh-lg,0 20px 50px rgba(0,0,0,.35));
-  width:100%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;
+  width:100%;max-width:min(820px,92vw);max-height:min(80vh,720px);
+  display:flex;flex-direction:column;overflow:hidden;
 }
 .modal-head{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -268,8 +269,12 @@ input,select{font-family:inherit}
   cursor:pointer;padding:4px 6px;border-radius:6px;
 }
 .modal-close:hover{background:var(--surface-mid);color:var(--t1)}
-.modal-body{overflow-y:auto;padding:8px 20px 18px}
-.modal-body .dtable th{position:sticky;top:0;background:var(--surface)}
+.modal-body{overflow-y:auto;overflow-x:hidden;padding:8px 20px 18px;flex:1 1 auto;min-height:0}
+.modal-body .dtable-scroll{overflow-x:auto}
+.modal-body .dtable{min-width:640px}
+.modal-body .dtable th{position:sticky;top:0;background:var(--surface);white-space:nowrap}
+.modal-body .dtable td{vertical-align:top}
+body.modal-open{overflow:hidden}
 </style>
 </head>
 <body>
@@ -423,12 +428,14 @@ input,select{font-family:inherit}
       <button class="modal-close" id="detail-modal-close" aria-label="Fechar">&times;</button>
     </div>
     <div class="modal-body">
-      <table class="dtable">
-        <thead>
-          <tr><th>ID</th><th>Organização</th><th>Assunto</th><th>Tipo</th><th>Responsável</th><th>Status</th></tr>
-        </thead>
-        <tbody id="detail-modal-tbody"></tbody>
-      </table>
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead>
+            <tr><th>ID</th><th>Organização</th><th>Assunto</th><th>Tipo</th><th>Responsável</th><th>Status</th></tr>
+          </thead>
+          <tbody id="detail-modal-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -732,8 +739,12 @@ function openDetailModal(title,sub,rows){
         </tr>`).join('');
   }
   document.getElementById('detail-modal').classList.add('show');
+  document.body.classList.add('modal-open');
 }
-function closeDetailModal(){ document.getElementById('detail-modal').classList.remove('show'); }
+function closeDetailModal(){
+  document.getElementById('detail-modal').classList.remove('show');
+  document.body.classList.remove('modal-open');
+}
 document.getElementById('detail-modal-close').addEventListener('click',closeDetailModal);
 document.getElementById('detail-modal').addEventListener('click',e=>{ if(e.target.id==='detail-modal') closeDetailModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDetailModal(); });
