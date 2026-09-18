@@ -535,6 +535,12 @@ function bucketPorMes(rows){
   });
   return by;
 }
+function mesAnteriorKey(key){
+  let [y,m]=key.split('-').map(Number);
+  m-=1;
+  if(m<1){ m=12; y-=1; }
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
 function fmtDeltaPct(curVal,prevVal,goodDirection){
   if(prevVal===0&&curVal===0) return {text:'—',cls:'flat'};
   if(prevVal===0) return {text:'novo',cls:goodDirection==='up'?'good':'bad'};
@@ -575,8 +581,25 @@ function render(){
 
   const byMes=bucketPorMes(rowsCtx);
   const meses=Object.keys(byMes).sort();
-  if(meses.length>=2){
-    const cur=byMes[meses[meses.length-1]], prev=byMes[meses[meses.length-2]];
+
+  // Quando Ano+Mês estão filtrados, compara exatamente esse mês com o
+  // anterior a ele. Sem esse filtro, compara os dois últimos meses
+  // COMPLETOS disponíveis — ignora o mês corrente (em andamento), que
+  // sempre pareceria "caindo" por estar incompleto.
+  const yearFilVal=document.getElementById('f-year').value;
+  const monthFilVal=document.getElementById('f-month').value;
+  let curKey, prevKey;
+  if(yearFilVal&&monthFilVal){
+    curKey=`${yearFilVal}-${String(monthFilVal).padStart(2,'0')}`;
+    prevKey=mesAnteriorKey(curKey);
+  } else {
+    const mesAtual=monthKeyOf(new Date());
+    const mesesCompletos=meses.filter(mk=>mk!==mesAtual);
+    curKey=mesesCompletos[mesesCompletos.length-1];
+    prevKey=mesesCompletos[mesesCompletos.length-2];
+  }
+  const cur=byMes[curKey], prev=byMes[prevKey];
+  if(cur&&prev){
     const curTotal=cur.elo+cur.rec+cur.sug+cur.oth, prevTotal=prev.elo+prev.rec+prev.sug+prev.oth;
     const totalDelta=fmtDeltaPct(curTotal,prevTotal,'up');
     setDelta('k-total-d',{text:totalDelta.text,cls:totalDelta.cls==='flat'?'flat':'neutral'});
