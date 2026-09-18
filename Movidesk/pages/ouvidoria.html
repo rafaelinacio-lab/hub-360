@@ -317,9 +317,15 @@ input,select{font-family:inherit}
     </div>
 
     <p class="section-label">Ranking</p>
-    <div class="chart-panel">
-      <p class="chart-title">Top 10 clientes por volume de manifestações</p>
-      <div class="chart-wrap" style="height:250px"><canvas id="topClientChart"></canvas></div>
+    <div class="grid-2">
+      <div class="chart-panel">
+        <p class="chart-title">Top 10 clientes por volume de manifestações</p>
+        <div class="chart-wrap" style="height:250px"><canvas id="topClientChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Chamados por área direcionada</p>
+        <div class="chart-wrap" style="height:250px"><canvas id="direcionadoChart"></canvas></div>
+      </div>
     </div>
 
     <p class="section-label">Ação</p>
@@ -564,6 +570,7 @@ function render(){
   renderTypeChart(c);
   renderAreaChart(rowsFull);
   renderTopClientChart(rowsFull);
+  renderDirecionadoChart(rowsFull);
   renderReincidenciaTable(rowsFull);
   renderResponsavelTable(rowsFull);
 }
@@ -654,6 +661,28 @@ function renderTopClientChart(rows){
   _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
     type:'bar',
     data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      }
+    }
+  });
+}
+function renderDirecionadoChart(rows){
+  destroyChart('direcionadoChart');
+  const col=chartColors();
+  const porArea={};
+  rows.forEach(r=>{
+    const a=(r.manifesto_direcionado_a||'').trim()||'Não informado';
+    porArea[a]=(porArea[a]||0)+1;
+  });
+  const entries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.direcionadoChart=new Chart(document.getElementById('direcionadoChart'),{
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.purple,borderRadius:4}] },
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
