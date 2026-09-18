@@ -159,6 +159,36 @@ module.exports.state = state;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Roda uma escrita com lock_timeout curto, repetindo com backoff se cair em
+// lock (55P03) — evita ficar preso indefinidamente quando a procedure externa
+// silver.atualizar_silver_gold() segura locks nas mesmas tabelas por dezenas
+// de minutos (visto repetidas vezes em produção). Depois de esgotar as
+// tentativas, deixa o erro subir: a carga fica com status 'error' e uma
+// mensagem clara no histórico, em vez de "running" pra sempre esperando
+// alguém notar e matar a sessão travada manualmente via pg_terminate_backend.
+async function comLockRetry(fn, { tentativas = 6, lockTimeoutMs = 8000 } = {}) {
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      return await db.withClient(async (client) => {
+        await client.query(`SET lock_timeout = '${lockTimeoutMs}ms'`);
+        try {
+          return await fn(client);
+        } finally {
+          // mesmo motivo do RESET em ensureTables — não deixar o pool herdar
+          // esse lock_timeout em queries futuras não relacionadas.
+          await client.query('RESET lock_timeout').catch(() => {});
+        }
+      });
+    } catch (e) {
+      const eraLockTimeout = e.code === '55P03';
+      if (!eraLockTimeout || i === tentativas - 1) throw e;
+      const espera = 2000 * Math.pow(2, i) + Math.floor(Math.random() * 500);
+      console.warn(`[loader] lock ocupado (tentativa ${i + 1}/${tentativas}) — retry em ${espera}ms`);
+      await sleep(espera);
+    }
+  }
+}
+
 function qs(params) {
   return Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -425,7 +455,7 @@ async function saveBatch(tickets) {
     return c?.organization?.businessName || c?.businessName || null;
   });
 
-  await db.query(`
+  await comLockRetry(client => client.query(`
     INSERT INTO silver.ticket
       (ticket_id, subject, status, basestatus, createddate,
        last_update, ownerteam, owner_id, owner_name,
@@ -474,7 +504,7 @@ async function saveBatch(tickets) {
       lastUpdates, ownerTeams, ownerIds, ownerNames,
       urgencies, categories, services,
       resolvedIns, closedIns, stoppedTs, stoppedCs,
-      slaRespDs, clientOrgs]);
+      slaRespDs, clientOrgs]));
 
   // ── 2. silver.ticket_acao ──
   // Dedup por (ticket_id, acao_id) — mesmo motivo do dedup de tickets acima:
@@ -502,7 +532,7 @@ async function saveBatch(tickets) {
   }
   const actionRows = [...actionRowsPorChave.values()];
   if (actionRows.length) {
-    await db.query(`
+    await comLockRetry(client => client.query(`
       INSERT INTO silver.ticket_acao
         (acao_id, ticket_id, tipo, descricao, is_public, status, criado_em,
          criado_por_id, criado_por_nome, extracted_at)
@@ -533,7 +563,7 @@ async function saveBatch(tickets) {
       actionRows.map(r => r.criado_em),
       actionRows.map(r => r.criado_por_id),
       actionRows.map(r => r.criado_por_nome),
-    ]);
+    ]));
   }
 
   // ── 3. silver.ticket_campo_customizado ──
@@ -568,7 +598,7 @@ async function saveBatch(tickets) {
     // desfeito também — sem isso, um erro no meio deixava tickets sem nenhuma linha
     // de classificação (sumindo da Ouvidoria mesmo continuando em silver.ticket).
     const cfTicketIds = [...new Set(cfRows.map(r => r.ticket_id))];
-    await db.withClient(async (client) => {
+    await comLockRetry(async (client) => {
       await client.query('BEGIN');
       try {
         await client.query(
@@ -617,7 +647,7 @@ async function saveBatch(tickets) {
     // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT
     // por ticket, na mesma transação (mesmo motivo do bloco acima).
     const cliTicketIds = [...new Set(cliRows.map(r => r.ticket_id))];
-    await db.withClient(async (client) => {
+    await comLockRetry(async (client) => {
       await client.query('BEGIN');
       try {
         await client.query(
