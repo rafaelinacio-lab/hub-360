@@ -656,15 +656,23 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
         </div>
       </div>
       <div class="vbar"></div>
-      <select class="sort-sel" id="gcc-org" onchange="applyFilters()">
-        <option value="">Todos os clientes</option>
-      </select>
+      <div class="multi-sel" id="gcc-org">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Todos os clientes</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
       <select class="sort-sel" id="gcc-servico" onchange="applyFilters()">
         <option value="">Todos os serviços</option>
       </select>
-      <select class="sort-sel" id="gcc-status" onchange="applyFilters()">
-        <option value="">Todos os status</option>
-      </select>
+      <div class="multi-sel" id="gcc-status">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Todos os status</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
     </div>
     <div id="sync-toast">
       <span class="sym">sync</span>
@@ -731,6 +739,9 @@ async function apiCall(ep){
   } finally { clearTimeout(t); }
 }
 function esc(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
+// esc() não precisa escapar aspas em contexto de texto — mas usado dentro de
+// um atributo HTML (value="...") uma aspa não-escapada quebra o atributo.
+function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
 function fmt(v){
   if(!v) return '—';
   const d=new Date(v);
@@ -783,7 +794,7 @@ function populateMs(id,items,allLabel,onChange){
   const cur=new Set(getMsValues(id));
   drop.innerHTML=items.map(({v,l})=>`
     <label class="ms-item">
-      <input type="checkbox" value="${v}"${cur.has(String(v))?' checked':''}>
+      <input type="checkbox" value="${escAttr(String(v))}"${cur.has(String(v))?' checked':''}>
       <span>${esc(String(l))}</span>
     </label>`).join('');
   drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
@@ -899,23 +910,16 @@ function renderChips(){
   servicoSel.innerHTML=`<option value="">Todos os serviços</option>`
     +servicos.map(s=>`<option value="${esc(s)}"${cur===s?' selected':''}>${esc(s)}</option>`).join('');
 
-  // select de cliente/organização
-  const orgSel=document.getElementById('gcc-org');
-  const curOrg=orgSel.value;
+  // multi-select de cliente/organização
   const orgs=[...new Set(_rows.map(r=>r.organizacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-  orgSel.innerHTML=`<option value="">Todos os clientes</option>`
-    +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
+  populateMs('gcc-org',orgs.map(o=>({v:o,l:o})),'Todos os clientes',applyFilters);
 
-  // select de status: Em aberto / Finalizado / Cancelado (baseado em base_status)
-  const statusSel=document.getElementById('gcc-status');
-  const curStatus=statusSel.value;
-  if(!statusSel.dataset.built){
-    statusSel.innerHTML=`<option value="">Todos os status</option>`
-      +`<option value="aberto"${curStatus==='aberto'?' selected':''}>Em aberto</option>`
-      +`<option value="finalizado"${curStatus==='finalizado'?' selected':''}>Finalizado</option>`
-      +`<option value="cancelado"${curStatus==='cancelado'?' selected':''}>Cancelado</option>`;
-    statusSel.dataset.built='1';
-  }
+  // multi-select de status: Em aberto / Finalizado / Cancelado (baseado em base_status)
+  populateMs('gcc-status',[
+    {v:'aberto',l:'Em aberto'},
+    {v:'finalizado',l:'Finalizado'},
+    {v:'cancelado',l:'Cancelado'},
+  ],'Todos os status',applyFilters);
 
   // multi-select de ano (a partir de resolvido_em)
   const years=[...new Set(_rows
@@ -939,21 +943,23 @@ function applyFilters(){
   const q=(document.getElementById('gcc-search')?.value||'').toLowerCase().trim();
   const order=document.getElementById('gcc-sort')?.value||'recentes';
   const servicoFil=document.getElementById('gcc-servico')?.value||'';
-  const orgFil=document.getElementById('gcc-org')?.value||'';
-  const statusFil=document.getElementById('gcc-status')?.value||'';
+  const orgFils=getMsValues('gcc-org');
+  const statusFils=getMsValues('gcc-status');
   const yearFils=getMsValues('gcc-year').map(Number);
   const monthFils=getMsValues('gcc-month').map(Number);
 
   let rows=_rows.filter(r=>{
     if(_filterLocus!=='all'&&locusKey(r.classificacao_locus)!==_filterLocus) return false;
     if(servicoFil&&r.servico_gcc!==servicoFil) return false;
-    if(orgFil&&r.organizacao!==orgFil) return false;
-    if(statusFil){
+    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
+    if(statusFils.length){
       const fin=FINALIZADO_STATUSES.includes(r.base_status);
       const canc=CANCELADO_STATUSES.includes(r.base_status);
-      if(statusFil==='aberto'&&(fin||canc)) return false;
-      if(statusFil==='finalizado'&&!fin) return false;
-      if(statusFil==='cancelado'&&!canc) return false;
+      const aberto=!fin&&!canc;
+      const bate=(statusFils.includes('aberto')&&aberto)
+        ||(statusFils.includes('finalizado')&&fin)
+        ||(statusFils.includes('cancelado')&&canc);
+      if(!bate) return false;
     }
     // Filtro por ano/mês de resolução (múltipla seleção)
     if(yearFils.length||monthFils.length){

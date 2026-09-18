@@ -644,12 +644,20 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
         </div>
       </div>
       <div class="vbar"></div>
-      <select class="sort-sel" id="ov-org">
-        <option value="">Todos os clientes</option>
-      </select>
-      <select class="sort-sel" id="ov-status">
-        <option value="">Todos os status</option>
-      </select>
+      <div class="multi-sel" id="ov-org">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Todos os clientes</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="ov-status">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Todos os status</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
     </div>
     <!-- sync toast -->
     <div id="sync-toast">
@@ -719,6 +727,9 @@ async function api(ep){
   } finally { clearTimeout(t); }
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+// esc() não precisa escapar aspas em contexto de texto — mas usado dentro de
+// um atributo HTML (value="...") uma aspa não-escapada quebra o atributo.
+function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
 function fmtFull(v){ if(!v) return '—'; const d=new Date(v); return isNaN(d)?'—':d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
 function fmtShort(v){ if(!v) return '—'; const d=new Date(v); return isNaN(d)?'—':d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'}); }
 function trunc(s,n){ const t=String(s||''); return t.length>n?t.slice(0,n-1).trim()+'…':t; }
@@ -791,7 +802,7 @@ function populateMs(id,items,allLabel,onChange){
   const cur=new Set(getMsValues(id));
   drop.innerHTML=items.map(({v,l})=>`
     <label class="ms-item">
-      <input type="checkbox" value="${v}"${cur.has(String(v))?' checked':''}>
+      <input type="checkbox" value="${escAttr(String(v))}"${cur.has(String(v))?' checked':''}>
       <span>${esc(String(l))}</span>
     </label>`).join('');
   drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
@@ -876,23 +887,16 @@ function updateCounts(){
   document.getElementById('c-elo').textContent=c.elo;
   document.getElementById('c-sug').textContent=c.sug;
 
-  // popula select de cliente
-  const orgSel=document.getElementById('ov-org');
-  const curOrg=orgSel.value;
+  // multi-select de cliente
   const orgs=[...new Set(_rows.map(r=>r.organizacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-  orgSel.innerHTML=`<option value="">Todos os clientes</option>`
-    +orgs.map(o=>`<option value="${esc(o)}"${curOrg===o?' selected':''}>${esc(o)}</option>`).join('');
+  populateMs('ov-org',orgs.map(o=>({v:o,l:o})),'Todos os clientes',render);
 
-  // select de status: Em aberto / Finalizado / Cancelado (baseado em base_status)
-  const statusSel=document.getElementById('ov-status');
-  const curStatus=statusSel.value;
-  if(!statusSel.dataset.built){
-    statusSel.innerHTML=`<option value="">Todos os status</option>`
-      +`<option value="aberto"${curStatus==='aberto'?' selected':''}>Em aberto</option>`
-      +`<option value="finalizado"${curStatus==='finalizado'?' selected':''}>Finalizado</option>`
-      +`<option value="cancelado"${curStatus==='cancelado'?' selected':''}>Cancelado</option>`;
-    statusSel.dataset.built='1';
-  }
+  // multi-select de status: Em aberto / Finalizado / Cancelado (baseado em base_status)
+  populateMs('ov-status',[
+    {v:'aberto',l:'Em aberto'},
+    {v:'finalizado',l:'Finalizado'},
+    {v:'cancelado',l:'Cancelado'},
+  ],'Todos os status',render);
 
   // multi-select de ano (a partir de criado_em)
   const years=[...new Set(_rows
@@ -917,20 +921,22 @@ document.getElementById('ov-chips').addEventListener('click',e=>{
 function render(){
   const q=(document.getElementById('ov-search').value||'').toLowerCase().trim();
   const sort=document.getElementById('ov-sort').value;
-  const orgFil=document.getElementById('ov-org')?.value||'';
-  const statusFil=document.getElementById('ov-status')?.value||'';
+  const orgFils=getMsValues('ov-org');
+  const statusFils=getMsValues('ov-status');
   const yearFils=getMsValues('ov-year').map(Number);
   const monthFils=getMsValues('ov-month').map(Number);
 
   let rows=_rows.filter(r=>{
     if(_filter!=='all' && tipoKey(rawTipo(r))!==_filter) return false;
-    if(orgFil&&r.organizacao!==orgFil) return false;
-    if(statusFil){
+    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
+    if(statusFils.length){
       const fin=FINALIZADO_STATUSES.includes(r.base_status);
       const canc=CANCELADO_STATUSES.includes(r.base_status);
-      if(statusFil==='aberto'&&(fin||canc)) return false;
-      if(statusFil==='finalizado'&&!fin) return false;
-      if(statusFil==='cancelado'&&!canc) return false;
+      const aberto=!fin&&!canc;
+      const bate=(statusFils.includes('aberto')&&aberto)
+        ||(statusFils.includes('finalizado')&&fin)
+        ||(statusFils.includes('cancelado')&&canc);
+      if(!bate) return false;
     }
     // Filtro por ano/mês de criação (múltipla seleção)
     if(yearFils.length||monthFils.length){
@@ -1005,8 +1011,7 @@ document.getElementById('ov-grid').addEventListener('click',e=>{
 // search + sort + filter events
 document.getElementById('ov-search').addEventListener('input',render);
 document.getElementById('ov-sort').addEventListener('change',render);
-document.getElementById('ov-org').addEventListener('change',render);
-document.getElementById('ov-status').addEventListener('change',render);
+// ov-org e ov-status agora são multi-sel (populateMs já liga o change dos checkboxes ao render)
 
 // ── drawer ───────────────────────────────────────────────────────────
 function openDrawer(id){
