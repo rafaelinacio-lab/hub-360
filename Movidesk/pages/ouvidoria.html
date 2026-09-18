@@ -186,13 +186,14 @@ input,select{font-family:inherit}
 .section-label:first-child{margin-top:2px}
 
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-2b{display:grid;grid-template-columns:0.85fr 1.15fr;gap:16px}
 @media (max-width:980px){
-  .grid-4{grid-template-columns:repeat(2,1fr)}
+  .grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}
   .grid-2,.grid-2b{grid-template-columns:1fr}
 }
-@media (max-width:520px){.grid-4{grid-template-columns:1fr}}
+@media (max-width:520px){.grid-4,.grid-5{grid-template-columns:1fr}}
 
 .stat-card{
   background:var(--surface);border:1px solid var(--border);border-radius:12px;
@@ -271,7 +272,7 @@ input,select{font-family:inherit}
 
   <div class="dash-wrap" id="ov-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-4">
+    <div class="grid-5">
       <div class="stat-card">
         <p class="label">Elogios</p>
         <p class="value" id="k-elo">0</p>
@@ -295,6 +296,12 @@ input,select{font-family:inherit}
         <p class="value" id="k-proc">0 <span class="pct" id="k-proc-pct"></span></p>
         <p class="delta flat" id="k-proc-d">—</p>
         <p class="legend">Reclamações confirmadas como reais.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Pendentes</p>
+        <p class="value" id="k-pend">0</p>
+        <p class="delta flat" id="k-pend-d">—</p>
+        <p class="legend">Tickets ainda em aberto no período.</p>
       </div>
     </div>
 
@@ -512,10 +519,11 @@ function bucketPorMes(rows){
   rows.forEach(r=>{
     if(!r.criado_em) return;
     const mk=monthKeyOf(r.criado_em);
-    by[mk]=by[mk]||{elo:0,rec:0,sug:0,oth:0,proc:0};
+    by[mk]=by[mk]||{elo:0,rec:0,sug:0,oth:0,proc:0,pend:0};
     const tk=tipoKey(rawTipo(r));
     by[mk][tk]++;
     if(tk==='rec'&&isProcedente(r.manifesto_procedente)) by[mk].proc++;
+    if(!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status)) by[mk].pend++;
   });
   return by;
 }
@@ -541,17 +549,19 @@ function render(){
   const {rowsCtx,rowsFull}=getFilteredRows();
 
   // ── KPIs ──
-  const c={elo:0,rec:0,sug:0,oth:0,proc:0};
+  const c={elo:0,rec:0,sug:0,oth:0,proc:0,pend:0};
   rowsFull.forEach(r=>{
     const tk=tipoKey(rawTipo(r));
     c[tk]++;
     if(tk==='rec'&&isProcedente(r.manifesto_procedente)) c.proc++;
+    if(!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status)) c.pend++;
   });
   document.getElementById('k-elo').textContent=c.elo.toLocaleString('pt-BR');
   document.getElementById('k-rec').textContent=c.rec.toLocaleString('pt-BR');
   document.getElementById('k-sug').textContent=c.sug.toLocaleString('pt-BR');
   document.getElementById('k-proc').firstChild.textContent=c.proc.toLocaleString('pt-BR')+' ';
   document.getElementById('k-proc-pct').textContent=c.rec?`(${(c.proc/c.rec*100).toFixed(1)}%)`:'';
+  document.getElementById('k-pend').textContent=c.pend.toLocaleString('pt-BR');
 
   const byMes=bucketPorMes(rowsCtx);
   const meses=Object.keys(byMes).sort();
@@ -562,8 +572,9 @@ function render(){
     setDelta('k-sug-d',fmtDeltaPct(cur.sug,prev.sug,'up'));
     const curRate=cur.rec?cur.proc/cur.rec*100:0, prevRate=prev.rec?prev.proc/prev.rec*100:0;
     setDelta('k-proc-d',fmtDeltaPts(curRate,prevRate,'down'));
+    setDelta('k-pend-d',fmtDeltaPct(cur.pend,prev.pend,'down'));
   } else {
-    ['k-elo-d','k-rec-d','k-sug-d','k-proc-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
+    ['k-elo-d','k-rec-d','k-sug-d','k-proc-d','k-pend-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
   }
 
   renderTrendChart(byMes,meses);
