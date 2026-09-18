@@ -64,6 +64,16 @@ const CLASS_TO_OWNER_TEAM = {
   'Gestão de Combate ao Churn': 'GCC - Gestão de Combate ao Churn',
 };
 
+// Mapeamento inverso — usado quando o usuário escolhe só a Equipe (sem
+// preencher Classificação de Ticket) na Carga Full: se a equipe escolhida
+// corresponde a uma classificação conhecida, ainda queremos rodar o patch de
+// canonicalização (ver makeSaveComClassificacao) com esse valor, senão os
+// tickets ficam salvos em silver.ticket mas invisíveis nas telas de
+// Ouvidoria/GCC (que filtram pela classificação, não pela equipe).
+const OWNER_TEAM_TO_CLASS = Object.fromEntries(
+  Object.entries(CLASS_TO_OWNER_TEAM).map(([classe, equipe]) => [equipe, classe])
+);
+
 function normalizar(v) {
   // Remove marcas diacríticas (acentos) após normalize('NFD') separá-las da
   // letra base — sem regex de unicode escape pra evitar mojibake de encoding.
@@ -678,6 +688,13 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
           ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`
         : null);
   const classPageSize = ownerTeamVal ? PAGE_SIZE : CLASS_FILTER_PAGE_SIZE;
+  // Classificação efetiva usada pro patch de canonicalização (ver
+  // makeSaveComClassificacao) — se o usuário só preencheu Equipe e essa
+  // equipe corresponde a uma classificação conhecida, usamos ela mesmo sem
+  // o campo Classificação preenchido. Sem isso, os tickets ficam salvos em
+  // silver.ticket mas somem das telas de Ouvidoria/GCC (que filtram pela
+  // classificação, não pela equipe).
+  const classValueEfetivo = classValue || (ownerTeamVal ? OWNER_TEAM_TO_CLASS[ownerTeamVal] : '') || '';
 
   // marca como running ANTES de qualquer await para que /status reflita imediatamente
   state.running          = true;
@@ -714,7 +731,7 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
   const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
   console.log(`[loader] ▶ Carga FULL iniciada — ${yearsDesc}`);
 
-  const saveWithClassPatch = classValue ? makeSaveComClassificacao(classValue) : saveBatch;
+  const saveWithClassPatch = classValueEfetivo ? makeSaveComClassificacao(classValueEfetivo) : saveBatch;
 
   try {
     const token = await getMovideskToken();
@@ -730,7 +747,7 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
         const dateFilter = `createdDate ge ${from} and createdDate le ${to}`;
         const filterStr = classFilter ? `${dateFilter} and ${classFilter}` : dateFilter;
 
-        console.log(`[loader]   ── Ano ${year}${classValue ? ` — classificação "${classValue}"` : ''} ──`);
+        console.log(`[loader]   ── Ano ${year}${classValueEfetivo ? ` — classificação "${classValueEfetivo}"` : ''} ──`);
         for (const ep of ['/tickets', '/tickets/past']) {
           console.log(`[loader]     endpoint ${ep}`);
           await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classFilter ? classPageSize : PAGE_SIZE);
@@ -741,7 +758,7 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
       state.currentYear = null;
     } else {
       // ── Carga total (filtrada só por classificação, ou sem filtro nenhum) ───
-      console.log(`[loader]   ${classValue ? `classificação "${classValue}"` : 'sem filtro de data ou classificação'}`);
+      console.log(`[loader]   ${classValueEfetivo ? `classificação "${classValueEfetivo}"` : 'sem filtro de data ou classificação'}`);
       for (const ep of ['/tickets', '/tickets/past']) {
         console.log(`[loader]   endpoint ${ep}`);
         await fetchEndpoint(token, ep, classFilter, saveWithClassPatch, classFilter ? classPageSize : PAGE_SIZE);
