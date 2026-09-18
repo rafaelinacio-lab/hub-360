@@ -480,10 +480,12 @@ async function saveBatch(tickets) {
   const stoppedTs   = tickets.map(t => t.stoppedTimeWorkingTime != null ? String(t.stoppedTimeWorkingTime) : null);
   const stoppedCs   = tickets.map(t => t.stoppedTime != null ? String(t.stoppedTime) : null);
   const slaRespDs   = tickets.map(t => t.slaRealResponseDate || null);
-  // clientorganization — pega da primeira org dos clients
+  // clientorganization — pega a organização da primeira org dos clients.
+  // Não cai pro nome do contato (c.businessName) quando não há organização:
+  // isso fazia o "Top clientes" mostrar nome de pessoa em vez de empresa.
   const clientOrgs  = tickets.map(t => {
     const c = Array.isArray(t.clients) ? t.clients[0] : null;
-    return c?.organization?.businessName || c?.businessName || null;
+    return c?.organization?.businessName || null;
   });
 
   await comLockRetry(client => client.query(`
