@@ -1133,4 +1133,4 @@ function cancelLoad() {
   return true;
 }
 
-module.exports = { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, state };
+module.exports = { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, ensureTables, state };

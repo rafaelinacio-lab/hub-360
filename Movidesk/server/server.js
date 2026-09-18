@@ -127,6 +127,16 @@ setInterval(() => {
 // setTimeout(runOuvidoriaEGccLoad, 10 * 1000);
 // setInterval(runOuvidoriaEGccLoad, 2 * 60 * 60 * 1000);
 
+// Garante que silver.ticket (e as demais tabelas/colunas do datalake) já
+// existem assim que o servidor sobe — sem isso, uma coluna nova (ex:
+// sla_solution_date) só aparecia depois que alguém disparasse uma carga
+// manualmente, e até lá TODAS as rotas de Ouvidoria/GCC quebravam com
+// "column does not exist" e caíam silenciosamente pro fallback de "ainda
+// não carregado" (dashboard inteiro zerado, sem erro visível).
+movideskLoader.ensureTables().catch(e => {
+  console.error('[server] ensureTables na inicialização falhou (não bloqueia o boot):', e.message);
+});
+
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
