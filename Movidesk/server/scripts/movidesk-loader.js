@@ -246,6 +246,11 @@ const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
 // "id=" — sem $filter algum. Isso custa 1 requisição extra por ticket, então
 // só aplicamos na carga leve (Ouvidoria/GCC em aberto — poucos tickets), não
 // no backfill completo (milhares de tickets históricos, ficaria lento demais).
+//
+// O mesmo bug corrompe QUALQUER campo expandido, não só customFieldValues —
+// "clients" (de onde vem a organização) também vinha vazio/errado em cargas
+// com $filter, fazendo a organização sumir mesmo com silver.ticket_cliente
+// certo pro resto da base. Por isso corrigimos clients e owner junto.
 async function corrigirCustomFieldValues(token, tickets) {
   for (const t of tickets) {
     if (state.cancelRequested) {
@@ -258,6 +263,12 @@ async function corrigirCustomFieldValues(token, tickets) {
       const full = Array.isArray(data) ? data[0] : data;
       if (full && Array.isArray(full.customFieldValues)) {
         t.customFieldValues = full.customFieldValues;
+      }
+      if (full && Array.isArray(full.clients)) {
+        t.clients = full.clients;
+      }
+      if (full && full.owner) {
+        t.owner = full.owner;
       }
     } catch (e) {
       console.warn(`[loader] correção de campos do ticket ${t.id} falhou: ${e.message}`);
