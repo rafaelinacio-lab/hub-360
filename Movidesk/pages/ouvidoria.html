@@ -235,6 +235,39 @@ input,select{font-family:inherit}
 .dtable .num{text-align:right;font-variant-numeric:tabular-nums}
 .dtable .bad{color:var(--orange);font-weight:700}
 .dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
+
+.data-panel.compact{padding:14px 16px}
+.data-panel.compact .panel-title{font-size:12px;margin-bottom:8px}
+.data-panel.compact .dtable{font-size:12px}
+.data-panel.compact .dtable th{padding:5px 8px;font-size:9.5px}
+.data-panel.compact .dtable td{padding:6px 8px}
+.data-panel.compact .dtable-wrap{max-height:280px;overflow-y:auto}
+
+/* clique nas barras/segmentos dos gráficos abre um modal de detalhe */
+.chart-wrap canvas{cursor:default}
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(20,18,14,.55);
+  z-index:200;align-items:center;justify-content:center;padding:24px;
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  box-shadow:var(--sh-lg,0 20px 50px rgba(0,0,0,.35));
+  width:100%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;
+}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 20px;border-bottom:1px solid var(--border);flex:none;
+}
+.modal-head h3{margin:0;font-size:14.5px;color:var(--t1);font-weight:700}
+.modal-head p{margin:2px 0 0;font-size:12px;color:var(--t3)}
+.modal-close{
+  border:none;background:transparent;color:var(--t2);font-size:20px;line-height:1;
+  cursor:pointer;padding:4px 6px;border-radius:6px;
+}
+.modal-close:hover{background:var(--surface-mid);color:var(--t1)}
+.modal-body{overflow-y:auto;padding:8px 20px 18px}
+.modal-body .dtable th{position:sticky;top:0;background:var(--surface)}
 </style>
 </head>
 <body>
@@ -344,19 +377,45 @@ input,select{font-family:inherit}
     </div>
 
     <p class="section-label">Ação</p>
-    <div class="data-panel">
-      <p class="panel-title">Clientes com maior reincidência e procedência</p>
-      <table class="dtable">
-        <thead><tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr></thead>
-        <tbody id="tbl-reincidencia"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
-      </table>
-    </div>
+    <div class="grid-2">
+      <div class="data-panel compact">
+        <p class="panel-title">Clientes com maior reincidência e procedência</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr></thead>
+            <tbody id="tbl-reincidencia"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
 
-    <div class="data-panel" style="margin-top:16px">
-      <p class="panel-title">Desempenho por responsável</p>
+      <div class="data-panel compact">
+        <p class="panel-title">Desempenho por responsável</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Responsável</th><th class="num">Tickets</th><th class="num">Tempo médio</th><th class="num">Taxa procedência</th></tr></thead>
+            <tbody id="tbl-responsavel"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="detail-modal-title">Detalhe</h3>
+        <p id="detail-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="detail-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
       <table class="dtable">
-        <thead><tr><th>Responsável</th><th class="num">Tickets</th><th class="num">Tempo médio</th><th class="num">Taxa procedência</th></tr></thead>
-        <tbody id="tbl-responsavel"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+        <thead>
+          <tr><th>ID</th><th>Organização</th><th>Assunto</th><th>Tipo</th><th>Responsável</th><th>Status</th></tr>
+        </thead>
+        <tbody id="detail-modal-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -436,6 +495,7 @@ const MONTHS=[
 // ── state ────────────────────────────────────────────────────────────
 let _rows=[];
 let _charts={};
+let _rowsFull=[]; // último conjunto filtrado renderizado — usado pelos modais de detalhe
 
 // ── load ─────────────────────────────────────────────────────────────
 async function loadOuvidoria(){
@@ -561,6 +621,7 @@ function fmtDeltaPts(curRate,prevRate,goodDirection){
 function render(){
   if(!_rows.length && document.getElementById('ov-dash').dataset.err) return;
   const {rowsCtx,rowsFull}=getFilteredRows();
+  _rowsFull=rowsFull;
 
   // ── KPIs ──
   const c={elo:0,rec:0,sug:0,oth:0,proc:0,pend:0};
@@ -637,6 +698,49 @@ function chartColors(){
 }
 function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
 
+// ── modal de detalhe (clique em barra/fatia de gráfico) ────────────────
+function openDetailModal(title,sub,rows){
+  document.getElementById('detail-modal-title').textContent=title;
+  document.getElementById('detail-modal-sub').textContent=sub;
+  const tbody=document.getElementById('detail-modal-tbody');
+  if(!rows.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="6">Nenhum ticket encontrado.</td></tr>`;
+  } else {
+    tbody.innerHTML=rows
+      .slice().sort((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0))
+      .map(r=>`
+        <tr>
+          <td>${esc(r.ticket_id)}</td>
+          <td>${esc(r.organizacao||'—')}</td>
+          <td>${esc(r.assunto_ouvidoria||'—')}</td>
+          <td>${esc(TIPO_LABEL[tipoKey(rawTipo(r))])}</td>
+          <td>${esc(r.responsavel||'—')}</td>
+          <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
+        </tr>`).join('');
+  }
+  document.getElementById('detail-modal').classList.add('show');
+}
+function closeDetailModal(){ document.getElementById('detail-modal').classList.remove('show'); }
+document.getElementById('detail-modal-close').addEventListener('click',closeDetailModal);
+document.getElementById('detail-modal').addEventListener('click',e=>{ if(e.target.id==='detail-modal') closeDetailModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDetailModal(); });
+
+// onClick/onHover comuns pros gráficos de ranking/composição: pega a barra ou
+// fatia clicada, filtra os tickets daquela categoria e abre o modal.
+function chartClickHandler(titlePrefix,filterFn){
+  return (evt,elements,chart)=>{
+    if(!elements.length) return;
+    const idx=elements[0].index;
+    const label=chart.data.labels[idx];
+    const matched=_rowsFull.filter(r=>filterFn(r,label));
+    openDetailModal(`${titlePrefix}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  };
+}
+function chartHoverCursor(evt,elements){
+  evt.native.target.style.cursor=elements.length?'pointer':'default';
+}
+const TIPO_LABEL_TO_KEY={'Reclamação':'rec','Elogio':'elo','Sugestão':'sug','Outro':'oth'};
+
 function renderTrendChart(byMes,meses){
   destroyChart('trendChart');
   const col=chartColors();
@@ -676,7 +780,9 @@ function renderTypeChart(c){
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
-      cutout:'62%'
+      cutout:'62%',
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Tipo de manifesto',(r,label)=>tipoKey(rawTipo(r))===TIPO_LABEL_TO_KEY[label]),
     }
   });
 }
@@ -695,7 +801,9 @@ function renderAreaChart(rows){
       scales:{
         x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
         y:{grid:{display:false},ticks:{color:col.t2}}
-      }
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Serviço',(r,label)=>areaDoServico(r.servico)===label),
     }
   });
 }
@@ -714,7 +822,9 @@ function renderTopClientChart(rows){
       scales:{
         x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
         y:{grid:{display:false},ticks:{color:col.t2}}
-      }
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Cliente',(r,label)=>(r.organizacao||'Não informado')===label),
     }
   });
 }
@@ -736,7 +846,9 @@ function renderDirecionadoChart(rows){
       scales:{
         x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
         y:{grid:{display:false},ticks:{color:col.t2}}
-      }
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Direcionado a',(r,label)=>((r.manifesto_direcionado_a||'').trim()||'Não informado')===label),
     }
   });
 }
