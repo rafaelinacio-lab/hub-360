@@ -187,13 +187,14 @@ input,select{font-family:inherit}
 
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-2b{display:grid;grid-template-columns:0.85fr 1.15fr;gap:16px}
 @media (max-width:980px){
-  .grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}
+  .grid-4,.grid-5,.grid-6{grid-template-columns:repeat(2,1fr)}
   .grid-2,.grid-2b{grid-template-columns:1fr}
 }
-@media (max-width:520px){.grid-4,.grid-5{grid-template-columns:1fr}}
+@media (max-width:520px){.grid-4,.grid-5,.grid-6{grid-template-columns:1fr}}
 
 .stat-card{
   background:var(--surface);border:1px solid var(--border);border-radius:12px;
@@ -213,6 +214,7 @@ input,select{font-family:inherit}
 .stat-card .delta.good{color:var(--green)}
 .stat-card .delta.bad{color:var(--orange)}
 .stat-card .delta.flat{color:var(--t3)}
+.stat-card .delta.neutral{color:var(--slate)}
 .stat-card .legend{font-size:11px;color:var(--t3);margin:0;line-height:1.4}
 
 .chart-panel,.data-panel{
@@ -272,7 +274,13 @@ input,select{font-family:inherit}
 
   <div class="dash-wrap" id="ov-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-5">
+    <div class="grid-6">
+      <div class="stat-card">
+        <p class="label">Total de tickets</p>
+        <p class="value" id="k-total">0</p>
+        <p class="delta flat" id="k-total-d">—</p>
+        <p class="legend">Todas as manifestações no período.</p>
+      </div>
       <div class="stat-card">
         <p class="label">Elogios</p>
         <p class="value" id="k-elo">0</p>
@@ -556,6 +564,8 @@ function render(){
     if(tk==='rec'&&isProcedente(r.manifesto_procedente)) c.proc++;
     if(!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status)) c.pend++;
   });
+  const total=c.elo+c.rec+c.sug+c.oth;
+  document.getElementById('k-total').textContent=total.toLocaleString('pt-BR');
   document.getElementById('k-elo').textContent=c.elo.toLocaleString('pt-BR');
   document.getElementById('k-rec').textContent=c.rec.toLocaleString('pt-BR');
   document.getElementById('k-sug').textContent=c.sug.toLocaleString('pt-BR');
@@ -567,6 +577,9 @@ function render(){
   const meses=Object.keys(byMes).sort();
   if(meses.length>=2){
     const cur=byMes[meses[meses.length-1]], prev=byMes[meses[meses.length-2]];
+    const curTotal=cur.elo+cur.rec+cur.sug+cur.oth, prevTotal=prev.elo+prev.rec+prev.sug+prev.oth;
+    const totalDelta=fmtDeltaPct(curTotal,prevTotal,'up');
+    setDelta('k-total-d',{text:totalDelta.text,cls:totalDelta.cls==='flat'?'flat':'neutral'});
     setDelta('k-elo-d',fmtDeltaPct(cur.elo,prev.elo,'up'));
     setDelta('k-rec-d',fmtDeltaPct(cur.rec,prev.rec,'down'));
     setDelta('k-sug-d',fmtDeltaPct(cur.sug,prev.sug,'up'));
@@ -574,7 +587,7 @@ function render(){
     setDelta('k-proc-d',fmtDeltaPts(curRate,prevRate,'down'));
     setDelta('k-pend-d',fmtDeltaPct(cur.pend,prev.pend,'down'));
   } else {
-    ['k-elo-d','k-rec-d','k-sug-d','k-proc-d','k-pend-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
+    ['k-total-d','k-elo-d','k-rec-d','k-sug-d','k-proc-d','k-pend-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
   }
 
   renderTrendChart(byMes,meses);
