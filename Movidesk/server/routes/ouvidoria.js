@@ -23,7 +23,7 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
     const result = await db.query(`
       SELECT
         t.ticket_id::varchar                                                         AS ticket_id,
-        COALESCE(tc.organizacao_nome, t.clientorganization)                          AS organizacao,
+        tc.organizacao_nome                                                          AS organizacao,
         tc.organizacao_id,
         t.subject                                                                    AS assunto_ouvidoria,
         MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_MANIFESTO} THEN cf.valor_texto END) AS tipo,
@@ -49,7 +49,7 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
       ) tc ON true
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
                t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
-               t.clientorganization, t.owner_name, t.service_full
+               t.owner_name, t.service_full
       ORDER BY t.createddate DESC
     `);
     res.json(result.rows || []);
@@ -73,7 +73,7 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
     const result = await db.query(`
       SELECT
         t.ticket_id::varchar                                                         AS ticket_id,
-        COALESCE(tc.organizacao_nome, t.clientorganization)                          AS organizacao,
+        tc.organizacao_nome                                                          AS organizacao,
         tc.organizacao_id,
         t.subject                                                                    AS assunto_ouvidoria,
         MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_MANIFESTO} THEN cf.valor_texto END) AS tipo,
@@ -97,8 +97,7 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
       ) tc ON true
       WHERE t.ticket_id = $1
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
-               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
-               t.clientorganization
+               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in
     `, [ticketId]);
     const row = result.rows?.[0];
     if (!row) return res.status(404).json({ error: 'Manifestação não encontrada' });
@@ -177,7 +176,7 @@ async function syncFromDatalake() {
   const { rows } = await db.query(`
     SELECT
       t.ticket_id::varchar(20)                                                   AS ticket_id,
-      COALESCE(tc.organizacao_nome, t.clientorganization)                        AS organizacao,
+      tc.organizacao_nome                                                        AS organizacao,
       tc.organizacao_id,
       t.subject                                                                  AS assunto_ouvidoria,
       MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_MANIFESTO} THEN cf.valor_texto END) AS tipo,

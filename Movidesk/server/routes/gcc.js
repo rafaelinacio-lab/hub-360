@@ -24,7 +24,7 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
     const result = await db.query(`
       SELECT
         t.ticket_id::varchar                                                        AS ticket_id,
-        COALESCE(tc.organizacao_nome, t.clientorganization)                         AS organizacao,
+        tc.organizacao_nome                                                         AS organizacao,
         tc.organizacao_id,
         t.subject                                                                   AS assunto_gcc,
         t.service_full                                                              AS servico_gcc,
@@ -53,8 +53,7 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         LIMIT 1
       ) tc ON true
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
-               t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in,
-               t.clientorganization
+               t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in
       ORDER BY t.createddate DESC
     `);
     res.json(result.rows || []);
@@ -78,7 +77,7 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
     const result = await db.query(`
       SELECT
         t.ticket_id::varchar                                                        AS ticket_id,
-        COALESCE(tc.organizacao_nome, t.clientorganization)                         AS organizacao,
+        tc.organizacao_nome                                                         AS organizacao,
         tc.organizacao_id,
         t.subject                                                                   AS assunto_gcc,
         t.service_full                                                              AS servico_gcc,
@@ -109,8 +108,7 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
       WHERE t.ticket_id = $1
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
                t.service_full,
-               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
-               t.clientorganization
+               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in
     `, [ticketId]);
     const row = result.rows?.[0];
     if (!row) return res.status(404).json({ error: 'Registro não encontrado' });
