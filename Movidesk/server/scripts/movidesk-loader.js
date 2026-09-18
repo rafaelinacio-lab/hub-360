@@ -792,11 +792,20 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
   const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
   console.log(`[loader] ▶ Carga FULL iniciada — ${yearsDesc}`);
 
-  const saveWithClassPatch = classValueEfetivo ? makeSaveComClassificacao(classValueEfetivo) : saveBatch;
-
   try {
     const token = await getMovideskToken();
     console.log(`[loader] token carregado: ...${token.slice(-6)} (últimos 6 chars)`);
+
+    // Mesmo bug de sempre: QUALQUER $filter (classificação, ou só o filtro de
+    // data por ano) + $expand=customFieldValues quebra os campos customizados
+    // (ver corrigirCustomFieldValues). Sem filtro nenhum (full sem ano nem
+    // classificação) os dados já vêm certos — nesse caso não vale a pena o
+    // custo de 1 chamada extra por ticket em cima de todo o histórico.
+    const usaFiltro = sortedYears.length > 0 || !!classFilter;
+    const baseSave = classValueEfetivo ? makeSaveComClassificacao(classValueEfetivo) : saveBatch;
+    const saveWithClassPatch = usaFiltro
+      ? async (batch) => { await corrigirCustomFieldValues(token, batch); return baseSave(batch); }
+      : baseSave;
 
     if (sortedYears.length) {
       // ── Carga por ano selecionado ──────────────────────────────────────────
