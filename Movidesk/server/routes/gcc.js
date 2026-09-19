@@ -51,7 +51,8 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         t.owner_name    AS responsavel,
         t.urgency       AS urgencia,
         t.sla_solution_date AS sla_solucao,
-        COALESCE(ac.n, 0) AS acoes_count
+        COALESCE(ac.n, 0) AS acoes_count,
+        ce.estado       AS estado_cliente
       FROM silver.ticket t
       JOIN silver.ticket_campo_customizado cf_class
         ON cf_class.ticket_id = t.ticket_id
@@ -72,9 +73,13 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
       LEFT JOIN LATERAL (
         SELECT COUNT(*) AS n FROM silver.ticket_acao WHERE ticket_id = t.ticket_id
       ) ac ON true
+      -- estado (UF) do cliente — importado de planilha de cadastro (Movidesk
+      -- não expõe UF de forma confiável nem no ticket nem no /persons), ver
+      -- silver.cliente_estado. NULLIF pra cobrir string vazia do CSV.
+      LEFT JOIN silver.cliente_estado ce ON ce.organizacao_id = tc.organizacao_id AND NULLIF(ce.estado, '') IS NOT NULL
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
                t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in,
-               t.owner_name, t.urgency, t.sla_solution_date, ac.n
+               t.owner_name, t.urgency, t.sla_solution_date, ac.n, ce.estado
       ORDER BY t.createddate DESC
     `);
     res.json(result.rows || []);

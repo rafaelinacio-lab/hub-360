@@ -247,6 +247,7 @@ input,select{font-family:inherit}
   padding:16px 18px;box-shadow:var(--sh-sm);
 }
 .chart-title,.panel-title{font-size:13px;color:var(--t2);margin:0 0 12px;font-weight:600}
+.chart-sub{font-size:11px;color:var(--t3);margin:-8px 0 12px;text-align:center}
 .chart-caption{font-size:11px;color:var(--t3);margin:8px 0 0;text-align:center}
 .chart-wrap{position:relative;width:100%}
 
@@ -343,6 +344,21 @@ body.modal-open{overflow:hidden}
   text-decoration:none;cursor:pointer;
 }
 .btn-open-ticket:hover{opacity:.9}
+
+/* ─── Mapa do Brasil (clientes perdidos por estado) ─────────────────── */
+#statesMapWrap{max-width:520px;margin:0 auto}
+#statesMapWrap svg{width:100%;height:auto;display:block}
+.br-state{stroke:var(--surface);stroke-width:1.2;cursor:pointer;transition:opacity .12s}
+.br-state:hover{opacity:.75}
+.br-state.empty{cursor:default}
+.br-state.empty:hover{opacity:1}
+.map-legend{
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--t3);
+}
+.map-legend .scale{display:flex;align-items:center;gap:6px}
+.map-legend .swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+.map-legend .top-item{display:flex;align-items:center;gap:5px;font-weight:600;color:var(--t2)}
 </style>
 </head>
 <body>
@@ -525,6 +541,14 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
+    <p class="section-label">Clientes perdidos por estado</p>
+    <div class="chart-panel">
+      <p class="chart-title">Mapa de clientes perdidos (rescisão finalizada, sem reversão)</p>
+      <p class="chart-sub" id="mapSub"></p>
+      <div id="statesMapWrap"></div>
+      <div class="map-legend" id="mapLegend"></div>
+    </div>
+
     <p class="section-label">Ranking</p>
     <div class="grid-2">
       <div class="chart-panel">
@@ -644,6 +668,7 @@ const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
 const CANCELADO_STATUSES=['Canceled','Cancelado'];
 function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
 function isRevertido(r){ return !!(r.data_reversao&&String(r.data_reversao).trim()); }
+function isPerdido(r){ return FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r); }
 function isCritico(r){
   const u=(r.urgencia||'').trim().toLowerCase();
   return isAberto(r)&&(u==='alta'||u==='crítica'||u==='critica');
@@ -846,7 +871,7 @@ function render(){
   // ── MRR ──
   const mrrEmRisco=rowsFull.filter(isAberto).reduce((s,r)=>s+parseMrr(r.mrr),0);
   const mrrProtegido=rowsFull.filter(isRevertido).reduce((s,r)=>s+parseMrr(r.mrr),0);
-  const mrrPerdido=rowsFull.filter(r=>FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)).reduce((s,r)=>s+parseMrr(r.mrr),0);
+  const mrrPerdido=rowsFull.filter(r=>isPerdido(r)).reduce((s,r)=>s+parseMrr(r.mrr),0);
   document.getElementById('k-mrr-risco').textContent=fmtMrrK(mrrEmRisco);
   document.getElementById('k-mrr-protegido').textContent=fmtMrrK(mrrProtegido);
   document.getElementById('k-mrr-perdido').textContent=fmtMrrK(mrrPerdido);
@@ -857,6 +882,7 @@ function render(){
   renderDistribCharts(rowsFull);
   renderInternoExternoCharts(rowsFull);
   renderVerticalCharts(rowsFull);
+  renderStatesMap(rowsFull);
   renderModuleChart(rowsFull);
   renderTopClientChart(rowsFull);
   renderBaixaReversaoTable(rowsFull);
@@ -1020,7 +1046,7 @@ function bucketPorMes(rows){
       get(monthKeyOf(r.data_reversao)).rev++;
     }
     const dataPerda=r.data_rescisao||r.resolvido_em;
-    if(dataPerda&&FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)){
+    if(dataPerda&&isPerdido(r)){
       get(monthKeyOf(dataPerda)).mrrPerdido+=parseMrr(r.mrr);
     }
   });
@@ -1222,7 +1248,7 @@ function renderVerticalCharts(rows){
   });
 
   destroyChart('mrrVerticalChart');
-  const perdidosRows=rows.filter(r=>FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r));
+  const perdidosRows=rows.filter(r=>isPerdido(r));
   const mrrPorVertical={};
   perdidosRows.forEach(r=>{
     const v=verticalDe(r);
@@ -1241,9 +1267,77 @@ function renderVerticalCharts(rows){
       },
       onHover:chartHoverCursor,
       onClick:chartClickHandler('MRR perdido — vertical',(r,label)=>
-        FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)&&verticalDe(r)===label),
+        isPerdido(r)&&verticalDe(r)===label),
     }
   });
+}
+
+// ── mapa de clientes perdidos por estado ────────────────────────────
+// Estado (UF) do cliente vem de silver.cliente_estado — importado de uma
+// planilha de cadastro (a API do Movidesk não expõe UF de forma confiável,
+// nem no ticket nem no endpoint /persons). Cobertura parcial: nem toda
+// organização tem UF cadastrada.
+let _mapData=null;
+async function loadMapData(){
+  try{
+    const r=await fetch('/js/br-states-map.json');
+    _mapData=await r.json();
+  }catch{ _mapData=null; }
+}
+function mapColor(count,max){
+  if(!count) return cssVar('--surface-mid');
+  const t=max?count/max:0; // 0..1
+  // interpola entre --surface-mid (0) e --orange (max)
+  const from=hexToRgb(cssVar('--surface-mid'))||{r:230,g:228,b:222};
+  const to=hexToRgb(cssVar('--orange'))||{r:232,g:93,b:4};
+  const mix=(a,b)=>Math.round(a+(b-a)*(0.25+0.75*t)); // piso de 25% pra sempre distinguir de "sem dado"
+  return `rgb(${mix(from.r,to.r)},${mix(from.g,to.g)},${mix(from.b,to.b)})`;
+}
+function hexToRgb(hex){
+  const m=String(hex).trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if(!m) return null;
+  return {r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)};
+}
+function renderStatesMap(rows){
+  const wrap=document.getElementById('statesMapWrap');
+  const legend=document.getElementById('mapLegend');
+  const sub=document.getElementById('mapSub');
+  if(!_mapData){ wrap.innerHTML='<p class="td-empty">Mapa indisponível.</p>'; return; }
+
+  const perdidos=rows.filter(isPerdido);
+  const comEstado=perdidos.filter(r=>(r.estado_cliente||'').trim());
+  const semEstado=perdidos.length-comEstado.length;
+  const porUf={};
+  comEstado.forEach(r=>{
+    const uf=r.estado_cliente.trim().toUpperCase();
+    porUf[uf]=(porUf[uf]||0)+1;
+  });
+  const max=Math.max(0,...Object.values(porUf));
+
+  sub.textContent=perdidos.length
+    ? `${perdidos.length} cliente${perdidos.length===1?'':'s'} perdido${perdidos.length===1?'':'s'} no período` +
+      (semEstado?` — ${semEstado} sem estado cadastrado (não aparece no mapa)`:'')
+    : 'Nenhum cliente perdido no período filtrado.';
+
+  const vb=_mapData.viewBox;
+  const paths=_mapData.states.map(s=>{
+    const count=porUf[s.sigla]||0;
+    const cls=count?'br-state':'br-state empty';
+    const title=`${esc(s.name)} (${s.sigla}): ${count} cliente${count===1?'':'s'} perdido${count===1?'':'s'}`;
+    return `<path class="${cls}" d="${s.d}" fill="${mapColor(count,max)}" data-uf="${s.sigla}" onclick="openEstadoTicketsModal('${s.sigla}','${escAttr(s.name)}')"><title>${title}</title></path>`;
+  }).join('');
+  wrap.innerHTML=`<svg viewBox="${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
+
+  const top3=Object.entries(porUf).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  legend.innerHTML=`
+    <div class="scale"><span class="swatch" style="background:${cssVar('--surface-mid')}"></span>0</div>
+    <div class="scale"><span class="swatch" style="background:${mapColor(max,max)}"></span>${max||0}${max?' (máx.)':''}</div>
+    ${top3.map(([uf,n])=>`<span class="top-item">${esc(uf)}: ${n}</span>`).join('')}
+  `;
+}
+function openEstadoTicketsModal(uf,nome){
+  const matched=_rowsFull.filter(r=>isPerdido(r)&&(r.estado_cliente||'').trim().toUpperCase()===uf);
+  openDetailModal(`Clientes perdidos: ${nome} (${uf})`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 
 // ── ranking ──────────────────────────────────────────────────────────
@@ -1431,6 +1525,7 @@ async function apiFetch(path,method='GET'){
 }
 
 // ── boot ─────────────────────────────────────────────────────────────
+loadMapData().then(()=>{ if(_rows.length) render(); });
 loadGcc();
 </script>
 </body>
