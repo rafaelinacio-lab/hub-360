@@ -434,6 +434,7 @@ async function ensureTables() {
       )
     `],
     ['silver.ticket_cliente.extracted_at', `ALTER TABLE silver.ticket_cliente ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`],
+    ['silver.ticket_cliente.profile_type', `ALTER TABLE silver.ticket_cliente ADD COLUMN IF NOT EXISTS profile_type text`],
     ['silver.carga_log (create)', `
       CREATE TABLE IF NOT EXISTS silver.carga_log (
         id           serial PRIMARY KEY,
@@ -693,6 +694,13 @@ async function saveBatch(tickets) {
         email:            c.email || null,
         organizacao_id:   c.organization?.id ? String(c.organization.id) : null,
         organizacao_nome: c.organization?.businessName || null,
+        // profileType — um ticket pode ter mais de um "client" (o contato
+        // externo de verdade E o próprio agente interno da Viasoft que
+        // criou/atua no ticket). profileType=3 é o padrão do Movidesk pra
+        // agente interno — guardamos pra poder priorizar o contato externo
+        // na hora de escolher a organização do cliente (ver rotas
+        // ouvidoria.js/gcc.js).
+        profile_type:     c.profileType != null ? String(c.profileType) : null,
       });
     }
   }
@@ -709,13 +717,13 @@ async function saveBatch(tickets) {
         );
         await client.query(`
           INSERT INTO silver.ticket_cliente
-            (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, extracted_at)
+            (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type, extracted_at)
           SELECT
             u.ticket_id::bigint, NULLIF(u.cliente_id, ''), u.nome, u.email,
-            NULLIF(u.organizacao_id, ''), u.organizacao_nome, NOW()
+            NULLIF(u.organizacao_id, ''), u.organizacao_nome, u.profile_type, NOW()
           FROM unnest(
-            $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[]
-          ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
+            $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]
+          ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type)
         `, [
           cliRows.map(r => r.ticket_id),
           cliRows.map(r => r.cliente_id),
@@ -723,6 +731,7 @@ async function saveBatch(tickets) {
           cliRows.map(r => r.email),
           cliRows.map(r => r.organizacao_id),
           cliRows.map(r => r.organizacao_nome),
+          cliRows.map(r => r.profile_type),
         ]);
         await client.query('COMMIT');
       } catch (e) {

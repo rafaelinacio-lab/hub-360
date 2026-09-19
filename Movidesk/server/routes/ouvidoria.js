@@ -46,6 +46,11 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
         SELECT organizacao_id, organizacao_nome
         FROM silver.ticket_cliente
         WHERE ticket_id = t.ticket_id
+        -- prioriza o contato externo (profile_type <> '3') sobre o agente
+        -- interno da Viasoft que às vezes também aparece em clients[] —
+        -- sem isso a organização podia sair errada (ex: "VIASOFT
+        -- INFORMATICA LTDA" em vez do cliente de verdade)
+        ORDER BY (profile_type = '3'), organizacao_nome IS NULL
         LIMIT 1
       ) tc ON true
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
@@ -94,6 +99,11 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
         SELECT organizacao_id, organizacao_nome
         FROM silver.ticket_cliente
         WHERE ticket_id = t.ticket_id
+        -- prioriza o contato externo (profile_type <> '3') sobre o agente
+        -- interno da Viasoft que às vezes também aparece em clients[] —
+        -- sem isso a organização podia sair errada (ex: "VIASOFT
+        -- INFORMATICA LTDA" em vez do cliente de verdade)
+        ORDER BY (profile_type = '3'), organizacao_nome IS NULL
         LIMIT 1
       ) tc ON true
       WHERE t.ticket_id = $1
@@ -196,6 +206,7 @@ async function syncFromDatalake() {
       SELECT organizacao_id, organizacao_nome
       FROM silver.ticket_cliente
       WHERE ticket_id = t.ticket_id
+      ORDER BY (profile_type = '3'), organizacao_nome IS NULL
       LIMIT 1
     ) tc ON true
     GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
