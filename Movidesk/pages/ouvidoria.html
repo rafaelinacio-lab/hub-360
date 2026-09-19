@@ -679,20 +679,32 @@ function mesAnteriorKey(key){
   if(m<1){ m=12; y-=1; }
   return `${y}-${String(m).padStart(2,'0')}`;
 }
-function fmtDeltaPct(curVal,prevVal,goodDirection){
+function fmtDeltaPct(curVal,prevVal,goodDirection,suffix='vs mês ant.'){
   if(prevVal===0&&curVal===0) return {text:'—',cls:'flat'};
   if(prevVal===0) return {text:'novo',cls:goodDirection==='up'?'good':'bad'};
   const pct=(curVal-prevVal)/prevVal*100;
   const up=pct>=0;
   const cls=pct===0?'flat':((up&&goodDirection==='up')||(!up&&goodDirection==='down')?'good':'bad');
-  return {text:`${up?'↑':'↓'}${Math.abs(pct).toFixed(0)}% vs mês ant.`,cls};
+  return {text:`${up?'↑':'↓'}${Math.abs(pct).toFixed(0)}% ${suffix}`,cls};
 }
-function fmtDeltaPts(curRate,prevRate,goodDirection){
+function fmtDeltaPts(curRate,prevRate,goodDirection,suffix='vs mês ant.'){
   if(!isFinite(curRate)||!isFinite(prevRate)) return {text:'—',cls:'flat'};
   const diff=curRate-prevRate;
   const up=diff>=0;
   const cls=diff===0?'flat':((up&&goodDirection==='up')||(!up&&goodDirection==='down')?'good':'bad');
-  return {text:`${up?'↑':'↓'}${Math.abs(diff).toFixed(1)}pt vs mês ant.`,cls};
+  return {text:`${up?'↑':'↓'}${Math.abs(diff).toFixed(1)}pt ${suffix}`,cls};
+}
+// Soma vários buckets mensais (ex: todos os meses de um ano) num só objeto,
+// pra comparar ano vs ano com a mesma lógica que já existe pra mês vs mês.
+function somarBuckets(byMes,meses,anoAlvo){
+  const soma={elo:0,rec:0,sug:0,oth:0,proc:0,pend:0};
+  let achouAlgum=false;
+  meses.filter(mk=>mk.startsWith(`${anoAlvo}-`)).forEach(mk=>{
+    achouAlgum=true;
+    const b=byMes[mk];
+    for(const k in soma) soma[k]+=b[k];
+  });
+  return achouAlgum?soma:null;
 }
 
 // ── render ───────────────────────────────────────────────────────────
@@ -722,32 +734,37 @@ function render(){
   const meses=Object.keys(byMes).sort();
 
   // Quando Ano+Mês estão filtrados, compara exatamente esse mês com o
-  // anterior a ele. Sem esse filtro, compara os dois últimos meses
+  // anterior a ele. Só Ano filtrado (sem Mês) compara o ano inteiro com o
+  // ano anterior. Sem filtro nenhum, compara os dois últimos meses
   // COMPLETOS disponíveis — ignora o mês corrente (em andamento), que
   // sempre pareceria "caindo" por estar incompleto.
   const yearFilVal=document.getElementById('f-year').value;
   const monthFilVal=document.getElementById('f-month').value;
-  let curKey, prevKey;
+  let cur,prev,suffix='vs mês ant.';
   if(yearFilVal&&monthFilVal){
-    curKey=`${yearFilVal}-${String(monthFilVal).padStart(2,'0')}`;
-    prevKey=mesAnteriorKey(curKey);
+    const curKey=`${yearFilVal}-${String(monthFilVal).padStart(2,'0')}`;
+    const prevKey=mesAnteriorKey(curKey);
+    cur=byMes[curKey]; prev=byMes[prevKey];
+  } else if(yearFilVal){
+    cur=somarBuckets(byMes,meses,Number(yearFilVal));
+    prev=somarBuckets(byMes,meses,Number(yearFilVal)-1);
+    suffix='vs ano ant.';
   } else {
     const mesAtual=monthKeyOf(new Date());
     const mesesCompletos=meses.filter(mk=>mk!==mesAtual);
-    curKey=mesesCompletos[mesesCompletos.length-1];
-    prevKey=mesesCompletos[mesesCompletos.length-2];
+    cur=byMes[mesesCompletos[mesesCompletos.length-1]];
+    prev=byMes[mesesCompletos[mesesCompletos.length-2]];
   }
-  const cur=byMes[curKey], prev=byMes[prevKey];
   if(cur&&prev){
     const curTotal=cur.elo+cur.rec+cur.sug+cur.oth, prevTotal=prev.elo+prev.rec+prev.sug+prev.oth;
-    const totalDelta=fmtDeltaPct(curTotal,prevTotal,'up');
+    const totalDelta=fmtDeltaPct(curTotal,prevTotal,'up',suffix);
     setDelta('k-total-d',{text:totalDelta.text,cls:totalDelta.cls==='flat'?'flat':'neutral'});
-    setDelta('k-elo-d',fmtDeltaPct(cur.elo,prev.elo,'up'));
-    setDelta('k-rec-d',fmtDeltaPct(cur.rec,prev.rec,'down'));
-    setDelta('k-sug-d',fmtDeltaPct(cur.sug,prev.sug,'up'));
+    setDelta('k-elo-d',fmtDeltaPct(cur.elo,prev.elo,'up',suffix));
+    setDelta('k-rec-d',fmtDeltaPct(cur.rec,prev.rec,'down',suffix));
+    setDelta('k-sug-d',fmtDeltaPct(cur.sug,prev.sug,'up',suffix));
     const curRate=cur.rec?cur.proc/cur.rec*100:0, prevRate=prev.rec?prev.proc/prev.rec*100:0;
-    setDelta('k-proc-d',fmtDeltaPts(curRate,prevRate,'down'));
-    setDelta('k-pend-d',fmtDeltaPct(cur.pend,prev.pend,'down'));
+    setDelta('k-proc-d',fmtDeltaPts(curRate,prevRate,'down',suffix));
+    setDelta('k-pend-d',fmtDeltaPct(cur.pend,prev.pend,'down',suffix));
   } else {
     ['k-total-d','k-elo-d','k-rec-d','k-sug-d','k-proc-d','k-pend-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
   }
