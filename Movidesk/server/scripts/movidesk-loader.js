@@ -249,9 +249,11 @@ const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
 // no backfill completo (milhares de tickets históricos, ficaria lento demais).
 //
 // O mesmo bug corrompe QUALQUER campo expandido, não só customFieldValues —
-// "clients" (de onde vem a organização) também vinha vazio/errado em cargas
-// com $filter, fazendo a organização sumir mesmo com silver.ticket_cliente
-// certo pro resto da base. Por isso corrigimos clients e owner junto.
+// "clients" (de onde vem a organização) e "actions[].createdBy" (de onde vem
+// o autor de cada ação) também vinham vazios/errados em cargas com $filter,
+// fazendo a organização sumir e o histórico de ações aparecer todo como
+// "Sistema" mesmo com o campo certo do Movidesk. Por isso corrigimos
+// clients, owner e actions junto.
 async function corrigirCustomFieldValues(token, tickets) {
   for (const t of tickets) {
     if (state.cancelRequested) {
@@ -270,6 +272,9 @@ async function corrigirCustomFieldValues(token, tickets) {
       }
       if (full && full.owner) {
         t.owner = full.owner;
+      }
+      if (full && Array.isArray(full.actions)) {
+        t.actions = full.actions;
       }
     } catch (e) {
       console.warn(`[loader] correção de campos do ticket ${t.id} falhou: ${e.message}`);
