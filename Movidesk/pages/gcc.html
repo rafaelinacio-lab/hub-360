@@ -633,7 +633,7 @@ body.modal-open{overflow:hidden}
       <div class="dtable-scroll">
         <table class="dtable">
           <thead>
-            <tr><th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th></tr>
+            <tr id="detail-modal-thead"><th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th></tr>
           </thead>
           <tbody id="detail-modal-tbody"></tbody>
         </table>
@@ -936,6 +936,8 @@ function chartHoverCursor(evt,elements){
 function openDetailModal(title,sub,rows){
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
+  document.getElementById('detail-modal-thead').innerHTML=
+    '<th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th>';
   const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
     tbody.innerHTML=`<tr class="empty-row"><td colspan="5">Nenhum ticket encontrado.</td></tr>`;
@@ -1380,9 +1382,30 @@ function renderStatesMap(rows){
     </div>
   `;
 }
+// Clique num estado do mapa mostra só organização + MRR total perdido ali
+// (agrupado), não a lista de tickets — pedido explícito, diferente do
+// padrão usado nos outros gráficos/tabelas.
 function openEstadoTicketsModal(uf,nome){
   const matched=_rowsFull.filter(r=>isPerdido(r)&&(r.estado_cliente||'').trim().toUpperCase()===uf);
-  openDetailModal(`Clientes perdidos: ${nome} (${uf})`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  const porOrg={};
+  matched.forEach(r=>{
+    const org=r.organizacao||'Não informado';
+    porOrg[org]=(porOrg[org]||0)+parseMrr(r.mrr);
+  });
+  const entries=Object.entries(porOrg).sort((a,b)=>b[1]-a[1]);
+
+  document.getElementById('detail-modal-title').textContent=`Clientes perdidos: ${nome} (${uf})`;
+  document.getElementById('detail-modal-sub').textContent=
+    `${entries.length} organizaç${entries.length===1?'ão':'ões'} · ${matched.length} ticket${matched.length===1?'':'s'}`;
+  document.getElementById('detail-modal-thead').innerHTML=
+    '<th>Organização</th><th class="num">MRR total</th>';
+  const tbody=document.getElementById('detail-modal-tbody');
+  tbody.innerHTML=entries.length
+    ? entries.map(([org,mrr])=>`
+        <tr><td>${esc(org)}</td><td class="num">${fmtMrrFull(mrr)}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="2">Nenhum cliente perdido nesse estado no período filtrado.</td></tr>`;
+  document.getElementById('detail-modal').classList.add('show');
+  syncModalBodyLock();
 }
 
 // ── ranking ──────────────────────────────────────────────────────────
