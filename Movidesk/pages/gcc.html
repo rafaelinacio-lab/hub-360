@@ -714,9 +714,9 @@ body.modal-open{overflow:hidden}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <script>
 // ── helpers ──────────────────────────────────────────────────────────
@@ -865,6 +865,7 @@ async function runExport(format){
 }
 
 async function exportXlsx(rows,charts,filename){
+  if(typeof ExcelJS==='undefined') throw new Error('Biblioteca ExcelJS não carregou (verifique a conexão com a internet/CDN).');
   const wb=new ExcelJS.Workbook();
   const wsData=wb.addWorksheet('Dados');
   wsData.addRow(EXPORT_HEADERS).font={bold:true};
@@ -888,6 +889,7 @@ async function exportXlsx(rows,charts,filename){
 }
 
 async function exportPdf(rows,charts,filename,titulo){
+  if(!window.jspdf||!window.jspdf.jsPDF) throw new Error('Biblioteca jsPDF não carregou (verifique a conexão com a internet/CDN).');
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'pt'});
   const pageW=doc.internal.pageSize.getWidth();
@@ -922,6 +924,7 @@ async function exportPdf(rows,charts,filename,titulo){
 }
 
 async function exportDocx(rows,charts,filename,titulo){
+  if(typeof docx==='undefined') throw new Error('Biblioteca docx não carregou (verifique a conexão com a internet/CDN).');
   const {Document,Packer,Paragraph,HeadingLevel,ImageRun,Table,TableRow,TableCell,TextRun,WidthType}=docx;
   const children=[
     new Paragraph({text:titulo,heading:HeadingLevel.HEADING_1}),
