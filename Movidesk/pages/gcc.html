@@ -49,10 +49,6 @@
   --amber-bg:   #fffbeb;
   --amber-bd:   rgba(180,83,9,0.2);
 
-  --red:        #dc2626;
-  --red-bg:     #fef2f2;
-  --red-bd:     rgba(220,38,38,0.22);
-
   --sh-sm: 0 1px 2px rgba(0,0,0,.05),0 1px 4px rgba(0,0,0,.04);
   --sh-md: 0 3px 12px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
   --sh-xl: 0 16px 48px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.07);
@@ -90,10 +86,6 @@ html.dark {
   --amber-bg:   rgba(251,191,36,.1);
   --amber-bd:   rgba(251,191,36,.2);
 
-  --red:        #f87171;
-  --red-bg:     rgba(248,113,113,.1);
-  --red-bd:     rgba(248,113,113,.2);
-
   --sh-sm: 0 1px 2px rgba(0,0,0,.3);
   --sh-md: 0 3px 12px rgba(0,0,0,.3);
   --sh-xl: 0 16px 48px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.3);
@@ -115,18 +107,6 @@ input,select{font-family:inherit}
   vertical-align:middle;
 }
 
-/* ═══ Loading ══════════════════════════════════════════════════════════ */
-/* Overlay de tela cheia removido do fluxo normal — a página aparece na hora
-   e só a grade mostra estado de carregamento (ver #gcc-grid .empty). */
-#gcc-loading{ display:none }
-.spin{
-  width:40px;height:40px;border-radius:50%;
-  border:3px solid var(--border);border-top-color:var(--orange);
-  animation:spin .75s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-.load-txt{font-size:13px;color:var(--t2);font-weight:500}
-
 /* ═══ Page ═════════════════════════════════════════════════════════════ */
 #gcc-page{min-height:100vh;display:flex;flex-direction:column}
 
@@ -145,43 +125,14 @@ input,select{font-family:inherit}
   font-size:15px;font-weight:700;color:var(--t1);white-space:nowrap;flex-shrink:0;
 }
 .topbar-logo .sym{font-size:19px;color:var(--orange)}
+.topbar-sub{font-size:13px;color:var(--t2);font-weight:500;white-space:nowrap}
 .vbar{width:1px;height:22px;background:var(--border);flex-shrink:0}
-
-.srch{position:relative;min-width:160px;flex:1;max-width:320px}
-.srch .sym{
-  position:absolute;left:9px;top:50%;transform:translateY(-50%);
-  font-size:17px;color:var(--t3);pointer-events:none
-}
-.srch input{
-  width:100%;padding:7px 10px 7px 33px;
-  border:1px solid var(--border);border-radius:8px;
-  background:var(--surface-low);color:var(--t1);
-  font-size:13px;outline:none;transition:border-color .15s;
-}
-.srch input:focus{border-color:var(--orange);background:var(--surface)}
-.srch input::placeholder{color:var(--t3)}
-
-.chips{display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap}
-.chip{
-  display:inline-flex;align-items:center;gap:4px;
-  padding:5px 11px;border-radius:20px;
-  border:1px solid var(--border);background:var(--surface-low);
-  color:var(--t2);font-size:12px;font-weight:500;
-  transition:all .15s;white-space:nowrap;
-}
-.chip:hover{border-color:var(--border-hi);color:var(--t1)}
-.chip .cnt{
-  background:rgba(0,0,0,.07);border-radius:10px;
-  padding:1px 5px;font-size:10px;font-weight:700;
-}
-html.dark .chip .cnt{background:rgba(255,255,255,.1)}
-.chip.active{background:var(--t1);border-color:var(--t1);color:var(--surface)}
-.chip.active .cnt{background:rgba(255,255,255,.2)}
 
 .sort-sel{
   padding:6px 26px 6px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface-low);color:var(--t2);
-  font-size:12px;font-weight:500;outline:none;appearance:none;flex-shrink:0;
+  font-size:12px;font-weight:500;outline:none;appearance:none;flex-shrink:0;max-width:180px;
+  text-overflow:ellipsis;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9892' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 7px center;
 }
@@ -190,45 +141,9 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 /* ─── Filter bar ─────────────────────────────────────────────────────── */
 .topbar-filters{
   display:flex;align-items:center;gap:8px;
-  padding:7px 0 10px;max-width:1480px;margin:0 auto;
+  padding:9px 0 11px;max-width:1480px;margin:0 auto;
   flex-wrap:wrap;border-top:1px solid var(--border);
 }
-.fil-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.fil-ico{font-size:16px;color:var(--t3)}
-.fil-label{font-size:11px;color:var(--t3);white-space:nowrap;font-weight:500;letter-spacing:.02em}
-
-/* ─── Multi-select dropdown ─────────────────────────────────────────── */
-.multi-sel{position:relative;flex-shrink:0}
-.ms-btn{
-  display:flex;align-items:center;gap:6px;padding:6px 10px;
-  border:1px solid var(--border);border-radius:8px;
-  background:var(--surface-low);color:var(--t2);
-  font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;min-width:112px;
-  transition:border-color .15s,color .15s;
-}
-.ms-btn:hover,.ms-btn.ms-active,.multi-sel.open .ms-btn{border-color:var(--orange);color:var(--t1)}
-.ms-lbl{flex:1;text-align:left}
-.ms-arrow{font-size:15px;color:var(--t3);transition:transform .15s}
-.multi-sel.open .ms-arrow{transform:rotate(180deg)}
-.ms-drop{
-  position:absolute;top:calc(100% + 5px);left:0;z-index:400;
-  background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  box-shadow:var(--sh-md);padding:5px 0;min-width:155px;
-  max-height:260px;overflow-y:auto;display:none;
-}
-.multi-sel.open .ms-drop{display:block}
-.ms-item{
-  display:flex;align-items:center;gap:9px;padding:7px 12px;
-  cursor:pointer;font-size:13px;color:var(--t1);transition:background .1s;
-  user-select:none;
-}
-.ms-item:hover{background:var(--surface-mid)}
-.ms-item input[type=checkbox]{
-  accent-color:var(--orange);width:14px;height:14px;
-  cursor:pointer;flex-shrink:0;margin:0;
-}
-
-#gcc-count{font-size:12px;color:var(--t3);white-space:nowrap;margin-left:auto}
 
 .btn-refresh{
   display:inline-flex;align-items:center;gap:5px;
@@ -249,6 +164,7 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 .btn-sync .sym{font-size:15px}
 .btn-sync:disabled{opacity:.5;cursor:default}
 
+/* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
   background:var(--surface);border:1px solid var(--border);border-radius:10px;
@@ -261,373 +177,151 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
 #sync-toast .sym{font-size:16px;color:var(--green)}
 #sync-toast .st-prog{font-size:11px;color:var(--t3);margin-left:2px}
 
-.status-badge{
-  display:inline-flex;align-items:center;gap:3px;
-  padding:2px 6px;border-radius:4px;
-  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+/* ═══ Dashboard ═══════════════════════════════════════════════════════ */
+.dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
+.section-label{
+  font-size:11.5px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.06em;font-weight:700;margin:30px 0 11px;
 }
-.status-badge.closed{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
-.status-badge.open  {background:var(--slate-bg);color:var(--slate);border:1px solid var(--slate-bd)}
+.section-label:first-child{margin-top:2px}
 
-/* ═══ KPI bar ══════════════════════════════════════════════════════════ */
-.kpi-bar{background:var(--bg);padding:16px 24px}
-.kpi-in{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:1480px;margin:0 auto}
-@media(max-width:900px){.kpi-in{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:480px){.kpi-in{grid-template-columns:1fr}}
-.kpi{
-  display:flex;align-items:center;gap:12px;
-  padding:14px 18px;
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:14px;box-shadow:var(--sh-sm);
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:980px){
+  .grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}
+  .grid-2{grid-template-columns:1fr}
 }
-.kpi-ico{
-  width:38px;height:38px;border-radius:10px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-}
-.kpi-ico .sym{font-size:18px}
-.kpi-ico.or{background:var(--orange-bg);color:var(--orange)}
-.kpi-ico.sl{background:var(--slate-bg);color:var(--slate)}
-.kpi-ico.am{background:var(--amber-bg);color:var(--amber)}
-.kpi-ico.re{background:var(--red-bg);color:var(--red)}
-.kpi-v{font-size:22px;font-weight:800;color:var(--t1);line-height:1;font-variant-numeric:tabular-nums}
-.kpi-l{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:3px}
+@media (max-width:520px){.grid-3,.grid-4{grid-template-columns:1fr}}
 
-/* ═══ Grid ═════════════════════════════════════════════════════════════ */
-.grid-wrap{flex:1;padding:20px 24px;max-width:1480px;margin:0 auto;width:100%}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-  gap:14px;
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--sh-sm);
 }
+.stat-card.danger{border-color:var(--orange-bd)}
+.stat-card.success{border-color:var(--green-bd)}
+.stat-card.clickable{cursor:pointer}
+.stat-card.clickable:hover{border-color:var(--border-hi)}
+.stat-card .label{font-size:12.5px;color:var(--t2);margin:0 0 6px;font-weight:500}
+.stat-card .value{
+  font-size:25px;font-weight:700;margin:0;color:var(--t1);
+  font-variant-numeric:tabular-nums;line-height:1.15;
+}
+.stat-card .value.good{color:var(--green)}
+.stat-card .value.bad{color:var(--orange)}
+.stat-card .legend{font-size:11px;color:var(--t3);margin:6px 0 0;line-height:1.4}
 
-/* ═══ Card ═════════════════════════════════════════════════════════════ */
-.card{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:20px;
-  box-shadow:var(--sh-sm);
-  display:flex;flex-direction:column;
-  cursor:pointer;
-  transition:box-shadow .2s,transform .2s,border-color .15s;
-  overflow:hidden;
-  border-left-width:3px;
+.chart-panel,.data-panel{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--sh-sm);
 }
-.card:hover{box-shadow:var(--sh-md);transform:translateY(-1px);border-color:var(--border-hi)}
-/* locus-based card colors */
-.card.l-int{border-left-color:var(--red)}
-.card.l-ext{border-left-color:var(--amber)}
-.card.l-mix{border-left-color:var(--purple)}
-.card.l-oth{border-left-color:var(--slate)}
+.chart-title,.panel-title{font-size:13px;color:var(--t2);margin:0 0 12px;font-weight:600}
+.chart-caption{font-size:11px;color:var(--t3);margin:8px 0 0;text-align:center}
+.chart-wrap{position:relative;width:100%}
 
-.card-top{
-  padding:12px 14px 10px;
-  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+.dtable{width:100%;font-size:13px;border-collapse:collapse}
+.dtable th{
+  text-align:left;color:var(--t3);padding:7px 8px;font-weight:600;
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
+  border-bottom:1px solid var(--border);
 }
-.card-top-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.card-date{font-size:11px;color:var(--t3);white-space:nowrap;flex-shrink:0;margin-top:1px}
+.dtable td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--t1)}
+.dtable tbody tr:last-child td{border-bottom:none}
+.dtable .num{text-align:right;font-variant-numeric:tabular-nums}
+.dtable .bad{color:var(--orange);font-weight:700}
+.dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
 
-.tbadge{
-  display:inline-flex;align-items:center;gap:3px;
-  padding:3px 7px;border-radius:5px;
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-  border:1px solid transparent;
-}
-.tbadge .sym{font-size:11px}
-/* locus badge colors */
-.tbadge.l-int{background:var(--red-bg);color:var(--red);border-color:var(--red-bd)}
-.tbadge.l-ext{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
-.tbadge.l-mix{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-bd)}
-.tbadge.l-oth{background:var(--slate-bg);color:var(--slate);border-color:var(--slate-bd)}
-/* drawer icon colors */
-.dh-ico.l-int{background:var(--red-bg);color:var(--red)}
-.dh-ico.l-ext{background:var(--amber-bg);color:var(--amber)}
-.dh-ico.l-mix{background:var(--purple-bg);color:var(--purple)}
-.dh-ico.l-oth{background:var(--slate-bg);color:var(--slate)}
+.data-panel.compact{padding:14px 16px}
+.data-panel.compact.danger{border-color:var(--orange-bd)}
+.data-panel.compact .panel-title{font-size:12px;margin-bottom:8px}
+.data-panel.compact .dtable{font-size:12px}
+.data-panel.compact .dtable th{padding:5px 8px;font-size:9.5px}
+.data-panel.compact .dtable td{padding:6px 8px}
+.data-panel.compact .dtable-wrap{max-height:280px;overflow-y:auto}
 
-.card-body{padding:0 14px 12px;flex:1}
-.card-tid{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;font-weight:500;margin-bottom:3px}
-.card-org{
-  font-size:14px;font-weight:700;color:var(--t1);line-height:1.3;margin-bottom:4px;
-  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
-}
-.card-sub{
-  font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:10px;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-}
+.data-panel.danger{border-color:var(--orange-bd)}
 
-.card-flags{display:flex;flex-wrap:wrap;gap:4px;min-height:18px}
-.flag-tag{
-  display:inline-flex;align-items:center;gap:3px;
-  padding:3px 6px;border-radius:5px;
-  font-size:10px;font-weight:500;
-  background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);
+/* clique nas barras/segmentos dos gráficos abre um modal de detalhe */
+.chart-wrap canvas{cursor:default}
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(20,18,14,.55);
+  z-index:200;align-items:center;justify-content:center;padding:24px;
 }
-.flag-tag .sym{font-size:10px}
-.flag-more{
-  display:inline-flex;align-items:center;
-  padding:3px 6px;border-radius:5px;
-  font-size:10px;font-weight:600;color:var(--t3);
-  background:var(--surface-low);border:1px solid var(--border);
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  box-shadow:var(--sh-lg,0 20px 50px rgba(0,0,0,.35));
+  width:100%;max-width:min(820px,92vw);max-height:min(80vh,720px);
+  display:flex;flex-direction:column;overflow:hidden;
 }
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 20px;border-bottom:1px solid var(--border);flex:none;
+}
+.modal-head h3{margin:0;font-size:14.5px;color:var(--t1);font-weight:700}
+.modal-head p{margin:2px 0 0;font-size:12px;color:var(--t3)}
+.modal-close{
+  border:none;background:transparent;color:var(--t2);font-size:20px;line-height:1;
+  cursor:pointer;padding:4px 6px;border-radius:6px;
+}
+.modal-close:hover{background:var(--surface-mid);color:var(--t1)}
+.modal-body{overflow-y:auto;overflow-x:hidden;padding:8px 20px 18px;flex:1 1 auto;min-height:0}
+.modal-body .dtable-scroll{overflow-x:auto}
+.modal-body .dtable{min-width:640px}
+.modal-body .dtable th{position:sticky;top:0;background:var(--surface);white-space:nowrap}
+.modal-body .dtable td{vertical-align:top}
+body.modal-open{overflow:hidden}
 
-.card-footer{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:9px 14px 11px;border-top:1px solid var(--border);
-}
-.recpill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--t2)}
-.recpill .sym{font-size:14px}
-.recpill.warn{color:var(--amber)}
-.recpill.warn .sym{color:var(--amber)}
+.modal-body .dtable tbody tr.clickable{cursor:pointer}
+.modal-body .dtable tbody tr.clickable:hover td{background:var(--surface-mid)}
+.ticket-link{color:var(--orange);text-decoration:none;font-weight:600}
+.ticket-link:hover{text-decoration:underline}
 
-.card-cta{
-  display:inline-flex;align-items:center;gap:4px;
-  padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;
-  border:1px solid var(--border);background:var(--surface-low);color:var(--t2);
-  transition:all .15s;
+/* empilhamento: detail-modal (lista de tickets) < ticket-modal (detalhe
+   de UM ticket, aberto a partir da lista) */
+#detail-modal{z-index:205}
+#ticket-modal{z-index:210}
+#ticket-modal .modal-box{max-width:min(700px,92vw)}
+.td-info-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;
+  padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:14px;
 }
-.card-cta:hover{border-color:var(--border-hi);color:var(--t1);background:var(--surface-mid)}
-.card-cta .sym{font-size:14px}
-
-/* empty */
-.empty{
-  grid-column:1/-1;
-  display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:60px 24px;color:var(--t3);
+.td-info-grid .lbl{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:0 0 3px}
+.td-info-grid .val{font-size:13px;color:var(--t1);font-weight:600;margin:0}
+.td-sec-lbl{font-size:11.5px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin:0 0 8px;display:flex;align-items:center;gap:6px}
+.td-cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:16px}
+.td-cf-item{background:var(--surface-mid);border-radius:8px;padding:8px 10px}
+.td-cf-item .cf-lbl{display:block;font-size:10px;color:var(--t3);margin-bottom:2px}
+.td-cf-item .cf-val{display:block;font-size:12.5px;color:var(--t1);font-weight:600}
+.td-tl-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.td-tl-item:last-child{border-bottom:none}
+.td-tl-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:4px}
+.td-tl-author{font-size:12.5px;font-weight:700;color:var(--t1)}
+.td-tl-date{font-size:11px;color:var(--t3)}
+.td-tl-badge{font-size:10px;color:var(--t2);background:var(--surface-mid);border-radius:999px;padding:2px 8px}
+.td-tl-desc{font-size:12.5px;color:var(--t2);line-height:1.5;max-height:120px;overflow-y:auto}
+.td-tl-desc :is(img,table){max-width:100%}
+.td-loading,.td-empty{color:var(--t3);font-size:12.5px;text-align:center;padding:20px 0}
+.modal-foot{
+  display:flex;justify-content:flex-end;gap:10px;padding:12px 20px;
+  border-top:1px solid var(--border);flex:none;
 }
-.empty .sym{font-size:38px;margin-bottom:10px}
-.empty p{font-size:14px}
-
-/* ═══ Drawer ═══════════════════════════════════════════════════════════ */
-#gcc-backdrop{
-  position:fixed;inset:0;z-index:200;
-  background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
-  opacity:0;pointer-events:none;transition:opacity .2s ease;
-  display:flex;align-items:center;justify-content:center;padding:16px;
+.btn-open-ticket{
+  display:inline-flex;align-items:center;gap:6px;background:var(--orange);color:#fff;
+  border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;
+  text-decoration:none;cursor:pointer;
 }
-#gcc-backdrop.open{opacity:1;pointer-events:auto}
-
-#gcc-drawer{
-  width:min(700px,100%);
-  max-height:90vh;
-  background:var(--surface);
-  display:flex;flex-direction:column;
-  box-shadow:var(--sh-xl);
-  border-radius:14px;
-  transform:scale(.96) translateY(10px);
-  transition:transform .2s cubic-bezier(.32,.72,0,1);
-}
-#gcc-backdrop.open #gcc-drawer{transform:scale(1) translateY(0)}
-
-/* drawer header */
-.dh{padding:18px 18px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
-.dh-row1{display:flex;align-items:flex-start;gap:11px;margin-bottom:9px}
-.dh-ico{
-  width:38px;height:38px;border-radius:9px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-}
-.dh-ico .sym{font-size:19px}
-.dh-org{font-size:16px;font-weight:700;color:var(--t1);line-height:1.3;flex:1;min-width:0}
-.dh-meta{font-size:11px;color:var(--t3);font-weight:500;margin-top:2px}
-.dh-sub{font-size:12px;color:var(--t2);line-height:1.5}
-
-.dh-close{
-  width:30px;height:30px;border-radius:7px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  border:1px solid var(--border);background:var(--surface-low);color:var(--t2);
-  transition:all .15s;
-}
-.dh-close:hover{background:var(--surface-mid);color:var(--t1)}
-.dh-close .sym{font-size:17px}
-
-.dh-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
-.meta-chip{
-  display:inline-flex;align-items:flex-start;gap:7px;
-  padding:6px 10px;border-radius:8px;
-  border:1px solid var(--border);background:var(--surface-low);
-  cursor:default;
-}
-.meta-chip.mc-long{cursor:pointer}
-.meta-chip .sym{font-size:14px;color:var(--t3);margin-top:2px;flex-shrink:0}
-.mc-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;line-height:1;margin-bottom:2px}
-.mc-v{font-size:12px;font-weight:600;color:var(--t1);line-height:1.4;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:180px}
-.meta-chip.mc-open .mc-v{-webkit-line-clamp:unset;display:block;max-width:260px}
-
-.dh-warn{
-  display:flex;align-items:center;gap:7px;
-  padding:9px 11px;border-radius:8px;
-  background:var(--amber-bg);border:1px solid var(--amber-bd);
-  margin-top:10px;
-}
-.dh-warn .sym{font-size:17px;color:var(--amber)}
-.dh-warn-t{font-size:12px;font-weight:600;color:var(--amber)}
-
-/* drawer body */
-.db{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:18px}
-
-.sec-lbl{
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--t3);margin-bottom:7px;
-  display:flex;align-items:center;gap:5px;
-}
-.sec-lbl .sym{font-size:13px}
-
-/* motivos churn items */
-.churn-item{
-  background:var(--red-bg);
-  border:1px solid var(--red-bd);
-  border-left:3px solid var(--red);
-  border-radius:8px;
-  padding:9px 12px;
-}
-.churn-text{font-size:13px;color:var(--t1);line-height:1.5}
-
-/* related tickets */
-.prob-item{
-  background:var(--orange-bg);
-  border:1px solid var(--orange-bd);
-  border-left:3px solid var(--orange);
-  border-radius:8px;
-  padding:9px 12px;
-  display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
-}
-.prob-text{font-size:13px;color:var(--t1);line-height:1.5;flex:1}
-.prob-link{
-  font-size:11px;font-weight:700;color:var(--orange);
-  white-space:nowrap;flex-shrink:0;text-decoration:none;
-}
-.prob-link:hover{text-decoration:underline}
-
-/* desc */
-.desc-box{
-  background:var(--surface-low);border:1px solid var(--border);
-  border-radius:8px;padding:13px;position:relative;
-}
-.desc-box.collapsed{max-height:170px;overflow:hidden}
-.desc-fade{
-  position:absolute;bottom:0;inset-x:0;height:56px;
-  background:linear-gradient(to top,var(--surface-low),transparent);
-  pointer-events:none;
-}
-.desc-toggle{
-  font-size:11px;font-weight:700;color:var(--orange);
-  background:none;border:none;cursor:pointer;font-family:inherit;
-  padding:0;margin-top:5px;display:none;
-}
-.desc-toggle:hover{text-decoration:underline}
-.desc-p{font-size:13px;color:var(--t2);line-height:1.6;white-space:pre-wrap}
-
-/* dl fields */
-.desc-dl{display:flex;flex-direction:column;gap:0}
-.desc-dt{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:2px;margin-top:10px}
-.desc-dl>div:first-child .desc-dt{margin-top:0}
-.desc-dd{font-size:13px;color:var(--t1);white-space:pre-wrap;line-height:1.6}
-
-/* analise cards */
-.analise-card{
-  background:var(--surface-low);border:1px solid var(--border);
-  border-left:3px solid var(--orange);border-radius:8px;padding:12px;
-}
-.analise-card-lbl{
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--orange);margin-bottom:6px;display:flex;align-items:center;gap:5px;
-}
-.analise-card-lbl .sym{font-size:13px}
-.analise-card-txt{font-size:13px;color:var(--t1);line-height:1.6;white-space:pre-wrap}
-
-/* drawer footer */
-.df{
-  padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;
-  display:flex;justify-content:flex-end;gap:8px;
-}
-.btn-close{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;
-  border:1px solid var(--border);background:var(--surface-low);color:var(--t2);
-  transition:all .15s;
-}
-.btn-close:hover{border-color:var(--border-hi);color:var(--t1)}
-.btn-ticket{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;
-  background:var(--orange);border:1px solid var(--orange);color:#fff;
-  transition:opacity .15s;text-decoration:none;
-}
-.btn-ticket:hover{opacity:.88}
-.btn-ticket .sym{font-size:15px}
-
-/* ═══ Responsive ═══════════════════════════════════════════════════════ */
-@media(max-width:600px){
-  .topbar-in{gap:8px}
-  .srch{max-width:100%}
-  .chips{display:none}
-  .grid-wrap{padding:14px 12px}
-  .kpi-bar{padding:12px}
-}
-
-/* ── Timeline de ações ───────────────────────────────────────────── */
-.tl-list{display:flex;flex-direction:column}
-.tl-item{display:grid;grid-template-columns:32px 1fr;gap:10px;padding:13px 0;border-bottom:1px solid var(--border)}
-.tl-item:last-child{border-bottom:none}
-.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.tl-dot.tp-agent{background:var(--orange);color:#fff}
-.tl-dot.tp-client{background:var(--surface2);color:var(--text)}
-.tl-dot.tp-internal{background:#f59e0b;color:#fff}
-.tl-dot.tp-auto{background:var(--border);color:var(--muted)}
-.tl-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:baseline;margin-bottom:5px}
-.tl-author{font-weight:600;font-size:13px;color:var(--text)}
-.tl-date{font-size:11px;color:var(--muted)}
-.tl-badge{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--surface2);color:var(--muted);white-space:nowrap}
-.tl-desc{font-size:13px;line-height:1.55;color:var(--text);word-break:break-word;max-height:4.65em;overflow:hidden;transition:max-height .25s ease}
-.tl-item.tl-open .tl-desc{max-height:2000px}
-.tl-desc img{max-width:100%;border-radius:4px}
-.tl-desc a{color:var(--orange);text-decoration:none}
-.tl-desc p{margin:0 0 5px}.tl-desc p:last-child{margin:0}
-.tl-desc table{font-size:12px;border-collapse:collapse;width:100%}
-.tl-desc td,.tl-desc th{border:1px solid var(--border);padding:3px 6px}
-.tl-item{cursor:pointer;user-select:none}
-.tl-toggle{display:flex;align-items:center;gap:3px;margin-top:5px;font-size:11px;color:var(--muted);font-weight:500}
-.tl-toggle .sym{font-size:15px;transition:transform .2s}
-.tl-item.tl-open .tl-toggle .sym{transform:rotate(180deg)}
-.cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:4px}
-.cf-item{background:var(--surface2);border-radius:6px;padding:8px 10px}
-.cf-lbl{font-size:11px;color:var(--muted);display:block;margin-bottom:2px}
-.cf-val{font-size:13px;color:var(--text);word-break:break-word}
-.tl-loading{padding:16px 0;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
-.tl-expand-btn{display:flex;align-items:center;gap:4px;margin-top:10px;padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface-mid,var(--surface2));color:var(--t2,var(--muted));font-size:13px;cursor:pointer;width:100%;justify-content:center}
-.tl-expand-btn:hover{background:var(--border)}
+.btn-open-ticket:hover{opacity:.9}
 </style>
 </head>
 <body>
-
-<!-- Loading -->
-<div id="gcc-loading">
-  <div class="spin"></div>
-  <span class="load-txt">Carregando GCC…</span>
-</div>
-
-<!-- Page -->
 <div id="gcc-page">
-
-  <!-- Top bar -->
   <header class="topbar">
     <div class="topbar-in">
-      <div class="topbar-logo">
-        <span class="sym">shield</span>
-        GCC
-      </div>
+      <div class="topbar-logo"><span class="sym">trending_down</span>GCC</div>
       <div class="vbar"></div>
-      <div class="srch">
-        <span class="sym">search</span>
-        <input id="gcc-search" type="text" placeholder="Buscar organização, assunto…" oninput="applyFilters()">
-      </div>
-      <div class="chips" id="gcc-chips"></div>
-      <select class="sort-sel" id="gcc-sort" onchange="applyFilters()">
-        <option value="recentes">Mais recentes</option>
-        <option value="antigas">Mais antigas</option>
-        <option value="reincidencia">Maior reincidência</option>
-      </select>
-      <span id="gcc-count"></span>
+      <span class="topbar-sub">Gestão de Combate ao Churn — Visão de gestão</span>
+      <span style="margin-left:auto"></span>
       <button class="btn-refresh" onclick="loadGcc()">
         <span class="sym">refresh</span>Atualizar
       </button>
@@ -635,44 +329,17 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
         <span class="sym">sync</span>Sincronizar tickets
       </button>
     </div>
-    <!-- Filter bar -->
     <div class="topbar-filters">
-      <div class="fil-group">
-        <span class="sym fil-ico">event</span>
-        <span class="fil-label">Resolução</span>
-        <div class="multi-sel" id="gcc-year">
-          <button class="ms-btn" type="button" onclick="toggleMs(this)">
-            <span class="ms-lbl">Todos os anos</span>
-            <span class="sym ms-arrow">expand_more</span>
-          </button>
-          <div class="ms-drop"></div>
-        </div>
-        <div class="multi-sel" id="gcc-month">
-          <button class="ms-btn" type="button" onclick="toggleMs(this)">
-            <span class="ms-lbl">Todos os meses</span>
-            <span class="sym ms-arrow">expand_more</span>
-          </button>
-          <div class="ms-drop"></div>
-        </div>
-      </div>
-      <div class="vbar"></div>
-      <div class="multi-sel" id="gcc-org">
-        <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Todos os clientes</span>
-          <span class="sym ms-arrow">expand_more</span>
-        </button>
-        <div class="ms-drop"></div>
-      </div>
-      <select class="sort-sel" id="gcc-servico" onchange="applyFilters()">
-        <option value="">Todos os serviços</option>
+      <select id="f-tipo" class="sort-sel" onchange="render()"><option value="">Tipo de rescisão: todos</option></select>
+      <select id="f-org" class="sort-sel" onchange="render()"><option value="">Cliente: todos</option></select>
+      <select id="f-status" class="sort-sel" onchange="render()">
+        <option value="">Status: todos</option>
+        <option value="aberto">Em aberto</option>
+        <option value="finalizado">Finalizado</option>
+        <option value="cancelado">Cancelado</option>
       </select>
-      <div class="multi-sel" id="gcc-status">
-        <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Todos os status</span>
-          <span class="sym ms-arrow">expand_more</span>
-        </button>
-        <div class="ms-drop"></div>
-      </div>
+      <select id="f-year" class="sort-sel" onchange="render()"><option value="">Ano: todos</option></select>
+      <select id="f-month" class="sort-sel" onchange="render()"><option value="">Mês: todos</option></select>
     </div>
     <div id="sync-toast">
       <span class="sym">sync</span>
@@ -681,170 +348,308 @@ html.dark .chip .cnt{background:rgba(255,255,255,.1)}
     </div>
   </header>
 
-  <!-- KPI bar -->
-  <section class="kpi-bar">
-    <div class="kpi-in" id="gcc-kpi"></div>
-  </section>
-
-  <!-- Card grid -->
-  <div class="grid-wrap">
-    <div class="grid" id="gcc-grid"></div>
-  </div>
-
-</div><!-- /gcc-page -->
-
-<!-- Drawer backdrop -->
-<div id="gcc-backdrop" onclick="if(event.target===this||event.target.closest('#gcc-close'))closeDrawer()">
-  <div id="gcc-drawer">
-    <div class="dh">
-      <div class="dh-row1">
-        <div class="dh-ico" id="d-ico"><span class="sym" id="d-icon-sym">shield</span></div>
-        <div style="flex:1;min-width:0">
-          <div class="dh-org" id="d-org"></div>
-          <div class="dh-meta" id="d-meta"></div>
-          <div class="dh-sub" id="d-sub"></div>
-        </div>
-        <button class="dh-close" id="gcc-close"><span class="sym">close</span></button>
+  <div class="dash-wrap" id="gcc-dash">
+    <p class="section-label">Totais do período</p>
+    <div class="grid-4">
+      <div class="stat-card">
+        <p class="label">Rescisão total</p>
+        <p class="value" id="k-resc-total">0</p>
+        <p class="legend">Cancelamento completo do contrato.</p>
       </div>
-      <div class="dh-chips" id="d-chips"></div>
-      <div class="dh-warn" id="d-warn" style="display:none">
-        <span class="sym">history</span>
-        <span class="dh-warn-t" id="d-warn-t"></span>
+      <div class="stat-card">
+        <p class="label">Rescisão parcial</p>
+        <p class="value" id="k-resc-parcial">0</p>
+        <p class="legend">Redução de módulos ou usuários.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Revertidos</p>
+        <p class="value" id="k-revertidos">0</p>
+        <p class="legend">Solicitações de saída evitadas.</p>
+      </div>
+      <div class="stat-card success">
+        <p class="label">Taxa de reversão</p>
+        <p class="value good" id="k-taxa-reversao">0%</p>
+        <p class="legend">Revertidos ÷ total de solicitações.</p>
       </div>
     </div>
-    <div class="db" id="d-body"></div>
-    <div class="df">
-      <button class="btn-close" onclick="closeDrawer()">Fechar</button>
-      <a class="btn-ticket" id="d-ticket-link" href="#" target="_blank" rel="noopener">
-        <span class="sym">open_in_new</span>Abrir ticket
+
+    <p class="section-label">Operacional</p>
+    <div class="grid-4">
+      <div class="stat-card">
+        <p class="label">Tickets pendentes</p>
+        <p class="value" id="k-pendentes">0</p>
+        <p class="legend">Casos ainda em aberto no período.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Média ações/ticket</p>
+        <p class="value" id="k-media-acoes">0</p>
+        <p class="legend">Volume médio de interações por caso.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Casos críticos</p>
+        <p class="value" id="k-criticos">0</p>
+        <p class="legend">Em aberto com urgência alta/crítica.</p>
+      </div>
+      <div class="stat-card danger clickable" id="k-criticos-venc-card" onclick="scrollToCriticosVencidos()">
+        <p class="label">Críticos vencidos</p>
+        <p class="value bad" id="k-criticos-venc">0</p>
+        <p class="legend">Prazo de SLA já passado. Clique pra ver.</p>
+      </div>
+    </div>
+
+    <p class="section-label">Impacto financeiro (MRR)</p>
+    <div class="grid-3">
+      <div class="stat-card">
+        <p class="label">MRR em risco</p>
+        <p class="value" id="k-mrr-risco">R$ 0</p>
+        <p class="legend">Soma do MRR de todos os casos abertos.</p>
+      </div>
+      <div class="stat-card success">
+        <p class="label">MRR protegido</p>
+        <p class="value good" id="k-mrr-protegido">R$ 0</p>
+        <p class="legend">MRR de casos revertidos com sucesso.</p>
+      </div>
+      <div class="stat-card danger">
+        <p class="label">MRR perdido</p>
+        <p class="value bad" id="k-mrr-perdido">R$ 0</p>
+        <p class="legend">MRR de casos finalizados sem reversão.</p>
+      </div>
+    </div>
+
+    <p class="section-label">Tendência</p>
+    <div class="chart-panel">
+      <p class="chart-title">Solicitações de saída vs reversões por mês</p>
+      <div class="chart-wrap" style="height:220px"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="chart-panel" style="margin-top:16px">
+      <p class="chart-title">MRR em risco vs MRR perdido por mês</p>
+      <div class="chart-wrap" style="height:220px"><canvas id="mrrTrendChart"></canvas></div>
+    </div>
+
+    <p class="section-label">Distribuição da rescisão</p>
+    <div class="grid-3">
+      <div class="chart-panel">
+        <p class="chart-title">Locus (interno x externo)</p>
+        <div class="chart-wrap" style="height:160px"><canvas id="locusChart"></canvas></div>
+        <p class="chart-caption" id="locusCaption"></p>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Tipo de rescisão</p>
+        <div class="chart-wrap" style="height:160px"><canvas id="tipoRescChart"></canvas></div>
+        <p class="chart-caption" id="tipoRescCaption"></p>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Rescisão parcial: o quê?</p>
+        <div class="chart-wrap" style="height:160px"><canvas id="parcialChart"></canvas></div>
+        <p class="chart-caption" id="parcialCaption"></p>
+      </div>
+    </div>
+
+    <p class="section-label">Motivos por locus</p>
+    <div class="grid-2">
+      <div class="chart-panel">
+        <p class="chart-title">Locus interno — controlável</p>
+        <div class="chart-wrap" style="height:230px"><canvas id="internoChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Locus externo — fora do controle</p>
+        <div class="chart-wrap" style="height:230px"><canvas id="externoChart"></canvas></div>
+      </div>
+    </div>
+
+    <p class="section-label">Insatisfação e MRR por vertical</p>
+    <div class="grid-2">
+      <div class="chart-panel">
+        <p class="chart-title">Casos por vertical (% do total)</p>
+        <div class="chart-wrap" style="height:190px"><canvas id="verticalChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">MRR perdido por vertical</p>
+        <div class="chart-wrap" style="height:190px"><canvas id="mrrVerticalChart"></canvas></div>
+      </div>
+    </div>
+
+    <p class="section-label">Ranking</p>
+    <div class="grid-2">
+      <div class="chart-panel">
+        <p class="chart-title">Módulos que mais rescindem</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="moduleChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Clientes que mais rescindem</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="topClientChart"></canvas></div>
+      </div>
+    </div>
+
+    <p class="section-label">Ação</p>
+    <div class="grid-2">
+      <div class="data-panel compact">
+        <p class="panel-title">Clientes com mais casos e baixa reversão</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Cliente</th><th class="num">Casos</th><th class="num">Revertidos</th></tr></thead>
+            <tbody id="tbl-baixa-reversao"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="data-panel compact danger" id="painel-criticos-vencidos">
+        <p class="panel-title">Casos críticos vencidos — ação necessária</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Cliente</th><th>Vertical</th><th class="num">Dias venc.</th></tr></thead>
+            <tbody id="tbl-criticos-vencidos"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="data-panel danger" style="margin-top:16px">
+      <p class="panel-title">Top clientes por MRR em risco — priorização de retenção</p>
+      <div class="dtable-wrap">
+        <table class="dtable">
+          <thead><tr><th>Cliente</th><th class="num">MRR em risco</th><th class="num">Status</th></tr></thead>
+          <tbody id="tbl-top-mrr-risco"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="detail-modal-title">Detalhe</h3>
+        <p id="detail-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="detail-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead>
+            <tr><th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th></tr>
+          </thead>
+          <tbody id="detail-modal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ticket-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="ticket-modal-title">Ticket</h3>
+        <p id="ticket-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="ticket-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body" id="ticket-modal-body">
+      <div class="td-loading">Carregando…</div>
+    </div>
+    <div class="modal-foot">
+      <a class="btn-open-ticket" id="ticket-modal-link" href="#" target="_blank" rel="noopener">
+        Abrir no Movidesk
       </a>
     </div>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-'use strict';
-const API_BASE=`${window.location.origin}/api`;
-function getToken(){return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';}
-async function apiCall(ep){
+// ── helpers ──────────────────────────────────────────────────────────
+const API = `${location.origin}/api`;
+function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function api(ep){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),60000);
   try{
-    const r=await fetch(`${API_BASE}${ep}`,{headers:{'Authorization':`Bearer ${getToken()}`},signal:ctrl.signal,cache:'no-store'});
-    if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||`API ${r.status}`); }
+    const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
     return r.json();
   } catch(e){
     if(e.name==='AbortError'||e.message==='signal is aborted without reason') throw new Error('Tempo limite excedido ao carregar dados');
     throw e;
   } finally { clearTimeout(t); }
 }
-function esc(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
-// esc() não precisa escapar aspas em contexto de texto — mas usado dentro de
-// um atributo HTML (value="...") uma aspa não-escapada quebra o atributo.
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
-function fmt(v){
-  if(!v) return '—';
-  const d=new Date(v);
-  if(isNaN(d)) return '—';
-  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
-}
+function ticketUrl(id){ return `https://atendimento.viasoft.com.br/Ticket/Edit/${id}`; }
 function fmtFull(v){
   if(!v) return '—';
   const d=new Date(v);
   if(isNaN(d)) return '—';
   return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 }
-function ticketUrl(id){return `https://atendimento.viasoft.com.br/Ticket/Edit/${id}`;}
 
-// ── Multi-select ──────────────────────────────────────────────────────────
+const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
+const CANCELADO_STATUSES=['Canceled','Cancelado'];
+function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
+function isRevertido(r){ return !!(r.data_reversao&&String(r.data_reversao).trim()); }
+function isCritico(r){
+  const u=(r.urgencia||'').trim().toLowerCase();
+  return isAberto(r)&&(u==='alta'||u==='crítica'||u==='critica');
+}
+function isVencido(r){
+  return isAberto(r)&&r.sla_solucao&&new Date(r.sla_solucao).getTime()<Date.now();
+}
+function diasVencido(r){
+  return Math.floor((Date.now()-new Date(r.sla_solucao).getTime())/86400000);
+}
+// "Vertical" — primeiro segmento do serviço hierárquico do ticket (mesmo
+// padrão usado na área da Ouvidoria), já que não há um campo de vertical
+// confiável nos custom fields do GCC.
+function areaDoServico(servico){
+  if(!servico) return 'Não informado';
+  return String(servico).split('>')[0].trim();
+}
+function monthKeyOf(d){
+  const dt=new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+const MONTH_NAMES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MONTHS=[
   {v:1,l:'Janeiro'},{v:2,l:'Fevereiro'},{v:3,l:'Março'},{v:4,l:'Abril'},
   {v:5,l:'Maio'},{v:6,l:'Junho'},{v:7,l:'Julho'},{v:8,l:'Agosto'},
   {v:9,l:'Setembro'},{v:10,l:'Outubro'},{v:11,l:'Novembro'},{v:12,l:'Dezembro'},
 ];
-function toggleMs(btn){
-  const ms=btn.closest('.multi-sel');
-  const wasOpen=ms.classList.contains('open');
-  document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
-  if(!wasOpen) ms.classList.add('open');
-}
-document.addEventListener('click',e=>{
-  if(!e.target.closest('.multi-sel'))
-    document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
-});
-function getMsValues(id){
-  return [...document.querySelectorAll(`#${id} .ms-drop input:checked`)].map(i=>i.value);
-}
-function updateMsLabel(id,allLabel){
-  const vals=getMsValues(id);
-  const lbl=document.querySelector(`#${id} .ms-lbl`);
-  const btn=document.querySelector(`#${id} .ms-btn`);
-  if(!vals.length){lbl.textContent=allLabel;btn.classList.remove('ms-active');return;}
-  if(vals.length===1){
-    const span=[...document.querySelectorAll(`#${id} .ms-item`)].find(el=>el.querySelector('input').value===vals[0])?.querySelector('span');
-    lbl.textContent=span?span.textContent:vals[0];
-  } else {
-    lbl.textContent=`${vals.length} selecionados`;
-  }
-  btn.classList.add('ms-active');
-}
-function populateMs(id,items,allLabel,onChange){
-  const drop=document.querySelector(`#${id} .ms-drop`);
-  if(!drop) return;
-  const cur=new Set(getMsValues(id));
-  drop.innerHTML=items.map(({v,l})=>`
-    <label class="ms-item">
-      <input type="checkbox" value="${escAttr(String(v))}"${cur.has(String(v))?' checked':''}>
-      <span>${esc(String(l))}</span>
-    </label>`).join('');
-  drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
-    updateMsLabel(id,allLabel); onChange();
-  }));
-  updateMsLabel(id,allLabel);
-}
 
-// ── Locus key ─────────────────────────────────────────────────────────────
-// Normaliza classificacao_locus → chave visual
-function locusKey(locus){
-  const l=(locus||'').toLowerCase();
-  if(l.includes('intern')||l.includes('viasoft')) return 'int';
-  if(l.includes('extern')||l.includes('client'))  return 'ext';
-  if(l.includes('mist')||l.includes('compart'))   return 'mix';
-  return 'oth';
+// MRR vem da API como texto — pode estar em "1234.56" ou "1.234,56".
+function parseMrr(v){
+  if(v==null) return 0;
+  let s=String(v).trim();
+  if(!s) return 0;
+  s=s.replace(/[^\d,.-]/g,'');
+  if(s.includes(',')&&s.includes('.')) s=s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(',')) s=s.replace(',','.');
+  const n=parseFloat(s);
+  return isFinite(n)?n:0;
 }
-const LOCUS_ICON={int:'home',ext:'public',mix:'device_hub',oth:'place'};
-// Finalizado = base_status Resolvido/Fechado (PT-BR e EN, conforme a origem do dado); aberto = todo o resto.
-const FINALIZADO_STATUSES = ['Resolved','Closed','Resolvido','Fechado'];
-// Cancelado é status próprio — não conta como "Em aberto" nem "Finalizado".
-const CANCELADO_STATUSES  = ['Canceled','Cancelado'];
-
-function statusBadge(status, base){
-  if(!status) return '';
-  const b=(base||'').toLowerCase();
-  const isClosed=b==='closed'||b==='resolved'||b==='cancelled'
-    ||/fecha|resolv|cancel/i.test(status);
-  if(isClosed) return `<span class="status-badge closed"><span class="sym" style="font-size:9px">check_circle</span>${esc(status)}</span>`;
-  return '';
+function fmtMrrK(v){
+  const abs=Math.abs(v);
+  if(abs>=1000) return `R$ ${(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})}k`;
+  return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`;
 }
+function fmtMrrFull(v){ return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`; }
 
-// churn motivos: texto livre separado por vírgula maiúscula
-function parseMotivos(raw){
-  return String(raw||'').split(/\s*,\s*(?=[A-ZÀ-Ý])/).map(s=>s.trim()).filter(Boolean);
-}
+function tipoRescNorm(r){ return (r.tipo_rescisao||'').trim(); }
+function locusNorm(r){ return (r.classificacao_locus||'').trim(); }
 
-// ── State ────────────────────────────────────────────────────────────────────
+// ── state ────────────────────────────────────────────────────────────
 let _rows=[];
-let _filterLocus='all';
+let _charts={};
+let _rowsFull=[];
+let _rowsById={};
 
-// ── Load ─────────────────────────────────────────────────────────────────────
+// ── load ─────────────────────────────────────────────────────────────
 async function loadGcc(){
   try{
-    _rows=await apiCall('/gcc');
-    populateMs('gcc-month',MONTHS,'Todos os meses',applyFilters);
-    renderChips();
-    applyFilters();
-  }catch(e){
-    // Se timeout e loader está rodando, mostra mensagem específica e aguarda o fim do sync
+    _rows=await api('/gcc');
+    buildFilterOptions();
+    render();
+  } catch(e){
     let msg=`Erro ao carregar: ${esc(e.message)}`;
     try{
       const s=await apiFetch('/loader/status','GET');
@@ -853,375 +658,618 @@ async function loadGcc(){
         pollSyncStatus();
       }
     }catch{}
-    document.getElementById('gcc-grid').innerHTML=
-      `<div class="empty"><span class="sym">sync</span><p>${msg}</p></div>`;
+    document.getElementById('gcc-dash').innerHTML=`<p style="padding:40px 0;text-align:center;color:var(--t3)">${msg}</p>`;
   }
 }
 
-// ── KPIs ─────────────────────────────────────────────────────────────────────
-function renderKpis(rows){
-  const total=rows.length;
-  const orgs=new Set(rows.map(r=>r.organizacao_id??r.organizacao)).size;
-  const mediaReincid=total?((rows.reduce((s,r)=>s+(Number(r.total_chamados_anteriores)||0),0))/total).toFixed(1):'0.0';
-  const d30=Date.now()-30*24*60*60*1000;
-  const ult30=rows.filter(r=>r.criado_em&&new Date(r.criado_em)>=d30).length;
+function buildFilterOptions(){
+  const fill=(id,label,values)=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+    sel.innerHTML=`<option value="">${label}: todos</option>`
+      +opts.map(v=>`<option value="${escAttr(v)}"${cur===v?' selected':''}>${esc(v)}</option>`).join('');
+  };
+  fill('f-tipo',"Tipo de rescisão",_rows.map(tipoRescNorm));
+  fill('f-org','Cliente',_rows.map(r=>r.organizacao));
 
-  const kpis=[
-    {ico:'or',sym:'shield',        label:'Total de casos',         val:total},
-    {ico:'sl',sym:'apartment',     label:'Organizações',           val:orgs},
-    {ico:'am',sym:'history',       label:'Reincidência média',     val:mediaReincid},
-    {ico:'re',sym:'calendar_month',label:'Últimos 30 dias',        val:ult30},
-  ];
-  document.getElementById('gcc-kpi').innerHTML=kpis.map(k=>`
-    <div class="kpi">
-      <div class="kpi-ico ${k.ico}"><span class="sym">${k.sym}</span></div>
-      <div>
-        <div class="kpi-v">${k.val}</div>
-        <div class="kpi-l">${k.label}</div>
-      </div>
-    </div>`).join('');
+  const yearSel=document.getElementById('f-year');
+  const curYear=yearSel.value;
+  const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
+  yearSel.innerHTML=`<option value="">Ano: todos</option>`
+    +years.map(y=>`<option value="${y}"${String(curYear)===String(y)?' selected':''}>${y}</option>`).join('');
+
+  const monthSel=document.getElementById('f-month');
+  const curMonth=monthSel.value;
+  monthSel.innerHTML=`<option value="">Mês: todos</option>`
+    +MONTHS.map(m=>`<option value="${m.v}"${String(curMonth)===String(m.v)?' selected':''}>${m.l}</option>`).join('');
 }
 
-// ── Chips locus + select serviço ──────────────────────────────────────────────
-function renderChips(){
-  // contagens por locus
-  const locusMap={}; // locusKey → {label, count}
-  for(const r of _rows){
-    const k=locusKey(r.classificacao_locus);
-    const lbl=r.classificacao_locus||'Não informado';
-    if(!locusMap[k]) locusMap[k]={label:lbl,count:0};
-    locusMap[k].count++;
-  }
-
-  // chips: Todos + cada locus presente
-  const chips=[{k:'all',label:'Todos',cnt:_rows.length}];
-  for(const [k,v] of Object.entries(locusMap)){
-    chips.push({k,label:v.label,cnt:v.count});
-  }
-  document.getElementById('gcc-chips').innerHTML=chips.map(c=>`
-    <button class="chip${_filterLocus===c.k?' active':''}" data-f="${c.k}" onclick="setLocusFilter('${c.k}')">
-      ${esc(c.label)}<span class="cnt">${c.cnt}</span>
-    </button>`).join('');
-
-  // select de serviço: popula com valores únicos
-  const servicoSel=document.getElementById('gcc-servico');
-  const cur=servicoSel.value;
-  const servicos=[...new Set(_rows.map(r=>r.servico_gcc).filter(Boolean))].sort();
-  servicoSel.innerHTML=`<option value="">Todos os serviços</option>`
-    +servicos.map(s=>`<option value="${esc(s)}"${cur===s?' selected':''}>${esc(s)}</option>`).join('');
-
-  // multi-select de cliente/organização
-  const orgs=[...new Set(_rows.map(r=>r.organizacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-  populateMs('gcc-org',orgs.map(o=>({v:o,l:o})),'Todos os clientes',applyFilters);
-
-  // multi-select de status: Em aberto / Finalizado / Cancelado (baseado em base_status)
-  populateMs('gcc-status',[
-    {v:'aberto',l:'Em aberto'},
-    {v:'finalizado',l:'Finalizado'},
-    {v:'cancelado',l:'Cancelado'},
-  ],'Todos os status',applyFilters);
-
-  // multi-select de ano (a partir de resolvido_em)
-  const years=[...new Set(_rows
-    .map(r=>r.resolvido_em?new Date(r.resolvido_em).getFullYear():null)
-    .filter(Boolean)
-  )].sort((a,b)=>b-a);
-  populateMs('gcc-year',years.map(y=>({v:y,l:y})),'Todos os anos',applyFilters);
+// ── filtro ───────────────────────────────────────────────────────────
+function statusBate(r,statusFil){
+  if(!statusFil) return true;
+  if(statusFil==='aberto') return isAberto(r);
+  if(statusFil==='finalizado') return FINALIZADO_STATUSES.includes(r.base_status);
+  if(statusFil==='cancelado') return CANCELADO_STATUSES.includes(r.base_status);
+  return true;
 }
+function getFilteredRows(){
+  const tipoFil=document.getElementById('f-tipo').value;
+  const orgFil=document.getElementById('f-org').value;
+  const statusFil=document.getElementById('f-status').value;
+  const yearFil=document.getElementById('f-year').value;
+  const monthFil=document.getElementById('f-month').value;
 
-function setLocusFilter(k){
-  _filterLocus=k;
-  // atualiza classe active nos chips
-  document.querySelectorAll('#gcc-chips .chip').forEach(c=>{
-    c.classList.toggle('active',c.dataset.f===k);
+  const rowsCtx=_rows.filter(r=>{
+    if(tipoFil&&tipoRescNorm(r)!==tipoFil) return false;
+    if(orgFil&&r.organizacao!==orgFil) return false;
+    if(!statusBate(r,statusFil)) return false;
+    return true;
   });
-  applyFilters();
-}
-
-// ── Filtrar + Renderizar ──────────────────────────────────────────────────────
-function applyFilters(){
-  const q=(document.getElementById('gcc-search')?.value||'').toLowerCase().trim();
-  const order=document.getElementById('gcc-sort')?.value||'recentes';
-  const servicoFil=document.getElementById('gcc-servico')?.value||'';
-  const orgFils=getMsValues('gcc-org');
-  const statusFils=getMsValues('gcc-status');
-  const yearFils=getMsValues('gcc-year').map(Number);
-  const monthFils=getMsValues('gcc-month').map(Number);
-
-  let rows=_rows.filter(r=>{
-    if(_filterLocus!=='all'&&locusKey(r.classificacao_locus)!==_filterLocus) return false;
-    if(servicoFil&&r.servico_gcc!==servicoFil) return false;
-    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
-    if(statusFils.length){
-      const fin=FINALIZADO_STATUSES.includes(r.base_status);
-      const canc=CANCELADO_STATUSES.includes(r.base_status);
-      const aberto=!fin&&!canc;
-      const bate=(statusFils.includes('aberto')&&aberto)
-        ||(statusFils.includes('finalizado')&&fin)
-        ||(statusFils.includes('cancelado')&&canc);
-      if(!bate) return false;
+  const rowsFull=rowsCtx.filter(r=>{
+    if(yearFil||monthFil){
+      if(!r.criado_em) return false;
+      const d=new Date(r.criado_em);
+      if(yearFil&&d.getFullYear()!==Number(yearFil)) return false;
+      if(monthFil&&(d.getMonth()+1)!==Number(monthFil)) return false;
     }
-    // Filtro por ano/mês de resolução (múltipla seleção)
-    if(yearFils.length||monthFils.length){
-      const d=r.resolvido_em?new Date(r.resolvido_em):null;
-      if(!d) return false;
-      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
-      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
-    }
-    if(!q) return true;
-    const rel=(r.chamados_relacionados||[]).map(c=>c.motivo).join(' ');
-    const hay=`${r.organizacao||''} ${r.assunto_gcc||''} ${r.ticket_id||''} ${r.servico_gcc||''} ${r.motivo_churn||''} ${rel}`.toLowerCase();
-    return hay.includes(q);
+    return true;
   });
-
-  rows=[...rows].sort((a,b)=>{
-    if(order==='reincidencia') return (Number(b.total_chamados_anteriores)||0)-(Number(a.total_chamados_anteriores)||0);
-    const da=a.criado_em?new Date(a.criado_em).getTime():0;
-    const db_=b.criado_em?new Date(b.criado_em).getTime():0;
-    return order==='antigas'?da-db_:db_-da;
-  });
-
-  renderKpis(rows);
-  document.getElementById('gcc-count').textContent=`${rows.length} caso${rows.length===1?'':'s'}`;
-  renderGrid(rows);
+  return {rowsCtx,rowsFull};
 }
 
-function renderGrid(rows){
-  const grid=document.getElementById('gcc-grid');
+// ── render ───────────────────────────────────────────────────────────
+function render(){
+  if(!_rows.length && document.getElementById('gcc-dash').dataset.err) return;
+  const {rowsCtx,rowsFull}=getFilteredRows();
+  _rowsFull=rowsFull;
+  _rowsById={};
+  rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+
+  // ── Totais do período ──
+  const rescTotal=rowsFull.filter(r=>tipoRescNorm(r).toLowerCase()==='total').length;
+  const rescParcial=rowsFull.filter(r=>tipoRescNorm(r).toLowerCase()==='parcial').length;
+  const revertidos=rowsFull.filter(isRevertido).length;
+  const totalSolic=rowsFull.length;
+  const taxaReversao=totalSolic?revertidos/totalSolic*100:0;
+  document.getElementById('k-resc-total').textContent=rescTotal.toLocaleString('pt-BR');
+  document.getElementById('k-resc-parcial').textContent=rescParcial.toLocaleString('pt-BR');
+  document.getElementById('k-revertidos').textContent=revertidos.toLocaleString('pt-BR');
+  document.getElementById('k-taxa-reversao').textContent=`${taxaReversao.toFixed(1)}%`;
+
+  // ── Operacional ──
+  const pendentes=rowsFull.filter(isAberto).length;
+  const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
+  const mediaAcoes=rowsFull.length?somaAcoes/rowsFull.length:0;
+  const criticosRows=rowsFull.filter(isCritico);
+  const criticosVencidosRows=criticosRows.filter(isVencido);
+  document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
+  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:1});
+  document.getElementById('k-criticos').textContent=criticosRows.length.toLocaleString('pt-BR');
+  document.getElementById('k-criticos-venc').textContent=criticosVencidosRows.length.toLocaleString('pt-BR');
+
+  // ── MRR ──
+  const mrrEmRisco=rowsFull.filter(isAberto).reduce((s,r)=>s+parseMrr(r.mrr),0);
+  const mrrProtegido=rowsFull.filter(isRevertido).reduce((s,r)=>s+parseMrr(r.mrr),0);
+  const mrrPerdido=rowsFull.filter(r=>FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)).reduce((s,r)=>s+parseMrr(r.mrr),0);
+  document.getElementById('k-mrr-risco').textContent=fmtMrrK(mrrEmRisco);
+  document.getElementById('k-mrr-protegido').textContent=fmtMrrK(mrrProtegido);
+  document.getElementById('k-mrr-perdido').textContent=fmtMrrK(mrrPerdido);
+
+  const byMes=bucketPorMes(rowsCtx);
+  renderTrendChart(byMes);
+  renderMrrTrendChart(byMes);
+  renderDistribCharts(rowsFull);
+  renderInternoExternoCharts(rowsFull);
+  renderVerticalCharts(rowsFull);
+  renderModuleChart(rowsFull);
+  renderTopClientChart(rowsFull);
+  renderBaixaReversaoTable(rowsFull);
+  renderCriticosVencidosTable(criticosVencidosRows);
+  renderTopMrrRiscoTable(rowsFull);
+}
+
+// ── cores (tokens do tema) ──────────────────────────────────────────
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function chartColors(){
+  return {
+    t1:cssVar('--t1'), t2:cssVar('--t2'), t3:cssVar('--t3'), border:cssVar('--border'),
+    orange:cssVar('--orange'), green:cssVar('--green'), purple:cssVar('--purple'), slate:cssVar('--slate'),
+  };
+}
+function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
+function chartHoverCursor(evt,elements){
+  evt.native.target.style.cursor=elements.length?'pointer':'default';
+}
+
+// ── modal de detalhe (lista de tickets) ─────────────────────────────
+function openDetailModal(title,sub,rows){
+  document.getElementById('detail-modal-title').textContent=title;
+  document.getElementById('detail-modal-sub').textContent=sub;
+  const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
-    grid.innerHTML='<div class="empty"><span class="sym">search_off</span><p>Nenhum caso encontrado.</p></div>';
-    return;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="5">Nenhum ticket encontrado.</td></tr>`;
+  } else {
+    const ordenado=rows.slice().sort((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0));
+    ordenado.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+    tbody.innerHTML=ordenado.map(r=>`
+        <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
+          <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
+          <td>${esc(r.organizacao||'—')}</td>
+          <td>${esc(r.assunto_gcc||'—')}</td>
+          <td class="num">${fmtMrrFull(parseMrr(r.mrr))}</td>
+          <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
+        </tr>`).join('');
   }
-  grid.innerHTML=rows.map(r=>{
-    const lk=locusKey(r.classificacao_locus);
-    const motivos=parseMotivos(r.motivo_churn);
-    const tot=Number(r.total_chamados_anteriores)||0;
+  document.getElementById('detail-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeDetailModal(){
+  document.getElementById('detail-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('detail-modal-close').addEventListener('click',closeDetailModal);
+document.getElementById('detail-modal').addEventListener('click',e=>{ if(e.target.id==='detail-modal') closeDetailModal(); });
 
-    // flags: motivos churn resumidos no card
-    const flagsHtml=motivos.length
-      ? motivos.slice(0,2).map(m=>`
-          <span class="flag-tag"><span class="sym">flag</span>${esc(m.length>26?m.slice(0,25)+'…':m)}</span>`).join('')
-        +(motivos.length>2?`<span class="flag-more">+${motivos.length-2}</span>`:'')
-      : `<span style="font-size:11px;color:var(--t3)">Nenhum motivo informado</span>`;
-
-    const locusLabel=r.classificacao_locus||'Locus não informado';
-    const isWarn=tot>=3;
-    return `
-    <div class="card l-${lk}" data-id="${r.ticket_id}">
-      <div class="card-top">
-        <div class="card-top-badges">
-          <span class="tbadge l-${lk}"><span class="sym">${LOCUS_ICON[lk]}</span>${esc(locusLabel)}</span>
-          ${statusBadge(r.status_movidesk,r.base_status)}
-        </div>
-        <span class="card-date">${fmt(r.criado_em)}</span>
-      </div>
-      <div class="card-body">
-        <div class="card-tid">#${esc(String(r.ticket_id))} · ${esc(r.servico_gcc||'—')}</div>
-        <div class="card-org">${esc(r.organizacao||'Organização não informada')}</div>
-        <div class="card-sub">${esc(r.assunto_gcc||'Sem assunto')}</div>
-        <div class="card-flags">${flagsHtml}</div>
-      </div>
-      <div class="card-footer">
-        <span class="recpill${isWarn?' warn':''}">
-          <span class="sym">${isWarn?'history':'confirmation_number'}</span>
-          ${tot} chamado${tot===1?'':'s'} anterior${tot===1?'':'es'}
-        </span>
-        <button class="card-cta" data-cta="${r.ticket_id}">
-          <span class="sym">visibility</span>Ver análise
-        </button>
-      </div>
-    </div>`;
-  }).join('');
+function syncModalBodyLock(){
+  const open=document.getElementById('detail-modal').classList.contains('show')
+    || document.getElementById('ticket-modal').classList.contains('show');
+  document.body.classList.toggle('modal-open',open);
 }
 
-// click delegation
-document.getElementById('gcc-grid').addEventListener('click',e=>{
-  const cta=e.target.closest('[data-cta]');
-  const card=cta?null:e.target.closest('.card');
-  const id=cta?cta.dataset.cta:card?.dataset.id;
-  if(id) openDrawer(id);
+// ── modal de detalhe de UM ticket ───────────────────────────────────
+const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+function tlItem(a){
+  const author=a.createdByName||'Sistema';
+  const label=ACTION_TYPE[a.type]||(a.type!=null?`Tipo ${a.type}`:'Ação');
+  return `<div class="td-tl-item">
+    <div class="td-tl-meta">
+      <span class="td-tl-author">${esc(author)}</span>
+      <span class="td-tl-date">${fmtFull(a.createdDate)}</span>
+      <span class="td-tl-badge">${esc(label)}</span>
+      ${a.status?`<span class="td-tl-badge">${esc(a.status)}</span>`:''}
+    </div>
+    <div class="td-tl-desc">${a.description||''}</div>
+  </div>`;
+}
+function openTicketModal(ticketId){
+  const r=_rowsById[ticketId]||{};
+  document.getElementById('ticket-modal-title').textContent=`Ticket #${ticketId}`;
+  document.getElementById('ticket-modal-sub').textContent=r.organizacao||'';
+  document.getElementById('ticket-modal-link').href=ticketUrl(ticketId);
+  document.getElementById('ticket-modal-body').innerHTML=`
+    <div class="td-info-grid">
+      <div><p class="lbl">Assunto</p><p class="val">${esc(r.assunto_gcc||'—')}</p></div>
+      <div><p class="lbl">Locus</p><p class="val">${esc(locusNorm(r)||'—')}</p></div>
+      <div><p class="lbl">Tipo de rescisão</p><p class="val">${esc(tipoRescNorm(r)||'—')}</p></div>
+      <div><p class="lbl">MRR</p><p class="val">${fmtMrrFull(parseMrr(r.mrr))}</p></div>
+      <div><p class="lbl">Responsável</p><p class="val">${esc(r.responsavel||'—')}</p></div>
+      <div><p class="lbl">Status</p><p class="val">${esc(r.status_movidesk||r.base_status||'—')}</p></div>
+      <div><p class="lbl">Criado em</p><p class="val">${fmtFull(r.criado_em)}</p></div>
+      <div><p class="lbl">Resolvido em</p><p class="val">${fmtFull(r.resolvido_em)}</p></div>
+    </div>
+    <div class="td-loading">Carregando ações e campos do ticket…</div>`;
+  document.getElementById('ticket-modal').classList.add('show');
+  syncModalBodyLock();
+
+  api(`/gcc/${ticketId}/actions`).then(data=>{
+    const actions=data.actions||[];
+    const fieldDefs=data.fieldDefs||{};
+    const cfItems=(data.customFieldValues||[]).reduce((acc,f)=>{
+      const val=String(f.value||'').trim()
+        ||(f.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
+      if(!val) return acc;
+      const name=fieldDefs[String(f.customFieldId)];
+      if(!name) return acc;
+      acc.push({name,val});
+      return acc;
+    },[]);
+
+    let html='';
+    if(cfItems.length){
+      html+=`<div class="td-sec-lbl">Campos personalizados</div>
+        <div class="td-cf-grid">${cfItems.map(f=>`
+          <div class="td-cf-item"><span class="cf-lbl">${esc(f.name)}</span><span class="cf-val">${esc(f.val)}</span></div>`).join('')}
+        </div>`;
+    }
+    html+=`<div class="td-sec-lbl">Histórico (${actions.length} ação${actions.length===1?'':'ões'})</div>`;
+    html+=actions.length
+      ? actions.map(tlItem).join('')
+      : `<div class="td-empty">Nenhuma ação registrada.</div>`;
+
+    const body=document.getElementById('ticket-modal-body');
+    body.querySelector('.td-loading')?.remove();
+    body.insertAdjacentHTML('beforeend',html);
+  }).catch(()=>{
+    const body=document.getElementById('ticket-modal-body');
+    const loading=body.querySelector('.td-loading');
+    if(loading) loading.textContent='Não foi possível carregar ações/campos deste ticket.';
+  });
+}
+function closeTicketModal(){
+  document.getElementById('ticket-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('ticket-modal-close').addEventListener('click',closeTicketModal);
+document.getElementById('ticket-modal').addEventListener('click',e=>{ if(e.target.id==='ticket-modal') closeTicketModal(); });
+
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
+  else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
 });
 
-// ── Análise parsing ───────────────────────────────────────────────────────────
-const ANALISE_CARDS=[
-  {key:'motivador',   label:'Motivador',       icon:'psychology', re:/motivador/i},
-  {key:'padroes',     label:'Padrões',          icon:'insights',   re:/padr(?:ão|ões|ao|oes)/i},
-  {key:'recomendacoes',label:'Recomendações',   icon:'lightbulb',  re:/recomenda(?:c|ç)(?:ão|ões|ao|oes)/i},
-];
-function parseAnalise(raw){
-  const text=String(raw||'').trim();
-  const sections={};
-  if(!text) return{sections,raw:''};
-  const headerRe=/^[ \t]*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ /]{0,40}?)\s*:[ \t]*$/gim;
-  const matches=[...text.matchAll(headerRe)].filter(m=>ANALISE_CARDS.some(c=>c.re.test(m[1])));
-  if(!matches.length) return{sections,raw:text};
-  for(let i=0;i<matches.length;i++){
-    const m=matches[i];
-    const card=ANALISE_CARDS.find(c=>c.re.test(m[1]));
-    const start=m.index+m[0].length;
-    const end=i+1<matches.length?matches[i+1].index:text.length;
-    if(card) sections[card.key]=text.slice(start,end).trim();
-  }
-  return{sections,raw:text};
-}
-function buildAnalise(raw){
-  const{sections,raw:txt}=parseAnalise(raw);
-  const cardHtml=(icon,label,content)=>`
-    <div class="analise-card">
-      <div class="analise-card-lbl"><span class="sym">${icon}</span>${label}</div>
-      <div class="analise-card-txt">${esc(content)}</div>
-    </div>`;
-  const any=ANALISE_CARDS.some(c=>sections[c.key]);
-  if(!any) return txt?cardHtml('psychology','Análise',txt):'';
-  return ANALISE_CARDS.filter(c=>sections[c.key]).map(c=>cardHtml(c.icon,c.label,sections[c.key])).join('');
+// onClick/onHover comuns pros gráficos: pega a barra/fatia clicada, filtra
+// os tickets daquela categoria e abre o modal de lista.
+function chartClickHandler(titlePrefix,filterFn){
+  return (evt,elements,chart)=>{
+    if(!elements.length) return;
+    const idx=elements[0].index;
+    const label=chart.data.labels[idx];
+    const matched=_rowsFull.filter(r=>filterFn(r,label));
+    openDetailModal(`${titlePrefix}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  };
 }
 
-// ── Descrição parsing ─────────────────────────────────────────────────────────
-function parseDesc(raw){
-  const text=String(raw||'').trim();
-  if(!text) return{intro:'',fields:[]};
-  const blocks=text.split(/\n{2,}/).map(b=>b.trim()).filter(Boolean);
-  const fields=[];let intro='';
-  for(const block of blocks){
-    const m=block.match(/^([^\n:]{1,80}):\s*\n([\s\S]+)$/);
-    if(m) fields.push({label:m[1].trim(),value:m[2].trim()});
-    else if(fields.length) fields[fields.length-1].value+=`\n${block}`;
-    else intro=intro?`${intro}\n${block}`:block;
-  }
-  return{intro,fields};
+// ── tendência ────────────────────────────────────────────────────────
+function bucketPorMes(rows){
+  const by={};
+  const get=mk=>{ by[mk]=by[mk]||{solic:0,rev:0,mrrRisco:0,mrrPerdido:0}; return by[mk]; };
+  rows.forEach(r=>{
+    if(r.criado_em){
+      const b=get(monthKeyOf(r.criado_em));
+      b.solic++;
+      if(isAberto(r)) b.mrrRisco+=parseMrr(r.mrr);
+    }
+    if(isRevertido(r)){
+      get(monthKeyOf(r.data_reversao)).rev++;
+    }
+    const dataPerda=r.data_rescisao||r.resolvido_em;
+    if(dataPerda&&FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)){
+      get(monthKeyOf(dataPerda)).mrrPerdido+=parseMrr(r.mrr);
+    }
+  });
+  return by;
 }
-function buildDesc(raw){
-  if(!raw) return `<div class="desc-box"><p class="desc-p" style="color:var(--t3)">Sem descrição registrada.</p></div>`;
-  const{intro,fields}=parseDesc(raw);
-  let inner;
-  if(!fields.length){
-    inner=`<p class="desc-p">${esc(raw)}</p>`;
-  } else {
-    const iHtml=intro?`<p class="desc-p" style="color:var(--t2);font-style:italic;margin-bottom:8px">${esc(intro)}</p>`:'';
-    inner=iHtml+`<div class="desc-dl">${fields.map(f=>`
-      <div><div class="desc-dt">${esc(f.label)}</div><div class="desc-dd">${esc(f.value)}</div></div>`).join('')}</div>`;
-  }
-  return `<div class="desc-box collapsed" id="_desc-box">${inner}<div class="desc-fade" id="_desc-fade"></div></div>
-          <button class="desc-toggle" id="_desc-tog" onclick="toggleDesc()">Ver tudo</button>`;
+function renderTrendChart(byMes){
+  destroyChart('trendChart');
+  const col=chartColors();
+  const yearFilVal=document.getElementById('f-year').value;
+  const meses=Object.keys(byMes).sort();
+  const chaves=yearFilVal
+    ? MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`)
+    : meses.slice(-12);
+  const labels=yearFilVal
+    ? MONTH_NAMES
+    : chaves.map(mk=>{ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
+  _charts.trendChart=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Solicitações',data:chaves.map(mk=>byMes[mk]?byMes[mk].solic:0),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
+        {label:'Revertidos',data:chaves.map(mk=>byMes[mk]?byMes[mk].rev:0),borderColor:col.green,backgroundColor:col.green+'26',fill:true,tension:.3,pointRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:col.t2}}},
+      scales:{
+        y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        x:{grid:{display:false},ticks:{color:col.t2}}
+      }
+    }
+  });
 }
-function toggleDesc(){
-  const box=document.getElementById('_desc-box');
-  const tog=document.getElementById('_desc-tog');
-  const fade=document.getElementById('_desc-fade');
-  if(!box) return;
-  const exp=box.classList.toggle('collapsed');
-  tog.textContent=exp?'Ver tudo':'Ver menos';
-  if(fade) fade.style.display=exp?'':'none';
+function renderMrrTrendChart(byMes){
+  destroyChart('mrrTrendChart');
+  const col=chartColors();
+  const yearFilVal=document.getElementById('f-year').value;
+  const meses=Object.keys(byMes).sort();
+  const chaves=yearFilVal
+    ? MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`)
+    : meses.slice(-12);
+  const labels=yearFilVal
+    ? MONTH_NAMES
+    : chaves.map(mk=>{ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
+  _charts.mrrTrendChart=new Chart(document.getElementById('mrrTrendChart'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'MRR em risco',data:chaves.map(mk=>byMes[mk]?Math.round(byMes[mk].mrrRisco):0),borderColor:col.slate,backgroundColor:col.slate+'26',fill:true,tension:.3,pointRadius:3},
+        {label:'MRR perdido',data:chaves.map(mk=>byMes[mk]?Math.round(byMes[mk].mrrPerdido):0),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:col.t2}}},
+      scales:{
+        y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,callback:v=>fmtMrrK(v)}},
+        x:{grid:{display:false},ticks:{color:col.t2}}
+      }
+    }
+  });
 }
 
-// ── Drawer ────────────────────────────────────────────────────────────────────
-function openDrawer(id){
-  const r=_rows.find(r=>String(r.ticket_id)===String(id));
-  if(!r) return;
-  const lk=locusKey(r.classificacao_locus);
-  const tot=Number(r.total_chamados_anteriores)||0;
-  const motivos=parseMotivos(r.motivo_churn);
-  const probs=Array.isArray(r.chamados_relacionados)?r.chamados_relacionados:[];
+// ── distribuição ─────────────────────────────────────────────────────
+function contarPor(rows,fn){
+  const by={};
+  rows.forEach(r=>{ const v=fn(r); if(!v) return; by[v]=(by[v]||0)+1; });
+  return by;
+}
+function renderDistribCharts(rows){
+  const col=chartColors();
 
-  // header icon
-  document.getElementById('d-ico').className=`dh-ico l-${lk}`;
-  document.getElementById('d-icon-sym').textContent=LOCUS_ICON[lk];
-  document.getElementById('d-org').textContent=r.organizacao||'Organização não informada';
-  document.getElementById('d-meta').textContent=`#${r.ticket_id} · ${fmtFull(r.criado_em)}`;
-  document.getElementById('d-sub').textContent=r.assunto_gcc||'';
-
-  // meta chips
-  const chips=[];
-  if(r.servico_gcc)      chips.push({sym:'category',    label:'Vertical',     val:r.servico_gcc});
-  if(r.servico_gcc_nome) chips.push({sym:'work',        label:'Serviço ticket',val:r.servico_gcc_nome});
-  if(r.classificacao_locus) chips.push({sym:'place',    label:'Locus',         val:r.classificacao_locus});
-  if(r.cf_24986)         chips.push({sym:'home',        label:'Locus interno', val:r.cf_24986});
-  if(r.cf_24523)         chips.push({sym:'public',      label:'Locus externo', val:r.cf_24523});
-  chips.push({sym:'history', label:'Chamados anteriores', val:String(tot)});
-
-  document.getElementById('d-chips').innerHTML=chips.map(c=>{
-    const long=c.val.length>40;
-    return `<div class="meta-chip${long?' mc-long':''}" ${long?'onclick="this.classList.toggle(\'mc-open\')"':''}>
-      <span class="sym">${c.sym}</span>
-      <div><span class="mc-l">${c.label}</span><span class="mc-v">${esc(c.val)}</span></div>
-    </div>`;
-  }).join('');
-
-  // reincidência warning
-  const warnEl=document.getElementById('d-warn');
-  if(tot>=3){
-    warnEl.style.display='flex';
-    document.getElementById('d-warn-t').textContent=`Reincidente — ${tot} chamados anteriores registrados`;
-  } else { warnEl.style.display='none'; }
-
-  // body sections
-  // 1. motivos churn
-  const churnsHtml=motivos.length?`<div>
-    <div class="sec-lbl"><span class="sym">flag</span>Motivos de churn</div>
-    <div style="display:flex;flex-direction:column;gap:7px">${motivos.map(m=>`
-      <div class="churn-item"><div class="churn-text">${esc(m)}</div></div>`).join('')}
-    </div>
-  </div>`:'';
-
-  // 2. chamados relacionados
-  const probsHtml=probs.length?`<div>
-    <div class="sec-lbl"><span class="sym">confirmation_number</span>Chamados que motivaram o GCC</div>
-    <div style="display:flex;flex-direction:column;gap:7px">${probs.map(p=>`
-      <div class="prob-item">
-        <div class="prob-text">${esc(p.motivo||'')}</div>
-        ${p.ticket_id?`<a class="prob-link" href="${ticketUrl(p.ticket_id)}" target="_blank" rel="noopener">#${esc(String(p.ticket_id))}</a>`:''}
-      </div>`).join('')}
-    </div>
-  </div>`:'';
-
-  // 3. descrição
-  const descHtml=`<div>
-    <div class="sec-lbl"><span class="sym">format_quote</span>Descrição do cliente</div>
-    ${buildDesc(r.descricao_gcc)}
-  </div>`;
-
-  // 4. análise
-  const analiseHtml=r.analise?`<div>
-    <div class="sec-lbl"><span class="sym">psychology</span>Análise</div>
-    <div style="display:flex;flex-direction:column;gap:10px">${buildAnalise(r.analise)}</div>
-  </div>`:'';
-
-  document.getElementById('d-body').innerHTML=churnsHtml+probsHtml+descHtml+analiseHtml+'<div id="_act-section"></div>';
-  loadDrawerActions(r.ticket_id,'gcc');
-
-  // collapse desc check
-  requestAnimationFrame(()=>{
-    const box=document.getElementById('_desc-box');
-    const tog=document.getElementById('_desc-tog');
-    const fade=document.getElementById('_desc-fade');
-    if(!box) return;
-    if(box.scrollHeight<=170){
-      box.classList.remove('collapsed');
-      if(fade) fade.style.display='none';
-    } else {
-      if(tog){tog.style.display='block';}
+  destroyChart('locusChart');
+  const porLocus=contarPor(rows,locusNorm);
+  const locusEntries=Object.entries(porLocus);
+  const locusTotal=locusEntries.reduce((s,[,n])=>s+n,0);
+  document.getElementById('locusCaption').textContent=locusTotal
+    ? locusEntries.map(([k,n])=>`${esc(k)} ${(n/locusTotal*100).toFixed(0)}%`).join(' · ')
+    : 'Sem dado no período.';
+  _charts.locusChart=new Chart(document.getElementById('locusChart'),{
+    type:'doughnut',
+    data:{labels:locusEntries.map(e=>e[0]),datasets:[{data:locusEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple]}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:false}},
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Locus',(r,label)=>locusNorm(r)===label),
     }
   });
 
-  // ticket link
-  document.getElementById('d-ticket-link').href=ticketUrl(r.ticket_id);
+  destroyChart('tipoRescChart');
+  const porTipo=contarPor(rows,tipoRescNorm);
+  const tipoEntries=Object.entries(porTipo);
+  const tipoTotal=tipoEntries.reduce((s,[,n])=>s+n,0);
+  document.getElementById('tipoRescCaption').textContent=tipoTotal
+    ? tipoEntries.map(([k,n])=>`${esc(k)} ${(n/tipoTotal*100).toFixed(0)}%`).join(' · ')
+    : 'Sem dado no período.';
+  _charts.tipoRescChart=new Chart(document.getElementById('tipoRescChart'),{
+    type:'doughnut',
+    data:{labels:tipoEntries.map(e=>e[0]),datasets:[{data:tipoEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple]}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:false}},
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Tipo de rescisão',(r,label)=>tipoRescNorm(r)===label),
+    }
+  });
 
-  // open
-  document.getElementById('gcc-backdrop').classList.add('open');
-  document.body.style.overflow='hidden';
+  destroyChart('parcialChart');
+  const parciais=rows.filter(r=>tipoRescNorm(r).toLowerCase()==='parcial');
+  const porParcial=contarPor(parciais,r=>(r.tipo_rescisao_parcial||'').trim());
+  const parcialEntries=Object.entries(porParcial);
+  const parcialTotal=parcialEntries.reduce((s,[,n])=>s+n,0);
+  document.getElementById('parcialCaption').textContent=parcialTotal
+    ? parcialEntries.map(([k,n])=>`${esc(k)} ${(n/parcialTotal*100).toFixed(0)}%`).join(' · ')
+    : 'Sem rescisão parcial no período.';
+  _charts.parcialChart=new Chart(document.getElementById('parcialChart'),{
+    type:'doughnut',
+    data:{labels:parcialEntries.map(e=>e[0]),datasets:[{data:parcialEntries.map(e=>e[1]),backgroundColor:[col.purple,col.green,col.slate]}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:false}},
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Rescisão parcial',(r,label)=>tipoRescNorm(r).toLowerCase()==='parcial'&&(r.tipo_rescisao_parcial||'').trim()===label),
+    }
+  });
 }
 
-function closeDrawer(){
-  document.getElementById('gcc-backdrop').classList.remove('open');
-  document.body.style.overflow='';
+// ── motivos por locus ────────────────────────────────────────────────
+function renderInternoExternoCharts(rows){
+  const col=chartColors();
+
+  destroyChart('internoChart');
+  const porInterno=contarPor(rows,r=>(r.cf_24986||'').trim());
+  const internoEntries=Object.entries(porInterno).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _charts.internoChart=new Chart(document.getElementById('internoChart'),{
+    type:'bar',
+    data:{labels:internoEntries.map(e=>e[0]),datasets:[{data:internoEntries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Locus interno',(r,label)=>(r.cf_24986||'').trim()===label),
+    }
+  });
+
+  destroyChart('externoChart');
+  const porExterno=contarPor(rows,r=>(r.cf_24523||'').trim());
+  const externoEntries=Object.entries(porExterno).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _charts.externoChart=new Chart(document.getElementById('externoChart'),{
+    type:'bar',
+    data:{labels:externoEntries.map(e=>e[0]),datasets:[{data:externoEntries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Locus externo',(r,label)=>(r.cf_24523||'').trim()===label),
+    }
+  });
 }
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
-document.addEventListener('DOMContentLoaded',()=>{ loadGcc(); checkSyncStatus(); });
+// ── vertical ─────────────────────────────────────────────────────────
+function renderVerticalCharts(rows){
+  const col=chartColors();
 
-// ── Sync de andamento ──────────────────────────────────────────────────────────
+  destroyChart('verticalChart');
+  const porVertical=contarPor(rows,r=>areaDoServico(r.servico_gcc));
+  const total=rows.length;
+  const vertEntries=Object.entries(porVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.verticalChart=new Chart(document.getElementById('verticalChart'),{
+    type:'bar',
+    data:{
+      labels:vertEntries.map(e=>e[0]),
+      datasets:[{data:vertEntries.map(e=>total?+(e[1]/total*100).toFixed(1):0),backgroundColor:col.orange,borderRadius:4}]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,callback:v=>v+'%'}},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Vertical',(r,label)=>areaDoServico(r.servico_gcc)===label),
+    }
+  });
+
+  destroyChart('mrrVerticalChart');
+  const perdidosRows=rows.filter(r=>FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r));
+  const mrrPorVertical={};
+  perdidosRows.forEach(r=>{
+    const v=areaDoServico(r.servico_gcc);
+    mrrPorVertical[v]=(mrrPorVertical[v]||0)+parseMrr(r.mrr);
+  });
+  const mrrVertEntries=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.mrrVerticalChart=new Chart(document.getElementById('mrrVerticalChart'),{
+    type:'bar',
+    data:{labels:mrrVertEntries.map(e=>e[0]),datasets:[{data:mrrVertEntries.map(e=>Math.round(e[1])),backgroundColor:col.orange,borderRadius:4}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,callback:v=>fmtMrrK(v)}},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('MRR perdido — vertical',(r,label)=>
+        FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)&&areaDoServico(r.servico_gcc)===label),
+    }
+  });
+}
+
+// ── ranking ──────────────────────────────────────────────────────────
+function renderModuleChart(rows){
+  destroyChart('moduleChart');
+  const col=chartColors();
+  const porModulo={};
+  rows.forEach(r=>{
+    if(!r.modulos) return;
+    String(r.modulos).split(',').map(s=>s.trim()).filter(Boolean).forEach(m=>{
+      porModulo[m]=(porModulo[m]||0)+1;
+    });
+  });
+  const entries=Object.entries(porModulo).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.moduleChart=new Chart(document.getElementById('moduleChart'),{
+    type:'bar',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Módulo',(r,label)=>String(r.modulos||'').split(',').map(s=>s.trim()).includes(label)),
+    }
+  });
+}
+function renderTopClientChart(rows){
+  destroyChart('topClientChart');
+  const col=chartColors();
+  const porCliente=contarPor(rows,r=>r.organizacao||'Não informado');
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
+    type:'bar',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Cliente',(r,label)=>(r.organizacao||'Não informado')===label),
+    }
+  });
+}
+
+// ── painéis de ação ──────────────────────────────────────────────────
+function renderBaixaReversaoTable(rows){
+  const tbody=document.getElementById('tbl-baixa-reversao');
+  const porCliente={};
+  rows.forEach(r=>{
+    const o=r.organizacao||'Não informado';
+    porCliente[o]=porCliente[o]||{casos:0,rev:0};
+    porCliente[o].casos++;
+    if(isRevertido(r)) porCliente[o].rev++;
+  });
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1].casos-a[1].casos).slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(([org,v])=>{
+    const pct=v.casos?v.rev/v.casos*100:0;
+    return `
+    <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
+      <td>${esc(org)}</td>
+      <td class="num">${v.casos}</td>
+      <td class="num${pct<30?' bad':''}">${pct.toFixed(0)}%</td>
+    </tr>`;
+  }).join('');
+}
+function openClienteTicketsModal(org){
+  const matched=_rowsFull.filter(r=>(r.organizacao||'Não informado')===org);
+  openDetailModal(`Casos: ${org}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+}
+
+function renderCriticosVencidosTable(rows){
+  const tbody=document.getElementById('tbl-criticos-vencidos');
+  const entries=rows
+    .map(r=>({...r,diasVenc:diasVencido(r)}))
+    .sort((a,b)=>b.diasVenc-a.diasVenc)
+    .slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso crítico vencido no período filtrado.</td></tr>`; return; }
+  entries.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+  tbody.innerHTML=entries.map(r=>`
+    <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
+      <td>${esc(r.organizacao||'Não informado')}</td>
+      <td>${esc(areaDoServico(r.servico_gcc))}</td>
+      <td class="num bad">${r.diasVenc}</td>
+    </tr>`).join('');
+}
+function scrollToCriticosVencidos(){
+  document.getElementById('painel-criticos-vencidos').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function renderTopMrrRiscoTable(rows){
+  const tbody=document.getElementById('tbl-top-mrr-risco');
+  const abertos=rows.filter(isAberto);
+  const porCliente={};
+  abertos.forEach(r=>{
+    const o=r.organizacao||'Não informado';
+    porCliente[o]=porCliente[o]||{mrr:0,tickets:[]};
+    porCliente[o].mrr+=parseMrr(r.mrr);
+    porCliente[o].tickets.push(r);
+  });
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1].mrr-a[1].mrr).slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso em aberto no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(([org,v])=>{
+    const statusTxt=v.tickets.length===1
+      ? (v.tickets[0].status_movidesk||v.tickets[0].base_status||'—')
+      : `${v.tickets.length} casos`;
+    return `
+    <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
+      <td>${esc(org)}</td>
+      <td class="num bad">${fmtMrrFull(v.mrr)}</td>
+      <td class="num">${esc(statusTxt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── sync ─────────────────────────────────────────────────────────────
 let _syncPoll=null;
-
 function showToast(txt,prog){
   document.getElementById('sync-toast-txt').textContent=txt;
   document.getElementById('sync-toast-prog').textContent=prog||'';
@@ -1238,7 +1286,6 @@ async function startSync(){
     pollSyncStatus();
   }catch(e){
     if(e.message==='HTTP 409'){
-      // Loader já em andamento — apenas acompanha o progresso
       showToast('Carga já em andamento…','Acompanhando progresso');
       pollSyncStatus();
     } else {
@@ -1248,12 +1295,10 @@ async function startSync(){
     }
   }
 }
-
 function pollSyncStatus(){
   if(_syncPoll) clearInterval(_syncPoll);
   _syncPoll=setInterval(checkSyncStatus,2000);
 }
-
 async function checkSyncStatus(){
   try{
     const s=await apiFetch('/loader/status','GET');
@@ -1279,7 +1324,6 @@ async function checkSyncStatus(){
     }
   }catch{ /* ignora erros de polling */ }
 }
-
 async function apiFetch(path,method='GET'){
   const token=localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
   const r=await fetch(`${window.location.origin}/api${path}`,{
@@ -1289,111 +1333,8 @@ async function apiFetch(path,method='GET'){
   return r.json();
 }
 
-// ── Ações e campos personalizados do Movidesk ────────────────────────
-const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
-const TL_COLLAPSED=4; // ações visíveis antes de expandir
-
-// Mapa estático de IDs → nomes (fallback quando a API /customFields falha)
-const STATIC_CF_NAMES={
-  22000:'Tipo de Manifesto',22003:'Manifesto Procedente',23946:'Classificação de Ticket',
-  24523:'GCC - Locus Externo',24986:'GCC - Locus Interno',26214:'GCC - MRR',26215:'GCC - Data',
-  38595:'Manifesto direcionado a',43724:'GCC - Data Rescisão',58049:'GCC - Data Reversão',
-  59012:'GCC - Real Motivo',61982:'GCC - Tipo de Locus',67575:'AC - 2020 (R$)',
-  67576:'AC - 2021 (R$)',67577:'AC - Acordado (R$)',71424:'Valor do AC',
-  72413:'A eficácia do serviço foi atendida?',78145:'GCC - Data Rescisão Programada',
-  79437:'Ouvidoria: Ação tomada',80108:'Ouvidoria: Tipo de acesso',
-  87894:'GCC - Tipo Rescisão',92847:'GCC - MRR pós churn',94219:'GCC - Data do Contrato',
-  96401:'GCC - Sistema Que Irá Utilizar',98697:'GCC - Verticais Insatisfação',
-  98699:'Observação - Inteligência de mercado',102445:'GCC - Data Solicitação de Rescisão',
-  151926:'GCC - Produto',172975:'Agente da Ouvidoria',
-  216954:'GCC - Tipo de Rescisão Parcial',216958:'GCC - Módulos',240113:'Analise IA',
-  37169:'Analista/Desenvolvedor responsável',54937:'Consultor Atendimento',
-  71417:'Situação da Melhoria',71427:'Case de sucesso?',71461:'Valor - AC',
-  71486:'Atendimento Financeiro',72103:'Cidade',73907:'Bug procedente?',
-  77260:'Triagem Acertou Urgência?',77281:'Analista de Triagem',77399:'Atendimento em plantão?',
-  83250:'Classificação de Recusa',148916:'Causa',173931:'Triagem Automática',
-  180036:'Caracteristica do Atendimento',185288:'Urgência Raiz',
-  224107:'Motivo da Insatisfação:',224109:'Motivo da Improcedência:',
-  227770:'Departamento',227833:'Motivo da Improcedência Reabertura:',
-  227837:'Motivo da procedência Reabertura:',230757:'Área que Reportou',
-  230908:'Equipe Responsável',230909:'Atendentes Envolvidos',
-  239481:'Sentimento:',239482:'Satisfação:',245078:'ID NLU',245945:'Origem',
-};
-
-function tlDot(type,isPrivate){
-  if(isPrivate) return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">lock</span></div>`;
-  if(type===1)  return `<div class="tl-dot tp-client"><span class="sym" style="font-size:15px">person</span></div>`;
-  if(type===2)  return `<div class="tl-dot tp-agent"><span class="sym" style="font-size:15px">support_agent</span></div>`;
-  if(type===3)  return `<div class="tl-dot tp-internal"><span class="sym" style="font-size:15px">sticky_note_2</span></div>`;
-  return `<div class="tl-dot tp-auto"><span class="sym" style="font-size:15px">settings</span></div>`;
-}
-
-function tlItem(a){
-  const author=a.createdBy?(a.createdBy.businessName||a.createdBy.email||'Sistema'):'Sistema';
-  const label=a.isPrivate?'Nota interna':(ACTION_TYPE[a.type]||`Tipo ${a.type}`);
-  const statusBadge=a.status?`<span class="tl-badge">${esc(a.status)}</span>`:'';
-  return `<div class="tl-item" onclick="this.classList.toggle('tl-open')">
-    ${tlDot(a.type,a.isPrivate)}
-    <div style="min-width:0">
-      <div class="tl-meta">
-        <span class="tl-author">${esc(author)}</span>
-        <span class="tl-date">${fmtFull(a.createdDate||a.date)}</span>
-        <span class="tl-badge">${label}</span>
-        ${statusBadge}
-      </div>
-      <div class="tl-desc">${a.description||''}</div>
-      <div class="tl-toggle"><span class="sym">expand_more</span>Ver completo</div>
-    </div>
-  </div>`;
-}
-
-function renderActions(data){
-  const actions=(data.actions||[]);
-  const fieldDefs=data.fieldDefs||{};
-  // só exibe campos com valor real preenchido
-  const cfItems=(data.customFieldValues||[]).reduce((acc,f)=>{
-    const val=String(f.value||'').trim()||
-      (f.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
-    if(!val) return acc;
-    const name=fieldDefs[String(f.customFieldId)]||STATIC_CF_NAMES[f.customFieldId]||null;
-    if(!name) return acc; // sem nome conhecido, não exibe
-    acc.push({name,val});
-    return acc;
-  },[]);
-  let html='';
-
-  if(cfItems.length){
-    html+=`<div>
-      <div class="sec-lbl"><span class="sym">tune</span>Campos personalizados</div>
-      <div class="cf-grid">${cfItems.map(f=>
-        `<div class="cf-item"><span class="cf-lbl">${esc(f.name)}</span><span class="cf-val">${esc(f.val)}</span></div>`
-      ).join('')}</div>
-    </div>`;
-  }
-
-  if(actions.length){
-    const visible=actions.slice(0,TL_COLLAPSED);
-    const hidden=actions.slice(TL_COLLAPSED);
-    const moreBtn=hidden.length?`<button class="tl-expand-btn" onclick="this.previousElementSibling.innerHTML+=\`${hidden.map(tlItem).join('').replace(/`/g,'\\`')}\`;this.remove()">
-      <span class="sym">expand_more</span>Ver mais ${hidden.length} ação${hidden.length===1?'':'ões'}
-    </button>`:'';
-    html+=`<div>
-      <div class="sec-lbl"><span class="sym">history</span>Histórico (${actions.length} ações)</div>
-      <div class="tl-list">${visible.map(tlItem).join('')}</div>
-      ${moreBtn}
-    </div>`;
-  }
-  return html;
-}
-
-function loadDrawerActions(ticketId,prefix){
-  const sec=document.getElementById('_act-section');
-  if(!sec) return;
-  sec.innerHTML='<div class="tl-loading"><span class="sym">hourglass_empty</span>Carregando ações…</div>';
-  apiFetch(`/${prefix}/${ticketId}/actions`).then(data=>{
-    sec.innerHTML=renderActions(data)||'';
-  }).catch(()=>{ sec.innerHTML=''; });
-}
+// ── boot ─────────────────────────────────────────────────────────────
+loadGcc();
 </script>
 </body>
 </html>

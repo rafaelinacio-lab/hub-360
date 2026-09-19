@@ -17,6 +17,9 @@ const CF_DATA_RESCISAO  = 43724; // GCC - Data Rescisão
 const CF_DATA_REVERSAO  = 58049; // GCC - Data Reversão
 const CF_REAL_MOTIVO    = 59012; // GCC - Real Motivo
 const CF_TIPO_LOCUS     = 61982; // GCC - Tipo de Locus
+const CF_TIPO_RESCISAO  = 87894;  // GCC - Tipo Rescisão (Total/Parcial)
+const CF_TIPO_RESC_PARC = 216954; // GCC - Tipo de Rescisão Parcial (Módulos/Usuários)
+const CF_MODULOS        = 216958; // GCC - Módulos
 
 // ===== GET /gcc =====
 router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
@@ -36,10 +39,17 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         MAX(CASE WHEN cf.custom_field_id = ${CF_DATA_MRR}      THEN cf.valor_texto END) AS data_mrr,
         MAX(CASE WHEN cf.custom_field_id = ${CF_DATA_RESCISAO} THEN cf.valor_texto END) AS data_rescisao,
         MAX(CASE WHEN cf.custom_field_id = ${CF_DATA_REVERSAO} THEN cf.valor_texto END) AS data_reversao,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_RESCISAO}  THEN cf.valor_texto END) AS tipo_rescisao,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_RESC_PARC} THEN cf.valor_texto END) AS tipo_rescisao_parcial,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_MODULOS}        THEN cf.valor_texto END) AS modulos,
         t.createddate   AS criado_em,
         t.status        AS status_movidesk,
         t.basestatus    AS base_status,
-        t.resolved_in   AS resolvido_em
+        t.resolved_in   AS resolvido_em,
+        t.owner_name    AS responsavel,
+        t.urgency       AS urgencia,
+        t.sla_solution_date AS sla_solucao,
+        COALESCE(ac.n, 0) AS acoes_count
       FROM silver.ticket t
       JOIN silver.ticket_campo_customizado cf_class
         ON cf_class.ticket_id = t.ticket_id
@@ -52,8 +62,12 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         WHERE ticket_id = t.ticket_id
         LIMIT 1
       ) tc ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS n FROM silver.ticket_acao WHERE ticket_id = t.ticket_id
+      ) ac ON true
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
-               t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in
+               t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in,
+               t.owner_name, t.urgency, t.sla_solution_date, ac.n
       ORDER BY t.createddate DESC
     `);
     res.json(result.rows || []);
@@ -126,6 +140,7 @@ const STATIC_CF_NAMES = {
   24523: 'GCC - Locus Externo', 24986: 'GCC - Locus Interno', 26214: 'GCC - MRR', 26215: 'GCC - Data',
   38595: 'Manifesto direcionado a', 43724: 'GCC - Data Rescisão', 58049: 'GCC - Data Reversão',
   59012: 'GCC - Real Motivo', 61982: 'GCC - Tipo de Locus',
+  87894: 'GCC - Tipo Rescisão', 216954: 'GCC - Tipo de Rescisão Parcial', 216958: 'GCC - Módulos',
 };
 
 router.get('/:ticketId/actions', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
