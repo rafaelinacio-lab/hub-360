@@ -164,6 +164,14 @@ body::-webkit-scrollbar {
        combinar com o resto da identidade visual em vez de um tom à parte. */
     --topbar-bg-top: #10b981;
     --topbar-bg-bottom: #059669;
+    /* Header "vidro fosco": superfície translúcida + blur, item ativo
+       marcado por sublinhado na cor da marca em vez de pílula sólida. */
+    --topbar-bg: rgba(255, 255, 255, 0.72);
+    --topbar-border: rgba(15, 23, 42, 0.08);
+    --topbar-hover: rgba(16, 185, 129, 0.10);
+    --topbar-icon: #64748b;
+    --topbar-action-bg: rgba(15, 23, 42, 0.06);
+    --topbar-action-hover: rgba(15, 23, 42, 0.10);
 
     /* Crítica */
     --red-bg: #fcebeb;
@@ -199,6 +207,12 @@ body::-webkit-scrollbar {
     --section-text: #e8e8e2;
     --topbar-bg-top: #10b981;
     --topbar-bg-bottom: #059669;
+    --topbar-bg: rgba(26, 29, 39, 0.62);
+    --topbar-border: rgba(255, 255, 255, 0.08);
+    --topbar-hover: rgba(16, 185, 129, 0.16);
+    --topbar-icon: #9b9b92;
+    --topbar-action-bg: rgba(255, 255, 255, 0.08);
+    --topbar-action-hover: rgba(255, 255, 255, 0.14);
 
     --red-bg: #2d1515;
     --red-mid: #e24b4a;
@@ -223,17 +237,21 @@ body::-webkit-scrollbar {
 }
 
 /* ===== Top Navigation Bar ===== */
+/* Header "vidro fosco": superfície translúcida com blur sobre o conteúdo
+   que rola por baixo (a barra é sticky), em vez do verde sólido antigo. */
 .topbar {
     display: flex;
     align-items: center;
-    background: linear-gradient(180deg, var(--topbar-bg-top), var(--topbar-bg-bottom));
+    background: var(--topbar-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     padding: 0 28px;
     height: 60px;
     flex-shrink: 0;
     position: sticky;
     top: 0;
     z-index: 100;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid var(--topbar-border);
 }
 
 .topbar-nav {
@@ -241,7 +259,7 @@ body::-webkit-scrollbar {
     align-items: center;
     justify-content: center;
     height: 100%;
-    gap: 6px;
+    gap: 2px;
     flex: 1;
     overflow-x: auto;
     position: relative;
@@ -251,11 +269,12 @@ body::-webkit-scrollbar {
    em JS (initTopbarHoverPill, em script.js) a cada mouseenter num botão. */
 .topbar-hover-pill {
     position: absolute;
-    top: 50%;
-    height: 38px;
-    transform: translateY(-50%);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
+    top: 8px;
+    bottom: 8px;
+    height: auto;
+    transform: none;
+    border-radius: 8px;
+    background: var(--topbar-hover);
     opacity: 0;
     pointer-events: none;
     z-index: 1;
@@ -263,39 +282,41 @@ body::-webkit-scrollbar {
 }
 
 .sidebar-btn {
-    align-self: center;
-    height: 38px;
+    align-self: stretch;
+    height: 100%;
     width: auto;
     border: none;
-    border-radius: 999px;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
     background: transparent;
-    color: rgba(255, 255, 255, 0.82);
+    color: var(--topbar-icon);
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 18px;
+    padding: 0 16px;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
     position: relative;
     z-index: 2;
-    transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease;
 }
 
 .sidebar-btn:hover {
-    color: #fff;
+    color: var(--text);
 }
 
 .sidebar-btn.active {
-    background: var(--surface);
-    color: var(--topbar-bg-bottom);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background: transparent;
+    color: var(--logo-color);
+    border-bottom-color: var(--logo-color);
+    box-shadow: none;
 }
 
 .sidebar-btn.active:hover {
-    background: var(--surface);
-    color: var(--topbar-bg-bottom);
+    background: transparent;
+    color: var(--logo-color);
 }
 
 .sidebar-btn svg {
@@ -324,13 +345,15 @@ body::-webkit-scrollbar {
     width: 38px;
     padding: 0;
     justify-content: center;
+    border: none;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
+    background: var(--topbar-action-bg);
+    color: var(--topbar-icon);
 }
 
 .topbar-actions .sidebar-btn:hover {
-    background: rgba(255, 255, 255, 0.22);
+    background: var(--topbar-action-hover);
+    color: var(--text);
 }
 
 .ui-switch {
