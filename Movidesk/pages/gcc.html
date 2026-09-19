@@ -346,19 +346,38 @@ body.modal-open{overflow:hidden}
 .btn-open-ticket:hover{opacity:.9}
 
 /* ─── Mapa do Brasil (clientes perdidos por estado) ─────────────────── */
-#statesMapWrap{max-width:520px;margin:0 auto}
+.map-row{display:flex;gap:20px;align-items:flex-start}
+#statesMapWrap{flex:1.4;min-width:0}
 #statesMapWrap svg{width:100%;height:auto;display:block}
 .br-state{stroke:var(--surface);stroke-width:1.2;cursor:pointer;transition:opacity .12s}
 .br-state:hover{opacity:.75}
-.br-state.empty{cursor:default}
-.br-state.empty:hover{opacity:1}
+.br-state-label{pointer-events:none;font-weight:700;text-anchor:middle}
+.br-state-label.halo{stroke:var(--surface);stroke-width:2.6;stroke-linejoin:round}
+.br-state-label.uf{fill:var(--t1)}
+.br-state-label.count{fill:var(--t1);font-weight:600}
+.br-state-label.count.zero{fill:var(--t3);font-weight:400}
+
 .map-legend{
-  display:flex;align-items:center;justify-content:center;gap:14px;
-  flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--t3);
+  flex:0 0 190px;display:flex;flex-direction:column;gap:10px;
+  font-size:11.5px;color:var(--t2);padding-top:4px;
 }
-.map-legend .scale{display:flex;align-items:center;gap:6px}
-.map-legend .swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0}
-.map-legend .top-item{display:flex;align-items:center;gap:5px;font-weight:600;color:var(--t2)}
+.map-legend .scale-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t3)}
+.map-legend .scale-bar{
+  flex:1;height:10px;border-radius:5px;
+  background:linear-gradient(to right,var(--surface-mid),var(--orange));
+}
+.map-legend .rank-list{display:flex;flex-direction:column;gap:1px;max-height:260px;overflow-y:auto}
+.map-legend .rank-item{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:5px 7px;border-radius:6px;cursor:pointer;font-size:12px;
+}
+.map-legend .rank-item:hover{background:var(--surface-mid)}
+.map-legend .rank-item .uf{font-weight:700;color:var(--t1)}
+.map-legend .rank-item .n{font-variant-numeric:tabular-nums;color:var(--t2)}
+@media (max-width:760px){
+  .map-row{flex-direction:column}
+  .map-legend{flex:none;width:100%}
+}
 </style>
 </head>
 <body>
@@ -545,8 +564,10 @@ body.modal-open{overflow:hidden}
     <div class="chart-panel">
       <p class="chart-title">Mapa de clientes perdidos (rescisão finalizada, sem reversão)</p>
       <p class="chart-sub" id="mapSub"></p>
-      <div id="statesMapWrap"></div>
-      <div class="map-legend" id="mapLegend"></div>
+      <div class="map-row">
+        <div id="statesMapWrap"></div>
+        <div class="map-legend" id="mapLegend"></div>
+      </div>
     </div>
 
     <p class="section-label">Ranking</p>
@@ -1322,17 +1343,33 @@ function renderStatesMap(rows){
   const vb=_mapData.viewBox;
   const paths=_mapData.states.map(s=>{
     const count=porUf[s.sigla]||0;
-    const cls=count?'br-state':'br-state empty';
     const title=`${esc(s.name)} (${s.sigla}): ${count} cliente${count===1?'':'s'} perdido${count===1?'':'s'}`;
-    return `<path class="${cls}" d="${s.d}" fill="${mapColor(count,max)}" data-uf="${s.sigla}" onclick="openEstadoTicketsModal('${s.sigla}','${escAttr(s.name)}')"><title>${title}</title></path>`;
+    return `<path class="br-state" d="${s.d}" fill="${mapColor(count,max)}" data-uf="${s.sigla}" onclick="openEstadoTicketsModal('${s.sigla}','${escAttr(s.name)}')"><title>${title}</title></path>`;
   }).join('');
-  wrap.innerHTML=`<svg viewBox="${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
+  // rótulos com halo (2 <text> sobrepostos: contorno branco atrás, texto na
+  // frente) — mais confiável entre navegadores do que paint-order pra manter
+  // a sigla/contagem legível em qualquer cor de fundo do estado.
+  const labels=_mapData.states.map(s=>{
+    const count=porUf[s.sigla]||0;
+    const ufY=s.cy-2, countY=s.cy+6.5;
+    return `
+      <text class="br-state-label halo" x="${s.cx}" y="${ufY}" font-size="7.5">${s.sigla}</text>
+      <text class="br-state-label halo" x="${s.cx}" y="${countY}" font-size="6.5">${count}</text>
+      <text class="br-state-label uf" x="${s.cx}" y="${ufY}" font-size="7.5">${s.sigla}</text>
+      <text class="br-state-label count${count?'':' zero'}" x="${s.cx}" y="${countY}" font-size="6.5">${count}</text>`;
+  }).join('');
+  wrap.innerHTML=`<svg viewBox="${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}" xmlns="http://www.w3.org/2000/svg">${paths}${labels}</svg>`;
 
-  const top3=Object.entries(porUf).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const ranked=Object.entries(porUf).sort((a,b)=>b[1]-a[1]);
+  const nomePorUf=Object.fromEntries(_mapData.states.map(s=>[s.sigla,s.name]));
   legend.innerHTML=`
-    <div class="scale"><span class="swatch" style="background:${cssVar('--surface-mid')}"></span>0</div>
-    <div class="scale"><span class="swatch" style="background:${mapColor(max,max)}"></span>${max||0}${max?' (máx.)':''}</div>
-    ${top3.map(([uf,n])=>`<span class="top-item">${esc(uf)}: ${n}</span>`).join('')}
+    <div class="scale-row"><span>0</span><span class="scale-bar"></span><span>${max||0}</span></div>
+    <div class="rank-list">
+      ${ranked.length?ranked.map(([uf,n])=>`
+        <div class="rank-item" onclick="openEstadoTicketsModal('${uf}','${escAttr(nomePorUf[uf]||uf)}')">
+          <span class="uf">${esc(uf)}</span><span class="n">${n}</span>
+        </div>`).join(''):'<p class="td-empty">Nenhum estado com dado no período.</p>'}
+    </div>
   `;
 }
 function openEstadoTicketsModal(uf,nome){
