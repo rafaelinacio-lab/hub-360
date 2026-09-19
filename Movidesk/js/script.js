@@ -32,15 +32,52 @@ const EMBED_PAGE_ROUTES = {
 
 // ─── Animação de transição: ícone da aba clicada "voa" até o centro do
 // conteúdo, pulsa com um anel de destaque e desaparece revelando a página.
+// Fundo opaco cobre TUDO por baixo (aba antiga + nova carregando) até a
+// animação terminar — só então o overlay some e revela o conteúdo.
+const TAB_FX_FADE_IN  = 180;  // overlay vira opaco
+const TAB_FX_HOLD_END = 1500; // overlay começa a sumir
+const TAB_FX_TOTAL    = 1900; // overlay totalmente transparente de novo
+
 function playTabIconTransition(view) {
-    const btn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
-    const svg = btn && btn.querySelector('svg');
     const main = document.querySelector('.main-content');
-    if (!svg || !main) return;
+    if (!main) return;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const startRect = svg.getBoundingClientRect();
     const mainRect = main.getBoundingClientRect();
+    const overlay = document.createElement('div');
+    overlay.className = 'tab-fx-overlay';
+    overlay.style.left = `${mainRect.left}px`;
+    overlay.style.top = `${mainRect.top}px`;
+    overlay.style.width = `${mainRect.width}px`;
+    overlay.style.height = `${mainRect.height}px`;
+    document.body.appendChild(overlay);
+
+    overlay.animate(
+        [
+            { opacity: 0, offset: 0 },
+            { opacity: 1, offset: TAB_FX_FADE_IN / TAB_FX_TOTAL },
+            { opacity: 1, offset: TAB_FX_HOLD_END / TAB_FX_TOTAL },
+            { opacity: 0, offset: 1 },
+        ],
+        { duration: TAB_FX_TOTAL, easing: 'ease', fill: 'forwards' }
+    );
+
+    if (view === 'gcc') {
+        playGccArrowDraw(mainRect);
+    } else {
+        playIconFly(view, mainRect);
+    }
+
+    setTimeout(() => overlay.remove(), TAB_FX_TOTAL + 80);
+}
+
+// Voo genérico do ícone da aba clicada até o centro da tela.
+function playIconFly(view, mainRect) {
+    const btn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
+    const svg = btn && btn.querySelector('svg');
+    if (!svg) return;
+
+    const startRect = svg.getBoundingClientRect();
     const cx = mainRect.left + mainRect.width / 2;
     const cy = mainRect.top + mainRect.height / 2;
     const startCx = startRect.left + startRect.width / 2;
@@ -48,18 +85,13 @@ function playTabIconTransition(view) {
     const dx = cx - startCx;
     const dy = cy - startCy;
     const bigScale = 92 / startRect.width;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'tab-fx-overlay';
-    overlay.style.left = `${mainRect.left}px`;
-    overlay.style.top = `${mainRect.top}px`;
-    overlay.style.width = `${mainRect.width}px`;
-    overlay.style.height = `${mainRect.height}px`;
+    const delay = TAB_FX_FADE_IN;
 
     const ring = document.createElement('div');
     ring.className = 'tab-fx-ring';
     ring.style.left = `${cx}px`;
     ring.style.top = `${cy}px`;
+    ring.style.opacity = '0';
 
     const icon = document.createElement('div');
     icon.className = 'tab-fx-icon';
@@ -68,40 +100,89 @@ function playTabIconTransition(view) {
     icon.style.top = `${startRect.top}px`;
     icon.style.width = `${startRect.width}px`;
     icon.style.height = `${startRect.height}px`;
+    icon.style.opacity = '0';
 
-    document.body.appendChild(overlay);
     document.body.appendChild(ring);
     document.body.appendChild(icon);
-
-    const cleanup = () => { overlay.remove(); ring.remove(); icon.remove(); };
-
-    overlay.animate(
-        [{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }],
-        { duration: 700, easing: 'ease' }
-    );
 
     ring.animate(
         [
             { transform: 'translate(-50%,-50%) scale(0)', opacity: 0.5, offset: 0 },
-            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.35, offset: 0.35 },
-            { transform: 'translate(-50%,-50%) scale(2.4)', opacity: 0, offset: 1 },
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.35, offset: 0.4 },
+            { transform: 'translate(-50%,-50%) scale(2.6)', opacity: 0, offset: 1 },
         ],
-        { duration: 700, easing: 'cubic-bezier(.16,1,.3,1)' }
+        { duration: 900, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
     );
 
-    const anim = icon.animate(
+    icon.animate(
         [
-            { transform: 'translate(0,0) scale(1) rotate(0deg)', offset: 0 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(-10deg)`, offset: 0.35 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 1.08}) rotate(4deg)`, offset: 0.55 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(0deg)`, offset: 0.72 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 0.4}) rotate(10deg)`, opacity: 0, offset: 1 },
+            { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1, offset: 0 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(-10deg)`, opacity: 1, offset: 0.45 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 1.1}) rotate(4deg)`, opacity: 1, offset: 0.68 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(0deg)`, opacity: 1, offset: 0.85 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 0.5}) rotate(8deg)`, opacity: 0, offset: 1 },
         ],
-        { duration: 700, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
+        { duration: 1000, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
     );
-    anim.onfinish = cleanup;
-    // fallback caso onfinish não dispare (aba trocada de novo no meio, etc.)
-    setTimeout(cleanup, 900);
+
+    setTimeout(() => { ring.remove(); icon.remove(); }, TAB_FX_TOTAL + 80);
+}
+
+// GCC: a setinha de queda (trending down) é desenhada traço a traço no
+// centro da tela, em vez de voar — pedido explícito pra essa aba.
+function playGccArrowDraw(mainRect) {
+    const cx = mainRect.left + mainRect.width / 2;
+    const cy = mainRect.top + mainRect.height / 2;
+    const size = 120;
+    const delay = TAB_FX_FADE_IN;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'tab-fx-draw';
+    wrap.style.left = `${cx - size / 2}px`;
+    wrap.style.top = `${cy - size / 2}px`;
+    wrap.style.width = `${size}px`;
+    wrap.style.height = `${size}px`;
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+
+    const line = document.createElementNS(NS, 'path');
+    line.setAttribute('d', 'M10 22 L38 46 L58 30 L88 64');
+    const arrow = document.createElementNS(NS, 'path');
+    arrow.setAttribute('d', 'M88 40 L88 64 L64 64');
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', '88');
+    dot.setAttribute('cy', '64');
+    dot.setAttribute('r', '0');
+
+    svg.appendChild(line);
+    svg.appendChild(arrow);
+    svg.appendChild(dot);
+    wrap.appendChild(svg);
+    document.body.appendChild(wrap);
+
+    const lineLen = line.getTotalLength();
+    const arrowLen = arrow.getTotalLength();
+    line.style.strokeDasharray = String(lineLen);
+    line.style.strokeDashoffset = String(lineLen);
+    arrow.style.strokeDasharray = String(arrowLen);
+    arrow.style.strokeDashoffset = String(arrowLen);
+
+    line.animate(
+        [{ strokeDashoffset: lineLen }, { strokeDashoffset: 0 }],
+        { duration: 600, delay, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
+    );
+    arrow.animate(
+        [{ strokeDashoffset: arrowLen }, { strokeDashoffset: 0 }],
+        { duration: 280, delay: delay + 600, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
+    );
+    dot.animate(
+        [{ r: 0, opacity: 0.9 }, { r: 6, opacity: 0 }],
+        { duration: 400, delay: delay + 880, easing: 'ease-out', fill: 'forwards' }
+    );
+
+    setTimeout(() => wrap.remove(), TAB_FX_TOTAL + 80);
 }
 
 // ─── Bolha de hover que acompanha o mouse entre as abas do menu superior ───
