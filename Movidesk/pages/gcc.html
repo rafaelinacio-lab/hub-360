@@ -654,13 +654,11 @@ function isVencido(r){
 function diasVencido(r){
   return Math.floor((Date.now()-new Date(r.sla_solucao).getTime())/86400000);
 }
-// "Vertical" — primeiro segmento do serviço hierárquico do ticket (mesmo
-// padrão usado na área da Ouvidoria), já que não há um campo de vertical
-// confiável nos custom fields do GCC.
-function areaDoServico(servico){
-  if(!servico) return 'Não informado';
-  return String(servico).split('>')[0].trim();
-}
+// "Vertical" — CF 98697 (GCC - Verticais Insatisfação). Confirmado com dado
+// real (ticket 900840 = "Agrotitan"). Não dá pra derivar de service_full: o
+// primeiro segmento do serviço é sempre "GCC" (o próprio departamento), não
+// o produto/vertical do cliente.
+function verticalDe(r){ return (r.vertical||'').trim()||'Não informado'; }
 function monthKeyOf(d){
   const dt=new Date(d);
   return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
@@ -691,6 +689,11 @@ function fmtMrrK(v){
 function fmtMrrFull(v){ return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`; }
 
 function tipoRescNorm(r){ return (r.tipo_rescisao||'').trim(); }
+// O valor real do CF 87894 é "Rescisão Total"/"Rescisão Parcial" (confirmado
+// com dado real do Movidesk), não "Total"/"Parcial" soltos — por isso usa
+// includes() em vez de igualdade exata.
+function ehRescisaoTotal(r){ return tipoRescNorm(r).toLowerCase().includes('total'); }
+function ehRescisaoParcial(r){ return tipoRescNorm(r).toLowerCase().includes('parcial'); }
 function locusNorm(r){ return (r.classificacao_locus||'').trim(); }
 
 // ── state ────────────────────────────────────────────────────────────
@@ -819,8 +822,8 @@ function render(){
   rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
 
   // ── Totais do período ──
-  const rescTotal=rowsFull.filter(r=>tipoRescNorm(r).toLowerCase()==='total').length;
-  const rescParcial=rowsFull.filter(r=>tipoRescNorm(r).toLowerCase()==='parcial').length;
+  const rescTotal=rowsFull.filter(ehRescisaoTotal).length;
+  const rescParcial=rowsFull.filter(ehRescisaoParcial).length;
   const revertidos=rowsFull.filter(isRevertido).length;
   const totalSolic=rowsFull.length;
   const taxaReversao=totalSolic?revertidos/totalSolic*100:0;
@@ -1132,7 +1135,7 @@ function renderDistribCharts(rows){
   });
 
   destroyChart('parcialChart');
-  const parciais=rows.filter(r=>tipoRescNorm(r).toLowerCase()==='parcial');
+  const parciais=rows.filter(r=>ehRescisaoParcial(r));
   const porParcial=contarPor(parciais,r=>(r.tipo_rescisao_parcial||'').trim());
   const parcialEntries=Object.entries(porParcial);
   const parcialTotal=parcialEntries.reduce((s,[,n])=>s+n,0);
@@ -1146,7 +1149,7 @@ function renderDistribCharts(rows){
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Rescisão parcial',(r,label)=>tipoRescNorm(r).toLowerCase()==='parcial'&&(r.tipo_rescisao_parcial||'').trim()===label),
+      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&(r.tipo_rescisao_parcial||'').trim()===label),
     }
   });
 }
@@ -1197,7 +1200,7 @@ function renderVerticalCharts(rows){
   const col=chartColors();
 
   destroyChart('verticalChart');
-  const porVertical=contarPor(rows,r=>areaDoServico(r.servico_gcc));
+  const porVertical=contarPor(rows,r=>verticalDe(r));
   const total=rows.length;
   const vertEntries=Object.entries(porVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
   _charts.verticalChart=new Chart(document.getElementById('verticalChart'),{
@@ -1214,7 +1217,7 @@ function renderVerticalCharts(rows){
         y:{grid:{display:false},ticks:{color:col.t2}}
       },
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Vertical',(r,label)=>areaDoServico(r.servico_gcc)===label),
+      onClick:chartClickHandler('Vertical',(r,label)=>verticalDe(r)===label),
     }
   });
 
@@ -1222,7 +1225,7 @@ function renderVerticalCharts(rows){
   const perdidosRows=rows.filter(r=>FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r));
   const mrrPorVertical={};
   perdidosRows.forEach(r=>{
-    const v=areaDoServico(r.servico_gcc);
+    const v=verticalDe(r);
     mrrPorVertical[v]=(mrrPorVertical[v]||0)+parseMrr(r.mrr);
   });
   const mrrVertEntries=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -1238,7 +1241,7 @@ function renderVerticalCharts(rows){
       },
       onHover:chartHoverCursor,
       onClick:chartClickHandler('MRR perdido — vertical',(r,label)=>
-        FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)&&areaDoServico(r.servico_gcc)===label),
+        FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r)&&verticalDe(r)===label),
     }
   });
 }
@@ -1329,7 +1332,7 @@ function renderCriticosVencidosTable(rows){
   tbody.innerHTML=entries.map(r=>`
     <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
       <td>${esc(r.organizacao||'Não informado')}</td>
-      <td>${esc(areaDoServico(r.servico_gcc))}</td>
+      <td>${esc(verticalDe(r))}</td>
       <td class="num bad">${r.diasVenc}</td>
     </tr>`).join('');
 }

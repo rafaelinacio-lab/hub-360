@@ -20,6 +20,7 @@ const CF_TIPO_LOCUS     = 61982; // GCC - Tipo de Locus
 const CF_TIPO_RESCISAO  = 87894;  // GCC - Tipo Rescisão (Total/Parcial)
 const CF_TIPO_RESC_PARC = 216954; // GCC - Tipo de Rescisão Parcial (Módulos/Usuários)
 const CF_MODULOS        = 216958; // GCC - Módulos
+const CF_VERTICAL       = 98697;  // GCC - Verticais Insatisfação (confirmado com dado real: "Agrotitan" etc.)
 
 // ===== GET /gcc =====
 router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
@@ -42,6 +43,7 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_RESCISAO}  THEN cf.valor_texto END) AS tipo_rescisao,
         MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_RESC_PARC} THEN cf.valor_texto END) AS tipo_rescisao_parcial,
         MAX(CASE WHEN cf.custom_field_id = ${CF_MODULOS}        THEN cf.valor_texto END) AS modulos,
+        MAX(CASE WHEN cf.custom_field_id = ${CF_VERTICAL}       THEN cf.valor_texto END) AS vertical,
         t.createddate   AS criado_em,
         t.status        AS status_movidesk,
         t.basestatus    AS base_status,
@@ -141,6 +143,7 @@ const STATIC_CF_NAMES = {
   38595: 'Manifesto direcionado a', 43724: 'GCC - Data Rescisão', 58049: 'GCC - Data Reversão',
   59012: 'GCC - Real Motivo', 61982: 'GCC - Tipo de Locus',
   87894: 'GCC - Tipo Rescisão', 216954: 'GCC - Tipo de Rescisão Parcial', 216958: 'GCC - Módulos',
+  98697: 'GCC - Verticais Insatisfação', 92847: 'GCC - MRR pós churn', 94219: 'GCC - Data do Contrato',
 };
 
 router.get('/:ticketId/actions', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
