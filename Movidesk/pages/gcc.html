@@ -240,6 +240,7 @@ input,select{font-family:inherit}
 }
 .stat-card .value.good{color:var(--green)}
 .stat-card .value.bad{color:var(--orange)}
+.stat-card .value-full{font-size:11px;color:var(--t3);margin:3px 0 0;font-variant-numeric:tabular-nums}
 .stat-card .legend{font-size:11px;color:var(--t3);margin:6px 0 0;line-height:1.4}
 
 .chart-panel,.data-panel{
@@ -493,16 +494,19 @@ body.modal-open{overflow:hidden}
       <div class="stat-card">
         <p class="label">MRR em risco</p>
         <p class="value" id="k-mrr-risco">R$ 0</p>
+        <p class="value-full" id="k-mrr-risco-full"></p>
         <p class="legend">Soma do MRR de todos os casos abertos.</p>
       </div>
       <div class="stat-card success">
         <p class="label">MRR protegido</p>
         <p class="value good" id="k-mrr-protegido">R$ 0</p>
+        <p class="value-full" id="k-mrr-protegido-full"></p>
         <p class="legend">MRR de casos revertidos com sucesso.</p>
       </div>
       <div class="stat-card danger">
         <p class="label">MRR perdido</p>
         <p class="value bad" id="k-mrr-perdido">R$ 0</p>
+        <p class="value-full" id="k-mrr-perdido-full"></p>
         <p class="legend">MRR de casos finalizados sem reversão.</p>
       </div>
     </div>
@@ -895,8 +899,11 @@ function render(){
   const mrrProtegido=rowsFull.filter(isRevertido).reduce((s,r)=>s+parseMrr(r.mrr),0);
   const mrrPerdido=rowsFull.filter(r=>isPerdido(r)).reduce((s,r)=>s+parseMrr(r.mrr),0);
   document.getElementById('k-mrr-risco').textContent=fmtMrrK(mrrEmRisco);
+  document.getElementById('k-mrr-risco-full').textContent=fmtMrrFull(mrrEmRisco);
   document.getElementById('k-mrr-protegido').textContent=fmtMrrK(mrrProtegido);
+  document.getElementById('k-mrr-protegido-full').textContent=fmtMrrFull(mrrProtegido);
   document.getElementById('k-mrr-perdido').textContent=fmtMrrK(mrrPerdido);
+  document.getElementById('k-mrr-perdido-full').textContent=fmtMrrFull(mrrPerdido);
 
   const byMes=bucketPorMes(rowsCtx);
   renderTrendChart(byMes);
