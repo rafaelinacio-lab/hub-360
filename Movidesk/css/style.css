@@ -517,6 +517,40 @@ body.legacy-view-mode .app-wrapper {
     min-height: 100vh;
 }
 
+/* ===== Transição de abas (ícone) ===== */
+.tab-fx-overlay {
+    position: fixed;
+    z-index: 500;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(20, 18, 14, 0.28) 0%, rgba(20, 18, 14, 0) 70%);
+}
+[data-theme="dark"] .tab-fx-overlay {
+    background: radial-gradient(circle at center, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 70%);
+}
+.tab-fx-ring {
+    position: fixed;
+    z-index: 501;
+    pointer-events: none;
+    width: 64px;
+    height: 64px;
+    margin-left: -32px;
+    margin-top: -32px;
+    border-radius: 50%;
+    border: 2px solid var(--topbar-accent, #ea580c);
+}
+.tab-fx-icon {
+    position: fixed;
+    z-index: 502;
+    pointer-events: none;
+    color: var(--topbar-accent, #ea580c);
+    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.28));
+}
+.tab-fx-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
 body.legacy-view-mode #embeddedPagesView {
     display: none !important;
 }

@@ -30,6 +30,80 @@ const EMBED_PAGE_ROUTES = {
     movidesk: 'pages/movidesk.html'
 };
 
+// ─── Animação de transição: ícone da aba clicada "voa" até o centro do
+// conteúdo, pulsa com um anel de destaque e desaparece revelando a página.
+function playTabIconTransition(view) {
+    const btn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
+    const svg = btn && btn.querySelector('svg');
+    const main = document.querySelector('.main-content');
+    if (!svg || !main) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const startRect = svg.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    const cx = mainRect.left + mainRect.width / 2;
+    const cy = mainRect.top + mainRect.height / 2;
+    const startCx = startRect.left + startRect.width / 2;
+    const startCy = startRect.top + startRect.height / 2;
+    const dx = cx - startCx;
+    const dy = cy - startCy;
+    const bigScale = 92 / startRect.width;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'tab-fx-overlay';
+    overlay.style.left = `${mainRect.left}px`;
+    overlay.style.top = `${mainRect.top}px`;
+    overlay.style.width = `${mainRect.width}px`;
+    overlay.style.height = `${mainRect.height}px`;
+
+    const ring = document.createElement('div');
+    ring.className = 'tab-fx-ring';
+    ring.style.left = `${cx}px`;
+    ring.style.top = `${cy}px`;
+
+    const icon = document.createElement('div');
+    icon.className = 'tab-fx-icon';
+    icon.innerHTML = svg.outerHTML;
+    icon.style.left = `${startRect.left}px`;
+    icon.style.top = `${startRect.top}px`;
+    icon.style.width = `${startRect.width}px`;
+    icon.style.height = `${startRect.height}px`;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(ring);
+    document.body.appendChild(icon);
+
+    const cleanup = () => { overlay.remove(); ring.remove(); icon.remove(); };
+
+    overlay.animate(
+        [{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }],
+        { duration: 700, easing: 'ease' }
+    );
+
+    ring.animate(
+        [
+            { transform: 'translate(-50%,-50%) scale(0)', opacity: 0.5, offset: 0 },
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.35, offset: 0.35 },
+            { transform: 'translate(-50%,-50%) scale(2.4)', opacity: 0, offset: 1 },
+        ],
+        { duration: 700, easing: 'cubic-bezier(.16,1,.3,1)' }
+    );
+
+    const anim = icon.animate(
+        [
+            { transform: 'translate(0,0) scale(1) rotate(0deg)', offset: 0 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(-10deg)`, offset: 0.35 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 1.08}) rotate(4deg)`, offset: 0.55 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(0deg)`, offset: 0.72 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 0.4}) rotate(10deg)`, opacity: 0, offset: 1 },
+        ],
+        { duration: 700, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
+    );
+    anim.onfinish = cleanup;
+    // fallback caso onfinish não dispare (aba trocada de novo no meio, etc.)
+    setTimeout(cleanup, 900);
+}
+
 // ─── Bolha de hover que acompanha o mouse entre as abas do menu superior ───
 function initTopbarHoverPill() {
     const nav = document.querySelector('.topbar-nav');
@@ -197,9 +271,12 @@ function navigateTo(view) {
             return;
         }
 
+        const wasActive = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"].active`);
         document.querySelectorAll('.sidebar-btn[data-view]').forEach(b => b.classList.remove('active'));
         const activeBtn = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"]`);
         if (activeBtn) activeBtn.classList.add('active');
+
+        if (!wasActive) playTabIconTransition(normalizedView);
 
         loadEmbeddedPage(normalizedView);
         localStorage.setItem('activeEmbeddedView', normalizedView);
@@ -223,12 +300,14 @@ function navigateTo(view) {
     const denied = document.getElementById('configAccessDenied');
     if (denied) denied.style.display = 'none';
 
+    const wasActive = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"].active`);
     document.querySelectorAll('.sidebar-btn[data-view]').forEach(b => b.classList.remove('active'));
     Object.values(views).forEach(v => { if (v) v.style.display = 'none'; });
 
     if (views[normalizedView]) views[normalizedView].style.display = 'block';
     const activeBtn = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"]`);
     if (activeBtn) activeBtn.classList.add('active');
+    if (!wasActive) playTabIconTransition(normalizedView);
 
     if (normalizedView === 'dashboard' || normalizedView === 'movidesk') {
         fetchOpenTickets();
