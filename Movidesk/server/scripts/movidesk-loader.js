@@ -446,6 +446,9 @@ async function ensureTables() {
         error_msg    text
       )
     `],
+    ['silver.carga_log.years', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS years int[]`],
+    ['silver.carga_log.classification', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS classification text`],
+    ['silver.carga_log.owner_team', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS owner_team text`],
   ];
 
   await db.withClient(async (client) => {
@@ -814,8 +817,9 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
   console.log('[loader] carga_log cleanup OK');
 
   const logRow = await db.query(
-    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ($1, NOW(), 'running') RETURNING id`,
-    [modeLabel]
+    `INSERT INTO silver.carga_log (mode, started_at, status, years, classification, owner_team)
+     VALUES ($1, NOW(), 'running', $2, $3, $4) RETURNING id`,
+    [modeLabel, sortedYears.length ? sortedYears : null, classValueEfetivo || null, ownerTeamVal || null]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
   console.log('[loader] carga_log insert OK, id:', logId);

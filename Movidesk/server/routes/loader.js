@@ -99,7 +99,8 @@ router.post('/cancel', authMiddleware, requireRole('admin', 'supervisor'), (req,
 router.get('/status', authMiddleware, async (req, res) => {
   try {
     const log = await db.query(`
-      SELECT mode, started_at, finished_at, tickets_loaded, status, error_msg
+      SELECT mode, started_at, finished_at, tickets_loaded, status, error_msg,
+             years, classification, owner_team
       FROM silver.carga_log
       ORDER BY started_at DESC
       LIMIT 10

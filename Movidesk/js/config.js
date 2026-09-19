@@ -2599,10 +2599,19 @@ function dlRenderHistory(rows) {
     const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
     const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental' };
 
+    const filtroDe = (r) => {
+        const partes = [];
+        if (Array.isArray(r.years) && r.years.length) partes.push(`Ano: ${r.years.join(', ')}`);
+        if (r.classification) partes.push(`Classificação: ${r.classification}`);
+        if (r.owner_team) partes.push(`Equipe: ${r.owner_team}`);
+        return partes.length ? partes.join(' · ') : 'Todos os tickets';
+    };
+
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
             <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
                 <th style="padding:6px 10px;">Tipo</th>
+                <th style="padding:6px 10px;">Filtro</th>
                 <th style="padding:6px 10px;">Início</th>
                 <th style="padding:6px 10px;">Fim</th>
                 <th style="padding:6px 10px;text-align:right;">Tickets</th>
@@ -2620,6 +2629,7 @@ function dlRenderHistory(rows) {
                 : '–';
             return `<tr style="border-bottom:1px solid var(--border,#222);">
                 <td style="padding:8px 10px;font-weight:600;">${modeLabel[r.mode] || r.mode}</td>
+                <td style="padding:8px 10px;color:var(--muted,#71717a);font-size:12px;">${cfgEsc(filtroDe(r))}</td>
                 <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${ini}</td>
                 <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${fin} <span style="color:var(--muted,#71717a);font-size:11px;">(${dur})</span></td>
                 <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;">${(r.tickets_loaded || 0).toLocaleString('pt-BR')}</td>
