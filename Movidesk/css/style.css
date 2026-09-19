@@ -166,7 +166,7 @@ body::-webkit-scrollbar {
     --topbar-bg-bottom: #059669;
     /* Header "vidro fosco": superfície translúcida + blur, item ativo
        marcado por sublinhado na cor da marca em vez de pílula sólida. */
-    --topbar-bg: rgba(255, 255, 255, 0.72);
+    --topbar-bg: rgba(226, 231, 236, 0.78);
     --topbar-border: rgba(15, 23, 42, 0.08);
     --topbar-hover: rgba(16, 185, 129, 0.10);
     --topbar-icon: #64748b;
