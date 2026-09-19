@@ -729,6 +729,7 @@ function parseMrr(v){
 }
 function fmtMrrK(v){
   const abs=Math.abs(v);
+  if(abs>=1000000) return `R$ ${(v/1000000).toLocaleString('pt-BR',{maximumFractionDigits:1})}M`;
   if(abs>=1000) return `R$ ${(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})}k`;
   return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`;
 }
