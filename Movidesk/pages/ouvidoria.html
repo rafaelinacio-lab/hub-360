@@ -164,6 +164,37 @@ input,select{font-family:inherit}
 .btn-sync .sym{font-size:15px}
 .btn-sync:disabled{opacity:.5;cursor:default}
 
+/* ─── Multi-select dropdown ─────────────────────────────────────────── */
+.multi-sel{position:relative;flex-shrink:0}
+.ms-btn{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;min-width:112px;
+  transition:border-color .15s,color .15s;
+}
+.ms-btn:hover,.ms-btn.ms-active,.multi-sel.open .ms-btn{border-color:var(--orange);color:var(--t1)}
+.ms-lbl{flex:1;text-align:left}
+.ms-arrow{font-size:15px;color:var(--t3);transition:transform .15s}
+.multi-sel.open .ms-arrow{transform:rotate(180deg)}
+.ms-drop{
+  position:absolute;top:calc(100% + 5px);left:0;z-index:400;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:var(--sh-md);padding:5px 0;min-width:155px;
+  max-height:260px;overflow-y:auto;display:none;
+}
+.multi-sel.open .ms-drop{display:block}
+.ms-item{
+  display:flex;align-items:center;gap:9px;padding:7px 12px;
+  cursor:pointer;font-size:13px;color:var(--t1);transition:background .1s;
+  user-select:none;
+}
+.ms-item:hover{background:var(--surface-mid)}
+.ms-item input[type=checkbox]{
+  accent-color:var(--orange);width:14px;height:14px;
+  cursor:pointer;flex-shrink:0;margin:0;
+}
+
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -338,17 +369,48 @@ body.modal-open{overflow:hidden}
       </button>
     </div>
     <div class="topbar-filters">
-      <select id="f-resp" class="sort-sel" onchange="render()"><option value="">Responsável: todos</option></select>
-      <select id="f-org" class="sort-sel" onchange="render()"><option value="">Cliente: todos</option></select>
-      <select id="f-serv" class="sort-sel" onchange="render()"><option value="">Serviço: todos</option></select>
-      <select id="f-status" class="sort-sel" onchange="render()">
-        <option value="">Status: todos</option>
-        <option value="aberto">Em aberto</option>
-        <option value="finalizado">Finalizado</option>
-        <option value="cancelado">Cancelado</option>
-      </select>
-      <select id="f-year" class="sort-sel" onchange="render()"><option value="">Ano: todos</option></select>
-      <select id="f-month" class="sort-sel" onchange="render()"><option value="">Mês: todos</option></select>
+      <div class="multi-sel" id="f-resp">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Responsável: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-org">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Cliente: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-serv">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Serviço: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-status">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Status: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-year">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Ano: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-month">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Mês: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
     </div>
     <div id="sync-toast">
       <span class="sym">sync</span>
@@ -628,65 +690,97 @@ async function loadOuvidoria(){
   }
 }
 
+// ── multi-select dropdown ───────────────────────────────────────────
+function toggleMs(btn){
+  const ms=btn.closest('.multi-sel');
+  const wasOpen=ms.classList.contains('open');
+  document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+  if(!wasOpen) ms.classList.add('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.multi-sel'))
+    document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+});
+function getMsValues(id){
+  return [...document.querySelectorAll(`#${id} .ms-drop input:checked`)].map(i=>i.value);
+}
+function updateMsLabel(id,allLabel){
+  const vals=getMsValues(id);
+  const lbl=document.querySelector(`#${id} .ms-lbl`);
+  const btn=document.querySelector(`#${id} .ms-btn`);
+  if(!vals.length){lbl.textContent=allLabel;btn.classList.remove('ms-active');return;}
+  if(vals.length===1){
+    const span=[...document.querySelectorAll(`#${id} .ms-item`)].find(el=>el.querySelector('input').value===vals[0])?.querySelector('span');
+    lbl.textContent=span?span.textContent:vals[0];
+  } else {
+    lbl.textContent=`${vals.length} selecionados`;
+  }
+  btn.classList.add('ms-active');
+}
+function populateMs(id,items,allLabel,onChange){
+  const drop=document.querySelector(`#${id} .ms-drop`);
+  if(!drop) return;
+  const cur=new Set(getMsValues(id));
+  drop.innerHTML=items.map(({v,l})=>`
+    <label class="ms-item">
+      <input type="checkbox" value="${escAttr(String(v))}"${cur.has(String(v))?' checked':''}>
+      <span>${esc(String(l))}</span>
+    </label>`).join('');
+  drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
+    updateMsLabel(id,allLabel); onChange();
+  }));
+  updateMsLabel(id,allLabel);
+}
+
 function buildFilterOptions(){
   const fill=(id,label,values)=>{
-    const sel=document.getElementById(id);
-    const cur=sel.value;
     const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-    sel.innerHTML=`<option value="">${label}: todos</option>`
-      +opts.map(v=>`<option value="${escAttr(v)}"${cur===v?' selected':''}>${esc(v)}</option>`).join('');
+    populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-serv','Serviço',_rows.map(r=>r.servico));
+  populateMs('f-status',[
+    {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},{v:'cancelado',l:'Cancelado'},
+  ],'Status: todos',render);
 
-  const yearSel=document.getElementById('f-year');
-  const curYear=yearSel.value;
   const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
-  yearSel.innerHTML=`<option value="">Ano: todos</option>`
-    +years.map(y=>`<option value="${y}"${String(curYear)===String(y)?' selected':''}>${y}</option>`).join('');
-
-  const monthSel=document.getElementById('f-month');
-  const curMonth=monthSel.value;
-  monthSel.innerHTML=`<option value="">Mês: todos</option>`
-    +MONTHS.map(m=>`<option value="${m.v}"${String(curMonth)===String(m.v)?' selected':''}>${m.l}</option>`).join('');
+  populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
+  populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
 }
 
 // ── filtro ───────────────────────────────────────────────────────────
 // rowsCtx: filtrado por responsável/cliente/serviço/status, mas NÃO por
 // ano/mês — usado pra tendência e cálculo de delta (precisa de histórico).
 // rowsFull: rowsCtx + ano/mês — usado pros totais e demais gráficos/tabelas.
-function statusBate(r,statusFil){
-  if(!statusFil) return true;
+function statusBate(r,statusFils){
+  if(!statusFils.length) return true;
   const fin=FINALIZADO_STATUSES.includes(r.base_status);
   const canc=CANCELADO_STATUSES.includes(r.base_status);
   const aberto=!fin&&!canc;
-  if(statusFil==='aberto') return aberto;
-  if(statusFil==='finalizado') return fin;
-  if(statusFil==='cancelado') return canc;
-  return true;
+  return statusFils.some(s=>(s==='aberto'&&aberto)||(s==='finalizado'&&fin)||(s==='cancelado'&&canc));
 }
 function getFilteredRows(){
-  const respFil=document.getElementById('f-resp').value;
-  const orgFil=document.getElementById('f-org').value;
-  const servFil=document.getElementById('f-serv').value;
-  const statusFil=document.getElementById('f-status').value;
-  const yearFil=document.getElementById('f-year').value;
-  const monthFil=document.getElementById('f-month').value;
+  const respFils=getMsValues('f-resp');
+  const orgFils=getMsValues('f-org');
+  const servFils=getMsValues('f-serv');
+  const statusFils=getMsValues('f-status');
+  const yearFils=getMsValues('f-year').map(Number);
+  const monthFils=getMsValues('f-month').map(Number);
 
   const rowsCtx=_rows.filter(r=>{
-    if(respFil&&r.responsavel!==respFil) return false;
-    if(orgFil&&r.organizacao!==orgFil) return false;
-    if(servFil&&r.servico!==servFil) return false;
-    if(!statusBate(r,statusFil)) return false;
+    if(respFils.length&&!respFils.includes(r.responsavel)) return false;
+    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
+    if(servFils.length&&!servFils.includes(r.servico)) return false;
+    if(!statusBate(r,statusFils)) return false;
     return true;
   });
   const rowsFull=rowsCtx.filter(r=>{
-    if(yearFil||monthFil){
+    if(yearFils.length||monthFils.length){
       if(!r.criado_em) return false;
       const d=new Date(r.criado_em);
-      if(yearFil&&d.getFullYear()!==Number(yearFil)) return false;
-      if(monthFil&&(d.getMonth()+1)!==Number(monthFil)) return false;
+      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
+      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
     }
     return true;
   });
@@ -772,8 +866,13 @@ function render(){
   // ano anterior. Sem filtro nenhum, compara os dois últimos meses
   // COMPLETOS disponíveis — ignora o mês corrente (em andamento), que
   // sempre pareceria "caindo" por estar incompleto.
-  const yearFilVal=document.getElementById('f-year').value;
-  const monthFilVal=document.getElementById('f-month').value;
+  // O modo "mês vs mês anterior"/"ano vs ano anterior" só faz sentido com
+  // exatamente 1 ano (e, no caso do mês, exatamente 1 mês) selecionado —
+  // com múltiplos ou nenhum, cai no padrão dos 2 últimos meses completos.
+  const yearFilsD=getMsValues('f-year');
+  const monthFilsD=getMsValues('f-month');
+  const yearFilVal=yearFilsD.length===1?yearFilsD[0]:null;
+  const monthFilVal=monthFilsD.length===1?monthFilsD[0]:null;
   let cur,prev,suffix='vs mês ant.';
   if(yearFilVal&&monthFilVal){
     const curKey=`${yearFilVal}-${String(monthFilVal).padStart(2,'0')}`;
@@ -984,7 +1083,8 @@ function renderTrendChart(byMes,meses){
   destroyChart('trendChart');
   const col=chartColors();
   const titleEl=document.getElementById('trendChartTitle');
-  const yearFilVal=document.getElementById('f-year').value;
+  const yearFilsT=getMsValues('f-year');
+  const yearFilVal=yearFilsT.length===1?yearFilsT[0]:null;
 
   if(!yearFilVal){
     // Nenhum ano filtrado — comparativo mês a mês (Jan a Dez) entre todos os
