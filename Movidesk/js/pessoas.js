@@ -89,18 +89,22 @@ function pessoasRenderTable(users) {
             ? new Date(u.last_login).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
             : '—';
 
-        // URL da foto do usuário
+        // URL da foto oficial (pasta de TI) — se não achar, cai pra foto da
+        // conta Google (quando o usuário já logou via SSO) antes das iniciais.
         const fotoUrl = `${API_BASE}/pessoas/foto/${encodeURIComponent(u.email)}`;
+        const googlePicture = u.google_picture || '';
 
         return `
         <tr class="${u.is_active ? '' : 'row-inactive'}">
             <td>
                 <div class="pt-avatar-container">
-                    <img 
-                        src="${fotoUrl}" 
+                    <img
+                        src="${fotoUrl}"
                         alt="${escapeHtml(u.name)}"
                         class="pt-avatar-foto"
-                        onerror="this.style.display='none'; this.parentElement.querySelector('.pt-avatar').style.display='flex';"
+                        data-fallback="${escapeHtml(googlePicture)}"
+                        data-fallback-tried="0"
+                        onerror="avatarImgError(this)"
                         onload="this.parentElement.querySelector('.pt-avatar').style.display='none';"
                     />
                     <div class="pt-avatar" style="display:none;">${initials}</div>

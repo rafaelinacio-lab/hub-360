@@ -16,7 +16,8 @@ router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.id, u.email, u.name, u.is_active, u.first_access,
-              u.last_login, u.created_at, u.vertical, r.name AS role
+              u.last_login, u.created_at, u.vertical, r.name AS role,
+              u.google_picture_url AS google_picture
        FROM users u
        JOIN roles r ON u.role_id = r.id
        ORDER BY u.is_active DESC, u.name ASC`

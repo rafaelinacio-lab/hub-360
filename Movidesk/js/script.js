@@ -166,7 +166,9 @@ function avatarImgError(img) {
         return;
     }
     img.style.display = 'none';
-    const initialsEl = img.parentElement.querySelector('.avatar-initials');
+    // Duas classes de "iniciais" convivem no app: .avatar-initials (sidebar)
+    // e .pt-avatar (tabela de Pessoas) — mesma função de fallback serve as duas.
+    const initialsEl = img.parentElement.querySelector('.avatar-initials, .pt-avatar');
     if (initialsEl) initialsEl.style.display = 'flex';
 }
 
