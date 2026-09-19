@@ -394,7 +394,7 @@ body.modal-open{overflow:hidden}
 
     <p class="section-label">Tendência</p>
     <div class="chart-panel">
-      <p class="chart-title">Elogios vs reclamações por mês</p>
+      <p class="chart-title" id="trendChartTitle">Elogios vs reclamações por mês</p>
       <div class="chart-wrap" style="height:230px"><canvas id="trendChart"></canvas></div>
     </div>
 
@@ -940,21 +940,59 @@ function chartHoverCursor(evt,elements){
 }
 const TIPO_LABEL_TO_KEY={'Reclamação':'rec','Elogio':'elo','Sugestão':'sug','Outro':'oth'};
 
+// Cores extras pro comparativo entre anos (além de orange/green já usados
+// pra Reclamações/Elogios no modo padrão).
+const TREND_YEAR_COLORS=['orange','purple','slate','green','t1'];
 function renderTrendChart(byMes,meses){
   destroyChart('trendChart');
   const col=chartColors();
-  const ultimos=meses.slice(-12);
-  const labels=ultimos.map(mk=>{
-    const [y,m]=mk.split('-');
-    return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`;
-  });
+  const titleEl=document.getElementById('trendChartTitle');
+  const yearFilVal=document.getElementById('f-year').value;
+
+  if(!yearFilVal){
+    // Nenhum ano filtrado — comparativo mês a mês (Jan a Dez) entre todos os
+    // anos com dado, em vez de só a janela deslizante dos últimos 12 meses.
+    const anos=[...new Set(meses.map(mk=>mk.split('-')[0]))].sort();
+    titleEl.textContent='Total de manifestações por mês — comparativo entre anos';
+    _charts.trendChart=new Chart(document.getElementById('trendChart'),{
+      type:'line',
+      data:{
+        labels:MONTH_NAMES,
+        datasets:anos.map((ano,i)=>({
+          label:ano,
+          data:MONTH_NAMES.map((_,idx)=>{
+            const b=byMes[`${ano}-${String(idx+1).padStart(2,'0')}`];
+            return b?(b.elo+b.rec+b.sug+b.oth):null;
+          }),
+          borderColor:col[TREND_YEAR_COLORS[i%TREND_YEAR_COLORS.length]],
+          backgroundColor:'transparent',
+          spanGaps:true,tension:.3,pointRadius:3,
+        })),
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{color:col.t2}}},
+        scales:{
+          y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+          x:{grid:{display:false},ticks:{color:col.t2}}
+        }
+      }
+    });
+    return;
+  }
+
+  // Ano filtrado (com ou sem Mês) — mostra Jan a Dez desse ano específico,
+  // com zero nos meses sem dado, em vez da janela deslizante dos últimos 12
+  // meses (que podia nem incluir o ano escolhido).
+  titleEl.textContent='Elogios vs reclamações por mês';
+  const chaves=MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`);
   _charts.trendChart=new Chart(document.getElementById('trendChart'),{
     type:'line',
     data:{
-      labels,
+      labels:MONTH_NAMES,
       datasets:[
-        {label:'Elogios',data:ultimos.map(mk=>byMes[mk].elo),borderColor:col.green,backgroundColor:col.green+'26',fill:true,tension:.3,pointRadius:3},
-        {label:'Reclamações',data:ultimos.map(mk=>byMes[mk].rec),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
+        {label:'Elogios',data:chaves.map(mk=>byMes[mk]?byMes[mk].elo:0),borderColor:col.green,backgroundColor:col.green+'26',fill:true,tension:.3,pointRadius:3},
+        {label:'Reclamações',data:chaves.map(mk=>byMes[mk]?byMes[mk].rec:0),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
       ]
     },
     options:{
