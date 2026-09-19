@@ -172,6 +172,7 @@ body::-webkit-scrollbar {
     --topbar-icon: #64748b;
     --topbar-action-bg: rgba(15, 23, 42, 0.06);
     --topbar-action-hover: rgba(15, 23, 42, 0.10);
+    --topbar-accent: #ea580c;
 
     /* Crítica */
     --red-bg: #fcebeb;
@@ -213,6 +214,7 @@ body::-webkit-scrollbar {
     --topbar-icon: #9b9b92;
     --topbar-action-bg: rgba(255, 255, 255, 0.08);
     --topbar-action-hover: rgba(255, 255, 255, 0.14);
+    --topbar-accent: #fb923c;
 
     --red-bg: #2d1515;
     --red-mid: #e24b4a;
@@ -254,10 +256,31 @@ body::-webkit-scrollbar {
     border-bottom: 1px solid var(--topbar-border);
 }
 
+/* Logo "Hub 360" no canto esquerdo da barra */
+.topbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 28px;
+}
+
+.topbar-logo-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--topbar-accent), #a78bfa);
+    flex-shrink: 0;
+}
+
 .topbar-nav {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     height: 100%;
     gap: 2px;
     flex: 1;
@@ -266,7 +289,9 @@ body::-webkit-scrollbar {
 }
 
 /* Bolha que segue o mouse por baixo das abas — a posição/largura é calculada
-   em JS (initTopbarHoverPill, em script.js) a cada mouseenter num botão. */
+   em JS (initTopbarHoverPill, em script.js) a cada mouseenter num botão.
+   Mantida invisível (background transparente) pro nav ficar só texto, como
+   no estilo "vidro fosco" — só o color/underline marcam hover e ativo. */
 .topbar-hover-pill {
     position: absolute;
     top: 8px;
@@ -274,7 +299,7 @@ body::-webkit-scrollbar {
     height: auto;
     transform: none;
     border-radius: 8px;
-    background: var(--topbar-hover);
+    background: transparent;
     opacity: 0;
     pointer-events: none;
     z-index: 1;
@@ -293,8 +318,8 @@ body::-webkit-scrollbar {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 16px;
+    gap: 7px;
+    padding: 0 14px;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
@@ -309,14 +334,14 @@ body::-webkit-scrollbar {
 
 .sidebar-btn.active {
     background: transparent;
-    color: var(--logo-color);
-    border-bottom-color: var(--logo-color);
+    color: var(--text);
+    border-bottom-color: var(--topbar-accent);
     box-shadow: none;
 }
 
 .sidebar-btn.active:hover {
     background: transparent;
-    color: var(--logo-color);
+    color: var(--text);
 }
 
 .sidebar-btn svg {
