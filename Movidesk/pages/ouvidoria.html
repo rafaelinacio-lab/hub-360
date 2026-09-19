@@ -322,6 +322,21 @@ body.modal-open{overflow:hidden}
 .ticket-link{color:var(--orange);text-decoration:none;font-weight:600}
 .ticket-link:hover{text-decoration:underline}
 
+.export-options{display:flex;gap:12px;padding:4px 0 8px}
+.export-opt{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:20px 12px;border:1px solid var(--border);border-radius:12px;
+  background:var(--surface-mid);cursor:pointer;color:var(--t2);
+  font-size:13px;font-weight:600;font-family:inherit;transition:.15s;
+}
+.export-opt:hover{border-color:var(--orange);color:var(--t1);background:var(--orange-bg)}
+.export-opt:disabled{opacity:.5;cursor:default;border-color:var(--border);color:var(--t2);background:var(--surface-mid)}
+.export-opt .sym{font-size:28px;color:var(--orange)}
+.export-status{padding:2px 0 0;font-size:12.5px;color:var(--t3);display:none;align-items:center;gap:8px}
+.export-status.show{display:flex}
+.export-status .sym{font-size:16px;animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
 /* empilhamento: risco-modal (200, base) < detail-modal (205, lista de
    tickets aberta a partir de um cliente em risco ou de um gráfico) <
    ticket-modal (210, detalhe de UM ticket aberto a partir da lista) */
@@ -374,7 +389,7 @@ body.modal-open{overflow:hidden}
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar tickets
       </button>
-      <button class="btn-refresh" onclick="exportOuvidoria()">
+      <button class="btn-refresh" onclick="openExportModal()">
         <span class="sym">download</span>Exportar
       </button>
     </div>
@@ -583,6 +598,32 @@ body.modal-open{overflow:hidden}
   </div>
 </div>
 
+<div class="modal-overlay" id="export-modal" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-head">
+      <div>
+        <h3>Exportar dados</h3>
+        <p>Considera os filtros aplicados no momento</p>
+      </div>
+      <button class="modal-close" id="export-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="export-options">
+        <button class="export-opt" id="export-opt-xlsx" onclick="runExport('xlsx')">
+          <span class="sym">description</span>Excel
+        </button>
+        <button class="export-opt" id="export-opt-pdf" onclick="runExport('pdf')">
+          <span class="sym">picture_as_pdf</span>PDF
+        </button>
+        <button class="export-opt" id="export-opt-docx" onclick="runExport('docx')">
+          <span class="sym">article</span>Word
+        </button>
+      </div>
+      <p class="export-status" id="export-status"><span class="sym">progress_activity</span>Gerando arquivo…</p>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="risco-modal" role="dialog" aria-modal="true">
   <div class="modal-box">
     <div class="modal-head">
@@ -606,7 +647,10 @@ body.modal-open{overflow:hidden}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <script>
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
@@ -675,25 +719,156 @@ function dtStr(v){
   const d=new Date(v);
   return isNaN(d) ? '' : d.toISOString().slice(0,10);
 }
-function exportOuvidoria(){
-  const rows=(_rowsFull||[]).map(r=>({
-    'ID': r.ticket_id,
-    'Organização': r.organizacao||'',
-    'Assunto': r.assunto_ouvidoria||'',
-    'Tipo': TIPO_LABEL[tipoKey(rawTipo(r))]||rawTipo(r)||'',
-    'Procedente': tipoKey(rawTipo(r))==='rec' ? (isProcedente(r.manifesto_procedente)?'Sim':'Não') : '',
-    'Direcionado a': r.manifesto_direcionado_a||'',
-    'Status': r.status_movidesk||r.base_status||'',
-    'Serviço': r.servico||'',
-    'Responsável': r.responsavel||'',
-    'Criado em': dtStr(r.criado_em),
-    'Resolvido em': dtStr(r.resolvido_em),
-  }));
-  const ws=XLSX.utils.json_to_sheet(rows);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Ouvidoria');
-  const hoje=new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb,`ouvidoria_export_${hoje}.xlsx`);
+// ── exportação (Excel / PDF / Word) ─────────────────────────────────
+const EXPORT_HEADERS=['ID','Organização','Assunto','Tipo','Procedente','Direcionado a','Status','Serviço','Responsável','Criado em','Resolvido em'];
+function buildExportRows(){
+  return (_rowsFull||[]).map(r=>[
+    r.ticket_id,
+    r.organizacao||'',
+    r.assunto_ouvidoria||'',
+    TIPO_LABEL[tipoKey(rawTipo(r))]||rawTipo(r)||'',
+    tipoKey(rawTipo(r))==='rec' ? (isProcedente(r.manifesto_procedente)?'Sim':'Não') : '',
+    r.manifesto_direcionado_a||'',
+    r.status_movidesk||r.base_status||'',
+    r.servico||'',
+    r.responsavel||'',
+    dtStr(r.criado_em),
+    dtStr(r.resolvido_em),
+  ]);
+}
+// Chart.js desenha em fundo transparente — compõe sobre branco antes de exportar como imagem.
+function captureChartImages(){
+  return Object.values(_charts).filter(c=>c&&c.canvas&&c.canvas.width).map(chart=>{
+    const src=chart.canvas;
+    const off=document.createElement('canvas');
+    off.width=src.width; off.height=src.height;
+    const ctx=off.getContext('2d');
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,off.width,off.height);
+    ctx.drawImage(src,0,0);
+    const panel=src.closest('.chart-panel');
+    const title=(panel&&panel.querySelector('.chart-title')?.textContent.trim())||'Gráfico';
+    return {title,dataUrl:off.toDataURL('image/png',1.0),width:src.width,height:src.height};
+  });
+}
+function openExportModal(){
+  document.getElementById('export-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeExportModal(){
+  document.getElementById('export-modal').classList.remove('show');
+  document.getElementById('export-status').classList.remove('show');
+  document.querySelectorAll('#export-modal .export-opt').forEach(b=>b.disabled=false);
+  syncModalBodyLock();
+}
+document.getElementById('export-modal-close').addEventListener('click',closeExportModal);
+document.getElementById('export-modal').addEventListener('click',e=>{ if(e.target.id==='export-modal') closeExportModal(); });
+
+async function runExport(format){
+  document.querySelectorAll('#export-modal .export-opt').forEach(b=>b.disabled=true);
+  document.getElementById('export-status').classList.add('show');
+  try{
+    const hoje=new Date().toISOString().slice(0,10);
+    const charts=captureChartImages();
+    const rows=buildExportRows();
+    if(format==='xlsx') await exportXlsx(rows,charts,`ouvidoria_export_${hoje}.xlsx`);
+    else if(format==='pdf') await exportPdf(rows,charts,`ouvidoria_export_${hoje}.pdf`,'Ouvidoria — Visão de gestão');
+    else if(format==='docx') await exportDocx(rows,charts,`ouvidoria_export_${hoje}.docx`,'Ouvidoria — Visão de gestão');
+    closeExportModal();
+  } catch(e){
+    console.error(e);
+    alert('Não foi possível gerar o arquivo: '+e.message);
+    closeExportModal();
+  }
+}
+
+async function exportXlsx(rows,charts,filename){
+  const wb=new ExcelJS.Workbook();
+  const wsData=wb.addWorksheet('Dados');
+  wsData.addRow(EXPORT_HEADERS).font={bold:true};
+  rows.forEach(r=>wsData.addRow(r));
+  wsData.columns.forEach(c=>c.width=18);
+  if(charts.length){
+    const wsCharts=wb.addWorksheet('Gráficos');
+    let rowCursor=1;
+    charts.forEach(ch=>{
+      wsCharts.getCell(`A${rowCursor}`).value=ch.title;
+      wsCharts.getCell(`A${rowCursor}`).font={bold:true};
+      rowCursor+=1;
+      const imgId=wb.addImage({base64:ch.dataUrl,extension:'png'});
+      const w=Math.min(ch.width,760), h=w*(ch.height/ch.width);
+      wsCharts.addImage(imgId,{tl:{col:0,row:rowCursor},ext:{width:w,height:h}});
+      rowCursor+=Math.ceil(h/20)+2;
+    });
+  }
+  const buf=await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),filename);
+}
+
+async function exportPdf(rows,charts,filename,titulo){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'pt'});
+  const pageW=doc.internal.pageSize.getWidth();
+  const margin=32;
+  doc.setFontSize(16);
+  doc.text(titulo,margin,36);
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`,margin,52);
+  doc.setTextColor(0);
+  let y=70;
+  charts.forEach(ch=>{
+    const w=pageW-margin*2, h=w*(ch.height/ch.width);
+    if(y+h>doc.internal.pageSize.getHeight()-margin){ doc.addPage(); y=margin; }
+    doc.setFontSize(11);
+    doc.text(ch.title,margin,y);
+    doc.addImage(ch.dataUrl,'PNG',margin,y+8,w,h);
+    y+=h+28;
+  });
+  doc.addPage();
+  doc.setFontSize(14);
+  doc.text('Dados',margin,36);
+  doc.autoTable({
+    head:[EXPORT_HEADERS],
+    body:rows,
+    startY:48,
+    margin:{left:margin,right:margin},
+    styles:{fontSize:7,cellPadding:3},
+    headStyles:{fillColor:[232,93,4]},
+  });
+  doc.save(filename);
+}
+
+async function exportDocx(rows,charts,filename,titulo){
+  const {Document,Packer,Paragraph,HeadingLevel,ImageRun,Table,TableRow,TableCell,TextRun,WidthType}=docx;
+  const children=[
+    new Paragraph({text:titulo,heading:HeadingLevel.HEADING_1}),
+    new Paragraph({text:`Gerado em ${new Date().toLocaleDateString('pt-BR')}`}),
+  ];
+  for(const ch of charts){
+    const base64=ch.dataUrl.split(',')[1];
+    const bin=atob(base64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const w=600, h=w*(ch.height/ch.width);
+    children.push(new Paragraph({text:ch.title,heading:HeadingLevel.HEADING_3,spacing:{before:200}}));
+    children.push(new Paragraph({children:[new ImageRun({data:bytes,transformation:{width:w,height:h}})]}));
+  }
+  children.push(new Paragraph({text:'Dados',heading:HeadingLevel.HEADING_2,spacing:{before:300}}));
+  const headerRow=new TableRow({children:EXPORT_HEADERS.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
+  const bodyRows=rows.map(r=>new TableRow({children:r.map(v=>new TableCell({children:[new Paragraph(String(v??''))]}))}));
+  children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[headerRow,...bodyRows]}));
+  const doc=new Document({sections:[{children}]});
+  const blob=await Packer.toBlob(doc);
+  downloadBlob(blob,filename);
+}
+
+function downloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 const MONTH_NAMES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MONTHS=[
@@ -1011,7 +1186,8 @@ document.getElementById('detail-modal').addEventListener('click',e=>{ if(e.targe
 function syncModalBodyLock(){
   const open=document.getElementById('detail-modal').classList.contains('show')
     || document.getElementById('ticket-modal').classList.contains('show')
-    || document.getElementById('risco-modal').classList.contains('show');
+    || document.getElementById('risco-modal').classList.contains('show')
+    || document.getElementById('export-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
 
