@@ -128,6 +128,13 @@ async function initSchema(activePool, key) {
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     `).catch(() => {});
+    // Foto da conta Google (claim "picture" do ID token) — usada como fallback
+    // de avatar quando não há foto oficial na pasta de TI. Atualizada a cada
+    // login via SSO pra acompanhar trocas de foto na conta Google.
+    await activePool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS google_picture_url TEXT
+    `).catch(() => {});
     await activePool.query(`
       CREATE TABLE IF NOT EXISTS config (
         id SERIAL PRIMARY KEY,

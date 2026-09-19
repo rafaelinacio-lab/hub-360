@@ -126,6 +126,11 @@ router.post('/google', async (req, res) => {
       [user.id, token, req.ip, req.get('user-agent'), expiresAt]
     );
     await db.query(`UPDATE users SET last_login = NOW() WHERE id = $1`, [user.id]);
+    // Atualiza a foto da conta Google a cada login — acompanha trocas de foto
+    // sem precisar de nenhuma ação manual.
+    if (googleUser.picture) {
+      await db.query(`UPDATE users SET google_picture_url = $1 WHERE id = $2`, [googleUser.picture, user.id]).catch(() => {});
+    }
     await db.query(
       `INSERT INTO access_logs (user_id, action, ip_address, success) VALUES ($1, 'login_google', $2, TRUE)`,
       [user.id, req.ip]
@@ -436,7 +441,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.id, u.email, u.name, r.name as role, u.first_access,
-              m.is_enabled as mfa_enabled, u.vertical
+              m.is_enabled as mfa_enabled, u.vertical, u.google_picture_url AS picture
        FROM users u
        JOIN roles r ON u.role_id = r.id
        LEFT JOIN mfa_settings m ON u.id = m.user_id

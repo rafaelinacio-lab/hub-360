@@ -91,7 +91,7 @@ function renderSidebarUser() {
     if (!sidebarUser) return;
     const nome = _currentUser.name || _currentUser.nome || 'Usuário';
     const email = _currentUser.email || '';
-    const avatar = createAvatarHTML(email, nome);
+    const avatar = createAvatarHTML(email, nome, _currentUser.picture || null);
     sidebarUser.innerHTML = `
         <div class="sidebar-user-avatar" title="${nome}${email ? ' (' + email + ')' : ''}">${avatar}</div>
     `;
@@ -125,26 +125,49 @@ async function getUserEmailByName(name) {
 }
 
 // ─── Função para criar HTML de avatar (foto ou fallback com iniciais) ───────
-function createAvatarHTML(email, name) {
+function createAvatarHTML(email, name, googlePicture) {
     const initials = (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     const photoUrl = getPhotoUrl(email);
-    
+
     // Se tem email, tenta primeiro por email, depois por nome como fallback
     // Se não tem email mas tem nome, tenta buscar por nome
     let imageSrc = photoUrl || (name ? `${API_BASE}/pessoas/foto-por-nome/${encodeURIComponent(name)}` : null);
-    
+    // Sem foto oficial (pasta de TI) pra tentar, já usa a foto da conta Google
+    // (quando disponível) direto, em vez de cair pras iniciais.
+    if (!imageSrc && googlePicture) imageSrc = googlePicture;
+    // Foto oficial da pasta de TI falhando (onerror) tenta a foto do Google
+    // antes de desistir e mostrar as iniciais — ver avatarImgError abaixo.
+    const fallback = (imageSrc !== googlePicture && googlePicture) ? googlePicture : '';
+
     return `
         <div class="avatar-container" title="${escapeHtml(name || '')}">
-            <img 
+            <img
                 src="${imageSrc || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}"
                 alt="${escapeHtml(name || '')}"
                 class="avatar-foto"
-                onerror="this.style.display='none'; this.parentElement.querySelector('.avatar-initials').style.display='flex';"
+                data-fallback="${escapeHtml(fallback)}"
+                data-fallback-tried="0"
+                onerror="avatarImgError(this)"
                 onload="this.parentElement.querySelector('.avatar-initials').style.display='none';"
             />
             <div class="avatar-initials">${initials}</div>
         </div>
     `;
+}
+
+// Encadeia o fallback de avatar: foto oficial (pasta de TI) → foto da conta
+// Google → iniciais. Só avança um passo por vez (data-fallback-tried evita
+// loop se a própria URL de fallback também falhar).
+function avatarImgError(img) {
+    const fallback = img.dataset.fallback;
+    if (fallback && img.dataset.fallbackTried !== '1') {
+        img.dataset.fallbackTried = '1';
+        img.src = fallback;
+        return;
+    }
+    img.style.display = 'none';
+    const initialsEl = img.parentElement.querySelector('.avatar-initials');
+    if (initialsEl) initialsEl.style.display = 'flex';
 }
 
 function getTicketValue(ticket, camelKey, snakeKey, fallback = '') {
