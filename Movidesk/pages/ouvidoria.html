@@ -400,7 +400,7 @@ body.modal-open{overflow:hidden}
         <p class="label">Clientes em risco</p>
         <p class="value" id="k-risco">0</p>
         <p class="delta flat" id="k-risco-d">reincidência alta</p>
-        <p class="legend">3+ reclamações no período. Clique pra ver.</p>
+        <p class="legend">3+ reclamações e 1+ em aberto. Clique pra ver.</p>
       </div>
     </div>
 
@@ -1134,9 +1134,10 @@ function porClienteReincidencia(rows){
   rows.forEach(r=>{
     if(tipoKey(rawTipo(r))!=='rec') return;
     const o=r.organizacao||'Não informado';
-    porCliente[o]=porCliente[o]||{rec:0,proc:0};
+    porCliente[o]=porCliente[o]||{rec:0,proc:0,aberto:0};
     porCliente[o].rec++;
     if(isProcedente(r.manifesto_procedente)) porCliente[o].proc++;
+    if(!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status)) porCliente[o].aberto++;
   });
   return porCliente;
 }
@@ -1160,14 +1161,14 @@ let _riscoEntries=[]; // [[organizacao,{rec,proc}], ...] do último render()
 function renderClientesRisco(rows){
   const porCliente=porClienteReincidencia(rows);
   _riscoEntries=Object.entries(porCliente)
-    .filter(([,v])=>v.rec>=RISCO_MIN_RECLAMACOES)
+    .filter(([,v])=>v.rec>=RISCO_MIN_RECLAMACOES && v.aberto>=1)
     .sort((a,b)=>b[1].rec-a[1].rec);
   document.getElementById('k-risco').textContent=_riscoEntries.length.toLocaleString('pt-BR');
 }
 
 function openClientesRiscoModal(){
   document.getElementById('risco-modal-sub').textContent=
-    `${_riscoEntries.length} cliente${_riscoEntries.length===1?'':'s'} com ${RISCO_MIN_RECLAMACOES}+ reclamações no período`;
+    `${_riscoEntries.length} cliente${_riscoEntries.length===1?'':'s'} com ${RISCO_MIN_RECLAMACOES}+ reclamações e ao menos 1 chamado em aberto`;
   const tbody=document.getElementById('risco-modal-tbody');
   tbody.innerHTML=_riscoEntries.length
     ? _riscoEntries.map(([org,v])=>`
