@@ -374,6 +374,9 @@ body.modal-open{overflow:hidden}
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar tickets
       </button>
+      <button class="btn-refresh" onclick="exportOuvidoria()">
+        <span class="sym">download</span>Exportar
+      </button>
     </div>
     <div class="topbar-filters">
       <div class="multi-sel" id="f-resp">
@@ -603,6 +606,7 @@ body.modal-open{overflow:hidden}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
@@ -665,6 +669,31 @@ function areaDoServico(servico){
 function monthKeyOf(d){
   const dt=new Date(d);
   return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+function dtStr(v){
+  if(!v) return '';
+  const d=new Date(v);
+  return isNaN(d) ? '' : d.toISOString().slice(0,10);
+}
+function exportOuvidoria(){
+  const rows=(_rowsFull||[]).map(r=>({
+    'ID': r.ticket_id,
+    'Organização': r.organizacao||'',
+    'Assunto': r.assunto_ouvidoria||'',
+    'Tipo': TIPO_LABEL[tipoKey(rawTipo(r))]||rawTipo(r)||'',
+    'Procedente': tipoKey(rawTipo(r))==='rec' ? (isProcedente(r.manifesto_procedente)?'Sim':'Não') : '',
+    'Direcionado a': r.manifesto_direcionado_a||'',
+    'Status': r.status_movidesk||r.base_status||'',
+    'Serviço': r.servico||'',
+    'Responsável': r.responsavel||'',
+    'Criado em': dtStr(r.criado_em),
+    'Resolvido em': dtStr(r.resolvido_em),
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Ouvidoria');
+  const hoje=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`ouvidoria_export_${hoje}.xlsx`);
 }
 const MONTH_NAMES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MONTHS=[

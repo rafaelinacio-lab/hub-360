@@ -402,6 +402,9 @@ body.modal-open{overflow:hidden}
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar tickets
       </button>
+      <button class="btn-refresh" onclick="exportGcc()">
+        <span class="sym">download</span>Exportar
+      </button>
     </div>
     <div class="topbar-filters">
       <div class="multi-sel" id="f-tipo">
@@ -670,6 +673,7 @@ body.modal-open{overflow:hidden}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
@@ -745,6 +749,34 @@ function fmtMrrK(v){
   return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`;
 }
 function fmtMrrFull(v){ return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`; }
+
+function dtStr(v){
+  if(!v) return '';
+  const d=new Date(v);
+  return isNaN(d) ? '' : d.toISOString().slice(0,10);
+}
+
+function exportGcc(){
+  const rows=(_rowsFull||[]).map(r=>({
+    'ID': r.ticket_id,
+    'Organização': r.organizacao||'',
+    'Assunto': r.assunto_gcc||'',
+    'Status': r.status_movidesk||r.base_status||'',
+    'Tipo Rescisão': r.tipo_rescisao||'',
+    'Vertical': verticalDe(r),
+    'Motivo Churn': r.motivo_churn||'',
+    'MRR': parseMrr(r.mrr),
+    'Estado (UF)': r.estado_cliente||'',
+    'Responsável': r.responsavel||'',
+    'Criado em': dtStr(r.criado_em),
+    'Resolvido em': dtStr(r.resolvido_em),
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'GCC');
+  const hoje=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`gcc_export_${hoje}.xlsx`);
+}
 
 function tipoRescNorm(r){ return (r.tipo_rescisao||'').trim(); }
 // O valor real do CF 87894 é "Rescisão Total"/"Rescisão Parcial" (confirmado
