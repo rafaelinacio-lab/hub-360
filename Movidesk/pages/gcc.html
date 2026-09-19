@@ -49,6 +49,9 @@
   --amber-bg:   #fffbeb;
   --amber-bd:   rgba(180,83,9,0.2);
 
+  --glass-bg:     rgba(255,255,255,.6);
+  --glass-border: rgba(255,255,255,.7);
+
   --sh-sm: 0 1px 2px rgba(0,0,0,.05),0 1px 4px rgba(0,0,0,.04);
   --sh-md: 0 3px 12px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
   --sh-xl: 0 16px 48px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.07);
@@ -85,6 +88,9 @@ html.dark {
   --amber:      #fbbf24;
   --amber-bg:   rgba(251,191,36,.1);
   --amber-bd:   rgba(251,191,36,.2);
+
+  --glass-bg:     rgba(26,29,39,.5);
+  --glass-border: rgba(255,255,255,.08);
 
   --sh-sm: 0 1px 2px rgba(0,0,0,.3);
   --sh-md: 0 3px 12px rgba(0,0,0,.3);
@@ -226,7 +232,8 @@ input,select{font-family:inherit}
 @media (max-width:520px){.grid-3,.grid-4{grid-template-columns:1fr}}
 
 .stat-card{
-  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  background:var(--glass-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--glass-border);border-radius:12px;
   padding:16px 18px;box-shadow:var(--sh-sm);
 }
 .stat-card.danger{border-color:var(--orange-bd)}
