@@ -188,20 +188,23 @@ input,select{font-family:inherit}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.grid-7{display:grid;grid-template-columns:repeat(7,1fr);gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-2b{display:grid;grid-template-columns:0.85fr 1.15fr;gap:16px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 @media (max-width:980px){
-  .grid-4,.grid-5,.grid-6{grid-template-columns:repeat(2,1fr)}
+  .grid-4,.grid-5,.grid-6,.grid-7{grid-template-columns:repeat(2,1fr)}
   .grid-2,.grid-2b,.grid-3{grid-template-columns:1fr}
 }
-@media (max-width:520px){.grid-4,.grid-5,.grid-6{grid-template-columns:1fr}}
+@media (max-width:520px){.grid-4,.grid-5,.grid-6,.grid-7{grid-template-columns:1fr}}
 
 .stat-card{
   background:var(--surface);border:1px solid var(--border);border-radius:12px;
   padding:16px 18px;box-shadow:var(--sh-sm);
 }
 .stat-card.danger{border-color:var(--orange-bd)}
+.stat-card.clickable{cursor:pointer}
+.stat-card.clickable:hover{border-color:var(--border-hi)}
 .stat-card .label{font-size:12.5px;color:var(--t2);margin:0 0 6px;font-weight:500}
 .stat-card .value{
   font-size:25px;font-weight:700;margin:0;color:var(--t1);
@@ -281,7 +284,10 @@ body.modal-open{overflow:hidden}
 .ticket-link{color:var(--orange);text-decoration:none;font-weight:600}
 .ticket-link:hover{text-decoration:underline}
 
-/* modal de detalhe de UM ticket (empilha sobre o modal de lista) */
+/* empilhamento: risco-modal (200, base) < detail-modal (205, lista de
+   tickets aberta a partir de um cliente em risco ou de um gráfico) <
+   ticket-modal (210, detalhe de UM ticket aberto a partir da lista) */
+#detail-modal{z-index:205}
 #ticket-modal{z-index:210}
 #ticket-modal .modal-box{max-width:min(700px,92vw)}
 .td-info-grid{
@@ -353,7 +359,7 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="ov-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-6">
+    <div class="grid-7">
       <div class="stat-card">
         <p class="label">Total de tickets</p>
         <p class="value" id="k-total">0</p>
@@ -389,6 +395,12 @@ body.modal-open{overflow:hidden}
         <p class="value" id="k-pend">0</p>
         <p class="delta flat" id="k-pend-d">—</p>
         <p class="legend">Tickets ainda em aberto no período.</p>
+      </div>
+      <div class="stat-card danger clickable" id="k-risco-card" onclick="openClientesRiscoModal()">
+        <p class="label">Clientes em risco</p>
+        <p class="value" id="k-risco">0</p>
+        <p class="delta flat" id="k-risco-d">reincidência alta</p>
+        <p class="legend">3+ reclamações no período. Clique pra ver.</p>
       </div>
     </div>
 
@@ -495,6 +507,28 @@ body.modal-open{overflow:hidden}
       <a class="btn-open-ticket" id="ticket-modal-link" href="#" target="_blank" rel="noopener">
         Abrir no Movidesk
       </a>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="risco-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3>Clientes em risco</h3>
+        <p id="risco-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="risco-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead>
+            <tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr>
+          </thead>
+          <tbody id="risco-modal-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -777,6 +811,7 @@ function render(){
   renderReincidenciaTable(rowsFull);
   renderResponsavelTable(rowsFull);
   renderVencidosTable(rowsFull);
+  renderClientesRisco(rowsFull);
 }
 function setDelta(id,{text,cls}){
   const el=document.getElementById(id);
@@ -840,7 +875,8 @@ document.getElementById('detail-modal').addEventListener('click',e=>{ if(e.targe
 
 function syncModalBodyLock(){
   const open=document.getElementById('detail-modal').classList.contains('show')
-    || document.getElementById('ticket-modal').classList.contains('show');
+    || document.getElementById('ticket-modal').classList.contains('show')
+    || document.getElementById('risco-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
 
@@ -922,6 +958,7 @@ document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
+  else if(document.getElementById('risco-modal').classList.contains('show')) closeRiscoModal();
 });
 
 // onClick/onHover comuns pros gráficos de ranking/composição: pega a barra ou
@@ -1090,8 +1127,9 @@ function renderDirecionadoChart(rows){
   });
 }
 
-function renderReincidenciaTable(rows){
-  const tbody=document.getElementById('tbl-reincidencia');
+// Agrupa reclamações por cliente — usado pela tabela de reincidência E pelo
+// KPI/modal de "Clientes em risco", pra não duplicar a mesma contagem.
+function porClienteReincidencia(rows){
   const porCliente={};
   rows.forEach(r=>{
     if(tipoKey(rawTipo(r))!=='rec') return;
@@ -1100,6 +1138,11 @@ function renderReincidenciaTable(rows){
     porCliente[o].rec++;
     if(isProcedente(r.manifesto_procedente)) porCliente[o].proc++;
   });
+  return porCliente;
+}
+function renderReincidenciaTable(rows){
+  const tbody=document.getElementById('tbl-reincidencia');
+  const porCliente=porClienteReincidencia(rows);
   const entries=Object.entries(porCliente).sort((a,b)=>b[1].rec-a[1].rec).slice(0,10);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhuma reclamação no período filtrado.</td></tr>`; return; }
   tbody.innerHTML=entries.map(([org,v])=>`
@@ -1108,6 +1151,48 @@ function renderReincidenciaTable(rows){
       <td class="num">${v.rec}</td>
       <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
     </tr>`).join('');
+}
+
+// ── KPI + modal "Clientes em risco" ─────────────────────────────────────
+const RISCO_MIN_RECLAMACOES=3;
+let _riscoEntries=[]; // [[organizacao,{rec,proc}], ...] do último render()
+
+function renderClientesRisco(rows){
+  const porCliente=porClienteReincidencia(rows);
+  _riscoEntries=Object.entries(porCliente)
+    .filter(([,v])=>v.rec>=RISCO_MIN_RECLAMACOES)
+    .sort((a,b)=>b[1].rec-a[1].rec);
+  document.getElementById('k-risco').textContent=_riscoEntries.length.toLocaleString('pt-BR');
+}
+
+function openClientesRiscoModal(){
+  document.getElementById('risco-modal-sub').textContent=
+    `${_riscoEntries.length} cliente${_riscoEntries.length===1?'':'s'} com ${RISCO_MIN_RECLAMACOES}+ reclamações no período`;
+  const tbody=document.getElementById('risco-modal-tbody');
+  tbody.innerHTML=_riscoEntries.length
+    ? _riscoEntries.map(([org,v])=>`
+        <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
+          <td>${esc(org)}</td>
+          <td class="num">${v.rec}</td>
+          <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
+        </tr>`).join('')
+    : `<tr class="empty-row"><td colspan="3">Nenhum cliente com reincidência alta no período filtrado.</td></tr>`;
+  document.getElementById('risco-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeRiscoModal(){
+  document.getElementById('risco-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('risco-modal-close').addEventListener('click',closeRiscoModal);
+document.getElementById('risco-modal').addEventListener('click',e=>{ if(e.target.id==='risco-modal') closeRiscoModal(); });
+
+// Abre a lista de tickets (reclamações) de um cliente específico, a partir
+// do modal de Clientes em risco — reaproveita o modal de lista já usado
+// pelos cliques nos gráficos.
+function openClienteTicketsModal(org){
+  const matched=_rowsFull.filter(r=>(r.organizacao||'Não informado')===org && tipoKey(rawTipo(r))==='rec');
+  openDetailModal(`Reclamações: ${org}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 
 function renderResponsavelTable(rows){
