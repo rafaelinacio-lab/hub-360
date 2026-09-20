@@ -624,7 +624,7 @@ async function saveBatch(tickets) {
   }
 
   // ── 3. silver.ticket_campo_customizado ──
-  const cfRows = [];
+  let cfRows = [];
   for (const t of tickets) {
     if (!Array.isArray(t.customFieldValues)) continue;
     for (const cf of t.customFieldValues) {
@@ -648,6 +648,14 @@ async function saveBatch(tickets) {
       });
     }
   }
+  // A API às vezes devolve o mesmo customFieldId mais de uma vez pro mesmo
+  // ticket (ex: variações por customFieldRuleId, que essa tabela nem grava) —
+  // e silver.ticket_campo_customizado TEM unique constraint em
+  // (ticket_id, custom_field_id) na produção (apesar do comentário abaixo
+  // sobre o schema do extractor Java), então duplicatas quebram o INSERT em
+  // lote com "duplicate key value violates ... ticket_campo_customizado_pk".
+  // Dedupe mantendo a última ocorrência (prioriza item mais recente no array).
+  cfRows = [...new Map(cfRows.map(r => [`${r.ticket_id}::${r.custom_field_id}`, r])).values()];
   if (cfRows.length) {
     // Sem unique constraint em (ticket_id, custom_field_id) no schema do extractor Java
     // (permite múltiplas linhas via item_ordem) — usa DELETE + INSERT por ticket.
