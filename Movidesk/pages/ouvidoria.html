@@ -393,7 +393,7 @@ body.modal-open{overflow:hidden}
       <div class="vbar"></div>
       <span class="topbar-sub">Visão de gestão</span>
       <span style="margin-left:auto"></span>
-      <button class="btn-refresh" onclick="loadOuvidoria()">
+      <button class="btn-refresh" id="btn-atualizar" onclick="loadOuvidoria()">
         <span class="sym">refresh</span>Atualizar
       </button>
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
@@ -1784,8 +1784,20 @@ async function apiFetch(path,method='GET'){
   return r.json();
 }
 
+// "Atualizar" e "Sincronizar tickets" só aparecem pra perfil admin.
+async function applyRolePermissions(){
+  try{
+    const me=await api('/auth/me');
+    if(me.role!=='admin'){
+      document.getElementById('btn-atualizar')?.style.setProperty('display','none');
+      document.getElementById('btn-sync')?.style.setProperty('display','none');
+    }
+  }catch{ /* sem sessão válida — deixa como está, outras telas cuidam do redirect */ }
+}
+
 // ── boot ─────────────────────────────────────────────────────────────
 loadOuvidoria();
+applyRolePermissions();
 </script>
 </body>
 </html>
