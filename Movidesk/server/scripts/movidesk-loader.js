@@ -1341,8 +1341,19 @@ function cancelLoad() {
 // Limite real confirmado da API do Movidesk: 240 req/min, pra conta inteira
 // (compartilhado com todas as outras chamadas — Ouvidoria/GCC, Curadoria,
 // etc). Roda a 50 req/min por escolha explícita (bem abaixo do limite real,
-// margem de segurança grande) — cada ticket exige uma requisição própria, a
-// API não permite filtrar/paginar a pesquisa em lote.
+// margem de segurança grande) — cada ticket exige uma requisição própria.
+//
+// TESTADO E CONFIRMADO (21/09/2026, via curl direto): buscar em lote com
+// $filter=createdDate + $expand=satisfactionSurveyResponses NÃO é seguro —
+// não é um caso de dado corrompido (como o bug já conhecido com
+// customFieldValues), é pior: o ticket que REALMENTE tem uma resposta de
+// pesquisa some inteiro do resultado filtrado. Testado com o ticket #856368
+// (criado 2026-05-13, nota real=4, comentário="45444", confirmado por busca
+// limpa sem filtro) — ele não aparece na lista de $filter+$expand daquele
+// dia, enquanto todos os tickets vizinhos (sem resposta) aparecem normal.
+// Ou seja, buscar em lote perderia exatamente os tickets que importam. Por
+// isso a busca continua sendo OBRIGATORIAMENTE 1 requisição por ticket, sem
+// $filter (só $select=id,satisfactionSurveyResponses).
 const SATISFACAO_THROTTLE_MS = 1200;
 
 const satisfacaoState = {
