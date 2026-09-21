@@ -1029,19 +1029,23 @@ function mesAnteriorKey(key){
   if(m<1){ m=12; y-=1; }
   return `${y}-${String(m).padStart(2,'0')}`;
 }
+// Cor é só pela direção bruta (sobe = verde, cai = laranja), sem considerar
+// se aquele aumento/queda é "bom" ou "ruim" pra métrica específica —
+// goodDirection não é mais usado pra cor, só fica no parâmetro pra não
+// quebrar os call sites existentes.
 function fmtDeltaPct(curVal,prevVal,goodDirection,suffix='vs mês ant.'){
   if(prevVal===0&&curVal===0) return {text:'—',cls:'flat'};
-  if(prevVal===0) return {text:'novo',cls:goodDirection==='up'?'good':'bad'};
+  if(prevVal===0) return {text:'novo',cls:'good'};
   const pct=(curVal-prevVal)/prevVal*100;
   const up=pct>=0;
-  const cls=pct===0?'flat':((up&&goodDirection==='up')||(!up&&goodDirection==='down')?'good':'bad');
+  const cls=pct===0?'flat':(up?'good':'bad');
   return {text:`${up?'↑':'↓'}${Math.abs(pct).toFixed(0)}% ${suffix}`,cls};
 }
 function fmtDeltaPts(curRate,prevRate,goodDirection,suffix='vs mês ant.'){
   if(!isFinite(curRate)||!isFinite(prevRate)) return {text:'—',cls:'flat'};
   const diff=curRate-prevRate;
   const up=diff>=0;
-  const cls=diff===0?'flat':((up&&goodDirection==='up')||(!up&&goodDirection==='down')?'good':'bad');
+  const cls=diff===0?'flat':(up?'good':'bad');
   return {text:`${up?'↑':'↓'}${Math.abs(diff).toFixed(1)}pt ${suffix}`,cls};
 }
 // Soma vários buckets mensais (ex: todos os meses de um ano) num só objeto,
