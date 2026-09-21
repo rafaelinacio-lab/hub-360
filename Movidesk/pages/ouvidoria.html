@@ -1299,12 +1299,15 @@ function renderTrendChart(byMes,meses){
   const col=chartColors();
   const titleEl=document.getElementById('trendChartTitle');
   const yearFilsT=getMsValues('f-year');
-  const yearFilVal=yearFilsT.length===1?yearFilsT[0]:null;
+  // Nenhum ano filtrado — mostra só o ano vigente, não o comparativo entre
+  // todos os anos (que só faz sentido quando o usuário pede explicitamente,
+  // selecionando 2+ anos).
+  const yearFilVal=yearFilsT.length===1?yearFilsT[0]:(yearFilsT.length===0?String(new Date().getFullYear()):null);
 
   if(!yearFilVal){
-    // Nenhum ano filtrado — comparativo mês a mês (Jan a Dez) entre todos os
-    // anos com dado, em vez de só a janela deslizante dos últimos 12 meses.
-    const anos=[...new Set(meses.map(mk=>mk.split('-')[0]))].sort();
+    // 2+ anos selecionados — comparativo mês a mês (Jan a Dez) entre os anos
+    // escolhidos, em vez de só a janela deslizante dos últimos 12 meses.
+    const anos=yearFilsT.slice().sort();
     titleEl.textContent='Total de manifestações por mês — comparativo entre anos';
     _charts.trendChart=new Chart(document.getElementById('trendChart'),{
       type:'line',
