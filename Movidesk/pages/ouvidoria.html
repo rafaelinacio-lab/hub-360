@@ -1105,10 +1105,10 @@ function render(){
     prev=somarBuckets(byMes,meses,Number(yearFilVal)-1);
     suffix='vs ano ant.';
   } else {
+    // Sem filtro nenhum — mês vigente (mesmo em andamento) vs mês anterior.
     const mesAtual=monthKeyOf(new Date());
-    const mesesCompletos=meses.filter(mk=>mk!==mesAtual);
-    cur=byMes[mesesCompletos[mesesCompletos.length-1]];
-    prev=byMes[mesesCompletos[mesesCompletos.length-2]];
+    cur=byMes[mesAtual];
+    prev=byMes[mesAnteriorKey(mesAtual)];
   }
   if(cur&&prev){
     const curTotal=cur.elo+cur.rec+cur.sug+cur.oth, prevTotal=prev.elo+prev.rec+prev.sug+prev.oth;
