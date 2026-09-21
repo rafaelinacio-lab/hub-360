@@ -14,8 +14,8 @@ const router  = express.Router();
 const db      = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { getToken } = require('./config');
-const { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, state: loaderState } = require('../scripts/movidesk-loader');
-const loader  = { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, state: loaderState };
+const { runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState } = require('../scripts/movidesk-loader');
+const loader  = { runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
 router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
@@ -52,6 +52,23 @@ router.post('/incremental', authMiddleware, requireRole('admin', 'supervisor'), 
   loader.runIncremental().catch(e => console.error('[loader/incremental] erro:', e.message));
 
   res.json({ started: true, mode: 'incremental', startedAt: loader.state.startedAt });
+});
+
+// ── POST /api/loader/fix-organizacao ───────────────────────────────────────────
+// Re-sincroniza SÓ os tickets de Ouvidoria/GCC com organização não
+// identificada ("Não informado") — bem mais barato que uma carga Full
+// inteira quando o problema é pontual (ex: bug de extração corrigido).
+router.post('/fix-organizacao', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  if (loader.state.running) {
+    return res.status(409).json({
+      error: 'Já existe uma carga em andamento',
+      state: sanitizeState(loader.state),
+    });
+  }
+
+  loader.runFixOrganizacao().catch(e => console.error('[loader/fix-organizacao] erro:', e.message));
+
+  res.json({ started: true, mode: 'fix-organizacao', startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/ouvidoria ────────────────────────────────────────────────

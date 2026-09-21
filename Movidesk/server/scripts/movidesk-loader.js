@@ -1183,6 +1183,112 @@ async function runGcc() {
   return runByClassification('gcc', 'Gestão de Combate ao Churn');
 }
 
+// Busca só os tickets de Ouvidoria/GCC cuja organização não foi identificada
+// ("Não informado" no painel) e re-sincroniza CADA UM individualmente via
+// "id=" (mesma chamada limpa usada em corrigirCustomFieldValues — sem
+// $filter, então sem o bug que corrompe clients/customFieldValues). Muito
+// mais barato que rodar uma Full inteira quando o problema é pontual (ex:
+// bug de extração corrigido, só precisa re-processar os já afetados).
+async function runFixOrganizacao() {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+
+  const { rows } = await db.query(`
+    SELECT DISTINCT t.ticket_id
+    FROM silver.ticket t
+    JOIN silver.ticket_campo_customizado cf_class
+      ON cf_class.ticket_id = t.ticket_id
+      AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
+      AND cf_class.valor_texto IN ('Ouvidoria', 'Gestão de Combate ao Churn')
+    LEFT JOIN LATERAL (
+      SELECT organizacao_nome
+      FROM silver.ticket_cliente
+      WHERE ticket_id = t.ticket_id
+      ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
+      LIMIT 1
+    ) tc ON true
+    WHERE tc.organizacao_nome IS NULL OR tc.organizacao_nome = ''
+  `).catch(() => ({ rows: [] }));
+  const ticketIds = rows.map(r => r.ticket_id);
+
+  state.running          = true;
+  state.cancelRequested  = false;
+  state.mode             = 'fix-organizacao';
+  state.startedAt        = new Date().toISOString();
+  state.phase            = 'corrigindo';
+  state.pagesDone        = 0;
+  state.ticketsDone      = 0;
+  state.savedIds         = new Set();
+  state.errors           = [];
+
+  await ensureTables();
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('fix-organizacao', NOW(), 'running') RETURNING id`
+  ).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+
+  console.log(`[loader] ▶ Correção de organização iniciada — ${ticketIds.length} ticket(s) afetado(s)`);
+
+  try {
+    if (ticketIds.length) {
+      const token = await getMovideskToken();
+      for (const id of ticketIds) {
+        if (state.cancelRequested) {
+          throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+        }
+        try {
+          const url = `${MOVI_BASE}/tickets?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`;
+          const resp = await fetchWithRetry(url);
+          const data = await resp.json();
+          const full = Array.isArray(data) ? data[0] : data;
+          if (full) {
+            await saveBatch([full]);
+            state.ticketsDone++;
+          }
+        } catch (e) {
+          state.errors.push(`Ticket ${id}: ${e.message}`);
+          console.warn(`[loader] correção do ticket ${id} falhou: ${e.message}`);
+        }
+        await sleep(120);
+      }
+    }
+
+    state.phase      = 'idle';
+    state.running    = false;
+    state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode: 'fix-organizacao', tickets: state.ticketsDone, totalEncontrados: ticketIds.length };
+
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
+        [state.ticketsDone, logId]
+      ).catch(() => {});
+    }
+    console.log(`[loader] ✔ Correção de organização concluída — ${state.ticketsDone}/${ticketIds.length} ticket(s) reprocessado(s)`);
+    return state.lastResult;
+  } catch (err) {
+    state.running          = false;
+    state.phase            = 'idle';
+    state.cancelRequested  = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
+      ).catch(() => {});
+    }
+    if (wasCancelled) {
+      state.lastResult = { mode: 'fix-organizacao', tickets: state.ticketsDone, cancelled: true };
+    } else {
+      throw err;
+    }
+  }
+}
+
 function cancelLoad() {
   if (!state.running) return false;
   // Protege contra cancel residual de carga anterior que chega após nova carga iniciar:
@@ -1198,4 +1304,4 @@ function cancelLoad() {
   return true;
 }
 
-module.exports = { runFull, runIncremental, runOuvidoria, runGcc, cancelLoad, ensureTables, state };
+module.exports = { runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state };

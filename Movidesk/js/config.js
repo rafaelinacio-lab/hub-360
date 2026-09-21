@@ -2483,6 +2483,37 @@ async function dlTrigger(mode) {
     }
 }
 
+async function dlFixOrganizacao() {
+    const btn = document.getElementById('dlBtnFixOrg');
+    const originalHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
+    if (!btn || btn.disabled) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+
+    const badge = document.getElementById('dlBadge');
+    const meta  = document.getElementById('dlMeta');
+
+    try {
+        const resp = await fetch('/api/loader/fix-organizacao', {
+            method: 'POST',
+            headers: authHeaders(),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlLoad();
+        if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+    } catch (e) {
+        if (badge) {
+            badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">error</span> ${e.message}`;
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = 'Verifique o erro acima e tente novamente.';
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
 async function dlCancel() {
     const btn = document.getElementById('dlBtnCancel');
     if (!btn || btn.disabled) return;
@@ -2516,11 +2547,12 @@ function dlRenderStatus(cur, tokenSuffix) {
     const count   = document.getElementById('dlProgressCount');
     const btnFull   = document.getElementById('dlBtnFull');
     const btnInc    = document.getElementById('dlBtnInc');
+    const btnFixOrg = document.getElementById('dlBtnFixOrg');
     const btnCancel = document.getElementById('dlBtnCancel');
     if (!badge) return;
 
     if (cur.running) {
-        const modeLabel  = cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : 'Incremental';
+        const modeLabel  = cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : 'Incremental';
         const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
         badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
@@ -2558,6 +2590,10 @@ function dlRenderStatus(cur, tokenSuffix) {
             btnInc.disabled = true;
             btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
         }
+        if (btnFixOrg) {
+            btnFixOrg.disabled = true;
+            btnFixOrg.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
+        }
         if (btnCancel) {
             btnCancel.style.display = '';
             btnCancel.disabled = cur.cancelRequested || cur.phase === 'cancelling';
@@ -2572,7 +2608,8 @@ function dlRenderStatus(cur, tokenSuffix) {
         const tokenInfo = tokenSuffix ? ` · Token: ${tokenSuffix}` : '';
         if (last) {
             const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
-            meta.textContent = `Última: ${last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : 'Incremental'} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
+            const lastModeLabel = last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : 'Incremental';
+            meta.textContent = `Última: ${lastModeLabel} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
         } else {
             meta.textContent = (cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–') + tokenInfo;
         }
@@ -2584,6 +2621,10 @@ function dlRenderStatus(cur, tokenSuffix) {
         if (btnInc) {
             btnInc.disabled = false;
             btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+        }
+        if (btnFixOrg) {
+            btnFixOrg.disabled = false;
+            btnFixOrg.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
         }
         if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
     }
@@ -2598,7 +2639,7 @@ function dlRenderHistory(rows) {
     }
     const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171' };
     const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
-    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental' };
+    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental', 'fix-organizacao': 'Correção de organização' };
 
     const filtroDe = (r) => {
         const partes = [];
