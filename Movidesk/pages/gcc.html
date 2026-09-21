@@ -224,12 +224,14 @@ input,select{font-family:inherit}
 
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:1100px){.grid-5{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:980px){
   .grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
 }
-@media (max-width:520px){.grid-3,.grid-4{grid-template-columns:1fr}}
+@media (max-width:520px){.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}}
 
 .stat-card{
   background:var(--glass-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -487,7 +489,12 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="gcc-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-4">
+    <div class="grid-5">
+      <div class="stat-card">
+        <p class="label">Total de chamados</p>
+        <p class="value" id="k-total">0</p>
+        <p class="legend">Todos os casos de GCC no período.</p>
+      </div>
       <div class="stat-card">
         <p class="label">Rescisão total</p>
         <p class="value" id="k-resc-total">0</p>
@@ -1154,6 +1161,7 @@ function render(){
   const revertidos=rowsFull.filter(isRevertido).length;
   const totalSolic=rowsFull.length;
   const taxaReversao=totalSolic?revertidos/totalSolic*100:0;
+  document.getElementById('k-total').textContent=totalSolic.toLocaleString('pt-BR');
   document.getElementById('k-resc-total').textContent=rescTotal.toLocaleString('pt-BR');
   document.getElementById('k-resc-parcial').textContent=rescParcial.toLocaleString('pt-BR');
   document.getElementById('k-revertidos').textContent=revertidos.toLocaleString('pt-BR');
