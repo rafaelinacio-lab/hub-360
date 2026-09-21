@@ -15,7 +15,9 @@ const ouvidoriaRoutes = require('./routes/ouvidoria');
 const gccRoutes = require('./routes/gcc');
 const jiraRoutes = require('./routes/jira');
 const loaderRoutes = require('./routes/loader');
+const cronsRoutes = require('./routes/crons');
 const movideskLoader = require('./scripts/movidesk-loader');
+const cronManager = require('./scripts/cron-manager');
 const { getCuradoriaMovideskConfig } = require('./routes/config');
 
 const app = express();
@@ -61,6 +63,7 @@ app.use('/api/jira', jiraRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/loader', loaderRoutes);
+app.use('/api/crons', cronsRoutes);
 
 // Rota raiz
 // Também respondemos em /index.html (não só "/"): as páginas em pages/*.html
@@ -100,38 +103,28 @@ setInterval(() => {
   db.query('DELETE FROM sessions WHERE expires_at < NOW()').catch(() => {});
 }, 60 * 60 * 1000);
 
-// ===== Crons desativadas a pedido — só a de Ouvidoria foi religada =====
-// Curadoria (carga bruta 3x/dia), o loader full/incremental (semanal/diário)
-// e a carga automática de GCC (2h em 2h) continuam desligados. Toda carga
-// dessas continua só rodando quando disparada manualmente em Configurações →
-// Carga Datalake (botões "Full agora" / "Sincronizar tickets"). A de
-// Ouvidoria foi religada abaixo — mesma lógica do botão "Sincronizar
-// tickets" da aba Ouvidoria (busca só os chamados em aberto no Movidesk e
-// atualiza o banco), rodando sozinha a cada 2h.
-async function runOuvidoriaAutoLoad() {
-  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga Ouvidoria automática Movidesk → datalake`);
-  try {
-    await movideskLoader.runOuvidoria();
-  } catch (e) {
-    console.error('[loader] ouvidoria auto erro:', e.message);
-  }
+// ===== Cargas automáticas configuráveis =====
+// As cargas (Ouvidoria/GCC/Incremental/Full) agora rodam por cron_job
+// configurável no banco (silver.cron_job), gerenciadas em
+// scripts/cron-manager.js e editáveis em Configurações → Cargas automáticas
+// (ou via /api/crons). Nenhum setInterval fixo aqui — na primeira vez que o
+// servidor sobe sem nenhum job cadastrado, semeia a cron de Ouvidoria a
+// cada 2h (mesmo comportamento que já existia antes disso virar
+// configurável), já habilitada; GCC/Incremental/Full ficam disponíveis pra
+// quem quiser ligar pela tela, mas não são criadas automaticamente.
+async function seedDefaultCronJobs() {
+  const { rows } = await db.query('SELECT COUNT(*)::int AS n FROM silver.cron_job').catch(() => ({ rows: [{ n: 1 }] }));
+  if (rows[0]?.n > 0) return;
+  await db.query(
+    `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params)
+     VALUES ('Ouvidoria automática', 'ouvidoria', 120, true, '{}'::jsonb)`
+  ).catch(e => console.error('[cron-manager] seed falhou:', e.message));
 }
 
-setTimeout(runOuvidoriaAutoLoad, 10 * 1000);
-setInterval(runOuvidoriaAutoLoad, 2 * 60 * 60 * 1000);
-
-// GCC automático continua desligado — religar chamando movideskLoader.runGcc()
-// da mesma forma, se precisar no futuro.
-// async function runGccAutoLoad() {
-//   console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga GCC automática Movidesk → datalake`);
-//   try {
-//     await movideskLoader.runGcc();
-//   } catch (e) {
-//     console.error('[loader] gcc auto erro:', e.message);
-//   }
-// }
-// setTimeout(runGccAutoLoad, 10 * 1000);
-// setInterval(runGccAutoLoad, 2 * 60 * 60 * 1000);
+cronManager.ensureTable()
+  .then(seedDefaultCronJobs)
+  .then(() => cronManager.loadAndStartAll())
+  .catch(e => console.error('[cron-manager] inicialização falhou:', e.message));
 
 // Garante que silver.ticket (e as demais tabelas/colunas do datalake) já
 // existem assim que o servidor sobe — sem isso, uma coluna nova (ex:

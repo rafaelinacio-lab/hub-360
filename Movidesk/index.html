@@ -1018,19 +1018,80 @@
                         </div>
                     </div>
 
-                    <!-- Agendamento -->
+                    <!-- Cargas automáticas (crons configuráveis) -->
                     <div class="config-card">
-                        <h3 class="config-card-title">Agendamento</h3>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
-                            <div style="padding:12px 16px;border-radius:8px;background:var(--bg,#18181b);border:1px solid var(--border,#333);">
-                                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#71717a);margin-bottom:4px;">Incremental</div>
-                                <div style="font-weight:600;font-size:14px;">Todo dia às 05:00</div>
-                                <div style="font-size:12px;color:var(--muted,#71717a);margin-top:4px;">Abertos + atualizados nas últimas 25h</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:2px;">Cargas automáticas</h3>
+                                <p class="config-card-help" style="margin:0;">Ative, desative ou crie novas cargas periódicas — cada uma roda sozinha no intervalo definido.</p>
                             </div>
-                            <div style="padding:12px 16px;border-radius:8px;background:var(--bg,#18181b);border:1px solid var(--border,#333);">
-                                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#71717a);margin-bottom:4px;">Full</div>
-                                <div style="font-weight:600;font-size:14px;">Sábados às 03:00</div>
-                                <div style="font-size:12px;color:var(--muted,#71717a);margin-top:4px;">Todos os tickets de todos os tempos</div>
+                            <button class="config-btn" onclick="cronOpenModal()">
+                                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> Nova cron
+                            </button>
+                        </div>
+                        <div id="cronList" style="overflow-x:auto;">
+                            <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal: criar/editar cron -->
+                <div id="cronModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+                    <div class="pm-box">
+                        <div class="pm-header">
+                            <span id="cronModalTitle">Nova cron automática</span>
+                            <button class="pm-close" id="cronModalClose" aria-label="Fechar">&times;</button>
+                        </div>
+                        <div class="pm-body">
+                            <input type="hidden" id="cronId">
+                            <div class="pm-field">
+                                <label>Nome</label>
+                                <input type="text" id="cronName" placeholder="Ex: Ouvidoria automática">
+                            </div>
+                            <div class="pm-field">
+                                <label>Tarefa</label>
+                                <select id="cronTask" onchange="cronToggleFullFields()">
+                                    <option value="ouvidoria">Ouvidoria — só chamados em aberto</option>
+                                    <option value="gcc">GCC — só chamados em aberto</option>
+                                    <option value="incremental">Incremental — todos os tickets (abertos + atualizados nas últimas 25h)</option>
+                                    <option value="full">Full — carga completa (ano/classificação/equipe)</option>
+                                </select>
+                            </div>
+                            <div class="pm-field">
+                                <label>Intervalo</label>
+                                <select id="cronInterval">
+                                    <option value="15">A cada 15 minutos</option>
+                                    <option value="30">A cada 30 minutos</option>
+                                    <option value="60">A cada 1 hora</option>
+                                    <option value="120" selected>A cada 2 horas</option>
+                                    <option value="360">A cada 6 horas</option>
+                                    <option value="720">A cada 12 horas</option>
+                                    <option value="1440">1x por dia</option>
+                                    <option value="10080">1x por semana</option>
+                                </select>
+                            </div>
+                            <div id="cronFullFields" style="display:none;flex-direction:column;gap:16px;">
+                                <div class="pm-field">
+                                    <label>Anos (opcional, separados por vírgula)</label>
+                                    <input type="text" id="cronFullYears" placeholder="Ex: 2025, 2026 — vazio = todos">
+                                </div>
+                                <div class="pm-field">
+                                    <label>Classificação de Ticket (opcional)</label>
+                                    <input type="text" id="cronFullClass" placeholder="Ex: Ouvidoria">
+                                </div>
+                                <div class="pm-field">
+                                    <label>Equipe / ownerTeam (opcional)</label>
+                                    <input type="text" id="cronFullTeam" placeholder="Ex: Ouvidoria">
+                                </div>
+                            </div>
+                            <div class="pm-field" style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="cronEnabled" checked style="width:auto;">
+                                <label style="margin:0;">Ativa</label>
+                            </div>
+                            <div id="cronModalError" class="pm-error" style="display:none;"></div>
+                            <div class="pm-actions">
+                                <button type="button" class="pm-btn pm-btn-cancel" onclick="cronCloseModal()">Cancelar</button>
+                                <button type="button" class="pm-btn pm-btn-save" onclick="cronSave()">Salvar</button>
                             </div>
                         </div>
                     </div>

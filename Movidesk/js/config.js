@@ -868,6 +868,7 @@ function switchConfigTab(tab) {
         if (btnInc)    { btnInc.disabled  = false; btnInc.innerHTML  = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora'; }
         if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
         dlLoad();
+        cronLoad();
     }
 }
 
@@ -2645,6 +2646,203 @@ function dlRenderHistory(rows) {
         </tbody>
     </table>`;
 }
+
+// ── Cargas automáticas (crons configuráveis) ────────────────────────────────
+let _cronJobs = [];
+const CRON_TASK_LABEL = {
+    ouvidoria: 'Ouvidoria — em aberto',
+    gcc: 'GCC — em aberto',
+    incremental: 'Incremental — todos os tickets',
+    full: 'Full — carga completa',
+};
+
+function cronFmtInterval(minutes) {
+    const m = Number(minutes) || 0;
+    if (m % 1440 === 0 && m >= 1440) return `${m / 1440}x por dia`.replace('1x por dia', '1x por dia');
+    if (m % 60 === 0) return `A cada ${m / 60}h`;
+    return `A cada ${m}min`;
+}
+
+async function cronLoad() {
+    const el = document.getElementById('cronList');
+    if (!el) return;
+    try {
+        const resp = await fetch(`${API_BASE}/crons`, { headers: authHeaders() });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        _cronJobs = data.jobs || [];
+        cronRenderList();
+    } catch (e) {
+        el.innerHTML = `<div style="color:#f87171;font-size:13px;">Erro ao carregar: ${cfgEsc(e.message)}</div>`;
+    }
+}
+
+function cronRenderList() {
+    const el = document.getElementById('cronList');
+    if (!el) return;
+    if (!_cronJobs.length) {
+        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma cron cadastrada ainda.</div>';
+        return;
+    }
+    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171' };
+    const statusIcon  = { done: 'check_circle', error: 'error' };
+
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
+                <th style="padding:6px 10px;">Nome</th>
+                <th style="padding:6px 10px;">Tarefa</th>
+                <th style="padding:6px 10px;">Intervalo</th>
+                <th style="padding:6px 10px;">Última execução</th>
+                <th style="padding:6px 10px;">Ativa</th>
+                <th style="padding:6px 10px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+        ${_cronJobs.map(j => {
+            const last = j.last_run_at ? new Date(j.last_run_at).toLocaleString('pt-BR') : 'Nunca rodou';
+            const st = j.last_status;
+            const statusBadge = st
+                ? `<span style="display:inline-flex;align-items:center;gap:4px;${statusStyle[st] || ''}">
+                     <span class="material-symbols-outlined" style="font-size:13px;">${statusIcon[st] || 'help'}</span>
+                   </span>`
+                : '';
+            return `<tr style="border-bottom:1px solid var(--border,#222);">
+                <td style="padding:8px 10px;font-weight:600;">${cfgEsc(j.name)}</td>
+                <td style="padding:8px 10px;">${cfgEsc(CRON_TASK_LABEL[j.task] || j.task)}</td>
+                <td style="padding:8px 10px;">${cronFmtInterval(j.interval_minutes)}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${last}${j.last_error ? ` <span style="color:#f87171;font-size:11px;" title="${cfgEsc(j.last_error)}">(erro)</span>` : ''}</td>
+                <td style="padding:8px 10px;">
+                    <label style="display:inline-flex;align-items:center;cursor:pointer;">
+                        <input type="checkbox" ${j.enabled ? 'checked' : ''} onchange="cronToggleEnabled(${j.id}, this.checked)">
+                    </label>
+                </td>
+                <td style="padding:8px 10px;white-space:nowrap;">
+                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronRunNow(${j.id})" title="Rodar agora">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">play_arrow</span>
+                    </button>
+                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronOpenModal(${j.id})" title="Editar">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">edit</span>
+                    </button>
+                    <button class="config-btn config-btn-danger" style="padding:4px 8px;font-size:11.5px;" onclick="cronDelete(${j.id})" title="Excluir">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">delete</span>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('')}
+        </tbody>
+    </table>`;
+}
+
+function cronToggleFullFields() {
+    const task = document.getElementById('cronTask')?.value;
+    const wrap = document.getElementById('cronFullFields');
+    if (wrap) wrap.style.display = task === 'full' ? 'flex' : 'none';
+}
+
+function cronOpenModal(jobId) {
+    const modal = document.getElementById('cronModal');
+    const errorEl = document.getElementById('cronModalError');
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+    const job = jobId ? _cronJobs.find(j => j.id === jobId) : null;
+    document.getElementById('cronModalTitle').textContent = job ? 'Editar cron automática' : 'Nova cron automática';
+    document.getElementById('cronId').value = job ? job.id : '';
+    document.getElementById('cronName').value = job ? job.name : '';
+    document.getElementById('cronTask').value = job ? job.task : 'ouvidoria';
+    document.getElementById('cronInterval').value = job ? String(job.interval_minutes) : '120';
+    document.getElementById('cronEnabled').checked = job ? !!job.enabled : true;
+    const params = job?.params || {};
+    document.getElementById('cronFullYears').value = Array.isArray(params.years) ? params.years.join(', ') : '';
+    document.getElementById('cronFullClass').value = params.classification || '';
+    document.getElementById('cronFullTeam').value = params.ownerTeam || '';
+    cronToggleFullFields();
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function cronCloseModal() {
+    const modal = document.getElementById('cronModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function cronSave() {
+    const errorEl = document.getElementById('cronModalError');
+    const showError = (msg) => { if (errorEl) { errorEl.textContent = msg; errorEl.style.display = 'block'; } };
+
+    const id = document.getElementById('cronId').value;
+    const name = document.getElementById('cronName').value.trim();
+    const task = document.getElementById('cronTask').value;
+    const interval_minutes = Number(document.getElementById('cronInterval').value);
+    const enabled = document.getElementById('cronEnabled').checked;
+
+    if (!name) return showError('Preencha o nome.');
+
+    let params = {};
+    if (task === 'full') {
+        const yearsRaw = document.getElementById('cronFullYears').value.trim();
+        params = {
+            years: yearsRaw ? yearsRaw.split(',').map(s => Number(s.trim())).filter(Boolean) : [],
+            classification: document.getElementById('cronFullClass').value.trim(),
+            ownerTeam: document.getElementById('cronFullTeam').value.trim(),
+        };
+    }
+
+    const body = JSON.stringify({ name, task, interval_minutes, enabled, params });
+    try {
+        const resp = await fetch(id ? `${API_BASE}/crons/${id}` : `${API_BASE}/crons`, {
+            method: id ? 'PATCH' : 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body,
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        cronCloseModal();
+        cronLoad();
+    } catch (e) {
+        showError(e.message);
+    }
+}
+
+async function cronToggleEnabled(id, enabled) {
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${id}`, {
+            method: 'PATCH',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled }),
+        });
+        if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+        cronLoad();
+    } catch (e) {
+        alert(`Não foi possível atualizar: ${e.message}`);
+        cronLoad();
+    }
+}
+
+async function cronDelete(id) {
+    const job = _cronJobs.find(j => j.id === id);
+    if (!confirm(`Excluir a cron "${job?.name || id}"? Essa ação não pode ser desfeita.`)) return;
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${id}`, { method: 'DELETE', headers: authHeaders() });
+        if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+        cronLoad();
+    } catch (e) {
+        alert(`Não foi possível excluir: ${e.message}`);
+    }
+}
+
+async function cronRunNow(id) {
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${id}/run`, { method: 'POST', headers: authHeaders() });
+        if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+        setTimeout(cronLoad, 1500);
+    } catch (e) {
+        alert(`Não foi possível iniciar: ${e.message}`);
+    }
+}
+
+document.getElementById('cronModalClose')?.addEventListener('click', cronCloseModal);
+document.getElementById('cronModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronModal') cronCloseModal(); });
 
 // Animação de rotação para o ícone de loading
 if (!document.getElementById('dlSpinStyle')) {
