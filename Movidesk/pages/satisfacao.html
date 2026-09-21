@@ -314,6 +314,22 @@ input,select{font-family:inherit}
 .modal-close:hover{background:var(--surface-mid);color:var(--t1)}
 .modal-body{overflow-y:auto;overflow-x:hidden;padding:8px 20px 18px;flex:1 1 auto;min-height:0}
 body.modal-open{overflow:hidden}
+
+.ticket-link{color:var(--orange);text-decoration:none;font-weight:600}
+.ticket-link:hover{text-decoration:underline}
+.listagem-search{
+  width:100%;padding:9px 12px;margin-bottom:10px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface-mid);color:var(--t1);
+  font-size:13px;font-family:inherit;outline:none;
+}
+.listagem-search:focus{border-color:var(--orange)}
+.dtable th.sortable{cursor:pointer;user-select:none}
+.dtable th.sortable:hover{color:var(--t1)}
+.dtable th.sortable .sort-arrow{display:inline-block;width:12px;font-size:10px;opacity:.6}
+.modal-body .listagem-table{table-layout:fixed;min-width:0;width:100%}
+.modal-body .listagem-table th{white-space:normal;overflow-wrap:break-word;font-size:11px}
+.modal-body .listagem-table td{overflow-wrap:break-word;word-break:break-word;font-size:12.5px}
+.dtable-scroll{overflow-x:auto}
 </style>
 </head>
 <body>
@@ -330,6 +346,9 @@ body.modal-open{overflow:hidden}
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar pesquisas
       </button>
+      <button class="btn-refresh" onclick="openChamadoListagemModal()">
+        <span class="sym">list_alt</span>Chamado Listagem
+      </button>
       <button class="btn-refresh" onclick="openExportModal()">
         <span class="sym">download</span>Exportar
       </button>
@@ -338,6 +357,13 @@ body.modal-open{overflow:hidden}
       <div class="multi-sel" id="f-equipe">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Equipe: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-org">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Cliente: todos</span>
           <span class="sym ms-arrow">expand_more</span>
         </button>
         <div class="ms-drop"></div>
@@ -384,7 +410,7 @@ body.modal-open{overflow:hidden}
       <div class="stat-card">
         <p class="label">Tickets avaliados</p>
         <p class="value" id="k-avaliados">0</p>
-        <p class="legend" id="k-avaliados-legend">— % dos chamados importados.</p>
+        <p class="legend" id="k-avaliados-legend">— % dos chamados resolvidos.</p>
       </div>
       <div class="stat-card success">
         <p class="label">Satisfação (Ótimo + Bom)</p>
@@ -399,7 +425,19 @@ body.modal-open{overflow:hidden}
       <div class="stat-card">
         <p class="label">Taxa de resposta</p>
         <p class="value" id="k-taxa-resposta">0%</p>
-        <p class="legend">Avaliados ÷ chamados importados.</p>
+        <p class="legend">Avaliados ÷ chamados resolvidos.</p>
+      </div>
+    </div>
+
+    <p class="section-label">Composição por equipe</p>
+    <div class="grid-2">
+      <div class="chart-panel">
+        <p class="chart-title">Quantidade de avaliações por equipe</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div>
+      </div>
+      <div class="chart-panel danger">
+        <p class="chart-title">Quantidade de avaliações negativas por equipe</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="teamNegChart"></canvas></div>
       </div>
     </div>
 
@@ -448,6 +486,32 @@ body.modal-open{overflow:hidden}
     <p class="chart-title" style="margin-top:16px">Contador — top 10 palavras</p>
     <div class="chart-panel">
       <div class="chart-wrap" style="height:220px"><canvas id="wordCountChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="listagem-modal" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:min(1400px,98vw)">
+    <div class="modal-head">
+      <div>
+        <h3>Avaliações</h3>
+        <p id="listagem-sub"></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="modal-close" title="Exportar" aria-label="Exportar" onclick="closeListagemModal();openExportModal();">
+          <span class="sym" style="font-size:18px">download</span>
+        </button>
+        <button class="modal-close" id="listagem-close" aria-label="Fechar">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <input type="text" class="listagem-search" id="listagem-search" placeholder="Buscar em qualquer coluna…" oninput="listagemOnSearch(this.value)">
+      <div class="dtable-scroll">
+        <table class="dtable listagem-table">
+          <thead><tr id="listagem-thead"></tr></thead>
+          <tbody id="listagem-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -519,6 +583,7 @@ function dtStr(v){
   const d=new Date(v);
   return isNaN(d) ? '' : d.toISOString().slice(0,10);
 }
+function ticketUrl(id){ return `https://viasoft.movidesk.com/Ticket/Edit/${id}`; }
 const MONTH_NAMES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MONTHS=[
   {v:1,l:'Janeiro'},{v:2,l:'Fevereiro'},{v:3,l:'Março'},{v:4,l:'Abril'},
@@ -603,18 +668,94 @@ function captureChartImages(){
     return {title,dataUrl:off.toDataURL('image/png',1.0),width:src.width,height:src.height};
   });
 }
+function syncModalBodyLock(){
+  const open=document.getElementById('export-modal').classList.contains('show')
+    || document.getElementById('listagem-modal').classList.contains('show');
+  document.body.classList.toggle('modal-open',open);
+}
 function openExportModal(){
   document.getElementById('export-modal').classList.add('show');
-  document.body.classList.add('modal-open');
+  syncModalBodyLock();
 }
 function closeExportModal(){
   document.getElementById('export-modal').classList.remove('show');
   document.getElementById('export-status').classList.remove('show');
   document.querySelectorAll('#export-modal .export-opt').forEach(b=>b.disabled=false);
-  document.body.classList.remove('modal-open');
+  syncModalBodyLock();
 }
 document.getElementById('export-modal-close').addEventListener('click',closeExportModal);
 document.getElementById('export-modal').addEventListener('click',e=>{ if(e.target.id==='export-modal') closeExportModal(); });
+
+// ── Chamado Listagem: tabela completa, ordenável e com busca ────────
+const LISTAGEM_COLS=[
+  {label:'ID',num:true,
+    get:r=>`#${r.ticket_id}`,
+    html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a>`,
+    sort:r=>Number(r.ticket_id)||0},
+  {label:'Cliente', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
+  {label:'Responsável', get:r=>r.responsavel||'—', sort:r=>(r.responsavel||'').toLowerCase()},
+  {label:'Equipe', get:r=>r.equipe||'—', sort:r=>(r.equipe||'').toLowerCase()},
+  {label:'Serviço', get:r=>r.servico||'—', sort:r=>(r.servico||'').toLowerCase()},
+  {label:'Nota', get:r=>NOTA_LABELS[Number(r.nota)]||r.nota||'—', sort:r=>Number(r.nota)||0},
+  {label:'Comentário', get:r=>r.comentario||'—', sort:r=>(r.comentario||'').toLowerCase()},
+  {label:'Respondido em', get:r=>dtStr(r.respondido_em)||'—', sort:r=>r.respondido_em?new Date(r.respondido_em).getTime():0},
+];
+let _listagemSort={col:7,dir:-1}; // por padrão: Respondido em, decrescente
+let _listagemSearch='';
+
+function openChamadoListagemModal(){
+  _listagemSearch='';
+  document.getElementById('listagem-search').value='';
+  listagemRender();
+  document.getElementById('listagem-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeListagemModal(){
+  document.getElementById('listagem-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+function listagemOnSearch(v){
+  _listagemSearch=v.trim().toLowerCase();
+  listagemRender();
+}
+function listagemSetSort(colIdx){
+  if(_listagemSort.col===colIdx) _listagemSort.dir*=-1;
+  else _listagemSort={col:colIdx,dir:1};
+  listagemRender();
+}
+function listagemRender(){
+  const all=_rowsFull||[];
+  const filtered=_listagemSearch
+    ? all.filter(r=>LISTAGEM_COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
+    : all;
+  const {col,dir}=_listagemSort;
+  const sorted=filtered.slice().sort((a,b)=>{
+    const va=LISTAGEM_COLS[col].sort(a), vb=LISTAGEM_COLS[col].sort(b);
+    if(va<vb) return -1*dir;
+    if(va>vb) return 1*dir;
+    return 0;
+  });
+
+  document.getElementById('listagem-sub').textContent=
+    `${sorted.length.toLocaleString('pt-BR')} de ${all.length.toLocaleString('pt-BR')} avaliaç${all.length===1?'ão':'ões'} — considera os filtros aplicados`;
+
+  document.getElementById('listagem-thead').innerHTML=LISTAGEM_COLS.map((c,i)=>{
+    const arrow=_listagemSort.col===i?(_listagemSort.dir===1?'▲':'▼'):'';
+    return `<th class="sortable${c.num?' num':''}" onclick="listagemSetSort(${i})">${esc(c.label)}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join('');
+
+  const tbody=document.getElementById('listagem-tbody');
+  if(!sorted.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="${LISTAGEM_COLS.length}">Nenhuma avaliação encontrada.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=sorted.map(r=>`
+    <tr>
+      ${LISTAGEM_COLS.map(c=>`<td${c.num?' class="num"':''}>${c.html?c.html(r):esc(c.get(r))}</td>`).join('')}
+    </tr>`).join('');
+}
+document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
+document.getElementById('listagem-modal').addEventListener('click',e=>{ if(e.target.id==='listagem-modal') closeListagemModal(); });
 
 async function runExport(format){
   document.querySelectorAll('#export-modal .export-opt').forEach(b=>b.disabled=true);
@@ -829,6 +970,7 @@ function buildFilterOptions(){
     populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
   fill('f-equipe','Equipe',_rows.map(r=>r.equipe));
+  fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
   populateMs('f-nota',[5,4,3,2,1].map(n=>({v:n,l:NOTA_LABELS[n]})),'Nota: todos',render);
 
@@ -840,6 +982,7 @@ function buildFilterOptions(){
 // ── filtro ───────────────────────────────────────────────────────────
 function getFilteredRows(){
   const equipeFils=getMsValues('f-equipe');
+  const orgFils=getMsValues('f-org');
   const respFils=getMsValues('f-resp');
   const notaFils=getMsValues('f-nota').map(Number);
   const yearFils=getMsValues('f-year').map(Number);
@@ -847,6 +990,7 @@ function getFilteredRows(){
 
   return _rows.filter(r=>{
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
+    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
     if(notaFils.length&&!notaFils.includes(Number(r.nota))) return false;
     if(yearFils.length||monthFils.length){
@@ -905,7 +1049,7 @@ function render(){
 
   document.getElementById('k-avaliados').textContent=avaliados.toLocaleString('pt-BR');
   document.getElementById('k-avaliados-legend').textContent=_universo
-    ? `${fmtPct(taxaResposta)} dos ${_universo.toLocaleString('pt-BR')} chamados importados.`
+    ? `${fmtPct(taxaResposta)} dos ${_universo.toLocaleString('pt-BR')} chamados resolvidos.`
     : 'Sem universo de comparação carregado.';
   document.getElementById('k-satisfacao').textContent=fmtPct(satisfacao);
   document.getElementById('k-insatisfacao').textContent=fmtPct(insatisfacao);
@@ -913,10 +1057,16 @@ function render(){
   document.getElementById('neg-panel-title').textContent=
     `Ruim e péssimo (${negativas.toLocaleString('pt-BR')} caso${negativas!==1?'s':''} — ${fmtPct(insatisfacao)} do total avaliado)`;
 
+  // ── composição por equipe ──
+  const teamTop=topN(rows,r=>r.equipe,10);
+  barChart('teamChart',teamTop.map(([k])=>k),teamTop.map(([,v])=>v),'#3987e5');
+  const teamNegTop=topN(negativasRows,r=>r.equipe,10);
+  barChart('teamNegChart',teamNegTop.map(([k])=>k),teamNegTop.map(([,v])=>v),'#e66767');
+
   // ── ranking geral ──
-  const clientTop=topN(rows,r=>r.organizacao);
+  const clientTop=topN(rows,r=>r.organizacao,10);
   barChart('clientChart',clientTop.map(([k])=>k),clientTop.map(([,v])=>v),'#3987e5');
-  const respTop=topN(rows,r=>r.responsavel);
+  const respTop=topN(rows,r=>r.responsavel,10);
   barChart('respChart',respTop.map(([k])=>k),respTop.map(([,v])=>v),'#3987e5');
 
   // ── negativas: tendência mensal ──
