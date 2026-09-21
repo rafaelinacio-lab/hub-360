@@ -1063,6 +1063,12 @@ tr.sel td{background:var(--info-bg)!important}
 </div><!-- /panel -->
 
 <script>
+// Sem animação de entrada dos gráficos (barra crescendo, linha sendo
+// traçada) — a transição de aba (ícone) já cumpre esse papel; a
+// animação do Chart.js tocando depois ficava parecendo uma segunda
+// animação sobrando.
+if (typeof Chart !== 'undefined') Chart.defaults.animation = false;
+
 // Tema: esta aba vive dentro do painel Movidesk (iframe same-origin) — usa a
 // mesma chave de localStorage ('theme') que o resto do app (já aplicada no
 // <head>), só fica ouvindo mudanças feitas em outra aba/sidebar.

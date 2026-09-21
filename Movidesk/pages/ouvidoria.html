@@ -652,6 +652,12 @@ body.modal-open{overflow:hidden}
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <script>
+// Sem animação de entrada dos gráficos (barra crescendo, linha sendo
+// traçada) — a transição de aba (ícone) já cumpre esse papel; a
+// animação do Chart.js tocando depois ficava parecendo uma segunda
+// animação sobrando.
+if (typeof Chart !== 'undefined') Chart.defaults.animation = false;
+
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
 function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
