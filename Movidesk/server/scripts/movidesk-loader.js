@@ -863,7 +863,16 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
     // classificação) os dados já vêm certos — nesse caso não vale a pena o
     // custo de 1 chamada extra por ticket em cima de todo o histórico.
     const usaFiltro = sortedYears.length > 0 || !!classFilter;
-    const baseSave = classValueEfetivo ? makeSaveComClassificacao(classValueEfetivo) : saveBatch;
+    // Canonicaliza a classificação (força CF 23946) só quando o usuário
+    // preencheu "Classificação de Ticket" explicitamente — é uma intenção
+    // clara de "estes tickets SÃO dessa classificação". Quando só a Equipe é
+    // selecionada, salva os tickets como estão de verdade (sem forçar nada):
+    // a Equipe é só um filtro de busca mais barato pra API, não uma garantia
+    // de que todo ticket dessa equipe tem essa classificação — forçar isso
+    // sobrescrevia a classificação real de tickets que só passam pela equipe
+    // mas já foram reclassificados pra outra coisa (ex: #874687, ownerTeam
+    // "Ouvidoria" mas classificação real "Visitas a Clientes").
+    const baseSave = classValue ? makeSaveComClassificacao(classValue) : saveBatch;
     const saveWithClassPatch = usaFiltro
       ? async (batch) => { await corrigirCustomFieldValues(token, batch); return baseSave(batch); }
       : baseSave;
