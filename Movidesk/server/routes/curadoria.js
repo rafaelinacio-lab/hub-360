@@ -1017,19 +1017,30 @@ function extractSatisfaction(responses) {
 
 let surveyProcessingState = {
   running: false, total: 0, processed: 0, updated: 0, skipped: 0, currentTicketId: null,
-  startedAt: null, finishedAt: null, stopRequested: false, error: null
+  startedAt: null, finishedAt: null, stopRequested: false, error: null, year: null
 };
 let activeSurveyProcessing = null;
 
-async function runSurveySyncLoop() {
+// year filtra pela data de abertura do chamado (aberto_em) — permite rodar a carga de
+// satisfação escopada a um ano específico (ex: reprocessar 2024), em vez de sempre
+// varrer todos os pendentes. Sem year, mantém o comportamento original (todos).
+async function runSurveySyncLoop(year) {
   try {
     await ensureSatisfacaoPesquisaColumns();
     const token = await getMovideskTokenPromise();
     const movideskCfg = await getCuradoriaMovideskConfigPromise();
 
+    const params = [];
+    let yearFilter = '';
+    if (Number.isFinite(year)) {
+      params.push(year);
+      yearFilter = ` AND EXTRACT(YEAR FROM aberto_em::timestamp) = $${params.length}`;
+    }
+
     const pending = await db.queryDatabase(
       'movidesk_curadoria',
-      `SELECT ticket_id FROM public.curadoria_chamados WHERE satisfacao_pesquisa_verificado_em IS NULL ORDER BY ticket_id DESC`
+      `SELECT ticket_id FROM public.curadoria_chamados WHERE satisfacao_pesquisa_verificado_em IS NULL${yearFilter} ORDER BY ticket_id DESC`,
+      params
     );
     surveyProcessingState.total = pending.rows.length;
 
@@ -1080,13 +1091,15 @@ async function runSurveySyncLoop() {
   }
 }
 
-function startSurveySyncJob() {
+function startSurveySyncJob(year) {
   if (activeSurveyProcessing) return surveyProcessingState;
+  const parsedYear = Number.isFinite(year) ? year : null;
   surveyProcessingState = {
     running: true, total: 0, processed: 0, updated: 0, skipped: 0, currentTicketId: null,
-    startedAt: new Date().toISOString(), finishedAt: null, stopRequested: false, error: null
+    startedAt: new Date().toISOString(), finishedAt: null, stopRequested: false, error: null,
+    year: parsedYear
   };
-  activeSurveyProcessing = runSurveySyncLoop();
+  activeSurveyProcessing = runSurveySyncLoop(parsedYear);
   return surveyProcessingState;
 }
 
@@ -1094,11 +1107,19 @@ function startSurveySyncJob() {
 router.get('/survey/pending-count', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
     await ensureSatisfacaoPesquisaColumns();
+    const year = parseInt(req.query.year, 10);
+    const params = [];
+    let yearFilter = '';
+    if (Number.isFinite(year)) {
+      params.push(year);
+      yearFilter = ` AND EXTRACT(YEAR FROM aberto_em::timestamp) = $${params.length}`;
+    }
     const result = await db.queryDatabase(
       'movidesk_curadoria',
-      `SELECT COUNT(*) FROM public.curadoria_chamados WHERE satisfacao_pesquisa_verificado_em IS NULL`
+      `SELECT COUNT(*) FROM public.curadoria_chamados WHERE satisfacao_pesquisa_verificado_em IS NULL${yearFilter}`,
+      params
     );
-    res.json({ count: Number(result.rows[0].count) || 0 });
+    res.json({ count: Number(result.rows[0].count) || 0, year: Number.isFinite(year) ? year : null });
   } catch (error) {
     console.error('Erro ao contar pendentes de satisfação:', error);
     res.status(500).json({ error: 'Erro ao contar pendentes de satisfação' });
@@ -1106,8 +1127,12 @@ router.get('/survey/pending-count', authMiddleware, requireRole('admin'), async 
 });
 
 // ===== POST /curadoria/survey/sync =====
+// Aceita { year } opcional no corpo para escopar a carga a chamados abertos naquele ano
+// (ver runSurveySyncLoop). Sem year, processa todos os pendentes — mesmo comportamento
+// de antes.
 router.post('/survey/sync', authMiddleware, requireRole('admin'), (req, res) => {
-  const state = startSurveySyncJob();
+  const year = parseInt(req.body?.year, 10);
+  const state = startSurveySyncJob(Number.isFinite(year) ? year : null);
   res.json(state);
 });
 
@@ -1297,4 +1322,6 @@ router.get('/full-load/status', authMiddleware, requireRole('admin'), (req, res)
 });
 
 router.runFullLoad = runFullLoad;
+// Usado pelo agendador de carga por ano da pesquisa de satisfação (ver server.js).
+router.startSurveySyncJob = startSurveySyncJob;
 module.exports = router;

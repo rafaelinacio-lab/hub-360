@@ -654,7 +654,8 @@ const DEFAULT_CURADORIA_MOVIDESK_CONFIG = {
     satisfacao: { selectFields: 'id,satisfactionSurveyResponses' },
     moduloRotina: { customFieldId: 59786, selectFields: 'id,customFieldValues' },
     rateLimitMs: 6500,
-    fullLoadTimes: ['08:00', '12:00', '19:00']
+    fullLoadTimes: ['08:00', '12:00', '19:00'],
+    surveySyncSchedule: { enabled: false, year: null, times: [] }
 };
 let _cfgFullLoadTimes = [];
 
@@ -687,6 +688,11 @@ function removeCuradoriaFullLoadTime(time) {
     renderFullLoadTimesList();
 }
 
+// Guarda o surveySyncSchedule carregado (esta aba não expõe campos pra editá-lo — ele
+// vive no card de Satisfação da aba Curadoria) só pra não sobrescrevê-lo com valores
+// vazios quando salvar as outras configurações Movidesk desta aba.
+let _cfgSurveySyncScheduleFromAvancado = null;
+
 async function loadCuradoriaMovideskConfig() {
     if (!isCurrentUserAdmin()) return;
     try {
@@ -697,6 +703,7 @@ async function loadCuradoriaMovideskConfig() {
         document.getElementById('cfgMovideskModuloSelect').value = data.moduloRotina?.selectFields || DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina.selectFields;
         document.getElementById('cfgMovideskRateLimitMs').value = data.rateLimitMs || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs;
         _cfgFullLoadTimes = Array.isArray(data.fullLoadTimes) && data.fullLoadTimes.length ? [...data.fullLoadTimes] : [...DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes];
+        _cfgSurveySyncScheduleFromAvancado = data.surveySyncSchedule || DEFAULT_CURADORIA_MOVIDESK_CONFIG.surveySyncSchedule;
         renderFullLoadTimesList();
     } catch (error) {
         setCfgStatus('cfgMovideskCuradoriaConfigStatus', `Erro ao carregar configuração: ${error.message}`, 'error');
@@ -720,7 +727,10 @@ async function saveCuradoriaMovideskConfig() {
         const response = await fetch(`${API_BASE}/config/curadoria-movidesk-config`, {
             method: 'POST',
             headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ satisfacao, moduloRotina, rateLimitMs, fullLoadTimes: _cfgFullLoadTimes })
+            body: JSON.stringify({
+                satisfacao, moduloRotina, rateLimitMs, fullLoadTimes: _cfgFullLoadTimes,
+                surveySyncSchedule: _cfgSurveySyncScheduleFromAvancado || DEFAULT_CURADORIA_MOVIDESK_CONFIG.surveySyncSchedule
+            })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Falha ao salvar configuração');
@@ -2021,11 +2031,30 @@ function startFullLoadPolling() {
    respeitando o rate limit do Movidesk. Mesmo padrão de fila+polling do
    processamento de chamados pendentes. ────────────────────────────────────── */
 let _surveySyncPollInterval = null;
+let _cfgSurveyScheduleTimes = [];
+
+// Preenche um <select> de ano com "Todos os anos" (quando includeAll) + anos decrescentes
+// desde o atual até minYear — usado tanto pela carga manual quanto pela agendada.
+function populateSurveyYearSelect(selectEl, { includeAll = true, minYear = 2015 } = {}) {
+    if (!selectEl) return;
+    const current = new Date().getFullYear();
+    const previousValue = selectEl.value;
+    let html = includeAll ? '<option value="">Todos os anos</option>' : '';
+    for (let y = current; y >= minYear; y--) {
+        html += `<option value="${y}">${y}</option>`;
+    }
+    selectEl.innerHTML = html;
+    if (previousValue && [...selectEl.options].some(o => o.value === previousValue)) {
+        selectEl.value = previousValue;
+    }
+}
 
 async function loadSurveyPendingCount() {
     const badge = document.getElementById('cfgSurveyPendingCount');
+    const year = document.getElementById('cfgSurveySyncYear')?.value;
     try {
-        const response = await fetch(`${API_BASE}/curadoria/survey/pending-count`, { headers: authHeaders() });
+        const qs = year ? `?year=${encodeURIComponent(year)}` : '';
+        const response = await fetch(`${API_BASE}/curadoria/survey/pending-count${qs}`, { headers: authHeaders() });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Falha ao consultar pendentes');
         if (badge) {
@@ -2057,9 +2086,11 @@ function renderSurveySyncProgress(data) {
         if (pctEl) pctEl.textContent = `${pct}% (${done}/${data.total})`;
     }
 
+    const yearSuffix = data.year ? ` (ano ${data.year})` : '';
+
     if (data.running) {
         if (labelEl) labelEl.textContent = data.currentTicketId ? `Verificando chamado #${data.currentTicketId}...` : 'Iniciando...';
-        setCfgStatus('cfgSurveySyncStatus', `${data.updated} atualizado(s), ${data.skipped} sem resposta de pesquisa`, '');
+        setCfgStatus('cfgSurveySyncStatus', `${data.updated} atualizado(s), ${data.skipped} sem resposta de pesquisa${yearSuffix}`, '');
     } else if (data.startedAt) {
         if (data.error) {
             setCfgStatus('cfgSurveySyncStatus', `Erro na sincronização: ${data.error}`, 'error');
@@ -2068,7 +2099,7 @@ function renderSurveySyncProgress(data) {
             if (labelEl) labelEl.textContent = label;
             setCfgStatus(
                 'cfgSurveySyncStatus',
-                `${label}! ${data.updated} chamado(s) atualizado(s) com nota real de satisfação, ${data.skipped} sem resposta de pesquisa.`,
+                `${label}! ${data.updated} chamado(s) atualizado(s) com nota real de satisfação, ${data.skipped} sem resposta de pesquisa${yearSuffix}.`,
                 'ok'
             );
         }
@@ -2077,9 +2108,11 @@ function renderSurveySyncProgress(data) {
 
 async function startSurveySync() {
     try {
+        const year = document.getElementById('cfgSurveySyncYear')?.value;
         const response = await fetch(`${API_BASE}/curadoria/survey/sync`, {
             method: 'POST',
-            headers: authHeaders()
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ year: year || null })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Falha ao iniciar sincronização');
@@ -2124,7 +2157,10 @@ async function pollSurveySyncStatus() {
 // Retoma o acompanhamento se uma sincronização já estiver rodando (ex: iniciada antes
 // desta tela ser aberta) — mesmo padrão do processamento de chamados pendentes.
 async function checkSurveySyncOnLoad() {
+    populateSurveyYearSelect(document.getElementById('cfgSurveySyncYear'));
+    populateSurveyYearSelect(document.getElementById('cfgSurveyScheduleYear'), { includeAll: false });
     await loadSurveyPendingCount();
+    await loadSurveySchedule();
     try {
         const response = await fetch(`${API_BASE}/curadoria/survey/sync/status`, { headers: authHeaders() });
         const data = await response.json();
@@ -2133,6 +2169,91 @@ async function checkSurveySyncOnLoad() {
             startSurveySyncPolling();
         }
     } catch (_) { /* não crítico */ }
+}
+
+/* ── Carga agendada da pesquisa de satisfação por ano ────────────────────────
+   Reaproveita o endpoint curadoria-movidesk-config (mesmo bloco de configuração
+   da carga bruta agendada), guardando os dados em surveySyncSchedule. Como o POST
+   exige o payload inteiro, sempre busca a config atual antes de salvar, pra não
+   sobrescrever satisfacao/moduloRotina/rateLimitMs/fullLoadTimes com valores vazios
+   (esta tela não carrega esses campos — eles ficam na aba Curadoria Avançado). ── */
+function renderSurveyScheduleTimesList() {
+    const wrap = document.getElementById('cfgSurveyScheduleTimesList');
+    if (!wrap) return;
+    wrap.innerHTML = _cfgSurveyScheduleTimes.length
+        ? _cfgSurveyScheduleTimes.map(t => `
+            <span class="config-token-status config-token-status-on" style="display:inline-flex; align-items:center; gap:6px;">
+                ${t}
+                <button type="button" onclick="removeSurveyScheduleTime('${t}')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:bold;">×</button>
+            </span>`).join('')
+        : '<span style="font-size:12px; color:#888;">Nenhum horário configurado</span>';
+}
+
+function addSurveyScheduleTime() {
+    const input = document.getElementById('cfgSurveyScheduleTimeAdd');
+    const value = input?.value;
+    if (!value) return;
+    if (!_cfgSurveyScheduleTimes.includes(value)) {
+        _cfgSurveyScheduleTimes.push(value);
+        _cfgSurveyScheduleTimes.sort();
+        renderSurveyScheduleTimesList();
+    }
+    input.value = '';
+}
+
+function removeSurveyScheduleTime(time) {
+    _cfgSurveyScheduleTimes = _cfgSurveyScheduleTimes.filter(t => t !== time);
+    renderSurveyScheduleTimesList();
+}
+
+async function loadSurveySchedule() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-movidesk-config`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : {};
+        const schedule = data.surveySyncSchedule || { enabled: false, year: null, times: [] };
+        const enabledEl = document.getElementById('cfgSurveyScheduleEnabled');
+        const yearEl = document.getElementById('cfgSurveyScheduleYear');
+        if (enabledEl) enabledEl.checked = !!schedule.enabled;
+        if (yearEl && schedule.year) yearEl.value = String(schedule.year);
+        _cfgSurveyScheduleTimes = Array.isArray(schedule.times) ? [...schedule.times] : [];
+        renderSurveyScheduleTimesList();
+    } catch (error) {
+        setCfgStatus('cfgSurveyScheduleStatus', `Erro ao carregar carga agendada: ${error.message}`, 'error');
+    }
+}
+
+async function saveSurveySchedule() {
+    const enabled = !!document.getElementById('cfgSurveyScheduleEnabled')?.checked;
+    const year = document.getElementById('cfgSurveyScheduleYear')?.value;
+
+    if (enabled && !_cfgSurveyScheduleTimes.length) {
+        setCfgStatus('cfgSurveyScheduleStatus', 'Informe ao menos um horário para a carga agendada.', 'error');
+        return;
+    }
+
+    try {
+        // Busca a config atual pra não sobrescrever os campos que esta tela não edita.
+        const current = await fetch(`${API_BASE}/config/curadoria-movidesk-config`, { headers: authHeaders() });
+        const currentData = current.ok ? await current.json() : DEFAULT_CURADORIA_MOVIDESK_CONFIG;
+
+        const response = await fetch(`${API_BASE}/config/curadoria-movidesk-config`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                satisfacao: currentData.satisfacao,
+                moduloRotina: currentData.moduloRotina,
+                rateLimitMs: currentData.rateLimitMs,
+                fullLoadTimes: currentData.fullLoadTimes,
+                surveySyncSchedule: { enabled, year: year || null, times: _cfgSurveyScheduleTimes }
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar carga agendada');
+        setCfgStatus('cfgSurveyScheduleStatus', 'Carga agendada salva com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgSurveyScheduleStatus', `Erro ao salvar: ${error.message}`, 'error');
+    }
 }
 
 /* ── Módulo x Rotina (campo customizado Movidesk) — busca chamado por chamado ──

@@ -130,6 +130,36 @@ function checkCuradoriaFullLoadSchedule() {
 
 setInterval(checkCuradoriaFullLoadSchedule, 30 * 1000);
 
+// ===== Carga agendada da pesquisa de satisfação, escopada por ano =====
+// Independente da carga bruta acima: permite agendar a sincronização de satisfação
+// filtrada a um ano específico (ex: reprocessar 2024 toda madrugada), configurada em
+// Configurações → Curadoria Avançado → surveySyncSchedule (curadoria_movidesk_config).
+// Desabilitado por padrão — só dispara se enabled=true e houver horários configurados.
+let curadoriaSurveyScheduleFiredKeys = new Set();
+
+function checkCuradoriaSurveySyncSchedule() {
+  getCuradoriaMovideskConfig((err, cfg) => {
+    const schedule = !err ? cfg?.surveySyncSchedule : null;
+    if (!schedule?.enabled || !Array.isArray(schedule.times) || !schedule.times.length) return;
+
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    if (!schedule.times.includes(hhmm)) return;
+
+    const dayKey = now.toISOString().slice(0, 10);
+    const fireKey = `${dayKey}T${hhmm}`;
+    if (curadoriaSurveyScheduleFiredKeys.has(fireKey)) return;
+    curadoriaSurveyScheduleFiredKeys.add(fireKey);
+    curadoriaSurveyScheduleFiredKeys.forEach((k) => { if (!k.startsWith(dayKey)) curadoriaSurveyScheduleFiredKeys.delete(k); });
+
+    const yearLabel = schedule.year ? ` (ano ${schedule.year})` : '';
+    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga agendada de satisfação${yearLabel} (${hhmm})`);
+    curadoriaRoutes.startSurveySyncJob(schedule.year || null);
+  });
+}
+
+setInterval(checkCuradoriaSurveySyncSchedule, 30 * 1000);
+
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);

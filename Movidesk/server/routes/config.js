@@ -562,7 +562,11 @@ const DEFAULT_CURADORIA_MOVIDESK_CONFIG = {
   satisfacao: { selectFields: 'id,satisfactionSurveyResponses' },
   moduloRotina: { customFieldId: 59786, selectFields: 'id,customFieldValues' },
   rateLimitMs: 6500,
-  fullLoadTimes: ['08:00', '12:00', '19:00']
+  fullLoadTimes: ['08:00', '12:00', '19:00'],
+  // Carga agendada da pesquisa de satisfação escopada a um ano específico (ex: reprocessar
+  // 2024 todo dia às 03:00) — independente da carga bruta (fullLoadTimes), que roda os 3
+  // jobs de enriquecimento sem filtro de ano.
+  surveySyncSchedule: { enabled: false, year: null, times: [] }
 };
 
 // Sanitiza a condição WHERE avançada opcional: aceita só um FRAGMENTO booleano
@@ -723,7 +727,12 @@ router.get('/curadoria-movidesk-config', authMiddleware, requireRole('admin'), (
           satisfacao: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao, ...parsed.satisfacao },
           moduloRotina: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina, ...parsed.moduloRotina },
           rateLimitMs: parsed.rateLimitMs || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs,
-          fullLoadTimes: Array.isArray(parsed.fullLoadTimes) && parsed.fullLoadTimes.length ? parsed.fullLoadTimes : DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes
+          fullLoadTimes: Array.isArray(parsed.fullLoadTimes) && parsed.fullLoadTimes.length ? parsed.fullLoadTimes : DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes,
+          surveySyncSchedule: {
+            enabled: !!parsed.surveySyncSchedule?.enabled,
+            year: Number.isFinite(parsed.surveySyncSchedule?.year) ? parsed.surveySyncSchedule.year : null,
+            times: Array.isArray(parsed.surveySyncSchedule?.times) ? parsed.surveySyncSchedule.times : []
+          }
         };
       } catch (e) { console.warn('Erro ao parsear curadoria_movidesk_config:', e); }
     }
@@ -732,7 +741,7 @@ router.get('/curadoria-movidesk-config', authMiddleware, requireRole('admin'), (
 });
 
 router.post('/curadoria-movidesk-config', authMiddleware, requireRole('admin'), (req, res) => {
-  const { satisfacao, moduloRotina, rateLimitMs, fullLoadTimes } = req.body;
+  const { satisfacao, moduloRotina, rateLimitMs, fullLoadTimes, surveySyncSchedule } = req.body;
 
   const rate = parseInt(rateLimitMs, 10) || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs;
   if (rate < 1000 || rate > 60000) {
@@ -750,11 +759,25 @@ router.post('/curadoria-movidesk-config', authMiddleware, requireRole('admin'), 
     return res.status(400).json({ error: 'Informe ao menos um horário válido (HH:MM) para a carga agendada' });
   }
 
+  const surveyScheduleEnabled = !!surveySyncSchedule?.enabled;
+  const surveyScheduleTimes = Array.isArray(surveySyncSchedule?.times)
+    ? surveySyncSchedule.times.filter(t => timePattern.test(String(t).trim()))
+    : [];
+  if (surveyScheduleEnabled && !surveyScheduleTimes.length) {
+    return res.status(400).json({ error: 'Informe ao menos um horário válido (HH:MM) para a carga agendada de satisfação por ano' });
+  }
+  const surveyScheduleYear = parseInt(surveySyncSchedule?.year, 10);
+
   const config = {
     satisfacao: { selectFields: (satisfacao?.selectFields || DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao.selectFields).trim() },
     moduloRotina: { customFieldId, selectFields: (moduloRotina?.selectFields || DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina.selectFields).trim() },
     rateLimitMs: rate,
-    fullLoadTimes: times
+    fullLoadTimes: times,
+    surveySyncSchedule: {
+      enabled: surveyScheduleEnabled,
+      year: Number.isFinite(surveyScheduleYear) ? surveyScheduleYear : null,
+      times: surveyScheduleTimes
+    }
   };
 
   saveConfigValue('curadoria_movidesk_config', JSON.stringify(config), (err) => {
@@ -904,7 +927,12 @@ function getCuradoriaMovideskConfig(callback) {
           satisfacao: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao, ...parsed.satisfacao },
           moduloRotina: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina, ...parsed.moduloRotina },
           rateLimitMs: parsed.rateLimitMs || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs,
-          fullLoadTimes: Array.isArray(parsed.fullLoadTimes) && parsed.fullLoadTimes.length ? parsed.fullLoadTimes : DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes
+          fullLoadTimes: Array.isArray(parsed.fullLoadTimes) && parsed.fullLoadTimes.length ? parsed.fullLoadTimes : DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes,
+          surveySyncSchedule: {
+            enabled: !!parsed.surveySyncSchedule?.enabled,
+            year: Number.isFinite(parsed.surveySyncSchedule?.year) ? parsed.surveySyncSchedule.year : null,
+            times: Array.isArray(parsed.surveySyncSchedule?.times) ? parsed.surveySyncSchedule.times : []
+          }
         };
       } catch (_) {}
     }

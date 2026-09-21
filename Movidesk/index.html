@@ -406,12 +406,34 @@
                                 <div id="cfgSurveySyncProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
                             </div>
                         </div>
+                        <div class="config-form-row">
+                            <select id="cfgSurveySyncYear" class="config-input" style="max-width:180px;" onchange="loadSurveyPendingCount()"></select>
+                        </div>
                         <div class="config-actions">
                             <button id="cfgSyncSurvey" class="config-btn" onclick="startSurveySync()">Sincronizar satisfação</button>
                             <button id="cfgStopSurveySync" class="config-btn config-btn-muted" onclick="stopSurveySync()" style="display:none;">Parar</button>
                             <button class="config-btn config-btn-muted" onclick="loadSurveyPendingCount()">Recarregar contagem</button>
                         </div>
                         <div id="cfgSurveySyncStatus" class="config-status"></div>
+
+                        <div class="config-form-stack" style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.08);">
+                            <label class="config-form-label" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="cfgSurveyScheduleEnabled"> Carga agendada por ano
+                            </label>
+                            <p class="config-card-help" style="margin-top:2px;">Dispara automaticamente a sincronização de satisfação escopada ao ano escolhido, nos horários abaixo — mesmo mecanismo da carga bruta agendada.</p>
+                            <div class="config-form-row">
+                                <select id="cfgSurveyScheduleYear" class="config-input" style="max-width:180px;"></select>
+                            </div>
+                            <div id="cfgSurveyScheduleTimesList" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                            <div class="config-form-row">
+                                <input id="cfgSurveyScheduleTimeAdd" type="time" class="config-input" style="max-width:160px;">
+                                <button type="button" class="config-btn config-btn-muted" onclick="addSurveyScheduleTime()">+ Adicionar horário</button>
+                            </div>
+                            <div class="config-actions">
+                                <button id="cfgSaveSurveySchedule" class="config-btn" onclick="saveSurveySchedule()">Salvar carga agendada</button>
+                            </div>
+                            <div id="cfgSurveyScheduleStatus" class="config-status"></div>
+                        </div>
                     </div>
 
                     <div class="config-card">
