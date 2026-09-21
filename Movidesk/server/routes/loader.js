@@ -115,7 +115,8 @@ router.post('/gcc', authMiddleware, requireRole('admin', 'supervisor'), (req, re
 // empresa, roda em background por um período longo, e não deve bloquear nem
 // ser bloqueado pelas cargas normais de Ouvidoria/GCC/Full/Incremental.
 router.post('/satisfacao/sync', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
-  const s = loader.runSatisfacaoSync();
+  const years = Array.isArray(req.body?.years) ? req.body.years : [];
+  const s = loader.runSatisfacaoSync({ years });
   res.json(s);
 });
 

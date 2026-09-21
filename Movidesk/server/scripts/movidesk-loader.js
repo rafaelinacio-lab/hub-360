@@ -1339,7 +1339,7 @@ const SATISFACAO_THROTTLE_MS = 6500;
 const satisfacaoState = {
   running: false, total: 0, processed: 0, updated: 0, skipped: 0, errors: 0,
   currentTicketId: null, startedAt: null, finishedAt: null,
-  stopRequested: false, lastError: null,
+  stopRequested: false, lastError: null, years: [],
 };
 
 function normalizeSurveyValue(value) {
@@ -1369,23 +1369,30 @@ async function fetchTicketSurvey(token, ticketId) {
 
 let activeSatisfacaoSync = null;
 
-async function runSatisfacaoSyncLoop() {
+async function runSatisfacaoSyncLoop(years) {
   try {
     await ensureTables();
     const token = await getMovideskToken();
 
     // Só tickets finalizados (a pesquisa só é enviada após o encerramento) e
     // que ainda não foram checados — retomável: se o processo cair/reiniciar,
-    // continua de onde parou sem refazer os já verificados.
+    // continua de onde parou sem refazer os já verificados. `years` (opcional)
+    // prioriza um recorte específico — útil pra não esperar o backlog
+    // inteiro (centenas de milhares de tickets) só pra ver dados de um ano
+    // recente.
+    const sortedYears = Array.isArray(years) ? years.map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()) : [];
+    const yearFilter = sortedYears.length ? `AND EXTRACT(YEAR FROM t.createddate) = ANY($1::int[])` : '';
     const { rows } = await db.query(`
       SELECT t.ticket_id
       FROM silver.ticket t
       LEFT JOIN silver.ticket_satisfacao ts ON ts.ticket_id = t.ticket_id
       WHERE ts.ticket_id IS NULL
         AND t.basestatus IN ('Resolved', 'Closed', 'Resolvido', 'Fechado')
+        ${yearFilter}
       ORDER BY t.createddate DESC
-    `).catch(() => ({ rows: [] }));
+    `, sortedYears.length ? [sortedYears] : []).catch(() => ({ rows: [] }));
     satisfacaoState.total = rows.length;
+    satisfacaoState.years = sortedYears;
 
     for (const row of rows) {
       if (satisfacaoState.stopRequested) break;
@@ -1432,7 +1439,7 @@ async function runSatisfacaoSyncLoop() {
   }
 }
 
-function runSatisfacaoSync() {
+function runSatisfacaoSync({ years = [] } = {}) {
   if (activeSatisfacaoSync) return satisfacaoState;
   satisfacaoState.running = true;
   satisfacaoState.total = 0;
@@ -1444,7 +1451,8 @@ function runSatisfacaoSync() {
   satisfacaoState.finishedAt = null;
   satisfacaoState.stopRequested = false;
   satisfacaoState.lastError = null;
-  activeSatisfacaoSync = runSatisfacaoSyncLoop();
+  satisfacaoState.years = [];
+  activeSatisfacaoSync = runSatisfacaoSyncLoop(years);
   return satisfacaoState;
 }
 

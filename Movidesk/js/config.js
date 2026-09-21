@@ -868,6 +868,7 @@ function switchConfigTab(tab) {
         if (btnInc)    { btnInc.disabled  = false; btnInc.innerHTML  = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora'; }
         if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
         dlLoad();
+        dlSatLoad();
         cronLoad();
     }
 }
@@ -2533,6 +2534,126 @@ async function dlCancel() {
         console.error('[dlCancel] falha:', e.message);
         btn.disabled = false;
         btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar';
+    }
+}
+
+// ── Pesquisa de satisfação — seleção de anos + trigger ──────────────────────
+let _dlSatYearsInited = false;
+let _dlSatPollTimer = null;
+
+function dlSatInitYears() {
+    if (_dlSatYearsInited) return;
+    const grid = document.getElementById('dlSatYearGrid');
+    if (!grid) return;
+    _dlSatYearsInited = true;
+    const currentYear = new Date().getFullYear();
+    const firstYear   = 2018;
+    for (let y = currentYear; y >= firstYear; y--) {
+        const id  = `dlSatYear_${y}`;
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--border,#333);font-size:13px;font-weight:500;user-select:none;transition:border-color .15s;';
+        lbl.innerHTML = `<input type="checkbox" id="${id}" value="${y}" onchange="dlSatUpdateYearNote()" style="accent-color:#3b82f6;"> ${y}`;
+        grid.appendChild(lbl);
+    }
+    dlSatUpdateYearNote();
+}
+
+function dlSatYearsSelectAll(check) {
+    document.querySelectorAll('#dlSatYearGrid input[type=checkbox]').forEach(cb => { cb.checked = check; });
+    dlSatUpdateYearNote();
+}
+
+function dlSatGetSelectedYears() {
+    return [...document.querySelectorAll('#dlSatYearGrid input[type=checkbox]:checked')].map(cb => Number(cb.value));
+}
+
+function dlSatUpdateYearNote() {
+    const note = document.getElementById('dlSatYearNote');
+    if (!note) return;
+    const years = dlSatGetSelectedYears();
+    if (!years.length) {
+        note.textContent = '⚡ Nenhum ano marcado → processa todos os anos, tickets finalizados mais recentes primeiro (backlog grande, roda por dias).';
+    } else {
+        const sorted = [...years].sort();
+        note.textContent = `📅 Anos selecionados: ${sorted.join(', ')} (${sorted.length} ano${sorted.length > 1 ? 's' : ''}) — processados antes do restante.`;
+    }
+}
+
+async function dlSatTrigger() {
+    dlSatInitYears();
+    const btn = document.getElementById('dlBtnSat');
+    if (!btn || btn.disabled) return;
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+    try {
+        const years = dlSatGetSelectedYears();
+        const resp = await fetch('/api/loader/satisfacao/sync', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ years }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlSatLoad();
+        if (!_dlSatPollTimer) _dlSatPollTimer = setInterval(dlSatLoad, 4000);
+    } catch (e) {
+        const meta = document.getElementById('dlSatMeta');
+        if (meta) meta.textContent = 'Erro: ' + e.message;
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+async function dlSatStop() {
+    const btn = document.getElementById('dlBtnSatStop');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    try {
+        await fetch('/api/loader/satisfacao/sync/stop', { method: 'POST', headers: authHeaders() });
+        dlSatLoad();
+    } catch (e) {
+        console.error('[dlSatStop] falha:', e.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function dlSatLoad() {
+    dlSatInitYears();
+    try {
+        const resp = await fetch('/api/loader/satisfacao/status', { headers: authHeaders(), cache: 'no-store' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const s = await resp.json();
+        const badge   = document.getElementById('dlSatBadge');
+        const meta    = document.getElementById('dlSatMeta');
+        const btnSat  = document.getElementById('dlBtnSat');
+        const btnStop = document.getElementById('dlBtnSatStop');
+        if (s.running) {
+            if (badge) {
+                badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> Sincronizando';
+                badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
+            }
+            const anosTxt = s.years?.length ? ` (anos ${[...s.years].sort().join(', ')})` : '';
+            if (meta) meta.textContent = `${s.processed}/${s.total} processados${anosTxt} · ${s.updated} com nota · ${s.skipped} sem resposta · ${s.errors} erro(s)`;
+            if (btnSat) { btnSat.disabled = true; btnSat.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Rodando…'; }
+            if (btnStop) btnStop.style.display = '';
+            if (!_dlSatPollTimer) _dlSatPollTimer = setInterval(dlSatLoad, 4000);
+        } else {
+            if (badge) {
+                badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso';
+                badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;';
+            }
+            if (meta) meta.textContent = s.finishedAt
+                ? `Última execução: ${s.updated} com nota, ${s.skipped} sem resposta, ${s.errors} erro(s) de ${s.processed}/${s.total}.`
+                : '–';
+            if (btnSat) { btnSat.disabled = false; btnSat.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">sentiment_satisfied</span> Sincronizar pesquisas'; }
+            if (btnStop) btnStop.style.display = 'none';
+            clearInterval(_dlSatPollTimer);
+            _dlSatPollTimer = null;
+        }
+    } catch (e) {
+        console.error('[dlSat] erro ao buscar status:', e.message);
     }
 }
 

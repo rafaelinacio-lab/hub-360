@@ -1022,6 +1022,35 @@
                         </div>
                     </div>
 
+                    <!-- Pesquisa de Satisfação por ano -->
+                    <div class="config-card" id="dlSatCard">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:2px;">Pesquisa de Satisfação</h3>
+                                <p class="config-card-help" style="margin:0;">silver.ticket_satisfacao — busca a pesquisa real do Movidesk (1 requisição por ticket, ~10/min, conta inteira). Marque anos pra priorizar; sem nenhum marcado = todos os anos, tickets finalizados mais recentes primeiro.</p>
+                            </div>
+                            <div style="display:flex;gap:6px;">
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlSatYearsSelectAll(true)">Todos</button>
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlSatYearsSelectAll(false)">Nenhum</button>
+                            </div>
+                        </div>
+                        <div id="dlSatYearGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                        <p id="dlSatYearNote" style="margin:10px 0 0;font-size:12px;color:var(--muted,#71717a);"></p>
+
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#333);">
+                            <button class="config-btn" onclick="dlSatTrigger()" id="dlBtnSat">
+                                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">sentiment_satisfied</span> Sincronizar pesquisas
+                            </button>
+                            <button class="config-btn config-btn-danger" onclick="dlSatStop()" id="dlBtnSatStop" style="display:none;">
+                                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Parar
+                            </button>
+                            <span id="dlSatBadge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;">
+                                <span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso
+                            </span>
+                            <span id="dlSatMeta" style="font-size:13px;color:var(--muted,#71717a);">–</span>
+                        </div>
+                    </div>
+
                     <!-- Histórico -->
                     <div class="config-card">
                         <h3 class="config-card-title" style="margin-bottom:12px;">Histórico de Execuções</h3>
