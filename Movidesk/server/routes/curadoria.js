@@ -970,13 +970,17 @@ function getMovideskTokenPromise() {
   });
 }
 
-// O Movidesk limita a ~10 requisições/minuto (da CONTA inteira, não por endpoint). Excedendo
-// isso, a API não devolve um 429 "educado" — ela derruba a conexão, o que aparece pro Node
-// como "fetch failed" genérico (erro de rede, não resposta HTTP). Por isso toda chamada às
-// APIs do Movidesk usadas aqui (satisfação e módulo x rotina) passa por este MESMO limitador
-// compartilhado antes de sair, com folga sob o limite real — se as duas tarefas rodarem ao
-// mesmo tempo, elas dividem a mesma cota em vez de somarem e estourarem o limite juntas.
-const MOVIDESK_MIN_INTERVAL_MS = 6500; // ~9 req/min — fallback; valor real vem de curadoria_movidesk_config
+// Limite real confirmado da API do Movidesk: 240 requisições/minuto (da CONTA
+// inteira, não por endpoint). Excedendo isso, a API não devolve um 429
+// "educado" — ela derruba a conexão, o que aparece pro Node como "fetch
+// failed" genérico (erro de rede, não resposta HTTP). Por isso toda chamada
+// às APIs do Movidesk usadas aqui (satisfação e módulo x rotina) passa por
+// este MESMO limitador compartilhado antes de sair, rodando a 50 req/min por
+// escolha explícita (bem abaixo do limite real) — se as duas tarefas
+// rodarem ao mesmo tempo (ou junto com a sincronização de satisfação do
+// datalake, em movidesk-loader.js, que usa o mesmo valor de referência),
+// elas dividem a mesma cota em vez de somarem e estourarem o limite juntas.
+const MOVIDESK_MIN_INTERVAL_MS = 1200; // 50 req/min — fallback; valor real vem de curadoria_movidesk_config
 let lastMovideskRequestAt = 0;
 async function throttleMovideskRequest(rateLimitMs = MOVIDESK_MIN_INTERVAL_MS) {
   const wait = rateLimitMs - (Date.now() - lastMovideskRequestAt);

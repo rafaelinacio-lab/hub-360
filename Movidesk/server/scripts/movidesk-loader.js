@@ -1338,11 +1338,12 @@ function cancelLoad() {
 // (ou fosse bloqueado por) as cargas normais de Ouvidoria/GCC/Full/Incremental
 // via `state.running`, essas cargas ficariam paradas o tempo todo.
 //
-// Throttle conservador (~10 req/min, igual ao documentado em curadoria.js):
-// é o MESMO limite de conta inteira do Movidesk, compartilhado com todas as
-// outras chamadas — cada ticket exige uma requisição própria (a API não
-// permite filtrar/paginar a pesquisa em lote).
-const SATISFACAO_THROTTLE_MS = 6500;
+// Limite real confirmado da API do Movidesk: 240 req/min, pra conta inteira
+// (compartilhado com todas as outras chamadas — Ouvidoria/GCC, Curadoria,
+// etc). Roda a 50 req/min por escolha explícita (bem abaixo do limite real,
+// margem de segurança grande) — cada ticket exige uma requisição própria, a
+// API não permite filtrar/paginar a pesquisa em lote.
+const SATISFACAO_THROTTLE_MS = 1200;
 
 const satisfacaoState = {
   running: false, total: 0, processed: 0, updated: 0, skipped: 0, errors: 0,
