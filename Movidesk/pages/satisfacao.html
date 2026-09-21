@@ -600,10 +600,7 @@ const NOTA_LABELS={5:'Ótimo',4:'Bom',3:'Neutro',2:'Ruim',1:'Péssimo'};
 // ativo nas ações do chamado (silver.ticket_acao). Marca visualmente
 // pra deixar claro que não é o dado oficial.
 function respHtml(r){
-  if(!r.responsavel) return '—';
-  return r.responsavel_inferido
-    ? `${esc(r.responsavel)} <span style="color:var(--t3);font-size:10.5px" title="Sem responsável oficial no Movidesk — inferido pelas ações do chamado">(inferido)</span>`
-    : esc(r.responsavel);
+  return r.responsavel ? esc(r.responsavel) : '—';
 }
 function isPositiva(r){ return Number(r.nota)===5||Number(r.nota)===4; }
 function isNegativa(r){ return Number(r.nota)===1||Number(r.nota)===2; }
