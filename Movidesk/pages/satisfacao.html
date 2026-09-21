@@ -595,6 +595,16 @@ function fmtPct(n){ return `${(n*100).toFixed(1)}%`; }
 // ── regras de negócio (nota da pesquisa) ────────────────────────────
 // Modelo "smiley faces" do Movidesk: 5=Ótimo, 4=Bom, 3=Neutro, 2=Ruim, 1=Péssimo
 const NOTA_LABELS={5:'Ótimo',4:'Bom',3:'Neutro',2:'Ruim',1:'Péssimo'};
+// Alguns tickets antigos não têm responsável oficial no Movidesk
+// (owner_name vazio) — nesses casos o backend infere pelo autor mais
+// ativo nas ações do chamado (silver.ticket_acao). Marca visualmente
+// pra deixar claro que não é o dado oficial.
+function respHtml(r){
+  if(!r.responsavel) return '—';
+  return r.responsavel_inferido
+    ? `${esc(r.responsavel)} <span style="color:var(--t3);font-size:10.5px" title="Sem responsável oficial no Movidesk — inferido pelas ações do chamado">(inferido)</span>`
+    : esc(r.responsavel);
+}
 function isPositiva(r){ return Number(r.nota)===5||Number(r.nota)===4; }
 function isNegativa(r){ return Number(r.nota)===1||Number(r.nota)===2; }
 function notaBadgeClass(n){ return `n${n}`; }
@@ -695,7 +705,7 @@ const LISTAGEM_COLS=[
     sort:r=>Number(r.ticket_id)||0},
   {label:'Cliente', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
   {label:'Quem respondeu', get:r=>r.respondido_por||'—', sort:r=>(r.respondido_por||'').toLowerCase()},
-  {label:'Responsável do ticket', get:r=>r.responsavel||'—', sort:r=>(r.responsavel||'').toLowerCase()},
+  {label:'Responsável do ticket', get:r=>r.responsavel||'—', html:respHtml, sort:r=>(r.responsavel||'').toLowerCase()},
   {label:'Equipe', get:r=>r.equipe||'—', sort:r=>(r.equipe||'').toLowerCase()},
   {label:'Serviço', get:r=>r.servico||'—', sort:r=>(r.servico||'').toLowerCase()},
   {label:'Nota', get:r=>NOTA_LABELS[Number(r.nota)]||r.nota||'—', sort:r=>Number(r.nota)||0},
@@ -1105,7 +1115,7 @@ function render(){
       <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">${esc(r.ticket_id)}</a></td>
       <td>${esc(r.organizacao||'—')}</td>
       <td>${esc(r.respondido_por||'—')}</td>
-      <td>${esc(r.responsavel||'—')}</td>
+      <td>${respHtml(r)}</td>
       <td class="num"><span class="badge-nota ${notaBadgeClass(r.nota)}">${esc(NOTA_LABELS[Number(r.nota)]||r.nota)}</span></td>
       <td>${fmtFull(r.respondido_em)}</td>
       <td class="comment-cell" title="${escAttr(r.comentario)}">${esc(r.comentario)}</td>
