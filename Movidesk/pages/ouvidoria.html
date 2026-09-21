@@ -397,6 +397,13 @@ body.modal-open{overflow:hidden}
       </button>
     </div>
     <div class="topbar-filters">
+      <div class="multi-sel" id="f-tipo">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Tipo de manifesto: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
       <div class="multi-sel" id="f-resp">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Responsável: todos</span>
@@ -965,6 +972,9 @@ function buildFilterOptions(){
     const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
     populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
+  populateMs('f-tipo',[
+    {v:'rec',l:'Reclamação'},{v:'elo',l:'Elogio'},{v:'sug',l:'Sugestão'},{v:'oth',l:'Outro'},
+  ],'Tipo de manifesto: todos',render);
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-serv','Serviço',_rows.map(r=>r.servico));
@@ -988,6 +998,7 @@ function statusBate(r,statusFils){
   return statusFils.some(s=>(s==='aberto'&&aberto)||(s==='finalizado'&&fin));
 }
 function getFilteredRows(){
+  const tipoFils=getMsValues('f-tipo');
   const respFils=getMsValues('f-resp');
   const orgFils=getMsValues('f-org');
   const servFils=getMsValues('f-serv');
@@ -999,6 +1010,7 @@ function getFilteredRows(){
   // já na base, antes de qualquer outro filtro.
   const rowsCtx=_rows.filter(r=>{
     if(CANCELADO_STATUSES.includes(r.base_status)) return false;
+    if(tipoFils.length&&!tipoFils.includes(tipoKey(rawTipo(r)))) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
