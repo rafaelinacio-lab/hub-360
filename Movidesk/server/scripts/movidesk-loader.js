@@ -476,13 +476,21 @@ async function ensureTables() {
     // runSatisfacaoSync().
     ['silver.ticket_satisfacao (create)', `
       CREATE TABLE IF NOT EXISTS silver.ticket_satisfacao (
-        ticket_id     varchar(20) PRIMARY KEY,
+        ticket_id     bigint PRIMARY KEY,
         nota          smallint,
         comentario    text,
         respondido_em timestamptz,
         verificado_em timestamptz NOT NULL DEFAULT NOW()
       )
     `],
+    // silver.ticket.ticket_id é bigint na base real (o CREATE TABLE IF NOT
+    // EXISTS de silver.ticket acima nunca roda de fato — a tabela já existe
+    // de antes com esse tipo). A criação de silver.ticket_satisfacao logo
+    // acima já nasce como bigint agora, mas essa ALTER corrige quem já
+    // rodou uma vez com o tipo errado (varchar) antes desse ajuste — sem
+    // ela, o JOIN entre as duas tabelas quebra com "operator does not
+    // exist: character varying = bigint".
+    ['silver.ticket_satisfacao.ticket_id type fix', `ALTER TABLE silver.ticket_satisfacao ALTER COLUMN ticket_id TYPE bigint USING ticket_id::bigint`],
   ];
 
   await db.withClient(async (client) => {
