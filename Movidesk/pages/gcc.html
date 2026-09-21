@@ -417,6 +417,9 @@ body.modal-open{overflow:hidden}
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar tickets
       </button>
+      <button class="btn-refresh" onclick="openChamadoListagemModal()">
+        <span class="sym">list_alt</span>Chamado Listagem
+      </button>
       <button class="btn-refresh" onclick="openExportModal()">
         <span class="sym">download</span>Exportar
       </button>
@@ -652,7 +655,12 @@ body.modal-open{overflow:hidden}
         <h3 id="detail-modal-title">Detalhe</h3>
         <p id="detail-modal-sub"></p>
       </div>
-      <button class="modal-close" id="detail-modal-close" aria-label="Fechar">&times;</button>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="modal-close" id="detail-modal-export" title="Exportar" aria-label="Exportar" onclick="closeDetailModal();openExportModal();">
+          <span class="sym" style="font-size:18px">download</span>
+        </button>
+        <button class="modal-close" id="detail-modal-close" aria-label="Fechar">&times;</button>
+      </div>
     </div>
     <div class="modal-body">
       <div class="dtable-scroll">
@@ -1158,6 +1166,10 @@ function chartHoverCursor(evt,elements){
 }
 
 // ── modal de detalhe (lista de tickets) ─────────────────────────────
+function openChamadoListagemModal(){
+  const rows=_rowsFull||[];
+  openDetailModal('Chamados',`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'} — considera os filtros aplicados`,rows);
+}
 function openDetailModal(title,sub,rows){
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
