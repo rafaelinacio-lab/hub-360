@@ -455,6 +455,15 @@ async function ensureTables() {
     `],
     ['silver.ticket_cliente.extracted_at', `ALTER TABLE silver.ticket_cliente ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`],
     ['silver.ticket_cliente.profile_type', `ALTER TABLE silver.ticket_cliente ADD COLUMN IF NOT EXISTS profile_type text`],
+    // Faltava — a heurística de organização (ORG_LATERAL, usada em
+    // ouvidoria.js/gcc.js/geral.js/satisfacao.js) faz "WHERE ticket_id = ...
+    // ORDER BY ... LIMIT 1" pra CADA linha da tabela silver.ticket. Sem
+    // índice, isso é um full scan de ticket_cliente por ticket — com a base
+    // em ~720 mil tickets, é o motivo real do Painel Geral travar/nunca
+    // responder. Índice composto cobre também o join de "quem respondeu"
+    // em satisfacao.js (ticket_id + cliente_id).
+    ['silver.ticket_cliente idx ticket_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_id ON silver.ticket_cliente(ticket_id)`],
+    ['silver.ticket_cliente idx ticket_id+cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_cliente ON silver.ticket_cliente(ticket_id, cliente_id)`],
     ['silver.carga_log (create)', `
       CREATE TABLE IF NOT EXISTS silver.carga_log (
         id           serial PRIMARY KEY,
