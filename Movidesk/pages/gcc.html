@@ -1712,6 +1712,18 @@ function hexToRgb(hex){
   if(!m) return null;
   return {r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)};
 }
+// A UF em estado_cliente vem de uma planilha externa importada (ver
+// comentário acima de loadMapData) com formato inconsistente — às vezes
+// sigla ("MG"), às vezes nome completo ("MINAS GERAIS"). Normaliza pra
+// sigla sempre, senão o mapa não colore os estados com nome completo (a
+// chave não bate com s.sigla) e a legenda mistura os dois formatos.
+function normalizarUf(valorBruto){
+  const v=(valorBruto||'').trim().toUpperCase();
+  if(!v||!_mapData) return null;
+  if(_mapData.states.some(s=>s.sigla===v)) return v;
+  const porNome=_mapData.states.find(s=>s.name.trim().toUpperCase()===v);
+  return porNome ? porNome.sigla : v;
+}
 function renderStatesMap(rows){
   const wrap=document.getElementById('statesMapWrap');
   const legend=document.getElementById('mapLegend');
@@ -1723,7 +1735,8 @@ function renderStatesMap(rows){
   const semEstado=perdidos.length-comEstado.length;
   const porUf={};
   comEstado.forEach(r=>{
-    const uf=r.estado_cliente.trim().toUpperCase();
+    const uf=normalizarUf(r.estado_cliente);
+    if(!uf) return;
     porUf[uf]=(porUf[uf]||0)+1;
   });
   const max=Math.max(0,...Object.values(porUf));
@@ -1769,7 +1782,7 @@ function renderStatesMap(rows){
 // (agrupado), não a lista de tickets — pedido explícito, diferente do
 // padrão usado nos outros gráficos/tabelas.
 function openEstadoTicketsModal(uf,nome){
-  const matched=_rowsFull.filter(r=>isPerdido(r)&&(r.estado_cliente||'').trim().toUpperCase()===uf);
+  const matched=_rowsFull.filter(r=>isPerdido(r)&&normalizarUf(r.estado_cliente)===uf);
   const porOrg={};
   matched.forEach(r=>{
     const org=r.organizacao||'Não informado';
