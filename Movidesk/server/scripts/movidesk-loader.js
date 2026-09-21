@@ -469,6 +469,20 @@ async function ensureTables() {
     ['silver.carga_log.years', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS years int[]`],
     ['silver.carga_log.classification', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS classification text`],
     ['silver.carga_log.owner_team', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS owner_team text`],
+    // Pesquisa de satisfação (satisfactionSurveyResponses, modelo "smiley
+    // faces" 1-5) — antes vivia só num banco à parte (movidesk_curadoria),
+    // buscada ticket a ticket direto na API. Migrado pro datalake pra cobrir
+    // TODOS os tickets da empresa, não só o escopo da Curadoria — ver
+    // runSatisfacaoSync().
+    ['silver.ticket_satisfacao (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_satisfacao (
+        ticket_id     varchar(20) PRIMARY KEY,
+        nota          smallint,
+        comentario    text,
+        respondido_em timestamptz,
+        verificado_em timestamptz NOT NULL DEFAULT NOW()
+      )
+    `],
   ];
 
   await db.withClient(async (client) => {
@@ -1309,4 +1323,137 @@ function cancelLoad() {
   return true;
 }
 
-module.exports = { runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state };
+// ── Sincronização da pesquisa de satisfação (silver.ticket_satisfacao) ──────
+// Estado PRÓPRIO (não usa `state`/state.running de propósito): esse job
+// cobre TODO o histórico de tickets finalizados da empresa (centenas de
+// milhares), então roda por dias/semanas em background — se ele bloqueasse
+// (ou fosse bloqueado por) as cargas normais de Ouvidoria/GCC/Full/Incremental
+// via `state.running`, essas cargas ficariam paradas o tempo todo.
+//
+// Throttle conservador (~10 req/min, igual ao documentado em curadoria.js):
+// é o MESMO limite de conta inteira do Movidesk, compartilhado com todas as
+// outras chamadas — cada ticket exige uma requisição própria (a API não
+// permite filtrar/paginar a pesquisa em lote).
+const SATISFACAO_THROTTLE_MS = 6500;
+
+const satisfacaoState = {
+  running: false, total: 0, processed: 0, updated: 0, skipped: 0, errors: 0,
+  currentTicketId: null, startedAt: null, finishedAt: null,
+  stopRequested: false, lastError: null,
+};
+
+function normalizeSurveyValue(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(1, Math.min(5, Math.round(value)));
+  }
+  return null;
+}
+
+// Se houver mais de uma resposta (ex: pesquisa reenviada), usa a mais recente.
+function extractSatisfacao(responses) {
+  const withSmiley = (responses || []).filter(r => r.satisfactionSurveySmileyFacesResponse != null);
+  if (!withSmiley.length) return null;
+  const [latest] = [...withSmiley].sort((a, b) => String(b.responseDate || '').localeCompare(String(a.responseDate || '')));
+  const nota = normalizeSurveyValue(latest.satisfactionSurveySmileyFacesResponse);
+  if (nota === null) return null;
+  return { nota, comentario: latest.comments || null, respondidoEm: latest.responseDate || null };
+}
+
+async function fetchTicketSurvey(token, ticketId) {
+  const url = `${MOVI_BASE}/tickets?${qs({ token, id: ticketId, '$select': 'id,satisfactionSurveyResponses' })}`;
+  const resp = await fetchWithRetry(url);
+  const data = await resp.json();
+  const full = Array.isArray(data) ? data[0] : data;
+  return full?.satisfactionSurveyResponses || [];
+}
+
+let activeSatisfacaoSync = null;
+
+async function runSatisfacaoSyncLoop() {
+  try {
+    await ensureTables();
+    const token = await getMovideskToken();
+
+    // Só tickets finalizados (a pesquisa só é enviada após o encerramento) e
+    // que ainda não foram checados — retomável: se o processo cair/reiniciar,
+    // continua de onde parou sem refazer os já verificados.
+    const { rows } = await db.query(`
+      SELECT t.ticket_id
+      FROM silver.ticket t
+      LEFT JOIN silver.ticket_satisfacao ts ON ts.ticket_id = t.ticket_id
+      WHERE ts.ticket_id IS NULL
+        AND t.basestatus IN ('Resolved', 'Closed', 'Resolvido', 'Fechado')
+      ORDER BY t.createddate DESC
+    `).catch(() => ({ rows: [] }));
+    satisfacaoState.total = rows.length;
+
+    for (const row of rows) {
+      if (satisfacaoState.stopRequested) break;
+      satisfacaoState.currentTicketId = row.ticket_id;
+
+      try {
+        const responses = await fetchTicketSurvey(token, row.ticket_id);
+        const sat = extractSatisfacao(responses);
+        if (sat) {
+          await db.query(`
+            INSERT INTO silver.ticket_satisfacao (ticket_id, nota, comentario, respondido_em, verificado_em)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (ticket_id) DO UPDATE SET
+              nota = EXCLUDED.nota, comentario = EXCLUDED.comentario,
+              respondido_em = EXCLUDED.respondido_em, verificado_em = NOW()
+          `, [row.ticket_id, sat.nota, sat.comentario, sat.respondidoEm]);
+          satisfacaoState.updated++;
+        } else {
+          // Verificado, mas o cliente não respondeu — marca como visto pra
+          // não tentar de novo a cada execução (nota continua NULL).
+          await db.query(`
+            INSERT INTO silver.ticket_satisfacao (ticket_id, verificado_em)
+            VALUES ($1, NOW())
+            ON CONFLICT (ticket_id) DO UPDATE SET verificado_em = NOW()
+          `, [row.ticket_id]);
+          satisfacaoState.skipped++;
+        }
+      } catch (e) {
+        satisfacaoState.errors++;
+        console.warn(`[loader] satisfacao: falha no ticket ${row.ticket_id}: ${e.message}`);
+      }
+
+      satisfacaoState.processed++;
+      await sleep(SATISFACAO_THROTTLE_MS);
+    }
+  } catch (err) {
+    satisfacaoState.lastError = err.message;
+    console.error('[loader] satisfacao sync erro:', err.message);
+  } finally {
+    satisfacaoState.running = false;
+    satisfacaoState.currentTicketId = null;
+    satisfacaoState.finishedAt = new Date().toISOString();
+    activeSatisfacaoSync = null;
+  }
+}
+
+function runSatisfacaoSync() {
+  if (activeSatisfacaoSync) return satisfacaoState;
+  satisfacaoState.running = true;
+  satisfacaoState.total = 0;
+  satisfacaoState.processed = 0;
+  satisfacaoState.updated = 0;
+  satisfacaoState.skipped = 0;
+  satisfacaoState.errors = 0;
+  satisfacaoState.startedAt = new Date().toISOString();
+  satisfacaoState.finishedAt = null;
+  satisfacaoState.stopRequested = false;
+  satisfacaoState.lastError = null;
+  activeSatisfacaoSync = runSatisfacaoSyncLoop();
+  return satisfacaoState;
+}
+
+function stopSatisfacaoSync() {
+  satisfacaoState.stopRequested = true;
+  return satisfacaoState;
+}
+
+module.exports = {
+  runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state,
+  runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
+};

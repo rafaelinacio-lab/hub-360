@@ -746,11 +746,15 @@ async function loadSatisfacao(){
   }
 }
 
-// ── sincronização (roda a fila de pesquisas pendentes na Curadoria) ──
+// ── sincronização (fila de pesquisas pendentes no datalake, silver.ticket_satisfacao) ──
+// Cobre TODOS os tickets finalizados da empresa — o backlog inicial é grande
+// (limite de ~10 req/min da conta inteira do Movidesk), então isso roda em
+// background por dias, não segundos. O toast só reflete o progresso enquanto
+// a aba fica aberta; o job continua no servidor mesmo se você fechar a página.
 let _syncPoll=null;
 async function startSync(){
   try{
-    await apiFetch('/curadoria/survey/sync','POST');
+    await apiFetch('/loader/satisfacao/sync','POST');
     document.getElementById('sync-toast').classList.add('show');
     pollSyncStatus();
   } catch(e){
@@ -761,20 +765,20 @@ async function pollSyncStatus(){
   clearInterval(_syncPoll);
   _syncPoll=setInterval(async()=>{
     try{
-      const s=await apiFetch('/curadoria/survey/sync/status','GET');
+      const s=await apiFetch('/loader/satisfacao/status','GET');
       const toast=document.getElementById('sync-toast');
       if(s.running){
-        document.getElementById('sync-toast-txt').textContent='Sincronizando pesquisas…';
+        document.getElementById('sync-toast-txt').textContent='Sincronizando pesquisas (pode levar dias)…';
         document.getElementById('sync-toast-prog').textContent=`${s.processed}/${s.total} (${s.updated} respondidas)`;
       } else {
         clearInterval(_syncPoll);
-        document.getElementById('sync-toast-txt').textContent='Sincronização concluída';
+        document.getElementById('sync-toast-txt').textContent='Sincronização pausada/concluída';
         document.getElementById('sync-toast-prog').textContent=`${s.updated} respondidas, ${s.skipped} sem resposta`;
-        setTimeout(()=>toast.classList.remove('show'),4000);
+        setTimeout(()=>toast.classList.remove('show'),6000);
         loadSatisfacao();
       }
     } catch{ clearInterval(_syncPoll); }
-  },3000);
+  },5000);
 }
 
 // ── multi-select dropdown ───────────────────────────────────────────

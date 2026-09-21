@@ -14,8 +14,14 @@ const router  = express.Router();
 const db      = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { getToken } = require('./config');
-const { runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState } = require('../scripts/movidesk-loader');
-const loader  = { runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState };
+const {
+  runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
+  runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
+} = require('../scripts/movidesk-loader');
+const loader  = {
+  runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
+  runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
+};
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
 router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
@@ -101,6 +107,25 @@ router.post('/gcc', authMiddleware, requireRole('admin', 'supervisor'), (req, re
   loader.runGcc().catch(e => console.error('[loader/gcc] erro:', e.message));
 
   res.json({ started: true, mode: 'gcc', startedAt: loader.state.startedAt });
+});
+
+// ── Pesquisa de satisfação (silver.ticket_satisfacao) ────────────────────────
+// Job separado de `loader.state` de propósito (ver comentário em
+// movidesk-loader.js) — cobre todo o histórico de tickets finalizados da
+// empresa, roda em background por um período longo, e não deve bloquear nem
+// ser bloqueado pelas cargas normais de Ouvidoria/GCC/Full/Incremental.
+router.post('/satisfacao/sync', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  const s = loader.runSatisfacaoSync();
+  res.json(s);
+});
+
+router.get('/satisfacao/status', authMiddleware, (req, res) => {
+  res.json(loader.satisfacaoState);
+});
+
+router.post('/satisfacao/sync/stop', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  const s = loader.stopSatisfacaoSync();
+  res.json(s);
 });
 
 // ── POST /api/loader/cancel ───────────────────────────────────────────────────

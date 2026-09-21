@@ -3,18 +3,15 @@
  * routes/satisfacao.js
  *
  * Painel de Pesquisa de Satisfação — usa a pesquisa real do Movidesk
- * (satisfactionSurveyResponses, modelo "smiley faces" 1-5), já sincronizada
- * pela rotina de Curadoria (ver server/routes/curadoria.js, seção
- * "Sincronização de satisfação do cliente").
+ * (satisfactionSurveyResponses, modelo "smiley faces" 1-5), sincronizada
+ * pelo job POST /api/loader/satisfacao/sync (ver server/scripts/movidesk-loader.js).
  *
- * Fonte dos dados: banco secundário movidesk_curadoria.public.curadoria_chamados
- * (NÃO é silver.ticket — a pesquisa não é ingerida na apidatalake hoje, ver
- * comentário em curadoria.js linha ~987). Isso significa que o universo
- * coberto por este painel é o mesmo escopo de equipes já importado pra
- * Curadoria (Configurações → Curadoria Avançado → condições de equipe),
- * não necessariamente TODOS os tickets da empresa.
+ * Fonte dos dados: silver.ticket_satisfacao, no datalake (mesmo banco de
+ * silver.ticket) — cobre TODOS os tickets finalizados da empresa, não só um
+ * escopo de equipes. Isso substitui a versão anterior, que lia de um banco
+ * separado (movidesk_curadoria) limitado ao escopo da Curadoria.
  *
- * GET /satisfacao — lista de chamados com pesquisa verificada (respondida ou não)
+ * GET /satisfacao — lista de avaliações + universo de tickets finalizados
  */
 
 const express = require('express');
@@ -23,24 +20,37 @@ const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess } = require('./config');
 
+const FINALIZADO_STATUSES = "('Resolved','Closed','Resolvido','Fechado')";
+
+// Mesma heurística de organização usada em ouvidoria.js/gcc.js/geral.js.
+const ORG_LATERAL = `
+  LEFT JOIN LATERAL (
+    SELECT organizacao_id, organizacao_nome
+    FROM silver.ticket_cliente
+    WHERE ticket_id = t.ticket_id
+    ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
+    LIMIT 1
+  ) tc ON true
+`;
+
 // ===== GET /satisfacao =====
 router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res) => {
   try {
     const [universoRes, rowsRes] = await Promise.all([
-      db.queryDatabase('movidesk_curadoria', `SELECT COUNT(*)::int AS total FROM public.curadoria_chamados`)
+      db.query(`SELECT COUNT(*)::int AS total FROM silver.ticket WHERE basestatus IN ${FINALIZADO_STATUSES}`)
         .catch(() => ({ rows: [{ total: 0 }] })),
-      db.queryDatabase(
-        'movidesk_curadoria',
-        `SELECT
-           ticket_id, organizacao, owner AS responsavel, owner_team AS equipe,
-           servico, urgencia, status, aberto_em, resolvido_em,
-           satisfacao_pesquisa AS nota,
-           satisfacao_pesquisa_comentario AS comentario,
-           satisfacao_pesquisa_respondido_em AS respondido_em
-         FROM public.curadoria_chamados
-         WHERE satisfacao_pesquisa_verificado_em IS NOT NULL
-         ORDER BY satisfacao_pesquisa_respondido_em DESC NULLS LAST`
-      ).catch(() => ({ rows: [] })),
+      db.query(`
+        SELECT
+          t.ticket_id, tc.organizacao_nome AS organizacao, t.owner_name AS responsavel,
+          t.ownerteam AS equipe, t.service_full AS servico, t.urgency AS urgencia,
+          t.status AS status,
+          s.nota, s.comentario, s.respondido_em
+        FROM silver.ticket_satisfacao s
+        JOIN silver.ticket t ON t.ticket_id = s.ticket_id
+        ${ORG_LATERAL}
+        WHERE s.nota IS NOT NULL
+        ORDER BY s.respondido_em DESC NULLS LAST
+      `).catch(() => ({ rows: [] })),
     ]);
 
     res.json({
@@ -49,7 +59,7 @@ router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res)
     });
   } catch (error) {
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
-      console.warn('[satisfacao] curadoria_chamados ainda não existe — retornando vazio');
+      console.warn('[satisfacao] silver.ticket_satisfacao ainda não existe — retornando vazio');
       return res.json({ universo: 0, rows: [] });
     }
     console.error('Erro ao buscar painel de satisfação:', error.message);
