@@ -1102,7 +1102,7 @@ function render(){
   const tbody=document.getElementById('tbl-negativas');
   tbody.innerHTML=comentadas.length ? comentadas.map(r=>`
     <tr>
-      <td>#${esc(r.ticket_id)}</td>
+      <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">${esc(r.ticket_id)}</a></td>
       <td>${esc(r.organizacao||'—')}</td>
       <td>${esc(r.respondido_por||'—')}</td>
       <td>${esc(r.responsavel||'—')}</td>
