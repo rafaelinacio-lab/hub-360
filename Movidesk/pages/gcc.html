@@ -531,9 +531,9 @@ body.modal-open{overflow:hidden}
         <p class="legend">Casos ainda em aberto no período.</p>
       </div>
       <div class="stat-card">
-        <p class="label">Média ações/ticket</p>
-        <p class="value" id="k-media-acoes">0</p>
-        <p class="legend">Volume médio de interações por caso.</p>
+        <p class="label">Clientes</p>
+        <p class="value" id="k-clientes">0</p>
+        <p class="legend">Clientes únicos em GCC no período.</p>
       </div>
       <div class="stat-card">
         <p class="label">Casos críticos</p>
@@ -1190,12 +1190,11 @@ function render(){
 
   // ── Operacional ──
   const pendentes=rowsFull.filter(isAberto).length;
-  const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
-  const mediaAcoes=rowsFull.length?somaAcoes/rowsFull.length:0;
+  const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao).filter(Boolean)).size;
   const criticosRows=rowsFull.filter(isCritico);
   const criticosVencidosRows=criticosRows.filter(isVencido);
   document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
-  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:1});
+  document.getElementById('k-clientes').textContent=clientesUnicos.toLocaleString('pt-BR');
   document.getElementById('k-criticos').textContent=criticosRows.length.toLocaleString('pt-BR');
   document.getElementById('k-criticos-venc').textContent=criticosVencidosRows.length.toLocaleString('pt-BR');
 
