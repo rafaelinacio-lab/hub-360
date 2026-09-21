@@ -494,7 +494,7 @@ body.modal-open{overflow:hidden}
       <div class="stat-card">
         <p class="label">Total de chamados</p>
         <p class="value" id="k-total">0</p>
-        <p class="legend">Todos os casos de GCC no período.</p>
+        <p class="legend">Abertos no período + resolvidos no período.</p>
       </div>
       <div class="stat-card">
         <p class="label">Rescisão total</p>
@@ -1145,15 +1145,24 @@ function getFilteredRows(){
     if(!statusBate(r,statusFils)) return false;
     return true;
   });
-  const rowsFull=rowsCtx.filter(r=>{
-    if(yearFils.length||monthFils.length){
-      if(!r.criado_em) return false;
-      const d=new Date(r.criado_em);
-      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
-      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
-    }
+  const dataBate=(dataStr)=>{
+    if(!yearFils.length&&!monthFils.length) return true;
+    if(!dataStr) return false;
+    const d=new Date(dataStr);
+    if(isNaN(d)) return false;
+    if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
+    if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
     return true;
-  });
+  };
+  // Tickets ainda em aberto não têm data de resolução, então o filtro de
+  // Ano/Mês olha pra quando foram CRIADOS (é o que decide se entram em
+  // Pendentes/Críticos/MRR em risco). Tickets já finalizados olham pra
+  // quando foram RESOLVIDOS (Rescisão total/parcial/Revertidos/MRR
+  // protegido/perdido) — não pra quando o caso começou.
+  const rowsFull=[
+    ...rowsCtx.filter(r=>isAberto(r)&&dataBate(r.criado_em)),
+    ...rowsCtx.filter(r=>!isAberto(r)&&dataBate(r.resolvido_em)),
+  ];
   return {rowsCtx,rowsFull};
 }
 
