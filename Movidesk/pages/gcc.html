@@ -1039,7 +1039,7 @@ function buildFilterOptions(){
   fill('f-tipo',"Tipo de rescisão",_rows.map(tipoRescNorm));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   populateMs('f-status',[
-    {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},{v:'cancelado',l:'Cancelado'},
+    {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
   ],'Status: todos',render);
 
   const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
@@ -1053,7 +1053,6 @@ function statusBate(r,statusFils){
   return statusFils.some(s=>
     (s==='aberto'&&isAberto(r))
     ||(s==='finalizado'&&FINALIZADO_STATUSES.includes(r.base_status))
-    ||(s==='cancelado'&&CANCELADO_STATUSES.includes(r.base_status))
   );
 }
 function getFilteredRows(){
@@ -1063,7 +1062,10 @@ function getFilteredRows(){
   const yearFils=getMsValues('f-year').map(Number);
   const monthFils=getMsValues('f-month').map(Number);
 
+  // Tickets cancelados não entram em nenhuma métrica/gráfico/filtro — exclui
+  // já na base, antes de qualquer outro filtro.
   const rowsCtx=_rows.filter(r=>{
+    if(CANCELADO_STATUSES.includes(r.base_status)) return false;
     if(tipoFils.length&&!tipoFils.includes(tipoRescNorm(r))) return false;
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(!statusBate(r,statusFils)) return false;

@@ -955,7 +955,7 @@ function buildFilterOptions(){
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-serv','Serviço',_rows.map(r=>r.servico));
   populateMs('f-status',[
-    {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},{v:'cancelado',l:'Cancelado'},
+    {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
   ],'Status: todos',render);
 
   const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
@@ -970,9 +970,8 @@ function buildFilterOptions(){
 function statusBate(r,statusFils){
   if(!statusFils.length) return true;
   const fin=FINALIZADO_STATUSES.includes(r.base_status);
-  const canc=CANCELADO_STATUSES.includes(r.base_status);
-  const aberto=!fin&&!canc;
-  return statusFils.some(s=>(s==='aberto'&&aberto)||(s==='finalizado'&&fin)||(s==='cancelado'&&canc));
+  const aberto=!fin;
+  return statusFils.some(s=>(s==='aberto'&&aberto)||(s==='finalizado'&&fin));
 }
 function getFilteredRows(){
   const respFils=getMsValues('f-resp');
@@ -982,7 +981,10 @@ function getFilteredRows(){
   const yearFils=getMsValues('f-year').map(Number);
   const monthFils=getMsValues('f-month').map(Number);
 
+  // Tickets cancelados não entram em nenhuma métrica/gráfico/filtro — exclui
+  // já na base, antes de qualquer outro filtro.
   const rowsCtx=_rows.filter(r=>{
+    if(CANCELADO_STATUSES.includes(r.base_status)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
