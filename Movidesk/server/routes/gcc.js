@@ -66,8 +66,10 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         -- prioriza o contato externo (profile_type <> '3') sobre o agente
         -- interno da Viasoft que às vezes também aparece em clients[] —
         -- sem isso a organização podia sair errada (ex: "VIASOFT
-        -- INFORMATICA LTDA" em vez do cliente de verdade)
-        ORDER BY (profile_type = '3'), organizacao_nome IS NULL
+        -- INFORMATICA LTDA" em vez do cliente de verdade); e-mail @viasoft.com.br
+        -- também desempata pro mesmo lado (funcionário nosso cadastrado como
+        -- contato "Executivo de Relacionamento" no ticket do cliente real).
+        ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
         LIMIT 1
       ) tc ON true
       LEFT JOIN LATERAL (
@@ -132,8 +134,10 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
         -- prioriza o contato externo (profile_type <> '3') sobre o agente
         -- interno da Viasoft que às vezes também aparece em clients[] —
         -- sem isso a organização podia sair errada (ex: "VIASOFT
-        -- INFORMATICA LTDA" em vez do cliente de verdade)
-        ORDER BY (profile_type = '3'), organizacao_nome IS NULL
+        -- INFORMATICA LTDA" em vez do cliente de verdade); e-mail @viasoft.com.br
+        -- também desempata pro mesmo lado (funcionário nosso cadastrado como
+        -- contato "Executivo de Relacionamento" no ticket do cliente real).
+        ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
         LIMIT 1
       ) tc ON true
       WHERE t.ticket_id = $1
