@@ -100,22 +100,29 @@ setInterval(() => {
   db.query('DELETE FROM sessions WHERE expires_at < NOW()').catch(() => {});
 }, 60 * 60 * 1000);
 
-// ===== Crons desativadas a pedido — nenhuma carga roda sozinha =====
+// ===== Crons desativadas a pedido — só a de Ouvidoria foi religada =====
 // Curadoria (carga bruta 3x/dia), o loader full/incremental (semanal/diário)
-// e a carga automática de Ouvidoria + GCC (2h em 2h) foram desligados. Toda
-// carga agora só roda quando disparada manualmente em Configurações → Carga
-// Datalake (botões "Full agora" / "Sincronizar tickets" nas abas Ouvidoria e
-// GCC). As funções continuam no código para religar facilmente se precisar
-// (basta chamar setTimeout/setInterval de novo), só não são mais agendadas aqui.
-//
-// async function runOuvidoriaEGccLoad() {
-//   console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga Ouvidoria automática Movidesk → datalake`);
-//   try {
-//     await movideskLoader.runOuvidoria();
-//   } catch (e) {
-//     console.error('[loader] ouvidoria auto erro:', e.message);
-//   }
-//
+// e a carga automática de GCC (2h em 2h) continuam desligados. Toda carga
+// dessas continua só rodando quando disparada manualmente em Configurações →
+// Carga Datalake (botões "Full agora" / "Sincronizar tickets"). A de
+// Ouvidoria foi religada abaixo — mesma lógica do botão "Sincronizar
+// tickets" da aba Ouvidoria (busca só os chamados em aberto no Movidesk e
+// atualiza o banco), rodando sozinha a cada 2h.
+async function runOuvidoriaAutoLoad() {
+  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga Ouvidoria automática Movidesk → datalake`);
+  try {
+    await movideskLoader.runOuvidoria();
+  } catch (e) {
+    console.error('[loader] ouvidoria auto erro:', e.message);
+  }
+}
+
+setTimeout(runOuvidoriaAutoLoad, 10 * 1000);
+setInterval(runOuvidoriaAutoLoad, 2 * 60 * 60 * 1000);
+
+// GCC automático continua desligado — religar chamando movideskLoader.runGcc()
+// da mesma forma, se precisar no futuro.
+// async function runGccAutoLoad() {
 //   console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Carga GCC automática Movidesk → datalake`);
 //   try {
 //     await movideskLoader.runGcc();
@@ -123,9 +130,8 @@ setInterval(() => {
 //     console.error('[loader] gcc auto erro:', e.message);
 //   }
 // }
-//
-// setTimeout(runOuvidoriaEGccLoad, 10 * 1000);
-// setInterval(runOuvidoriaEGccLoad, 2 * 60 * 60 * 1000);
+// setTimeout(runGccAutoLoad, 10 * 1000);
+// setInterval(runGccAutoLoad, 2 * 60 * 60 * 1000);
 
 // Garante que silver.ticket (e as demais tabelas/colunas do datalake) já
 // existem assim que o servidor sobe — sem isso, uma coluna nova (ex:
