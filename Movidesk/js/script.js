@@ -27,7 +27,7 @@ const EMBED_PAGE_ROUTES = {
     ouvidoria: 'pages/ouvidoria.html',
     gcc: 'pages/gcc.html',
     jira: 'pages/jira.html',
-    movidesk: 'pages/movidesk.html'
+    movidesk: 'pages/geral.html'
 };
 
 // ─── Animação de transição: ícone da aba clicada "voa" até o centro do

@@ -248,6 +248,7 @@ const SELECT_FIELDS = [
   'ownerTeam', 'serviceFull', 'createdDate', 'resolvedIn', 'closedIn',
   'lastUpdate', 'stoppedTime', 'stoppedTimeWorkingTime', 'slaRealResponseDate',
   'slaSolutionDate', // prazo (deadline) de solução do SLA — usado pro card "Tickets vencidos"
+  'reopenedIn', // usado pro card "Taxa de reabertura" do Painel Geral
 ].join(',');
 
 // Movidesk OData não suporta sintaxe aninhada v4 (semicolons, $select dentro de $expand).
@@ -402,6 +403,7 @@ async function ensureTables() {
       'resolved_in timestamptz', 'closed_in timestamptz', 'stopped_time float',
       'stopped_time_wt float', 'sla_response_date timestamptz', 'extracted_at timestamptz',
       'sla_solution_date timestamptz',
+      'reopened_in timestamptz',
     ].map(col => {
       const [name] = col.split(' ');
       return [`silver.ticket.${name}`, `ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`];
@@ -521,6 +523,7 @@ async function saveBatch(tickets) {
   const stoppedCs   = tickets.map(t => t.stoppedTime != null ? String(t.stoppedTime) : null);
   const slaRespDs   = tickets.map(t => t.slaRealResponseDate || null);
   const slaSolDs    = tickets.map(t => t.slaSolutionDate     || null);
+  const reopenedIns = tickets.map(t => t.reopenedIn || null);
   // clientorganization — pega a organização da primeira org dos clients.
   // Não cai pro nome do contato (c.businessName) quando não há organização:
   // isso fazia o "Top clientes" mostrar nome de pessoa em vez de empresa.
@@ -535,26 +538,27 @@ async function saveBatch(tickets) {
        last_update, ownerteam, owner_id, owner_name,
        urgency, category, service_full,
        resolved_in, closed_in, stopped_time_wt, stopped_time,
-       sla_response_date, clientorganization, sla_solution_date, extracted_at)
+       sla_response_date, clientorganization, sla_solution_date, reopened_in, extracted_at)
     SELECT
       u.ticket_id::bigint, u.subject, u.status, u.basestatus, u.createddate::timestamptz,
       u.last_update::timestamptz, u.ownerteam, u.owner_id, u.owner_name,
       u.urgency, u.category, u.service_full,
       u.resolved_in::timestamptz, u.closed_in::timestamptz,
       u.stopped_time_wt::float, u.stopped_time::float,
-      u.sla_response_date::timestamptz, u.clientorganization, u.sla_solution_date::timestamptz, NOW()
+      u.sla_response_date::timestamptz, u.clientorganization, u.sla_solution_date::timestamptz,
+      u.reopened_in::timestamptz, NOW()
     FROM unnest(
       $1::varchar[],  $2::text[],  $3::text[],  $4::text[],  $5::text[],
       $6::text[],     $7::text[],  $8::text[],  $9::text[],
       $10::text[],    $11::text[], $12::text[],
       $13::text[],    $14::text[], $15::text[],  $16::text[],
-      $17::text[],    $18::text[], $19::text[]
+      $17::text[],    $18::text[], $19::text[],  $20::text[]
     ) AS u(
       ticket_id, subject, status, basestatus, createddate,
       last_update, ownerteam, owner_id, owner_name,
       urgency, category, service_full,
       resolved_in, closed_in, stopped_time_wt, stopped_time,
-      sla_response_date, clientorganization, sla_solution_date
+      sla_response_date, clientorganization, sla_solution_date, reopened_in
     )
     ON CONFLICT (ticket_id) DO UPDATE SET
       subject           = EXCLUDED.subject,
@@ -574,12 +578,13 @@ async function saveBatch(tickets) {
       sla_response_date = EXCLUDED.sla_response_date,
       clientorganization = EXCLUDED.clientorganization,
       sla_solution_date = EXCLUDED.sla_solution_date,
+      reopened_in       = EXCLUDED.reopened_in,
       extracted_at      = EXCLUDED.extracted_at
   `, [ids, subjects, statuses, baseStats, createdDts,
       lastUpdates, ownerTeams, ownerIds, ownerNames,
       urgencies, categories, services,
       resolvedIns, closedIns, stoppedTs, stoppedCs,
-      slaRespDs, clientOrgs, slaSolDs]));
+      slaRespDs, clientOrgs, slaSolDs, reopenedIns]));
 
   // ── 2. silver.ticket_acao ──
   // Dedup por (ticket_id, acao_id) — mesmo motivo do dedup de tickets acima:
