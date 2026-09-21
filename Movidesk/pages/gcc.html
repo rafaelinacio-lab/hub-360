@@ -317,6 +317,16 @@ body.modal-open{overflow:hidden}
 .ticket-link{color:var(--orange);text-decoration:none;font-weight:600}
 .ticket-link:hover{text-decoration:underline}
 
+.listagem-search{
+  width:100%;padding:9px 12px;margin-bottom:10px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface-mid);color:var(--t1);
+  font-size:13px;font-family:inherit;outline:none;
+}
+.listagem-search:focus{border-color:var(--orange)}
+.dtable th.sortable{cursor:pointer;user-select:none}
+.dtable th.sortable:hover{color:var(--t1)}
+.dtable th.sortable .sort-arrow{display:inline-block;width:12px;font-size:10px;opacity:.6}
+
 .export-options{display:flex;gap:12px;padding:4px 0 8px}
 .export-opt{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;
@@ -669,6 +679,32 @@ body.modal-open{overflow:hidden}
             <tr id="detail-modal-thead"><th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th></tr>
           </thead>
           <tbody id="detail-modal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="listagem-modal" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:min(1180px,95vw)">
+    <div class="modal-head">
+      <div>
+        <h3>Chamados</h3>
+        <p id="listagem-sub"></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="modal-close" title="Exportar" aria-label="Exportar" onclick="closeListagemModal();openExportModal();">
+          <span class="sym" style="font-size:18px">download</span>
+        </button>
+        <button class="modal-close" id="listagem-close" aria-label="Fechar">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <input type="text" class="listagem-search" id="listagem-search" placeholder="Buscar em qualquer coluna…" oninput="listagemOnSearch(this.value)">
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead><tr id="listagem-thead"></tr></thead>
+          <tbody id="listagem-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -1166,10 +1202,83 @@ function chartHoverCursor(evt,elements){
 }
 
 // ── modal de detalhe (lista de tickets) ─────────────────────────────
+// ── Chamado Listagem: tabela completa (todas as colunas do export),
+// ordenável por coluna e com busca livre ────────────────────────────
+const LISTAGEM_COLS=[
+  {label:'ID',num:true,
+    get:r=>`#${r.ticket_id}`,
+    html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a>`,
+    sort:r=>Number(r.ticket_id)||0},
+  {label:'Organização', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
+  {label:'Assunto', get:r=>r.assunto_gcc||'—', sort:r=>(r.assunto_gcc||'').toLowerCase()},
+  {label:'Status', get:r=>r.status_movidesk||r.base_status||'—', sort:r=>(r.status_movidesk||r.base_status||'').toLowerCase()},
+  {label:'Tipo Rescisão', get:r=>r.tipo_rescisao||'—', sort:r=>(r.tipo_rescisao||'').toLowerCase()},
+  {label:'Vertical', get:r=>verticalDe(r), sort:r=>verticalDe(r).toLowerCase()},
+  {label:'Motivo Churn', get:r=>r.motivo_churn||'—', sort:r=>(r.motivo_churn||'').toLowerCase()},
+  {label:'MRR',num:true, get:r=>fmtMrrFull(parseMrr(r.mrr)), sort:r=>parseMrr(r.mrr)},
+  {label:'Estado (UF)', get:r=>r.estado_cliente||'—', sort:r=>(r.estado_cliente||'').toLowerCase()},
+  {label:'Responsável', get:r=>r.responsavel||'—', sort:r=>(r.responsavel||'').toLowerCase()},
+  {label:'Criado em', get:r=>dtStr(r.criado_em)||'—', sort:r=>r.criado_em?new Date(r.criado_em).getTime():0},
+  {label:'Resolvido em', get:r=>dtStr(r.resolvido_em)||'—', sort:r=>r.resolvido_em?new Date(r.resolvido_em).getTime():0},
+];
+let _listagemSort={col:10,dir:-1}; // por padrão: Criado em, decrescente
+let _listagemSearch='';
+
 function openChamadoListagemModal(){
-  const rows=_rowsFull||[];
-  openDetailModal('Chamados',`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'} — considera os filtros aplicados`,rows);
+  _listagemSearch='';
+  document.getElementById('listagem-search').value='';
+  listagemRender();
+  document.getElementById('listagem-modal').classList.add('show');
+  syncModalBodyLock();
 }
+function closeListagemModal(){
+  document.getElementById('listagem-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+function listagemOnSearch(v){
+  _listagemSearch=v.trim().toLowerCase();
+  listagemRender();
+}
+function listagemSetSort(colIdx){
+  if(_listagemSort.col===colIdx) _listagemSort.dir*=-1;
+  else _listagemSort={col:colIdx,dir:1};
+  listagemRender();
+}
+function listagemRender(){
+  const all=_rowsFull||[];
+  const filtered=_listagemSearch
+    ? all.filter(r=>LISTAGEM_COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
+    : all;
+  const {col,dir}=_listagemSort;
+  const sorted=filtered.slice().sort((a,b)=>{
+    const va=LISTAGEM_COLS[col].sort(a), vb=LISTAGEM_COLS[col].sort(b);
+    if(va<vb) return -1*dir;
+    if(va>vb) return 1*dir;
+    return 0;
+  });
+  sorted.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+
+  document.getElementById('listagem-sub').textContent=
+    `${sorted.length.toLocaleString('pt-BR')} de ${all.length.toLocaleString('pt-BR')} ticket${all.length===1?'':'s'} — considera os filtros aplicados`;
+
+  document.getElementById('listagem-thead').innerHTML=LISTAGEM_COLS.map((c,i)=>{
+    const arrow=_listagemSort.col===i?(_listagemSort.dir===1?'▲':'▼'):'';
+    return `<th class="sortable${c.num?' num':''}" onclick="listagemSetSort(${i})">${esc(c.label)}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join('');
+
+  const tbody=document.getElementById('listagem-tbody');
+  if(!sorted.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="${LISTAGEM_COLS.length}">Nenhum ticket encontrado.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=sorted.map(r=>`
+    <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
+      ${LISTAGEM_COLS.map(c=>`<td${c.num?' class="num"':''}>${c.html?c.html(r):esc(c.get(r))}</td>`).join('')}
+    </tr>`).join('');
+}
+document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
+document.getElementById('listagem-modal').addEventListener('click',e=>{ if(e.target.id==='listagem-modal') closeListagemModal(); });
+
 function openDetailModal(title,sub,rows){
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
@@ -1203,7 +1312,8 @@ document.getElementById('detail-modal').addEventListener('click',e=>{ if(e.targe
 function syncModalBodyLock(){
   const open=document.getElementById('detail-modal').classList.contains('show')
     || document.getElementById('ticket-modal').classList.contains('show')
-    || document.getElementById('export-modal').classList.contains('show');
+    || document.getElementById('export-modal').classList.contains('show')
+    || document.getElementById('listagem-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
 
