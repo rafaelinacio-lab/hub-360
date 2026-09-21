@@ -742,7 +742,7 @@ async function api(ep){
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
-function ticketUrl(id){ return `https://atendimento.viasoft.com.br/Ticket/Edit/${id}`; }
+function ticketUrl(id){ return `https://viasoft.movidesk.com/Ticket/Edit/${id}`; }
 function fmtFull(v){
   if(!v) return '—';
   const d=new Date(v);

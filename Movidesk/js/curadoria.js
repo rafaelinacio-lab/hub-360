@@ -896,7 +896,7 @@ function showCuradoriaResumo(ticketId, payload, sourceEl = null) {
         }
 
         if (openBtn) {
-            openBtn.onclick = () => window.open(`https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`, '_blank');
+            openBtn.onclick = () => window.open(`https://viasoft.movidesk.com/Ticket/Edit/${ticketId}`, '_blank');
         }
 
         modal.style.display = 'flex';
@@ -1099,7 +1099,7 @@ async function handleCardClick(ticketId) {
     if (!ticket) {
         console.warn(`Ticket ${ticketId} (normalizado: ${normalizedId}) nao encontrado no cache. Cache total: ${_cachedTickets ? _cachedTickets.length : 0}`);
         console.log('IDs disponiveis no cache:', _cachedTickets?.map(t => ({ id: t.id, tipo: typeof t.id })).slice(0, 5));
-        window.open(`https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`, '_blank');
+        window.open(`https://viasoft.movidesk.com/Ticket/Edit/${ticketId}`, '_blank');
         return;
     }
 
@@ -1158,7 +1158,7 @@ async function handleCardClick(ticketId) {
 
     if (openBtn) {
         openBtn.onclick = () => {
-            window.open(`https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`, '_blank');
+            window.open(`https://viasoft.movidesk.com/Ticket/Edit/${ticketId}`, '_blank');
         };
     }
 }
