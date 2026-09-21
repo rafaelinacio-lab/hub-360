@@ -105,15 +105,32 @@ function checaClassificacao(customFieldValues, valorEsperado) {
   return null;
 }
 
-// Monta o callback de save que confirma a classificação (descarta tickets que
-// vieram pelo filtro de ownerTeam mas são de outra classificação) e aplica o
-// patch pro bug de items ausente (ver checaClassificacao acima) nos que ficam.
+// Monta o callback de save que confirma a classificação (aplica o patch de
+// classificação canônica só nos que confirmam) e aplica o patch pro bug de
+// items ausente (ver checaClassificacao acima) nos que ficam.
+//
+// BUG CORRIGIDO: antes, um ticket que veio pelo filtro de ownerTeam mas cuja
+// classificação real mudou pra outra coisa (ex: reclassificado de
+// "Ouvidoria" pra "Visitas a Clientes" depois de já ter sido carregado uma
+// vez) era simplesmente DESCARTADO (continue) — nunca chegava a ser salvo de
+// novo. Isso deixava a linha antiga em silver.ticket/ticket_campo_customizado
+// congelada pra sempre com o status/classificação de quando foi carregado a
+// última vez, e nenhuma carga full/sincronização subsequente corrigia,
+// porque o próprio filtro de classificação (customFieldValues/any(...))
+// também exclui esse ticket da busca. Ticket #874687 é um caso real: virou
+// "Cancelado" no Movidesk, mas continuava aparecendo como "Resolvido" na
+// Ouvidoria porque a classificação dele tinha mudado pra "Visitas a
+// Clientes" nesse meio tempo. Agora, em vez de descartar, salvamos o ticket
+// como ele realmente está (sem forçar a classificação) — assim o dado fica
+// correto e, como a classificação real não é mais "Ouvidoria"/"GCC", ele
+// some sozinho do painel errado na consulta (que filtra por classificação).
 function makeSaveComClassificacao(classValue) {
   return async (batch) => {
-    const filtrados = [];
+    const confirmados = [];
+    const outros = [];
     for (const t of batch) {
       const confirmado = checaClassificacao(t.customFieldValues, classValue);
-      if (confirmado === false) continue; // classificação explicitamente diferente — não é desse grupo
+      if (confirmado === false) { outros.push(t); continue; } // classificação explicitamente diferente agora — salva como está, sem forçar
       if (!Array.isArray(t.customFieldValues)) t.customFieldValues = [];
       // Garante uma entrada CANÔNICA sob CF_CLASSIFICACAO (23946) — é o id que
       // silver.ticket_campo_customizado usa nas consultas de ouvidoria.js/gcc.js.
@@ -128,9 +145,10 @@ function makeSaveComClassificacao(classValue) {
         t.customFieldValues.push(cfCanonico);
       }
       cfCanonico.items = [{ customFieldItem: classValue }];
-      filtrados.push(t);
+      confirmados.push(t);
     }
-    return saveBatch(filtrados);
+    if (outros.length) await saveBatch(outros);
+    return saveBatch(confirmados);
   };
 }
 
