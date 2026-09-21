@@ -873,8 +873,8 @@ function switchConfigTab(tab) {
 }
 
 // ─── Acesso: quais abas cada perfil vê no menu ─────────────────────────────
-const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'], guest: ['dashboard'] };
-const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Movidesk' };
+const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao'], guest: ['dashboard'] };
+const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Painel Geral', satisfacao: 'Satisfação' };
 let cfgAccessPermissions = {};
 let cfgAccessRoles = [];
 
