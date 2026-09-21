@@ -1332,32 +1332,38 @@ function cancelLoad() {
 }
 
 // ── Sincronização da pesquisa de satisfação (silver.ticket_satisfacao) ──────
-// Estado PRÓPRIO (não usa `state`/state.running de propósito): esse job
-// cobre TODO o histórico de tickets finalizados da empresa (centenas de
-// milhares), então roda por dias/semanas em background — se ele bloqueasse
-// (ou fosse bloqueado por) as cargas normais de Ouvidoria/GCC/Full/Incremental
-// via `state.running`, essas cargas ficariam paradas o tempo todo.
+// Estado PRÓPRIO (não usa `state`/state.running de propósito) — roda
+// independente das cargas normais de Ouvidoria/GCC/Full/Incremental.
 //
 // Limite real confirmado da API do Movidesk: 240 req/min, pra conta inteira
-// (compartilhado com todas as outras chamadas — Ouvidoria/GCC, Curadoria,
-// etc). Roda a 50 req/min por escolha explícita (bem abaixo do limite real,
-// margem de segurança grande) — cada ticket exige uma requisição própria.
+// (compartilhado com todas as outras chamadas). Roda a 50 req/min por
+// escolha explícita (bem abaixo do limite real).
 //
-// TESTADO E CONFIRMADO (21/09/2026, via curl direto): buscar em lote com
-// $filter=createdDate + $expand=satisfactionSurveyResponses NÃO é seguro —
-// não é um caso de dado corrompido (como o bug já conhecido com
-// customFieldValues), é pior: o ticket que REALMENTE tem uma resposta de
-// pesquisa some inteiro do resultado filtrado. Testado com o ticket #856368
-// (criado 2026-05-13, nota real=4, comentário="45444", confirmado por busca
-// limpa sem filtro) — ele não aparece na lista de $filter+$expand daquele
-// dia, enquanto todos os tickets vizinhos (sem resposta) aparecem normal.
-// Ou seja, buscar em lote perderia exatamente os tickets que importam. Por
-// isso a busca continua sendo OBRIGATORIAMENTE 1 requisição por ticket, sem
-// $filter (só $select=id,satisfactionSurveyResponses).
+// HISTÓRICO DE INVESTIGAÇÃO (21/09/2026):
+// 1) Buscar em lote via /tickets com $filter=createdDate + $expand=
+//    satisfactionSurveyResponses NÃO é seguro (testado via curl) — não
+//    corrompe o dado como o bug já conhecido de customFieldValues, é pior:
+//    o ticket que REALMENTE tem resposta de pesquisa some inteiro do
+//    resultado filtrado (testado com #856368, nota real=4, ausente da busca
+//    filtrada, presente e correto na busca limpa por id).
+// 2) Buscar 1 ticket por vez (GET /tickets?id=X&$select=...) funciona mas é
+//    lento (uma requisição por ticket, mesmo pros que nunca responderam).
+// 3) SOLUÇÃO REAL: existe um endpoint dedicado de respostas de pesquisa,
+//    GET /survey/responses?responseDateGreaterThan=...&limit=...&startingAfter=...
+//    — paginação por cursor (não OData, não usa $filter/$skip/$top) que
+//    FUNCIONA de verdade (testado via curl: filtro de data respeitado,
+//    cursor avança corretamente, data futura devolve vazio). Cada página
+//    só traz respostas que EXISTEM, então o volume de requisições é
+//    "quantas pesquisas foram respondidas" (milhares) em vez de "quantos
+//    tickets existem" (centenas de milhares) — ordens de magnitude mais
+//    rápido. Descoberto a partir de um script de referência (Google Apps
+//    Script da Michelli Muller) que já usava esse endpoint com sucesso.
 const SATISFACAO_THROTTLE_MS = 1200;
+const SURVEY_PAGE_LIMIT = 100; // mesmo valor já validado em produção pelo script de referência
+const SATISFACAO_FLOOR_PADRAO = '2018-01-01T00:00:00'; // início do histórico quando nenhum ano é selecionado
 
 const satisfacaoState = {
-  running: false, total: 0, processed: 0, updated: 0, skipped: 0, errors: 0,
+  running: false, total: 0, processed: 0, updated: 0, errors: 0,
   currentTicketId: null, startedAt: null, finishedAt: null,
   stopRequested: false, lastError: null, years: [],
 };
@@ -1369,22 +1375,16 @@ function normalizeSurveyValue(value) {
   return null;
 }
 
-// Se houver mais de uma resposta (ex: pesquisa reenviada), usa a mais recente.
-function extractSatisfacao(responses) {
-  const withSmiley = (responses || []).filter(r => r.satisfactionSurveySmileyFacesResponse != null);
-  if (!withSmiley.length) return null;
-  const [latest] = [...withSmiley].sort((a, b) => String(b.responseDate || '').localeCompare(String(a.responseDate || '')));
-  const nota = normalizeSurveyValue(latest.satisfactionSurveySmileyFacesResponse);
-  if (nota === null) return null;
-  return { nota, comentario: latest.comments || null, respondidoEm: latest.responseDate || null };
-}
-
-async function fetchTicketSurvey(token, ticketId) {
-  const url = `${MOVI_BASE}/tickets?${qs({ token, id: ticketId, '$select': 'id,satisfactionSurveyResponses' })}`;
+async function fetchSurveyResponsesPage(token, { responseDateGreaterThan, startingAfter }) {
+  const url = `${MOVI_BASE}/survey/responses?${qs({
+    token,
+    responseDateGreaterThan,
+    limit: SURVEY_PAGE_LIMIT,
+    startingAfter: startingAfter || undefined,
+  })}`;
   const resp = await fetchWithRetry(url);
   const data = await resp.json();
-  const full = Array.isArray(data) ? data[0] : data;
-  return full?.satisfactionSurveyResponses || [];
+  return { items: Array.isArray(data?.items) ? data.items : [], hasMore: !!data?.hasMore };
 }
 
 let activeSatisfacaoSync = null;
@@ -1394,66 +1394,59 @@ async function runSatisfacaoSyncLoop(years) {
     await ensureTables();
     const token = await getMovideskToken();
 
-    // Só tickets finalizados (a pesquisa só é enviada após o encerramento) e
-    // que ainda não foram checados — retomável: se o processo cair/reiniciar,
-    // continua de onde parou sem refazer os já verificados. `years` (opcional)
-    // prioriza um recorte específico — útil pra não esperar o backlog
-    // inteiro (centenas de milhares de tickets) só pra ver dados de um ano
-    // recente.
+    // `years` (opcional) vira o piso de data — busca respostas desde 1º de
+    // janeiro do menor ano selecionado até hoje. Sem anos, busca o
+    // histórico inteiro desde SATISFACAO_FLOOR_PADRAO. A API pagina do mais
+    // recente pro mais antigo (cursor `startingAfter`), parando sozinha
+    // quando ultrapassa esse piso (hasMore vira false).
     const sortedYears = Array.isArray(years) ? years.map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()) : [];
-    const yearFilter = sortedYears.length ? `AND EXTRACT(YEAR FROM t.createddate) = ANY($1::int[])` : '';
-    // Sem .catch aqui de propósito: um erro real na query (ex: tabela ainda
-    // não existe, tipo incompatível) precisa estourar pro catch de fora, que
-    // grava em satisfacaoState.lastError e loga no console — antes ficava
-    // engolido em silêncio (virava "0 tickets processados" sem pista nenhuma
-    // do motivo).
-    const { rows } = await db.query(`
-      SELECT t.ticket_id
-      FROM silver.ticket t
-      LEFT JOIN silver.ticket_satisfacao ts ON ts.ticket_id = t.ticket_id
-      WHERE ts.ticket_id IS NULL
-        AND t.basestatus IN ('Resolved', 'Closed', 'Resolvido', 'Fechado')
-        ${yearFilter}
-      ORDER BY t.createddate DESC
-    `, sortedYears.length ? [sortedYears] : []);
-    satisfacaoState.total = rows.length;
-    console.log(`[loader] satisfacao: ${rows.length} ticket(s) pendente(s)${sortedYears.length ? ` (anos ${sortedYears.join(', ')})` : ''}`);
+    const floorDate = sortedYears.length ? `${Math.min(...sortedYears)}-01-01T00:00:00` : SATISFACAO_FLOOR_PADRAO;
     satisfacaoState.years = sortedYears;
+    console.log(`[loader] satisfacao: iniciando busca de respostas desde ${floorDate}${sortedYears.length ? ` (anos ${sortedYears.join(', ')})` : ''}`);
 
-    for (const row of rows) {
+    let startingAfter = '';
+    let hasMore = true;
+    while (hasMore) {
       if (satisfacaoState.stopRequested) break;
-      satisfacaoState.currentTicketId = row.ticket_id;
 
-      try {
-        const responses = await fetchTicketSurvey(token, row.ticket_id);
-        const sat = extractSatisfacao(responses);
-        if (sat) {
-          await db.query(`
-            INSERT INTO silver.ticket_satisfacao (ticket_id, nota, comentario, respondido_em, verificado_em)
-            VALUES ($1, $2, $3, $4, NOW())
-            ON CONFLICT (ticket_id) DO UPDATE SET
-              nota = EXCLUDED.nota, comentario = EXCLUDED.comentario,
-              respondido_em = EXCLUDED.respondido_em, verificado_em = NOW()
-          `, [row.ticket_id, sat.nota, sat.comentario, sat.respondidoEm]);
-          satisfacaoState.updated++;
-        } else {
-          // Verificado, mas o cliente não respondeu — marca como visto pra
-          // não tentar de novo a cada execução (nota continua NULL).
-          await db.query(`
-            INSERT INTO silver.ticket_satisfacao (ticket_id, verificado_em)
-            VALUES ($1, NOW())
-            ON CONFLICT (ticket_id) DO UPDATE SET verificado_em = NOW()
-          `, [row.ticket_id]);
-          satisfacaoState.skipped++;
+      const page = await fetchSurveyResponsesPage(token, { responseDateGreaterThan: floorDate, startingAfter });
+      hasMore = page.hasMore;
+
+      for (const item of page.items) {
+        satisfacaoState.currentTicketId = item.ticketId;
+        try {
+          const nota = normalizeSurveyValue(item.value);
+          if (nota !== null && item.ticketId) {
+            // Uma resposta mais antiga (encontrada depois, já que a
+            // paginação vai do mais recente pro mais antigo) nunca
+            // sobrescreve uma mais nova já salva — GREATEST/CASE comparam
+            // respondido_em antes de decidir.
+            await db.query(`
+              INSERT INTO silver.ticket_satisfacao (ticket_id, nota, comentario, respondido_em, verificado_em)
+              VALUES ($1, $2, $3, $4, NOW())
+              ON CONFLICT (ticket_id) DO UPDATE SET
+                nota          = CASE WHEN EXCLUDED.respondido_em > silver.ticket_satisfacao.respondido_em THEN EXCLUDED.nota ELSE silver.ticket_satisfacao.nota END,
+                comentario    = CASE WHEN EXCLUDED.respondido_em > silver.ticket_satisfacao.respondido_em THEN EXCLUDED.comentario ELSE silver.ticket_satisfacao.comentario END,
+                respondido_em = GREATEST(EXCLUDED.respondido_em, silver.ticket_satisfacao.respondido_em),
+                verificado_em = NOW()
+            `, [item.ticketId, nota, item.commentary || null, item.responseDate || null]);
+            satisfacaoState.updated++;
+          }
+        } catch (e) {
+          satisfacaoState.errors++;
+          console.warn(`[loader] satisfacao: falha na resposta do ticket ${item.ticketId}: ${e.message}`);
         }
-      } catch (e) {
-        satisfacaoState.errors++;
-        console.warn(`[loader] satisfacao: falha no ticket ${row.ticket_id}: ${e.message}`);
+        satisfacaoState.processed++;
+        satisfacaoState.total = satisfacaoState.processed;
       }
 
-      satisfacaoState.processed++;
-      await sleep(SATISFACAO_THROTTLE_MS);
+      if (hasMore) {
+        startingAfter = page.items[page.items.length - 1]?.id || '';
+        if (!startingAfter) break; // segurança: sem cursor válido, não dá pra continuar
+        await sleep(SATISFACAO_THROTTLE_MS);
+      }
     }
+    console.log(`[loader] satisfacao: concluído — ${satisfacaoState.processed} resposta(s) processada(s), ${satisfacaoState.updated} salva(s), ${satisfacaoState.errors} erro(s)`);
   } catch (err) {
     satisfacaoState.lastError = err.message;
     console.error('[loader] satisfacao sync erro:', err.message);
@@ -1471,7 +1464,6 @@ function runSatisfacaoSync({ years = [] } = {}) {
   satisfacaoState.total = 0;
   satisfacaoState.processed = 0;
   satisfacaoState.updated = 0;
-  satisfacaoState.skipped = 0;
   satisfacaoState.errors = 0;
   satisfacaoState.startedAt = new Date().toISOString();
   satisfacaoState.finishedAt = null;

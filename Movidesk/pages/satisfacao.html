@@ -768,12 +768,12 @@ async function pollSyncStatus(){
       const s=await apiFetch('/loader/satisfacao/status','GET');
       const toast=document.getElementById('sync-toast');
       if(s.running){
-        document.getElementById('sync-toast-txt').textContent='Sincronizando pesquisas (pode levar dias)…';
-        document.getElementById('sync-toast-prog').textContent=`${s.processed}/${s.total} (${s.updated} respondidas)`;
+        document.getElementById('sync-toast-txt').textContent='Sincronizando pesquisas…';
+        document.getElementById('sync-toast-prog').textContent=`${s.processed} respostas encontradas (${s.updated} salvas)`;
       } else {
         clearInterval(_syncPoll);
-        document.getElementById('sync-toast-txt').textContent='Sincronização pausada/concluída';
-        document.getElementById('sync-toast-prog').textContent=`${s.updated} respondidas, ${s.skipped} sem resposta`;
+        document.getElementById('sync-toast-txt').textContent='Sincronização concluída';
+        document.getElementById('sync-toast-prog').textContent=`${s.updated} salvas, ${s.errors} erro(s)`;
         setTimeout(()=>toast.classList.remove('show'),6000);
         loadSatisfacao();
       }

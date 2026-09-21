@@ -2572,10 +2572,10 @@ function dlSatUpdateYearNote() {
     if (!note) return;
     const years = dlSatGetSelectedYears();
     if (!years.length) {
-        note.textContent = '⚡ Nenhum ano marcado → processa todos os anos, tickets finalizados mais recentes primeiro (backlog grande, roda por dias).';
+        note.textContent = '⚡ Nenhum ano marcado → busca o histórico inteiro de respostas, desde 2018.';
     } else {
         const sorted = [...years].sort();
-        note.textContent = `📅 Anos selecionados: ${sorted.join(', ')} (${sorted.length} ano${sorted.length > 1 ? 's' : ''}) — processados antes do restante.`;
+        note.textContent = `📅 Busca respostas desde 1º de janeiro de ${sorted[0]} até hoje (ignora o filtro de meses/anos posteriores — é só um piso).`;
     }
 }
 
@@ -2635,7 +2635,7 @@ async function dlSatLoad() {
                 badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
             }
             const anosTxt = s.years?.length ? ` (anos ${[...s.years].sort().join(', ')})` : '';
-            if (meta) meta.textContent = `${s.processed}/${s.total} processados${anosTxt} · ${s.updated} com nota · ${s.skipped} sem resposta · ${s.errors} erro(s)`;
+            if (meta) meta.textContent = `${s.processed} resposta(s) processada(s)${anosTxt} · ${s.updated} salva(s) · ${s.errors} erro(s)`;
             if (btnSat) { btnSat.disabled = true; btnSat.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Rodando…'; }
             if (btnStop) btnStop.style.display = '';
             if (!_dlSatPollTimer) _dlSatPollTimer = setInterval(dlSatLoad, 4000);
@@ -2647,7 +2647,7 @@ async function dlSatLoad() {
             if (meta) meta.textContent = s.lastError
                 ? `Falhou: ${s.lastError}`
                 : (s.finishedAt
-                    ? `Última execução: ${s.updated} com nota, ${s.skipped} sem resposta, ${s.errors} erro(s) de ${s.processed}/${s.total}.`
+                    ? `Última execução: ${s.updated} salva(s), ${s.errors} erro(s), de ${s.processed} resposta(s) encontrada(s).`
                     : '–');
             if (meta) meta.style.color = s.lastError ? '#f87171' : '';
             if (btnSat) { btnSat.disabled = false; btnSat.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">sentiment_satisfied</span> Sincronizar pesquisas'; }
