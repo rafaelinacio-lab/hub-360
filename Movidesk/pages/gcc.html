@@ -1767,9 +1767,10 @@ function renderStatesMap(rows){
   wrap.innerHTML=`<svg viewBox="${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}" xmlns="http://www.w3.org/2000/svg">${paths}${labels}</svg>`;
 
   const ranked=Object.entries(porUf).sort((a,b)=>b[1]-a[1]);
+  const totalEstados=ranked.reduce((s,[,n])=>s+n,0);
   const nomePorUf=Object.fromEntries(_mapData.states.map(s=>[s.sigla,s.name]));
   legend.innerHTML=`
-    <div class="scale-row"><span>0</span><span class="scale-bar"></span><span>${max||0}</span></div>
+    <div class="scale-row"><span>0</span><span class="scale-bar"></span><span>${totalEstados}</span></div>
     <div class="rank-list">
       ${ranked.length?ranked.map(([uf,n])=>`
         <div class="rank-item" onclick="openEstadoTicketsModal('${uf}','${escAttr(nomePorUf[uf]||uf)}')">
