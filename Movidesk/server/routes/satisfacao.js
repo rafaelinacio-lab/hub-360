@@ -44,10 +44,12 @@ router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res)
           t.ticket_id, tc.organizacao_nome AS organizacao, t.owner_name AS responsavel,
           t.ownerteam AS equipe, t.service_full AS servico, t.urgency AS urgencia,
           t.status AS status,
-          s.nota, s.comentario, s.respondido_em
+          s.nota, s.comentario, s.respondido_em, quem.nome AS respondido_por
         FROM silver.ticket_satisfacao s
         JOIN silver.ticket t ON t.ticket_id = s.ticket_id
         ${ORG_LATERAL}
+        LEFT JOIN silver.ticket_cliente quem
+          ON quem.ticket_id = t.ticket_id AND quem.cliente_id = s.respondido_por_id
         WHERE s.nota IS NOT NULL
         ORDER BY s.respondido_em DESC NULLS LAST
       `).catch(() => ({ rows: [] })),

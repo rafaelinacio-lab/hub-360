@@ -474,8 +474,8 @@ body.modal-open{overflow:hidden}
     <div class="data-panel">
       <div class="dtable-wrap" style="overflow-x:auto">
         <table class="dtable">
-          <thead><tr><th>Ticket</th><th>Cliente</th><th>Responsável</th><th class="num">Nota</th><th>Respondido em</th><th>Comentário</th></tr></thead>
-          <tbody id="tbl-negativas"><tr class="empty-row"><td colspan="6">Carregando…</td></tr></tbody>
+          <thead><tr><th>Ticket</th><th>Cliente</th><th>Quem respondeu</th><th>Responsável do ticket</th><th class="num">Nota</th><th>Respondido em</th><th>Comentário</th></tr></thead>
+          <tbody id="tbl-negativas"><tr class="empty-row"><td colspan="7">Carregando…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -641,11 +641,12 @@ function renderWordCloud(freq){
 }
 
 // ── exportação (Excel / PDF / Word) ─────────────────────────────────
-const EXPORT_HEADERS=['Ticket','Cliente','Responsável','Equipe','Serviço','Nota','Comentário','Respondido em'];
+const EXPORT_HEADERS=['Ticket','Cliente','Quem respondeu','Responsável do ticket','Equipe','Serviço','Nota','Comentário','Respondido em'];
 function buildExportRows(){
   return (_rowsFull||[]).map(r=>[
     r.ticket_id,
     r.organizacao||'',
+    r.respondido_por||'',
     r.responsavel||'',
     r.equipe||'',
     r.servico||'',
@@ -693,14 +694,15 @@ const LISTAGEM_COLS=[
     html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a>`,
     sort:r=>Number(r.ticket_id)||0},
   {label:'Cliente', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
-  {label:'Responsável', get:r=>r.responsavel||'—', sort:r=>(r.responsavel||'').toLowerCase()},
+  {label:'Quem respondeu', get:r=>r.respondido_por||'—', sort:r=>(r.respondido_por||'').toLowerCase()},
+  {label:'Responsável do ticket', get:r=>r.responsavel||'—', sort:r=>(r.responsavel||'').toLowerCase()},
   {label:'Equipe', get:r=>r.equipe||'—', sort:r=>(r.equipe||'').toLowerCase()},
   {label:'Serviço', get:r=>r.servico||'—', sort:r=>(r.servico||'').toLowerCase()},
   {label:'Nota', get:r=>NOTA_LABELS[Number(r.nota)]||r.nota||'—', sort:r=>Number(r.nota)||0},
   {label:'Comentário', get:r=>r.comentario||'—', sort:r=>(r.comentario||'').toLowerCase()},
   {label:'Respondido em', get:r=>dtStr(r.respondido_em)||'—', sort:r=>r.respondido_em?new Date(r.respondido_em).getTime():0},
 ];
-let _listagemSort={col:7,dir:-1}; // por padrão: Respondido em, decrescente
+let _listagemSort={col:8,dir:-1}; // por padrão: Respondido em, decrescente
 let _listagemSearch='';
 
 function openChamadoListagemModal(){
@@ -1102,11 +1104,12 @@ function render(){
     <tr>
       <td>#${esc(r.ticket_id)}</td>
       <td>${esc(r.organizacao||'—')}</td>
+      <td>${esc(r.respondido_por||'—')}</td>
       <td>${esc(r.responsavel||'—')}</td>
       <td class="num"><span class="badge-nota ${notaBadgeClass(r.nota)}">${esc(NOTA_LABELS[Number(r.nota)]||r.nota)}</span></td>
       <td>${fmtFull(r.respondido_em)}</td>
       <td class="comment-cell" title="${escAttr(r.comentario)}">${esc(r.comentario)}</td>
-    </tr>`).join('') : '<tr class="empty-row"><td colspan="6">Nenhuma avaliação negativa com comentário no filtro atual.</td></tr>';
+    </tr>`).join('') : '<tr class="empty-row"><td colspan="7">Nenhuma avaliação negativa com comentário no filtro atual.</td></tr>';
 
   // ── nuvem e contador de palavras (só negativas com comentário, no filtro atual) ──
   const freq=tokenizeComments(comentadas.length?negativasRows.filter(r=>(r.comentario||'').trim()):[]);

@@ -476,13 +476,19 @@ async function ensureTables() {
     // runSatisfacaoSync().
     ['silver.ticket_satisfacao (create)', `
       CREATE TABLE IF NOT EXISTS silver.ticket_satisfacao (
-        ticket_id     bigint PRIMARY KEY,
-        nota          smallint,
-        comentario    text,
-        respondido_em timestamptz,
-        verificado_em timestamptz NOT NULL DEFAULT NOW()
+        ticket_id         bigint PRIMARY KEY,
+        nota              smallint,
+        comentario        text,
+        respondido_em     timestamptz,
+        respondido_por_id text,
+        verificado_em     timestamptz NOT NULL DEFAULT NOW()
       )
     `],
+    // id do cliente que respondeu a pesquisa (clientId do /survey/responses)
+    // — não vem o nome pronto nesse endpoint, só o id. O nome é resolvido na
+    // consulta (routes/satisfacao.js) via join com silver.ticket_cliente
+    // (cliente_id do mesmo ticket), sem precisar de chamada extra na API.
+    ['silver.ticket_satisfacao.respondido_por_id', `ALTER TABLE silver.ticket_satisfacao ADD COLUMN IF NOT EXISTS respondido_por_id text`],
     // silver.ticket.ticket_id é bigint na base real (o CREATE TABLE IF NOT
     // EXISTS de silver.ticket acima nunca roda de fato — a tabela já existe
     // de antes com esse tipo). A criação de silver.ticket_satisfacao logo
@@ -1422,14 +1428,18 @@ async function runSatisfacaoSyncLoop(years) {
             // sobrescreve uma mais nova já salva — GREATEST/CASE comparam
             // respondido_em antes de decidir.
             await db.query(`
-              INSERT INTO silver.ticket_satisfacao (ticket_id, nota, comentario, respondido_em, verificado_em)
-              VALUES ($1, $2, $3, $4, NOW())
+              INSERT INTO silver.ticket_satisfacao (ticket_id, nota, comentario, respondido_em, respondido_por_id, verificado_em)
+              VALUES ($1, $2, $3, $4, $5, NOW())
               ON CONFLICT (ticket_id) DO UPDATE SET
-                nota          = CASE WHEN EXCLUDED.respondido_em > silver.ticket_satisfacao.respondido_em THEN EXCLUDED.nota ELSE silver.ticket_satisfacao.nota END,
-                comentario    = CASE WHEN EXCLUDED.respondido_em > silver.ticket_satisfacao.respondido_em THEN EXCLUDED.comentario ELSE silver.ticket_satisfacao.comentario END,
-                respondido_em = GREATEST(EXCLUDED.respondido_em, silver.ticket_satisfacao.respondido_em),
-                verificado_em = NOW()
-            `, [item.ticketId, nota, item.commentary || null, item.responseDate || null]);
+                nota              = CASE WHEN EXCLUDED.respondido_em > silver.ticket_satisfacao.respondido_em THEN EXCLUDED.nota ELSE silver.ticket_satisfacao.nota END,
+                comentario        = CASE WHEN EXCLUDED.respondido_em > silver.ticket_satisfacao.respondido_em THEN EXCLUDED.comentario ELSE silver.ticket_satisfacao.comentario END,
+                -- COALESCE (não CASE por data): preenche quem faltar em
+                -- registros já salvos antes desse campo existir, mesmo que
+                -- respondido_em não tenha mudado.
+                respondido_por_id = COALESCE(EXCLUDED.respondido_por_id, silver.ticket_satisfacao.respondido_por_id),
+                respondido_em     = GREATEST(EXCLUDED.respondido_em, silver.ticket_satisfacao.respondido_em),
+                verificado_em     = NOW()
+            `, [item.ticketId, nota, item.commentary || null, item.responseDate || null, item.clientId || null]);
             satisfacaoState.updated++;
           }
         } catch (e) {
