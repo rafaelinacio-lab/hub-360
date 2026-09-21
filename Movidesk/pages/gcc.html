@@ -225,13 +225,14 @@ input,select{font-family:inherit}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:1100px){.grid-5{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:1100px){.grid-5,.grid-6{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:980px){
   .grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
 }
-@media (max-width:520px){.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}}
+@media (max-width:520px){.grid-3,.grid-4,.grid-5,.grid-6{grid-template-columns:1fr}}
 
 .stat-card{
   background:var(--glass-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -489,7 +490,7 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="gcc-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-5">
+    <div class="grid-6">
       <div class="stat-card">
         <p class="label">Total de chamados</p>
         <p class="value" id="k-total">0</p>
@@ -514,6 +515,11 @@ body.modal-open{overflow:hidden}
         <p class="label">Taxa de reversão</p>
         <p class="value good" id="k-taxa-reversao">0%</p>
         <p class="legend">Revertidos ÷ total de solicitações.</p>
+      </div>
+      <div class="stat-card danger clickable" id="k-sem-tipo-card" onclick="openSemTipoRescisaoModal()">
+        <p class="label">Sem tipo de rescisão</p>
+        <p class="value bad" id="k-sem-tipo">0</p>
+        <p class="legend">Campo não preenchido no Movidesk. Clique pra ver.</p>
       </div>
     </div>
 
@@ -1026,6 +1032,10 @@ function tipoRescNorm(r){ return (r.tipo_rescisao||'').trim(); }
 // includes() em vez de igualdade exata.
 function ehRescisaoTotal(r){ return tipoRescNorm(r).toLowerCase().includes('total'); }
 function ehRescisaoParcial(r){ return tipoRescNorm(r).toLowerCase().includes('parcial'); }
+// Chamados de GCC que ainda não têm o campo customizado "Tipo de Rescisão"
+// (CF 87894) preenchido como Total nem Parcial — não aparecem em nenhum
+// gráfico/ranking por tipo, mas contam no "Total de chamados".
+function semTipoRescisao(r){ return !ehRescisaoTotal(r)&&!ehRescisaoParcial(r); }
 function locusNorm(r){ return (r.classificacao_locus||'').trim(); }
 
 // ── state ────────────────────────────────────────────────────────────
@@ -1161,11 +1171,13 @@ function render(){
   const revertidos=rowsFull.filter(isRevertido).length;
   const totalSolic=rowsFull.length;
   const taxaReversao=totalSolic?revertidos/totalSolic*100:0;
+  const semTipoRows=rowsFull.filter(semTipoRescisao);
   document.getElementById('k-total').textContent=totalSolic.toLocaleString('pt-BR');
   document.getElementById('k-resc-total').textContent=rescTotal.toLocaleString('pt-BR');
   document.getElementById('k-resc-parcial').textContent=rescParcial.toLocaleString('pt-BR');
   document.getElementById('k-revertidos').textContent=revertidos.toLocaleString('pt-BR');
   document.getElementById('k-taxa-reversao').textContent=`${taxaReversao.toFixed(1)}%`;
+  document.getElementById('k-sem-tipo').textContent=semTipoRows.length.toLocaleString('pt-BR');
 
   // ── Operacional ──
   const pendentes=rowsFull.filter(isAberto).length;
@@ -1863,6 +1875,11 @@ function renderCriticosVencidosTable(rows){
 }
 function scrollToCriticosVencidos(){
   document.getElementById('painel-criticos-vencidos').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function openSemTipoRescisaoModal(){
+  const matched=_rowsFull.filter(semTipoRescisao);
+  openDetailModal('Sem tipo de rescisão',`${matched.length} ticket${matched.length===1?'':'s'} sem o campo preenchido`,matched);
 }
 
 function renderTopMrrRiscoTable(rows){
