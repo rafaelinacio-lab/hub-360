@@ -716,13 +716,25 @@ async function saveBatch(tickets) {
   for (const t of tickets) {
     if (!Array.isArray(t.clients)) continue;
     for (const c of t.clients) {
+      // Nem sempre a organização vem aninhada em c.organization — em tickets
+      // como o #876730, a empresa aparece como um client PRÓPRIO dentro de
+      // clients[] (personType 2 = pessoa jurídica), com organization:null
+      // nela mesma. Sem esse fallback, nem o contato pessoa física nem o
+      // registro da empresa ficavam com organizacao_id/nome preenchidos, e o
+      // ticket caía em "Não informado" mesmo tendo organização clara no
+      // Movidesk.
+      const orgId   = c.organization?.id ? String(c.organization.id)
+                     : (c.personType === 2 && c.id ? String(c.id) : null);
+      const orgNome = c.organization?.businessName
+                     || (c.personType === 2 ? c.businessName : null)
+                     || null;
       cliRows.push({
         ticket_id:        String(t.id),
         cliente_id:       c.id ? String(c.id) : null,
         nome:             c.businessName || null,
         email:            c.email || null,
-        organizacao_id:   c.organization?.id ? String(c.organization.id) : null,
-        organizacao_nome: c.organization?.businessName || null,
+        organizacao_id:   orgId,
+        organizacao_nome: orgNome,
         // profileType — um ticket pode ter mais de um "client" (o contato
         // externo de verdade E o próprio agente interno da Viasoft que
         // criou/atua no ticket). profileType=3 é o padrão do Movidesk pra
