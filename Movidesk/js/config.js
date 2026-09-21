@@ -2644,9 +2644,12 @@ async function dlSatLoad() {
                 badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso';
                 badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;';
             }
-            if (meta) meta.textContent = s.finishedAt
-                ? `Última execução: ${s.updated} com nota, ${s.skipped} sem resposta, ${s.errors} erro(s) de ${s.processed}/${s.total}.`
-                : '–';
+            if (meta) meta.textContent = s.lastError
+                ? `Falhou: ${s.lastError}`
+                : (s.finishedAt
+                    ? `Última execução: ${s.updated} com nota, ${s.skipped} sem resposta, ${s.errors} erro(s) de ${s.processed}/${s.total}.`
+                    : '–');
+            if (meta) meta.style.color = s.lastError ? '#f87171' : '';
             if (btnSat) { btnSat.disabled = false; btnSat.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">sentiment_satisfied</span> Sincronizar pesquisas'; }
             if (btnStop) btnStop.style.display = 'none';
             clearInterval(_dlSatPollTimer);

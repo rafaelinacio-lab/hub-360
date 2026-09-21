@@ -1382,6 +1382,11 @@ async function runSatisfacaoSyncLoop(years) {
     // recente.
     const sortedYears = Array.isArray(years) ? years.map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()) : [];
     const yearFilter = sortedYears.length ? `AND EXTRACT(YEAR FROM t.createddate) = ANY($1::int[])` : '';
+    // Sem .catch aqui de propósito: um erro real na query (ex: tabela ainda
+    // não existe, tipo incompatível) precisa estourar pro catch de fora, que
+    // grava em satisfacaoState.lastError e loga no console — antes ficava
+    // engolido em silêncio (virava "0 tickets processados" sem pista nenhuma
+    // do motivo).
     const { rows } = await db.query(`
       SELECT t.ticket_id
       FROM silver.ticket t
@@ -1390,8 +1395,9 @@ async function runSatisfacaoSyncLoop(years) {
         AND t.basestatus IN ('Resolved', 'Closed', 'Resolvido', 'Fechado')
         ${yearFilter}
       ORDER BY t.createddate DESC
-    `, sortedYears.length ? [sortedYears] : []).catch(() => ({ rows: [] }));
+    `, sortedYears.length ? [sortedYears] : []);
     satisfacaoState.total = rows.length;
+    console.log(`[loader] satisfacao: ${rows.length} ticket(s) pendente(s)${sortedYears.length ? ` (anos ${sortedYears.join(', ')})` : ''}`);
     satisfacaoState.years = sortedYears;
 
     for (const row of rows) {
