@@ -494,7 +494,7 @@ body.modal-open{overflow:hidden}
   <div class="modal-box" style="max-width:min(1400px,98vw)">
     <div class="modal-head">
       <div>
-        <h3>Avaliações</h3>
+        <h3>Avaliações<span id="listagem-title-extra"></span></h3>
         <p id="listagem-sub"></p>
       </div>
       <div style="display:flex;align-items:center;gap:4px">
@@ -711,8 +711,11 @@ const LISTAGEM_COLS=[
 ];
 let _listagemSort={col:8,dir:-1}; // por padrão: Respondido em, decrescente
 let _listagemSearch='';
+let _listagemBaseRows=null;
 
-function openChamadoListagemModal(){
+function openChamadoListagemModal(baseRows,filterLabel){
+  _listagemBaseRows=baseRows||null;
+  document.getElementById('listagem-title-extra').textContent=filterLabel?` — ${filterLabel}`:'';
   _listagemSearch='';
   document.getElementById('listagem-search').value='';
   listagemRender();
@@ -733,7 +736,7 @@ function listagemSetSort(colIdx){
   listagemRender();
 }
 function listagemRender(){
-  const all=_rowsFull||[];
+  const all=_listagemBaseRows||_rowsFull||[];
   const filtered=_listagemSearch
     ? all.filter(r=>LISTAGEM_COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
     : all;
@@ -1024,7 +1027,7 @@ function topN(rows,keyFn,n=6){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,n);
 }
 function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
-function barChart(id,labels,data,color){
+function barChart(id,labels,data,color,drill){
   destroyChart(id);
   const ctx=document.getElementById(id);
   if(!ctx) return;
@@ -1037,6 +1040,15 @@ function barChart(id,labels,data,color){
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:'#8a8880',font:{size:11}}},
+      },
+      onClick:(evt,elements)=>{
+        if(!drill||!elements.length) return;
+        const label=labels[elements[0].index];
+        const filtered=drill.sourceRows.filter(r=>r[drill.field]===label);
+        openChamadoListagemModal(filtered,`${drill.fieldLabel}: ${label}`);
+      },
+      onHover:(evt,elements)=>{
+        evt.native.target.style.cursor=(drill&&elements.length)?'pointer':'default';
       },
     },
   });
@@ -1068,15 +1080,15 @@ function render(){
 
   // ── composição por equipe ──
   const teamTop=topN(rows,r=>r.equipe,10);
-  barChart('teamChart',teamTop.map(([k])=>k),teamTop.map(([,v])=>v),'#3987e5');
+  barChart('teamChart',teamTop.map(([k])=>k),teamTop.map(([,v])=>v),'#3987e5',{sourceRows:rows,field:'equipe',fieldLabel:'Equipe'});
   const teamNegTop=topN(negativasRows,r=>r.equipe,10);
-  barChart('teamNegChart',teamNegTop.map(([k])=>k),teamNegTop.map(([,v])=>v),'#e66767');
+  barChart('teamNegChart',teamNegTop.map(([k])=>k),teamNegTop.map(([,v])=>v),'#e66767',{sourceRows:negativasRows,field:'equipe',fieldLabel:'Equipe'});
 
   // ── ranking geral ──
   const clientTop=topN(rows,r=>r.organizacao,10);
-  barChart('clientChart',clientTop.map(([k])=>k),clientTop.map(([,v])=>v),'#3987e5');
+  barChart('clientChart',clientTop.map(([k])=>k),clientTop.map(([,v])=>v),'#3987e5',{sourceRows:rows,field:'organizacao',fieldLabel:'Cliente'});
   const respTop=topN(rows,r=>r.responsavel,10);
-  barChart('respChart',respTop.map(([k])=>k),respTop.map(([,v])=>v),'#3987e5');
+  barChart('respChart',respTop.map(([k])=>k),respTop.map(([,v])=>v),'#3987e5',{sourceRows:rows,field:'responsavel',fieldLabel:'Responsável'});
 
   // ── negativas: tendência mensal ──
   const monthKey=d=>{ const dt=new Date(d); return isNaN(dt)?null:`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`; };
@@ -1100,9 +1112,9 @@ function render(){
   }
 
   const negClientTop=topN(negativasRows,r=>r.organizacao,5);
-  barChart('negClientChart',negClientTop.map(([k])=>k),negClientTop.map(([,v])=>v),'#e66767');
+  barChart('negClientChart',negClientTop.map(([k])=>k),negClientTop.map(([,v])=>v),'#e66767',{sourceRows:negativasRows,field:'organizacao',fieldLabel:'Cliente'});
   const negRespTop=topN(negativasRows,r=>r.responsavel,5);
-  barChart('negRespChart',negRespTop.map(([k])=>k),negRespTop.map(([,v])=>v),'#e66767');
+  barChart('negRespChart',negRespTop.map(([k])=>k),negRespTop.map(([,v])=>v),'#e66767',{sourceRows:negativasRows,field:'responsavel',fieldLabel:'Responsável'});
 
   // ── tabela de negativas com comentário ──
   const comentadas=negativasRows.filter(r=>(r.comentario||'').trim()).sort((a,b)=>String(b.respondido_em||'').localeCompare(String(a.respondido_em||''))).slice(0,30);

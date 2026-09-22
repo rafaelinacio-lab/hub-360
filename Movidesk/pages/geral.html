@@ -190,6 +190,17 @@ input,select{font-family:inherit}
   accent-color:var(--orange);width:14px;height:14px;
   cursor:pointer;flex-shrink:0;margin:0;
 }
+.ms-loadmore{
+  border-top:1px solid var(--border);margin-top:4px;padding:8px 12px 4px;
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+}
+.ms-loadmore>span{width:100%;font-size:11px;color:var(--t3);margin-bottom:2px}
+.ms-loadyear{
+  border:1px solid var(--border);border-radius:6px;background:var(--surface-low);
+  color:var(--t2);font-size:12px;padding:3px 8px;cursor:pointer;transition:border-color .15s,color .15s;
+}
+.ms-loadyear:hover{border-color:var(--orange);color:var(--t1)}
+.ms-loadyear:disabled{opacity:.6;cursor:default}
 
 /* sync toast */
 #sync-toast{
@@ -917,14 +928,14 @@ let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-
 function renderJanelaBanner(){
   const el=document.getElementById('janela-banner');
   if(!_janela){ el.style.display='none'; el.innerHTML=''; return; }
+  // Só mostra o indicador quando nenhum filtro de ano está aplicado — com
+  // filtro, o próprio filtro já deixa claro qual período está em tela.
+  if(getMsValues('f-year').length){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='flex';
   const anoAtual=new Date().getFullYear();
-  const texto=_janela==='ano-vigente'
-    ? `Mostrando só o ano vigente (${anoAtual}) — base tem mais de 720 mil chamados no histórico; carregar tudo de uma vez pode demorar bastante.`
-    : `Mostrando um período limitado — base tem mais de 720 mil chamados no histórico; carregar tudo de uma vez pode demorar bastante.`;
   el.innerHTML=`
-    <span class="sym">history</span>
-    <span>${texto}</span>
+    <span class="sym">info</span>
+    <span>Exibindo ${anoAtual}</span>
     <button id="btn-carregar-tudo" onclick="loadHistoricoCompleto()">Carregar histórico completo</button>
   `;
 }
@@ -1021,7 +1032,48 @@ function buildFilterOptions(){
 
   const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
   populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
+  renderYearLoadMore(years);
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
+}
+
+// Enquanto os dados estiverem limitados a uma janela (ano vigente ou "desde"
+// customizado), o filtro de ano só lista os anos já carregados. Isso oferece
+// botões pra puxar anos anteriores sob demanda (evita repetir o "Carregar
+// histórico completo" quando o usuário só quer comparar com 1-2 anos atrás).
+function renderYearLoadMore(loadedYears){
+  const drop=document.querySelector('#f-year .ms-drop');
+  if(!drop) return;
+  if(!_janela) return; // histórico completo já carregado — nada a buscar
+  const anoAtual=new Date().getFullYear();
+  const minLoaded=loadedYears.length?Math.min(...loadedYears):anoAtual;
+  const limite=minLoaded-5;
+  if(minLoaded<=limite) return;
+  let html='<div class="ms-loadmore"><span>Carregar anos anteriores</span>';
+  for(let y=minLoaded-1;y>=limite;y--){
+    html+=`<button type="button" class="ms-loadyear" data-year="${y}" onclick="loadAnoAnterior(${y})">${y}</button>`;
+  }
+  html+='</div>';
+  drop.insertAdjacentHTML('beforeend',html);
+}
+
+async function loadAnoAnterior(year){
+  const btn=document.querySelector(`.ms-loadyear[data-year="${year}"]`);
+  if(btn){ btn.disabled=true; btn.textContent=`${year}…`; }
+  try{
+    const resp=await api(`/geral?desde=${year}-01-01`,10*60*1000);
+    const novos=resp.rows||[];
+    const vistos=new Set(_rows.map(r=>r.ticket_id));
+    novos.forEach(r=>{ if(!vistos.has(r.ticket_id)){ _rows.push(r); vistos.add(r.ticket_id); } });
+    _janela=resp.janela??_janela;
+    renderJanelaBanner();
+    buildFilterOptions();
+    const cb=document.querySelector(`#f-year .ms-drop input[value="${year}"]`);
+    if(cb){ cb.checked=true; updateMsLabel('f-year','Ano: todos'); }
+    render();
+  } catch(e){
+    alert(`Não foi possível carregar o ano ${year}: `+e.message);
+    if(btn){ btn.disabled=false; btn.textContent=String(year); }
+  }
 }
 
 // ── filtro ───────────────────────────────────────────────────────────
@@ -1065,6 +1117,7 @@ function getFilteredRows(){
 // ── render ───────────────────────────────────────────────────────────
 function render(){
   if(!_rows.length && document.getElementById('geral-dash').dataset.err) return;
+  renderJanelaBanner();
   const {rowsCtx,rowsFull}=getFilteredRows();
   _rowsFull=rowsFull;
   _rowsById={};
@@ -1159,7 +1212,7 @@ function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePre
     ]},
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ display:true, position:'top', labels:{color:col.t2, boxWidth:10, font:{size:11}} } },
-      scales:{ x:{ beginAtZero:true, grid:{color:col.border}, ticks:{color:col.t2, precision:0} }, y:{ grid:{display:false}, ticks:{color:col.t2, font:{size:10.5}} } },
+      scales:{ x:{ display:false }, y:{ grid:{display:false}, ticks:{color:col.t2, font:{size:10.5}} } },
       onHover:chartHoverCursor,
       onClick: titlePrefix?chartClickHandler(titlePrefix,onClickFilter):undefined,
     }
@@ -1206,12 +1259,26 @@ function renderTrendChart(rows){
   _charts.trendVolChart=new Chart(document.getElementById('trendVolChart'),{
     type:'line',
     data:{ labels, datasets:[
-      { label:'Abertos', data:chaves.map(mk=>byMes[mk]?byMes[mk].abertos:0), borderColor:col.orange, backgroundColor:col.orange+'20', fill:true, tension:.3, pointRadius:3 },
-      { label:'Resolvidos', data:chaves.map(mk=>byMes[mk]?byMes[mk].resolvidos:0), borderColor:col.purple, backgroundColor:col.purple+'20', fill:true, tension:.3, pointRadius:3 }
+      { label:'Abertos', data:chaves.map(mk=>byMes[mk]?byMes[mk].abertos:0), borderColor:col.orange, backgroundColor:col.orange+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 },
+      { label:'Resolvidos', data:chaves.map(mk=>byMes[mk]?byMes[mk].resolvidos:0), borderColor:col.purple, backgroundColor:col.purple+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 }
     ]},
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:true,labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
-      scales:{y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}}, x:{grid:{display:false},ticks:{color:col.t2}}} }
+      scales:{y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}}, x:{grid:{display:false},ticks:{color:col.t2}}},
+      interaction:{mode:'nearest',intersect:true},
+      onHover:chartHoverCursor,
+      onClick:(evt,elements,chart)=>{
+        if(!elements.length) return;
+        const {index:idx,datasetIndex:dsIdx}=elements[0];
+        const mk=chaves[idx];
+        const label=chart.data.labels[idx];
+        const isAbertos=dsIdx===0;
+        const matched=rows.filter(r=>isAbertos
+          ? (r.criado_em&&monthKeyOf(r.criado_em)===mk)
+          : (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk));
+        openDetailModal(`${isAbertos?'Abertos':'Resolvidos'}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+      },
+    }
   });
 }
 
