@@ -17,12 +17,12 @@ const { getToken } = require('./config');
 const {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
-  runBackfillCamposBasicos,
+  runBackfillCamposBasicos, runFixDadosRelacionados,
 } = require('../scripts/movidesk-loader');
 const loader  = {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
-  runBackfillCamposBasicos,
+  runBackfillCamposBasicos, runFixDadosRelacionados,
 };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
@@ -100,6 +100,23 @@ router.post('/fix-organizacao', authMiddleware, requireRole('admin', 'supervisor
   loader.runFixOrganizacao().catch(e => console.error('[loader/fix-organizacao] erro:', e.message));
 
   res.json({ started: true, mode: 'fix-organizacao', startedAt: loader.state.startedAt });
+});
+
+// ── POST /api/loader/fix-dados-relacionados ────────────────────────────────────
+// Corrige tickets que entraram no banco sem ações/clientes/campos
+// customizados (efeito colateral do backfill-basico, que só busca owner) —
+// ver comentário de runFixDadosRelacionados em movidesk-loader.js.
+router.post('/fix-dados-relacionados', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  if (loader.state.running) {
+    return res.status(409).json({
+      error: 'Já existe uma carga em andamento',
+      state: sanitizeState(loader.state),
+    });
+  }
+
+  loader.runFixDadosRelacionados().catch(e => console.error('[loader/fix-dados-relacionados] erro:', e.message));
+
+  res.json({ started: true, mode: 'fix-dados-relacionados', startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/ouvidoria ────────────────────────────────────────────────

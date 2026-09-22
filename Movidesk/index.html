@@ -901,6 +901,9 @@
                                 <button class="config-btn config-btn-muted" onclick="dlFixOrganizacao()" id="dlBtnFixOrg" title="Re-sincroniza só os tickets de Ouvidoria/GCC com organização não identificada">
                                     <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"
                                 </button>
+                                <button class="config-btn config-btn-muted" onclick="dlFixDadosRelacionados()" id="dlBtnFixDados" title="Corrige tickets que entraram no banco sem ações/clientes/campos customizados — efeito colateral do Backfill campos básicos em tickets totalmente novos.">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">handyman</span> Corrigir ações/clientes faltando
+                                </button>
                                 <button class="config-btn config-btn-danger" onclick="dlCancel()" id="dlBtnCancel" style="display:none;">
                                     <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar
                                 </button>
