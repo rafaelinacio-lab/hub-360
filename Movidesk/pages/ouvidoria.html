@@ -1,600 +1,1810 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ouvidoria</title>
-    <script>
-        (function() {
-            const t = localStorage.getItem('theme') || 'light';
-            document.documentElement.className = t;
-            window.addEventListener('storage', function(e) {
-                if (e.key === 'theme') document.documentElement.className = e.newValue || 'light';
-            });
-        })();
-    </script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "on-surface":"#191c1e","tertiary":"#000000","secondary-fixed":"#ffddb8","on-primary-fixed-variant":"#3f465c",
-                        "on-primary":"#ffffff","on-secondary":"#ffffff","on-secondary-container":"#684000","tertiary-fixed-dim":"#dec29a",
-                        "surface-bright":"#f7f9fb","primary-fixed":"#dae2fd","error-container":"#ffdad6","surface-container-lowest":"#ffffff",
-                        "surface-variant":"#e0e3e5","on-error-container":"#93000a","background":"#f7f9fb","surface-container-high":"#e6e8ea",
-                        "on-secondary-fixed":"#2a1700","on-tertiary-fixed":"#271901","surface-dim":"#d8dadc","surface-container-highest":"#e0e3e5",
-                        "outline-variant":"#c6c6cd","primary-container":"#131b2e","inverse-primary":"#bec6e0","surface-container":"#eceef0",
-                        "secondary-container":"#fea619","secondary":"#855300","on-error":"#ffffff","on-surface-variant":"#45464d",
-                        "secondary-fixed-dim":"#ffb95f","tertiary-fixed":"#fcdeb5","inverse-on-surface":"#eff1f3","inverse-surface":"#2d3133",
-                        "primary":"#000000","surface-container-low":"#f2f4f6","surface":"#f7f9fb","on-tertiary":"#ffffff",
-                        "primary-fixed-dim":"#bec6e0","on-secondary-fixed-variant":"#653e00","on-tertiary-fixed-variant":"#574425",
-                        "surface-tint":"#565e74","error":"#ba1a1a","tertiary-container":"#271901","on-primary-fixed":"#131b2e",
-                        "outline":"#76777d","on-background":"#191c1e","on-primary-container":"#7c839b","on-tertiary-container":"#98805d"
-                    },
-                    spacing: { "gutter":"24px","widget-gap":"24px","base":"8px","card-padding":"24px","container-padding":"32px" },
-                    fontSize: {
-                        "headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],
-                        "body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],
-                        "display-lg":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],
-                        "label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],
-                        "body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        html,body{scrollbar-width:none;-ms-overflow-style:none}
-        html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
-        *{scrollbar-width:none;-ms-overflow-style:none}
-        *::-webkit-scrollbar{display:none}
-        body{font-family:'Inter',sans-serif}
-        .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
-        .soft-shadow{box-shadow:0px 4px 20px rgba(15,23,42,0.05)}
-        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
-        .no-scrollbar::-webkit-scrollbar{display:none}
-
-        /* ── Dark Mode ───────────────────────────────────────────── */
-        html.dark body{background-color:#0f1117;color:#e8e8e2}
-        html.dark .bg-background{background-color:#0f1117}
-        html.dark .bg-surface{background-color:#1a1d27}
-        html.dark .bg-surface-container-lowest{background-color:#16181f}
-        html.dark .bg-surface-container-low{background-color:#1a1d27}
-        html.dark .bg-surface-container{background-color:#1e2232}
-        html.dark .bg-surface-container-high{background-color:#242840}
-        html.dark .bg-surface-variant{background-color:#2a2d3a}
-        html.dark .text-primary{color:#e2e8f0}
-        html.dark .text-on-surface{color:#e8e8e2}
-        html.dark .text-on-surface-variant{color:#9b9b92}
-        html.dark .text-secondary{color:#ffb95f}
-        html.dark .text-on-secondary-container{color:#ffe0b2}
-        html.dark .bg-secondary-container{background-color:#4a2e00}
-        html.dark .bg-secondary{background-color:#c68a1a}
-        html.dark .border-outline{border-color:#3a3d4a}
-        html.dark .border-outline-variant{border-color:#2a2d3a}
-        html.dark .bg-outline-variant{background-color:#2a2d3a}
-        html.dark .text-outline{color:#6b7280}
-        html.dark .soft-shadow{box-shadow:0px 4px 20px rgba(0,0,0,0.4)}
-        html.dark .hover\:bg-surface-container:hover{background-color:#1e2232}
-        html.dark #ouvidoriaLoadingOverlay{background-color:#0f1117}
-        html.dark .bg-error-container{background-color:#410002}
-        html.dark .text-error{color:#ffb4ab}
-        html.dark .bg-secondary-container\/15{background-color:rgba(74,46,0,0.35)}
-        html.dark .bg-secondary-container\/40{background-color:rgba(74,46,0,0.4)}
-        html.dark .bg-error-container\/25{background-color:rgba(65,0,2,0.35)}
-        html.dark .bg-error-container\/60{background-color:rgba(65,0,2,0.6)}
-        html.dark .bg-green-100{background-color:rgba(21,128,61,0.25)}
-        html.dark .text-green-700{color:#4ade80}
-        html.dark .bg-orange-100{background-color:rgba(194,65,12,0.25)}
-        html.dark .text-orange-700{color:#fb923c}
-
-        #ouvidoriaModalBackdrop{position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:9999;opacity:0;pointer-events:none;transition:opacity 0.2s ease}
-        #ouvidoriaModalBackdrop.open{opacity:1;pointer-events:auto}
-        #ouvidoriaModalCard{transform:translateY(12px) scale(0.98);transition:transform 0.2s ease}
-        #ouvidoriaModalBackdrop.open #ouvidoriaModalCard{transform:translateY(0) scale(1)}
-        #ouvidoriaDescricaoWrap{transition:max-height 0.25s ease}
-    </style>
-</head>
-<body class="bg-background text-on-surface min-h-screen">
-
-<!-- Loading Overlay -->
-<div id="ouvidoriaLoadingOverlay" class="fixed inset-0 z-[9998] bg-background flex flex-col items-center justify-center gap-6">
-    <div class="relative w-20 h-20">
-        <svg class="animate-spin w-20 h-20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="40" cy="40" r="34" stroke="currentColor" stroke-width="6" class="text-surface-container-high opacity-30"/>
-            <path d="M40 6 A34 34 0 0 1 74 40" stroke="#855300" stroke-width="6" stroke-linecap="round"/>
-        </svg>
-        <span class="material-symbols-outlined absolute inset-0 m-auto w-8 h-8 flex items-center justify-center text-secondary" style="font-size:32px">campaign</span>
-    </div>
-    <div class="text-center">
-        <p class="font-headline-lg text-headline-lg text-primary mb-1">Carregando Ouvidoria</p>
-        <p class="font-body-md text-body-md text-on-surface-variant">Buscando manifestações registradas...</p>
-    </div>
-</div>
-
-<main id="ouvidoriaMain" class="pt-6 pb-12 px-container-padding max-w-[1440px] mx-auto" style="visibility:hidden">
-
-    <section class="mb-6 flex flex-wrap items-center gap-3">
-        <div class="mr-auto">
-            <h2 class="font-headline-lg text-headline-lg text-primary">Ouvidoria</h2>
-            <p class="text-body-md text-on-surface-variant">Manifestações abertas pelos clientes e a análise do que motivou o contato.</p>
-        </div>
-        <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="loadOuvidoria()">
-            <span class="material-symbols-outlined" style="font-size:18px">refresh</span><span>Atualizar dados</span>
-        </button>
-    </section>
-
-    <!-- KPIs -->
-    <div class="grid grid-cols-12 gap-widget-gap mb-6" id="ouvidoriaKpis">
-        <div class="col-span-12 text-center py-8 text-on-surface-variant">Carregando indicadores...</div>
-    </div>
-
-    <!-- Busca / filtro -->
-    <section class="mb-4 flex flex-wrap items-center gap-3">
-        <div class="flex-1 min-w-[240px]">
-            <input id="ouvidoriaSearchInput" type="text" placeholder="Buscar por organização, assunto ou ticket..."
-                oninput="renderOuvidoriaTable()"
-                class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm text-on-surface outline-none focus:border-secondary">
-        </div>
-        <select id="ouvidoriaOrderSelect" onchange="renderOuvidoriaTable()" class="rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface">
-            <option value="recentes" selected>Mais recentes</option>
-            <option value="antigas">Mais antigas</option>
-            <option value="reincidencia">Maior reincidência</option>
-        </select>
-        <div id="ouvidoriaResultCount" class="text-xs text-on-surface-variant"></div>
-    </section>
-
-    <!-- Tabela -->
-    <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-surface-container-low text-label-md font-label-md text-on-surface-variant uppercase tracking-wide">
-                        <th class="px-4 py-3">Ticket</th>
-                        <th class="px-4 py-3">Organização</th>
-                        <th class="px-4 py-3">Serviço</th>
-                        <th class="px-4 py-3">Tipo Ouvidoria</th>
-                        <th class="px-4 py-3">Assunto</th>
-                        <th class="px-4 py-3">Problemas do cliente</th>
-                        <th class="px-4 py-3 text-center">Chamados anteriores</th>
-                        <th class="px-4 py-3">Registrado em</th>
-                        <th class="px-4 py-3"></th>
-                    </tr>
-                </thead>
-                <tbody id="ouvidoriaTableBody">
-                    <tr><td colspan="9" class="px-4 py-10 text-center text-on-surface-variant">Carregando...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</main>
-
-<!-- Modal de detalhe -->
-<div id="ouvidoriaModalBackdrop" onclick="if(event.target===this) closeOuvidoriaModal()">
-    <div id="ouvidoriaModalCard" class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow w-[92%] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
-        <!-- Cabeçalho fixo -->
-        <div class="flex items-start gap-4 p-6 pb-5 border-b border-outline-variant bg-surface-container-low flex-shrink-0">
-            <div class="w-12 h-12 rounded-full bg-secondary-container/40 flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-secondary" style="font-size:24px">apartment</span>
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center flex-wrap gap-2 mb-0.5">
-                    <span class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide" id="ouvidoriaModalTicket"></span>
-                    <span id="ouvidoriaModalReincidenciaBadge"></span>
-                </div>
-                <h3 class="font-headline-lg text-headline-lg text-primary truncate" id="ouvidoriaModalOrg"></h3>
-                <p class="text-body-md text-on-surface-variant" id="ouvidoriaModalAssunto"></p>
-            </div>
-            <button type="button" onclick="closeOuvidoriaModal()" class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-full p-1.5 transition-colors flex-shrink-0" title="Fechar">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-
-        <!-- Corpo com scroll -->
-        <div class="p-6 overflow-y-auto flex-1">
-            <div class="flex flex-wrap gap-3 mb-6">
-                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
-                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">category</span>
-                    <div>
-                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Serviço</p>
-                        <p class="text-body-md font-semibold text-primary leading-none" id="ouvidoriaModalServico"></p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
-                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">history</span>
-                    <div>
-                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Chamados anteriores</p>
-                        <p class="text-body-md font-semibold text-primary leading-none" id="ouvidoriaModalTotalChamados"></p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
-                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">calendar_month</span>
-                    <div>
-                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Registrado em</p>
-                        <p class="text-body-md font-semibold text-primary leading-none" id="ouvidoriaModalData"></p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5 mb-2">
-                    <span class="material-symbols-outlined" style="font-size:16px">flag</span>
-                    Problemas recorrentes do cliente
-                </h4>
-                <div id="ouvidoriaModalProblemas"></div>
-            </div>
-
-            <div class="mb-6">
-                <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5 mb-2">
-                    <span class="material-symbols-outlined" style="font-size:16px">confirmation_number</span>
-                    Chamados que motivaram a Ouvidoria
-                </h4>
-                <div id="ouvidoriaModalChamadosRelacionados"></div>
-            </div>
-
-            <div class="mb-6">
-                <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5">
-                        <span class="material-symbols-outlined" style="font-size:16px">format_quote</span>
-                        Descrição do cliente
-                    </h4>
-                    <button type="button" onclick="toggleOuvidoriaDescricao()" id="ouvidoriaDescricaoToggle" class="text-xs font-semibold text-secondary hover:underline flex-shrink-0" style="display:none">Ver tudo</button>
-                </div>
-                <div id="ouvidoriaDescricaoWrap" class="relative rounded-xl bg-surface-container-low border border-outline-variant overflow-hidden" style="max-height:190px">
-                    <div class="p-4" id="ouvidoriaModalDescricao"></div>
-                    <div id="ouvidoriaDescricaoFade" class="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-surface-container-low to-transparent pointer-events-none" style="display:none"></div>
-                </div>
-            </div>
-
-            <div class="space-y-4" id="ouvidoriaAnaliseCards"></div>
-        </div>
-
-        <!-- Rodapé fixo -->
-        <div class="flex justify-end gap-2 p-4 border-t border-outline-variant bg-surface-container-low flex-shrink-0">
-            <button type="button" onclick="closeOuvidoriaModal()" class="rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors">Fechar</button>
-        </div>
-    </div>
-</div>
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ouvidoria</title>
 <script>
-const API_BASE = `${window.location.origin}/api`;
-function getToken() { return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
-async function apiCall(endpoint) {
-    const res = await fetch(`${API_BASE}${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
-    if (!res.ok) throw new Error(`API error: ${res.statusText}`);
-    return res.json();
-}
-function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str ?? ''; return d.innerHTML; }
-
-function ticketEditUrl(ticketId) { return `https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`; }
-
-// A coluna `tipo` vem pronta do banco (Reclamação, Elogio, Sugestão, etc.). Quando ela vem
-// nula (linhas antigas, antes dessa coluna existir), cai pro fallback de extrair do assunto,
-// que segue o padrão "Ouvidoria VIASOFT - {Tipo} - {resto}".
-function extractTipoOuvidoria(assunto) {
-    const m = String(assunto || '').match(/Ouvidoria\s+VIASOFT\s*-\s*([^-]+?)\s*-/i);
-    return m ? m[1].trim() : '';
-}
-
-function renderTipoOuvidoriaBadge(tipoColuna, assunto) {
-    const tipo = tipoColuna || extractTipoOuvidoria(assunto);
-    if (!tipo) return '<span class="text-xs text-on-surface-variant">—</span>';
-    const tipoLower = tipo.toLowerCase();
-    let colorClasses = 'bg-secondary-container/30 text-secondary';
-    if (tipoLower.includes('elogio')) colorClasses = 'bg-green-100 text-green-700';
-    else if (tipoLower.includes('reclama')) colorClasses = 'bg-orange-100 text-orange-700';
-    return `<span class="inline-flex items-center rounded-full ${colorClasses} px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">${escapeHtml(tipo)}</span>`;
-}
-
-// chamados_relacionados vem pronto do processo externo: uma lista de { motivo, ticket_id },
-// já com a explicação por extenso de por que aquele chamado de suporte do cliente pesa na
-// manifestação de ouvidoria (não é um rótulo/categoria solta).
-function truncateText(str, max) {
-    const text = String(str || '');
-    return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
-}
-
-// Badges compactas de "Problemas do cliente" pra tabela: mostra só as N primeiras
-// (já vêm na ordem definida pelo processo externo) e agrupa o resto num "+X".
-function renderProblemaBadgesCompact(chamadosRelacionados, limit = 2) {
-    const list = Array.isArray(chamadosRelacionados) ? chamadosRelacionados : [];
-    if (!list.length) return '<span class="text-xs text-on-surface-variant">—</span>';
-    const visiveis = list.slice(0, limit);
-    const resto = list.length - visiveis.length;
-    const badges = visiveis.map(c => `
-        <span class="inline-flex items-center gap-1 rounded-full bg-error-container/60 text-error px-2 py-0.5 text-[11px] font-medium" title="${escapeHtml(c.motivo || '')}">
-            <span class="material-symbols-outlined" style="font-size:12px">flag</span>${escapeHtml(truncateText(c.motivo, 28))}
-        </span>`).join('');
-    const extra = resto > 0 ? `<span class="inline-flex items-center rounded-full bg-surface-container-high text-on-surface-variant px-2 py-0.5 text-[11px] font-medium">+${resto}</span>` : '';
-    return `<div class="flex flex-wrap gap-1 max-w-[260px]">${badges}${extra}</div>`;
-}
-
-// Cards completos de "Problemas do cliente" pro modal: mostra o motivo por extenso e um
-// link direto pro chamado de suporte que originou aquele ponto.
-function renderProblemaBadgesDetalhado(chamadosRelacionados) {
-    const list = Array.isArray(chamadosRelacionados) ? chamadosRelacionados : [];
-    if (!list.length) {
-        return `<p class="text-body-md text-on-surface-variant">Nenhum chamado de suporte relacionado foi identificado para esta organização.</p>`;
-    }
-    return `<div class="space-y-2">${list.map(c => `
-        <div class="rounded-xl bg-error-container/25 border border-outline-variant border-l-4 border-l-error p-3">
-            <div class="flex items-start justify-between gap-3">
-                <p class="text-sm text-on-surface flex-1"><span class="material-symbols-outlined align-middle mr-1 text-error" style="font-size:16px">flag</span>${escapeHtml(c.motivo || '')}</p>
-                ${c.ticket_id ? `<a href="${ticketEditUrl(c.ticket_id)}" target="_blank" rel="noopener" class="flex-shrink-0 text-[11px] font-semibold text-secondary hover:underline whitespace-nowrap">#${escapeHtml(String(c.ticket_id))}</a>` : ''}
-            </div>
-        </div>`).join('')}</div>`;
-}
-function formatDateTime(value) {
-    if (!value) return '—';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-let _ouvidoriaRows = [];
-
-async function loadOuvidoria() {
-    const main = document.getElementById('ouvidoriaMain');
-    const overlay = document.getElementById('ouvidoriaLoadingOverlay');
-    try {
-        _ouvidoriaRows = await apiCall('/ouvidoria');
-        renderOuvidoriaKpis();
-        renderOuvidoriaTable();
-        if (main) main.style.visibility = 'visible';
-        if (overlay) overlay.style.display = 'none';
-    } catch (error) {
-        console.error('Erro ao carregar ouvidoria:', error);
-        const tbody = document.getElementById('ouvidoriaTableBody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-10 text-center text-error">Erro ao carregar dados: ${escapeHtml(error.message)}</td></tr>`;
-        if (main) main.style.visibility = 'visible';
-        if (overlay) overlay.style.display = 'none';
-    }
-}
-
-function renderOuvidoriaKpis() {
-    const wrap = document.getElementById('ouvidoriaKpis');
-    if (!wrap) return;
-    const rows = _ouvidoriaRows;
-    const total = rows.length;
-    const orgsUnicas = new Set(rows.map(r => r.organizacao_id ?? r.organizacao)).size;
-    const somaReincidencia = rows.reduce((s, r) => s + (Number(r.total_chamados_anteriores) || 0), 0);
-    const mediaReincidencia = total ? (somaReincidencia / total) : 0;
-    const trintaDiasAtras = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const ultimos30d = rows.filter(r => r.criado_em && new Date(r.criado_em).getTime() >= trintaDiasAtras).length;
-
-    const cards = [
-        { label: 'Total de manifestações', value: total, icon: 'campaign' },
-        { label: 'Organizações envolvidas', value: orgsUnicas, icon: 'apartment' },
-        { label: 'Reincidência média', value: mediaReincidencia.toFixed(1), icon: 'history' },
-        { label: 'Últimos 30 dias', value: ultimos30d, icon: 'calendar_month' }
-    ];
-
-    wrap.innerHTML = cards.map(c => `
-        <div class="col-span-12 sm:col-span-6 lg:col-span-3">
-            <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow p-5 flex items-center gap-4">
-                <div class="w-11 h-11 rounded-full bg-secondary-container/30 flex items-center justify-center flex-shrink-0">
-                    <span class="material-symbols-outlined text-secondary" style="font-size:22px">${c.icon}</span>
-                </div>
-                <div>
-                    <p class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide">${c.label}</p>
-                    <p class="text-headline-lg font-headline-lg text-primary">${c.value}</p>
-                </div>
-            </div>
-        </div>`).join('');
-}
-
-function renderOuvidoriaTable() {
-    const tbody = document.getElementById('ouvidoriaTableBody');
-    const countEl = document.getElementById('ouvidoriaResultCount');
-    if (!tbody) return;
-
-    const search = (document.getElementById('ouvidoriaSearchInput')?.value || '').toLowerCase().trim();
-    const order = document.getElementById('ouvidoriaOrderSelect')?.value || 'recentes';
-
-    let rows = _ouvidoriaRows.filter(r => {
-        if (!search) return true;
-        const problemasTxt = (r.chamados_relacionados || []).map(c => c.motivo).join(' ');
-        const haystack = `${r.organizacao || ''} ${r.assunto_ouvidoria || ''} ${r.ticket_id || ''} ${r.servico_ouvidoria_nome || ''} ${r.tipo || ''} ${problemasTxt}`.toLowerCase();
-        return haystack.includes(search);
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
     });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+/* ═══ Tokens ══════════════════════════════════════════════════════════ */
+:root {
+  --bg:          #f2f1ee;
+  --surface:     #ffffff;
+  --surface-mid: #f7f6f3;
+  --surface-low: #f2f1ee;
+  --border:      #e5e3de;
+  --border-hi:   #cac8c2;
 
-    rows = [...rows].sort((a, b) => {
-        if (order === 'reincidencia') return (Number(b.total_chamados_anteriores) || 0) - (Number(a.total_chamados_anteriores) || 0);
-        const da = a.criado_em ? new Date(a.criado_em).getTime() : 0;
-        const db_ = b.criado_em ? new Date(b.criado_em).getTime() : 0;
-        return order === 'antigas' ? da - db_ : db_ - da;
-    });
+  --t1: #1a1917;
+  --t2: #57554f;
+  --t3: #9b9892;
 
-    if (countEl) countEl.textContent = `${rows.length} manifestaç${rows.length === 1 ? 'ão' : 'ões'}`;
+  --orange:     #e85d04;
+  --orange-bg:  #fff3ec;
+  --orange-bd:  rgba(232,93,4,0.25);
 
-    if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-10 text-center text-on-surface-variant">Nenhuma manifestação encontrada.</td></tr>`;
-        return;
-    }
+  --green:      #15803d;
+  --green-bg:   #f0fdf4;
+  --green-bd:   rgba(21,128,61,0.25);
 
-    tbody.innerHTML = rows.map(r => `
-        <tr class="border-t border-outline-variant hover:bg-surface-container transition-colors">
-            <td class="px-4 py-3 text-body-md font-medium text-primary">#${escapeHtml(r.ticket_id)}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface">${escapeHtml(r.organizacao || '—')}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface-variant">${escapeHtml(r.servico_ouvidoria_nome || '—')}</td>
-            <td class="px-4 py-3">${renderTipoOuvidoriaBadge(r.tipo, r.assunto_ouvidoria)}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface-variant max-w-[320px] truncate" title="${escapeHtml(r.assunto_ouvidoria || '')}">${escapeHtml(r.assunto_ouvidoria || '—')}</td>
-            <td class="px-4 py-3">${renderProblemaBadgesCompact(r.chamados_relacionados)}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface text-center">${Number(r.total_chamados_anteriores) || 0}</td>
-            <td class="px-4 py-3 text-body-md text-on-surface-variant">${formatDateTime(r.criado_em)}</td>
-            <td class="px-4 py-3 text-right">
-                <button type="button" onclick="openOuvidoriaModal('${escapeHtml(String(r.ticket_id))}')" class="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors">
-                    <span class="material-symbols-outlined" style="font-size:16px">visibility</span>Ver análise
-                </button>
-            </td>
-        </tr>`).join('');
+  --purple:     #7c3aed;
+  --purple-bg:  #f5f3ff;
+  --purple-bd:  rgba(124,58,237,0.25);
+
+  --slate:      #64748b;
+  --slate-bg:   #f8fafc;
+  --slate-bd:   rgba(100,116,139,0.2);
+
+  --amber:      #b45309;
+  --amber-bg:   #fffbeb;
+  --amber-bd:   rgba(180,83,9,0.2);
+
+  --glass-bg:     rgba(255,255,255,.6);
+  --glass-border: rgba(255,255,255,.7);
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,.05),0 1px 4px rgba(0,0,0,.04);
+  --sh-md: 0 3px 12px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
+  --sh-xl: 0 16px 48px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.07);
 }
 
-/* ── Análise: quebra o texto livre em seções (Motivadores / Padrões / Recomendações) ──
-   O texto vem de um processo externo como parágrafos soltos com um cabeçalho de seção
-   próprio (ex: "Motivadores:") — nem sempre as 3 seções estão presentes ou na mesma ordem,
-   então a extração é por regex ao invés de posição fixa. */
-const OUVIDORIA_ANALISE_CARDS = [
-    { key: 'motivador', label: 'Motivador', icon: 'psychology', match: /motivador/i },
-    { key: 'padroes', label: 'Padrões', icon: 'insights', match: /padr(?:ão|ões|ao|oes)/i },
-    { key: 'recomendacoes', label: 'Recomendações', icon: 'lightbulb', match: /recomenda(?:c|ç)(?:ão|ões|ao|oes)/i }
+html.dark {
+  --bg:          #0f1117;
+  --surface:     #1a1d27;
+  --surface-mid: #1e2232;
+  --surface-low: #161921;
+  --border:      #2a2d3a;
+  --border-hi:   #3c3f50;
+
+  --t1: #e8e7e3;
+  --t2: #9b9892;
+  --t3: #57554f;
+
+  --orange:     #fb923c;
+  --orange-bg:  rgba(251,146,60,.12);
+  --orange-bd:  rgba(251,146,60,.22);
+
+  --green:      #4ade80;
+  --green-bg:   rgba(74,222,128,.1);
+  --green-bd:   rgba(74,222,128,.2);
+
+  --purple:     #a78bfa;
+  --purple-bg:  rgba(167,139,250,.1);
+  --purple-bd:  rgba(167,139,250,.2);
+
+  --slate:      #94a3b8;
+  --slate-bg:   rgba(148,163,184,.08);
+  --slate-bd:   rgba(148,163,184,.15);
+
+  --amber:      #fbbf24;
+  --amber-bg:   rgba(251,191,36,.1);
+  --amber-bd:   rgba(251,191,36,.2);
+
+  --glass-bg:     rgba(26,29,39,.5);
+  --glass-border: rgba(255,255,255,.08);
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,.3);
+  --sh-md: 0 3px 12px rgba(0,0,0,.3);
+  --sh-xl: 0 16px 48px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ═══ Reset ═══════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;scrollbar-width:none;-ms-overflow-style:none}
+::-webkit-scrollbar{display:none}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit;background:none;border:none;padding:0}
+input,select{font-family:inherit}
+
+.sym{
+  font-family:'Material Symbols Outlined';
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+  line-height:1;display:inline-block;font-style:normal;user-select:none;
+  vertical-align:middle;
+}
+
+/* ═══ Page ═════════════════════════════════════════════════════════════ */
+#ov-page{min-height:100vh;display:flex;flex-direction:column}
+
+/* ═══ Top bar ══════════════════════════════════════════════════════════ */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 24px;
+}
+.topbar-in{
+  display:flex;align-items:center;gap:12px;height:56px;
+  max-width:1480px;margin:0 auto;
+}
+.topbar-logo{
+  display:flex;align-items:center;gap:7px;
+  font-size:15px;font-weight:700;color:var(--t1);white-space:nowrap;flex-shrink:0;
+}
+.topbar-logo .sym{font-size:19px;color:var(--orange)}
+.topbar-sub{font-size:13px;color:var(--t2);font-weight:500;white-space:nowrap}
+.vbar{width:1px;height:22px;background:var(--border);flex-shrink:0}
+
+.sort-sel{
+  padding:6px 26px 6px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;outline:none;appearance:none;flex-shrink:0;max-width:180px;
+  text-overflow:ellipsis;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9892' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 7px center;
+}
+.sort-sel:focus{border-color:var(--orange)}
+
+/* ─── Filter bar ─────────────────────────────────────────────────────── */
+.topbar-filters{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 0 11px;max-width:1480px;margin:0 auto;
+  flex-wrap:wrap;border-top:1px solid var(--border);
+}
+
+.btn-refresh{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+.btn-refresh:hover{border-color:var(--border-hi);color:var(--t1)}
+.btn-refresh .sym{font-size:15px}
+
+.btn-sync{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px;border:1px solid var(--green-bd);border-radius:8px;
+  background:var(--green-bg);color:var(--green);
+  font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+.btn-sync:hover{filter:brightness(.96)}
+.btn-sync .sym{font-size:15px}
+.btn-sync:disabled{opacity:.5;cursor:default}
+
+/* ─── Multi-select dropdown ─────────────────────────────────────────── */
+.multi-sel{position:relative;flex-shrink:0}
+.ms-btn{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;min-width:112px;
+  transition:border-color .15s,color .15s;
+}
+.ms-btn:hover,.ms-btn.ms-active,.multi-sel.open .ms-btn{border-color:var(--orange);color:var(--t1)}
+.ms-lbl{flex:1;text-align:left}
+.ms-arrow{font-size:15px;color:var(--t3);transition:transform .15s}
+.multi-sel.open .ms-arrow{transform:rotate(180deg)}
+.ms-drop{
+  position:absolute;top:calc(100% + 5px);left:0;z-index:400;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:var(--sh-md);padding:5px 0;min-width:155px;
+  max-height:260px;overflow-y:auto;display:none;
+}
+.multi-sel.open .ms-drop{display:block}
+.ms-item{
+  display:flex;align-items:center;gap:9px;padding:7px 12px;
+  cursor:pointer;font-size:13px;color:var(--t1);transition:background .1s;
+  user-select:none;
+}
+.ms-item:hover{background:var(--surface-mid)}
+.ms-item input[type=checkbox]{
+  accent-color:var(--orange);width:14px;height:14px;
+  cursor:pointer;flex-shrink:0;margin:0;
+}
+
+/* sync toast */
+#sync-toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:11px 18px;box-shadow:var(--sh-md);
+  display:flex;align-items:center;gap:10px;font-size:13px;color:var(--t1);
+  z-index:300;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+#sync-toast.show{opacity:1;pointer-events:auto}
+#sync-toast .sym{font-size:16px;color:var(--green)}
+#sync-toast .st-prog{font-size:11px;color:var(--t3);margin-left:2px}
+
+/* ═══ Dashboard ═══════════════════════════════════════════════════════ */
+.dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
+.section-label{
+  font-size:11.5px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.06em;font-weight:700;margin:30px 0 11px;
+}
+.section-label:first-child{margin-top:2px}
+
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.grid-7{display:grid;grid-template-columns:repeat(7,1fr);gap:14px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-2b{display:grid;grid-template-columns:0.85fr 1.15fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:980px){
+  .grid-4,.grid-5,.grid-6,.grid-7{grid-template-columns:repeat(2,1fr)}
+  .grid-2,.grid-2b,.grid-3{grid-template-columns:1fr}
+}
+@media (max-width:520px){.grid-4,.grid-5,.grid-6,.grid-7{grid-template-columns:1fr}}
+
+.stat-card{
+  background:var(--glass-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--glass-border);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--sh-sm);
+}
+.stat-card.danger{border-color:var(--orange-bd)}
+.stat-card.clickable{cursor:pointer}
+.stat-card.clickable:hover{border-color:var(--border-hi)}
+.stat-card .label{font-size:12.5px;color:var(--t2);margin:0 0 6px;font-weight:500}
+.stat-card .value{
+  font-size:25px;font-weight:700;margin:0;color:var(--t1);
+  font-variant-numeric:tabular-nums;line-height:1.15;
+}
+.stat-card .value .pct{font-size:13px;color:var(--t2);font-weight:500}
+.stat-card .delta{
+  font-size:11.5px;margin:6px 0 5px;font-weight:600;
+  display:inline-flex;align-items:center;gap:2px;
+}
+.stat-card .delta.good{color:var(--green)}
+.stat-card .delta.bad{color:var(--orange)}
+.stat-card .delta.flat{color:var(--t3)}
+.stat-card .delta.neutral{color:var(--slate)}
+.stat-card .legend{font-size:11px;color:var(--t3);margin:0;line-height:1.4}
+
+.chart-panel,.data-panel{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;box-shadow:var(--sh-sm);
+}
+.chart-title,.panel-title{font-size:13px;color:var(--t2);margin:0 0 12px;font-weight:600}
+.chart-wrap{position:relative;width:100%}
+
+.dtable{width:100%;font-size:13px;border-collapse:collapse}
+.dtable th{
+  text-align:left;color:var(--t3);padding:7px 8px;font-weight:600;
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
+  border-bottom:1px solid var(--border);
+}
+.dtable td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--t1)}
+.dtable tbody tr:last-child td{border-bottom:none}
+.dtable .num{text-align:right;font-variant-numeric:tabular-nums}
+.dtable .bad{color:var(--orange);font-weight:700}
+.dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
+
+.data-panel.compact{padding:14px 16px}
+.data-panel.compact.danger{border-color:var(--orange-bd)}
+.data-panel.compact .panel-title{font-size:12px;margin-bottom:8px}
+.data-panel.compact .dtable{font-size:12px}
+.data-panel.compact .dtable th{padding:5px 8px;font-size:9.5px}
+.data-panel.compact .dtable td{padding:6px 8px}
+.data-panel.compact .dtable-wrap{max-height:280px;overflow-y:auto}
+
+/* clique nas barras/segmentos dos gráficos abre um modal de detalhe */
+.chart-wrap canvas{cursor:default}
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(20,18,14,.55);
+  z-index:200;align-items:center;justify-content:center;padding:24px;
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  box-shadow:var(--sh-lg,0 20px 50px rgba(0,0,0,.35));
+  width:100%;max-width:min(820px,92vw);max-height:min(80vh,720px);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 20px;border-bottom:1px solid var(--border);flex:none;
+}
+.modal-head h3{margin:0;font-size:14.5px;color:var(--t1);font-weight:700}
+.modal-head p{margin:2px 0 0;font-size:12px;color:var(--t3)}
+.modal-close{
+  border:none;background:transparent;color:var(--t2);font-size:20px;line-height:1;
+  cursor:pointer;padding:4px 6px;border-radius:6px;
+}
+.modal-close:hover{background:var(--surface-mid);color:var(--t1)}
+.modal-body{overflow-y:auto;overflow-x:hidden;padding:8px 20px 18px;flex:1 1 auto;min-height:0}
+.modal-body .dtable-scroll{overflow-x:auto}
+.modal-body .dtable{min-width:640px}
+.modal-body .dtable th{position:sticky;top:0;background:var(--surface);white-space:nowrap}
+.modal-body .dtable td{vertical-align:top}
+body.modal-open{overflow:hidden}
+
+.modal-body .dtable tbody tr.clickable{cursor:pointer}
+.modal-body .dtable tbody tr.clickable:hover td{background:var(--surface-mid)}
+.ticket-link{color:var(--orange);text-decoration:none;font-weight:600}
+.ticket-link:hover{text-decoration:underline}
+
+.listagem-search{
+  width:100%;padding:9px 12px;margin-bottom:10px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface-mid);color:var(--t1);
+  font-size:13px;font-family:inherit;outline:none;
+}
+.listagem-search:focus{border-color:var(--orange)}
+.dtable th.sortable{cursor:pointer;user-select:none}
+.dtable th.sortable:hover{color:var(--t1)}
+.dtable th.sortable .sort-arrow{display:inline-block;width:12px;font-size:10px;opacity:.6}
+
+/* Tabela de "Chamado Listagem" — quebra linha em vez de rolar na
+   horizontal (table-layout:fixed distribui as colunas pela largura
+   disponível do modal, sem depender do conteúdo mais largo). */
+.modal-body .listagem-table{table-layout:fixed;min-width:0;width:100%}
+.modal-body .listagem-table th{white-space:normal;overflow-wrap:break-word;font-size:11px}
+.modal-body .listagem-table td{overflow-wrap:break-word;word-break:break-word;font-size:12.5px}
+
+.export-options{display:flex;gap:12px;padding:4px 0 8px}
+.export-opt{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:20px 12px;border:1px solid var(--border);border-radius:12px;
+  background:var(--surface-mid);cursor:pointer;color:var(--t2);
+  font-size:13px;font-weight:600;font-family:inherit;transition:.15s;
+}
+.export-opt:hover{border-color:var(--orange);color:var(--t1);background:var(--orange-bg)}
+.export-opt:disabled{opacity:.5;cursor:default;border-color:var(--border);color:var(--t2);background:var(--surface-mid)}
+.export-opt .sym{font-size:28px;color:var(--orange)}
+.export-status{padding:2px 0 0;font-size:12.5px;color:var(--t3);display:none;align-items:center;gap:8px}
+.export-status.show{display:flex}
+.export-status .sym{font-size:16px;animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+/* empilhamento: risco-modal (200, base) < detail-modal (205, lista de
+   tickets aberta a partir de um cliente em risco ou de um gráfico) <
+   ticket-modal (210, detalhe de UM ticket aberto a partir da lista) */
+#detail-modal{z-index:205}
+#ticket-modal{z-index:210}
+#ticket-modal .modal-box{max-width:min(700px,92vw)}
+.td-info-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;
+  padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:14px;
+}
+.td-info-grid .lbl{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:0 0 3px}
+.td-info-grid .val{font-size:13px;color:var(--t1);font-weight:600;margin:0}
+.td-sec-lbl{font-size:11.5px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin:0 0 8px;display:flex;align-items:center;gap:6px}
+.td-cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:16px}
+.td-cf-item{background:var(--surface-mid);border-radius:8px;padding:8px 10px}
+.td-cf-item .cf-lbl{display:block;font-size:10px;color:var(--t3);margin-bottom:2px}
+.td-cf-item .cf-val{display:block;font-size:12.5px;color:var(--t1);font-weight:600}
+.td-tl-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.td-tl-item:last-child{border-bottom:none}
+.td-tl-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:4px}
+.td-tl-author{font-size:12.5px;font-weight:700;color:var(--t1)}
+.td-tl-date{font-size:11px;color:var(--t3)}
+.td-tl-badge{font-size:10px;color:var(--t2);background:var(--surface-mid);border-radius:999px;padding:2px 8px}
+.td-tl-desc{font-size:12.5px;color:var(--t2);line-height:1.5;max-height:120px;overflow-y:auto}
+.td-tl-desc :is(img,table){max-width:100%}
+.td-loading,.td-empty{color:var(--t3);font-size:12.5px;text-align:center;padding:20px 0}
+.modal-foot{
+  display:flex;justify-content:flex-end;gap:10px;padding:12px 20px;
+  border-top:1px solid var(--border);flex:none;
+}
+.btn-open-ticket{
+  display:inline-flex;align-items:center;gap:6px;background:var(--orange);color:#fff;
+  border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;
+  text-decoration:none;cursor:pointer;
+}
+.btn-open-ticket:hover{opacity:.9}
+</style>
+</head>
+<body>
+<div id="ov-page">
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="topbar-logo"><span class="sym">campaign</span>Ouvidoria</div>
+      <div class="vbar"></div>
+      <span class="topbar-sub">Visão de gestão</span>
+      <span style="margin-left:auto"></span>
+      <button class="btn-refresh" id="btn-atualizar" onclick="loadOuvidoria()">
+        <span class="sym">refresh</span>Atualizar
+      </button>
+      <button class="btn-sync" id="btn-sync" onclick="startSync()">
+        <span class="sym">sync</span>Sincronizar tickets
+      </button>
+      <button class="btn-refresh" onclick="openChamadoListagemModal()">
+        <span class="sym">list_alt</span>Chamado Listagem
+      </button>
+      <button class="btn-refresh" onclick="openExportModal()">
+        <span class="sym">download</span>Exportar
+      </button>
+    </div>
+    <div class="topbar-filters">
+      <div class="multi-sel" id="f-tipo">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Tipo de manifesto: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-resp">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Responsável: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-org">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Cliente: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-serv">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Serviço: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-status">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Status: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-year">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Ano: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-month">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Mês: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+    </div>
+    <div id="sync-toast">
+      <span class="sym">sync</span>
+      <span id="sync-toast-txt">Sincronizando…</span>
+      <span class="st-prog" id="sync-toast-prog"></span>
+    </div>
+  </header>
+
+  <div class="dash-wrap" id="ov-dash">
+    <p class="section-label">Totais do período</p>
+    <div class="grid-7">
+      <div class="stat-card">
+        <p class="label">Total de tickets</p>
+        <p class="value" id="k-total">0</p>
+        <p class="delta flat" id="k-total-d">—</p>
+        <p class="legend">Todas as manifestações no período.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Elogios</p>
+        <p class="value" id="k-elo">0</p>
+        <p class="delta flat" id="k-elo-d">—</p>
+        <p class="legend">Manifestações positivas no período.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Reclamações</p>
+        <p class="value" id="k-rec">0</p>
+        <p class="delta flat" id="k-rec-d">—</p>
+        <p class="legend">Total no período, procedentes ou não.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Sugestões</p>
+        <p class="value" id="k-sug">0</p>
+        <p class="delta flat" id="k-sug-d">—</p>
+        <p class="legend">Ideias e melhorias enviadas.</p>
+      </div>
+      <div class="stat-card danger">
+        <p class="label">Procedentes</p>
+        <p class="value" id="k-proc">0 <span class="pct" id="k-proc-pct"></span></p>
+        <p class="delta flat" id="k-proc-d">—</p>
+        <p class="legend">Reclamações confirmadas como reais.</p>
+      </div>
+      <div class="stat-card">
+        <p class="label">Pendentes</p>
+        <p class="value" id="k-pend">0</p>
+        <p class="delta flat" id="k-pend-d">—</p>
+        <p class="legend">Tickets ainda em aberto no período.</p>
+      </div>
+      <div class="stat-card danger clickable" id="k-risco-card" onclick="openClientesRiscoModal()">
+        <p class="label">Clientes em risco</p>
+        <p class="value" id="k-risco">0</p>
+        <p class="delta flat" id="k-risco-d">reincidência alta</p>
+        <p class="legend">3+ reclamações e 1+ em aberto. Clique pra ver.</p>
+      </div>
+    </div>
+
+    <p class="section-label">Tendência</p>
+    <div class="chart-panel">
+      <p class="chart-title" id="trendChartTitle">Elogios vs reclamações por mês</p>
+      <div class="chart-wrap" style="height:230px"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <p class="section-label">Composição</p>
+    <div class="grid-2b">
+      <div class="chart-panel">
+        <p class="chart-title">Tipos de manifesto</p>
+        <div class="chart-wrap" style="height:190px"><canvas id="typeChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Volume por serviço</p>
+        <div class="chart-wrap" style="height:190px"><canvas id="areaChart"></canvas></div>
+      </div>
+    </div>
+
+    <p class="section-label">Ranking</p>
+    <div class="grid-2">
+      <div class="chart-panel">
+        <p class="chart-title">Top 10 clientes por volume de manifestações</p>
+        <div class="chart-wrap" style="height:250px"><canvas id="topClientChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Chamados por área direcionada</p>
+        <div class="chart-wrap" style="height:250px"><canvas id="direcionadoChart"></canvas></div>
+      </div>
+    </div>
+
+    <p class="section-label">Ação</p>
+    <div class="grid-3">
+      <div class="data-panel compact">
+        <p class="panel-title">Clientes com maior reincidência e procedência Reclamação</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr></thead>
+            <tbody id="tbl-reincidencia"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="data-panel compact">
+        <p class="panel-title">Desempenho por responsável</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Responsável</th><th class="num">Tickets</th><th class="num">Tempo médio</th><th class="num">Taxa procedência</th></tr></thead>
+            <tbody id="tbl-responsavel"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="data-panel compact danger">
+        <p class="panel-title">Tickets vencidos — ação necessária</p>
+        <div class="dtable-wrap">
+          <table class="dtable">
+            <thead><tr><th>Ticket</th><th>Responsável</th><th class="num">Dias venc.</th></tr></thead>
+            <tbody id="tbl-vencidos"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="detail-modal-title">Detalhe</h3>
+        <p id="detail-modal-sub"></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="modal-close" id="detail-modal-export" title="Exportar" aria-label="Exportar" onclick="closeDetailModal();openExportModal();">
+          <span class="sym" style="font-size:18px">download</span>
+        </button>
+        <button class="modal-close" id="detail-modal-close" aria-label="Fechar">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead>
+            <tr><th>ID</th><th>Organização</th><th>Assunto</th><th>Tipo</th><th>Responsável</th><th>Status</th></tr>
+          </thead>
+          <tbody id="detail-modal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="listagem-modal" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:min(1500px,98vw)">
+    <div class="modal-head">
+      <div>
+        <h3>Chamados</h3>
+        <p id="listagem-sub"></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="modal-close" title="Exportar" aria-label="Exportar" onclick="closeListagemModal();openExportModal();">
+          <span class="sym" style="font-size:18px">download</span>
+        </button>
+        <button class="modal-close" id="listagem-close" aria-label="Fechar">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <input type="text" class="listagem-search" id="listagem-search" placeholder="Buscar em qualquer coluna…" oninput="listagemOnSearch(this.value)">
+      <div class="dtable-scroll">
+        <table class="dtable listagem-table">
+          <thead><tr id="listagem-thead"></tr></thead>
+          <tbody id="listagem-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ticket-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="ticket-modal-title">Ticket</h3>
+        <p id="ticket-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="ticket-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body" id="ticket-modal-body">
+      <div class="td-loading">Carregando…</div>
+    </div>
+    <div class="modal-foot">
+      <a class="btn-open-ticket" id="ticket-modal-link" href="#" target="_blank" rel="noopener">
+        Abrir no Movidesk
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="export-modal" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-head">
+      <div>
+        <h3>Exportar dados</h3>
+        <p>Considera os filtros aplicados no momento</p>
+      </div>
+      <button class="modal-close" id="export-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="export-options">
+        <button class="export-opt" id="export-opt-xlsx" onclick="runExport('xlsx')">
+          <span class="sym">description</span>Excel
+        </button>
+        <button class="export-opt" id="export-opt-pdf" onclick="runExport('pdf')">
+          <span class="sym">picture_as_pdf</span>PDF
+        </button>
+        <button class="export-opt" id="export-opt-docx" onclick="runExport('docx')">
+          <span class="sym">article</span>Word
+        </button>
+      </div>
+      <p class="export-status" id="export-status"><span class="sym">progress_activity</span>Gerando arquivo…</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="risco-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3>Clientes em risco</h3>
+        <p id="risco-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="risco-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead>
+            <tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr>
+          </thead>
+          <tbody id="risco-modal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+<script>
+// Sem animação de entrada dos gráficos (barra crescendo, linha sendo
+// traçada) — a transição de aba (ícone) já cumpre esse papel; a
+// animação do Chart.js tocando depois ficava parecendo uma segunda
+// animação sobrando.
+if (typeof Chart !== 'undefined') Chart.defaults.animation = false;
+
+// ── helpers ──────────────────────────────────────────────────────────
+const API = `${location.origin}/api`;
+function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function api(ep){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),60000);
+  try{
+    const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
+    return r.json();
+  } catch(e){
+    if(e.name==='AbortError'||e.message==='signal is aborted without reason') throw new Error('Tempo limite excedido ao carregar dados');
+    throw e;
+  } finally { clearTimeout(t); }
+}
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
+
+function rawTipo(r){
+  if(r.tipo) return String(r.tipo).trim();
+  const m=String(r.assunto_ouvidoria||'').match(/Ouvidoria\s+VIASOFT\s*-\s*([^-]+?)\s*-/i);
+  return m?m[1].trim():'';
+}
+function tipoKey(tipo){
+  const t=(tipo||'').toLowerCase();
+  if(t.includes('reclama')) return 'rec';
+  if(t.includes('elogio'))  return 'elo';
+  if(t.includes('sugest'))  return 'sug';
+  return 'oth';
+}
+const TIPO_LABEL = {rec:'Reclamação',elo:'Elogio',sug:'Sugestão',oth:'Outro'};
+
+// Finalizado/Cancelado por base_status — mesmo critério das outras telas.
+const FINALIZADO_STATUSES = ['Resolved','Closed','Resolvido','Fechado'];
+const CANCELADO_STATUSES  = ['Canceled','Cancelado'];
+
+function normalizar(v){
+  let semAcento='';
+  for(const ch of String(v||'').normalize('NFD')){
+    const code=ch.codePointAt(0);
+    if(code>=0x0300&&code<=0x036f) continue;
+    semAcento+=ch;
+  }
+  return semAcento.replace(/\s+/g,' ').trim().toUpperCase();
+}
+function isProcedente(v){
+  const n=normalizar(v);
+  if(!n) return false;
+  if(n.includes('IMPROCEDENTE')) return false;
+  if(n.includes('PROCEDENTE')) return true;
+  return n==='SIM';
+}
+// "Área" curta pro gráfico de volume — pega o primeiro segmento do serviço
+// hierárquico (ex: "Suporte Técnico > Sistema X" → "Suporte Técnico").
+function areaDoServico(servico){
+  if(!servico) return 'Não informado';
+  return String(servico).split('>')[0].trim();
+}
+function monthKeyOf(d){
+  const dt=new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+function dtStr(v){
+  if(!v) return '';
+  const d=new Date(v);
+  return isNaN(d) ? '' : d.toISOString().slice(0,10);
+}
+// ── exportação (Excel / PDF / Word) ─────────────────────────────────
+const EXPORT_HEADERS=['ID','Organização','Assunto','Tipo','Procedente','Direcionado a','Status','Serviço','Responsável','Criado em','Resolvido em'];
+function buildExportRows(){
+  return (_rowsFull||[]).map(r=>[
+    r.ticket_id,
+    r.organizacao||'',
+    r.assunto_ouvidoria||'',
+    TIPO_LABEL[tipoKey(rawTipo(r))]||rawTipo(r)||'',
+    tipoKey(rawTipo(r))==='rec' ? (isProcedente(r.manifesto_procedente)?'Sim':'Não') : '',
+    r.manifesto_direcionado_a||'',
+    r.status_movidesk||r.base_status||'',
+    r.servico||'',
+    r.responsavel||'',
+    dtStr(r.criado_em),
+    dtStr(r.resolvido_em),
+  ]);
+}
+// Chart.js desenha em fundo transparente — compõe sobre branco antes de exportar como imagem.
+function captureChartImages(){
+  return Object.values(_charts).filter(c=>c&&c.canvas&&c.canvas.width).map(chart=>{
+    const src=chart.canvas;
+    const off=document.createElement('canvas');
+    off.width=src.width; off.height=src.height;
+    const ctx=off.getContext('2d');
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,off.width,off.height);
+    ctx.drawImage(src,0,0);
+    const panel=src.closest('.chart-panel');
+    const title=(panel&&panel.querySelector('.chart-title')?.textContent.trim())||'Gráfico';
+    return {title,dataUrl:off.toDataURL('image/png',1.0),width:src.width,height:src.height};
+  });
+}
+function openExportModal(){
+  document.getElementById('export-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeExportModal(){
+  document.getElementById('export-modal').classList.remove('show');
+  document.getElementById('export-status').classList.remove('show');
+  document.querySelectorAll('#export-modal .export-opt').forEach(b=>b.disabled=false);
+  syncModalBodyLock();
+}
+document.getElementById('export-modal-close').addEventListener('click',closeExportModal);
+document.getElementById('export-modal').addEventListener('click',e=>{ if(e.target.id==='export-modal') closeExportModal(); });
+
+async function runExport(format){
+  document.querySelectorAll('#export-modal .export-opt').forEach(b=>b.disabled=true);
+  document.getElementById('export-status').classList.add('show');
+  try{
+    const hoje=new Date().toISOString().slice(0,10);
+    const charts=captureChartImages();
+    const rows=buildExportRows();
+    if(format==='xlsx') await exportXlsx(rows,charts,`ouvidoria_export_${hoje}.xlsx`);
+    else if(format==='pdf') await exportPdf(rows,charts,`ouvidoria_export_${hoje}.pdf`,'Ouvidoria — Visão de gestão');
+    else if(format==='docx') await exportDocx(rows,charts,`ouvidoria_export_${hoje}.docx`,'Ouvidoria — Visão de gestão');
+    closeExportModal();
+  } catch(e){
+    console.error(e);
+    alert('Não foi possível gerar o arquivo: '+e.message);
+    closeExportModal();
+  }
+}
+
+async function exportXlsx(rows,charts,filename){
+  if(typeof ExcelJS==='undefined') throw new Error('Biblioteca ExcelJS não carregou (verifique a conexão com a internet/CDN).');
+  const wb=new ExcelJS.Workbook();
+  const wsData=wb.addWorksheet('Dados');
+  wsData.addRow(EXPORT_HEADERS).font={bold:true};
+  rows.forEach(r=>wsData.addRow(r));
+  wsData.columns.forEach(c=>c.width=18);
+  if(charts.length){
+    const wsCharts=wb.addWorksheet('Gráficos');
+    let rowCursor=1;
+    charts.forEach(ch=>{
+      wsCharts.getCell(`A${rowCursor}`).value=ch.title;
+      wsCharts.getCell(`A${rowCursor}`).font={bold:true};
+      rowCursor+=1;
+      const imgId=wb.addImage({base64:ch.dataUrl,extension:'png'});
+      const w=Math.min(ch.width,760), h=w*(ch.height/ch.width);
+      wsCharts.addImage(imgId,{tl:{col:0,row:rowCursor},ext:{width:w,height:h}});
+      rowCursor+=Math.ceil(h/20)+2;
+    });
+  }
+  const buf=await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),filename);
+}
+
+async function exportPdf(rows,charts,filename,titulo){
+  if(!window.jspdf||!window.jspdf.jsPDF) throw new Error('Biblioteca jsPDF não carregou (verifique a conexão com a internet/CDN).');
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'pt'});
+  const pageW=doc.internal.pageSize.getWidth();
+  const margin=32;
+  doc.setFontSize(16);
+  doc.text(titulo,margin,36);
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`,margin,52);
+  doc.setTextColor(0);
+  let y=70;
+  charts.forEach(ch=>{
+    const w=pageW-margin*2, h=w*(ch.height/ch.width);
+    if(y+h>doc.internal.pageSize.getHeight()-margin){ doc.addPage(); y=margin; }
+    doc.setFontSize(11);
+    doc.text(ch.title,margin,y);
+    doc.addImage(ch.dataUrl,'PNG',margin,y+8,w,h);
+    y+=h+28;
+  });
+  doc.addPage();
+  doc.setFontSize(14);
+  doc.text('Dados',margin,36);
+  doc.autoTable({
+    head:[EXPORT_HEADERS],
+    body:rows,
+    startY:48,
+    margin:{left:margin,right:margin},
+    styles:{fontSize:7,cellPadding:3},
+    headStyles:{fillColor:[232,93,4]},
+  });
+  doc.save(filename);
+}
+
+async function exportDocx(rows,charts,filename,titulo){
+  if(typeof docx==='undefined') throw new Error('Biblioteca docx não carregou (verifique a conexão com a internet/CDN).');
+  const {Document,Packer,Paragraph,HeadingLevel,ImageRun,Table,TableRow,TableCell,TextRun,WidthType}=docx;
+  const children=[
+    new Paragraph({text:titulo,heading:HeadingLevel.HEADING_1}),
+    new Paragraph({text:`Gerado em ${new Date().toLocaleDateString('pt-BR')}`}),
+  ];
+  for(const ch of charts){
+    const base64=ch.dataUrl.split(',')[1];
+    const bin=atob(base64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const w=600, h=w*(ch.height/ch.width);
+    children.push(new Paragraph({text:ch.title,heading:HeadingLevel.HEADING_3,spacing:{before:200}}));
+    children.push(new Paragraph({children:[new ImageRun({data:bytes,transformation:{width:w,height:h}})]}));
+  }
+  children.push(new Paragraph({text:'Dados',heading:HeadingLevel.HEADING_2,spacing:{before:300}}));
+  const headerRow=new TableRow({children:EXPORT_HEADERS.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
+  const bodyRows=rows.map(r=>new TableRow({children:r.map(v=>new TableCell({children:[new Paragraph(String(v??''))]}))}));
+  children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[headerRow,...bodyRows]}));
+  const doc=new Document({sections:[{children}]});
+  const blob=await Packer.toBlob(doc);
+  downloadBlob(blob,filename);
+}
+
+function downloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+const MONTH_NAMES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MONTHS=[
+  {v:1,l:'Janeiro'},{v:2,l:'Fevereiro'},{v:3,l:'Março'},{v:4,l:'Abril'},
+  {v:5,l:'Maio'},{v:6,l:'Junho'},{v:7,l:'Julho'},{v:8,l:'Agosto'},
+  {v:9,l:'Setembro'},{v:10,l:'Outubro'},{v:11,l:'Novembro'},{v:12,l:'Dezembro'},
 ];
 
-function parseOuvidoriaAnalise(raw) {
-    const text = String(raw || '').trim();
-    const sections = {};
-    if (!text) return { sections, raw: '' };
+// ── state ────────────────────────────────────────────────────────────
+let _rows=[];
+let _charts={};
+let _rowsFull=[]; // último conjunto filtrado renderizado — usado pelos modais de detalhe
 
-    const headerRegex = /^[ \t]*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ /]{0,40}?)\s*:[ \t]*$/gim;
-    const matches = [...text.matchAll(headerRegex)].filter(m =>
-        OUVIDORIA_ANALISE_CARDS.some(c => c.match.test(m[1]))
-    );
-    if (!matches.length) return { sections, raw: text };
-
-    for (let i = 0; i < matches.length; i++) {
-        const m = matches[i];
-        const card = OUVIDORIA_ANALISE_CARDS.find(c => c.match.test(m[1]));
-        const start = m.index + m[0].length;
-        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
-        if (card) sections[card.key] = text.slice(start, end).trim();
-    }
-    return { sections, raw: text };
+// ── load ─────────────────────────────────────────────────────────────
+async function loadOuvidoria(){
+  try{
+    _rows=await api('/ouvidoria');
+    buildFilterOptions();
+    render();
+  } catch(e){
+    let msg=`Erro ao carregar: ${esc(e.message)}`;
+    try{
+      const s=await apiFetch('/loader/status','GET');
+      if(s.current?.running){
+        msg='Sincronização em andamento — os dados aparecerão ao finalizar';
+        pollSyncStatus();
+      }
+    }catch{}
+    document.getElementById('ov-dash').innerHTML=`<p style="padding:40px 0;text-align:center;color:var(--t3)">${msg}</p>`;
+  }
 }
 
-function renderOuvidoriaAnaliseCards(analiseRaw) {
-    const wrap = document.getElementById('ouvidoriaAnaliseCards');
-    if (!wrap) return;
+// ── multi-select dropdown ───────────────────────────────────────────
+function toggleMs(btn){
+  const ms=btn.closest('.multi-sel');
+  const wasOpen=ms.classList.contains('open');
+  document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+  if(!wasOpen) ms.classList.add('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.multi-sel'))
+    document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+});
+function getMsValues(id){
+  return [...document.querySelectorAll(`#${id} .ms-drop input:checked`)].map(i=>i.value);
+}
+function updateMsLabel(id,allLabel){
+  const vals=getMsValues(id);
+  const lbl=document.querySelector(`#${id} .ms-lbl`);
+  const btn=document.querySelector(`#${id} .ms-btn`);
+  if(!vals.length){lbl.textContent=allLabel;btn.classList.remove('ms-active');return;}
+  if(vals.length===1){
+    const span=[...document.querySelectorAll(`#${id} .ms-item`)].find(el=>el.querySelector('input').value===vals[0])?.querySelector('span');
+    lbl.textContent=span?span.textContent:vals[0];
+  } else {
+    lbl.textContent=`${vals.length} selecionados`;
+  }
+  btn.classList.add('ms-active');
+}
+function populateMs(id,items,allLabel,onChange){
+  const drop=document.querySelector(`#${id} .ms-drop`);
+  if(!drop) return;
+  const cur=new Set(getMsValues(id));
+  drop.innerHTML=items.map(({v,l})=>`
+    <label class="ms-item">
+      <input type="checkbox" value="${escAttr(String(v))}"${cur.has(String(v))?' checked':''}>
+      <span>${esc(String(l))}</span>
+    </label>`).join('');
+  drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
+    updateMsLabel(id,allLabel); onChange();
+  }));
+  updateMsLabel(id,allLabel);
+}
 
-    const { sections, raw } = parseOuvidoriaAnalise(analiseRaw);
-    const cardHtml = (icon, label, content) => `
-        <div>
-            <h4 class="text-label-md font-label-md text-secondary uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <span class="material-symbols-outlined" style="font-size:16px">${icon}</span>
-                ${label}
-            </h4>
-            <div class="rounded-xl bg-secondary-container/15 border border-outline-variant border-l-4 border-l-secondary p-4">
-                <p class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(content)}</p>
-            </div>
+function buildFilterOptions(){
+  const fill=(id,label,values)=>{
+    const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+    populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
+  };
+  populateMs('f-tipo',[
+    {v:'rec',l:'Reclamação'},{v:'elo',l:'Elogio'},{v:'sug',l:'Sugestão'},{v:'oth',l:'Outro'},
+  ],'Tipo de manifesto: todos',render);
+  fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
+  fill('f-org','Cliente',_rows.map(r=>r.organizacao));
+  fill('f-serv','Serviço',_rows.map(r=>r.servico));
+  populateMs('f-status',[
+    {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
+  ],'Status: todos',render);
+
+  const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
+  populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
+  populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
+}
+
+// ── filtro ───────────────────────────────────────────────────────────
+// rowsCtx: filtrado por responsável/cliente/serviço/status, mas NÃO por
+// ano/mês — usado pra tendência e cálculo de delta (precisa de histórico).
+// rowsFull: rowsCtx + ano/mês — usado pros totais e demais gráficos/tabelas.
+function statusBate(r,statusFils){
+  if(!statusFils.length) return true;
+  const fin=FINALIZADO_STATUSES.includes(r.base_status);
+  const aberto=!fin;
+  return statusFils.some(s=>(s==='aberto'&&aberto)||(s==='finalizado'&&fin));
+}
+function getFilteredRows(){
+  const tipoFils=getMsValues('f-tipo');
+  const respFils=getMsValues('f-resp');
+  const orgFils=getMsValues('f-org');
+  const servFils=getMsValues('f-serv');
+  const statusFils=getMsValues('f-status');
+  const yearFils=getMsValues('f-year').map(Number);
+  const monthFils=getMsValues('f-month').map(Number);
+
+  // Tickets cancelados não entram em nenhuma métrica/gráfico/filtro — exclui
+  // já na base, antes de qualquer outro filtro.
+  const rowsCtx=_rows.filter(r=>{
+    if(CANCELADO_STATUSES.includes(r.base_status)) return false;
+    if(tipoFils.length&&!tipoFils.includes(tipoKey(rawTipo(r)))) return false;
+    if(respFils.length&&!respFils.includes(r.responsavel)) return false;
+    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
+    if(servFils.length&&!servFils.includes(r.servico)) return false;
+    if(!statusBate(r,statusFils)) return false;
+    return true;
+  });
+  const rowsFull=rowsCtx.filter(r=>{
+    if(yearFils.length||monthFils.length){
+      if(!r.criado_em) return false;
+      const d=new Date(r.criado_em);
+      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
+      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
+    }
+    return true;
+  });
+  return {rowsCtx,rowsFull};
+}
+
+// ── delta vs mês anterior ───────────────────────────────────────────
+function bucketPorMes(rows){
+  const by={};
+  rows.forEach(r=>{
+    if(!r.criado_em) return;
+    const mk=monthKeyOf(r.criado_em);
+    by[mk]=by[mk]||{elo:0,rec:0,sug:0,oth:0,proc:0,pend:0};
+    const tk=tipoKey(rawTipo(r));
+    by[mk][tk]++;
+    if(tk==='rec'&&isProcedente(r.manifesto_procedente)) by[mk].proc++;
+    if(!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status)) by[mk].pend++;
+  });
+  return by;
+}
+function mesAnteriorKey(key){
+  let [y,m]=key.split('-').map(Number);
+  m-=1;
+  if(m<1){ m=12; y-=1; }
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+// Cor é só pela direção bruta (sobe = verde, cai = laranja), sem considerar
+// se aquele aumento/queda é "bom" ou "ruim" pra métrica específica —
+// goodDirection não é mais usado pra cor, só fica no parâmetro pra não
+// quebrar os call sites existentes.
+function fmtDeltaPct(curVal,prevVal,goodDirection,suffix='vs mês ant.'){
+  if(prevVal===0&&curVal===0) return {text:'—',cls:'flat'};
+  if(prevVal===0) return {text:'novo',cls:'good'};
+  const pct=(curVal-prevVal)/prevVal*100;
+  const up=pct>=0;
+  const cls=pct===0?'flat':(up?'good':'bad');
+  return {text:`${up?'↑':'↓'}${Math.abs(pct).toFixed(0)}% ${suffix}`,cls};
+}
+function fmtDeltaPts(curRate,prevRate,goodDirection,suffix='vs mês ant.'){
+  if(!isFinite(curRate)||!isFinite(prevRate)) return {text:'—',cls:'flat'};
+  const diff=curRate-prevRate;
+  const up=diff>=0;
+  const cls=diff===0?'flat':(up?'good':'bad');
+  return {text:`${up?'↑':'↓'}${Math.abs(diff).toFixed(1)}pt ${suffix}`,cls};
+}
+// Soma vários buckets mensais (ex: todos os meses de um ano) num só objeto,
+// pra comparar ano vs ano com a mesma lógica que já existe pra mês vs mês.
+function somarBuckets(byMes,meses,anoAlvo){
+  const soma={elo:0,rec:0,sug:0,oth:0,proc:0,pend:0};
+  let achouAlgum=false;
+  meses.filter(mk=>mk.startsWith(`${anoAlvo}-`)).forEach(mk=>{
+    achouAlgum=true;
+    const b=byMes[mk];
+    for(const k in soma) soma[k]+=b[k];
+  });
+  return achouAlgum?soma:null;
+}
+
+// ── render ───────────────────────────────────────────────────────────
+function render(){
+  if(!_rows.length && document.getElementById('ov-dash').dataset.err) return;
+  const {rowsCtx,rowsFull}=getFilteredRows();
+  _rowsFull=rowsFull;
+
+  // ── KPIs ──
+  const c={elo:0,rec:0,sug:0,oth:0,proc:0,pend:0};
+  rowsFull.forEach(r=>{
+    const tk=tipoKey(rawTipo(r));
+    c[tk]++;
+    if(tk==='rec'&&isProcedente(r.manifesto_procedente)) c.proc++;
+    if(!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status)) c.pend++;
+  });
+  const total=c.elo+c.rec+c.sug+c.oth;
+  document.getElementById('k-total').textContent=total.toLocaleString('pt-BR');
+  document.getElementById('k-elo').textContent=c.elo.toLocaleString('pt-BR');
+  document.getElementById('k-rec').textContent=c.rec.toLocaleString('pt-BR');
+  document.getElementById('k-sug').textContent=c.sug.toLocaleString('pt-BR');
+  document.getElementById('k-proc').firstChild.textContent=c.proc.toLocaleString('pt-BR')+' ';
+  document.getElementById('k-proc-pct').textContent=c.rec?`(${(c.proc/c.rec*100).toFixed(1)}%)`:'';
+  document.getElementById('k-pend').textContent=c.pend.toLocaleString('pt-BR');
+
+  const byMes=bucketPorMes(rowsCtx);
+  const meses=Object.keys(byMes).sort();
+
+  // Quando Ano+Mês estão filtrados, compara exatamente esse mês com o
+  // anterior a ele. Só Ano filtrado (sem Mês) compara o ano inteiro com o
+  // ano anterior. Sem filtro nenhum, compara os dois últimos meses
+  // COMPLETOS disponíveis — ignora o mês corrente (em andamento), que
+  // sempre pareceria "caindo" por estar incompleto.
+  // O modo "mês vs mês anterior"/"ano vs ano anterior" só faz sentido com
+  // exatamente 1 ano (e, no caso do mês, exatamente 1 mês) selecionado —
+  // com múltiplos ou nenhum, cai no padrão dos 2 últimos meses completos.
+  const yearFilsD=getMsValues('f-year');
+  const monthFilsD=getMsValues('f-month');
+  const yearFilVal=yearFilsD.length===1?yearFilsD[0]:null;
+  const monthFilVal=monthFilsD.length===1?monthFilsD[0]:null;
+  let cur,prev,suffix='vs mês ant.';
+  if(yearFilVal&&monthFilVal){
+    const curKey=`${yearFilVal}-${String(monthFilVal).padStart(2,'0')}`;
+    const prevKey=mesAnteriorKey(curKey);
+    cur=byMes[curKey]; prev=byMes[prevKey];
+  } else if(yearFilVal){
+    cur=somarBuckets(byMes,meses,Number(yearFilVal));
+    prev=somarBuckets(byMes,meses,Number(yearFilVal)-1);
+    suffix='vs ano ant.';
+  } else {
+    // Sem filtro nenhum — mês vigente (mesmo em andamento) vs mês anterior.
+    const mesAtual=monthKeyOf(new Date());
+    cur=byMes[mesAtual];
+    prev=byMes[mesAnteriorKey(mesAtual)];
+  }
+  if(cur&&prev){
+    const curTotal=cur.elo+cur.rec+cur.sug+cur.oth, prevTotal=prev.elo+prev.rec+prev.sug+prev.oth;
+    const totalDelta=fmtDeltaPct(curTotal,prevTotal,'up',suffix);
+    setDelta('k-total-d',{text:totalDelta.text,cls:totalDelta.cls==='flat'?'flat':'neutral'});
+    setDelta('k-elo-d',fmtDeltaPct(cur.elo,prev.elo,'up',suffix));
+    setDelta('k-rec-d',fmtDeltaPct(cur.rec,prev.rec,'down',suffix));
+    setDelta('k-sug-d',fmtDeltaPct(cur.sug,prev.sug,'up',suffix));
+    const curRate=cur.rec?cur.proc/cur.rec*100:0, prevRate=prev.rec?prev.proc/prev.rec*100:0;
+    setDelta('k-proc-d',fmtDeltaPts(curRate,prevRate,'down',suffix));
+    setDelta('k-pend-d',fmtDeltaPct(cur.pend,prev.pend,'down',suffix));
+  } else {
+    ['k-total-d','k-elo-d','k-rec-d','k-sug-d','k-proc-d','k-pend-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
+  }
+
+  renderTrendChart(byMes,meses);
+  renderTypeChart(c);
+  renderAreaChart(rowsFull);
+  renderTopClientChart(rowsFull);
+  renderDirecionadoChart(rowsFull);
+  renderReincidenciaTable(rowsFull);
+  renderResponsavelTable(rowsFull);
+  renderVencidosTable(rowsFull);
+  renderClientesRisco(rowsFull);
+}
+function setDelta(id,{text,cls}){
+  const el=document.getElementById(id);
+  el.textContent=text;
+  el.className='delta '+cls;
+}
+
+// ── cores (tokens do tema) ──────────────────────────────────────────
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function chartColors(){
+  return {
+    t1:cssVar('--t1'), t2:cssVar('--t2'), t3:cssVar('--t3'), border:cssVar('--border'),
+    orange:cssVar('--orange'), green:cssVar('--green'), purple:cssVar('--purple'), slate:cssVar('--slate'),
+  };
+}
+function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
+
+// ── modal de detalhe (clique em barra/fatia de gráfico) ────────────────
+function ticketUrl(id){ return `https://viasoft.movidesk.com/Ticket/Edit/${id}`; }
+function fmtFull(v){
+  if(!v) return '—';
+  const d=new Date(v);
+  if(isNaN(d)) return '—';
+  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+// rowsById guarda o último conjunto de linhas mostrado num modal de lista,
+// indexado por ticket_id — usado pra abrir o modal de detalhe do ticket sem
+// precisar buscar tudo de novo na API.
+let _rowsById={};
+
+// ── Chamado Listagem: tabela completa (todas as colunas do export),
+// ordenável por coluna e com busca livre ────────────────────────────
+const LISTAGEM_COLS=[
+  {label:'ID',num:true,
+    get:r=>`#${r.ticket_id}`,
+    html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a>`,
+    sort:r=>Number(r.ticket_id)||0},
+  {label:'Organização', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
+  {label:'Assunto', get:r=>r.assunto_ouvidoria||'—', sort:r=>(r.assunto_ouvidoria||'').toLowerCase()},
+  {label:'Tipo', get:r=>TIPO_LABEL[tipoKey(rawTipo(r))]||rawTipo(r)||'—', sort:r=>(TIPO_LABEL[tipoKey(rawTipo(r))]||rawTipo(r)||'').toLowerCase()},
+  {label:'Procedente', get:r=>tipoKey(rawTipo(r))==='rec'?(isProcedente(r.manifesto_procedente)?'Sim':'Não'):'—', sort:r=>tipoKey(rawTipo(r))==='rec'?(isProcedente(r.manifesto_procedente)?1:0):-1},
+  {label:'Direcionado a', get:r=>r.manifesto_direcionado_a||'—', sort:r=>(r.manifesto_direcionado_a||'').toLowerCase()},
+  {label:'Status', get:r=>r.status_movidesk||r.base_status||'—', sort:r=>(r.status_movidesk||r.base_status||'').toLowerCase()},
+  {label:'Serviço', get:r=>r.servico||'—', sort:r=>(r.servico||'').toLowerCase()},
+  {label:'Responsável', get:r=>r.responsavel||'—', sort:r=>(r.responsavel||'').toLowerCase()},
+  {label:'Criado em', get:r=>dtStr(r.criado_em)||'—', sort:r=>r.criado_em?new Date(r.criado_em).getTime():0},
+  {label:'Resolvido em', get:r=>dtStr(r.resolvido_em)||'—', sort:r=>r.resolvido_em?new Date(r.resolvido_em).getTime():0},
+];
+let _listagemSort={col:9,dir:-1}; // por padrão: Criado em, decrescente
+let _listagemSearch='';
+
+function openChamadoListagemModal(){
+  _listagemSearch='';
+  document.getElementById('listagem-search').value='';
+  listagemRender();
+  document.getElementById('listagem-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeListagemModal(){
+  document.getElementById('listagem-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+function listagemOnSearch(v){
+  _listagemSearch=v.trim().toLowerCase();
+  listagemRender();
+}
+function listagemSetSort(colIdx){
+  if(_listagemSort.col===colIdx) _listagemSort.dir*=-1;
+  else _listagemSort={col:colIdx,dir:1};
+  listagemRender();
+}
+function listagemRender(){
+  const all=_rowsFull||[];
+  const filtered=_listagemSearch
+    ? all.filter(r=>LISTAGEM_COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
+    : all;
+  const {col,dir}=_listagemSort;
+  const sorted=filtered.slice().sort((a,b)=>{
+    const va=LISTAGEM_COLS[col].sort(a), vb=LISTAGEM_COLS[col].sort(b);
+    if(va<vb) return -1*dir;
+    if(va>vb) return 1*dir;
+    return 0;
+  });
+  sorted.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+
+  document.getElementById('listagem-sub').textContent=
+    `${sorted.length.toLocaleString('pt-BR')} de ${all.length.toLocaleString('pt-BR')} ticket${all.length===1?'':'s'} — considera os filtros aplicados`;
+
+  document.getElementById('listagem-thead').innerHTML=LISTAGEM_COLS.map((c,i)=>{
+    const arrow=_listagemSort.col===i?(_listagemSort.dir===1?'▲':'▼'):'';
+    return `<th class="sortable${c.num?' num':''}" onclick="listagemSetSort(${i})">${esc(c.label)}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join('');
+
+  const tbody=document.getElementById('listagem-tbody');
+  if(!sorted.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="${LISTAGEM_COLS.length}">Nenhum ticket encontrado.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=sorted.map(r=>`
+    <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
+      ${LISTAGEM_COLS.map(c=>`<td${c.num?' class="num"':''}>${c.html?c.html(r):esc(c.get(r))}</td>`).join('')}
+    </tr>`).join('');
+}
+document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
+document.getElementById('listagem-modal').addEventListener('click',e=>{ if(e.target.id==='listagem-modal') closeListagemModal(); });
+
+function openDetailModal(title,sub,rows){
+  document.getElementById('detail-modal-title').textContent=title;
+  document.getElementById('detail-modal-sub').textContent=sub;
+  const tbody=document.getElementById('detail-modal-tbody');
+  _rowsById={};
+  if(!rows.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="6">Nenhum ticket encontrado.</td></tr>`;
+  } else {
+    const ordenado=rows.slice().sort((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0));
+    ordenado.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+    tbody.innerHTML=ordenado.map(r=>`
+        <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
+          <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
+          <td>${esc(r.organizacao||'—')}</td>
+          <td>${esc(r.assunto_ouvidoria||'—')}</td>
+          <td>${esc(TIPO_LABEL[tipoKey(rawTipo(r))])}</td>
+          <td>${esc(r.responsavel||'—')}</td>
+          <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
+        </tr>`).join('');
+  }
+  document.getElementById('detail-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeDetailModal(){
+  document.getElementById('detail-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('detail-modal-close').addEventListener('click',closeDetailModal);
+document.getElementById('detail-modal').addEventListener('click',e=>{ if(e.target.id==='detail-modal') closeDetailModal(); });
+
+function syncModalBodyLock(){
+  const open=document.getElementById('detail-modal').classList.contains('show')
+    || document.getElementById('ticket-modal').classList.contains('show')
+    || document.getElementById('risco-modal').classList.contains('show')
+    || document.getElementById('export-modal').classList.contains('show')
+    || document.getElementById('listagem-modal').classList.contains('show');
+  document.body.classList.toggle('modal-open',open);
+}
+
+// ── modal de detalhe de UM ticket (clique numa linha da lista) ─────────
+const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+function tlItem(a){
+  const author=a.createdByName||'Sistema';
+  const label=ACTION_TYPE[a.type]||(a.type!=null?`Tipo ${a.type}`:'Ação');
+  return `<div class="td-tl-item">
+    <div class="td-tl-meta">
+      <span class="td-tl-author">${esc(author)}</span>
+      <span class="td-tl-date">${fmtFull(a.createdDate)}</span>
+      <span class="td-tl-badge">${esc(label)}</span>
+      ${a.status?`<span class="td-tl-badge">${esc(a.status)}</span>`:''}
+    </div>
+    <div class="td-tl-desc">${a.description||''}</div>
+  </div>`;
+}
+function openTicketModal(ticketId){
+  const r=_rowsById[ticketId]||{};
+  document.getElementById('ticket-modal-title').textContent=`Ticket #${ticketId}`;
+  document.getElementById('ticket-modal-sub').textContent=r.organizacao||'';
+  document.getElementById('ticket-modal-link').href=ticketUrl(ticketId);
+  document.getElementById('ticket-modal-body').innerHTML=`
+    <div class="td-info-grid">
+      <div><p class="lbl">Assunto</p><p class="val">${esc(r.assunto_ouvidoria||'—')}</p></div>
+      <div><p class="lbl">Tipo</p><p class="val">${esc(TIPO_LABEL[tipoKey(rawTipo(r))]||'—')}</p></div>
+      <div><p class="lbl">Responsável</p><p class="val">${esc(r.responsavel||'—')}</p></div>
+      <div><p class="lbl">Status</p><p class="val">${esc(r.status_movidesk||r.base_status||'—')}</p></div>
+      <div><p class="lbl">Criado em</p><p class="val">${fmtFull(r.criado_em)}</p></div>
+      <div><p class="lbl">Resolvido em</p><p class="val">${fmtFull(r.resolvido_em)}</p></div>
+    </div>
+    <div class="td-loading">Carregando ações e campos do ticket…</div>`;
+  document.getElementById('ticket-modal').classList.add('show');
+  syncModalBodyLock();
+
+  api(`/ouvidoria/${ticketId}/actions`).then(data=>{
+    const actions=data.actions||[];
+    const fieldDefs=data.fieldDefs||{};
+    const cfItems=(data.customFieldValues||[]).reduce((acc,f)=>{
+      const val=String(f.value||'').trim()
+        ||(f.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
+      if(!val) return acc;
+      const name=fieldDefs[String(f.customFieldId)];
+      if(!name) return acc;
+      acc.push({name,val});
+      return acc;
+    },[]);
+
+    let html='';
+    if(cfItems.length){
+      html+=`<div class="td-sec-lbl">Campos personalizados</div>
+        <div class="td-cf-grid">${cfItems.map(f=>`
+          <div class="td-cf-item"><span class="cf-lbl">${esc(f.name)}</span><span class="cf-val">${esc(f.val)}</span></div>`).join('')}
         </div>`;
-
-    const hasAnySection = OUVIDORIA_ANALISE_CARDS.some(c => sections[c.key]);
-    if (!hasAnySection) {
-        wrap.innerHTML = cardHtml('psychology', 'Análise', raw || 'Análise ainda não disponível para este chamado.');
-        return;
     }
+    html+=`<div class="td-sec-lbl">Histórico (${actions.length} ação${actions.length===1?'':'ões'})</div>`;
+    html+=actions.length
+      ? actions.map(tlItem).join('')
+      : `<div class="td-empty">Nenhuma ação registrada.</div>`;
 
-    wrap.innerHTML = OUVIDORIA_ANALISE_CARDS
-        .filter(c => sections[c.key])
-        .map(c => cardHtml(c.icon, c.label, sections[c.key]))
-        .join('');
+    const body=document.getElementById('ticket-modal-body');
+    body.querySelector('.td-loading')?.remove();
+    body.insertAdjacentHTML('beforeend',html);
+  }).catch(()=>{
+    const body=document.getElementById('ticket-modal-body');
+    const loading=body.querySelector('.td-loading');
+    if(loading) loading.textContent='Não foi possível carregar ações/campos deste ticket.';
+  });
 }
-
-/* ── Descrição: o cliente preenche um formulário e o texto chega como blocos
-   "Rótulo:\nValor" separados por linhas em branco — em vez de exibir esse dump cru,
-   quebra em pares rótulo/valor pra ficar legível. */
-function parseOuvidoriaDescricao(raw) {
-    const text = String(raw || '').trim();
-    if (!text) return { intro: '', fields: [] };
-
-    const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
-    const fields = [];
-    let intro = '';
-
-    for (const block of blocks) {
-        const m = block.match(/^([^\n:]{1,80}):\s*\n([\s\S]+)$/);
-        if (m) {
-            fields.push({ label: m[1].trim(), value: m[2].trim() });
-        } else if (fields.length) {
-            // Continuação sem rótulo próprio — anexa ao valor do campo anterior
-            fields[fields.length - 1].value += `\n${block}`;
-        } else {
-            intro = intro ? `${intro}\n${block}` : block;
-        }
-    }
-
-    return { intro, fields };
+function closeTicketModal(){
+  document.getElementById('ticket-modal').classList.remove('show');
+  syncModalBodyLock();
 }
+document.getElementById('ticket-modal-close').addEventListener('click',closeTicketModal);
+document.getElementById('ticket-modal').addEventListener('click',e=>{ if(e.target.id==='ticket-modal') closeTicketModal(); });
 
-function renderOuvidoriaDescricao(raw) {
-    const content = document.getElementById('ouvidoriaModalDescricao');
-    if (!content) return;
-
-    const { intro, fields } = parseOuvidoriaDescricao(raw);
-
-    if (!fields.length) {
-        content.innerHTML = `<p class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(raw || 'Sem descrição registrada.')}</p>`;
-    } else {
-        const introHtml = intro ? `<p class="text-body-md text-on-surface-variant italic mb-3">${escapeHtml(intro)}</p>` : '';
-        content.innerHTML = introHtml + `<dl class="divide-y divide-outline-variant">${fields.map(f => `
-            <div class="py-2.5 first:pt-0 last:pb-0">
-                <dt class="text-[11px] font-label-md text-on-surface-variant uppercase tracking-wide mb-0.5">${escapeHtml(f.label)}</dt>
-                <dd class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(f.value)}</dd>
-            </div>`).join('')}</dl>`;
-    }
-
-    // Só mostra o botão "Ver tudo"/degradê se o conteúdo realmente ultrapassar a altura recolhida
-    const wrap = document.getElementById('ouvidoriaDescricaoWrap');
-    const toggle = document.getElementById('ouvidoriaDescricaoToggle');
-    const fade = document.getElementById('ouvidoriaDescricaoFade');
-    if (wrap) { wrap.classList.remove('expanded'); wrap.style.maxHeight = '190px'; }
-    if (toggle) toggle.textContent = 'Ver tudo';
-    const overflowing = content.scrollHeight > 190;
-    if (toggle) toggle.style.display = overflowing ? 'inline-block' : 'none';
-    if (fade) fade.style.display = overflowing ? 'block' : 'none';
-}
-
-function toggleOuvidoriaDescricao() {
-    const wrap = document.getElementById('ouvidoriaDescricaoWrap');
-    const fade = document.getElementById('ouvidoriaDescricaoFade');
-    const toggle = document.getElementById('ouvidoriaDescricaoToggle');
-    if (!wrap) return;
-    const expanded = wrap.classList.toggle('expanded');
-    wrap.style.maxHeight = expanded ? 'none' : '190px';
-    if (fade) fade.style.display = expanded ? 'none' : 'block';
-    if (toggle) toggle.textContent = expanded ? 'Ver menos' : 'Ver tudo';
-}
-
-function openOuvidoriaModal(ticketId) {
-    const row = _ouvidoriaRows.find(r => String(r.ticket_id) === String(ticketId));
-    if (!row) return;
-
-    const totalChamados = Number(row.total_chamados_anteriores) || 0;
-    document.getElementById('ouvidoriaModalTicket').textContent = `Ticket #${row.ticket_id}`;
-    document.getElementById('ouvidoriaModalOrg').textContent = row.organizacao || 'Organização não informada';
-    document.getElementById('ouvidoriaModalAssunto').textContent = row.assunto_ouvidoria || '';
-    document.getElementById('ouvidoriaModalTotalChamados').textContent = totalChamados;
-    document.getElementById('ouvidoriaModalData').textContent = formatDateTime(row.criado_em);
-    document.getElementById('ouvidoriaModalServico').textContent = row.servico_ouvidoria_nome || '—';
-    document.getElementById('ouvidoriaModalProblemas').innerHTML = renderProblemaBadgesDetalhado(row.chamados_relacionados);
-    document.getElementById('ouvidoriaModalChamadosRelacionados').innerHTML = renderProblemaBadgesDetalhado(row.chamados_relacionados);
-    renderOuvidoriaDescricao(row.descricao_ouvidoria);
-    renderOuvidoriaAnaliseCards(row.analise);
-
-    const badge = document.getElementById('ouvidoriaModalReincidenciaBadge');
-    if (badge) {
-        badge.innerHTML = totalChamados >= 3
-            ? `<span class="inline-flex items-center gap-1 rounded-full bg-error-container text-error px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Cliente recorrente</span>`
-            : '';
-    }
-
-    document.getElementById('ouvidoriaModalBackdrop').classList.add('open');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeOuvidoriaModal() {
-    document.getElementById('ouvidoriaModalBackdrop').classList.remove('open');
-    document.body.style.overflow = '';
-}
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeOuvidoriaModal();
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
+  else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
+  else if(document.getElementById('risco-modal').classList.contains('show')) closeRiscoModal();
 });
 
-document.addEventListener('DOMContentLoaded', loadOuvidoria);
+// onClick/onHover comuns pros gráficos de ranking/composição: pega a barra ou
+// fatia clicada, filtra os tickets daquela categoria e abre o modal.
+function chartClickHandler(titlePrefix,filterFn){
+  return (evt,elements,chart)=>{
+    if(!elements.length) return;
+    const idx=elements[0].index;
+    const label=chart.data.labels[idx];
+    const matched=_rowsFull.filter(r=>filterFn(r,label));
+    openDetailModal(`${titlePrefix}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  };
+}
+function chartHoverCursor(evt,elements){
+  evt.native.target.style.cursor=elements.length?'pointer':'default';
+}
+const TIPO_LABEL_TO_KEY={'Reclamação':'rec','Elogio':'elo','Sugestão':'sug','Outro':'oth'};
+
+// Cores extras pro comparativo entre anos (além de orange/green já usados
+// pra Reclamações/Elogios no modo padrão).
+const TREND_YEAR_COLORS=['orange','purple','slate','green','t1'];
+function renderTrendChart(byMes,meses){
+  destroyChart('trendChart');
+  const col=chartColors();
+  const titleEl=document.getElementById('trendChartTitle');
+  const yearFilsT=getMsValues('f-year');
+  // Nenhum ano filtrado — mostra só o ano vigente, não o comparativo entre
+  // todos os anos (que só faz sentido quando o usuário pede explicitamente,
+  // selecionando 2+ anos).
+  const yearFilVal=yearFilsT.length===1?yearFilsT[0]:(yearFilsT.length===0?String(new Date().getFullYear()):null);
+
+  if(!yearFilVal){
+    // 2+ anos selecionados — comparativo mês a mês (Jan a Dez) entre os anos
+    // escolhidos, em vez de só a janela deslizante dos últimos 12 meses.
+    const anos=yearFilsT.slice().sort();
+    titleEl.textContent='Total de manifestações por mês — comparativo entre anos';
+    _charts.trendChart=new Chart(document.getElementById('trendChart'),{
+      type:'line',
+      data:{
+        labels:MONTH_NAMES,
+        datasets:anos.map((ano,i)=>({
+          label:ano,
+          data:MONTH_NAMES.map((_,idx)=>{
+            const b=byMes[`${ano}-${String(idx+1).padStart(2,'0')}`];
+            return b?(b.elo+b.rec+b.sug+b.oth):null;
+          }),
+          borderColor:col[TREND_YEAR_COLORS[i%TREND_YEAR_COLORS.length]],
+          backgroundColor:'transparent',
+          spanGaps:true,tension:.3,pointRadius:3,
+        })),
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{color:col.t2}}},
+        scales:{
+          y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+          x:{grid:{display:false},ticks:{color:col.t2}}
+        }
+      }
+    });
+    return;
+  }
+
+  // Ano filtrado (com ou sem Mês) — mostra Jan a Dez desse ano específico,
+  // com zero nos meses sem dado, em vez da janela deslizante dos últimos 12
+  // meses (que podia nem incluir o ano escolhido).
+  titleEl.textContent='Elogios vs reclamações por mês';
+  const chaves=MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`);
+  _charts.trendChart=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{
+      labels:MONTH_NAMES,
+      datasets:[
+        {label:'Elogios',data:chaves.map(mk=>byMes[mk]?byMes[mk].elo:0),borderColor:col.green,backgroundColor:col.green+'26',fill:true,tension:.3,pointRadius:3},
+        {label:'Reclamações',data:chaves.map(mk=>byMes[mk]?byMes[mk].rec:0),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:col.t2}}},
+      scales:{
+        y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
+        x:{grid:{display:false},ticks:{color:col.t2}}
+      }
+    }
+  });
+}
+function renderTypeChart(c){
+  destroyChart('typeChart');
+  const col=chartColors();
+  _charts.typeChart=new Chart(document.getElementById('typeChart'),{
+    type:'doughnut',
+    data:{
+      labels:['Reclamação','Elogio','Sugestão','Outro'],
+      datasets:[{data:[c.rec,c.elo,c.sug,c.oth],backgroundColor:[col.orange,col.green,col.purple,col.slate],borderWidth:0}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
+      cutout:'62%',
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Tipo de manifesto',(r,label)=>tipoKey(rawTipo(r))===TIPO_LABEL_TO_KEY[label]),
+    }
+  });
+}
+function renderAreaChart(rows){
+  destroyChart('areaChart');
+  const col=chartColors();
+  const porArea={};
+  rows.forEach(r=>{ const a=areaDoServico(r.servico); porArea[a]=(porArea[a]||0)+1; });
+  const entries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _charts.areaChart=new Chart(document.getElementById('areaChart'),{
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{display:false},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Serviço',(r,label)=>areaDoServico(r.servico)===label),
+    }
+  });
+}
+function renderTopClientChart(rows){
+  destroyChart('topClientChart');
+  const col=chartColors();
+  const porCliente={};
+  rows.forEach(r=>{ const o=r.organizacao||'Não informado'; porCliente[o]=(porCliente[o]||0)+1; });
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{display:false},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Cliente',(r,label)=>(r.organizacao||'Não informado')===label),
+    }
+  });
+}
+function renderDirecionadoChart(rows){
+  destroyChart('direcionadoChart');
+  const col=chartColors();
+  const porArea={};
+  rows.forEach(r=>{
+    const a=(r.manifesto_direcionado_a||'').trim()||'Não informado';
+    porArea[a]=(porArea[a]||0)+1;
+  });
+  const entries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _charts.direcionadoChart=new Chart(document.getElementById('direcionadoChart'),{
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.purple,borderRadius:4}] },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{display:false},
+        y:{grid:{display:false},ticks:{color:col.t2}}
+      },
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Direcionado a',(r,label)=>((r.manifesto_direcionado_a||'').trim()||'Não informado')===label),
+    }
+  });
+}
+
+// Agrupa reclamações por cliente — usado pela tabela de reincidência E pelo
+// KPI/modal de "Clientes em risco", pra não duplicar a mesma contagem.
+function porClienteReincidencia(rows){
+  const porCliente={};
+  rows.forEach(r=>{
+    if(tipoKey(rawTipo(r))!=='rec') return;
+    const o=r.organizacao||'Não informado';
+    porCliente[o]=porCliente[o]||{rec:0,proc:0,aberto:0};
+    porCliente[o].rec++;
+    if(isProcedente(r.manifesto_procedente)) porCliente[o].proc++;
+    if(!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status)) porCliente[o].aberto++;
+  });
+  return porCliente;
+}
+function renderReincidenciaTable(rows){
+  const tbody=document.getElementById('tbl-reincidencia');
+  const porCliente=porClienteReincidencia(rows);
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1].rec-a[1].rec).slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhuma reclamação no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(([org,v])=>`
+    <tr>
+      <td>${esc(org)}</td>
+      <td class="num">${v.rec}</td>
+      <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
+    </tr>`).join('');
+}
+
+// ── KPI + modal "Clientes em risco" ─────────────────────────────────────
+const RISCO_MIN_RECLAMACOES=3;
+let _riscoEntries=[]; // [[organizacao,{rec,proc}], ...] do último render()
+
+function renderClientesRisco(rows){
+  const porCliente=porClienteReincidencia(rows);
+  _riscoEntries=Object.entries(porCliente)
+    .filter(([,v])=>v.rec>=RISCO_MIN_RECLAMACOES && v.aberto>=1)
+    .sort((a,b)=>b[1].rec-a[1].rec);
+  document.getElementById('k-risco').textContent=_riscoEntries.length.toLocaleString('pt-BR');
+}
+
+function openClientesRiscoModal(){
+  document.getElementById('risco-modal-sub').textContent=
+    `${_riscoEntries.length} cliente${_riscoEntries.length===1?'':'s'} com ${RISCO_MIN_RECLAMACOES}+ reclamações e ao menos 1 chamado em aberto`;
+  const tbody=document.getElementById('risco-modal-tbody');
+  tbody.innerHTML=_riscoEntries.length
+    ? _riscoEntries.map(([org,v])=>`
+        <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
+          <td>${esc(org)}</td>
+          <td class="num">${v.rec}</td>
+          <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
+        </tr>`).join('')
+    : `<tr class="empty-row"><td colspan="3">Nenhum cliente com reincidência alta no período filtrado.</td></tr>`;
+  document.getElementById('risco-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeRiscoModal(){
+  document.getElementById('risco-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('risco-modal-close').addEventListener('click',closeRiscoModal);
+document.getElementById('risco-modal').addEventListener('click',e=>{ if(e.target.id==='risco-modal') closeRiscoModal(); });
+
+// Abre a lista de tickets (reclamações) de um cliente específico, a partir
+// do modal de Clientes em risco — reaproveita o modal de lista já usado
+// pelos cliques nos gráficos.
+function openClienteTicketsModal(org){
+  const matched=_rowsFull.filter(r=>(r.organizacao||'Não informado')===org && tipoKey(rawTipo(r))==='rec');
+  openDetailModal(`Reclamações: ${org}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+}
+
+function renderResponsavelTable(rows){
+  const tbody=document.getElementById('tbl-responsavel');
+  const porResp={};
+  rows.forEach(r=>{
+    const nome=r.responsavel||'Não atribuído';
+    porResp[nome]=porResp[nome]||{tickets:0,somaDias:0,nResolvidos:0,rec:0,proc:0};
+    const p=porResp[nome];
+    p.tickets++;
+    if(r.criado_em&&r.resolvido_em){
+      const dias=(new Date(r.resolvido_em)-new Date(r.criado_em))/86400000;
+      if(dias>=0){ p.somaDias+=dias; p.nResolvidos++; }
+    }
+    if(tipoKey(rawTipo(r))==='rec'){
+      p.rec++;
+      if(isProcedente(r.manifesto_procedente)) p.proc++;
+    }
+  });
+  const entries=Object.entries(porResp).sort((a,b)=>b[1].tickets-a[1].tickets).slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum ticket no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(([nome,p])=>{
+    const tempoMedio=p.nResolvidos?`${(p.somaDias/p.nResolvidos).toFixed(1)} dias`:'—';
+    const taxa=p.rec?(p.proc/p.rec*100):0;
+    const taxaTxt=p.rec?`${taxa.toFixed(1)}%`:'—';
+    return `
+    <tr>
+      <td>${esc(nome)}</td>
+      <td class="num">${p.tickets}</td>
+      <td class="num">${tempoMedio}</td>
+      <td class="num${taxa>=15?' bad':''}">${taxaTxt}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Abrevia "Raquiele Barbosa" → "Raquiele B." (primeiro nome + inicial do
+// sobrenome), só pra caber na coluna estreita do card de vencidos.
+function shortName(name){
+  if(!name) return 'Não atribuído';
+  const partes=String(name).trim().split(/\s+/);
+  if(partes.length<2) return partes[0];
+  return `${partes[0]} ${partes[partes.length-1][0]}.`;
+}
+
+function renderVencidosTable(rows){
+  const tbody=document.getElementById('tbl-vencidos');
+  const agora=Date.now();
+  const vencidos=rows
+    .filter(r=>!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status))
+    .filter(r=>r.sla_solucao&&new Date(r.sla_solucao).getTime()<agora)
+    .map(r=>({...r,diasVenc:Math.floor((agora-new Date(r.sla_solucao).getTime())/86400000)}))
+    .sort((a,b)=>b.diasVenc-a.diasVenc)
+    .slice(0,10);
+  if(!vencidos.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum ticket vencido no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=vencidos.map(r=>`
+    <tr>
+      <td>#${esc(r.ticket_id)}</td>
+      <td>${esc(shortName(r.responsavel))}</td>
+      <td class="num bad">${r.diasVenc}</td>
+    </tr>`).join('');
+}
+
+// ── sync ─────────────────────────────────────────────────────────────
+let _syncPoll=null;
+function showToast(txt,prog){
+  document.getElementById('sync-toast-txt').textContent=txt;
+  document.getElementById('sync-toast-prog').textContent=prog||'';
+  document.getElementById('sync-toast').classList.add('show');
+}
+function hideToast(){ document.getElementById('sync-toast').classList.remove('show'); }
+
+async function startSync(){
+  const btn=document.getElementById('btn-sync');
+  btn.disabled=true;
+  showToast('Iniciando sincronização de Ouvidoria…','');
+  try{
+    await apiFetch('/loader/ouvidoria','POST');
+    pollSyncStatus();
+  }catch(e){
+    if(e.message==='HTTP 409'){
+      showToast('Carga já em andamento…','Acompanhando progresso');
+      pollSyncStatus();
+    } else {
+      showToast('Erro ao iniciar carga: '+e.message,'');
+      btn.disabled=false;
+      setTimeout(hideToast,4000);
+    }
+  }
+}
+function pollSyncStatus(){
+  if(_syncPoll) clearInterval(_syncPoll);
+  _syncPoll=setInterval(checkSyncStatus,2000);
+}
+async function checkSyncStatus(){
+  try{
+    const s=await apiFetch('/loader/status','GET');
+    const cur=s.current||{};
+    if(cur.running){
+      const tickets=(cur.ticketsDone||0).toLocaleString('pt-BR');
+      const phase=cur.phase||'';
+      const endpoint=cur.endpoint&&cur.endpoint!=='–'?` · ${cur.endpoint}`:'';
+      showToast(`Carregando tickets do Movidesk…`, `${tickets} coletados · ${phase}${endpoint}`);
+      document.getElementById('btn-sync').disabled=true;
+    } else {
+      if(_syncPoll){ clearInterval(_syncPoll); _syncPoll=null; }
+      document.getElementById('btn-sync').disabled=false;
+      const last=s.history&&s.history[0];
+      if(last){
+        const msg=last.status==='error'
+          ?`Carga com erro: ${last.error_msg||'desconhecido'}`
+          :`Carga concluída — ${(last.tickets_loaded||0).toLocaleString('pt-BR')} tickets`;
+        showToast(msg,'');
+        setTimeout(hideToast,5000);
+        if(last.status==='done') loadOuvidoria();
+      }
+    }
+  }catch{ /* ignora erros de polling */ }
+}
+async function apiFetch(path,method='GET'){
+  const token=localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
+  const r=await fetch(`${window.location.origin}/api${path}`,{
+    method,headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'}
+  });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// "Atualizar" e "Sincronizar tickets" só aparecem pra perfil admin.
+async function applyRolePermissions(){
+  try{
+    const me=await api('/auth/me');
+    if(me.role!=='admin'){
+      document.getElementById('btn-atualizar')?.style.setProperty('display','none');
+      document.getElementById('btn-sync')?.style.setProperty('display','none');
+    }
+  }catch{ /* sem sessão válida — deixa como está, outras telas cuidam do redirect */ }
+}
+
+// ── boot ─────────────────────────────────────────────────────────────
+loadOuvidoria();
+applyRolePermissions();
 </script>
 </body>
 </html>

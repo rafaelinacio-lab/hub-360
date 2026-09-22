@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Movidesk</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <script>
         (function() {
@@ -19,12 +20,52 @@
             });
         })();
     </script>
+<style>
+/* ── Pipeline de Análise — mini-cards de etapa ──────────────────────────── */
+.config-pipeline-step {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.config-pipeline-step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted, #9aa0a6);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.config-pipeline-step-bar-wrap {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.config-pipeline-step-bar {
+    height: 100%;
+    width: 0%;
+    background: #3b82f6;
+    border-radius: 4px;
+    transition: width 0.4s ease, background 0.3s;
+}
+.config-pipeline-step-info {
+    font-size: 11px;
+    color: var(--muted, #9aa0a6);
+}
+</style>
 </head>
 <body>
 <div class="app-wrapper">
 
         <!-- Top Navigation Bar -->
         <nav class="topbar">
+            <div class="topbar-logo">
+                <span class="topbar-logo-icon"></span>Hub 360
+            </div>
             <div class="topbar-nav">
                 <span class="topbar-hover-pill" id="topbarHoverPill"></span>
                 <button class="sidebar-btn active" title="Dashboard" data-view="dashboard" id="navDashboard">
@@ -73,11 +114,20 @@
                     </svg>
                     <span class="sidebar-btn-label">Jira</span>
                 </button>
-                <button class="sidebar-btn" title="Movidesk" data-view="movidesk" id="navMovidesk">
+                <button class="sidebar-btn" title="Painel Geral" data-view="movidesk" id="navMovidesk">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                     </svg>
-                    <span class="sidebar-btn-label">Movidesk</span>
+                    <span class="sidebar-btn-label">Painel Geral</span>
+                </button>
+                <button class="sidebar-btn" title="Satisfação" data-view="satisfacao" id="navSatisfacao">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                        <line x1="9" y1="9" x2="9.01" y2="9"/>
+                        <line x1="15" y1="9" x2="15.01" y2="9"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Satisfação</span>
                 </button>
                 <button class="sidebar-btn" title="Configurações" data-view="configuracoes" id="navConfiguracoes" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -176,11 +226,11 @@
                     <button class="cfg-tab-btn" data-tab="ia" onclick="switchConfigTab('ia')">
                         <span class="material-symbols-outlined">smart_toy</span> Inteligência Artificial
                     </button>
-                    <button class="cfg-tab-btn" data-tab="sistema" onclick="switchConfigTab('sistema')">
-                        <span class="material-symbols-outlined">settings</span> Sistema
-                    </button>
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="datalake" onclick="switchConfigTab('datalake')">
+                        <span class="material-symbols-outlined">database</span> Carga Datalake
                     </button>
                 </div>
 
@@ -324,118 +374,152 @@
 
                 <!-- ABA: Curadoria -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-curadoria">
+
+                    <!-- ── Card de Enriquecimento de Chamados ────────── -->
                     <div class="config-card">
-                        <h3 class="config-card-title">Carga Bruta (Todos os Processos)</h3>
-                        <p class="config-card-help">Dispara de uma vez os 3 processos abaixo (chamados pendentes, satisfação e módulo x rotina), para que os KPIs e o Foco de Atendimento da Visão Geral reflitam dados atualizados. Roda automaticamente às 08:00, 12:00 e 19:00 todos os dias — use o botão abaixo para forçar uma carga fora desses horários.</p>
+                        <h3 class="config-card-title">Busca de Detalhes dos Chamados</h3>
+                        <p class="config-card-help">Fase 2 do pipeline de importação: busca na API Movidesk os detalhes completos (actions, owner, serviço, etc.) de todos os chamados que ainda não têm dados. Deve ser rodada após "Importar IDs". Roda em segundo plano — pode fechar a tela.</p>
+
+                        <div class="config-status-line" style="gap:16px; flex-wrap:wrap;">
+                            <span class="config-status-label">Pendentes sem dados:</span>
+                            <span id="cfgEnrichCount" class="config-token-status config-token-status-off">–</span>
+                            <button class="config-btn config-btn-muted" style="padding:2px 10px; font-size:12px;" onclick="loadEnrichCount()">↻</button>
+                        </div>
+
+                        <!-- Filtro de ano(s) -->
+                        <div style="margin: 10px 0 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <label style="font-size:13px; color:var(--muted);">Filtrar por ano (opcional):</label>
+                            <input id="cfgEnrichAnos" type="text" placeholder="ex: 2026  ou  2025,2026"
+                                   style="padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; width:200px;">
+                            <span style="font-size:12px; color:var(--muted);">Deixe vazio para processar todos</span>
+                        </div>
+
+                        <!-- Progresso -->
+                        <div id="cfgEnrichProgressWrap" style="display:none; margin-bottom:14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:12px; color:var(--muted); margin-bottom:4px;">
+                                <span id="cfgEnrichProgressLabel">Aguardando…</span>
+                                <span id="cfgEnrichProgressPct" style="font-variant-numeric:tabular-nums;">0%</span>
+                            </div>
+                            <div style="background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
+                                <div id="cfgEnrichProgressBar" style="height:100%; width:0%; background:var(--accent); border-radius:4px; transition:width .3s;"></div>
+                            </div>
+                            <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;">
+                                <span id="cfgEnrichStats"></span>
+                                <span id="cfgEnrichEta" style="margin-left:auto;"></span>
+                            </div>
+                        </div>
+
+                        <!-- Erros recentes -->
+                        <div id="cfgEnrichErrorsWrap" style="display:none; margin-bottom:10px;">
+                            <div style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px;">Erros recentes</div>
+                            <div id="cfgEnrichErrorsList" class="config-error-list"></div>
+                        </div>
+
+                        <div class="config-actions">
+                            <button id="cfgStartEnrich" class="config-btn" onclick="startEnriquecimento()">▶ Buscar detalhes</button>
+                            <button id="cfgStopEnrich" class="config-btn config-btn-muted" onclick="stopEnriquecimento()" style="display:none;">⏹ Parar</button>
+                            <button class="config-btn config-btn-muted" onclick="loadEnrichStatus()">Recarregar status</button>
+                        </div>
+                        <div id="cfgEnrichStatus" class="config-status"></div>
+                    </div>
+
+                    <!-- ── Card único de pipeline ─────────────────────── -->
+                    <div class="config-card">
+                        <h3 class="config-card-title">Pipeline de Análise</h3>
+                        <p class="config-card-help">Processa todos os chamados pendentes de uma vez só: análise de IA → estouro de SLA → satisfação (pesquisa Movidesk) → módulo x rotina. Roda no servidor em segundo plano — pode fechar esta tela que ele continua. Roda automaticamente às 08:00, 12:00 e 19:00.</p>
+
                         <div class="config-status-line">
-                            <span class="config-status-label">Última carga:</span>
+                            <span class="config-status-label">Última execução:</span>
                             <span id="cfgFullLoadLastRun" class="config-token-status config-token-status-off">-</span>
                         </div>
+
+                        <!-- Etapas em linha -->
+                        <div id="cfgPipelineSteps" style="margin: 14px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                            <!-- Etapa 1: IA -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-ia">
+                                <div class="config-pipeline-step-label">🤖 Análise de IA</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-ia"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-ia">Aguardando</div>
+                            </div>
+                            <!-- Etapa 2: SLA -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-sla">
+                                <div class="config-pipeline-step-label">⏱️ Estouro de SLA</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-sla"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-sla">Aguardando</div>
+                            </div>
+                            <!-- Etapa 3: Satisfação -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-survey">
+                                <div class="config-pipeline-step-label">⭐ Satisfação</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-survey"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-survey">Aguardando</div>
+                            </div>
+                            <!-- Etapa 4: Módulo -->
+                            <div class="config-pipeline-step" id="cfgPipeStep-modulo">
+                                <div class="config-pipeline-step-label">📦 Módulo x Rotina</div>
+                                <div class="config-pipeline-step-bar-wrap">
+                                    <div class="config-pipeline-step-bar" id="cfgPipeBar-modulo"></div>
+                                </div>
+                                <div class="config-pipeline-step-info" id="cfgPipeInfo-modulo">Aguardando</div>
+                            </div>
+                        </div>
+
                         <div class="config-actions">
-                            <button id="cfgTriggerFullLoad" class="config-btn" onclick="triggerCuradoriaFullLoad()">Rodar carga bruta agora</button>
+                            <button id="cfgTriggerFullLoad" class="config-btn" onclick="triggerCuradoriaFullLoad()">Processar tudo agora</button>
+                            <button id="cfgStopFullLoad" class="config-btn config-btn-muted" onclick="stopFullPipeline()" style="display:none;">Parar tudo</button>
                             <button class="config-btn config-btn-muted" onclick="loadFullLoadStatus()">Recarregar status</button>
                         </div>
                         <div id="cfgFullLoadStatus" class="config-status"></div>
-                    </div>
 
-                    <div class="config-card">
-                        <h3 class="config-card-title">Processamento de Chamados Pendentes</h3>
-                        <p class="config-card-help">Chamados sincronizados do Movidesk passam por uma análise de IA (comportamento do atendente, causa, urgência, etc.) antes de aparecerem na tela de Curadoria. Use esta seção para processar manualmente os chamados que ainda não foram analisados. O processamento roda no servidor — pode fechar esta tela que ele continua em segundo plano.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Pendentes:</span>
-                            <span id="cfgCuradoriaPendingCount" class="config-token-status config-token-status-off">-</span>
-                        </div>
-                        <div id="cfgCuradoriaProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgCuradoriaProgressLabel">Processando...</span>
-                                <span id="cfgCuradoriaProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgCuradoriaProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgProcessPending" class="config-btn" onclick="startCuradoriaProcessing()">Processar pendentes</button>
-                            <button id="cfgStopProcessPending" class="config-btn config-btn-muted" onclick="stopCuradoriaProcessing()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadCuradoriaPendingCount()">Recarregar contagem</button>
-                        </div>
-                        <div id="cfgCuradoriaProcessStatus" class="config-status"></div>
+                        <!-- Erros de IA (lista existente, mantida para diagnóstico) -->
                         <div id="cfgCuradoriaErrorsWrap" style="display:none; margin-top: 12px;">
-                            <div style="font-size:12px; font-weight:700; color: var(--muted); text-transform: uppercase; letter-spacing:0.3px; margin-bottom:6px;">Chamados com erro</div>
+                            <div style="font-size:12px; font-weight:700; color: var(--muted); text-transform: uppercase; letter-spacing:0.3px; margin-bottom:6px;">Chamados com erro na análise de IA</div>
                             <div id="cfgCuradoriaErrorsList" class="config-error-list"></div>
                         </div>
-                    </div>
 
-                    <div class="config-card">
-                        <h3 class="config-card-title">Recalcular Estouro de SLA (Cliente x Suporte)</h3>
-                        <p class="config-card-help">Recalcula, para todos os chamados já processados, se um eventual estouro do SLA de resolução foi causado pelo cliente ou pelo suporte — usando o critério configurável em Configurações → Curadoria Avançado → "Critério de Estouro de SLA". Não refaz o restante da análise comportamental, só este campo. Roda no servidor, pode fechar esta tela.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Chamados processados:</span>
-                            <span id="cfgSlaEstouroCount" class="config-token-status config-token-status-off">-</span>
+                        <!-- IDs ocultos necessários para compatibilidade com funções JS existentes -->
+                        <span id="cfgCuradoriaPendingCount" style="display:none"></span>
+                        <span id="cfgSlaEstouroCount" style="display:none"></span>
+                        <span id="cfgSurveyPendingCount" style="display:none"></span>
+                        <span id="cfgModuloPendingCount" style="display:none"></span>
+                        <div id="cfgCuradoriaProcessStatus" style="display:none"></div>
+                        <div id="cfgSlaEstouroStatus" style="display:none"></div>
+                        <div id="cfgSurveySyncStatus" style="display:none"></div>
+                        <div id="cfgModuloSyncStatus" style="display:none"></div>
+                        <div id="cfgCuradoriaProgressWrap" style="display:none">
+                            <div id="cfgCuradoriaProgressBar"></div>
+                            <span id="cfgCuradoriaProgressLabel"></span>
+                            <span id="cfgCuradoriaProgressPct"></span>
                         </div>
-                        <div id="cfgSlaEstouroProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgSlaEstouroProgressLabel">Processando...</span>
-                                <span id="cfgSlaEstouroProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgSlaEstouroProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
+                        <div id="cfgSlaEstouroProgressWrap" style="display:none">
+                            <div id="cfgSlaEstouroProgressBar"></div>
+                            <span id="cfgSlaEstouroProgressLabel"></span>
+                            <span id="cfgSlaEstouroProgressPct"></span>
                         </div>
-                        <div class="config-actions">
-                            <button id="cfgRecalcSlaEstouro" class="config-btn" onclick="startSlaEstouroRecalc()">Recalcular estouro de SLA de todos os chamados</button>
-                            <button id="cfgStopSlaEstouroRecalc" class="config-btn config-btn-muted" onclick="stopSlaEstouroRecalc()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadSlaEstouroCount()">Recarregar contagem</button>
+                        <div id="cfgSurveySyncProgressWrap" style="display:none">
+                            <div id="cfgSurveySyncProgressBar"></div>
+                            <span id="cfgSurveySyncProgressLabel"></span>
+                            <span id="cfgSurveySyncProgressPct"></span>
                         </div>
-                        <div id="cfgSlaEstouroStatus" class="config-status"></div>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Satisfação do Cliente (Pesquisa Movidesk)</h3>
-                        <p class="config-card-help">Busca, chamado por chamado, a resposta da pesquisa de satisfação embutida no próprio ticket do Movidesk e grava a nota real (1-5) nos chamados já existentes na curadoria — complementa a nota que a IA estima a partir da conversa. Só atualiza chamados que já estão na curadoria. Respeita o limite de ~10 requisições/minuto do Movidesk, então processar todos os chamados pendentes pode levar um tempo — roda em segundo plano, pode fechar esta tela.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Pendentes:</span>
-                            <span id="cfgSurveyPendingCount" class="config-token-status config-token-status-off">-</span>
+                        <div id="cfgModuloSyncProgressWrap" style="display:none">
+                            <div id="cfgModuloSyncProgressBar"></div>
+                            <span id="cfgModuloSyncProgressLabel"></span>
+                            <span id="cfgModuloSyncProgressPct"></span>
                         </div>
-                        <div id="cfgSurveySyncProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgSurveySyncProgressLabel">Sincronizando...</span>
-                                <span id="cfgSurveySyncProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgSurveySyncProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgSyncSurvey" class="config-btn" onclick="startSurveySync()">Sincronizar satisfação</button>
-                            <button id="cfgStopSurveySync" class="config-btn config-btn-muted" onclick="stopSurveySync()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadSurveyPendingCount()">Recarregar contagem</button>
-                        </div>
-                        <div id="cfgSurveySyncStatus" class="config-status"></div>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Módulo x Rotina (Campo Customizado Movidesk)</h3>
-                        <p class="config-card-help">Busca, chamado por chamado, o campo customizado "Módulo x Rotina" do Movidesk (ex: "Folha &gt; Férias") e grava na coluna correspondente dos chamados já existentes na curadoria. Assim como a sincronização de satisfação, respeita o limite de ~10 requisições/minuto do Movidesk — roda em segundo plano, pode fechar esta tela.</p>
-                        <div class="config-status-line">
-                            <span class="config-status-label">Pendentes:</span>
-                            <span id="cfgModuloPendingCount" class="config-token-status config-token-status-off">-</span>
-                        </div>
-                        <div id="cfgModuloSyncProgressWrap" style="display:none; margin: 14px 0;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
-                                <span id="cfgModuloSyncProgressLabel">Sincronizando...</span>
-                                <span id="cfgModuloSyncProgressPct">0%</span>
-                            </div>
-                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
-                                <div id="cfgModuloSyncProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
-                            </div>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgSyncModulo" class="config-btn" onclick="startModuloSync()">Sincronizar módulo x rotina</button>
-                            <button id="cfgStopModuloSync" class="config-btn config-btn-muted" onclick="stopModuloSync()" style="display:none;">Parar</button>
-                            <button class="config-btn config-btn-muted" onclick="loadModuloPendingCount()">Recarregar contagem</button>
-                        </div>
-                        <div id="cfgModuloSyncStatus" class="config-status"></div>
+                        <!-- Botões ocultos mantidos para funções JS existentes -->
+                        <button id="cfgProcessPending" style="display:none" onclick="startCuradoriaProcessing()"></button>
+                        <button id="cfgStopProcessPending" style="display:none" onclick="stopCuradoriaProcessing()"></button>
+                        <button id="cfgRecalcSlaEstouro" style="display:none" onclick="startSlaEstouroRecalc()"></button>
+                        <button id="cfgStopSlaEstouroRecalc" style="display:none" onclick="stopSlaEstouroRecalc()"></button>
+                        <button id="cfgSyncSurvey" style="display:none" onclick="startSurveySync()"></button>
+                        <button id="cfgStopSurveySync" style="display:none" onclick="stopSurveySync()"></button>
+                        <button id="cfgSyncModulo" style="display:none" onclick="startModuloSync()"></button>
+                        <button id="cfgStopModuloSync" style="display:none" onclick="stopModuloSync()"></button>
                     </div>
 
                     <div class="config-card">
@@ -730,45 +814,6 @@
                     </div>
                 </div>
 
-                <!-- ABA: Sistema -->
-                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-sistema">
-                    <div class="config-card">
-                        <h3 class="config-card-title">Banco de Dados Remoto</h3>
-                        <p class="config-card-help">Salve aqui os dados de conexão do banco que ficará em outra máquina.</p>
-                        <div class="config-form-grid">
-                            <input id="cfgDbHost" type="text" class="config-input" placeholder="Host">
-                            <input id="cfgDbPort" type="text" class="config-input" placeholder="Porta">
-                            <input id="cfgDbName" type="text" class="config-input" placeholder="Nome do banco">
-                            <input id="cfgDbUser" type="text" class="config-input" placeholder="Usuário">
-                            <input id="cfgDbPassword" type="password" class="config-input" placeholder="Senha">
-                            <select id="cfgDbDialect" class="config-input">
-                                <option value="postgres">PostgreSQL</option>
-                                <option value="mysql">MySQL</option>
-                            </select>
-                        </div>
-                        <div class="config-actions">
-                            <button id="cfgSaveDbConfig" class="config-btn">Salvar banco</button>
-                            <button id="cfgReloadDbConfig" class="config-btn config-btn-muted">Carregar salvo</button>
-                        </div>
-                        <div id="cfgDbStatus" class="config-status"></div>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Seguranca</h3>
-                        <ul class="config-security-list">
-                            <li>Token Movidesk e chave GPT sao armazenados de forma criptografada no servidor.</li>
-                            <li>Somente perfil admin pode acessar esta area de configuracoes.</li>
-                            <li>A analise executiva utiliza o prompt tecnico ja definido no backend.</li>
-                        </ul>
-                    </div>
-
-                    <div class="config-card">
-                        <h3 class="config-card-title">Administracao Avancada</h3>
-                        <p class="config-card-help">Se quiser manter o fluxo antigo, voce tambem pode abrir a tela de admin legada.</p>
-                        <a href="/admin/" target="_blank" rel="noopener noreferrer" class="config-link-btn">Abrir http://localhost:3000/admin/</a>
-                    </div>
-                </div>
-
                 <!-- ABA: Acesso -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-acesso">
                     <div class="config-card">
@@ -833,6 +878,266 @@
                             <button class="config-btn config-btn-muted" onclick="resetTabPermissionsConfig()">Restaurar padrão</button>
                         </div>
                         <div id="cfgTabPermissionsStatus" class="config-status"></div>
+                    </div>
+                </div>
+
+                <!-- ABA: Carga Datalake -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-datalake">
+
+                    <!-- Status atual -->
+                    <div class="config-card">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:4px;">Status da Carga</h3>
+                                <p class="config-card-help" style="margin:0;">Movidesk API → silver.* (datalake)</p>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button class="config-btn config-btn-muted" onclick="dlLoad()" id="dlBtnRefresh" title="Atualizar status">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">refresh</span> Atualizar
+                                </button>
+                                <button class="config-btn config-btn-muted" onclick="dlTrigger('incremental')" id="dlBtnInc">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora
+                                </button>
+                                <button class="config-btn config-btn-muted" onclick="dlFixOrganizacao()" id="dlBtnFixOrg" title="Re-sincroniza só os tickets de Ouvidoria/GCC com organização não identificada">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"
+                                </button>
+                                <button class="config-btn config-btn-danger" onclick="dlCancel()" id="dlBtnCancel" style="display:none;">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar
+                                </button>
+                                <button class="config-btn config-btn-muted" onclick="dlBackfillBasico()" id="dlBtnBackfillBasico" title="Preenche responsável/equipe/serviço/urgência/categoria/SLA dos tickets legados que nunca trouxeram esses campos, usando os anos marcados abaixo. Bem mais rápido que Full — não mexe em ações/clientes/campos customizados.">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos
+                                </button>
+                                <button class="config-btn" onclick="dlTrigger('full')" id="dlBtnFull">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Badge de estado + métricas live -->
+                        <div id="dlCurrentStatus" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:10px;background:var(--bg,#18181b);border:1px solid var(--border,#333);margin-bottom:4px;">
+                            <span id="dlBadge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;">
+                                <span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso
+                            </span>
+                            <span id="dlMeta" style="font-size:13px;color:var(--muted,#71717a);">–</span>
+                        </div>
+
+                        <!-- Progresso live (visível só durante carga) -->
+                        <div id="dlProgressWrap" style="display:none;margin-top:12px;">
+                            <!-- Contador grande -->
+                            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px;">
+                                <span id="dlProgressCount" style="font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text,#f4f4f5);line-height:1;">0</span>
+                                <span style="font-size:14px;color:var(--muted,#71717a);">chamados coletados</span>
+                                <span id="dlProgressPages" style="margin-left:auto;font-size:12px;color:var(--muted,#71717a);font-variant-numeric:tabular-nums;"></span>
+                            </div>
+                            <!-- Barra de progresso -->
+                            <div style="background:var(--border,#333);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px;">
+                                <div id="dlProgressBar" style="height:100%;width:0%;border-radius:4px;transition:width .4s;background:linear-gradient(90deg,#3b82f6,#06b6d4);"></div>
+                            </div>
+                            <!-- Fase atual -->
+                            <div id="dlProgressLabel" style="font-size:12px;color:var(--muted,#71717a);">Carregando…</div>
+                        </div>
+                    </div>
+
+                    <!-- Seleção de Anos para Carga Full -->
+                    <div class="config-card" id="dlYearCard">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:2px;">Seleção de Anos — Carga Full</h3>
+                                <p class="config-card-help" style="margin:0;">Marque os anos desejados. Sem nenhum marcado = carrega tudo.</p>
+                            </div>
+                            <div style="display:flex;gap:6px;">
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlYearsSelectAll(true)">Todos</button>
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlYearsSelectAll(false)">Nenhum</button>
+                            </div>
+                        </div>
+                        <div id="dlYearGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                        <p id="dlYearNote" style="margin:10px 0 0;font-size:12px;color:var(--muted,#71717a);"></p>
+
+                        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#333);">
+                            <h3 class="config-card-title" style="margin-bottom:2px;">Classificação de Ticket</h3>
+                            <p class="config-card-help" style="margin:0 0 8px;">Opcional. Filtra a carga full pelo campo "Classificação de Ticket" (ex: Ouvidoria, Suporte Técnico, Gestão de Combate ao Churn). Em branco = todas as classificações.</p>
+                            <input type="text" id="dlClassification" placeholder="Ex: Ouvidoria" style="width:100%;max-width:320px;padding:7px 10px;border-radius:6px;border:1px solid var(--border,#333);background:var(--input-bg,#1a1a1a);color:inherit;font-size:13px;">
+                        </div>
+
+                        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#333);">
+                            <h3 class="config-card-title" style="margin-bottom:2px;">Equipe (ownerTeam)</h3>
+                            <p class="config-card-help" style="margin:0 0 8px;">Opcional. Filtra direto pelo campo "Equipe" do Movidesk — bem mais rápido pra API do que a Classificação de Ticket. Pode usar sozinho ou junto com a Classificação acima (nesse caso a Classificação só confirma/corrige o valor depois de buscar, o filtro na API é feito pela Equipe). Em branco = usa o mapeamento automático quando a Classificação tiver equipe conhecida (ex: Ouvidoria).</p>
+                            <select id="dlOwnerTeam" style="width:100%;max-width:320px;padding:7px 10px;border-radius:6px;border:1px solid var(--border,#333);background:var(--input-bg,#1a1a1a);color:inherit;font-size:13px;">
+                                <option value="">— Automático (baseado na Classificação) —</option>
+                                <option value="Administradores">Administradores</option>
+                                <option value="Agente">Agente</option>
+                                <option value="Agrotitan - Equipe Técnica">Agrotitan - Equipe Técnica</option>
+                                <option value="Agrotitan - Suporte">Agrotitan - Suporte</option>
+                                <option value="Agrotitan Fazendas - Equipe Técnica">Agrotitan Fazendas - Equipe Técnica</option>
+                                <option value="Agrotitan Fazendas - Suporte">Agrotitan Fazendas - Suporte</option>
+                                <option value="Analytics - B.I">Analytics - B.I</option>
+                                <option value="Aut. Comercial - Suporte">Aut. Comercial - Suporte</option>
+                                <option value="Automação Comercial - Equipe Técnica">Automação Comercial - Equipe Técnica</option>
+                                <option value="Cliente - Relator">Cliente - Relator</option>
+                                <option value="Construshow - Equipe Técnica">Construshow - Equipe Técnica</option>
+                                <option value="Construshow - Suporte">Construshow - Suporte</option>
+                                <option value="CRM - Equipe Técnica">CRM - Equipe Técnica</option>
+                                <option value="CRM - Suporte">CRM - Suporte</option>
+                                <option value="CRM - VX">CRM - VX</option>
+                                <option value="Curadoria IA">Curadoria IA</option>
+                                <option value="Filt - Equipe Técnica">Filt - Equipe Técnica</option>
+                                <option value="Filt - Suporte">Filt - Suporte</option>
+                                <option value="Filt - VX">Filt - VX</option>
+                                <option value="Financeiro - VIASOFT">Financeiro - VIASOFT</option>
+                                <option value="FRANQUIA - AD TECH NEGOCIOS LTDA">FRANQUIA - AD TECH NEGOCIOS LTDA</option>
+                                <option value="FRANQUIA - Borges e Mazete - Suporte">FRANQUIA - Borges e Mazete - Suporte</option>
+                                <option value="FRANQUIA - Cands - Suporte">FRANQUIA - Cands - Suporte</option>
+                                <option value="FRANQUIA - Link - Suporte">FRANQUIA - Link - Suporte</option>
+                                <option value="FRANQUIA - LZ - Suporte">FRANQUIA - LZ - Suporte</option>
+                                <option value="FRANQUIA - MP AGROTECH - Suporte">FRANQUIA - MP AGROTECH - Suporte</option>
+                                <option value="FRANQUIA - PRODACON - Consultores">FRANQUIA - PRODACON - Consultores</option>
+                                <option value="FRANQUIA - PRODACON - Suporte">FRANQUIA - PRODACON - Suporte</option>
+                                <option value="GCC - Gestão de Combate ao Churn">GCC - Gestão de Combate ao Churn</option>
+                                <option value="Ouvidoria">Ouvidoria</option>
+                                <option value="Petroshow - Equipe Técnica">Petroshow - Equipe Técnica</option>
+                                <option value="Petroshow - Suporte">Petroshow - Suporte</option>
+                                <option value="Serviços Fiscais - Equipe Técnica">Serviços Fiscais - Equipe Técnica</option>
+                                <option value="Serviços Fiscais - Suporte">Serviços Fiscais - Suporte</option>
+                                <option value="TalentRH - Equipe Técnica">TalentRH - Equipe Técnica</option>
+                                <option value="TalentRH - Suporte">TalentRH - Suporte</option>
+                                <option value="VIABOT - Adm">VIABOT - Adm</option>
+                                <option value="VIASOFT - Canais">VIASOFT - Canais</option>
+                                <option value="VIASOFT - Comitê de IA">VIASOFT - Comitê de IA</option>
+                                <option value="VIASOFT - HOK">VIASOFT - HOK</option>
+                                <option value="VIASOFT - Migrações">VIASOFT - Migrações</option>
+                                <option value="VIASOFT - Sistemas Internos">VIASOFT - Sistemas Internos</option>
+                                <option value="VIASOFT - Suporte Oracle Cloud">VIASOFT - Suporte Oracle Cloud</option>
+                                <option value="VIASOFT - Support Leaders">VIASOFT - Support Leaders</option>
+                                <option value="VIASOFT - Tecnologia">VIASOFT - Tecnologia</option>
+                                <option value="VIASOFT - TESTE INTERNO">VIASOFT - TESTE INTERNO</option>
+                                <option value="VIASOFT - Tático">VIASOFT - Tático</option>
+                                <option value="Viasuper - Equipe Técnica">Viasuper - Equipe Técnica</option>
+                                <option value="Viasuper - Suporte">Viasuper - Suporte</option>
+                                <option value="VOORS - Equipe Técnica">VOORS - Equipe Técnica</option>
+                                <option value="VOORS - Suporte">VOORS - Suporte</option>
+                                <option value="VOORS - VX">VOORS - VX</option>
+                                <option value="VX - AGROTITAN">VX - AGROTITAN</option>
+                                <option value="VX - AGROTITAN FAZENDAS">VX - AGROTITAN FAZENDAS</option>
+                                <option value="VX - CONSTRUSHOW">VX - CONSTRUSHOW</option>
+                                <option value="VX - FISCO/TALENT">VX - FISCO/TALENT</option>
+                                <option value="VX - PETROSHOW">VX - PETROSHOW</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Pesquisa de Satisfação por ano -->
+                    <div class="config-card" id="dlSatCard">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:2px;">Pesquisa de Satisfação</h3>
+                                <p class="config-card-help" style="margin:0;">silver.ticket_satisfacao — busca as respostas reais de pesquisa do Movidesk direto pelo endpoint de respostas (bem mais rápido que 1 requisição por ticket). Marque o(s) ano(s) pra buscar desde 1º de janeiro do mais antigo; sem nenhum marcado = histórico inteiro desde 2018.</p>
+                            </div>
+                            <div style="display:flex;gap:6px;">
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlSatYearsSelectAll(true)">Todos</button>
+                                <button class="config-btn config-btn-muted" style="padding:4px 10px;font-size:12px;" onclick="dlSatYearsSelectAll(false)">Nenhum</button>
+                            </div>
+                        </div>
+                        <div id="dlSatYearGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                        <p id="dlSatYearNote" style="margin:10px 0 0;font-size:12px;color:var(--muted,#71717a);"></p>
+
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#333);">
+                            <button class="config-btn" onclick="dlSatTrigger()" id="dlBtnSat">
+                                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">sentiment_satisfied</span> Sincronizar pesquisas
+                            </button>
+                            <button class="config-btn config-btn-danger" onclick="dlSatStop()" id="dlBtnSatStop" style="display:none;">
+                                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Parar
+                            </button>
+                            <span id="dlSatBadge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;">
+                                <span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso
+                            </span>
+                            <span id="dlSatMeta" style="font-size:13px;color:var(--muted,#71717a);">–</span>
+                        </div>
+                    </div>
+
+                    <!-- Histórico -->
+                    <div class="config-card">
+                        <h3 class="config-card-title" style="margin-bottom:12px;">Histórico de Execuções</h3>
+                        <div id="dlHistory" style="overflow-x:auto;">
+                            <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
+                        </div>
+                    </div>
+
+                    <!-- Cargas automáticas (crons configuráveis) -->
+                    <div class="config-card">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                            <div>
+                                <h3 class="config-card-title" style="margin-bottom:2px;">Cargas automáticas</h3>
+                                <p class="config-card-help" style="margin:0;">Ative, desative ou crie novas cargas periódicas — cada uma roda sozinha no intervalo definido.</p>
+                            </div>
+                            <button class="config-btn" onclick="cronOpenModal()">
+                                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> Nova cron
+                            </button>
+                        </div>
+                        <div id="cronList" style="overflow-x:auto;">
+                            <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal: criar/editar cron -->
+                <div id="cronModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+                    <div class="pm-box">
+                        <div class="pm-header">
+                            <span id="cronModalTitle">Nova cron automática</span>
+                            <button class="pm-close" id="cronModalClose" aria-label="Fechar">&times;</button>
+                        </div>
+                        <div class="pm-body">
+                            <input type="hidden" id="cronId">
+                            <div class="pm-field">
+                                <label>Nome</label>
+                                <input type="text" id="cronName" placeholder="Ex: Ouvidoria automática">
+                            </div>
+                            <div class="pm-field">
+                                <label>Tarefa</label>
+                                <select id="cronTask" onchange="cronToggleFullFields()">
+                                    <option value="ouvidoria">Ouvidoria — só chamados em aberto</option>
+                                    <option value="gcc">GCC — só chamados em aberto</option>
+                                    <option value="incremental">Incremental — todos os tickets (abertos + atualizados nas últimas 25h)</option>
+                                    <option value="full">Full — carga completa (ano/classificação/equipe)</option>
+                                </select>
+                            </div>
+                            <div class="pm-field">
+                                <label>Intervalo</label>
+                                <select id="cronInterval">
+                                    <option value="15">A cada 15 minutos</option>
+                                    <option value="30">A cada 30 minutos</option>
+                                    <option value="60">A cada 1 hora</option>
+                                    <option value="120" selected>A cada 2 horas</option>
+                                    <option value="360">A cada 6 horas</option>
+                                    <option value="720">A cada 12 horas</option>
+                                    <option value="1440">1x por dia</option>
+                                    <option value="10080">1x por semana</option>
+                                </select>
+                            </div>
+                            <div id="cronFullFields" style="display:none;flex-direction:column;gap:16px;">
+                                <div class="pm-field">
+                                    <label>Anos (opcional, separados por vírgula)</label>
+                                    <input type="text" id="cronFullYears" placeholder="Ex: 2025, 2026 — vazio = todos">
+                                </div>
+                                <div class="pm-field">
+                                    <label>Classificação de Ticket (opcional)</label>
+                                    <input type="text" id="cronFullClass" placeholder="Ex: Ouvidoria">
+                                </div>
+                                <div class="pm-field">
+                                    <label>Equipe / ownerTeam (opcional)</label>
+                                    <input type="text" id="cronFullTeam" placeholder="Ex: Ouvidoria">
+                                </div>
+                            </div>
+                            <div class="pm-field" style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="cronEnabled" checked style="width:auto;">
+                                <label style="margin:0;">Ativa</label>
+                            </div>
+                            <div id="cronModalError" class="pm-error" style="display:none;"></div>
+                            <div class="pm-actions">
+                                <button type="button" class="pm-btn pm-btn-cancel" onclick="cronCloseModal()">Cancelar</button>
+                                <button type="button" class="pm-btn pm-btn-save" onclick="cronSave()">Salvar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

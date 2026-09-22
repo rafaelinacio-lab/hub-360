@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GCC</title>
+<title>Painel Geral</title>
 <script>
   (function(){
     const t=localStorage.getItem('theme')||'light';
@@ -114,7 +114,7 @@ input,select{font-family:inherit}
 }
 
 /* ═══ Page ═════════════════════════════════════════════════════════════ */
-#gcc-page{min-height:100vh;display:flex;flex-direction:column}
+#geral-page{min-height:100vh;display:flex;flex-direction:column}
 
 /* ═══ Top bar ══════════════════════════════════════════════════════════ */
 .topbar{
@@ -133,16 +133,6 @@ input,select{font-family:inherit}
 .topbar-logo .sym{font-size:19px;color:var(--orange)}
 .topbar-sub{font-size:13px;color:var(--t2);font-weight:500;white-space:nowrap}
 .vbar{width:1px;height:22px;background:var(--border);flex-shrink:0}
-
-.sort-sel{
-  padding:6px 26px 6px 10px;border:1px solid var(--border);border-radius:8px;
-  background:var(--surface-low);color:var(--t2);
-  font-size:12px;font-weight:500;outline:none;appearance:none;flex-shrink:0;max-width:180px;
-  text-overflow:ellipsis;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9892' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 7px center;
-}
-.sort-sel:focus{border-color:var(--orange)}
 
 /* ─── Filter bar ─────────────────────────────────────────────────────── */
 .topbar-filters{
@@ -200,6 +190,17 @@ input,select{font-family:inherit}
   accent-color:var(--orange);width:14px;height:14px;
   cursor:pointer;flex-shrink:0;margin:0;
 }
+.ms-loadmore{
+  border-top:1px solid var(--border);margin-top:4px;padding:8px 12px 4px;
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+}
+.ms-loadmore>span{width:100%;font-size:11px;color:var(--t3);margin-bottom:2px}
+.ms-loadyear{
+  border:1px solid var(--border);border-radius:6px;background:var(--surface-low);
+  color:var(--t2);font-size:12px;padding:3px 8px;cursor:pointer;transition:border-color .15s,color .15s;
+}
+.ms-loadyear:hover{border-color:var(--orange);color:var(--t1)}
+.ms-loadyear:disabled{opacity:.6;cursor:default}
 
 /* sync toast */
 #sync-toast{
@@ -214,6 +215,21 @@ input,select{font-family:inherit}
 #sync-toast .sym{font-size:16px;color:var(--green)}
 #sync-toast .st-prog{font-size:11px;color:var(--t3);margin-left:2px}
 
+/* janela de período (dados parciais por padrão) */
+#janela-banner{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 20px;background:var(--surface2,var(--surface));
+  border-top:1px solid var(--border);font-size:12.5px;color:var(--t2);
+}
+#janela-banner .sym{font-size:16px;color:var(--orange)}
+#janela-banner button{
+  background:none;border:1px solid var(--border);border-radius:7px;
+  padding:5px 11px;font-size:12px;font-weight:600;color:var(--t1);
+  cursor:pointer;
+}
+#janela-banner button:hover{background:var(--surface3,var(--hover,rgba(128,128,128,.1)))}
+#janela-banner button:disabled{opacity:.6;cursor:default}
+
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -225,14 +241,13 @@ input,select{font-family:inherit}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-.grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:1100px){.grid-5,.grid-6{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:1100px){.grid-5{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:980px){
-  .grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}
+  .grid-3,.grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
 }
-@media (max-width:520px){.grid-3,.grid-4,.grid-5,.grid-6{grid-template-columns:1fr}}
+@media (max-width:520px){.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}}
 
 .stat-card{
   background:var(--glass-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -250,7 +265,6 @@ input,select{font-family:inherit}
 }
 .stat-card .value.good{color:var(--green)}
 .stat-card .value.bad{color:var(--orange)}
-.stat-card .value-full{font-size:11px;color:var(--t3);margin:3px 0 0;font-variant-numeric:tabular-nums}
 .stat-card .legend{font-size:11px;color:var(--t3);margin:6px 0 0;line-height:1.4}
 
 .chart-panel,.data-panel{
@@ -259,7 +273,6 @@ input,select{font-family:inherit}
 }
 .chart-title,.panel-title{font-size:13px;color:var(--t2);margin:0 0 12px;font-weight:600}
 .chart-sub{font-size:11px;color:var(--t3);margin:-8px 0 12px;text-align:center}
-.chart-caption{font-size:11px;color:var(--t3);margin:8px 0 0;text-align:center}
 .chart-wrap{position:relative;width:100%}
 
 .dtable{width:100%;font-size:13px;border-collapse:collapse}
@@ -274,14 +287,6 @@ input,select{font-family:inherit}
 .dtable .bad{color:var(--orange);font-weight:700}
 .dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
 
-.data-panel.compact{padding:14px 16px}
-.data-panel.compact.danger{border-color:var(--orange-bd)}
-.data-panel.compact .panel-title{font-size:12px;margin-bottom:8px}
-.data-panel.compact .dtable{font-size:12px}
-.data-panel.compact .dtable th{padding:5px 8px;font-size:9.5px}
-.data-panel.compact .dtable td{padding:6px 8px}
-.data-panel.compact .dtable-wrap{max-height:280px;overflow-y:auto}
-
 .data-panel.danger{border-color:var(--orange-bd)}
 
 /* clique nas barras/segmentos dos gráficos abre um modal de detalhe */
@@ -293,7 +298,7 @@ input,select{font-family:inherit}
 .modal-overlay.show{display:flex}
 .modal-box{
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
-  box-shadow:var(--sh-lg,0 20px 50px rgba(0,0,0,.35));
+  box-shadow:var(--sh-xl);
   width:100%;max-width:min(820px,92vw);max-height:min(80vh,720px);
   display:flex;flex-direction:column;overflow:hidden;
 }
@@ -330,9 +335,6 @@ body.modal-open{overflow:hidden}
 .dtable th.sortable:hover{color:var(--t1)}
 .dtable th.sortable .sort-arrow{display:inline-block;width:12px;font-size:10px;opacity:.6}
 
-/* Tabela de "Chamado Listagem" — quebra linha em vez de rolar na
-   horizontal (table-layout:fixed distribui as colunas pela largura
-   disponível do modal, sem depender do conteúdo mais largo). */
 .modal-body .listagem-table{table-layout:fixed;min-width:0;width:100%}
 .modal-body .listagem-table th{white-space:normal;overflow-wrap:break-word;font-size:11px}
 .modal-body .listagem-table td{overflow-wrap:break-word;word-break:break-word;font-size:12.5px}
@@ -352,8 +354,6 @@ body.modal-open{overflow:hidden}
 .export-status .sym{font-size:16px;animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
-/* empilhamento: detail-modal (lista de tickets) < ticket-modal (detalhe
-   de UM ticket, aberto a partir da lista) */
 #detail-modal{z-index:205}
 #ticket-modal{z-index:210}
 #ticket-modal .modal-box{max-width:min(700px,92vw)}
@@ -363,11 +363,6 @@ body.modal-open{overflow:hidden}
 }
 .td-info-grid .lbl{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:0 0 3px}
 .td-info-grid .val{font-size:13px;color:var(--t1);font-weight:600;margin:0}
-.td-sec-lbl{font-size:11.5px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin:0 0 8px;display:flex;align-items:center;gap:6px}
-.td-cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:16px}
-.td-cf-item{background:var(--surface-mid);border-radius:8px;padding:8px 10px}
-.td-cf-item .cf-lbl{display:block;font-size:10px;color:var(--t3);margin-bottom:2px}
-.td-cf-item .cf-val{display:block;font-size:12.5px;color:var(--t1);font-weight:600}
 .td-tl-item{padding:10px 0;border-bottom:1px solid var(--border)}
 .td-tl-item:last-child{border-bottom:none}
 .td-tl-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:4px}
@@ -387,51 +382,18 @@ body.modal-open{overflow:hidden}
   text-decoration:none;cursor:pointer;
 }
 .btn-open-ticket:hover{opacity:.9}
-
-/* ─── Mapa do Brasil (clientes perdidos por estado) ─────────────────── */
-.map-row{display:flex;gap:20px;align-items:flex-start;justify-content:center}
-#statesMapWrap{flex:0 1 460px;max-width:460px;min-width:0;margin:0 auto}
-#statesMapWrap svg{width:100%;height:auto;display:block}
-.br-state{stroke:var(--surface);stroke-width:1.2;cursor:pointer;transition:opacity .12s}
-.br-state:hover{opacity:.75}
-.br-state-label{pointer-events:none;font-weight:700;text-anchor:middle}
-.br-state-label.halo{stroke:var(--surface);stroke-width:2.6;stroke-linejoin:round}
-.br-state-label.uf{fill:var(--t1)}
-.br-state-label.count{fill:var(--t1);font-weight:600}
-.br-state-label.count.zero{fill:var(--t3);font-weight:400}
-
-.map-legend{
-  flex:0 0 190px;display:flex;flex-direction:column;gap:10px;
-  font-size:11.5px;color:var(--t2);padding-top:4px;
-}
-.map-legend .scale-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t3)}
-.map-legend .scale-bar{
-  flex:1;height:10px;border-radius:5px;
-  background:linear-gradient(to right,var(--surface-mid),var(--orange));
-}
-.map-legend .rank-list{display:flex;flex-direction:column;gap:1px;max-height:260px;overflow-y:auto}
-.map-legend .rank-item{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:5px 7px;border-radius:6px;cursor:pointer;font-size:12px;
-}
-.map-legend .rank-item:hover{background:var(--surface-mid)}
-.map-legend .rank-item .uf{font-weight:700;color:var(--t1)}
-.map-legend .rank-item .n{font-variant-numeric:tabular-nums;color:var(--t2)}
-@media (max-width:760px){
-  .map-row{flex-direction:column}
-  .map-legend{flex:none;width:100%}
-}
+.section-note{font-size:11.5px;color:var(--t3);margin:-6px 0 12px}
 </style>
 </head>
 <body>
-<div id="gcc-page">
+<div id="geral-page">
   <header class="topbar">
     <div class="topbar-in">
-      <div class="topbar-logo"><span class="sym">trending_down</span>GCC</div>
+      <div class="topbar-logo"><span class="sym">dashboard</span>Painel Geral</div>
       <div class="vbar"></div>
-      <span class="topbar-sub">Gestão de Combate ao Churn — Visão de gestão</span>
+      <span class="topbar-sub">Todos os chamados — visão de gestão</span>
       <span style="margin-left:auto"></span>
-      <button class="btn-refresh" id="btn-atualizar" onclick="loadGcc()">
+      <button class="btn-refresh" id="btn-atualizar" onclick="loadGeral()">
         <span class="sym">refresh</span>Atualizar
       </button>
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
@@ -445,16 +407,30 @@ body.modal-open{overflow:hidden}
       </button>
     </div>
     <div class="topbar-filters">
-      <div class="multi-sel" id="f-tipo">
+      <div class="multi-sel" id="f-equipe">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Tipo de rescisão: todos</span>
+          <span class="ms-lbl">Equipe: todos</span>
           <span class="sym ms-arrow">expand_more</span>
         </button>
         <div class="ms-drop"></div>
       </div>
-      <div class="multi-sel" id="f-org">
+      <div class="multi-sel" id="f-resp">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Cliente: todos</span>
+          <span class="ms-lbl">Responsável: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-serv">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Serviço: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
+      <div class="multi-sel" id="f-class">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Classificação: todos</span>
           <span class="sym ms-arrow">expand_more</span>
         </button>
         <div class="ms-drop"></div>
@@ -486,194 +462,127 @@ body.modal-open{overflow:hidden}
       <span id="sync-toast-txt">Sincronizando…</span>
       <span class="st-prog" id="sync-toast-prog"></span>
     </div>
+    <div id="janela-banner" style="display:none"></div>
   </header>
 
-  <div class="dash-wrap" id="gcc-dash">
+  <div class="dash-wrap" id="geral-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-6">
+    <div class="grid-5">
       <div class="stat-card">
-        <p class="label">Total de chamados</p>
-        <p class="value" id="k-total">0</p>
-        <p class="legend">Abertos no período + resolvidos no período.</p>
-      </div>
-      <div class="stat-card">
-        <p class="label">Rescisão total</p>
-        <p class="value" id="k-resc-total">0</p>
-        <p class="legend">Cancelamento completo do contrato.</p>
+        <p class="label">Tickets abertos</p>
+        <p class="value" id="k-abertos">0</p>
+        <p class="legend">Total criados no período.</p>
       </div>
       <div class="stat-card">
-        <p class="label">Rescisão parcial</p>
-        <p class="value" id="k-resc-parcial">0</p>
-        <p class="legend">Redução de módulos ou usuários.</p>
+        <p class="label">Tickets resolvidos</p>
+        <p class="value" id="k-resolvidos">0</p>
+        <p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p>
       </div>
       <div class="stat-card">
-        <p class="label">Revertidos</p>
-        <p class="value" id="k-revertidos">0</p>
-        <p class="legend">Solicitações de saída evitadas.</p>
-      </div>
-      <div class="stat-card success">
-        <p class="label">Taxa de reversão</p>
-        <p class="value good" id="k-taxa-reversao">0%</p>
-        <p class="legend">Revertidos ÷ total de solicitações.</p>
-      </div>
-      <div class="stat-card danger clickable" id="k-sem-tipo-card" onclick="openSemTipoRescisaoModal()">
-        <p class="label">Sem tipo de rescisão</p>
-        <p class="value bad" id="k-sem-tipo">0</p>
-        <p class="legend">Campo não preenchido no Movidesk. Clique pra ver.</p>
-      </div>
-    </div>
-
-    <p class="section-label">Operacional</p>
-    <div class="grid-4">
-      <div class="stat-card">
-        <p class="label">Tickets pendentes</p>
-        <p class="value" id="k-pendentes">0</p>
-        <p class="legend">Casos ainda em aberto no período.</p>
+        <p class="label">Média de ações/ticket</p>
+        <p class="value" id="k-media-acoes">0</p>
+        <p class="legend">Trocas até o fechamento.</p>
       </div>
       <div class="stat-card">
-        <p class="label">Clientes</p>
+        <p class="label">Clientes únicos</p>
         <p class="value" id="k-clientes">0</p>
-        <p class="legend">Clientes únicos em GCC no período.</p>
+        <p class="legend">Base ativa de solicitantes.</p>
       </div>
-      <div class="stat-card">
-        <p class="label">Casos críticos</p>
-        <p class="value" id="k-criticos">0</p>
-        <p class="legend">Em aberto com urgência alta/crítica.</p>
-      </div>
-      <div class="stat-card danger clickable" id="k-criticos-venc-card" onclick="scrollToCriticosVencidos()">
-        <p class="label">Críticos vencidos</p>
-        <p class="value bad" id="k-criticos-venc">0</p>
-        <p class="legend">Prazo de SLA já passado. Clique pra ver.</p>
+      <div class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
+        <p class="label">Tickets pendentes</p>
+        <p class="value bad" id="k-pendentes">0</p>
+        <p class="legend">Ainda em aberto. Clique pra ver.</p>
       </div>
     </div>
 
-    <p class="section-label">Impacto financeiro (MRR)</p>
-    <div class="grid-3">
-      <div class="stat-card">
-        <p class="label">MRR em risco</p>
-        <p class="value" id="k-mrr-risco">R$ 0</p>
-        <p class="value-full" id="k-mrr-risco-full"></p>
-        <p class="legend">Soma do MRR de todos os casos abertos.</p>
-      </div>
-      <div class="stat-card success">
-        <p class="label">MRR protegido</p>
-        <p class="value good" id="k-mrr-protegido">R$ 0</p>
-        <p class="value-full" id="k-mrr-protegido-full"></p>
-        <p class="legend">MRR de casos revertidos com sucesso.</p>
-      </div>
+    <div class="grid-2" style="margin-top:14px">
       <div class="stat-card danger">
-        <p class="label">MRR perdido</p>
-        <p class="value bad" id="k-mrr-perdido">R$ 0</p>
-        <p class="value-full" id="k-mrr-perdido-full"></p>
-        <p class="legend">MRR de casos finalizados sem reversão.</p>
+        <p class="label">SLA cumprido (resolvidos)</p>
+        <p class="value bad" id="k-sla-cumprido">0%</p>
+        <p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p>
+      </div>
+      <div class="stat-card danger clickable" onclick="openVencidosModal()">
+        <p class="label">Backlog já vencido</p>
+        <p class="value bad" id="k-backlog-vencido">0</p>
+        <p class="legend" id="k-backlog-vencido-legend">Prazo de SLA já passado. Clique pra ver.</p>
       </div>
     </div>
 
-    <p class="section-label">Tendência</p>
+    <p class="section-label">Classificação — ranking abertos x fechados</p>
+    <p class="chart-sub">Clara = abertos · escura = fechados</p>
     <div class="chart-panel">
-      <p class="chart-title">Solicitações de saída vs reversões por mês</p>
-      <div class="chart-wrap" style="height:220px"><canvas id="trendChart"></canvas></div>
-    </div>
-    <div class="chart-panel" style="margin-top:16px">
-      <p class="chart-title">MRR em risco vs MRR perdido por mês</p>
-      <div class="chart-wrap" style="height:220px"><canvas id="mrrTrendChart"></canvas></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div>
     </div>
 
-    <p class="section-label">Distribuição da rescisão</p>
-    <div class="grid-3">
-      <div class="chart-panel">
-        <p class="chart-title">Locus (interno x externo)</p>
-        <div class="chart-wrap" style="height:160px"><canvas id="locusChart"></canvas></div>
-        <p class="chart-caption" id="locusCaption"></p>
-      </div>
-      <div class="chart-panel">
-        <p class="chart-title">Tipo de rescisão</p>
-        <div class="chart-wrap" style="height:160px"><canvas id="tipoRescChart"></canvas></div>
-        <p class="chart-caption" id="tipoRescCaption"></p>
-      </div>
-      <div class="chart-panel">
-        <p class="chart-title">Rescisão parcial: o quê?</p>
-        <div class="chart-wrap" style="height:160px"><canvas id="parcialChart"></canvas></div>
-        <p class="chart-caption" id="parcialCaption"></p>
-      </div>
+    <p class="section-label">Tendência de aberturas e resoluções</p>
+    <div class="chart-panel">
+      <p class="chart-title">Tickets abertos vs resolvidos por mês</p>
+      <div class="chart-wrap" style="height:220px"><canvas id="trendVolChart"></canvas></div>
     </div>
 
-    <p class="section-label">Motivos por locus</p>
+    <p class="section-label">Envelhecimento do backlog</p>
+    <div class="chart-panel">
+      <p class="chart-title">Tempo em aberto por faixa de dias (só tickets pendentes)</p>
+      <div class="chart-wrap" style="height:190px"><canvas id="agingChart"></canvas></div>
+    </div>
+
+    <p class="section-label">Composição</p>
     <div class="grid-2">
       <div class="chart-panel">
-        <p class="chart-title">Locus interno — controlável</p>
-        <div class="chart-wrap" style="height:230px"><canvas id="internoChart"></canvas></div>
+        <p class="chart-title">Volume por equipe</p>
+        <p class="chart-sub">Clara = abertos · escura = resolvidos</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Locus externo — fora do controle</p>
-        <div class="chart-wrap" style="height:230px"><canvas id="externoChart"></canvas></div>
-      </div>
-    </div>
-
-    <p class="section-label">Insatisfação e MRR por vertical</p>
-    <div class="grid-2">
-      <div class="chart-panel">
-        <p class="chart-title">Casos por vertical (% do total)</p>
-        <div class="chart-wrap" style="height:190px"><canvas id="verticalChart"></canvas></div>
-      </div>
-      <div class="chart-panel">
-        <p class="chart-title">MRR perdido por vertical</p>
-        <div class="chart-wrap" style="height:190px"><canvas id="mrrVerticalChart"></canvas></div>
-      </div>
-    </div>
-
-    <p class="section-label">Clientes perdidos por estado</p>
-    <div class="chart-panel">
-      <p class="chart-title">Mapa de clientes perdidos (rescisão finalizada, sem reversão)</p>
-      <p class="chart-sub" id="mapSub"></p>
-      <div class="map-row">
-        <div id="statesMapWrap"></div>
-        <div class="map-legend" id="mapLegend"></div>
+        <p class="chart-title">Tickets por urgência</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="urgChart"></canvas></div>
       </div>
     </div>
 
     <p class="section-label">Ranking</p>
     <div class="grid-2">
       <div class="chart-panel">
-        <p class="chart-title">Módulos que mais rescindem</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="moduleChart"></canvas></div>
+        <p class="chart-title">Top clientes por volume</p>
+        <p class="chart-sub">Clara = abertos · escura = resolvidos</p>
+        <div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Clientes que mais rescindem</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="topClientChart"></canvas></div>
+        <p class="chart-title">Top responsáveis por volume</p>
+        <p class="chart-sub">Clara = abertos · escura = resolvidos</p>
+        <div class="chart-wrap" style="height:230px"><canvas id="respChart"></canvas></div>
       </div>
     </div>
 
     <p class="section-label">Ação</p>
-    <div class="grid-2">
-      <div class="data-panel compact">
-        <p class="panel-title">Clientes com mais casos e baixa reversão</p>
-        <div class="dtable-wrap">
-          <table class="dtable">
-            <thead><tr><th>Cliente</th><th class="num">Casos</th><th class="num">Revertidos</th></tr></thead>
-            <tbody id="tbl-baixa-reversao"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="data-panel compact danger" id="painel-criticos-vencidos">
-        <p class="panel-title">Casos críticos vencidos — ação necessária</p>
-        <div class="dtable-wrap">
-          <table class="dtable">
-            <thead><tr><th>Cliente</th><th>Vertical</th><th class="num">Dias venc.</th></tr></thead>
-            <tbody id="tbl-criticos-vencidos"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
-          </table>
-        </div>
+    <div class="data-panel danger">
+      <p class="panel-title">Equipes com maior % de backlog vencido</p>
+      <div class="dtable-wrap">
+        <table class="dtable">
+          <thead><tr><th>Equipe</th><th class="num">Pendentes</th><th class="num">Vencidos</th><th class="num">% vencido</th></tr></thead>
+          <tbody id="tbl-equipes-vencido"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+        </table>
       </div>
     </div>
 
-    <div class="data-panel danger" style="margin-top:16px">
-      <p class="panel-title">Top clientes por MRR em risco — priorização de retenção</p>
-      <div class="dtable-wrap">
-        <table class="dtable">
-          <thead><tr><th>Cliente</th><th class="num">MRR em risco</th><th class="num">Status</th></tr></thead>
-          <tbody id="tbl-top-mrr-risco"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
-        </table>
+    <p class="section-label">Qualidade da resolução</p>
+    <p class="section-note">FCR considera só tickets resolvidos com exatamente 1 ação pública (sem contar notas internas).</p>
+    <div class="grid-2">
+      <div class="stat-card danger">
+        <p class="label">Taxa de reabertura</p>
+        <p class="value bad" id="k-reabertura">0%</p>
+        <p class="legend">Tickets reabertos ÷ resolvidos no período.</p>
       </div>
+      <div class="stat-card success">
+        <p class="label">Resolução no 1º contato (FCR)</p>
+        <p class="value good" id="k-fcr">0%</p>
+        <p class="legend">1 ação pública, sem contar notas internas.</p>
+      </div>
+    </div>
+
+    <p class="section-label">SLA por urgência</p>
+    <div class="chart-panel">
+      <p class="chart-title">% cumprido no prazo, por nível de urgência</p>
+      <div class="chart-wrap" style="height:190px"><canvas id="slaUrgChart"></canvas></div>
     </div>
   </div>
 </div>
@@ -696,7 +605,7 @@ body.modal-open{overflow:hidden}
       <div class="dtable-scroll">
         <table class="dtable">
           <thead>
-            <tr id="detail-modal-thead"><th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th></tr>
+            <tr id="detail-modal-thead"><th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th></tr>
           </thead>
           <tbody id="detail-modal-tbody"></tbody>
         </table>
@@ -783,18 +692,14 @@ body.modal-open{overflow:hidden}
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <script>
-// Sem animação de entrada dos gráficos (barra crescendo, linha sendo
-// traçada) — a transição de aba (ícone/seta) já cumpre esse papel; a
-// animação do Chart.js tocando depois ficava parecendo uma segunda
-// animação sobrando.
 if (typeof Chart !== 'undefined') Chart.defaults.animation = false;
 
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
 function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
-async function api(ep){
+async function api(ep,timeoutMs=90000){
   const ctrl=new AbortController();
-  const t=setTimeout(()=>ctrl.abort(),60000);
+  const t=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
     const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal,cache:'no-store'});
     if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
@@ -813,27 +718,11 @@ function fmtFull(v){
   if(isNaN(d)) return '—';
   return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 }
-
-const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
-const CANCELADO_STATUSES=['Canceled','Cancelado'];
-function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
-function isRevertido(r){ return !!(r.data_reversao&&String(r.data_reversao).trim()); }
-function isPerdido(r){ return FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r); }
-function isCritico(r){
-  const u=(r.urgencia||'').trim().toLowerCase();
-  return isAberto(r)&&(u==='alta'||u==='crítica'||u==='critica');
+function dtStr(v){
+  if(!v) return '';
+  const d=new Date(v);
+  return isNaN(d) ? '' : d.toISOString().slice(0,10);
 }
-function isVencido(r){
-  return isAberto(r)&&r.sla_solucao&&new Date(r.sla_solucao).getTime()<Date.now();
-}
-function diasVencido(r){
-  return Math.floor((Date.now()-new Date(r.sla_solucao).getTime())/86400000);
-}
-// "Vertical" — CF 98697 (GCC - Verticais Insatisfação). Confirmado com dado
-// real (ticket 900840 = "Agrotitan"). Não dá pra derivar de service_full: o
-// primeiro segmento do serviço é sempre "GCC" (o próprio departamento), não
-// o produto/vertical do cliente.
-function verticalDe(r){ return (r.vertical||'').trim()||'Não informado'; }
 function monthKeyOf(d){
   const dt=new Date(d);
   return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
@@ -845,50 +734,48 @@ const MONTHS=[
   {v:9,l:'Setembro'},{v:10,l:'Outubro'},{v:11,l:'Novembro'},{v:12,l:'Dezembro'},
 ];
 
-// MRR vem da API como texto — pode estar em "1234.56" ou "1.234,56".
-function parseMrr(v){
-  if(v==null) return 0;
-  let s=String(v).trim();
-  if(!s) return 0;
-  s=s.replace(/[^\d,.-]/g,'');
-  if(s.includes(',')&&s.includes('.')) s=s.replace(/\./g,'').replace(',','.');
-  else if(s.includes(',')) s=s.replace(',','.');
-  const n=parseFloat(s);
-  return isFinite(n)?n:0;
-}
-function fmtMrrK(v){
-  const abs=Math.abs(v);
-  if(abs>=1000000) return `R$ ${(v/1000000).toLocaleString('pt-BR',{maximumFractionDigits:1})}M`;
-  if(abs>=1000) return `R$ ${(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})}k`;
-  return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`;
-}
-function fmtMrrFull(v){ return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`; }
+// ── regras de negócio (status/SLA/qualidade) ────────────────────────
+const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
+const CANCELADO_STATUSES=['Canceled','Cancelado'];
+function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
+function isResolvido(r){ return FINALIZADO_STATUSES.includes(r.base_status); }
+// SLA "no prazo": só conta tickets resolvidos que tinham prazo definido
+// (sla_solucao) — sem prazo, não dá pra dizer se cumpriu ou não.
+function temPrazo(r){ return !!r.sla_solucao; }
+function isNoPrazo(r){ return temPrazo(r)&&r.resolvido_em&&new Date(r.resolvido_em)<=new Date(r.sla_solucao); }
+function isVencido(r){ return isAberto(r)&&temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
+function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
+function diasVencido(r){ return Math.floor((Date.now()-new Date(r.sla_solucao).getTime())/86400000); }
+function isReaberto(r){ return !!r.reaberto_em; }
+// FCR: resolvido com exatamente 1 ação pública (visível ao cliente), sem
+// contar notas internas — is_public vem de silver.ticket_acao.
+function isFCR(r){ return isResolvido(r)&&Number(r.acoes_publicas||0)===1; }
+function classificacaoDe(r){ return (r.classificacao||'').trim()||'Não classificado'; }
 
-function dtStr(v){
-  if(!v) return '';
-  const d=new Date(v);
-  return isNaN(d) ? '' : d.toISOString().slice(0,10);
-}
+// MRR-like helpers não se aplicam aqui (painel geral não tem valor
+// financeiro por ticket) — mantém só formatação numérica simples.
+function fmtPct(n){ return `${(n*100).toFixed(1)}%`; }
 
 // ── exportação (Excel / PDF / Word) ─────────────────────────────────
-const EXPORT_HEADERS=['ID','Organização','Assunto','Status','Tipo Rescisão','Vertical','Motivo Churn','MRR','Estado (UF)','Responsável','Criado em','Resolvido em'];
+const EXPORT_HEADERS=['ID','Organização','Assunto','Classificação','Equipe','Status','Urgência','Serviço','Responsável','Ações','Ações públicas','Criado em','Resolvido em','Reaberto em'];
 function buildExportRows(){
   return (_rowsFull||[]).map(r=>[
     r.ticket_id,
     r.organizacao||'',
-    r.assunto_gcc||'',
+    r.assunto||'',
+    classificacaoDe(r),
+    r.equipe||'',
     r.status_movidesk||r.base_status||'',
-    r.tipo_rescisao||'',
-    verticalDe(r),
-    r.motivo_churn||'',
-    fmtMrrFull(parseMrr(r.mrr)),
-    r.estado_cliente||'',
+    r.urgencia||'',
+    r.servico||'',
     r.responsavel||'',
+    Number(r.acoes_count||0),
+    Number(r.acoes_publicas||0),
     dtStr(r.criado_em),
     dtStr(r.resolvido_em),
+    dtStr(r.reaberto_em),
   ]);
 }
-// Chart.js desenha em fundo transparente — compõe sobre branco antes de exportar como imagem.
 function captureChartImages(){
   return Object.values(_charts).filter(c=>c&&c.canvas&&c.canvas.width).map(chart=>{
     const src=chart.canvas;
@@ -923,9 +810,9 @@ async function runExport(format){
     const hoje=new Date().toISOString().slice(0,10);
     const charts=captureChartImages();
     const rows=buildExportRows();
-    if(format==='xlsx') await exportXlsx(rows,charts,`gcc_export_${hoje}.xlsx`);
-    else if(format==='pdf') await exportPdf(rows,charts,`gcc_export_${hoje}.pdf`,'GCC — Gestão de Combate ao Churn');
-    else if(format==='docx') await exportDocx(rows,charts,`gcc_export_${hoje}.docx`,'GCC — Gestão de Combate ao Churn');
+    if(format==='xlsx') await exportXlsx(rows,charts,`painel_geral_${hoje}.xlsx`);
+    else if(format==='pdf') await exportPdf(rows,charts,`painel_geral_${hoje}.pdf`,'Painel Geral de Tickets');
+    else if(format==='docx') await exportDocx(rows,charts,`painel_geral_${hoje}.docx`,'Painel Geral de Tickets');
     closeExportModal();
   } catch(e){
     console.error(e);
@@ -987,7 +874,7 @@ async function exportPdf(rows,charts,filename,titulo){
     body:rows,
     startY:48,
     margin:{left:margin,right:margin},
-    styles:{fontSize:7,cellPadding:3},
+    styles:{fontSize:6.5,cellPadding:3},
     headStyles:{fillColor:[232,93,4]},
   });
   doc.save(filename);
@@ -1026,28 +913,53 @@ function downloadBlob(blob,filename){
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
-function tipoRescNorm(r){ return (r.tipo_rescisao||'').trim(); }
-// O valor real do CF 87894 é "Rescisão Total"/"Rescisão Parcial" (confirmado
-// com dado real do Movidesk), não "Total"/"Parcial" soltos — por isso usa
-// includes() em vez de igualdade exata.
-function ehRescisaoTotal(r){ return tipoRescNorm(r).toLowerCase().includes('total'); }
-function ehRescisaoParcial(r){ return tipoRescNorm(r).toLowerCase().includes('parcial'); }
-// Chamados de GCC que ainda não têm o campo customizado "Tipo de Rescisão"
-// (CF 87894) preenchido como Total nem Parcial — não aparecem em nenhum
-// gráfico/ranking por tipo, mas contam no "Total de chamados".
-function semTipoRescisao(r){ return !ehRescisaoTotal(r)&&!ehRescisaoParcial(r); }
-function locusNorm(r){ return (r.classificacao_locus||'').trim(); }
-
 // ── state ────────────────────────────────────────────────────────────
 let _rows=[];
 let _charts={};
 let _rowsFull=[];
 let _rowsById={};
+let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-vigente"
 
 // ── load ─────────────────────────────────────────────────────────────
-async function loadGcc(){
+// Por padrão o backend limita ao ano vigente (a base tem ~720 mil tickets —
+// buscar tudo de uma vez transporta dezenas de MB de JSON e estoura o
+// timeout do navegador). loadHistoricoCompleto() busca tudo sob demanda,
+// explicitamente, quando o usuário realmente precisa do histórico.
+function renderJanelaBanner(){
+  const el=document.getElementById('janela-banner');
+  if(!_janela){ el.style.display='none'; el.innerHTML=''; return; }
+  // Só mostra o indicador quando nenhum filtro de ano está aplicado — com
+  // filtro, o próprio filtro já deixa claro qual período está em tela.
+  if(getMsValues('f-year').length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  const anoAtual=new Date().getFullYear();
+  el.innerHTML=`
+    <span class="sym">info</span>
+    <span>Exibindo ${anoAtual}</span>
+    <button id="btn-carregar-tudo" onclick="loadHistoricoCompleto()">Carregar histórico completo</button>
+  `;
+}
+async function loadHistoricoCompleto(){
+  const btn=document.getElementById('btn-carregar-tudo');
+  if(btn){ btn.disabled=true; btn.textContent='Carregando (pode levar alguns minutos)…'; }
   try{
-    _rows=await api('/gcc');
+    const resp=await api('/geral?todos=1',10*60*1000);
+    _rows=resp.rows||[];
+    _janela=resp.janela??null;
+    renderJanelaBanner();
+    buildFilterOptions();
+    render();
+  } catch(e){
+    alert('Não foi possível carregar o histórico completo: '+e.message);
+    if(btn){ btn.disabled=false; btn.textContent='Carregar histórico completo'; }
+  }
+}
+async function loadGeral(){
+  try{
+    const resp=await api('/geral');
+    _rows=resp.rows||[];
+    _janela=resp.janela??null;
+    renderJanelaBanner();
     buildFilterOptions();
     render();
   } catch(e){
@@ -1059,7 +971,7 @@ async function loadGcc(){
         pollSyncStatus();
       }
     }catch{}
-    document.getElementById('gcc-dash').innerHTML=`<p style="padding:40px 0;text-align:center;color:var(--t3)">${msg}</p>`;
+    document.getElementById('geral-dash').innerHTML=`<p style="padding:40px 0;text-align:center;color:var(--t3)">${msg}</p>`;
   }
 }
 
@@ -1110,15 +1022,58 @@ function buildFilterOptions(){
     const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
     populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
-  fill('f-tipo',"Tipo de rescisão",_rows.map(tipoRescNorm));
-  fill('f-org','Cliente',_rows.map(r=>r.organizacao));
+  fill('f-equipe','Equipe',_rows.map(r=>r.equipe));
+  fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
+  fill('f-serv','Serviço',_rows.map(r=>r.servico));
+  fill('f-class','Classificação',_rows.map(classificacaoDe));
   populateMs('f-status',[
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
   ],'Status: todos',render);
 
   const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
   populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
+  renderYearLoadMore(years);
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
+}
+
+// Enquanto os dados estiverem limitados a uma janela (ano vigente ou "desde"
+// customizado), o filtro de ano só lista os anos já carregados. Isso oferece
+// botões pra puxar anos anteriores sob demanda (evita repetir o "Carregar
+// histórico completo" quando o usuário só quer comparar com 1-2 anos atrás).
+function renderYearLoadMore(loadedYears){
+  const drop=document.querySelector('#f-year .ms-drop');
+  if(!drop) return;
+  if(!_janela) return; // histórico completo já carregado — nada a buscar
+  const anoAtual=new Date().getFullYear();
+  const minLoaded=loadedYears.length?Math.min(...loadedYears):anoAtual;
+  const limite=minLoaded-5;
+  if(minLoaded<=limite) return;
+  let html='<div class="ms-loadmore"><span>Carregar anos anteriores</span>';
+  for(let y=minLoaded-1;y>=limite;y--){
+    html+=`<button type="button" class="ms-loadyear" data-year="${y}" onclick="loadAnoAnterior(${y})">${y}</button>`;
+  }
+  html+='</div>';
+  drop.insertAdjacentHTML('beforeend',html);
+}
+
+async function loadAnoAnterior(year){
+  const btn=document.querySelector(`.ms-loadyear[data-year="${year}"]`);
+  if(btn){ btn.disabled=true; btn.textContent=`${year}…`; }
+  try{
+    const resp=await api(`/geral?desde=${year}-01-01`,10*60*1000);
+    const novos=resp.rows||[];
+    const vistos=new Set(_rows.map(r=>r.ticket_id));
+    novos.forEach(r=>{ if(!vistos.has(r.ticket_id)){ _rows.push(r); vistos.add(r.ticket_id); } });
+    _janela=resp.janela??_janela;
+    renderJanelaBanner();
+    buildFilterOptions();
+    const cb=document.querySelector(`#f-year .ms-drop input[value="${year}"]`);
+    if(cb){ cb.checked=true; updateMsLabel('f-year','Ano: todos'); }
+    render();
+  } catch(e){
+    alert(`Não foi possível carregar o ano ${year}: `+e.message);
+    if(btn){ btn.disabled=false; btn.textContent=String(year); }
+  }
 }
 
 // ── filtro ───────────────────────────────────────────────────────────
@@ -1126,101 +1081,94 @@ function statusBate(r,statusFils){
   if(!statusFils.length) return true;
   return statusFils.some(s=>
     (s==='aberto'&&isAberto(r))
-    ||(s==='finalizado'&&FINALIZADO_STATUSES.includes(r.base_status))
+    ||(s==='finalizado'&&isResolvido(r))
   );
 }
 function getFilteredRows(){
-  const tipoFils=getMsValues('f-tipo');
-  const orgFils=getMsValues('f-org');
+  const equipeFils=getMsValues('f-equipe');
+  const respFils=getMsValues('f-resp');
+  const servFils=getMsValues('f-serv');
+  const classFils=getMsValues('f-class');
   const statusFils=getMsValues('f-status');
   const yearFils=getMsValues('f-year').map(Number);
   const monthFils=getMsValues('f-month').map(Number);
 
-  // Tickets cancelados não entram em nenhuma métrica/gráfico/filtro — exclui
-  // já na base, antes de qualquer outro filtro.
   const rowsCtx=_rows.filter(r=>{
     if(CANCELADO_STATUSES.includes(r.base_status)) return false;
-    if(tipoFils.length&&!tipoFils.includes(tipoRescNorm(r))) return false;
-    if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
+    if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
+    if(respFils.length&&!respFils.includes(r.responsavel)) return false;
+    if(servFils.length&&!servFils.includes(r.servico)) return false;
+    if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
     if(!statusBate(r,statusFils)) return false;
     return true;
   });
-  const dataBate=(dataStr)=>{
-    if(!yearFils.length&&!monthFils.length) return true;
-    if(!dataStr) return false;
-    const d=new Date(dataStr);
-    if(isNaN(d)) return false;
-    if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
-    if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
+  const rowsFull=rowsCtx.filter(r=>{
+    if(yearFils.length||monthFils.length){
+      if(!r.criado_em) return false;
+      const d=new Date(r.criado_em);
+      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
+      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
+    }
     return true;
-  };
-  // Tickets ainda em aberto não têm data de resolução, então o filtro de
-  // Ano/Mês olha pra quando foram CRIADOS (é o que decide se entram em
-  // Pendentes/Críticos/MRR em risco). Tickets já finalizados olham pra
-  // quando foram RESOLVIDOS (Rescisão total/parcial/Revertidos/MRR
-  // protegido/perdido) — não pra quando o caso começou.
-  const rowsFull=[
-    ...rowsCtx.filter(r=>isAberto(r)&&dataBate(r.criado_em)),
-    ...rowsCtx.filter(r=>!isAberto(r)&&dataBate(r.resolvido_em)),
-  ];
+  });
   return {rowsCtx,rowsFull};
 }
 
 // ── render ───────────────────────────────────────────────────────────
 function render(){
-  if(!_rows.length && document.getElementById('gcc-dash').dataset.err) return;
+  if(!_rows.length && document.getElementById('geral-dash').dataset.err) return;
+  renderJanelaBanner();
   const {rowsCtx,rowsFull}=getFilteredRows();
   _rowsFull=rowsFull;
   _rowsById={};
   rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
 
   // ── Totais do período ──
-  const rescTotal=rowsFull.filter(ehRescisaoTotal).length;
-  const rescParcial=rowsFull.filter(ehRescisaoParcial).length;
-  const revertidos=rowsFull.filter(isRevertido).length;
-  const totalSolic=rowsFull.length;
-  const taxaReversao=totalSolic?revertidos/totalSolic*100:0;
-  const semTipoRows=rowsFull.filter(semTipoRescisao);
-  document.getElementById('k-total').textContent=totalSolic.toLocaleString('pt-BR');
-  document.getElementById('k-resc-total').textContent=rescTotal.toLocaleString('pt-BR');
-  document.getElementById('k-resc-parcial').textContent=rescParcial.toLocaleString('pt-BR');
-  document.getElementById('k-revertidos').textContent=revertidos.toLocaleString('pt-BR');
-  document.getElementById('k-taxa-reversao').textContent=`${taxaReversao.toFixed(1)}%`;
-  document.getElementById('k-sem-tipo').textContent=semTipoRows.length.toLocaleString('pt-BR');
+  const abertos=rowsFull.length;
+  const resolvidosRows=rowsFull.filter(isResolvido);
+  const resolvidos=resolvidosRows.length;
+  const taxaResolucao=abertos?resolvidos/abertos:0;
+  const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
+  const mediaAcoes=abertos?somaAcoes/abertos:0;
+  const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size;
+  const pendentesRows=rowsFull.filter(isAberto);
 
-  // ── Operacional ──
-  const pendentes=rowsFull.filter(isAberto).length;
-  const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao).filter(Boolean)).size;
-  const criticosRows=rowsFull.filter(isCritico);
-  const criticosVencidosRows=criticosRows.filter(isVencido);
-  document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
+  document.getElementById('k-abertos').textContent=abertos.toLocaleString('pt-BR');
+  document.getElementById('k-resolvidos').textContent=resolvidos.toLocaleString('pt-BR');
+  document.getElementById('k-taxa-resolucao-legend').textContent=`Taxa de resolução: ${fmtPct(taxaResolucao)}`;
+  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:1});
   document.getElementById('k-clientes').textContent=clientesUnicos.toLocaleString('pt-BR');
-  document.getElementById('k-criticos').textContent=criticosRows.length.toLocaleString('pt-BR');
-  document.getElementById('k-criticos-venc').textContent=criticosVencidosRows.length.toLocaleString('pt-BR');
+  document.getElementById('k-pendentes').textContent=pendentesRows.length.toLocaleString('pt-BR');
 
-  // ── MRR ──
-  const mrrEmRisco=rowsFull.filter(isAberto).reduce((s,r)=>s+parseMrr(r.mrr),0);
-  const mrrProtegido=rowsFull.filter(isRevertido).reduce((s,r)=>s+parseMrr(r.mrr),0);
-  const mrrPerdido=rowsFull.filter(r=>isPerdido(r)).reduce((s,r)=>s+parseMrr(r.mrr),0);
-  document.getElementById('k-mrr-risco').textContent=fmtMrrK(mrrEmRisco);
-  document.getElementById('k-mrr-risco-full').textContent=fmtMrrFull(mrrEmRisco);
-  document.getElementById('k-mrr-protegido').textContent=fmtMrrK(mrrProtegido);
-  document.getElementById('k-mrr-protegido-full').textContent=fmtMrrFull(mrrProtegido);
-  document.getElementById('k-mrr-perdido').textContent=fmtMrrK(mrrPerdido);
-  document.getElementById('k-mrr-perdido-full').textContent=fmtMrrFull(mrrPerdido);
+  // ── SLA / backlog ──
+  const resolvidosComPrazo=resolvidosRows.filter(temPrazo);
+  const slaCumprido=resolvidosComPrazo.length?resolvidosComPrazo.filter(isNoPrazo).length/resolvidosComPrazo.length:0;
+  const vencidosRows=pendentesRows.filter(isVencido);
+  const pctVencido=pendentesRows.length?vencidosRows.length/pendentesRows.length:0;
+  document.getElementById('k-sla-cumprido').textContent=fmtPct(slaCumprido);
+  document.getElementById('k-sla-cumprido-legend').textContent=
+    resolvidosComPrazo.length?`${resolvidosComPrazo.length.toLocaleString('pt-BR')} resolvidos com prazo definido.`:'Nenhum resolvido com prazo definido no período.';
+  document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
+  document.getElementById('k-backlog-vencido-legend').textContent=
+    `${fmtPct(pctVencido)} do pendente. Clique pra ver.`;
 
-  const byMes=bucketPorMes(rowsCtx);
-  renderTrendChart(byMes);
-  renderMrrTrendChart(byMes);
-  renderDistribCharts(rowsFull);
-  renderInternoExternoCharts(rowsFull);
-  renderVerticalCharts(rowsFull);
-  renderStatesMap(rowsFull);
-  renderModuleChart(rowsFull);
-  renderTopClientChart(rowsFull);
-  renderBaixaReversaoTable(rowsFull);
-  renderCriticosVencidosTable(criticosVencidosRows);
-  renderTopMrrRiscoTable(rowsFull);
+  // ── Qualidade da resolução ──
+  const reabertosNoPeriodo=resolvidosRows.filter(isReaberto).length;
+  const taxaReabertura=resolvidos?reabertosNoPeriodo/resolvidos:0;
+  const fcrRows=resolvidosRows.filter(isFCR);
+  const taxaFcr=resolvidos?fcrRows.length/resolvidos:0;
+  document.getElementById('k-reabertura').textContent=fmtPct(taxaReabertura);
+  document.getElementById('k-fcr').textContent=fmtPct(taxaFcr);
+
+  renderClassChart(rowsFull);
+  renderTrendChart(rowsCtx);
+  renderAgingChart(pendentesRows);
+  renderTeamChart(rowsFull);
+  renderUrgChart(rowsFull);
+  renderClientChart(rowsFull);
+  renderRespChart(rowsFull);
+  renderEquipesVencidoTable(pendentesRows);
+  renderSlaUrgChart(resolvidosComPrazo);
 }
 
 // ── cores (tokens do tema) ──────────────────────────────────────────
@@ -1235,28 +1183,282 @@ function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _chart
 function chartHoverCursor(evt,elements){
   evt.native.target.style.cursor=elements.length?'pointer':'default';
 }
+function contarPor(rows,fn){
+  const by={};
+  rows.forEach(r=>{ const v=fn(r); if(!v) return; by[v]=(by[v]||0)+1; });
+  return by;
+}
 
-// ── modal de detalhe (lista de tickets) ─────────────────────────────
-// ── Chamado Listagem: tabela completa (todas as colunas do export),
-// ordenável por coluna e com busca livre ────────────────────────────
+// onClick/onHover comuns pros gráficos: pega a barra/fatia clicada, filtra
+// os tickets daquela categoria e abre o modal de lista.
+function chartClickHandler(titlePrefix,filterFn){
+  return (evt,elements,chart)=>{
+    if(!elements.length) return;
+    const idx=elements[0].index;
+    const label=chart.data.labels[idx];
+    const matched=_rowsFull.filter(r=>filterFn(r,label));
+    openDetailModal(`${titlePrefix}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  };
+}
+
+function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePrefix){
+  destroyChart(id);
+  const col=chartColors();
+  _charts[id]=new Chart(document.getElementById(id),{
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'Abertos', data:abertosData, backgroundColor:col.slate, barThickness:14, borderRadius:3, grouped:false, order:1 },
+      { label:'Resolvidos', data:resolvidosData, backgroundColor:col.orange, barThickness:8, borderRadius:3, grouped:false, order:0 }
+    ]},
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:'top', labels:{color:col.t2, boxWidth:10, font:{size:11}} } },
+      scales:{ x:{ display:false }, y:{ grid:{display:false}, ticks:{color:col.t2, font:{size:10.5}} } },
+      onHover:chartHoverCursor,
+      onClick: titlePrefix?chartClickHandler(titlePrefix,onClickFilter):undefined,
+    }
+  });
+}
+
+// ── Classificação — ranking abertos x fechados ──────────────────────
+function renderClassChart(rows){
+  const porClass={};
+  rows.forEach(r=>{
+    const c=classificacaoDe(r);
+    porClass[c]=porClass[c]||{abertos:0,resolvidos:0};
+    porClass[c].abertos++;
+    if(isResolvido(r)) porClass[c].resolvidos++;
+  });
+  const entries=Object.entries(porClass).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
+  layeredBars('classChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
+    (r,label)=>classificacaoDe(r)===label,'Classificação');
+}
+
+// ── tendência ────────────────────────────────────────────────────────
+function bucketPorMes(rows){
+  const by={};
+  const get=mk=>{ by[mk]=by[mk]||{abertos:0,resolvidos:0}; return by[mk]; };
+  rows.forEach(r=>{
+    if(r.criado_em) get(monthKeyOf(r.criado_em)).abertos++;
+    if(r.resolvido_em&&isResolvido(r)) get(monthKeyOf(r.resolvido_em)).resolvidos++;
+  });
+  return by;
+}
+function renderTrendChart(rows){
+  destroyChart('trendVolChart');
+  const col=chartColors();
+  const byMes=bucketPorMes(rows);
+  const yearFilsA=getMsValues('f-year');
+  const yearFilVal=yearFilsA.length===1?yearFilsA[0]:null;
+  const meses=Object.keys(byMes).sort();
+  const chaves=yearFilVal
+    ? MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`)
+    : meses.slice(-12);
+  const labels=yearFilVal
+    ? MONTH_NAMES
+    : chaves.map(mk=>{ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
+  _charts.trendVolChart=new Chart(document.getElementById('trendVolChart'),{
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Abertos', data:chaves.map(mk=>byMes[mk]?byMes[mk].abertos:0), borderColor:col.orange, backgroundColor:col.orange+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 },
+      { label:'Resolvidos', data:chaves.map(mk=>byMes[mk]?byMes[mk].resolvidos:0), borderColor:col.purple, backgroundColor:col.purple+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
+      scales:{y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}}, x:{grid:{display:false},ticks:{color:col.t2}}},
+      interaction:{mode:'nearest',intersect:true},
+      onHover:chartHoverCursor,
+      onClick:(evt,elements,chart)=>{
+        if(!elements.length) return;
+        const {index:idx,datasetIndex:dsIdx}=elements[0];
+        const mk=chaves[idx];
+        const label=chart.data.labels[idx];
+        const isAbertos=dsIdx===0;
+        const matched=rows.filter(r=>isAbertos
+          ? (r.criado_em&&monthKeyOf(r.criado_em)===mk)
+          : (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk));
+        openDetailModal(`${isAbertos?'Abertos':'Resolvidos'}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+      },
+    }
+  });
+}
+
+// ── envelhecimento do backlog ────────────────────────────────────────
+function renderAgingChart(pendentesRows){
+  destroyChart('agingChart');
+  const col=chartColors();
+  const faixas=[
+    {l:'1 dia', max:1},
+    {l:'1-2 dias', max:2},
+    {l:'3-7 dias', max:7},
+    {l:'8-14 dias', max:14},
+    {l:'15+ dias', max:Infinity},
+  ];
+  const counts=faixas.map(()=>0);
+  pendentesRows.forEach(r=>{
+    const d=diasEmAberto(r);
+    const idx=faixas.findIndex(f=>d<=f.max);
+    counts[idx===-1?faixas.length-1:idx]++;
+  });
+  const colors=[col.slate,col.slate,col.slate,col.amber||col.orange,col.orange];
+  _charts.agingChart=new Chart(document.getElementById('agingChart'),{
+    type:'bar',
+    data:{labels:faixas.map(f=>f.l),datasets:[{data:counts,backgroundColor:colors,borderRadius:4}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},x:{grid:{display:false},ticks:{color:col.t2}}},
+      onHover:chartHoverCursor,
+      onClick:(evt,elements,chart)=>{
+        if(!elements.length) return;
+        const idx=elements[0].index, f=faixas[idx];
+        const min=idx>0?faixas[idx-1].max:0;
+        const matched=pendentesRows.filter(r=>{ const d=diasEmAberto(r); return d>min&&d<=f.max; });
+        openDetailModal(`Envelhecimento: ${f.l}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+      },
+    }
+  });
+}
+
+// ── composição ───────────────────────────────────────────────────────
+function renderTeamChart(rows){
+  const porEquipe={};
+  rows.forEach(r=>{
+    const e=r.equipe||'Não informado';
+    porEquipe[e]=porEquipe[e]||{abertos:0,resolvidos:0};
+    porEquipe[e].abertos++;
+    if(isResolvido(r)) porEquipe[e].resolvidos++;
+  });
+  const entries=Object.entries(porEquipe).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
+  layeredBars('teamChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
+    (r,label)=>(r.equipe||'Não informado')===label,'Equipe');
+}
+function renderUrgChart(rows){
+  destroyChart('urgChart');
+  const col=chartColors();
+  const porUrg=contarPor(rows,r=>r.urgencia||'Em branco');
+  const entries=Object.entries(porUrg).sort((a,b)=>b[1]-a[1]);
+  _charts.urgChart=new Chart(document.getElementById('urgChart'),{
+    type:'doughnut',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple,col.green,col.t3],borderWidth:0}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
+      onHover:chartHoverCursor,
+      onClick:chartClickHandler('Urgência',(r,label)=>(r.urgencia||'Em branco')===label),
+    }
+  });
+}
+
+// ── ranking ──────────────────────────────────────────────────────────
+function renderClientChart(rows){
+  const porCliente={};
+  rows.forEach(r=>{
+    const o=r.organizacao||'Não informado';
+    porCliente[o]=porCliente[o]||{abertos:0,resolvidos:0};
+    porCliente[o].abertos++;
+    if(isResolvido(r)) porCliente[o].resolvidos++;
+  });
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
+  layeredBars('clientChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
+    (r,label)=>(r.organizacao||'Não informado')===label,'Cliente');
+}
+function renderRespChart(rows){
+  const porResp={};
+  rows.forEach(r=>{
+    const p=r.responsavel||'Não informado';
+    porResp[p]=porResp[p]||{abertos:0,resolvidos:0};
+    porResp[p].abertos++;
+    if(isResolvido(r)) porResp[p].resolvidos++;
+  });
+  const entries=Object.entries(porResp).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
+  layeredBars('respChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
+    (r,label)=>(r.responsavel||'Não informado')===label,'Responsável');
+}
+
+// ── ação: equipes com maior % de backlog vencido ────────────────────
+function renderEquipesVencidoTable(pendentesRows){
+  const tbody=document.getElementById('tbl-equipes-vencido');
+  const porEquipe={};
+  pendentesRows.forEach(r=>{
+    const e=r.equipe||'Não informado';
+    porEquipe[e]=porEquipe[e]||{pendentes:0,vencidos:0};
+    porEquipe[e].pendentes++;
+    if(isVencido(r)) porEquipe[e].vencidos++;
+  });
+  const entries=Object.entries(porEquipe)
+    .map(([e,v])=>[e,v,v.pendentes?v.vencidos/v.pendentes:0])
+    .sort((a,b)=>b[2]-a[2])
+    .slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum ticket pendente no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(([e,v,pct])=>`
+    <tr class="clickable" onclick="openEquipeVencidoModal('${escAttr(e)}')">
+      <td>${esc(e)}</td>
+      <td class="num">${v.pendentes}</td>
+      <td class="num${v.vencidos?' bad':''}">${v.vencidos}</td>
+      <td class="num${pct>=0.3?' bad':''}">${fmtPct(pct)}</td>
+    </tr>`).join('');
+}
+function openEquipeVencidoModal(equipe){
+  const matched=_rowsFull.filter(r=>isAberto(r)&&isVencido(r)&&(r.equipe||'Não informado')===equipe);
+  openDetailModal(`Vencidos: ${equipe}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+}
+function openVencidosModal(){
+  const matched=_rowsFull.filter(r=>isAberto(r)&&isVencido(r));
+  openDetailModal('Backlog vencido',`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+}
+function openStatusModal(kind){
+  const matched=_rowsFull.filter(r=>kind==='aberto'?isAberto(r):isResolvido(r));
+  openDetailModal(kind==='aberto'?'Tickets pendentes':'Tickets resolvidos',`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+}
+
+// ── SLA por urgência ─────────────────────────────────────────────────
+function renderSlaUrgChart(resolvidosComPrazo){
+  destroyChart('slaUrgChart');
+  const col=chartColors();
+  const porUrg={};
+  resolvidosComPrazo.forEach(r=>{
+    const u=r.urgencia||'Em branco';
+    porUrg[u]=porUrg[u]||{total:0,noPrazo:0};
+    porUrg[u].total++;
+    if(isNoPrazo(r)) porUrg[u].noPrazo++;
+  });
+  const ordem=['Baixa','Média','Alta','Crítica','Em branco'];
+  const entries=Object.entries(porUrg).sort((a,b)=>ordem.indexOf(a[0])-ordem.indexOf(b[0]));
+  const pcts=entries.map(([,v])=>v.total?v.noPrazo/v.total*100:0);
+  _charts.slaUrgChart=new Chart(document.getElementById('slaUrgChart'),{
+    type:'bar',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:pcts,backgroundColor:col.orange,borderRadius:4}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true,max:100,grid:{color:col.border},ticks:{color:col.t2,callback:v=>v+'%'}},x:{grid:{display:false},ticks:{color:col.t2}}},
+      onHover:chartHoverCursor,
+      onClick:(evt,elements,chart)=>{
+        if(!elements.length) return;
+        const idx=elements[0].index, label=chart.data.labels[idx];
+        const matched=resolvidosComPrazo.filter(r=>(r.urgencia||'Em branco')===label);
+        openDetailModal(`SLA — Urgência: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+      },
+    }
+  });
+}
+
+// ── Chamado Listagem: tabela completa, ordenável e com busca ────────
 const LISTAGEM_COLS=[
   {label:'ID',num:true,
     get:r=>`#${r.ticket_id}`,
     html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a>`,
     sort:r=>Number(r.ticket_id)||0},
   {label:'Organização', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
-  {label:'Assunto', get:r=>r.assunto_gcc||'—', sort:r=>(r.assunto_gcc||'').toLowerCase()},
+  {label:'Assunto', get:r=>r.assunto||'—', sort:r=>(r.assunto||'').toLowerCase()},
+  {label:'Classificação', get:r=>classificacaoDe(r), sort:r=>classificacaoDe(r).toLowerCase()},
+  {label:'Equipe', get:r=>r.equipe||'—', sort:r=>(r.equipe||'').toLowerCase()},
   {label:'Status', get:r=>r.status_movidesk||r.base_status||'—', sort:r=>(r.status_movidesk||r.base_status||'').toLowerCase()},
-  {label:'Tipo Rescisão', get:r=>r.tipo_rescisao||'—', sort:r=>(r.tipo_rescisao||'').toLowerCase()},
-  {label:'Vertical', get:r=>verticalDe(r), sort:r=>verticalDe(r).toLowerCase()},
-  {label:'Motivo Churn', get:r=>r.motivo_churn||'—', sort:r=>(r.motivo_churn||'').toLowerCase()},
-  {label:'MRR',num:true, get:r=>fmtMrrFull(parseMrr(r.mrr)), sort:r=>parseMrr(r.mrr)},
-  {label:'Estado (UF)', get:r=>r.estado_cliente||'—', sort:r=>(r.estado_cliente||'').toLowerCase()},
+  {label:'Urgência', get:r=>r.urgencia||'—', sort:r=>(r.urgencia||'').toLowerCase()},
   {label:'Responsável', get:r=>r.responsavel||'—', sort:r=>(r.responsavel||'').toLowerCase()},
+  {label:'Ações',num:true, get:r=>Number(r.acoes_count||0), sort:r=>Number(r.acoes_count||0)},
   {label:'Criado em', get:r=>dtStr(r.criado_em)||'—', sort:r=>r.criado_em?new Date(r.criado_em).getTime():0},
   {label:'Resolvido em', get:r=>dtStr(r.resolvido_em)||'—', sort:r=>r.resolvido_em?new Date(r.resolvido_em).getTime():0},
 ];
-let _listagemSort={col:10,dir:-1}; // por padrão: Criado em, decrescente
+let _listagemSort={col:9,dir:-1}; // por padrão: Criado em, decrescente
 let _listagemSearch='';
 
 function openChamadoListagemModal(){
@@ -1318,7 +1520,7 @@ function openDetailModal(title,sub,rows){
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
   document.getElementById('detail-modal-thead').innerHTML=
-    '<th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th>';
+    '<th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th>';
   const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
     tbody.innerHTML=`<tr class="empty-row"><td colspan="5">Nenhum ticket encontrado.</td></tr>`;
@@ -1329,8 +1531,8 @@ function openDetailModal(title,sub,rows){
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
           <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
           <td>${esc(r.organizacao||'—')}</td>
-          <td>${esc(r.assunto_gcc||'—')}</td>
-          <td class="num">${fmtMrrFull(parseMrr(r.mrr))}</td>
+          <td>${esc(r.assunto||'—')}</td>
+          <td>${esc(r.equipe||'—')}</td>
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
         </tr>`).join('');
   }
@@ -1363,6 +1565,7 @@ function tlItem(a){
       <span class="td-tl-date">${fmtFull(a.createdDate)}</span>
       <span class="td-tl-badge">${esc(label)}</span>
       ${a.status?`<span class="td-tl-badge">${esc(a.status)}</span>`:''}
+      ${a.isPublic===false?'<span class="td-tl-badge">Nota interna</span>':''}
     </div>
     <div class="td-tl-desc">${a.description||''}</div>
   </div>`;
@@ -1374,51 +1577,30 @@ function openTicketModal(ticketId){
   document.getElementById('ticket-modal-link').href=ticketUrl(ticketId);
   document.getElementById('ticket-modal-body').innerHTML=`
     <div class="td-info-grid">
-      <div><p class="lbl">Assunto</p><p class="val">${esc(r.assunto_gcc||'—')}</p></div>
-      <div><p class="lbl">Locus</p><p class="val">${esc(locusNorm(r)||'—')}</p></div>
-      <div><p class="lbl">Tipo de rescisão</p><p class="val">${esc(tipoRescNorm(r)||'—')}</p></div>
-      <div><p class="lbl">MRR</p><p class="val">${fmtMrrFull(parseMrr(r.mrr))}</p></div>
+      <div><p class="lbl">Assunto</p><p class="val">${esc(r.assunto||'—')}</p></div>
+      <div><p class="lbl">Classificação</p><p class="val">${esc(classificacaoDe(r))}</p></div>
+      <div><p class="lbl">Equipe</p><p class="val">${esc(r.equipe||'—')}</p></div>
+      <div><p class="lbl">Urgência</p><p class="val">${esc(r.urgencia||'—')}</p></div>
       <div><p class="lbl">Responsável</p><p class="val">${esc(r.responsavel||'—')}</p></div>
       <div><p class="lbl">Status</p><p class="val">${esc(r.status_movidesk||r.base_status||'—')}</p></div>
       <div><p class="lbl">Criado em</p><p class="val">${fmtFull(r.criado_em)}</p></div>
       <div><p class="lbl">Resolvido em</p><p class="val">${fmtFull(r.resolvido_em)}</p></div>
     </div>
-    <div class="td-loading">Carregando ações e campos do ticket…</div>`;
+    <div class="td-loading">Carregando ações do ticket…</div>`;
   document.getElementById('ticket-modal').classList.add('show');
   syncModalBodyLock();
 
-  api(`/gcc/${ticketId}/actions`).then(data=>{
+  api(`/geral/${ticketId}/actions`).then(data=>{
     const actions=data.actions||[];
-    const fieldDefs=data.fieldDefs||{};
-    const cfItems=(data.customFieldValues||[]).reduce((acc,f)=>{
-      const val=String(f.value||'').trim()
-        ||(f.items||[]).map(i=>String(i.customFieldItem||'').trim()).filter(Boolean).join(', ');
-      if(!val) return acc;
-      const name=fieldDefs[String(f.customFieldId)];
-      if(!name) return acc;
-      acc.push({name,val});
-      return acc;
-    },[]);
-
-    let html='';
-    if(cfItems.length){
-      html+=`<div class="td-sec-lbl">Campos personalizados</div>
-        <div class="td-cf-grid">${cfItems.map(f=>`
-          <div class="td-cf-item"><span class="cf-lbl">${esc(f.name)}</span><span class="cf-val">${esc(f.val)}</span></div>`).join('')}
-        </div>`;
-    }
-    html+=`<div class="td-sec-lbl">Histórico (${actions.length} ação${actions.length===1?'':'ões'})</div>`;
-    html+=actions.length
-      ? actions.map(tlItem).join('')
-      : `<div class="td-empty">Nenhuma ação registrada.</div>`;
-
     const body=document.getElementById('ticket-modal-body');
-    body.querySelector('.td-loading')?.remove();
-    body.insertAdjacentHTML('beforeend',html);
+    const infoGrid=body.querySelector('.td-info-grid').outerHTML;
+    body.innerHTML=infoGrid+(actions.length
+      ? actions.map(tlItem).join('')
+      : '<div class="td-empty">Nenhuma ação registrada.</div>');
   }).catch(()=>{
     const body=document.getElementById('ticket-modal-body');
-    const loading=body.querySelector('.td-loading');
-    if(loading) loading.textContent='Não foi possível carregar ações/campos deste ticket.';
+    const infoGrid=body.querySelector('.td-info-grid').outerHTML;
+    body.innerHTML=infoGrid+'<div class="td-empty">Não foi possível carregar as ações.</div>';
   });
 }
 function closeTicketModal(){
@@ -1431,503 +1613,9 @@ document.getElementById('ticket-modal').addEventListener('click',e=>{ if(e.targe
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
+  else if(document.getElementById('listagem-modal').classList.contains('show')) closeListagemModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
 });
-
-// onClick/onHover comuns pros gráficos: pega a barra/fatia clicada, filtra
-// os tickets daquela categoria e abre o modal de lista.
-function chartClickHandler(titlePrefix,filterFn){
-  return (evt,elements,chart)=>{
-    if(!elements.length) return;
-    const idx=elements[0].index;
-    const label=chart.data.labels[idx];
-    const matched=_rowsFull.filter(r=>filterFn(r,label));
-    openDetailModal(`${titlePrefix}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
-  };
-}
-
-// ── tendência ────────────────────────────────────────────────────────
-function bucketPorMes(rows){
-  const by={};
-  const get=mk=>{ by[mk]=by[mk]||{solic:0,rev:0,mrrRisco:0,mrrPerdido:0}; return by[mk]; };
-  rows.forEach(r=>{
-    if(r.criado_em){
-      const b=get(monthKeyOf(r.criado_em));
-      b.solic++;
-      if(isAberto(r)) b.mrrRisco+=parseMrr(r.mrr);
-    }
-    if(isRevertido(r)){
-      get(monthKeyOf(r.data_reversao)).rev++;
-    }
-    const dataPerda=r.data_rescisao||r.resolvido_em;
-    if(dataPerda&&isPerdido(r)){
-      get(monthKeyOf(dataPerda)).mrrPerdido+=parseMrr(r.mrr);
-    }
-  });
-  return by;
-}
-function renderTrendChart(byMes){
-  destroyChart('trendChart');
-  const col=chartColors();
-  const yearFilsA=getMsValues('f-year');
-  const yearFilVal=yearFilsA.length===1?yearFilsA[0]:null;
-  const meses=Object.keys(byMes).sort();
-  const chaves=yearFilVal
-    ? MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`)
-    : meses.slice(-12);
-  const labels=yearFilVal
-    ? MONTH_NAMES
-    : chaves.map(mk=>{ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
-  _charts.trendChart=new Chart(document.getElementById('trendChart'),{
-    type:'line',
-    data:{
-      labels,
-      datasets:[
-        {label:'Solicitações',data:chaves.map(mk=>byMes[mk]?byMes[mk].solic:0),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
-        {label:'Revertidos',data:chaves.map(mk=>byMes[mk]?byMes[mk].rev:0),borderColor:col.green,backgroundColor:col.green+'26',fill:true,tension:.3,pointRadius:3},
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{color:col.t2}}},
-      scales:{
-        y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},
-        x:{grid:{display:false},ticks:{color:col.t2}}
-      }
-    }
-  });
-}
-function renderMrrTrendChart(byMes){
-  destroyChart('mrrTrendChart');
-  const col=chartColors();
-  const yearFilsB=getMsValues('f-year');
-  const yearFilVal=yearFilsB.length===1?yearFilsB[0]:null;
-  const meses=Object.keys(byMes).sort();
-  const chaves=yearFilVal
-    ? MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`)
-    : meses.slice(-12);
-  const labels=yearFilVal
-    ? MONTH_NAMES
-    : chaves.map(mk=>{ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
-  _charts.mrrTrendChart=new Chart(document.getElementById('mrrTrendChart'),{
-    type:'line',
-    data:{
-      labels,
-      datasets:[
-        {label:'MRR em risco',data:chaves.map(mk=>byMes[mk]?Math.round(byMes[mk].mrrRisco):0),borderColor:col.slate,backgroundColor:col.slate+'26',fill:true,tension:.3,pointRadius:3},
-        {label:'MRR perdido',data:chaves.map(mk=>byMes[mk]?Math.round(byMes[mk].mrrPerdido):0),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{color:col.t2}}},
-      scales:{
-        y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,callback:v=>fmtMrrK(v)}},
-        x:{grid:{display:false},ticks:{color:col.t2}}
-      }
-    }
-  });
-}
-
-// ── distribuição ─────────────────────────────────────────────────────
-function contarPor(rows,fn){
-  const by={};
-  rows.forEach(r=>{ const v=fn(r); if(!v) return; by[v]=(by[v]||0)+1; });
-  return by;
-}
-function renderDistribCharts(rows){
-  const col=chartColors();
-
-  destroyChart('locusChart');
-  const porLocus=contarPor(rows,locusNorm);
-  const locusEntries=Object.entries(porLocus);
-  const locusTotal=locusEntries.reduce((s,[,n])=>s+n,0);
-  document.getElementById('locusCaption').textContent=locusTotal
-    ? locusEntries.map(([k,n])=>`${esc(k)} ${(n/locusTotal*100).toFixed(0)}%`).join(' · ')
-    : 'Sem dado no período.';
-  _charts.locusChart=new Chart(document.getElementById('locusChart'),{
-    type:'doughnut',
-    data:{labels:locusEntries.map(e=>e[0]),datasets:[{data:locusEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple]}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,cutout:'65%',
-      plugins:{legend:{display:false}},
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Locus',(r,label)=>locusNorm(r)===label),
-    }
-  });
-
-  destroyChart('tipoRescChart');
-  const porTipo=contarPor(rows,tipoRescNorm);
-  const tipoEntries=Object.entries(porTipo);
-  const tipoTotal=tipoEntries.reduce((s,[,n])=>s+n,0);
-  document.getElementById('tipoRescCaption').textContent=tipoTotal
-    ? tipoEntries.map(([k,n])=>`${esc(k)} ${(n/tipoTotal*100).toFixed(0)}%`).join(' · ')
-    : 'Sem dado no período.';
-  _charts.tipoRescChart=new Chart(document.getElementById('tipoRescChart'),{
-    type:'doughnut',
-    data:{labels:tipoEntries.map(e=>e[0]),datasets:[{data:tipoEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple]}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,cutout:'65%',
-      plugins:{legend:{display:false}},
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Tipo de rescisão',(r,label)=>tipoRescNorm(r)===label),
-    }
-  });
-
-  destroyChart('parcialChart');
-  const parciais=rows.filter(r=>ehRescisaoParcial(r));
-  const porParcial=contarPor(parciais,r=>(r.tipo_rescisao_parcial||'').trim());
-  const parcialEntries=Object.entries(porParcial);
-  const parcialTotal=parcialEntries.reduce((s,[,n])=>s+n,0);
-  document.getElementById('parcialCaption').textContent=parcialTotal
-    ? parcialEntries.map(([k,n])=>`${esc(k)} ${(n/parcialTotal*100).toFixed(0)}%`).join(' · ')
-    : 'Sem rescisão parcial no período.';
-  _charts.parcialChart=new Chart(document.getElementById('parcialChart'),{
-    type:'doughnut',
-    data:{labels:parcialEntries.map(e=>e[0]),datasets:[{data:parcialEntries.map(e=>e[1]),backgroundColor:[col.purple,col.green,col.slate]}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,cutout:'65%',
-      plugins:{legend:{display:false}},
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&(r.tipo_rescisao_parcial||'').trim()===label),
-    }
-  });
-}
-
-// ── motivos por locus ────────────────────────────────────────────────
-function renderInternoExternoCharts(rows){
-  const col=chartColors();
-
-  destroyChart('internoChart');
-  const porInterno=contarPor(rows,r=>(r.cf_24986||'').trim());
-  const internoEntries=Object.entries(porInterno).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  _charts.internoChart=new Chart(document.getElementById('internoChart'),{
-    type:'bar',
-    data:{labels:internoEntries.map(e=>e[0]),datasets:[{data:internoEntries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
-      },
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Locus interno',(r,label)=>(r.cf_24986||'').trim()===label),
-    }
-  });
-
-  destroyChart('externoChart');
-  const porExterno=contarPor(rows,r=>(r.cf_24523||'').trim());
-  const externoEntries=Object.entries(porExterno).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  _charts.externoChart=new Chart(document.getElementById('externoChart'),{
-    type:'bar',
-    data:{labels:externoEntries.map(e=>e[0]),datasets:[{data:externoEntries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
-      },
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Locus externo',(r,label)=>(r.cf_24523||'').trim()===label),
-    }
-  });
-}
-
-// ── vertical ─────────────────────────────────────────────────────────
-function renderVerticalCharts(rows){
-  const col=chartColors();
-
-  destroyChart('verticalChart');
-  const porVertical=contarPor(rows,r=>verticalDe(r));
-  const total=rows.length;
-  const vertEntries=Object.entries(porVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  _charts.verticalChart=new Chart(document.getElementById('verticalChart'),{
-    type:'bar',
-    data:{
-      labels:vertEntries.map(e=>e[0]),
-      datasets:[{data:vertEntries.map(e=>total?+(e[1]/total*100).toFixed(1):0),backgroundColor:col.orange,borderRadius:4}]
-    },
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2}}
-      },
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Vertical',(r,label)=>verticalDe(r)===label),
-    }
-  });
-
-  destroyChart('mrrVerticalChart');
-  const perdidosRows=rows.filter(r=>isPerdido(r));
-  const mrrPorVertical={};
-  perdidosRows.forEach(r=>{
-    const v=verticalDe(r);
-    mrrPorVertical[v]=(mrrPorVertical[v]||0)+parseMrr(r.mrr);
-  });
-  const mrrVertEntries=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  _charts.mrrVerticalChart=new Chart(document.getElementById('mrrVerticalChart'),{
-    type:'bar',
-    data:{labels:mrrVertEntries.map(e=>e[0]),datasets:[{data:mrrVertEntries.map(e=>Math.round(e[1])),backgroundColor:col.orange,borderRadius:4}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2}}
-      },
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('MRR perdido — vertical',(r,label)=>
-        isPerdido(r)&&verticalDe(r)===label),
-    }
-  });
-}
-
-// ── mapa de clientes perdidos por estado ────────────────────────────
-// Estado (UF) do cliente vem de silver.cliente_estado — importado de uma
-// planilha de cadastro (a API do Movidesk não expõe UF de forma confiável,
-// nem no ticket nem no endpoint /persons). Cobertura parcial: nem toda
-// organização tem UF cadastrada.
-let _mapData=null;
-async function loadMapData(){
-  try{
-    const r=await fetch('/js/br-states-map.json');
-    _mapData=await r.json();
-  }catch{ _mapData=null; }
-}
-function mapColor(count,max){
-  if(!count) return cssVar('--surface-mid');
-  const t=max?count/max:0; // 0..1
-  // interpola entre --surface-mid (0) e --orange (max)
-  const from=hexToRgb(cssVar('--surface-mid'))||{r:230,g:228,b:222};
-  const to=hexToRgb(cssVar('--orange'))||{r:232,g:93,b:4};
-  const mix=(a,b)=>Math.round(a+(b-a)*(0.25+0.75*t)); // piso de 25% pra sempre distinguir de "sem dado"
-  return `rgb(${mix(from.r,to.r)},${mix(from.g,to.g)},${mix(from.b,to.b)})`;
-}
-function hexToRgb(hex){
-  const m=String(hex).trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-  if(!m) return null;
-  return {r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)};
-}
-// A UF em estado_cliente vem de uma planilha externa importada (ver
-// comentário acima de loadMapData) com formato inconsistente — às vezes
-// sigla ("MG"), às vezes nome completo ("MINAS GERAIS"). Normaliza pra
-// sigla sempre, senão o mapa não colore os estados com nome completo (a
-// chave não bate com s.sigla) e a legenda mistura os dois formatos.
-function normalizarUf(valorBruto){
-  const v=(valorBruto||'').trim().toUpperCase();
-  if(!v||!_mapData) return null;
-  if(_mapData.states.some(s=>s.sigla===v)) return v;
-  const porNome=_mapData.states.find(s=>s.name.trim().toUpperCase()===v);
-  return porNome ? porNome.sigla : v;
-}
-function renderStatesMap(rows){
-  const wrap=document.getElementById('statesMapWrap');
-  const legend=document.getElementById('mapLegend');
-  const sub=document.getElementById('mapSub');
-  if(!_mapData){ wrap.innerHTML='<p class="td-empty">Mapa indisponível.</p>'; return; }
-
-  const perdidos=rows.filter(isPerdido);
-  const comEstado=perdidos.filter(r=>(r.estado_cliente||'').trim());
-  const semEstado=perdidos.length-comEstado.length;
-  const porUf={};
-  comEstado.forEach(r=>{
-    const uf=normalizarUf(r.estado_cliente);
-    if(!uf) return;
-    porUf[uf]=(porUf[uf]||0)+1;
-  });
-  const max=Math.max(0,...Object.values(porUf));
-
-  sub.textContent=perdidos.length
-    ? `${perdidos.length} cliente${perdidos.length===1?'':'s'} perdido${perdidos.length===1?'':'s'} no período` +
-      (semEstado?` — ${semEstado} sem estado cadastrado (não aparece no mapa)`:'')
-    : 'Nenhum cliente perdido no período filtrado.';
-
-  const vb=_mapData.viewBox;
-  const paths=_mapData.states.map(s=>{
-    const count=porUf[s.sigla]||0;
-    const title=`${esc(s.name)} (${s.sigla}): ${count} cliente${count===1?'':'s'} perdido${count===1?'':'s'}`;
-    return `<path class="br-state" d="${s.d}" fill="${mapColor(count,max)}" data-uf="${s.sigla}" onclick="openEstadoTicketsModal('${s.sigla}','${escAttr(s.name)}')"><title>${title}</title></path>`;
-  }).join('');
-  // rótulos com halo (2 <text> sobrepostos: contorno branco atrás, texto na
-  // frente) — mais confiável entre navegadores do que paint-order pra manter
-  // a sigla/contagem legível em qualquer cor de fundo do estado.
-  const labels=_mapData.states.map(s=>{
-    const count=porUf[s.sigla]||0;
-    const ufY=s.cy-2, countY=s.cy+6.5;
-    return `
-      <text class="br-state-label halo" x="${s.cx}" y="${ufY}" font-size="7.5">${s.sigla}</text>
-      <text class="br-state-label halo" x="${s.cx}" y="${countY}" font-size="6.5">${count}</text>
-      <text class="br-state-label uf" x="${s.cx}" y="${ufY}" font-size="7.5">${s.sigla}</text>
-      <text class="br-state-label count${count?'':' zero'}" x="${s.cx}" y="${countY}" font-size="6.5">${count}</text>`;
-  }).join('');
-  wrap.innerHTML=`<svg viewBox="${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}" xmlns="http://www.w3.org/2000/svg">${paths}${labels}</svg>`;
-
-  const ranked=Object.entries(porUf).sort((a,b)=>b[1]-a[1]);
-  const totalEstados=ranked.reduce((s,[,n])=>s+n,0);
-  const nomePorUf=Object.fromEntries(_mapData.states.map(s=>[s.sigla,s.name]));
-  legend.innerHTML=`
-    <div class="scale-row"><span>0</span><span class="scale-bar"></span><span>${totalEstados}</span></div>
-    <div class="rank-list">
-      ${ranked.length?ranked.map(([uf,n])=>`
-        <div class="rank-item" onclick="openEstadoTicketsModal('${uf}','${escAttr(nomePorUf[uf]||uf)}')">
-          <span class="uf">${esc(uf)}</span><span class="n">${n}</span>
-        </div>`).join(''):'<p class="td-empty">Nenhum estado com dado no período.</p>'}
-    </div>
-  `;
-}
-// Clique num estado do mapa mostra só organização + MRR total perdido ali
-// (agrupado), não a lista de tickets — pedido explícito, diferente do
-// padrão usado nos outros gráficos/tabelas.
-function openEstadoTicketsModal(uf,nome){
-  const matched=_rowsFull.filter(r=>isPerdido(r)&&normalizarUf(r.estado_cliente)===uf);
-  const porOrg={};
-  matched.forEach(r=>{
-    const org=r.organizacao||'Não informado';
-    porOrg[org]=(porOrg[org]||0)+parseMrr(r.mrr);
-  });
-  const entries=Object.entries(porOrg).sort((a,b)=>b[1]-a[1]);
-
-  document.getElementById('detail-modal-title').textContent=`Clientes perdidos: ${nome} (${uf})`;
-  document.getElementById('detail-modal-sub').textContent=
-    `${entries.length} organizaç${entries.length===1?'ão':'ões'} · ${matched.length} ticket${matched.length===1?'':'s'}`;
-  document.getElementById('detail-modal-thead').innerHTML=
-    '<th>Organização</th><th class="num">MRR total</th>';
-  const tbody=document.getElementById('detail-modal-tbody');
-  tbody.innerHTML=entries.length
-    ? entries.map(([org,mrr])=>`
-        <tr><td>${esc(org)}</td><td class="num">${fmtMrrFull(mrr)}</td></tr>`).join('')
-    : `<tr class="empty-row"><td colspan="2">Nenhum cliente perdido nesse estado no período filtrado.</td></tr>`;
-  document.getElementById('detail-modal').classList.add('show');
-  syncModalBodyLock();
-}
-
-// ── ranking ──────────────────────────────────────────────────────────
-function renderModuleChart(rows){
-  destroyChart('moduleChart');
-  const col=chartColors();
-  const porModulo={};
-  rows.forEach(r=>{
-    if(!r.modulos) return;
-    String(r.modulos).split(',').map(s=>s.trim()).filter(Boolean).forEach(m=>{
-      porModulo[m]=(porModulo[m]||0)+1;
-    });
-  });
-  const entries=Object.entries(porModulo).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  _charts.moduleChart=new Chart(document.getElementById('moduleChart'),{
-    type:'bar',
-    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
-      },
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Módulo',(r,label)=>String(r.modulos||'').split(',').map(s=>s.trim()).includes(label)),
-    }
-  });
-}
-function renderTopClientChart(rows){
-  destroyChart('topClientChart');
-  const col=chartColors();
-  const porCliente=contarPor(rows,r=>r.organizacao||'Não informado');
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
-    type:'bar',
-    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
-      },
-      onHover:chartHoverCursor,
-      onClick:chartClickHandler('Cliente',(r,label)=>(r.organizacao||'Não informado')===label),
-    }
-  });
-}
-
-// ── painéis de ação ──────────────────────────────────────────────────
-function renderBaixaReversaoTable(rows){
-  const tbody=document.getElementById('tbl-baixa-reversao');
-  const porCliente={};
-  rows.forEach(r=>{
-    const o=r.organizacao||'Não informado';
-    porCliente[o]=porCliente[o]||{casos:0,rev:0};
-    porCliente[o].casos++;
-    if(isRevertido(r)) porCliente[o].rev++;
-  });
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1].casos-a[1].casos).slice(0,10);
-  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso no período filtrado.</td></tr>`; return; }
-  tbody.innerHTML=entries.map(([org,v])=>{
-    const pct=v.casos?v.rev/v.casos*100:0;
-    return `
-    <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
-      <td>${esc(org)}</td>
-      <td class="num">${v.casos}</td>
-      <td class="num${pct<30?' bad':''}">${pct.toFixed(0)}%</td>
-    </tr>`;
-  }).join('');
-}
-function openClienteTicketsModal(org){
-  const matched=_rowsFull.filter(r=>(r.organizacao||'Não informado')===org);
-  openDetailModal(`Casos: ${org}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
-}
-
-function renderCriticosVencidosTable(rows){
-  const tbody=document.getElementById('tbl-criticos-vencidos');
-  const entries=rows
-    .map(r=>({...r,diasVenc:diasVencido(r)}))
-    .sort((a,b)=>b.diasVenc-a.diasVenc)
-    .slice(0,10);
-  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso crítico vencido no período filtrado.</td></tr>`; return; }
-  entries.forEach(r=>{ _rowsById[r.ticket_id]=r; });
-  tbody.innerHTML=entries.map(r=>`
-    <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
-      <td>${esc(r.organizacao||'Não informado')}</td>
-      <td>${esc(verticalDe(r))}</td>
-      <td class="num bad">${r.diasVenc}</td>
-    </tr>`).join('');
-}
-function scrollToCriticosVencidos(){
-  document.getElementById('painel-criticos-vencidos').scrollIntoView({behavior:'smooth',block:'center'});
-}
-
-function openSemTipoRescisaoModal(){
-  const matched=_rowsFull.filter(semTipoRescisao);
-  openDetailModal('Sem tipo de rescisão',`${matched.length} ticket${matched.length===1?'':'s'} sem o campo preenchido`,matched);
-}
-
-function renderTopMrrRiscoTable(rows){
-  const tbody=document.getElementById('tbl-top-mrr-risco');
-  const abertos=rows.filter(isAberto);
-  const porCliente={};
-  abertos.forEach(r=>{
-    const o=r.organizacao||'Não informado';
-    porCliente[o]=porCliente[o]||{mrr:0,tickets:[]};
-    porCliente[o].mrr+=parseMrr(r.mrr);
-    porCliente[o].tickets.push(r);
-  });
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1].mrr-a[1].mrr).slice(0,10);
-  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso em aberto no período filtrado.</td></tr>`; return; }
-  tbody.innerHTML=entries.map(([org,v])=>{
-    const statusTxt=v.tickets.length===1
-      ? (v.tickets[0].status_movidesk||v.tickets[0].base_status||'—')
-      : `${v.tickets.length} casos`;
-    return `
-    <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
-      <td>${esc(org)}</td>
-      <td class="num bad">${fmtMrrFull(v.mrr)}</td>
-      <td class="num">${esc(statusTxt)}</td>
-    </tr>`;
-  }).join('');
-}
 
 // ── sync ─────────────────────────────────────────────────────────────
 let _syncPoll=null;
@@ -1938,12 +1626,15 @@ function showToast(txt,prog){
 }
 function hideToast(){ document.getElementById('sync-toast').classList.remove('show'); }
 
+// "Sincronizar tickets" aqui dispara a carga Incremental (todos os tickets,
+// não só uma classificação) — é o equivalente geral do "Sincronizar
+// tickets" de Ouvidoria/GCC, que só busca a classificação deles.
 async function startSync(){
   const btn=document.getElementById('btn-sync');
   btn.disabled=true;
-  showToast('Iniciando sincronização de GCC…','');
+  showToast('Iniciando sincronização geral…','');
   try{
-    await apiFetch('/loader/gcc','POST');
+    await apiFetch('/loader/incremental','POST');
     pollSyncStatus();
   }catch(e){
     if(e.message==='HTTP 409'){
@@ -1980,7 +1671,7 @@ async function checkSyncStatus(){
           :`Carga concluída — ${(last.tickets_loaded||0).toLocaleString('pt-BR')} tickets`;
         showToast(msg,'');
         setTimeout(hideToast,5000);
-        if(last.status==='done') loadGcc();
+        if(last.status==='done') loadGeral();
       }
     }
   }catch{ /* ignora erros de polling */ }
@@ -2006,8 +1697,7 @@ async function applyRolePermissions(){
 }
 
 // ── boot ─────────────────────────────────────────────────────────────
-loadMapData().then(()=>{ if(_rows.length) render(); });
-loadGcc();
+loadGeral();
 applyRolePermissions();
 </script>
 </body>

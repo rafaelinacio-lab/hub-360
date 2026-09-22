@@ -640,6 +640,25 @@ async function persistCuradoriaAnalysis(ticketId, raw, timing) {
 }
 
 async function processOneCuradoriaTicket(row) {
+  // Verifica se o chamado tem dados mínimos para análise (precisa ter pelo menos actions com
+  // algum conteúdo). Tickets inseridos só com ticket_id (sem sync de detalhes) são marcados
+  // como processado = -1 ("sem dados") e pulados sem contar como erro.
+  let actionsArr = [];
+  try {
+    const a = row.actions;
+    actionsArr = Array.isArray(a) ? a : (typeof a === 'string' && a.trim() && a !== '[]' ? JSON.parse(a) : []);
+  } catch (_) {}
+
+  const temDados = actionsArr.length > 0 || (row.servico && row.servico.trim());
+  if (!temDados) {
+    await db.queryDatabase(
+      'movidesk_curadoria',
+      `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`,
+      [row.ticket_id]
+    );
+    return; // pula sem contar como erro
+  }
+
   const timing = calcularTiming(row.aberto_em, row.resolvido_em);
   const systemPrompt = await buildCuradoriaSystemPrompt(row, timing);
   const promptCfg = await getCuradoriaPromptAnalisePromise();
@@ -671,7 +690,7 @@ async function runCuradoriaProcessingLoop() {
 
     const pendingResult = await db.queryDatabase(
       'movidesk_curadoria',
-      `SELECT ticket_id, actions, fato, causa, modulo_x_rotina, owner, solicitante, aberto_em, resolvido_em, urgencia
+      `SELECT ticket_id, servico, actions, fato, causa, modulo_x_rotina, owner, solicitante, aberto_em, resolvido_em, urgencia
        FROM public.curadoria_chamados WHERE ${whereClause} ORDER BY ticket_id ${orderDir}`
     );
     curadoriaProcessingState.total = pendingResult.rows.length;
@@ -919,7 +938,7 @@ router.post('/prompt-analise/test', authMiddleware, requireRole('admin'), async 
 // sincronização busca UM CHAMADO POR VEZ (fila de pendentes, igual ao processamento de IA),
 // respeitando o limite de ~10 requisições/minuto do Movidesk.
 
-const API_TICKET_URL = 'https://api.movidesk.com/public/v1/tickets';
+const API_TICKET_URL = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
 
 function normalizeSurveyValue(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -951,13 +970,17 @@ function getMovideskTokenPromise() {
   });
 }
 
-// O Movidesk limita a ~10 requisições/minuto (da CONTA inteira, não por endpoint). Excedendo
-// isso, a API não devolve um 429 "educado" — ela derruba a conexão, o que aparece pro Node
-// como "fetch failed" genérico (erro de rede, não resposta HTTP). Por isso toda chamada às
-// APIs do Movidesk usadas aqui (satisfação e módulo x rotina) passa por este MESMO limitador
-// compartilhado antes de sair, com folga sob o limite real — se as duas tarefas rodarem ao
-// mesmo tempo, elas dividem a mesma cota em vez de somarem e estourarem o limite juntas.
-const MOVIDESK_MIN_INTERVAL_MS = 6500; // ~9 req/min — fallback; valor real vem de curadoria_movidesk_config
+// Limite real confirmado da API do Movidesk: 240 requisições/minuto (da CONTA
+// inteira, não por endpoint). Excedendo isso, a API não devolve um 429
+// "educado" — ela derruba a conexão, o que aparece pro Node como "fetch
+// failed" genérico (erro de rede, não resposta HTTP). Por isso toda chamada
+// às APIs do Movidesk usadas aqui (satisfação e módulo x rotina) passa por
+// este MESMO limitador compartilhado antes de sair, rodando a 50 req/min por
+// escolha explícita (bem abaixo do limite real) — se as duas tarefas
+// rodarem ao mesmo tempo (ou junto com a sincronização de satisfação do
+// datalake, em movidesk-loader.js, que usa o mesmo valor de referência),
+// elas dividem a mesma cota em vez de somarem e estourarem o limite juntas.
+const MOVIDESK_MIN_INTERVAL_MS = 1200; // 50 req/min — fallback; valor real vem de curadoria_movidesk_config
 let lastMovideskRequestAt = 0;
 async function throttleMovideskRequest(rateLimitMs = MOVIDESK_MIN_INTERVAL_MS) {
   const wait = rateLimitMs - (Date.now() - lastMovideskRequestAt);
@@ -1259,6 +1282,460 @@ router.post('/modulo/sync/stop', authMiddleware, requireRole('admin'), (req, res
   res.json({ stopping: true });
 });
 
+// ===== Importação de chamados da API Movidesk → curadoria_chamados =====
+// Busca chamados diretamente da API do Movidesk (com histórico completo de ações)
+// e insere na tabela curadoria_chamados com processado=0, prontos para o pipeline
+// de enriquecimento (IA, satisfação, módulo x rotina).
+// Idempotente: usa INSERT ... ON CONFLICT DO NOTHING, portanto re-importar não
+// duplica chamados. Só atualiza ações/status se o chamado já existia e processado=0.
+
+const MOVIDESK_TICKETS_API = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
+
+let activeImportJob = null;
+let importJobState = {
+  running: false,
+  status: 'idle',
+  message: 'Aguardando importação',
+  startedAt: null,
+  updatedAt: null,
+  completedAt: null,
+  totalFetched: 0,
+  totalInserted: 0,
+  totalSkipped: 0,
+  lastError: null,
+  params: null
+};
+
+function updateImportState(patch = {}) {
+  importJobState = { ...importJobState, ...patch, updatedAt: new Date().toISOString() };
+}
+
+async function runMovideskImport({ token, dateFrom, dateTo, ownerTeam, ownerEmail, rateLimitMs = 3000 }) {
+  const fetch = require('node-fetch');
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  updateImportState({
+    running: true, status: 'running', lastError: null,
+    totalFetched: 0, totalInserted: 0, totalSkipped: 0,
+    startedAt: new Date().toISOString(), completedAt: null,
+    message: 'Conectando à API Movidesk...',
+    params: { dateFrom, dateTo, ownerTeam, ownerEmail }
+  });
+
+  try {
+    // Filtros OData
+    const filterParts = [];
+    if (dateFrom) filterParts.push(`createdDate ge ${dateFrom}T00:00:00Z`);
+    if (dateTo)   filterParts.push(`createdDate le ${dateTo}T23:59:59Z`);
+    if (ownerTeam)  filterParts.push(`ownerTeam eq '${ownerTeam.replace(/'/g, "''")}'`);
+    if (ownerEmail) filterParts.push(`owner/email eq '${ownerEmail.replace(/'/g, "''")}'`);
+    const odataFilter = filterParts.join(' and ');
+    const filterExpr = odataFilter ? `&$filter=${encodeURIComponent(odataFilter)}` : '';
+
+    const selectFields = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
+    const expandRelations = 'owner($select=businessName,email),actions($select=id,type,origin,status,createdDate,description;$expand=createdBy($select=businessName,email)),clients($select=businessName,email;$expand=organization($select=businessName))';
+
+    const PAGE_SIZE = 100;
+    let skip = 0;
+    let hasMore = true;
+    let totalFetched = 0;
+
+    while (hasMore) {
+      updateImportState({ message: `Buscando página (skip=${skip})…` });
+
+      const url = `${MOVIDESK_TICKETS_API}?token=${encodeURIComponent(token)}&$select=${encodeURIComponent(selectFields)}${filterExpr}&$expand=${encodeURIComponent(expandRelations)}&$orderby=createdDate asc&$top=${PAGE_SIZE}&$skip=${skip}`;
+
+      let tickets = [];
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const resp = await fetch(url);
+          if (resp.status === 429) {
+            await sleep(rateLimitMs * 2);
+            continue;
+          }
+          if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(`Movidesk retornou ${resp.status}: ${body.slice(0, 200)}`);
+          }
+          const raw = await resp.json();
+          tickets = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+          break;
+        } catch (e) {
+          if (attempt === 2) throw e;
+          await sleep(2000 * (attempt + 1));
+        }
+      }
+
+      if (!tickets.length) { hasMore = false; break; }
+
+      totalFetched += tickets.length;
+      updateImportState({ totalFetched, message: `Processando lote com ${tickets.length} chamado(s) (total: ${totalFetched})…` });
+
+      // Insere cada chamado no banco
+      for (const t of tickets) {
+        const ownerName  = t.owner?.businessName || '';
+        const ownerEmailVal = t.owner?.email || '';
+        const actionsJson = JSON.stringify(t.actions || []);
+
+        // Solicitante e organização
+        const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
+        const solicitante = firstClient?.businessName || '';
+        const organizacao = firstClient?.organization?.businessName || '';
+
+        // Contagens
+        const actions = t.actions || [];
+        const totalAcoes = actions.length;
+        const totalCliente = actions.filter(a => (a.createdBy?.email || '') !== ownerEmailVal && a.type !== 1).length;
+        const totalAgente  = actions.filter(a => a.type === 1 || (a.createdBy?.email || '') === ownerEmailVal).length;
+
+        // Tempo de resolução em dias
+        let tempoResolDias = null;
+        if (t.createdDate && t.resolvedIn) {
+          const ms = new Date(t.resolvedIn) - new Date(t.createdDate);
+          if (ms > 0) tempoResolDias = Math.round(ms / 86400000 * 10) / 10;
+        }
+
+        try {
+          const result = await db.queryDatabase(
+            'movidesk_curadoria',
+            `INSERT INTO public.curadoria_chamados
+               (ticket_id, servico, owner, owner_team, status, urgencia,
+                solicitante, organizacao, actions, total_acoes, total_cliente, total_agente,
+                tempo_resol_dias, aberto_em, resolvido_em, processado)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,0)
+             ON CONFLICT (ticket_id) DO UPDATE SET
+               status        = EXCLUDED.status,
+               actions       = EXCLUDED.actions,
+               total_acoes   = EXCLUDED.total_acoes,
+               aberto_em     = EXCLUDED.aberto_em,
+               resolvido_em  = EXCLUDED.resolvido_em
+             WHERE curadoria_chamados.processado = 0`,
+            [
+              t.id,
+              t.subject || '',
+              ownerName,
+              t.ownerTeam || '',
+              t.status || '',
+              t.urgency || '',
+              solicitante,
+              organizacao,
+              actionsJson,
+              totalAcoes,
+              totalCliente,
+              totalAgente,
+              tempoResolDias,
+              t.createdDate || null,
+              t.resolvedIn || null
+            ]
+          );
+          // rowCount=1 → inseriu; rowCount=0 → conflito (já existia, pulou)
+          if ((result.rowCount || 0) > 0) {
+            importJobState.totalInserted++;
+          } else {
+            importJobState.totalSkipped++;
+          }
+        } catch (insertErr) {
+          console.error(`[import-curadoria] Erro ao inserir ticket ${t.id}:`, insertErr.message);
+          importJobState.totalSkipped++;
+        }
+      }
+
+      // Próxima página ou encerramento
+      if (tickets.length < PAGE_SIZE) { hasMore = false; }
+      else { skip += PAGE_SIZE; await sleep(rateLimitMs); }
+    }
+
+    updateImportState({
+      running: false, status: 'completed',
+      message: `Concluído: ${importJobState.totalInserted} inserido(s), ${importJobState.totalSkipped} já existentes.`,
+      completedAt: new Date().toISOString()
+    });
+    console.log(`✅ [import-curadoria] Finalizado: ${importJobState.totalInserted} inseridos, ${importJobState.totalSkipped} pulados`);
+  } catch (err) {
+    console.error('[import-curadoria] Falhou:', err.message || err);
+    updateImportState({
+      running: false, status: 'error',
+      message: `Erro: ${err.message}`,
+      lastError: err.message,
+      completedAt: new Date().toISOString()
+    });
+  } finally {
+    activeImportJob = null;
+  }
+}
+
+// ===== POST /curadoria/import =====
+// Inicia importação de chamados da API Movidesk para curadoria_chamados.
+// Body: { dateFrom, dateTo, ownerTeam, ownerEmail }
+// dateFrom/dateTo no formato YYYY-MM-DD (obrigatório pelo menos dateFrom).
+router.post('/import', authMiddleware, requireRole('admin'), async (req, res) => {
+  if (activeImportJob) {
+    return res.json({ running: true, state: importJobState, message: 'Importação já em andamento.' });
+  }
+
+  const { dateFrom, dateTo, ownerTeam, ownerEmail } = req.body || {};
+  if (!dateFrom) {
+    return res.status(400).json({ error: 'dateFrom é obrigatório (formato YYYY-MM-DD).' });
+  }
+
+  // Valida formato de data
+  const dateRx = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRx.test(dateFrom) || (dateTo && !dateRx.test(dateTo))) {
+    return res.status(400).json({ error: 'Datas devem estar no formato YYYY-MM-DD.' });
+  }
+
+  // Obtém token Movidesk
+  let token;
+  try {
+    token = await new Promise((resolve, reject) => {
+      getToken((err, t) => err ? reject(err) : resolve(t));
+    });
+  } catch (err) {
+    return res.status(503).json({ error: 'Token Movidesk não configurado ou inválido.' });
+  }
+
+  const movideskCfg = await new Promise(resolve => {
+    getCuradoriaMovideskConfig((err, cfg) => resolve(cfg || {}));
+  });
+  const rateLimitMs = movideskCfg.rateLimitMs || 3000;
+
+  activeImportJob = runMovideskImport({ token, dateFrom, dateTo, ownerTeam, ownerEmail, rateLimitMs });
+  res.json({ started: true, state: importJobState });
+});
+
+// ===== GET /curadoria/import/status =====
+router.get('/import/status', authMiddleware, requireRole('admin'), (req, res) => {
+  res.json(importJobState);
+});
+
+// ===== DELETE /curadoria/import/cancel =====
+// Sinaliza cancelamento (o loop checa activeImportJob; quando zerado, para)
+router.delete('/import/cancel', authMiddleware, requireRole('admin'), (req, res) => {
+  if (!activeImportJob) return res.json({ cancelled: false, message: 'Nenhuma importação em andamento.' });
+  activeImportJob = null; // o loop para naturalmente na próxima iteração
+  updateImportState({ running: false, status: 'cancelled', message: 'Cancelado pelo usuário.', completedAt: new Date().toISOString() });
+  res.json({ cancelled: true });
+});
+
+// ===== Job de Enriquecimento (busca detalhes dos tickets sem dados na API) =====
+
+let enriquecimentoState = {
+  running: false, total: 0, done: 0, updated: 0, notFound: 0, failed: 0,
+  currentTicketId: null, startedAt: null, finishedAt: null,
+  stopRequested: false, recentErrors: [], anos: []
+};
+let activeEnriquecimento = null;
+
+const ENRICH_SELECT = 'id,subject,status,baseStatus,createdDate,resolvedIn,ownerTeam,urgency';
+const ENRICH_EXPAND = [
+  'owner($select=businessName,email)',
+  'actions($select=id,type,origin,status,createdDate,description)',
+  'clients($select=businessName,email)',
+].join(',');
+const ENRICH_PAGE_SIZE = parseInt(process.env.ENRICH_PAGE_SIZE || '100', 10);
+
+// Gera janelas mensais para os anos pedidos
+function gerarJanelasEnrich(anos) {
+  const janelas = [];
+  for (const ano of anos) {
+    for (let mes = 1; mes <= 12; mes++) {
+      const ultimo = new Date(ano, mes, 0).getDate();
+      janelas.push({
+        label:    `${String(mes).padStart(2,'0')}/${ano}`,
+        dateFrom: `${ano}-${String(mes).padStart(2,'0')}-01T00:00:00Z`,
+        dateTo:   `${ano}-${String(mes).padStart(2,'0')}-${ultimo}T23:59:59Z`,
+      });
+    }
+  }
+  return janelas;
+}
+
+// UPDATE de um ticket no banco
+async function enrichSaveTicket(t) {
+  const ownerName   = t.owner?.businessName || '';
+  const actions     = Array.isArray(t.actions) ? t.actions : [];
+  const firstClient = Array.isArray(t.clients) ? t.clients[0] : null;
+  const totalAcoes   = actions.length;
+  const totalCliente = actions.filter(a => a.type !== 1).length;
+  const totalAgente  = actions.filter(a => a.type === 1).length;
+  let tempoResolDias = null;
+  if (t.createdDate && t.resolvedIn) {
+    const ms = new Date(t.resolvedIn) - new Date(t.createdDate);
+    if (ms > 0) tempoResolDias = String(Math.round(ms / 86400000 * 10) / 10);
+  }
+  await db.queryDatabase('movidesk_curadoria',
+    `UPDATE public.curadoria_chamados SET
+       servico=$2, owner=$3, owner_team=$4, status=$5, urgencia=$6,
+       solicitante=$7, organizacao=$8, actions=$9, total_acoes=$10,
+       total_cliente=$11, total_agente=$12, tempo_resol_dias=$13,
+       aberto_em=$14, resolvido_em=$15
+     WHERE ticket_id = $1`,
+    [t.id, t.subject||'', ownerName, t.ownerTeam||'', t.status||'', t.urgency||'',
+     firstClient?.businessName||'', firstClient?.organization?.businessName||'',
+     JSON.stringify(actions), totalAcoes, totalCliente, totalAgente,
+     tempoResolDias, t.createdDate||null, t.resolvedIn||null]
+  );
+}
+
+async function runEnriquecimentoLoop(anos = []) {
+  const fetch = require('node-fetch');
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  const RATE_MS  = parseInt(process.env.IMPORT_RATE_MS || '2100', 10);
+  const API_BASE = (process.env.MOVIDESK_API_BASE || 'https://apimovidesk.viasoftcloud.com.br').replace(/\/$/, '');
+  const BASES    = [`${API_BASE}/public/v1/tickets`, `${API_BASE}/public/v1/tickets/past`];
+
+  try {
+    // Resolver token
+    let token;
+    if (process.env.MOVIDESK_TOKEN) {
+      token = process.env.MOVIDESK_TOKEN;
+    } else {
+      token = await new Promise((resolve, reject) =>
+        getToken((err, t) => err ? reject(err) : resolve(t))
+      );
+    }
+
+    // Carregar IDs pendentes num Set para lookup O(1)
+    const pendingResult = await db.queryDatabase('movidesk_curadoria',
+      `SELECT ticket_id FROM public.curadoria_chamados
+       WHERE (actions IS NULL OR actions = '' OR actions = '[]')`
+    );
+    const pendingSet = new Set((pendingResult.rows || []).map(r => r.ticket_id));
+    enriquecimentoState.total = pendingSet.size;
+
+    if (!pendingSet.size) return;
+
+    // Determinar anos a varrer
+    // Se nenhum informado, varre de 2020 até o ano atual (cobre todo o histórico)
+    let anosAlvo = anos;
+    if (!anosAlvo.length) {
+      const cur = new Date().getFullYear();
+      for (let y = 2020; y <= cur; y++) anosAlvo.push(y);
+    }
+    const janelas  = gerarJanelasEnrich(anosAlvo);
+    enriquecimentoState.anosAlvo = anosAlvo;
+
+    for (const { label, dateFrom, dateTo } of janelas) {
+      if (enriquecimentoState.stopRequested) break;
+      if (!pendingSet.size) break;
+
+      enriquecimentoState.currentTicketId = label;
+
+      for (const baseUrl of BASES) {
+        if (enriquecimentoState.stopRequested) break;
+        if (!pendingSet.size) break;
+
+        let skip = 0;
+        while (true) {
+          if (enriquecimentoState.stopRequested) break;
+
+          const filter = `createdDate ge ${dateFrom} and createdDate le ${dateTo}`;
+          const params = new URLSearchParams({
+            '$select':  ENRICH_SELECT,
+            '$expand':  ENRICH_EXPAND,
+            '$filter':  filter,
+            '$orderby': 'id asc',
+            '$top':     String(ENRICH_PAGE_SIZE),
+            '$skip':    String(skip),
+          });
+          const url = `${baseUrl}?${params.toString()}`;
+
+          let tickets = [];
+          for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+              const resp = await fetch(url, { headers: { 'X-Gateway-Token': token } });
+              if (resp.status === 429) { await sleep(65000); continue; }
+              if (!resp.ok) { const b = await resp.text(); throw new Error(`HTTP ${resp.status}: ${b.slice(0,200)}`); }
+              const raw = await resp.json();
+              tickets = Array.isArray(raw) ? raw : (Array.isArray(raw?.value) ? raw.value : []);
+              break;
+            } catch (e) {
+              if (attempt === 4) throw e;
+              await sleep(2000 * (attempt + 1));
+            }
+          }
+
+          for (const t of tickets) {
+            if (!pendingSet.has(t.id)) continue;
+            try {
+              await enrichSaveTicket(t);
+              pendingSet.delete(t.id);
+              enriquecimentoState.updated++;
+            } catch (e) {
+              enriquecimentoState.failed++;
+              enriquecimentoState.recentErrors.unshift({ ticket_id: t.id, error: e.message, at: new Date().toISOString() });
+              if (enriquecimentoState.recentErrors.length > 20) enriquecimentoState.recentErrors.length = 20;
+            }
+            enriquecimentoState.done++;
+          }
+
+          if (tickets.length < ENRICH_PAGE_SIZE) break;
+          skip += ENRICH_PAGE_SIZE;
+          await sleep(RATE_MS);
+        }
+        await sleep(RATE_MS);
+      }
+    }
+
+    // Os que sobraram não foram encontrados na API
+    enriquecimentoState.notFound = pendingSet.size;
+    for (const id of pendingSet) {
+      await db.queryDatabase('movidesk_curadoria',
+        `UPDATE public.curadoria_chamados SET processado = -1 WHERE ticket_id = $1`, [id]).catch(() => {});
+    }
+  } catch (err) {
+    console.error('[enriquecimento] Erro fatal:', err.message);
+  } finally {
+    enriquecimentoState.running = false;
+    enriquecimentoState.currentTicketId = null;
+    enriquecimentoState.finishedAt = new Date().toISOString();
+    activeEnriquecimento = null;
+  }
+}
+
+function startEnriquecimentoJob(anos = []) {
+  if (activeEnriquecimento) return enriquecimentoState;
+  enriquecimentoState = {
+    running: true, total: 0, done: 0, updated: 0, notFound: 0, failed: 0,
+    currentTicketId: null, startedAt: new Date().toISOString(), finishedAt: null,
+    stopRequested: false, recentErrors: [], anos, anosAlvo: []
+  };
+  activeEnriquecimento = runEnriquecimentoLoop(anos);
+  return enriquecimentoState;
+}
+
+// POST /curadoria/enriquecimento/start
+router.post('/enriquecimento/start', authMiddleware, requireRole('admin'), (req, res) => {
+  const anos = Array.isArray(req.body.anos)
+    ? req.body.anos.map(a => parseInt(a, 10)).filter(n => !isNaN(n))
+    : [];
+  const state = startEnriquecimentoJob(anos);
+  res.json(state);
+});
+
+// GET /curadoria/enriquecimento/status
+router.get('/enriquecimento/status', authMiddleware, requireRole('admin'), (req, res) => {
+  res.json(enriquecimentoState);
+});
+
+// POST /curadoria/enriquecimento/stop
+router.post('/enriquecimento/stop', authMiddleware, requireRole('admin'), (req, res) => {
+  enriquecimentoState.stopRequested = true;
+  res.json({ stopping: true });
+});
+
+// GET /curadoria/enriquecimento/count
+router.get('/enriquecimento/count', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const r = await db.queryDatabase('movidesk_curadoria',
+      `SELECT COUNT(*) FROM public.curadoria_chamados WHERE (actions IS NULL OR actions = '' OR actions = '[]')`);
+    res.json({ count: Number(r.rows[0].count) || 0 });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao contar' });
+  }
+});
+
 // ===== Carga bruta (dispara os 3 jobs de enriquecimento de uma vez) =====
 // "Foco de Atendimento" e os KPIs da Visão Geral são sempre calculados ao vivo a
 // partir do que já está em curadoria_chamados — não precisam de "carga" própria.
@@ -1270,6 +1747,7 @@ let fullLoadLastRun = { at: null, source: null };
 function runFullLoad(source = 'manual') {
   fullLoadLastRun = { at: new Date().toISOString(), source };
   startCuradoriaProcessingJob();
+  startSlaEstouroRecalcJob();
   startSurveySyncJob();
   startModuloSyncJob();
   return fullLoadLastRun;
@@ -1281,18 +1759,20 @@ router.post('/full-load', authMiddleware, requireRole('admin'), (req, res) => {
   res.json({
     lastRun,
     processamento: curadoriaProcessingState,
-    survey: surveyProcessingState,
-    modulo: moduloProcessingState
+    slaEstouro:    slaEstouroRecalcState,
+    survey:        surveyProcessingState,
+    modulo:        moduloProcessingState
   });
 });
 
 // ===== GET /curadoria/full-load/status =====
 router.get('/full-load/status', authMiddleware, requireRole('admin'), (req, res) => {
   res.json({
-    lastRun: fullLoadLastRun,
+    lastRun:       fullLoadLastRun,
     processamento: curadoriaProcessingState,
-    survey: surveyProcessingState,
-    modulo: moduloProcessingState
+    slaEstouro:    slaEstouroRecalcState,
+    survey:        surveyProcessingState,
+    modulo:        moduloProcessingState
   });
 });
 

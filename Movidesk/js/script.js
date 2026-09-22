@@ -27,8 +27,164 @@ const EMBED_PAGE_ROUTES = {
     ouvidoria: 'pages/ouvidoria.html',
     gcc: 'pages/gcc.html',
     jira: 'pages/jira.html',
-    movidesk: 'pages/movidesk.html'
+    movidesk: 'pages/geral.html',
+    satisfacao: 'pages/satisfacao.html'
 };
+
+// ─── Animação de transição: ícone da aba clicada "voa" até o centro do
+// conteúdo, pulsa com um anel de destaque e desaparece revelando a página.
+// Fundo opaco cobre TUDO por baixo (aba antiga + nova carregando) até a
+// animação terminar — só então o overlay some e revela o conteúdo.
+const TAB_FX_FADE_IN  = 180;  // overlay vira opaco
+const TAB_FX_HOLD_END = 1500; // overlay começa a sumir
+const TAB_FX_TOTAL    = 1900; // overlay totalmente transparente de novo
+
+function playTabIconTransition(view) {
+    const main = document.querySelector('.main-content');
+    if (!main) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const mainRect = main.getBoundingClientRect();
+    const overlay = document.createElement('div');
+    overlay.className = 'tab-fx-overlay';
+    overlay.style.left = `${mainRect.left}px`;
+    overlay.style.top = `${mainRect.top}px`;
+    overlay.style.width = `${mainRect.width}px`;
+    overlay.style.height = `${mainRect.height}px`;
+    document.body.appendChild(overlay);
+
+    overlay.animate(
+        [
+            { opacity: 0, offset: 0 },
+            { opacity: 1, offset: TAB_FX_FADE_IN / TAB_FX_TOTAL },
+            { opacity: 1, offset: TAB_FX_HOLD_END / TAB_FX_TOTAL },
+            { opacity: 0, offset: 1 },
+        ],
+        { duration: TAB_FX_TOTAL, easing: 'ease', fill: 'forwards' }
+    );
+
+    if (view === 'gcc') {
+        playGccArrowDraw(mainRect);
+    } else {
+        playIconFly(view, mainRect);
+    }
+
+    setTimeout(() => overlay.remove(), TAB_FX_TOTAL + 80);
+}
+
+// Voo genérico do ícone da aba clicada até o centro da tela.
+function playIconFly(view, mainRect) {
+    const btn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
+    const svg = btn && btn.querySelector('svg');
+    if (!svg) return;
+
+    const startRect = svg.getBoundingClientRect();
+    const cx = mainRect.left + mainRect.width / 2;
+    const cy = mainRect.top + mainRect.height / 2;
+    const startCx = startRect.left + startRect.width / 2;
+    const startCy = startRect.top + startRect.height / 2;
+    const dx = cx - startCx;
+    const dy = cy - startCy;
+    const bigScale = 92 / startRect.width;
+    const delay = TAB_FX_FADE_IN;
+
+    const ring = document.createElement('div');
+    ring.className = 'tab-fx-ring';
+    ring.style.left = `${cx}px`;
+    ring.style.top = `${cy}px`;
+    ring.style.opacity = '0';
+
+    const icon = document.createElement('div');
+    icon.className = 'tab-fx-icon';
+    icon.innerHTML = svg.outerHTML;
+    icon.style.left = `${startRect.left}px`;
+    icon.style.top = `${startRect.top}px`;
+    icon.style.width = `${startRect.width}px`;
+    icon.style.height = `${startRect.height}px`;
+    icon.style.opacity = '0';
+
+    document.body.appendChild(ring);
+    document.body.appendChild(icon);
+
+    ring.animate(
+        [
+            { transform: 'translate(-50%,-50%) scale(0)', opacity: 0.5, offset: 0 },
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.35, offset: 0.4 },
+            { transform: 'translate(-50%,-50%) scale(2.6)', opacity: 0, offset: 1 },
+        ],
+        { duration: 900, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
+    );
+
+    icon.animate(
+        [
+            { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1, offset: 0 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(-10deg)`, opacity: 1, offset: 0.45 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 1.1}) rotate(4deg)`, opacity: 1, offset: 0.68 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(0deg)`, opacity: 1, offset: 0.85 },
+            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 0.5}) rotate(8deg)`, opacity: 0, offset: 1 },
+        ],
+        { duration: 1000, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
+    );
+
+    setTimeout(() => { ring.remove(); icon.remove(); }, TAB_FX_TOTAL + 80);
+}
+
+// GCC: a setinha de queda (trending down) é desenhada traço a traço no
+// centro da tela, em vez de voar — pedido explícito pra essa aba.
+function playGccArrowDraw(mainRect) {
+    const cx = mainRect.left + mainRect.width / 2;
+    const cy = mainRect.top + mainRect.height / 2;
+    const size = 120;
+    const delay = TAB_FX_FADE_IN;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'tab-fx-draw';
+    wrap.style.left = `${cx - size / 2}px`;
+    wrap.style.top = `${cy - size / 2}px`;
+    wrap.style.width = `${size}px`;
+    wrap.style.height = `${size}px`;
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+
+    const line = document.createElementNS(NS, 'path');
+    line.setAttribute('d', 'M10 22 L38 46 L58 30 L88 64');
+    const arrow = document.createElementNS(NS, 'path');
+    arrow.setAttribute('d', 'M88 40 L88 64 L64 64');
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', '88');
+    dot.setAttribute('cy', '64');
+    dot.setAttribute('r', '0');
+
+    svg.appendChild(line);
+    svg.appendChild(arrow);
+    svg.appendChild(dot);
+    wrap.appendChild(svg);
+    document.body.appendChild(wrap);
+
+    const lineLen = line.getTotalLength();
+    const arrowLen = arrow.getTotalLength();
+    line.style.strokeDasharray = String(lineLen);
+    line.style.strokeDashoffset = String(lineLen);
+    arrow.style.strokeDasharray = String(arrowLen);
+    arrow.style.strokeDashoffset = String(arrowLen);
+
+    line.animate(
+        [{ strokeDashoffset: lineLen }, { strokeDashoffset: 0 }],
+        { duration: 600, delay, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
+    );
+    arrow.animate(
+        [{ strokeDashoffset: arrowLen }, { strokeDashoffset: 0 }],
+        { duration: 280, delay: delay + 600, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
+    );
+    dot.animate(
+        [{ r: 0, opacity: 0.9 }, { r: 6, opacity: 0 }],
+        { duration: 400, delay: delay + 880, easing: 'ease-out', fill: 'forwards' }
+    );
+
+    setTimeout(() => wrap.remove(), TAB_FX_TOTAL + 80);
+}
 
 // ─── Bolha de hover que acompanha o mouse entre as abas do menu superior ───
 function initTopbarHoverPill() {
@@ -91,7 +247,7 @@ function renderSidebarUser() {
     if (!sidebarUser) return;
     const nome = _currentUser.name || _currentUser.nome || 'Usuário';
     const email = _currentUser.email || '';
-    const avatar = createAvatarHTML(email, nome);
+    const avatar = createAvatarHTML(email, nome, _currentUser.picture || null);
     sidebarUser.innerHTML = `
         <div class="sidebar-user-avatar" title="${nome}${email ? ' (' + email + ')' : ''}">${avatar}</div>
     `;
@@ -125,26 +281,51 @@ async function getUserEmailByName(name) {
 }
 
 // ─── Função para criar HTML de avatar (foto ou fallback com iniciais) ───────
-function createAvatarHTML(email, name) {
+function createAvatarHTML(email, name, googlePicture) {
     const initials = (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     const photoUrl = getPhotoUrl(email);
-    
+
     // Se tem email, tenta primeiro por email, depois por nome como fallback
     // Se não tem email mas tem nome, tenta buscar por nome
     let imageSrc = photoUrl || (name ? `${API_BASE}/pessoas/foto-por-nome/${encodeURIComponent(name)}` : null);
-    
+    // Sem foto oficial (pasta de TI) pra tentar, já usa a foto da conta Google
+    // (quando disponível) direto, em vez de cair pras iniciais.
+    if (!imageSrc && googlePicture) imageSrc = googlePicture;
+    // Foto oficial da pasta de TI falhando (onerror) tenta a foto do Google
+    // antes de desistir e mostrar as iniciais — ver avatarImgError abaixo.
+    const fallback = (imageSrc !== googlePicture && googlePicture) ? googlePicture : '';
+
     return `
         <div class="avatar-container" title="${escapeHtml(name || '')}">
-            <img 
+            <img
                 src="${imageSrc || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}"
                 alt="${escapeHtml(name || '')}"
                 class="avatar-foto"
-                onerror="this.style.display='none'; this.parentElement.querySelector('.avatar-initials').style.display='flex';"
+                data-fallback="${escapeHtml(fallback)}"
+                data-fallback-tried="0"
+                onerror="avatarImgError(this)"
                 onload="this.parentElement.querySelector('.avatar-initials').style.display='none';"
             />
             <div class="avatar-initials">${initials}</div>
         </div>
     `;
+}
+
+// Encadeia o fallback de avatar: foto oficial (pasta de TI) → foto da conta
+// Google → iniciais. Só avança um passo por vez (data-fallback-tried evita
+// loop se a própria URL de fallback também falhar).
+function avatarImgError(img) {
+    const fallback = img.dataset.fallback;
+    if (fallback && img.dataset.fallbackTried !== '1') {
+        img.dataset.fallbackTried = '1';
+        img.src = fallback;
+        return;
+    }
+    img.style.display = 'none';
+    // Duas classes de "iniciais" convivem no app: .avatar-initials (sidebar)
+    // e .pt-avatar (tabela de Pessoas) — mesma função de fallback serve as duas.
+    const initialsEl = img.parentElement.querySelector('.avatar-initials, .pt-avatar');
+    if (initialsEl) initialsEl.style.display = 'flex';
 }
 
 function getTicketValue(ticket, camelKey, snakeKey, fallback = '') {
@@ -172,9 +353,12 @@ function navigateTo(view) {
             return;
         }
 
+        const wasActive = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"].active`);
         document.querySelectorAll('.sidebar-btn[data-view]').forEach(b => b.classList.remove('active'));
         const activeBtn = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"]`);
         if (activeBtn) activeBtn.classList.add('active');
+
+        if (!wasActive) playTabIconTransition(normalizedView);
 
         loadEmbeddedPage(normalizedView);
         localStorage.setItem('activeEmbeddedView', normalizedView);
@@ -198,12 +382,14 @@ function navigateTo(view) {
     const denied = document.getElementById('configAccessDenied');
     if (denied) denied.style.display = 'none';
 
+    const wasActive = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"].active`);
     document.querySelectorAll('.sidebar-btn[data-view]').forEach(b => b.classList.remove('active'));
     Object.values(views).forEach(v => { if (v) v.style.display = 'none'; });
 
     if (views[normalizedView]) views[normalizedView].style.display = 'block';
     const activeBtn = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"]`);
     if (activeBtn) activeBtn.classList.add('active');
+    if (!wasActive) playTabIconTransition(normalizedView);
 
     if (normalizedView === 'dashboard' || normalizedView === 'movidesk') {
         fetchOpenTickets();

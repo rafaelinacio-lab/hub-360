@@ -128,6 +128,13 @@ async function initSchema(activePool, key) {
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     `).catch(() => {});
+    // Foto da conta Google (claim "picture" do ID token) — usada como fallback
+    // de avatar quando não há foto oficial na pasta de TI. Atualizada a cada
+    // login via SSO pra acompanhar trocas de foto na conta Google.
+    await activePool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS google_picture_url TEXT
+    `).catch(() => {});
     await activePool.query(`
       CREATE TABLE IF NOT EXISTS config (
         id SERIAL PRIMARY KEY,
@@ -327,9 +334,16 @@ async function query(sql, params = []) {
 }
 
 async function queryDatabase(databaseName, sql, params = []) {
+  const base = getBootstrapConfig();
+  // Bancos secundários (ex: movidesk_curadoria) podem não estar registrados no
+  // PgBouncer. Nesses casos, usa DB_DIRECT_PORT (padrão 5432) para conexão direta
+  // ao PostgreSQL, contornando o pooler sem afetar as conexões principais.
+  const directPort = process.env.DB_DIRECT_PORT ? Number(process.env.DB_DIRECT_PORT) : 5432;
+  const isMainDb = databaseName === base.database;
   const cfg = {
-    ...getBootstrapConfig(),
-    database: databaseName
+    ...base,
+    database: databaseName,
+    port: isMainDb ? base.port : directPort
   };
   const { text, values } = convertParams(sql, params);
 
@@ -352,6 +366,20 @@ async function queryDatabase(databaseName, sql, params = []) {
   }
 
   throw lastError;
+}
+
+// Concede um client dedicado do pool principal para quem precisa garantir que
+// vários statements rodem na MESMA conexão/sessão (ex: SET lock_timeout seguido
+// de DDL). db.query() usa o pool e cada chamada pode pegar uma conexão diferente,
+// então SET não teria efeito garantido sobre a query seguinte.
+async function withClient(callback) {
+  const activePool = await createPoolIfNeeded();
+  const client = await activePool.connect();
+  try {
+    return await callback(client);
+  } finally {
+    client.release();
+  }
 }
 
 function get(sql, params, callback) {
@@ -401,4 +429,4 @@ async function close() {
   }
 }
 
-module.exports = { query, queryDatabase, get, all, run, close };
+module.exports = { query, queryDatabase, get, all, run, close, withClient };

@@ -3,134 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Embed</title>
+    <title>Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500&display=swap">
+    <script>
+        (function () {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+            window.addEventListener('storage', function (e) {
+                if (e.key === 'theme') document.documentElement.setAttribute('data-theme', e.newValue || 'light');
+            });
+        })();
+    </script>
     <style>
+        /* ── Tokens ── */
+        :root {
+            --db-bg:      #f0f4f8;
+            --db-surface: #ffffff;
+            --db-text:    #1a2638;
+            --db-sub:     #556a80;
+            --db-border:  #dde4ec;
+            --db-em:      #10b981;
+            --db-blue:    #378add;
+            --db-dark:    #0a1628;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --db-bg:      #0a1628;
+                --db-surface: #111c2e;
+                --db-text:    #e2e8f0;
+                --db-sub:     #8fa3b8;
+                --db-border:  #1e2d40;
+            }
+        }
+        :root[data-theme="dark"] {
+            --db-bg:      #0a1628;
+            --db-surface: #111c2e;
+            --db-text:    #e2e8f0;
+            --db-sub:     #8fa3b8;
+            --db-border:  #1e2d40;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
         html, body {
             width: 100%;
             height: 100%;
             margin: 0;
-            background: transparent;
             overflow: hidden;
+            background: var(--db-bg);
         }
 
-        .embedded-view-frame {
+        /* ── iframe ── */
+        .db-frame {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
             border: 0;
-            display: block;
             opacity: 0;
-            transition: opacity 0.4s ease;
+            transition: opacity 0.5s ease;
         }
+        .db-frame.visible { opacity: 1; }
 
-        .embedded-view-frame.loaded {
-            opacity: 1;
-        }
-
-        /* ── Loader overlay ─────────────────────────────────── */
-        #loaderOverlay {
+        /* ── Loader overlay ── */
+        #loader {
             position: fixed;
             inset: 0;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: transparent;
+            gap: 28px;
+            background: var(--db-bg);
             z-index: 10;
-            transition: opacity 0.4s ease;
+            transition: opacity 0.5s ease;
         }
-
-        #loaderOverlay.hidden {
+        #loader.out {
             opacity: 0;
             pointer-events: none;
         }
 
-        /* From Uiverse.io by alexruix */
-        .loader {
-            --cell-size: 52px;
-            --cell-spacing: 1px;
-            --cells: 3;
-            --total-size: calc(var(--cells) * (var(--cell-size) + 2 * var(--cell-spacing)));
-            display: flex;
-            flex-wrap: wrap;
-            width: var(--total-size);
-            height: var(--total-size);
+        /* ── Orbit logo animado ── */
+        .orbit-wrap {
+            position: relative;
+            width: 72px;
+            height: 72px;
+        }
+        .orbit-wrap svg {
+            position: absolute;
+            inset: 0;
+        }
+        /* anel externo gira devagar */
+        .ring-outer {
+            animation: spin 4s linear infinite;
+            transform-origin: 36px 36px;
+        }
+        /* anel interno gira na direção oposta, mais rápido */
+        .ring-inner {
+            animation: spin-rev 2.5s linear infinite;
+            transform-origin: 36px 36px;
+        }
+        @keyframes spin     { to { transform: rotate(360deg); } }
+        @keyframes spin-rev { to { transform: rotate(-360deg); } }
+
+        /* ponto central pulsa */
+        .dot-center {
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1;   transform: scale(1);    }
+            50%       { opacity: 0.5; transform: scale(0.75); }
         }
 
-        .cell {
-            flex: 0 0 var(--cell-size);
-            margin: var(--cell-spacing);
-            background-color: transparent;
-            box-sizing: border-box;
-            border-radius: 4px;
-            animation: 1.5s ripple ease infinite;
+        /* ── Texto de status ── */
+        .loader-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--db-sub);
+            letter-spacing: 0.3px;
         }
 
-        .cell.d-1 { animation-delay: 100ms; }
-        .cell.d-2 { animation-delay: 200ms; }
-        .cell.d-3 { animation-delay: 300ms; }
-        .cell.d-4 { animation-delay: 400ms; }
+        /* ── Barra de progresso indeterminada ── */
+        .loader-bar {
+            width: 140px;
+            height: 2px;
+            border-radius: 2px;
+            background: var(--db-border);
+            overflow: hidden;
+            margin-top: -12px;
+        }
+        .loader-bar-fill {
+            height: 100%;
+            width: 40%;
+            border-radius: 2px;
+            background: linear-gradient(90deg, var(--db-em), var(--db-blue));
+            animation: bar 1.6s ease-in-out infinite;
+        }
+        @keyframes bar {
+            0%   { transform: translateX(-100%); }
+            50%  { transform: translateX(150%); }
+            100% { transform: translateX(150%); }
+        }
 
-        .cell:nth-child(1) { --cell-color: #00FF87; }
-        .cell:nth-child(2) { --cell-color: #0CFD95; }
-        .cell:nth-child(3) { --cell-color: #17FBA2; }
-        .cell:nth-child(4) { --cell-color: #23F9B2; }
-        .cell:nth-child(5) { --cell-color: #30F7C3; }
-        .cell:nth-child(6) { --cell-color: #3DF5D4; }
-        .cell:nth-child(7) { --cell-color: #45F4DE; }
-        .cell:nth-child(8) { --cell-color: #53F1F0; }
-        .cell:nth-child(9) { --cell-color: #60EFFF; }
-
-        @keyframes ripple {
-            0%   { background-color: transparent; }
-            30%  { background-color: var(--cell-color); }
-            60%  { background-color: transparent; }
-            100% { background-color: transparent; }
+        @media (prefers-reduced-motion: reduce) {
+            .ring-outer, .ring-inner, .dot-center, .loader-bar-fill {
+                animation: none;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div id="loaderOverlay">
-        <div class="loader">
-            <div class="cell d-0"></div>
-            <div class="cell d-1"></div>
-            <div class="cell d-2"></div>
-            <div class="cell d-3"></div>
-            <div class="cell d-4"></div>
-            <div class="cell d-1"></div>
-            <div class="cell d-2"></div>
-            <div class="cell d-3"></div>
-            <div class="cell d-4"></div>
+    <!-- ── Loader ── -->
+    <div id="loader" role="status" aria-label="Carregando dashboard">
+
+        <div class="orbit-wrap" aria-hidden="true">
+            <svg width="72" height="72" viewBox="0 0 36 36" fill="none">
+                <!-- anel externo com traço -->
+                <g class="ring-outer">
+                    <circle cx="18" cy="18" r="16"
+                        stroke="#10b981" stroke-width="1.8"
+                        stroke-dasharray="60 40" stroke-linecap="round"/>
+                    <circle cx="18" cy="2" r="2.2" fill="#ffffff" opacity="0.85"/>
+                </g>
+                <!-- anel interno -->
+                <g class="ring-inner">
+                    <circle cx="18" cy="18" r="9"
+                        stroke="#378add" stroke-width="1.4"
+                        stroke-dasharray="32 24" stroke-linecap="round"/>
+                    <circle cx="18" cy="9" r="1.6" fill="#378add" opacity="0.9"/>
+                </g>
+                <!-- ponto central -->
+                <circle class="dot-center" cx="18" cy="18" r="3.2" fill="#10b981"/>
+            </svg>
         </div>
+
+        <div class="loader-label">Carregando dashboard…</div>
+        <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+
     </div>
 
+    <!-- ── iframe do Dashboard ── -->
     <iframe
         id="dashboardFrame"
-        class="embedded-view-frame"
+        class="db-frame"
         src="../index.html?legacyView=dashboard"
         title="Dashboard"
     ></iframe>
 
     <script>
-        const frame   = document.getElementById('dashboardFrame');
-        const overlay = document.getElementById('loaderOverlay');
+        const frame  = document.getElementById('dashboardFrame');
+        const loader = document.getElementById('loader');
 
-        // Mostra o loader por pelo menos 2s, depois aguarda o iframe estar pronto
-        const minDisplay = new Promise(r => setTimeout(r, 2000));
-        const iframeLoad = new Promise(r => frame.addEventListener('load', r, { once: true }));
+        const minWait   = new Promise(r => setTimeout(r, 1800));
+        const iframeOk  = new Promise(r => frame.addEventListener('load', r, { once: true }));
 
-        Promise.all([minDisplay, iframeLoad]).then(() => {
-            overlay.classList.add('hidden');
-            frame.classList.add('loaded');
-            overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-        });
+        Promise.all([minWait, iframeOk]).then(hide);
+        setTimeout(hide, 10000); // fallback
 
-        // Fallback: máximo 10s independente de tudo
-        setTimeout(() => {
-            if (!frame.classList.contains('loaded')) {
-                overlay.classList.add('hidden');
-                frame.classList.add('loaded');
-            }
-        }, 10000);
+        function hide() {
+            if (frame.classList.contains('visible')) return;
+            loader.classList.add('out');
+            frame.classList.add('visible');
+            loader.addEventListener('transitionend', () => loader.remove(), { once: true });
+        }
     </script>
 
 </body>

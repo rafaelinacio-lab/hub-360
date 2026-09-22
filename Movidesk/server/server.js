@@ -13,7 +13,13 @@ const pessoasRoutes = require('./routes/pessoas');
 const curadoriaRoutes = require('./routes/curadoria');
 const ouvidoriaRoutes = require('./routes/ouvidoria');
 const gccRoutes = require('./routes/gcc');
+const geralRoutes = require('./routes/geral');
+const satisfacaoRoutes = require('./routes/satisfacao');
 const jiraRoutes = require('./routes/jira');
+const loaderRoutes = require('./routes/loader');
+const cronsRoutes = require('./routes/crons');
+const movideskLoader = require('./scripts/movidesk-loader');
+const cronManager = require('./scripts/cron-manager');
 const { getCuradoriaMovideskConfig } = require('./routes/config');
 
 const app = express();
@@ -55,9 +61,13 @@ app.use('/api/pessoas', pessoasRoutes);
 app.use('/api/curadoria', curadoriaRoutes);
 app.use('/api/ouvidoria', ouvidoriaRoutes);
 app.use('/api/gcc', gccRoutes);
+app.use('/api/geral', geralRoutes);
+app.use('/api/satisfacao', satisfacaoRoutes);
 app.use('/api/jira', jiraRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/tickets', ticketsRoutes);
+app.use('/api/loader', loaderRoutes);
+app.use('/api/crons', cronsRoutes);
 
 // Rota raiz
 // Também respondemos em /index.html (não só "/"): as páginas em pages/*.html
@@ -97,38 +107,49 @@ setInterval(() => {
   db.query('DELETE FROM sessions WHERE expires_at < NOW()').catch(() => {});
 }, 60 * 60 * 1000);
 
-// ===== Carga bruta agendada da Curadoria (manhã, almoço e fim de tarde) =====
-// Dispara os jobs de enriquecimento (análise de IA, satisfação real, módulo x rotina)
-// automaticamente 3x ao dia, para que os KPIs e o Foco de Atendimento da Visão Geral
-// reflitam dados atualizados sem precisar de acionamento manual. Cada job já é
-// resumível e idempotente (só processa o que ainda não foi verificado), então disparar
-// de novo antes do anterior terminar não duplica trabalho.
-const DEFAULT_CURADORIA_FULL_LOAD_TIMES = ['08:00', '12:00', '19:00'];
-let curadoriaFullLoadFiredKeys = new Set();
-
-// Horários vêm de curadoria_movidesk_config (Configurações → Curadoria Avançado); o array
-// acima só é usado como fallback se ainda não houver nada configurado.
-function checkCuradoriaFullLoadSchedule() {
-  getCuradoriaMovideskConfig((err, cfg) => {
-    const times = (!err && Array.isArray(cfg?.fullLoadTimes) && cfg.fullLoadTimes.length) ? cfg.fullLoadTimes : DEFAULT_CURADORIA_FULL_LOAD_TIMES;
-
-    const now = new Date();
-    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    if (!times.includes(hhmm)) return;
-
-    const dayKey = now.toISOString().slice(0, 10);
-    const fireKey = `${dayKey}T${hhmm}`;
-    if (curadoriaFullLoadFiredKeys.has(fireKey)) return;
-    curadoriaFullLoadFiredKeys.add(fireKey);
-    // Evita crescimento infinito do Set — mantém só as chaves do dia atual
-    curadoriaFullLoadFiredKeys.forEach((k) => { if (!k.startsWith(dayKey)) curadoriaFullLoadFiredKeys.delete(k); });
-
-    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga bruta agendada da Curadoria (${hhmm})`);
-    curadoriaRoutes.runFullLoad('scheduled');
-  });
+// ===== Cargas automáticas configuráveis =====
+// As cargas (Ouvidoria/GCC/Incremental/Full) agora rodam por cron_job
+// configurável no banco (silver.cron_job), gerenciadas em
+// scripts/cron-manager.js e editáveis em Configurações → Cargas automáticas
+// (ou via /api/crons). Nenhum setInterval fixo aqui — na primeira vez que o
+// servidor sobe sem nenhum job cadastrado, semeia a cron de Ouvidoria a
+// cada 2h (mesmo comportamento que já existia antes disso virar
+// configurável), já habilitada; GCC/Incremental/Full ficam disponíveis pra
+// quem quiser ligar pela tela, mas não são criadas automaticamente.
+async function seedDefaultCronJobs() {
+  const { rows } = await db.query('SELECT COUNT(*)::int AS n FROM silver.cron_job').catch(() => ({ rows: [{ n: 1 }] }));
+  if (rows[0]?.n > 0) return;
+  await db.query(
+    `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params)
+     VALUES ('Ouvidoria automática', 'ouvidoria', 120, true, '{}'::jsonb)`
+  ).catch(e => console.error('[cron-manager] seed falhou:', e.message));
 }
 
-setInterval(checkCuradoriaFullLoadSchedule, 30 * 1000);
+cronManager.ensureTable()
+  .then(seedDefaultCronJobs)
+  .then(() => cronManager.loadAndStartAll())
+  .catch(e => console.error('[cron-manager] inicialização falhou:', e.message));
+
+// Garante que silver.ticket (e as demais tabelas/colunas do datalake) já
+// existem assim que o servidor sobe — sem isso, uma coluna nova (ex:
+// sla_solution_date) só aparecia depois que alguém disparasse uma carga
+// manualmente, e até lá TODAS as rotas de Ouvidoria/GCC quebravam com
+// "column does not exist" e caíam silenciosamente pro fallback de "ainda
+// não carregado" (dashboard inteiro zerado, sem erro visível).
+movideskLoader.ensureTables().catch(e => {
+  console.error('[server] ensureTables na inicialização falhou (não bloqueia o boot):', e.message);
+});
+
+// silver.ticket_organizacao — materialização da heurística de organização
+// (ver comentário em ensureTables/refreshTicketOrganizacao). Recalcula no boot
+// e a cada 30min pra acompanhar tickets/clientes novos, sem repetir a
+// subquery correlacionada lenta a cada request do Painel Geral/GCC/Ouvidoria.
+movideskLoader.refreshTicketOrganizacao().catch(e => {
+  console.error('[server] refreshTicketOrganizacao na inicialização falhou (não bloqueia o boot):', e.message);
+});
+setInterval(() => {
+  movideskLoader.refreshTicketOrganizacao().catch(() => {});
+}, 30 * 60 * 1000);
 
 // Iniciar servidor
 app.listen(PORT, () => {

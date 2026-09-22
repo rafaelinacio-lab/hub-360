@@ -856,14 +856,26 @@ function switchConfigTab(tab) {
     document.querySelector('.main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
     // Carregar consumo de IA ao abrir aba IA
     if (tab === 'ia') loadAiUsage();
-    if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); }
+    if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') loadTabPermissionsConfig();
+    if (tab === 'datalake') {
+        // garante que os botões nunca fiquem travados ao abrir a aba
+        const btnFull   = document.getElementById('dlBtnFull');
+        const btnInc    = document.getElementById('dlBtnInc');
+        const btnCancel = document.getElementById('dlBtnCancel');
+        if (btnFull)   { btnFull.disabled = false; btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora'; }
+        if (btnInc)    { btnInc.disabled  = false; btnInc.innerHTML  = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora'; }
+        if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
+        dlLoad();
+        dlSatLoad();
+        cronLoad();
+    }
 }
 
 // ─── Acesso: quais abas cada perfil vê no menu ─────────────────────────────
-const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'], guest: ['dashboard'] };
-const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Movidesk' };
+const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao'], guest: ['dashboard'] };
+const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Painel Geral', satisfacao: 'Satisfação' };
 let cfgAccessPermissions = {};
 let cfgAccessRoles = [];
 
@@ -1208,83 +1220,6 @@ async function saveGptPrompt() {
     }
 }
 
-async function loadDbConfig() {
-    if (!isCurrentUserAdmin()) {
-        setCfgStatus('cfgDbStatus', 'Somente admin pode consultar as configurações do banco.', 'error');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE}/config/database`, {
-            headers: authHeaders()
-        });
-        const raw = await response.text();
-        let data = {};
-        if (raw) {
-            try { data = JSON.parse(raw); } catch { data = { error: raw }; }
-        }
-        if (!response.ok) throw new Error(data.error || 'Falha ao consultar banco');
-
-        const host = document.getElementById('cfgDbHost');
-        const port = document.getElementById('cfgDbPort');
-        const name = document.getElementById('cfgDbName');
-        const user = document.getElementById('cfgDbUser');
-        const password = document.getElementById('cfgDbPassword');
-        const dialect = document.getElementById('cfgDbDialect');
-
-        if (host) host.value = data.host || '';
-        if (port) port.value = data.port || '';
-        if (name) name.value = data.name || '';
-        if (user) user.value = data.user || '';
-        if (password) password.value = data.password || '';
-        if (dialect) dialect.value = data.dialect || 'postgres';
-
-        setCfgStatus('cfgDbStatus', data.configured ? 'Configurações do banco carregadas.' : 'Banco ainda não configurado.');
-    } catch (error) {
-        setCfgStatus('cfgDbStatus', `Erro ao consultar banco: ${error.message}`, 'error');
-    }
-}
-
-async function saveDbConfig() {
-    if (!isCurrentUserAdmin()) {
-        setCfgStatus('cfgDbStatus', 'Somente admin pode salvar as configurações do banco.', 'error');
-        return;
-    }
-
-    const host = document.getElementById('cfgDbHost')?.value?.trim();
-    const port = document.getElementById('cfgDbPort')?.value?.trim();
-    const name = document.getElementById('cfgDbName')?.value?.trim();
-    const user = document.getElementById('cfgDbUser')?.value?.trim();
-    const password = document.getElementById('cfgDbPassword')?.value?.trim();
-    const dialect = document.getElementById('cfgDbDialect')?.value || 'postgres';
-
-    if (!host || !port || !name || !user || !password) {
-        setCfgStatus('cfgDbStatus', 'Preencha host, porta, nome, usuário e senha.', 'error');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE}/config/database`, {
-            method: 'POST',
-            headers: {
-                ...authHeaders(),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ host, port, name, user, password, dialect })
-        });
-        const raw = await response.text();
-        let data = {};
-        if (raw) {
-            try { data = JSON.parse(raw); } catch { data = { error: raw }; }
-        }
-        if (!response.ok) throw new Error(data.error || 'Falha ao salvar banco');
-
-        setCfgStatus('cfgDbStatus', 'Configurações do banco salvas com sucesso.', 'ok');
-        await loadDbConfig();
-    } catch (error) {
-        setCfgStatus('cfgDbStatus', `Erro ao salvar banco: ${error.message}`, 'error');
-    }
-}
 
 function resetGptPromptToDefault() {
     const input = document.getElementById('cfgGptPrompt');
@@ -1935,6 +1870,27 @@ function _setFullLoadButtonLoading(running) {
     }
 }
 
+function _renderPipelineStep(key, barId, infoId, state) {
+    const bar  = document.getElementById(barId);
+    const info = document.getElementById(infoId);
+    if (!bar || !info) return;
+    if (!state) { bar.style.width = '0%'; info.textContent = 'Aguardando'; return; }
+    const done  = (state.processed || 0) + (state.failed || 0);
+    const total = state.total || 0;
+    const pct   = total > 0 ? Math.round((done / total) * 100) : (state.running ? 5 : 0);
+    bar.style.width  = pct + '%';
+    bar.style.background = state.running ? '#3b82f6' : (state.stopRequested ? '#f59e0b' : '#22c55e');
+    if (state.running) {
+        info.textContent = total > 0 ? `${done}/${total} (${pct}%)` : 'Iniciando…';
+    } else if (state.startedAt) {
+        info.textContent = state.stopRequested
+            ? `Parado — ${done}/${total}`
+            : `Concluído — ${done}/${total}`;
+    } else {
+        info.textContent = 'Aguardando';
+    }
+}
+
 function renderFullLoadStatus(data) {
     const lastRunEl = document.getElementById('cfgFullLoadLastRun');
     if (lastRunEl) {
@@ -1944,18 +1900,25 @@ function renderFullLoadStatus(data) {
             : 'Nunca rodou';
     }
 
-    const anyRunning = !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+    const anyRunning = !!(data.processamento?.running || data.slaEstouro?.running || data.survey?.running || data.modulo?.running);
     _setFullLoadButtonLoading(anyRunning);
 
-    if (anyRunning) {
-        const parts = [];
-        if (data.processamento?.running) parts.push(`Chamados: ${data.processamento.processed || 0}/${data.processamento.total || 0}`);
-        if (data.survey?.running) parts.push(`Satisfação: ${data.survey.processed || 0}/${data.survey.total || 0}`);
-        if (data.modulo?.running) parts.push(`Módulo x Rotina: ${data.modulo.processed || 0}/${data.modulo.total || 0}`);
-        setCfgStatus('cfgFullLoadStatus', `Em andamento — ${parts.join(' · ')}`, '');
-    } else if (data.lastRun?.at) {
-        setCfgStatus('cfgFullLoadStatus', 'Nenhum processo em andamento no momento.', 'ok');
+    // Botão Parar tudo
+    const stopBtn = document.getElementById('cfgStopFullLoad');
+    if (stopBtn) stopBtn.style.display = anyRunning ? '' : 'none';
+
+    // Mini-cards de cada etapa
+    _renderPipelineStep('ia',     'cfgPipeBar-ia',     'cfgPipeInfo-ia',     data.processamento);
+    _renderPipelineStep('sla',    'cfgPipeBar-sla',    'cfgPipeInfo-sla',    data.slaEstouro);
+    _renderPipelineStep('survey', 'cfgPipeBar-survey', 'cfgPipeInfo-survey', data.survey);
+    _renderPipelineStep('modulo', 'cfgPipeBar-modulo', 'cfgPipeInfo-modulo', data.modulo);
+
+    // Também atualiza erros de IA se disponíveis
+    if (data.processamento) {
+        renderCuradoriaErrorsList(data.processamento.recentErrors || [], 'cfgCuradoriaErrorsWrap', 'cfgCuradoriaErrorsList');
     }
+
+    setCfgStatus('cfgFullLoadStatus', anyRunning ? 'Pipeline em andamento — pode fechar esta tela, continua em segundo plano.' : (data.lastRun?.at ? 'Concluído.' : ''), anyRunning ? '' : 'ok');
 }
 
 async function loadFullLoadStatus() {
@@ -1974,17 +1937,28 @@ async function triggerCuradoriaFullLoad() {
     try {
         const response = await fetch(`${API_BASE}/curadoria/full-load`, { method: 'POST', headers: authHeaders() });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Falha ao disparar carga bruta');
+        if (!response.ok) throw new Error(data.error || 'Falha ao disparar pipeline');
         renderFullLoadStatus(data);
-        setCfgStatus('cfgFullLoadStatus', 'Carga bruta iniciada — os 3 processos estão rodando em segundo plano.', 'ok');
         startFullLoadPolling();
-        // Também atualiza a contagem de pendentes de cada card individual
-        loadCuradoriaPendingCount();
-        loadSurveyPendingCount();
-        loadModuloPendingCount();
     } catch (error) {
         _setFullLoadButtonLoading(false);
         setCfgStatus('cfgFullLoadStatus', `Erro ao iniciar: ${error.message}`, 'error');
+    }
+}
+
+async function stopFullPipeline() {
+    try {
+        await Promise.allSettled([
+            fetch(`${API_BASE}/curadoria/process-pending/stop`,      { method: 'POST', headers: authHeaders() }),
+            fetch(`${API_BASE}/curadoria/sla-estouro/recalcular/stop`, { method: 'POST', headers: authHeaders() }),
+            fetch(`${API_BASE}/curadoria/survey/sync/stop`,          { method: 'POST', headers: authHeaders() }),
+            fetch(`${API_BASE}/curadoria/modulo/sync/stop`,          { method: 'POST', headers: authHeaders() }),
+        ]);
+        setCfgStatus('cfgFullLoadStatus', 'Solicitação de parada enviada.', '');
+        const stopBtn = document.getElementById('cfgStopFullLoad');
+        if (stopBtn) stopBtn.disabled = true;
+    } catch (e) {
+        setCfgStatus('cfgFullLoadStatus', `Erro ao parar: ${e.message}`, 'error');
     }
 }
 
@@ -1993,7 +1967,7 @@ async function checkFullLoadOnLoad() {
     try {
         const response = await fetch(`${API_BASE}/curadoria/full-load/status`, { headers: authHeaders() });
         const data = await response.json();
-        const anyRunning = response.ok && !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+        const anyRunning = response.ok && !!(data.processamento?.running || data.slaEstouro?.running || data.survey?.running || data.modulo?.running);
         if (anyRunning) startFullLoadPolling();
     } catch (_) { /* não crítico */ }
 }
@@ -2007,12 +1981,148 @@ function startFullLoadPolling() {
             const data = await response.json();
             if (!response.ok) return;
             renderFullLoadStatus(data);
-            const anyRunning = !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+            const anyRunning = !!(data.processamento?.running || data.slaEstouro?.running || data.survey?.running || data.modulo?.running);
             if (!anyRunning) {
                 clearInterval(_fullLoadPollInterval);
                 _fullLoadPollInterval = null;
+                const stopBtn = document.getElementById('cfgStopFullLoad');
+                if (stopBtn) stopBtn.disabled = false;
             }
         } catch (_) { /* não crítico */ }
+    }, 1500);
+}
+
+/* ── Enriquecimento de chamados (busca detalhes na API) ─────────────────────── */
+let _enrichPollInterval = null;
+
+async function loadEnrichCount() {
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/enriquecimento/count`, { headers: authHeaders() });
+        const data = await r.json();
+        const el = document.getElementById('cfgEnrichCount');
+        if (el) el.textContent = `${data.count ?? '–'} chamado(s)`;
+    } catch (_) {}
+}
+
+function fmtEta(ms) {
+    if (!ms || ms <= 0) return '';
+    const s = Math.round(ms / 1000);
+    if (s < 60)  return `${s}s`;
+    const m = Math.floor(s / 60), rs = s % 60;
+    if (m < 60)  return `${m}m ${rs}s`;
+    const h = Math.floor(m / 60), rm = m % 60;
+    return `${h}h ${rm}m`;
+}
+
+function renderEnrichStatus(state) {
+    const progressWrap = document.getElementById('cfgEnrichProgressWrap');
+    const bar          = document.getElementById('cfgEnrichProgressBar');
+    const label        = document.getElementById('cfgEnrichProgressLabel');
+    const pct          = document.getElementById('cfgEnrichProgressPct');
+    const stats        = document.getElementById('cfgEnrichStats');
+    const etaEl        = document.getElementById('cfgEnrichEta');
+    const startBtn     = document.getElementById('cfgStartEnrich');
+    const stopBtn      = document.getElementById('cfgStopEnrich');
+    const errorsWrap   = document.getElementById('cfgEnrichErrorsWrap');
+    const errorsList   = document.getElementById('cfgEnrichErrorsList');
+
+    if (!state || (!state.running && !state.done && !state.total)) return;
+
+    if (progressWrap) progressWrap.style.display = '';
+
+    const total  = state.total  || 0;
+    const done   = state.done   || 0;
+    const pctVal = total > 0 ? Math.round((done / total) * 100) : 0;
+    if (bar)   bar.style.width = `${pctVal}%`;
+    if (pct)   pct.textContent = `${pctVal}%`;
+
+    // ETA
+    if (etaEl) {
+        if (state.running && done > 0 && state.startedAt) {
+            const elapsed  = Date.now() - new Date(state.startedAt).getTime();
+            const remaining = total - done;
+            const etaMs    = remaining > 0 ? (elapsed / done) * remaining : 0;
+            etaEl.textContent = etaMs > 0 ? `⏱ Conclusão em ~${fmtEta(etaMs)}` : '';
+        } else if (!state.running && state.finishedAt && state.startedAt) {
+            const dur = new Date(state.finishedAt) - new Date(state.startedAt);
+            etaEl.textContent = `Duração total: ${fmtEta(dur)}`;
+        } else {
+            etaEl.textContent = '';
+        }
+    }
+
+    if (label) {
+        const anosStr = (state.anosAlvo && state.anosAlvo.length)
+            ? ` [${state.anosAlvo[0]}–${state.anosAlvo[state.anosAlvo.length-1]}]` : '';
+        if (state.running && state.currentTicketId) label.textContent = `Varrendo ${state.currentTicketId}${anosStr} — ${done}/${total} processados`;
+        else if (state.stopRequested)               label.textContent = 'Parando…';
+        else if (!state.running && total > 0)       label.textContent = 'Concluído ✅';
+        else label.textContent = `${done} / ${total}`;
+    }
+    if (stats) stats.textContent = `✅ ${state.updated||0} enriquecidos  |  🔍 ${state.notFound||0} não encontrados  |  ❌ ${state.failed||0} erros`;
+
+    if (startBtn) startBtn.disabled = !!state.running;
+    if (stopBtn)  stopBtn.style.display = state.running ? '' : 'none';
+
+    if (errorsWrap && errorsList && Array.isArray(state.recentErrors) && state.recentErrors.length) {
+        errorsWrap.style.display = '';
+        errorsList.innerHTML = state.recentErrors.slice(0, 5).map(e =>
+            `<div class="config-error-item">Ticket #${e.ticket_id}: ${e.error}</div>`
+        ).join('');
+    }
+}
+
+async function loadEnrichStatus() {
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/enriquecimento/status`, { headers: authHeaders() });
+        const data = await r.json();
+        renderEnrichStatus(data);
+        if (data.running && !_enrichPollInterval) startEnrichPolling();
+    } catch (_) {}
+}
+
+async function startEnriquecimento() {
+    const anosInput = (document.getElementById('cfgEnrichAnos')?.value || '').trim();
+    const anos = anosInput ? anosInput.split(/[,\s]+/).map(a => parseInt(a, 10)).filter(n => !isNaN(n)) : [];
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/enriquecimento/start`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ anos })
+        });
+        const data = await r.json();
+        renderEnrichStatus(data);
+        startEnrichPolling();
+        const status = document.getElementById('cfgEnrichStatus');
+        if (status) { status.textContent = anos.length ? `Buscando detalhes — anos: ${anos.join(', ')}` : 'Buscando detalhes de todos os anos…'; }
+    } catch (e) {
+        const status = document.getElementById('cfgEnrichStatus');
+        if (status) status.textContent = `Erro: ${e.message}`;
+    }
+}
+
+async function stopEnriquecimento() {
+    try {
+        await fetch(`${API_BASE}/curadoria/enriquecimento/stop`, { method: 'POST', headers: authHeaders() });
+        const stopBtn = document.getElementById('cfgStopEnrich');
+        if (stopBtn) stopBtn.disabled = true;
+    } catch (_) {}
+}
+
+function startEnrichPolling() {
+    if (_enrichPollInterval) return;
+    _enrichPollInterval = setInterval(async () => {
+        try {
+            const r = await fetch(`${API_BASE}/curadoria/enriquecimento/status`, { headers: authHeaders() });
+            const data = await r.json();
+            if (!r.ok) return;
+            renderEnrichStatus(data);
+            if (!data.running) {
+                clearInterval(_enrichPollInterval);
+                _enrichPollInterval = null;
+                loadEnrichCount(); // atualiza contagem ao terminar
+            }
+        } catch (_) {}
     }, 1500);
 }
 
@@ -2248,5 +2358,709 @@ async function checkModuloSyncOnLoad() {
             startModuloSyncPolling();
         }
     } catch (_) { /* não crítico */ }
+}
+
+// ─── Aba Carga Datalake ────────────────────────────────────────────────────────
+let _dlPollTimer = null;
+
+// ── Seleção de anos ───────────────────────────────────────────────────────────
+let _dlYearsInited = false;
+function dlInitYears() {
+    if (_dlYearsInited) return;
+    const grid = document.getElementById('dlYearGrid');
+    if (!grid) return;
+    _dlYearsInited = true;
+    const currentYear = new Date().getFullYear();
+    const firstYear   = 2018;
+    for (let y = currentYear; y >= firstYear; y--) {
+        const id  = `dlYear_${y}`;
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--border,#333);font-size:13px;font-weight:500;user-select:none;transition:border-color .15s;';
+        lbl.innerHTML = `<input type="checkbox" id="${id}" value="${y}" onchange="dlUpdateYearNote()" style="accent-color:#3b82f6;"> ${y}`;
+        grid.appendChild(lbl);
+    }
+    dlUpdateYearNote();
+}
+
+function dlYearsSelectAll(check) {
+    document.querySelectorAll('#dlYearGrid input[type=checkbox]').forEach(cb => { cb.checked = check; });
+    dlUpdateYearNote();
+}
+
+function dlGetSelectedYears() {
+    return [...document.querySelectorAll('#dlYearGrid input[type=checkbox]:checked')].map(cb => Number(cb.value));
+}
+
+function dlUpdateYearNote() {
+    const note   = document.getElementById('dlYearNote');
+    const btnFull = document.getElementById('dlBtnFull');
+    if (!note) return;
+    const years = dlGetSelectedYears();
+    if (!years.length) {
+        note.textContent = '⚡ Nenhum ano marcado → a carga full carregará TODOS os anos (pode demorar horas).';
+        if (btnFull) btnFull.title = 'Carga full — todos os anos';
+    } else {
+        const sorted = [...years].sort();
+        note.textContent = `📅 Anos selecionados: ${sorted.join(', ')} (${sorted.length} ano${sorted.length > 1 ? 's' : ''})`;
+        if (btnFull) btnFull.title = `Carga full — ${sorted.join(', ')}`;
+    }
+}
+
+async function dlLoad() {
+    dlInitYears(); // inicializa o grid de anos na primeira abertura da aba
+    try {
+        const resp = await fetch('/api/loader/status', { headers: authHeaders(), cache: 'no-store' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        dlRenderStatus(data.current, data.tokenSuffix);
+        dlRenderHistory(data.history || []);
+        // polling automático enquanto estiver rodando
+        if (data.current?.running) {
+            if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+        } else {
+            clearInterval(_dlPollTimer);
+            _dlPollTimer = null;
+        }
+    } catch (e) {
+        console.error('[datalake] erro ao buscar status:', e.message);
+        // mostra erro visível no badge e restaura botões
+        const badge   = document.getElementById('dlBadge');
+        const meta    = document.getElementById('dlMeta');
+        const btnFull = document.getElementById('dlBtnFull');
+        const btnInc  = document.getElementById('dlBtnInc');
+        if (badge) {
+            badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">error</span> Erro ao buscar status';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = e.message;
+        if (btnFull) {
+            btnFull.disabled = false;
+            btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora';
+        }
+        if (btnInc) {
+            btnInc.disabled = false;
+            btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+        }
+        clearInterval(_dlPollTimer);
+        _dlPollTimer = null;
+    }
+}
+
+async function dlTrigger(mode) {
+    const btn = document.getElementById(mode === 'full' ? 'dlBtnFull' : 'dlBtnInc');
+    const originalHTML = mode === 'full'
+        ? '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora'
+        : '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+
+    if (!btn || btn.disabled) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+
+    const badge = document.getElementById('dlBadge');
+    const meta  = document.getElementById('dlMeta');
+
+    try {
+        const years = mode === 'full' ? dlGetSelectedYears() : [];
+        const classification = mode === 'full' ? (document.getElementById('dlClassification')?.value || '').trim() : '';
+        const ownerTeam = mode === 'full' ? (document.getElementById('dlOwnerTeam')?.value || '').trim() : '';
+        const resp = await fetch(`/api/loader/${mode}`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(mode === 'full' ? { years, classification, ownerTeam } : {}),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlLoad();
+        if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+    } catch (e) {
+        if (badge) {
+            badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">error</span> ${e.message}`;
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = 'Verifique o erro acima e tente novamente.';
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+async function dlFixOrganizacao() {
+    const btn = document.getElementById('dlBtnFixOrg');
+    const originalHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
+    if (!btn || btn.disabled) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+
+    const badge = document.getElementById('dlBadge');
+    const meta  = document.getElementById('dlMeta');
+
+    try {
+        const resp = await fetch('/api/loader/fix-organizacao', {
+            method: 'POST',
+            headers: authHeaders(),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlLoad();
+        if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+    } catch (e) {
+        if (badge) {
+            badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">error</span> ${e.message}`;
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = 'Verifique o erro acima e tente novamente.';
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+async function dlBackfillBasico() {
+    const btn = document.getElementById('dlBtnBackfillBasico');
+    const originalHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos';
+    if (!btn || btn.disabled) return;
+
+    const years = dlGetSelectedYears();
+    if (!years.length) {
+        alert('Marque ao menos um ano na seção "Seleção de Anos" antes de rodar o backfill.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+
+    const badge = document.getElementById('dlBadge');
+    const meta  = document.getElementById('dlMeta');
+
+    try {
+        const resp = await fetch('/api/loader/backfill-basico', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ years }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlLoad();
+        if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+    } catch (e) {
+        if (badge) {
+            badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">error</span> ${e.message}`;
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = 'Verifique o erro acima e tente novamente.';
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+async function dlCancel() {
+    const btn = document.getElementById('dlBtnCancel');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">hourglass_top</span> Cancelando…';
+    try {
+        const resp = await fetch('/api/loader/cancel', {
+            method: 'POST',
+            headers: authHeaders(),
+        });
+        if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            console.warn('[dlCancel] erro:', data.error);
+        }
+        dlLoad();
+    } catch (e) {
+        console.error('[dlCancel] falha:', e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar';
+    }
+}
+
+// ── Pesquisa de satisfação — seleção de anos + trigger ──────────────────────
+let _dlSatYearsInited = false;
+let _dlSatPollTimer = null;
+
+function dlSatInitYears() {
+    if (_dlSatYearsInited) return;
+    const grid = document.getElementById('dlSatYearGrid');
+    if (!grid) return;
+    _dlSatYearsInited = true;
+    const currentYear = new Date().getFullYear();
+    const firstYear   = 2018;
+    for (let y = currentYear; y >= firstYear; y--) {
+        const id  = `dlSatYear_${y}`;
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--border,#333);font-size:13px;font-weight:500;user-select:none;transition:border-color .15s;';
+        lbl.innerHTML = `<input type="checkbox" id="${id}" value="${y}" onchange="dlSatUpdateYearNote()" style="accent-color:#3b82f6;"> ${y}`;
+        grid.appendChild(lbl);
+    }
+    dlSatUpdateYearNote();
+}
+
+function dlSatYearsSelectAll(check) {
+    document.querySelectorAll('#dlSatYearGrid input[type=checkbox]').forEach(cb => { cb.checked = check; });
+    dlSatUpdateYearNote();
+}
+
+function dlSatGetSelectedYears() {
+    return [...document.querySelectorAll('#dlSatYearGrid input[type=checkbox]:checked')].map(cb => Number(cb.value));
+}
+
+function dlSatUpdateYearNote() {
+    const note = document.getElementById('dlSatYearNote');
+    if (!note) return;
+    const years = dlSatGetSelectedYears();
+    if (!years.length) {
+        note.textContent = '⚡ Nenhum ano marcado → busca o histórico inteiro de respostas, desde 2018.';
+    } else {
+        const sorted = [...years].sort();
+        note.textContent = `📅 Busca respostas desde 1º de janeiro de ${sorted[0]} até hoje (ignora o filtro de meses/anos posteriores — é só um piso).`;
+    }
+}
+
+async function dlSatTrigger() {
+    dlSatInitYears();
+    const btn = document.getElementById('dlBtnSat');
+    if (!btn || btn.disabled) return;
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+    try {
+        const years = dlSatGetSelectedYears();
+        const resp = await fetch('/api/loader/satisfacao/sync', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ years }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlSatLoad();
+        if (!_dlSatPollTimer) _dlSatPollTimer = setInterval(dlSatLoad, 4000);
+    } catch (e) {
+        const meta = document.getElementById('dlSatMeta');
+        if (meta) meta.textContent = 'Erro: ' + e.message;
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+async function dlSatStop() {
+    const btn = document.getElementById('dlBtnSatStop');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    try {
+        await fetch('/api/loader/satisfacao/sync/stop', { method: 'POST', headers: authHeaders() });
+        dlSatLoad();
+    } catch (e) {
+        console.error('[dlSatStop] falha:', e.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function dlSatLoad() {
+    dlSatInitYears();
+    try {
+        const resp = await fetch('/api/loader/satisfacao/status', { headers: authHeaders(), cache: 'no-store' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const s = await resp.json();
+        const badge   = document.getElementById('dlSatBadge');
+        const meta    = document.getElementById('dlSatMeta');
+        const btnSat  = document.getElementById('dlBtnSat');
+        const btnStop = document.getElementById('dlBtnSatStop');
+        if (s.running) {
+            if (badge) {
+                badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> Sincronizando';
+                badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
+            }
+            const anosTxt = s.years?.length ? ` (anos ${[...s.years].sort().join(', ')})` : '';
+            if (meta) meta.textContent = `${s.processed} resposta(s) processada(s)${anosTxt} · ${s.updated} salva(s) · ${s.errors} erro(s)`;
+            if (btnSat) { btnSat.disabled = true; btnSat.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Rodando…'; }
+            if (btnStop) btnStop.style.display = '';
+            if (!_dlSatPollTimer) _dlSatPollTimer = setInterval(dlSatLoad, 4000);
+        } else {
+            if (badge) {
+                badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso';
+                badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;';
+            }
+            if (meta) meta.textContent = s.lastError
+                ? `Falhou: ${s.lastError}`
+                : (s.finishedAt
+                    ? `Última execução: ${s.updated} salva(s), ${s.errors} erro(s), de ${s.processed} resposta(s) encontrada(s).`
+                    : '–');
+            if (meta) meta.style.color = s.lastError ? '#f87171' : '';
+            if (btnSat) { btnSat.disabled = false; btnSat.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">sentiment_satisfied</span> Sincronizar pesquisas'; }
+            if (btnStop) btnStop.style.display = 'none';
+            clearInterval(_dlSatPollTimer);
+            _dlSatPollTimer = null;
+        }
+    } catch (e) {
+        console.error('[dlSat] erro ao buscar status:', e.message);
+    }
+}
+
+function dlRenderStatus(cur, tokenSuffix) {
+    if (!cur) return;
+
+    const badge   = document.getElementById('dlBadge');
+    const meta    = document.getElementById('dlMeta');
+    const wrap    = document.getElementById('dlProgressWrap');
+    const bar     = document.getElementById('dlProgressBar');
+    const label   = document.getElementById('dlProgressLabel');
+    const count   = document.getElementById('dlProgressCount');
+    const btnFull   = document.getElementById('dlBtnFull');
+    const btnInc    = document.getElementById('dlBtnInc');
+    const btnFixOrg = document.getElementById('dlBtnFixOrg');
+    const btnBackfillBasico = document.getElementById('dlBtnBackfillBasico');
+    const btnCancel = document.getElementById('dlBtnCancel');
+    if (!badge) return;
+
+    if (cur.running) {
+        const modeLabel  = cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : 'Incremental';
+        const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
+        badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
+        badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
+
+        // meta: mostra ano atual quando for carga por anos
+        let metaParts = [];
+        if (cur.currentYear) {
+            const yearProgress = cur.yearsTotal > 1 ? ` (${cur.yearsDone + 1}/${cur.yearsTotal})` : '';
+            metaParts.push(`Ano: ${cur.currentYear}${yearProgress}`);
+        }
+        metaParts.push(`Endpoint: ${cur.endpoint || '–'}`);
+        metaParts.push(`Páginas: ${cur.pagesDone}`);
+        metaParts.push(`Início: ${cur.startedAt ? new Date(cur.startedAt).toLocaleTimeString('pt-BR') : '–'}`);
+        meta.textContent = metaParts.join(' · ');
+
+        const pages = document.getElementById('dlProgressPages');
+        wrap.style.display = 'block';
+        label.textContent = phaseLabel;
+        count.textContent = cur.ticketsDone.toLocaleString('pt-BR');
+        if (pages) pages.textContent = `${cur.pagesDone} pág${cur.pagesDone !== 1 ? 's' : ''}· endpoint: ${cur.endpoint || '–'}`;
+
+        // barra de progresso: por anos se selecionados, senão cíclica
+        let pct = 0;
+        if (cur.yearsTotal > 1) {
+            pct = Math.min(99, ((cur.yearsDone / cur.yearsTotal) * 100));
+        } else {
+            pct = Math.min(99, (cur.ticketsDone % 10000) / 100);
+        }
+        bar.style.width = pct + '%';
+        if (btnFull) {
+            btnFull.disabled = true;
+            btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora';
+        }
+        if (btnInc) {
+            btnInc.disabled = true;
+            btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+        }
+        if (btnFixOrg) {
+            btnFixOrg.disabled = true;
+            btnFixOrg.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
+        }
+        if (btnBackfillBasico) {
+            btnBackfillBasico.disabled = true;
+            btnBackfillBasico.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos';
+        }
+        if (btnCancel) {
+            btnCancel.style.display = '';
+            btnCancel.disabled = cur.cancelRequested || cur.phase === 'cancelling';
+            btnCancel.innerHTML = cur.cancelRequested
+                ? '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">hourglass_top</span> Cancelando…'
+                : '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar';
+        }
+    } else {
+        const last = cur.lastResult;
+        badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Ocioso`;
+        badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#27272a;color:#a1a1aa;';
+        const tokenInfo = tokenSuffix ? ` · Token: ${tokenSuffix}` : '';
+        if (last) {
+            const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
+            const lastModeLabel = last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : 'Incremental';
+            meta.textContent = `Última: ${lastModeLabel} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
+        } else {
+            meta.textContent = (cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–') + tokenInfo;
+        }
+        wrap.style.display = 'none';
+        if (btnFull) {
+            btnFull.disabled = false;
+            btnFull.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora';
+        }
+        if (btnInc) {
+            btnInc.disabled = false;
+            btnInc.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">update</span> Incremental agora';
+        }
+        if (btnFixOrg) {
+            btnFixOrg.disabled = false;
+            btnFixOrg.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
+        }
+        if (btnBackfillBasico) {
+            btnBackfillBasico.disabled = false;
+            btnBackfillBasico.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos';
+        }
+        if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
+    }
+}
+
+function dlRenderHistory(rows) {
+    const el = document.getElementById('dlHistory');
+    if (!el) return;
+    if (!rows.length) {
+        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma execução registrada.</div>';
+        return;
+    }
+    const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171' };
+    const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
+    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental', 'fix-organizacao': 'Correção de organização', 'backfill-basico': 'Backfill campos básicos' };
+
+    const filtroDe = (r) => {
+        const partes = [];
+        if (Array.isArray(r.years) && r.years.length) partes.push(`Ano: ${r.years.join(', ')}`);
+        if (r.classification) partes.push(`Classificação: ${r.classification}`);
+        if (r.owner_team) partes.push(`Equipe: ${r.owner_team}`);
+        return partes.length ? partes.join(' · ') : 'Todos os tickets';
+    };
+
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
+                <th style="padding:6px 10px;">Tipo</th>
+                <th style="padding:6px 10px;">Filtro</th>
+                <th style="padding:6px 10px;">Início</th>
+                <th style="padding:6px 10px;">Fim</th>
+                <th style="padding:6px 10px;text-align:right;">Tickets</th>
+                <th style="padding:6px 10px;">Status</th>
+                <th style="padding:6px 10px;">Erro</th>
+            </tr>
+        </thead>
+        <tbody>
+        ${rows.map(r => {
+            const st = r.status || 'running';
+            const ini = r.started_at ? new Date(r.started_at).toLocaleString('pt-BR') : '–';
+            const fin = r.finished_at ? new Date(r.finished_at).toLocaleString('pt-BR') : '–';
+            const dur = (r.started_at && r.finished_at)
+                ? (() => { const s = Math.round((new Date(r.finished_at) - new Date(r.started_at)) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; })()
+                : '–';
+            return `<tr style="border-bottom:1px solid var(--border,#222);">
+                <td style="padding:8px 10px;font-weight:600;">${modeLabel[r.mode] || r.mode}</td>
+                <td style="padding:8px 10px;color:var(--muted,#71717a);font-size:12px;">${cfgEsc(filtroDe(r))}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${ini}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${fin} <span style="color:var(--muted,#71717a);font-size:11px;">(${dur})</span></td>
+                <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;">${(r.tickets_loaded || 0).toLocaleString('pt-BR')}</td>
+                <td style="padding:8px 10px;">
+                    <span style="display:inline-flex;align-items:center;gap:4px;${statusStyle[st]||''}">
+                        <span class="material-symbols-outlined" style="font-size:14px;">${statusIcon[st]||'help'}</span>
+                        ${st}
+                    </span>
+                </td>
+                <td style="padding:8px 10px;color:#f87171;font-size:12px;">${r.error_msg ? cfgEsc(r.error_msg).slice(0, 80) : ''}</td>
+            </tr>`;
+        }).join('')}
+        </tbody>
+    </table>`;
+}
+
+// ── Cargas automáticas (crons configuráveis) ────────────────────────────────
+let _cronJobs = [];
+const CRON_TASK_LABEL = {
+    ouvidoria: 'Ouvidoria — em aberto',
+    gcc: 'GCC — em aberto',
+    incremental: 'Incremental — todos os tickets',
+    full: 'Full — carga completa',
+};
+
+function cronFmtInterval(minutes) {
+    const m = Number(minutes) || 0;
+    if (m % 1440 === 0 && m >= 1440) return `${m / 1440}x por dia`.replace('1x por dia', '1x por dia');
+    if (m % 60 === 0) return `A cada ${m / 60}h`;
+    return `A cada ${m}min`;
+}
+
+async function cronLoad() {
+    const el = document.getElementById('cronList');
+    if (!el) return;
+    try {
+        const resp = await fetch(`${API_BASE}/crons`, { headers: authHeaders() });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        _cronJobs = data.jobs || [];
+        cronRenderList();
+    } catch (e) {
+        el.innerHTML = `<div style="color:#f87171;font-size:13px;">Erro ao carregar: ${cfgEsc(e.message)}</div>`;
+    }
+}
+
+function cronRenderList() {
+    const el = document.getElementById('cronList');
+    if (!el) return;
+    if (!_cronJobs.length) {
+        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma cron cadastrada ainda.</div>';
+        return;
+    }
+    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171' };
+    const statusIcon  = { done: 'check_circle', error: 'error' };
+
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
+                <th style="padding:6px 10px;">Nome</th>
+                <th style="padding:6px 10px;">Tarefa</th>
+                <th style="padding:6px 10px;">Intervalo</th>
+                <th style="padding:6px 10px;">Última execução</th>
+                <th style="padding:6px 10px;">Ativa</th>
+                <th style="padding:6px 10px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+        ${_cronJobs.map(j => {
+            const last = j.last_run_at ? new Date(j.last_run_at).toLocaleString('pt-BR') : 'Nunca rodou';
+            const st = j.last_status;
+            const statusBadge = st
+                ? `<span style="display:inline-flex;align-items:center;gap:4px;${statusStyle[st] || ''}">
+                     <span class="material-symbols-outlined" style="font-size:13px;">${statusIcon[st] || 'help'}</span>
+                   </span>`
+                : '';
+            return `<tr style="border-bottom:1px solid var(--border,#222);">
+                <td style="padding:8px 10px;font-weight:600;">${cfgEsc(j.name)}</td>
+                <td style="padding:8px 10px;">${cfgEsc(CRON_TASK_LABEL[j.task] || j.task)}</td>
+                <td style="padding:8px 10px;">${cronFmtInterval(j.interval_minutes)}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${last}${j.last_error ? ` <span style="color:#f87171;font-size:11px;" title="${cfgEsc(j.last_error)}">(erro)</span>` : ''}</td>
+                <td style="padding:8px 10px;">
+                    <label style="display:inline-flex;align-items:center;cursor:pointer;">
+                        <input type="checkbox" ${j.enabled ? 'checked' : ''} onchange="cronToggleEnabled(${j.id}, this.checked)">
+                    </label>
+                </td>
+                <td style="padding:8px 10px;white-space:nowrap;">
+                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronRunNow(${j.id})" title="Rodar agora">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">play_arrow</span>
+                    </button>
+                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronOpenModal(${j.id})" title="Editar">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">edit</span>
+                    </button>
+                    <button class="config-btn config-btn-danger" style="padding:4px 8px;font-size:11.5px;" onclick="cronDelete(${j.id})" title="Excluir">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">delete</span>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('')}
+        </tbody>
+    </table>`;
+}
+
+function cronToggleFullFields() {
+    const task = document.getElementById('cronTask')?.value;
+    const wrap = document.getElementById('cronFullFields');
+    if (wrap) wrap.style.display = task === 'full' ? 'flex' : 'none';
+}
+
+function cronOpenModal(jobId) {
+    const modal = document.getElementById('cronModal');
+    const errorEl = document.getElementById('cronModalError');
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+    const job = jobId ? _cronJobs.find(j => j.id === jobId) : null;
+    document.getElementById('cronModalTitle').textContent = job ? 'Editar cron automática' : 'Nova cron automática';
+    document.getElementById('cronId').value = job ? job.id : '';
+    document.getElementById('cronName').value = job ? job.name : '';
+    document.getElementById('cronTask').value = job ? job.task : 'ouvidoria';
+    document.getElementById('cronInterval').value = job ? String(job.interval_minutes) : '120';
+    document.getElementById('cronEnabled').checked = job ? !!job.enabled : true;
+    const params = job?.params || {};
+    document.getElementById('cronFullYears').value = Array.isArray(params.years) ? params.years.join(', ') : '';
+    document.getElementById('cronFullClass').value = params.classification || '';
+    document.getElementById('cronFullTeam').value = params.ownerTeam || '';
+    cronToggleFullFields();
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function cronCloseModal() {
+    const modal = document.getElementById('cronModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function cronSave() {
+    const errorEl = document.getElementById('cronModalError');
+    const showError = (msg) => { if (errorEl) { errorEl.textContent = msg; errorEl.style.display = 'block'; } };
+
+    const id = document.getElementById('cronId').value;
+    const name = document.getElementById('cronName').value.trim();
+    const task = document.getElementById('cronTask').value;
+    const interval_minutes = Number(document.getElementById('cronInterval').value);
+    const enabled = document.getElementById('cronEnabled').checked;
+
+    if (!name) return showError('Preencha o nome.');
+
+    let params = {};
+    if (task === 'full') {
+        const yearsRaw = document.getElementById('cronFullYears').value.trim();
+        params = {
+            years: yearsRaw ? yearsRaw.split(',').map(s => Number(s.trim())).filter(Boolean) : [],
+            classification: document.getElementById('cronFullClass').value.trim(),
+            ownerTeam: document.getElementById('cronFullTeam').value.trim(),
+        };
+    }
+
+    const body = JSON.stringify({ name, task, interval_minutes, enabled, params });
+    try {
+        const resp = await fetch(id ? `${API_BASE}/crons/${id}` : `${API_BASE}/crons`, {
+            method: id ? 'PATCH' : 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body,
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        cronCloseModal();
+        cronLoad();
+    } catch (e) {
+        showError(e.message);
+    }
+}
+
+async function cronToggleEnabled(id, enabled) {
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${id}`, {
+            method: 'PATCH',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled }),
+        });
+        if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+        cronLoad();
+    } catch (e) {
+        alert(`Não foi possível atualizar: ${e.message}`);
+        cronLoad();
+    }
+}
+
+async function cronDelete(id) {
+    const job = _cronJobs.find(j => j.id === id);
+    if (!confirm(`Excluir a cron "${job?.name || id}"? Essa ação não pode ser desfeita.`)) return;
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${id}`, { method: 'DELETE', headers: authHeaders() });
+        if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+        cronLoad();
+    } catch (e) {
+        alert(`Não foi possível excluir: ${e.message}`);
+    }
+}
+
+async function cronRunNow(id) {
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${id}/run`, { method: 'POST', headers: authHeaders() });
+        if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+        setTimeout(cronLoad, 1500);
+    } catch (e) {
+        alert(`Não foi possível iniciar: ${e.message}`);
+    }
+}
+
+document.getElementById('cronModalClose')?.addEventListener('click', cronCloseModal);
+document.getElementById('cronModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronModal') cronCloseModal(); });
+
+// Animação de rotação para o ícone de loading
+if (!document.getElementById('dlSpinStyle')) {
+    const s = document.createElement('style');
+    s.id = 'dlSpinStyle';
+    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
 }
 

@@ -710,7 +710,7 @@ function renderKpiModalRows() {
         const diasSemRetornoClass = r.diasSemRetornoWarn ? 'kpi-ticket-days-warn' : '';
         return `
             <tr>
-                <td><a class="kpi-ticket-link" href="https://atendimento.viasoft.com.br/Ticket/Edit/${r.id}" target="_blank" rel="noopener noreferrer">#${r.id}</a></td>
+                <td><a class="kpi-ticket-link" href="https://viasoft.movidesk.com/Ticket/Edit/${r.id}" target="_blank" rel="noopener noreferrer">#${r.id}</a></td>
                 <td><span class="urgency-bubble ${r.urgencyClass}">${r.urgencyLabel}</span></td>
                 <td class="kpi-ticket-truncate" title="${escapeHtml(r.org)}">${escapeHtml(r.org)}</td>
                 <td class="kpi-ticket-subject" title="${escapeHtml(r.subject)}">${escapeHtml(r.subject)}</td>
@@ -1265,7 +1265,7 @@ async function handleCardClick(ticketId) {
         
         // Fallback: abre no Movidesk direto
         console.log('🔗 Abrindo no Movidesk (sem cache completo)');
-        window.open(`https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`, '_blank');
+        window.open(`https://viasoft.movidesk.com/Ticket/Edit/${ticketId}`, '_blank');
         return;
     }
     
@@ -1294,7 +1294,7 @@ async function handleCardClick(ticketId) {
     // Botão para abrir no Movidesk
     if (openBtn) {
         openBtn.onclick = () => {
-            window.open(`https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`, '_blank');
+            window.open(`https://viasoft.movidesk.com/Ticket/Edit/${ticketId}`, '_blank');
         };
     }
 }
