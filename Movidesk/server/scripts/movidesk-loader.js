@@ -24,6 +24,13 @@ const { getToken } = require('../routes/config');
 const MOVI_BASE   = 'https://apimovidesk.viasoftcloud.com.br/public/v1';
 const PAGE_SIZE   = 100;  // 500 com expand completo causa timeout no Movidesk
 const MAX_RETRIES = 5;
+// /tickets/past (histórico/fechados) foi medido em produção respondendo em
+// 42-52s pra uma página com $expand completo (22/09/2026, painel de
+// monitoramento do gateway) — acima do antigo timeout de 30s, então TODA
+// chamada pra esse endpoint estourava, e as 5 tentativas de retry usavam o
+// mesmo limite de 30s, então nenhuma tinha chance de vingar. 60s dá margem
+// confortável acima do pior caso observado.
+const FETCH_TIMEOUT_MS = 60000;
 
 // baseStatus que indicam chamado FECHADO (incremental não precisa incluir)
 const CLOSED_STATUSES = [
@@ -224,7 +231,7 @@ async function fetchWithRetry(url) {
   let lastErr;
   for (let i = 0; i <= MAX_RETRIES; i++) {
     try {
-      const resp = await fetch(url, { timeout: 30000 });
+      const resp = await fetch(url, { timeout: FETCH_TIMEOUT_MS });
       if (resp.ok) return resp;
       const body = await resp.text().catch(() => '');
       lastErr = new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
