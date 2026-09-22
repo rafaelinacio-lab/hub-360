@@ -1321,23 +1321,42 @@ async function runByClassification(mode, classValue) {
       ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
       : `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
         ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`;
-    const idFilter = `${classFilter} and ${closedExclusion}`;
+    const openFilter = `${classFilter} and ${closedExclusion}`;
     const pageSize = ownerTeamVal ? PAGE_SIZE : CLASS_FILTER_PAGE_SIZE;
 
-    // Poucos tickets nessa carga (em aberto só) — vale a pena a chamada extra
-    // por ticket pra corrigir os campos customizados quebrados pelo bug do
-    // $filter+$expand (ver corrigirCustomFieldValues). No backfill completo
-    // (milhares de tickets históricos) isso não é feito, ficaria lento demais.
+    // Janela de 3 dias pra trás — o filtro "em aberto" sozinho não pega um
+    // ticket que foi resolvido/alterado nesse meio-tempo (ele some do filtro
+    // baseStatus assim que sai de aberto), então essa carga ficava com o
+    // registro desatualizado em silver.* até a próxima carga Full. Com
+    // lastUpdate, qualquer mudança recente (inclusive resolução) é
+    // recapturada e regravada no banco.
+    const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const recentFilter = `${classFilter} and lastUpdate ge ${since}`;
+
+    // Poucos tickets nessa carga (em aberto + recentes) — vale a pena a
+    // chamada extra por ticket pra corrigir os campos customizados quebrados
+    // pelo bug do $filter+$expand (ver corrigirCustomFieldValues). No
+    // backfill completo (milhares de tickets históricos) isso não é feito,
+    // ficaria lento demais.
     const baseSave = makeSaveComClassificacao(classValue);
+    const seen = new Set(); // dedup por ticket_id entre os filtros/endpoints
     const savePatched = async (batch) => {
+      const fresh = batch.filter(t => !seen.has(String(t.id)));
+      fresh.forEach(t => seen.add(String(t.id)));
+      if (!fresh.length) return [];
       state.phase = 'corrigindo';
-      await corrigirCustomFieldValues(token, batch);
-      return baseSave(batch);
+      await corrigirCustomFieldValues(token, fresh);
+      return baseSave(fresh);
     };
 
     console.log(`[loader]   /tickets — buscando ${modeUpper} em aberto`);
-    await fetchEndpoint(token, '/tickets', idFilter, savePatched, pageSize);
-    console.log(`[loader]   ${state.ticketsDone} ticket(s) de ${modeUpper} em aberto encontrados`);
+    await fetchEndpoint(token, '/tickets', openFilter, savePatched, pageSize);
+
+    for (const ep of ['/tickets', '/tickets/past']) {
+      console.log(`[loader]   ${ep} — buscando ${modeUpper} atualizados nos últimos 3 dias (pega resolvidos)`);
+      await fetchEndpoint(token, ep, recentFilter, savePatched, pageSize);
+    }
+    console.log(`[loader]   ${state.ticketsDone} ticket(s) de ${modeUpper} encontrados`);
 
     state.phase      = 'idle';
     state.running    = false;
