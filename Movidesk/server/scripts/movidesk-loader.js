@@ -947,19 +947,29 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
       : baseSave;
 
     if (sortedYears.length) {
-      // ── Carga por ano selecionado ──────────────────────────────────────────
+      // ── Carga por ano selecionado, segmentada por mês ───────────────────────
+      // Um filtro de ano inteiro pode ter dezenas/centenas de milhares de
+      // tickets — a paginação por $skip costuma ficar mais lenta conforme o
+      // skip cresce (a API reprocessa do zero a cada página), então quanto
+      // mais fundo a gente pagina num único filtro, mais lenta fica cada
+      // página seguinte. Segmentando em 12 filtros mensais o $skip nunca
+      // passa do volume de UM mês, o que acelera bastante em anos com muito
+      // ticket (sugestão do usuário, 22/09/2026).
       for (const year of sortedYears) {
         state.currentYear = year;
-        // Inclui jan do ano seguinte no filtro para pegar horários de fuseau diferente
-        const from = `${year}-01-01T00:00:00Z`;
-        const to   = `${year}-12-31T23:59:59Z`;
-        const dateFilter = `createdDate ge ${from} and createdDate le ${to}`;
-        const filterStr = classFilter ? `${dateFilter} and ${classFilter}` : dateFilter;
+        for (let month = 1; month <= 12; month++) {
+          const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
+          const from = `${monthLabel}-01T00:00:00Z`;
+          const nextMonth = month === 12 ? 1 : month + 1;
+          const nextYear  = month === 12 ? year + 1 : year;
+          const to = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00Z`;
+          const dateFilter = `createdDate ge ${from} and createdDate lt ${to}`;
+          const filterStr = classFilter ? `${dateFilter} and ${classFilter}` : dateFilter;
 
-        console.log(`[loader]   ── Ano ${year}${classValueEfetivo ? ` — classificação "${classValueEfetivo}"` : ''} ──`);
-        for (const ep of ['/tickets', '/tickets/past']) {
-          console.log(`[loader]     endpoint ${ep}`);
-          await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classFilter ? classPageSize : PAGE_SIZE);
+          console.log(`[loader]   ── ${monthLabel}${classValueEfetivo ? ` — classificação "${classValueEfetivo}"` : ''} ──`);
+          for (const ep of ['/tickets', '/tickets/past']) {
+            await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classFilter ? classPageSize : PAGE_SIZE);
+          }
         }
         state.yearsDone++;
         console.log(`[loader]   ✓ Ano ${year} concluído — ${state.ticketsDone} tickets acumulados`);
