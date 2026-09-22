@@ -21,17 +21,16 @@ const { requireTabAccess } = require('./config');
 
 const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
 
-// Organização do ticket: mesma heurística validada em ouvidoria.js/gcc.js —
-// prioriza contato externo (não @viasoft.com.br, profile_type <> '3') sobre
-// o agente interno que às vezes também aparece em clients[].
-const ORG_LATERAL = `
-  LEFT JOIN LATERAL (
-    SELECT organizacao_id, organizacao_nome
-    FROM silver.ticket_cliente
-    WHERE ticket_id = t.ticket_id
-    ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
-    LIMIT 1
-  ) tc ON true
+// Organização do ticket: pré-calculada em silver.ticket_organizacao (ver
+// refreshTicketOrganizacao em movidesk-loader.js) com a mesma heurística
+// usada em ouvidoria.js/gcc.js (prioriza contato externo — não
+// @viasoft.com.br, profile_type <> '3' — sobre o agente interno que às vezes
+// também aparece em clients[]). Antes era um LEFT JOIN LATERAL correlacionado
+// direto em silver.ticket_cliente — media ~9s sozinho com a base em ~720 mil
+// tickets (medido em produção em 22/09/2026), o suficiente pra estourar o
+// timeout do Painel Geral. Materializar troca isso por um JOIN indexado simples.
+const ORG_JOIN = `
+  LEFT JOIN silver.ticket_organizacao tc ON tc.ticket_id = t.ticket_id
 `;
 
 const LIST_SELECT = `
@@ -58,7 +57,7 @@ const LIST_SELECT = `
   FROM silver.ticket t
   LEFT JOIN silver.ticket_campo_customizado cf
     ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
-  ${ORG_LATERAL}
+  ${ORG_JOIN}
   LEFT JOIN LATERAL (
     SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE is_public) AS publicas
     FROM silver.ticket_acao

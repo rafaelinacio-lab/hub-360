@@ -22,15 +22,10 @@ const { requireTabAccess } = require('./config');
 
 const FINALIZADO_STATUSES = "('Resolved','Closed','Resolvido','Fechado')";
 
-// Mesma heurística de organização usada em ouvidoria.js/gcc.js/geral.js.
-const ORG_LATERAL = `
-  LEFT JOIN LATERAL (
-    SELECT organizacao_id, organizacao_nome
-    FROM silver.ticket_cliente
-    WHERE ticket_id = t.ticket_id
-    ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
-    LIMIT 1
-  ) tc ON true
+// Organização pré-calculada — ver comentário equivalente em geral.js e
+// refreshTicketOrganizacao em movidesk-loader.js.
+const ORG_JOIN = `
+  LEFT JOIN silver.ticket_organizacao tc ON tc.ticket_id = t.ticket_id
 `;
 
 // Fallback pra quando t.owner_name vem vazio (~32 mil tickets de uma
@@ -74,7 +69,7 @@ router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res)
           s.nota, s.comentario, s.respondido_em, quem.nome AS respondido_por
         FROM silver.ticket_satisfacao s
         JOIN silver.ticket t ON t.ticket_id = s.ticket_id
-        ${ORG_LATERAL}
+        ${ORG_JOIN}
         LEFT JOIN silver.ticket_cliente quem
           ON quem.ticket_id = t.ticket_id AND quem.cliente_id = s.respondido_por_id
         ${RESPONSAVEL_INFERIDO_LATERAL}

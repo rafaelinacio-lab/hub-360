@@ -464,6 +464,21 @@ async function ensureTables() {
     // em satisfacao.js (ticket_id + cliente_id).
     ['silver.ticket_cliente idx ticket_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_id ON silver.ticket_cliente(ticket_id)`],
     ['silver.ticket_cliente idx ticket_id+cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_cliente ON silver.ticket_cliente(ticket_id, cliente_id)`],
+    // Mesmo com o índice acima, a heurística de organização (ORG_LATERAL) continua
+    // lenta em produção — "WHERE ticket_id = ... ORDER BY ... LIMIT 1" roda como
+    // subquery correlacionada por ticket, e com ~720 mil tickets isso mede ~9s só
+    // pra essa parte (medido em produção em 22/09/2026), o suficiente pra estourar
+    // o timeout de 90s do Painel Geral. Materializa o resultado numa tabela própria
+    // (refreshTicketOrganizacao(), chamada no boot e periodicamente pelo server.js),
+    // trocando a subquery correlacionada por um JOIN indexado simples.
+    ['silver.ticket_organizacao (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_organizacao (
+        ticket_id        bigint PRIMARY KEY,
+        organizacao_id   text,
+        organizacao_nome text,
+        atualizado_em    timestamptz NOT NULL DEFAULT NOW()
+      )
+    `],
     ['silver.carga_log (create)', `
       CREATE TABLE IF NOT EXISTS silver.carga_log (
         id           serial PRIMARY KEY,
@@ -1331,6 +1346,37 @@ async function runFixOrganizacao() {
   }
 }
 
+// Recalcula silver.ticket_organizacao a partir de silver.ticket_cliente, num
+// único UPSERT em lote (DISTINCT ON, mesma heurística do antigo ORG_LATERAL:
+// prioriza contato externo — não @viasoft.com.br, profile_type <> '3' — sobre
+// o agente interno que às vezes também aparece em clients[]). Chamada no boot
+// e periodicamente (ver setInterval em server.js) — idempotente, então rodar
+// de novo só atualiza tickets/clientes novos desde a última vez.
+let _refreshingOrganizacao = false;
+async function refreshTicketOrganizacao() {
+  if (_refreshingOrganizacao) return;
+  _refreshingOrganizacao = true;
+  const t0 = Date.now();
+  try {
+    await ensureTables();
+    const result = await db.query(`
+      INSERT INTO silver.ticket_organizacao (ticket_id, organizacao_id, organizacao_nome, atualizado_em)
+      SELECT DISTINCT ON (ticket_id) ticket_id, organizacao_id, organizacao_nome, NOW()
+      FROM silver.ticket_cliente
+      ORDER BY ticket_id, (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
+      ON CONFLICT (ticket_id) DO UPDATE SET
+        organizacao_id   = EXCLUDED.organizacao_id,
+        organizacao_nome = EXCLUDED.organizacao_nome,
+        atualizado_em    = EXCLUDED.atualizado_em
+    `);
+    console.log(`[loader] ✔ silver.ticket_organizacao atualizada — ${result.rowCount} ticket(s) (${Date.now() - t0}ms)`);
+  } catch (e) {
+    console.error('[loader] refreshTicketOrganizacao falhou:', e.message);
+  } finally {
+    _refreshingOrganizacao = false;
+  }
+}
+
 function cancelLoad() {
   if (!state.running) return false;
   // Protege contra cancel residual de carga anterior que chega após nova carga iniciar:
@@ -1501,4 +1547,5 @@ function stopSatisfacaoSync() {
 module.exports = {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
+  refreshTicketOrganizacao,
 };

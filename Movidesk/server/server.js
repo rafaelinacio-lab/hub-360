@@ -140,6 +140,17 @@ movideskLoader.ensureTables().catch(e => {
   console.error('[server] ensureTables na inicialização falhou (não bloqueia o boot):', e.message);
 });
 
+// silver.ticket_organizacao — materialização da heurística de organização
+// (ver comentário em ensureTables/refreshTicketOrganizacao). Recalcula no boot
+// e a cada 30min pra acompanhar tickets/clientes novos, sem repetir a
+// subquery correlacionada lenta a cada request do Painel Geral/GCC/Ouvidoria.
+movideskLoader.refreshTicketOrganizacao().catch(e => {
+  console.error('[server] refreshTicketOrganizacao na inicialização falhou (não bloqueia o boot):', e.message);
+});
+setInterval(() => {
+  movideskLoader.refreshTicketOrganizacao().catch(() => {});
+}, 30 * 60 * 1000);
+
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
