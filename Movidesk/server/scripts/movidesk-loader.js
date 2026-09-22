@@ -262,6 +262,18 @@ const SELECT_FIELDS = [
 // Expande apenas os nomes das entidades — o servidor retorna todos os campos delas.
 const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
 
+// $expand=owner sozinho (sem customFieldValues junto) — testado via curl em
+// produção (22/09/2026, comparando busca filtrada por mês vs. busca limpa
+// por id pros mesmos tickets, incluindo um caso com owner real e um com
+// owner genuinamente null) e confirmado SEM corrupção mesmo combinado com
+// $filter de data. Ou seja, o bug de corrupção documentado abaixo
+// (corrigirCustomFieldValues) é específico de customFieldValues — não de
+// QUALQUER campo expandido, como a gente achava antes. Usado só no backfill
+// de campos básicos (runBackfillCamposBasicos) — a carga normal continua
+// usando EXPAND_FIELDS completo pra trazer clients/customFieldValues/actions
+// de tickets novos.
+const EXPAND_OWNER_ONLY = 'owner';
+
 // Bug confirmado na API do Movidesk: QUALQUER $filter (mesmo o mais simples,
 // tipo "ownerTeam eq 'Ouvidoria'") combinado com $expand=customFieldValues faz
 // os campos customizados virem com value:null e SEM a chave "items" — pra
@@ -310,11 +322,11 @@ async function corrigirCustomFieldValues(token, tickets) {
 }
 
 // ── Busca uma página da API ───────────────────────────────────────────────────
-async function fetchPage(token, endpoint, filter, skip, pageSize = PAGE_SIZE) {
+async function fetchPage(token, endpoint, filter, skip, pageSize = PAGE_SIZE, expand = EXPAND_FIELDS) {
   const params = {
     token,
     '$select':  SELECT_FIELDS,
-    '$expand':  EXPAND_FIELDS,
+    '$expand':  expand,
     '$top':     pageSize,
     '$skip':    skip,
     // Sem ordenação explícita, $skip pode repetir/pular linhas entre
@@ -341,7 +353,7 @@ async function fetchPage(token, endpoint, filter, skip, pageSize = PAGE_SIZE) {
 const CLASS_FILTER_PAGE_SIZE = 50;
 
 // ── Itera todas as páginas de um endpoint, chamando onBatch a cada página ────
-async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_SIZE) {
+async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_SIZE, expand = EXPAND_FIELDS) {
   let skip = 0;
   let total = 0;
 
@@ -354,7 +366,7 @@ async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_S
     }
 
     state.phase = 'fetching';
-    const batch = await fetchPage(token, endpoint, filter, skip, pageSize);
+    const batch = await fetchPage(token, endpoint, filter, skip, pageSize, expand);
     if (!batch.length) break;
 
     state.phase = 'saving';
@@ -1028,6 +1040,120 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
   }
 }
 
+const BACKFILL_PAGE_SIZE = 500;
+
+/**
+ * Backfill de campos básicos (responsável/equipe/serviço/urgência/categoria/
+ * SLA) pros ~716 mil tickets legados que nunca trouxeram esses campos — uma
+ * importação antiga só trouxe id/assunto/status/data (ver investigação de
+ * 22/09/2026). Diferente da carga FULL normal, essa rotina:
+ *   - usa $expand=owner sozinho (SEM customFieldValues/clients/actions) —
+ *     testado via curl e confirmado sem o bug de corrupção que existe pra
+ *     customFieldValues combinado com $filter;
+ *   - por isso NÃO precisa da correção por ticket (corrigirCustomFieldValues)
+ *     — o gargalo real da carga anterior;
+ *   - usa página maior (500) já que o expand mínimo é bem mais leve;
+ *   - chama saveBatch() sem alteração: como actions/clients/customFieldValues
+ *     não vêm na resposta, saveBatch() simplesmente pula essas tabelas pra
+ *     cada ticket (confirmado lendo o código — só grava/deleta o que veio na
+ *     resposta), então dados já existentes de ações/clientes/campos
+ *     customizados ficam intocados.
+ */
+async function runBackfillCamposBasicos({ years = [] } = {}) {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+
+  const sortedYears = [...years].map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()).sort();
+  if (!sortedYears.length) {
+    throw new Error('Selecione ao menos um ano pra rodar o backfill de campos básicos');
+  }
+
+  state.running          = true;
+  state.cancelRequested  = false;
+  state.mode             = 'backfill-basico';
+  state.startedAt        = new Date().toISOString();
+  state.phase            = 'preparando';
+  state.pagesDone        = 0;
+  state.ticketsDone      = 0;
+  state.savedIds         = new Set();
+  state.errors           = [];
+  state.years            = sortedYears;
+  state.currentYear      = null;
+  state.yearsTotal       = sortedYears.length;
+  state.yearsDone        = 0;
+
+  await ensureTables();
+
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status, years) VALUES ('backfill-basico', NOW(), 'running', $1) RETURNING id`,
+    [sortedYears]
+  ).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+
+  console.log(`[loader] ▶ Backfill de campos básicos iniciado — anos: ${sortedYears.join(', ')}`);
+
+  try {
+    const token = await getMovideskToken();
+
+    for (const year of sortedYears) {
+      state.currentYear = year;
+      for (let month = 1; month <= 12; month++) {
+        const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
+        const from = `${monthLabel}-01T00:00:00Z`;
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextYear  = month === 12 ? year + 1 : year;
+        const to = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00Z`;
+        const filterStr = `createdDate ge ${from} and createdDate lt ${to}`;
+
+        console.log(`[loader]   ── backfill ${monthLabel} ──`);
+        for (const ep of ['/tickets', '/tickets/past']) {
+          await fetchEndpoint(token, ep, filterStr, saveBatch, BACKFILL_PAGE_SIZE, EXPAND_OWNER_ONLY);
+        }
+      }
+      state.yearsDone++;
+      console.log(`[loader]   ✓ Ano ${year} concluído — ${state.ticketsDone} tickets acumulados`);
+    }
+    state.currentYear = null;
+
+    state.phase      = 'idle';
+    state.running    = false;
+    state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode: 'backfill-basico', tickets: state.ticketsDone, years: sortedYears };
+
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
+        [state.ticketsDone, logId]
+      ).catch(() => {});
+    }
+    console.log(`[loader] ✔ Backfill de campos básicos concluído — ${state.ticketsDone} tickets`);
+    return state.lastResult;
+  } catch (err) {
+    state.running          = false;
+    state.phase            = 'idle';
+    state.currentYear      = null;
+    state.cancelRequested  = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
+      ).catch(() => {});
+    }
+    if (wasCancelled) {
+      console.log(`[loader] ⏹ Backfill de campos básicos cancelado — ${state.ticketsDone} tickets salvos`);
+      state.lastResult = { mode: 'backfill-basico', tickets: state.ticketsDone, cancelled: true };
+    } else {
+      console.error('[loader] ✖ Backfill de campos básicos com erro:', err.message);
+      throw err;
+    }
+  }
+}
+
 /**
  * Carga INCREMENTAL — tickets em aberto + atualizados nas últimas 24h.
  *
@@ -1565,4 +1691,5 @@ module.exports = {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   refreshTicketOrganizacao,
+  runBackfillCamposBasicos,
 };

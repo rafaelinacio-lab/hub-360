@@ -17,10 +17,12 @@ const { getToken } = require('./config');
 const {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
+  runBackfillCamposBasicos,
 } = require('../scripts/movidesk-loader');
 const loader  = {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
+  runBackfillCamposBasicos,
 };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
@@ -44,6 +46,29 @@ router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, r
   loader.runFull({ years, classification, ownerTeam }).catch(e => console.error('[loader/full] erro:', e.message));
 
   res.json({ started: true, mode: loader.state.mode, years, classification, ownerTeam, startedAt: loader.state.startedAt });
+});
+
+// ── POST /api/loader/backfill-basico ──────────────────────────────────────────
+// Backfill rápido de responsável/equipe/serviço/urgência/categoria/SLA pros
+// tickets legados que nunca trouxeram esses campos — ver comentário de
+// runBackfillCamposBasicos em movidesk-loader.js.
+router.post('/backfill-basico', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  if (loader.state.running) {
+    return res.status(409).json({
+      error: 'Já existe uma carga em andamento',
+      state: sanitizeState(loader.state),
+    });
+  }
+
+  const years = Array.isArray(req.body?.years) ? req.body.years : [];
+  if (!years.length) {
+    return res.status(400).json({ error: 'Selecione ao menos um ano pra rodar o backfill de campos básicos' });
+  }
+
+  loader.runBackfillCamposBasicos({ years })
+    .catch(e => console.error('[loader/backfill-basico] erro:', e.message));
+
+  res.json({ started: true, mode: loader.state.mode, years, startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/incremental ─────────────────────────────────────────────
