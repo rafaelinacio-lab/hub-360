@@ -216,10 +216,31 @@
         }
 
         .lx-sso-wrap {
-            display: flex;
+            display: none;
             justify-content: center;
             min-height: 44px;
             margin-bottom: 22px;
+        }
+
+        .lx-sso-wrap.is-ready { display: flex; }
+
+        .lx-sso-skeleton {
+            height: 44px;
+            width: 280px;
+            margin: 0 auto 22px;
+            border-radius: 8px;
+            background: linear-gradient(90deg, var(--lx-border) 25%, var(--lx-form-bg) 37%, var(--lx-border) 63%);
+            background-size: 400% 100%;
+            animation: lx-skeleton-pulse 1.4s ease infinite;
+        }
+
+        @keyframes lx-skeleton-pulse {
+            0%   { background-position: 100% 50%; }
+            100% { background-position: 0 50%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .lx-sso-skeleton { animation: none; }
         }
 
         .lx-domain-hint {
@@ -249,21 +270,23 @@
         @media (max-width: 680px) {
             .lx-root { flex-direction: column; }
 
+            /* Formulário primeiro: o botão de login fica visível sem rolar */
+            .lx-form-panel { order: -1; padding: 40px 24px 28px; }
+
             .lx-brand {
+                order: 1;
                 width: 100%;
                 min-width: 0;
-                padding: 28px 24px 36px;
-                min-height: 220px;
+                min-height: 0;
+                padding: 24px 24px 28px;
             }
 
-            .lx-brand-bottom { margin-top: 28px; }
+            .lx-brand-bottom { margin-top: 20px; }
 
             .lx-brand-headline {
-                font-size: 22px;
-                margin-bottom: 12px;
+                font-size: 20px;
+                margin-bottom: 10px;
             }
-
-            .lx-form-panel { padding: 40px 24px; }
 
             .lx-form-heading { font-size: 26px; }
         }
@@ -313,6 +336,7 @@
                 <div class="lx-sep-line"></div>
             </div>
 
+            <div class="lx-sso-skeleton" id="ssoSkeleton" aria-hidden="true"></div>
             <div class="lx-sso-wrap" id="ssoBtn" role="region" aria-label="Botão de login com Google"></div>
 
             <p class="lx-domain-hint" id="ssoHint">
@@ -423,6 +447,12 @@ function setError(msg) {
     if (!el) return;
     el.textContent    = msg || '';
     el.style.display  = msg ? 'block' : 'none';
+    if (msg) hideSkeleton();
+}
+
+function hideSkeleton() {
+    const sk = document.getElementById('ssoSkeleton');
+    if (sk) sk.style.display = 'none';
 }
 
 // Redireciona se já existe sessão válida
@@ -473,12 +503,16 @@ async function initGoogleSignIn() {
             client_id: cfg.clientId,
             callback:  handleCredentialResponse
         });
-        google.accounts.id.renderButton(document.getElementById('ssoBtn'), {
+        const ssoBtn = document.getElementById('ssoBtn');
+        google.accounts.id.renderButton(ssoBtn, {
             theme:  (localStorage.getItem('theme') === 'dark') ? 'filled_black' : 'outline',
             size:   'large',
             text:   'signin_with',
             width:  280
         });
+
+        hideSkeleton();
+        if (ssoBtn) ssoBtn.classList.add('is-ready');
     } catch (err) {
         setError('Não foi possível carregar o login com Google. Verifique sua conexão e recarregue a página.');
     }
