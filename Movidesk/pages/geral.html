@@ -907,20 +907,24 @@ let _rows=[];
 let _charts={};
 let _rowsFull=[];
 let _rowsById={};
-let _janela=null; // null = histórico completo já carregado; senão, ex: "12m"
+let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-vigente"
 
 // ── load ─────────────────────────────────────────────────────────────
-// Por padrão o backend limita aos últimos 12 meses (a base tem ~720 mil
-// tickets — buscar tudo de uma vez transporta dezenas de MB de JSON e
-// estoura o timeout do navegador). loadHistoricoCompleto() busca tudo sob
-// demanda, explicitamente, quando o usuário realmente precisa do histórico.
+// Por padrão o backend limita ao ano vigente (a base tem ~720 mil tickets —
+// buscar tudo de uma vez transporta dezenas de MB de JSON e estoura o
+// timeout do navegador). loadHistoricoCompleto() busca tudo sob demanda,
+// explicitamente, quando o usuário realmente precisa do histórico.
 function renderJanelaBanner(){
   const el=document.getElementById('janela-banner');
   if(!_janela){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='flex';
+  const anoAtual=new Date().getFullYear();
+  const texto=_janela==='ano-vigente'
+    ? `Mostrando só o ano vigente (${anoAtual}) — base tem mais de 720 mil chamados no histórico; carregar tudo de uma vez pode demorar bastante.`
+    : `Mostrando um período limitado — base tem mais de 720 mil chamados no histórico; carregar tudo de uma vez pode demorar bastante.`;
   el.innerHTML=`
     <span class="sym">history</span>
-    <span>Mostrando só os últimos 12 meses (base tem mais de 720 mil chamados — carregar tudo de uma vez pode demorar bastante).</span>
+    <span>${texto}</span>
     <button id="btn-carregar-tudo" onclick="loadHistoricoCompleto()">Carregar histórico completo</button>
   `;
 }

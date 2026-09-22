@@ -70,11 +70,9 @@ const LIST_SELECT = `
 // vez transporta dezenas de MB de JSON e estoura o timeout do frontend
 // (90s), mesmo com os joins todos indexados (medido em produção em
 // 22/09/2026: a query em si roda rápido, o volume que não cabe). Por padrão
-// limita a janela aos últimos MESES_PADRAO meses; ?todos=1 busca tudo (uso
-// explícito e consciente, via botão "Carregar histórico completo" no
-// frontend) e ?desde=YYYY-MM-DD permite uma janela customizada.
-const MESES_PADRAO = 12;
-
+// limita a janela ao ano vigente (1º de janeiro até agora); ?todos=1 busca
+// tudo (uso explícito e consciente, via botão "Carregar histórico completo"
+// no frontend) e ?desde=YYYY-MM-DD permite uma janela customizada.
 // ===== GET /geral =====
 router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
@@ -87,10 +85,12 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
     const params = [];
     let whereClause = '';
     if (!todos) {
-      params.push(desde || `${MESES_PADRAO} months`);
-      whereClause = desde
-        ? `WHERE t.createddate >= $1::date`
-        : `WHERE t.createddate >= NOW() - $1::interval`;
+      if (desde) {
+        params.push(desde);
+        whereClause = `WHERE t.createddate >= $1::date`;
+      } else {
+        whereClause = `WHERE t.createddate >= date_trunc('year', NOW())`;
+      }
     }
 
     const result = await db.query(
@@ -99,7 +99,7 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
     );
     res.json({
       rows: result.rows || [],
-      janela: todos ? null : (desde || `${MESES_PADRAO}m`),
+      janela: todos ? null : (desde || 'ano-vigente'),
     });
   } catch (error) {
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
