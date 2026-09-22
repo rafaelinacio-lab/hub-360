@@ -65,15 +65,46 @@ const LIST_SELECT = `
   ) ac ON true
 `;
 
+// Sem filtro de equipe/classificação (ao contrário de ouvidoria.js/gcc.js),
+// silver.ticket inteira aqui já passou de 720 mil linhas — buscar tudo de uma
+// vez transporta dezenas de MB de JSON e estoura o timeout do frontend
+// (90s), mesmo com os joins todos indexados (medido em produção em
+// 22/09/2026: a query em si roda rápido, o volume que não cabe). Por padrão
+// limita a janela aos últimos MESES_PADRAO meses; ?todos=1 busca tudo (uso
+// explícito e consciente, via botão "Carregar histórico completo" no
+// frontend) e ?desde=YYYY-MM-DD permite uma janela customizada.
+const MESES_PADRAO = 12;
+
 // ===== GET /geral =====
 router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
-    const result = await db.query(`${LIST_SELECT} ORDER BY t.createddate DESC`);
-    res.json(result.rows || []);
+    const todos = req.query.todos === '1' || req.query.todos === 'true';
+    const desdeParam = String(req.query.desde || '').trim();
+    const desde = !todos
+      ? (/^\d{4}-\d{2}-\d{2}$/.test(desdeParam) ? desdeParam : null)
+      : null;
+
+    const params = [];
+    let whereClause = '';
+    if (!todos) {
+      params.push(desde || `${MESES_PADRAO} months`);
+      whereClause = desde
+        ? `WHERE t.createddate >= $1::date`
+        : `WHERE t.createddate >= NOW() - $1::interval`;
+    }
+
+    const result = await db.query(
+      `${LIST_SELECT} ${whereClause} ORDER BY t.createddate DESC`,
+      params
+    );
+    res.json({
+      rows: result.rows || [],
+      janela: todos ? null : (desde || `${MESES_PADRAO}m`),
+    });
   } catch (error) {
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
       console.warn('[geral] silver.* ainda não existe — retornando vazio');
-      return res.json([]);
+      return res.json({ rows: [], janela: null });
     }
     console.error('Erro ao buscar painel geral:', error.message);
     res.status(500).json({ error: 'Erro ao carregar dados do painel geral: ' + error.message });

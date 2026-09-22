@@ -204,6 +204,21 @@ input,select{font-family:inherit}
 #sync-toast .sym{font-size:16px;color:var(--green)}
 #sync-toast .st-prog{font-size:11px;color:var(--t3);margin-left:2px}
 
+/* janela de período (dados parciais por padrão) */
+#janela-banner{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 20px;background:var(--surface2,var(--surface));
+  border-top:1px solid var(--border);font-size:12.5px;color:var(--t2);
+}
+#janela-banner .sym{font-size:16px;color:var(--orange)}
+#janela-banner button{
+  background:none;border:1px solid var(--border);border-radius:7px;
+  padding:5px 11px;font-size:12px;font-weight:600;color:var(--t1);
+  cursor:pointer;
+}
+#janela-banner button:hover{background:var(--surface3,var(--hover,rgba(128,128,128,.1)))}
+#janela-banner button:disabled{opacity:.6;cursor:default}
+
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -436,6 +451,7 @@ body.modal-open{overflow:hidden}
       <span id="sync-toast-txt">Sincronizando…</span>
       <span class="st-prog" id="sync-toast-prog"></span>
     </div>
+    <div id="janela-banner" style="display:none"></div>
   </header>
 
   <div class="dash-wrap" id="geral-dash">
@@ -670,9 +686,9 @@ if (typeof Chart !== 'undefined') Chart.defaults.animation = false;
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
 function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
-async function api(ep){
+async function api(ep,timeoutMs=90000){
   const ctrl=new AbortController();
-  const t=setTimeout(()=>ctrl.abort(),90000);
+  const t=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
     const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal,cache:'no-store'});
     if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
@@ -891,11 +907,44 @@ let _rows=[];
 let _charts={};
 let _rowsFull=[];
 let _rowsById={};
+let _janela=null; // null = histórico completo já carregado; senão, ex: "12m"
 
 // ── load ─────────────────────────────────────────────────────────────
+// Por padrão o backend limita aos últimos 12 meses (a base tem ~720 mil
+// tickets — buscar tudo de uma vez transporta dezenas de MB de JSON e
+// estoura o timeout do navegador). loadHistoricoCompleto() busca tudo sob
+// demanda, explicitamente, quando o usuário realmente precisa do histórico.
+function renderJanelaBanner(){
+  const el=document.getElementById('janela-banner');
+  if(!_janela){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML=`
+    <span class="sym">history</span>
+    <span>Mostrando só os últimos 12 meses (base tem mais de 720 mil chamados — carregar tudo de uma vez pode demorar bastante).</span>
+    <button id="btn-carregar-tudo" onclick="loadHistoricoCompleto()">Carregar histórico completo</button>
+  `;
+}
+async function loadHistoricoCompleto(){
+  const btn=document.getElementById('btn-carregar-tudo');
+  if(btn){ btn.disabled=true; btn.textContent='Carregando (pode levar alguns minutos)…'; }
+  try{
+    const resp=await api('/geral?todos=1',10*60*1000);
+    _rows=resp.rows||[];
+    _janela=resp.janela??null;
+    renderJanelaBanner();
+    buildFilterOptions();
+    render();
+  } catch(e){
+    alert('Não foi possível carregar o histórico completo: '+e.message);
+    if(btn){ btn.disabled=false; btn.textContent='Carregar histórico completo'; }
+  }
+}
 async function loadGeral(){
   try{
-    _rows=await api('/geral');
+    const resp=await api('/geral');
+    _rows=resp.rows||[];
+    _janela=resp.janela??null;
+    renderJanelaBanner();
     buildFilterOptions();
     render();
   } catch(e){
