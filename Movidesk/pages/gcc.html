@@ -374,6 +374,8 @@ body.modal-open{overflow:hidden}
 .td-tl-author{font-size:12.5px;font-weight:700;color:var(--t1)}
 .td-tl-date{font-size:11px;color:var(--t3)}
 .td-tl-badge{font-size:10px;color:var(--t2);background:var(--surface-mid);border-radius:999px;padding:2px 8px}
+.td-tl-badge-cliente{color:var(--orange);background:var(--orange-bg);border:1px solid var(--orange-bd)}
+.td-tl-badge-agente{color:var(--green);background:var(--green-bg);border:1px solid var(--green-bd)}
 .td-tl-desc{font-size:12.5px;color:var(--t2);line-height:1.5;max-height:120px;overflow-y:auto}
 .td-tl-desc :is(img,table){max-width:100%}
 .td-loading,.td-empty{color:var(--t3);font-size:12.5px;text-align:center;padding:20px 0}
@@ -490,11 +492,11 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="gcc-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-6">
+    <div class="grid-5">
       <div class="stat-card">
         <p class="label">Total de chamados</p>
         <p class="value" id="k-total">0</p>
-        <p class="legend">Abertos no período + resolvidos no período.</p>
+        <p class="legend" id="k-total-legend">Fechado no período.</p>
       </div>
       <div class="stat-card">
         <p class="label">Rescisão total</p>
@@ -516,20 +518,10 @@ body.modal-open{overflow:hidden}
         <p class="value good" id="k-taxa-reversao">0%</p>
         <p class="legend">Revertidos ÷ total de solicitações.</p>
       </div>
-      <div class="stat-card danger clickable" id="k-sem-tipo-card" onclick="openSemTipoRescisaoModal()">
-        <p class="label">Sem tipo de rescisão</p>
-        <p class="value bad" id="k-sem-tipo">0</p>
-        <p class="legend">Campo não preenchido no Movidesk. Clique pra ver.</p>
-      </div>
     </div>
 
     <p class="section-label">Operacional</p>
-    <div class="grid-4">
-      <div class="stat-card">
-        <p class="label">Tickets pendentes</p>
-        <p class="value" id="k-pendentes">0</p>
-        <p class="legend">Casos ainda em aberto no período.</p>
-      </div>
+    <div class="grid-3">
       <div class="stat-card">
         <p class="label">Clientes</p>
         <p class="value" id="k-clientes">0</p>
@@ -1035,7 +1027,6 @@ function ehRescisaoParcial(r){ return tipoRescNorm(r).toLowerCase().includes('pa
 // Chamados de GCC que ainda não têm o campo customizado "Tipo de Rescisão"
 // (CF 87894) preenchido como Total nem Parcial — não aparecem em nenhum
 // gráfico/ranking por tipo, mas contam no "Total de chamados".
-function semTipoRescisao(r){ return !ehRescisaoTotal(r)&&!ehRescisaoParcial(r); }
 function locusNorm(r){ return (r.classificacao_locus||'').trim(); }
 
 // ── state ────────────────────────────────────────────────────────────
@@ -1116,7 +1107,10 @@ function buildFilterOptions(){
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
   ],'Status: todos',render);
 
-  const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
+  const years=[...new Set(_rows.flatMap(r=>[
+    r.criado_em?new Date(r.criado_em).getFullYear():null,
+    r.resolvido_em?new Date(r.resolvido_em).getFullYear():null,
+  ]).filter(Boolean))].sort((a,b)=>b-a);
   populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
 }
@@ -1154,46 +1148,51 @@ function getFilteredRows(){
     if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
     return true;
   };
-  // Tickets ainda em aberto não têm data de resolução, então o filtro de
-  // Ano/Mês olha pra quando foram CRIADOS (é o que decide se entram em
-  // Pendentes/Críticos/MRR em risco). Tickets já finalizados olham pra
-  // quando foram RESOLVIDOS (Rescisão total/parcial/Revertidos/MRR
-  // protegido/perdido) — não pra quando o caso começou.
-  const rowsFull=[
-    ...rowsCtx.filter(r=>isAberto(r)&&dataBate(r.criado_em)),
-    ...rowsCtx.filter(r=>!isAberto(r)&&dataBate(r.resolvido_em)),
-  ];
-  return {rowsCtx,rowsFull};
+  // As contagens de tickets FECHADOS seguem resolvido_em (t.resolved_in),
+  // não criado_em nem closed_in. closed_in praticamente não é preenchido
+  // nesse fluxo do Movidesk (a maioria dos tickets fica só "Resolved", nunca
+  // passa por um "Closed" formal — confirmado em produção em 22/09/2026: 715
+  // de 2.871 tickets de GCC tinham closed_in, contra 1.358 com resolved_in).
+  const rowsFechados=rowsCtx.filter(r=>!isAberto(r)&&dataBate(r.resolvido_em));
+  // Tickets ainda ABERTOS não têm data de fechamento, então o filtro de
+  // Ano/Mês olha pra quando foram CRIADOS — um caso aberto entra em "2026"
+  // se foi criado em 2026, mesmo que ainda não tenha fechado. É o que
+  // decide se ele conta em MRR em risco/Casos críticos/Críticos vencidos
+  // quando um período está selecionado.
+  const rowsAbertos=rowsCtx.filter(r=>isAberto(r)&&dataBate(r.criado_em));
+  const rowsFull=[...rowsAbertos,...rowsFechados];
+  return {rowsCtx,rowsFull,rowsFechados,rowsAbertos,statusFils};
 }
 
 // ── render ───────────────────────────────────────────────────────────
 function render(){
   if(!_rows.length && document.getElementById('gcc-dash').dataset.err) return;
-  const {rowsCtx,rowsFull}=getFilteredRows();
+  const {rowsCtx,rowsFull,rowsFechados,rowsAbertos,statusFils}=getFilteredRows();
   _rowsFull=rowsFull;
   _rowsById={};
   rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
 
-  // ── Totais do período ──
-  const rescTotal=rowsFull.filter(ehRescisaoTotal).length;
-  const rescParcial=rowsFull.filter(ehRescisaoParcial).length;
-  const revertidos=rowsFull.filter(isRevertido).length;
-  const totalSolic=rowsFull.length;
+  // ── Totais do período (fechado no período; some o Status "Em aberto" nos
+  // outros filtros, o "Total de chamados" passa a contar os abertos em vez
+  // de zerar — não faz sentido mostrar "fechado no período" quando o filtro
+  // já restringiu a lista a só tickets abertos) ──
+  const mostrarAbertosNoTotal=statusFils.includes('aberto')&&!statusFils.includes('finalizado');
+  const rescTotal=rowsFechados.filter(ehRescisaoTotal).length;
+  const rescParcial=rowsFechados.filter(ehRescisaoParcial).length;
+  const revertidos=rowsFechados.filter(isRevertido).length;
+  const totalSolic=mostrarAbertosNoTotal?rowsAbertos.length:rowsFechados.length;
   const taxaReversao=totalSolic?revertidos/totalSolic*100:0;
-  const semTipoRows=rowsFull.filter(semTipoRescisao);
   document.getElementById('k-total').textContent=totalSolic.toLocaleString('pt-BR');
+  document.getElementById('k-total-legend').textContent=mostrarAbertosNoTotal?'Em aberto, criado no período.':'Fechado no período.';
   document.getElementById('k-resc-total').textContent=rescTotal.toLocaleString('pt-BR');
   document.getElementById('k-resc-parcial').textContent=rescParcial.toLocaleString('pt-BR');
   document.getElementById('k-revertidos').textContent=revertidos.toLocaleString('pt-BR');
   document.getElementById('k-taxa-reversao').textContent=`${taxaReversao.toFixed(1)}%`;
-  document.getElementById('k-sem-tipo').textContent=semTipoRows.length.toLocaleString('pt-BR');
 
   // ── Operacional ──
-  const pendentes=rowsFull.filter(isAberto).length;
   const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao).filter(Boolean)).size;
   const criticosRows=rowsFull.filter(isCritico);
   const criticosVencidosRows=criticosRows.filter(isVencido);
-  document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
   document.getElementById('k-clientes').textContent=clientesUnicos.toLocaleString('pt-BR');
   document.getElementById('k-criticos').textContent=criticosRows.length.toLocaleString('pt-BR');
   document.getElementById('k-criticos-venc').textContent=criticosVencidosRows.length.toLocaleString('pt-BR');
@@ -1353,15 +1352,35 @@ function syncModalBodyLock(){
 }
 
 // ── modal de detalhe de UM ticket ───────────────────────────────────
-const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+const ACTION_TYPE={1:'Mensagem',2:'Mensagem',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+// Classifica quem mandou a mensagem por createdBy.profileType — campo
+// OFICIAL do Movidesk pra isso (1=Agente, 2=Cliente, 3=Agente e Cliente),
+// não pelo "type" da ação (1/2), que NÃO é confiável: já encontramos ação
+// type=1 ("mensagem do cliente") criada por colaborador @viasoft.com.br
+// resumindo o que o cliente disse por telefone (profileType=3 nesse caso).
+// Sem profileType (ação antiga, ainda não resincronizada), cai pro domínio
+// do e-mail como aproximação.
+function tlAuthorLabel(a){
+  const tipo=ACTION_TYPE[a.type];
+  if(tipo&&![1,2].includes(a.type)) return {label:tipo,kind:null};
+  const pt=a.createdByProfileType!=null?Number(a.createdByProfileType):null;
+  if(pt===2) return {label:'Mensagem do cliente',kind:'cliente'};
+  if(pt===1) return {label:'Resposta do agente',kind:'agente'};
+  if(pt===3) return {label:'Agente e cliente',kind:'agente'};
+  const email=String(a.createdByEmail||'').toLowerCase();
+  if(email.endsWith('@viasoft.com.br')) return {label:'Resposta do agente',kind:'agente'};
+  if(email) return {label:'Mensagem do cliente',kind:'cliente'};
+  return {label:tipo||(a.type!=null?`Tipo ${a.type}`:'Ação'),kind:null};
+}
 function tlItem(a){
   const author=a.createdByName||'Sistema';
-  const label=ACTION_TYPE[a.type]||(a.type!=null?`Tipo ${a.type}`:'Ação');
+  const {label,kind}=tlAuthorLabel(a);
+  const badgeClass=kind?` td-tl-badge-${kind}`:'';
   return `<div class="td-tl-item">
     <div class="td-tl-meta">
       <span class="td-tl-author">${esc(author)}</span>
       <span class="td-tl-date">${fmtFull(a.createdDate)}</span>
-      <span class="td-tl-badge">${esc(label)}</span>
+      <span class="td-tl-badge${badgeClass}">${esc(label)}</span>
       ${a.status?`<span class="td-tl-badge">${esc(a.status)}</span>`:''}
     </div>
     <div class="td-tl-desc">${a.description||''}</div>
@@ -1897,11 +1916,6 @@ function renderCriticosVencidosTable(rows){
 }
 function scrollToCriticosVencidos(){
   document.getElementById('painel-criticos-vencidos').scrollIntoView({behavior:'smooth',block:'center'});
-}
-
-function openSemTipoRescisaoModal(){
-  const matched=_rowsFull.filter(semTipoRescisao);
-  openDetailModal('Sem tipo de rescisão',`${matched.length} ticket${matched.length===1?'':'s'} sem o campo preenchido`,matched);
 }
 
 function renderTopMrrRiscoTable(rows){

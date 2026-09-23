@@ -445,6 +445,17 @@ async function ensureTables() {
     `],
     ['silver.ticket_acao.criado_por_id', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_id text`],
     ['silver.ticket_acao.criado_por_nome', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_nome text`],
+    // E-mail de quem criou a ação — guardado como referência extra, mas a
+    // classificação cliente/agente usa criado_por_profile_type (ver abaixo).
+    ['silver.ticket_acao.criado_por_email', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_email text`],
+    // profileType de createdBy — campo OFICIAL do Movidesk pra saber quem
+    // criou a ação: 1=Agente, 2=Cliente, 3=Agente e Cliente. O campo "type"
+    // da própria ação (1/2) NÃO é confiável pra isso: encontramos ação
+    // type=1 ("mensagem do cliente") criada por colaborador @viasoft.com.br
+    // resumindo o que o cliente disse por telefone (confirmado via API em
+    // 22/09/2026, ticket #896629, ação #1) — createdBy.profileType=3 nesse
+    // caso, batendo com o e-mail interno.
+    ['silver.ticket_acao.criado_por_profile_type', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS criado_por_profile_type int`],
     ['silver.ticket_acao.is_public', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS is_public boolean`],
     ['silver.ticket_acao.extracted_at', `ALTER TABLE silver.ticket_acao ADD COLUMN IF NOT EXISTS extracted_at timestamptz DEFAULT NOW()`],
     // Confirmado: PK de silver.ticket_acao é composta — PRIMARY KEY (ticket_id, acao_id) —
@@ -678,6 +689,8 @@ async function saveBatch(tickets) {
         criado_em:      a.createdDate || null,
         criado_por_id:  a.createdBy?.id ? String(a.createdBy.id) : null,
         criado_por_nome: a.createdBy?.businessName || null,
+        criado_por_email: a.createdBy?.email || null,
+        criado_por_profile_type: a.createdBy?.profileType != null ? String(a.createdBy.profileType) : null,
       });
     }
   }
@@ -686,16 +699,16 @@ async function saveBatch(tickets) {
     await comLockRetry(client => client.query(`
       INSERT INTO silver.ticket_acao
         (acao_id, ticket_id, tipo, descricao, is_public, status, criado_em,
-         criado_por_id, criado_por_nome, extracted_at)
+         criado_por_id, criado_por_nome, criado_por_email, criado_por_profile_type, extracted_at)
       SELECT
         u.acao_id::bigint, u.ticket_id::bigint, u.tipo::int, u.descricao,
         u.is_public::boolean, u.status, COALESCE(u.criado_em::timestamptz, NOW()),
-        u.criado_por_id, u.criado_por_nome, NOW()
+        u.criado_por_id, u.criado_por_nome, u.criado_por_email, u.criado_por_profile_type::int, NOW()
       FROM unnest(
         $1::text[], $2::text[], $3::text[], $4::text[],
-        $5::text[], $6::text[], $7::text[], $8::text[], $9::text[]
+        $5::text[], $6::text[], $7::text[], $8::text[], $9::text[], $10::text[], $11::text[]
       ) AS u(acao_id, ticket_id, tipo, descricao, is_public, status, criado_em,
-             criado_por_id, criado_por_nome)
+             criado_por_id, criado_por_nome, criado_por_email, criado_por_profile_type)
       ON CONFLICT (ticket_id, acao_id) DO UPDATE SET
         descricao      = EXCLUDED.descricao,
         is_public      = EXCLUDED.is_public,
@@ -703,6 +716,8 @@ async function saveBatch(tickets) {
         criado_em      = EXCLUDED.criado_em,
         criado_por_id  = EXCLUDED.criado_por_id,
         criado_por_nome = EXCLUDED.criado_por_nome,
+        criado_por_email = EXCLUDED.criado_por_email,
+        criado_por_profile_type = EXCLUDED.criado_por_profile_type,
         extracted_at   = EXCLUDED.extracted_at
     `, [
       actionRows.map(r => r.acao_id),
@@ -714,6 +729,8 @@ async function saveBatch(tickets) {
       actionRows.map(r => r.criado_em),
       actionRows.map(r => r.criado_por_id),
       actionRows.map(r => r.criado_por_nome),
+      actionRows.map(r => r.criado_por_email),
+      actionRows.map(r => r.criado_por_profile_type),
     ]));
   }
 

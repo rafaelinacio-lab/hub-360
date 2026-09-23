@@ -48,12 +48,15 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         t.status        AS status_movidesk,
         t.basestatus    AS base_status,
         t.resolved_in   AS resolvido_em,
+        t.closed_in     AS fechado_em,
         t.owner_name    AS responsavel,
         t.urgency       AS urgencia,
         t.sla_solution_date AS sla_solucao,
         COALESCE(ac.n, 0) AS acoes_count,
         ce.estado       AS estado_cliente
       FROM silver.ticket t
+      -- Só entra em GCC quem tem a Classificação de Ticket certa E está na
+      -- equipe GCC (ownerTeam) — as duas condições, não uma ou outra.
       JOIN silver.ticket_campo_customizado cf_class
         ON cf_class.ticket_id = t.ticket_id
         AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
@@ -79,8 +82,9 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
       -- não expõe UF de forma confiável nem no ticket nem no /persons), ver
       -- silver.cliente_estado. NULLIF pra cobrir string vazia do CSV.
       LEFT JOIN silver.cliente_estado ce ON ce.organizacao_id = tc.organizacao_id AND NULLIF(ce.estado, '') IS NOT NULL
+      WHERE t.ownerteam = 'GCC - Gestão de Combate ao Churn'
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
-               t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in,
+               t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in, t.closed_in,
                t.owner_name, t.urgency, t.sla_solution_date, ac.n, ce.estado
       ORDER BY t.createddate DESC
     `);
@@ -120,8 +124,11 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
         t.createddate   AS criado_em,
         t.status        AS status_movidesk,
         t.basestatus    AS base_status,
-        t.resolved_in   AS resolvido_em
+        t.resolved_in   AS resolvido_em,
+        t.closed_in     AS fechado_em
       FROM silver.ticket t
+      -- Mesma regra de pertencimento a GCC do endpoint de lista (equipe E
+      -- classificação, as duas) — ver comentário lá em cima.
       JOIN silver.ticket_campo_customizado cf_class
         ON cf_class.ticket_id = t.ticket_id
         AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
@@ -141,9 +148,10 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
         LIMIT 1
       ) tc ON true
       WHERE t.ticket_id = $1
+        AND t.ownerteam = 'GCC - Gestão de Combate ao Churn'
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
                t.service_full,
-               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in
+               t.subject, t.createddate, t.status, t.basestatus, t.resolved_in, t.closed_in
     `, [ticketId]);
     const row = result.rows?.[0];
     if (!row) return res.status(404).json({ error: 'Registro não encontrado' });
@@ -173,7 +181,7 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('gcc'), async 
       db.query(
         `SELECT acao_id AS id, tipo AS type, descricao AS description,
                 is_public, status, criado_em AS created_date,
-                criado_por_nome
+                criado_por_nome, criado_por_email, criado_por_profile_type
          FROM silver.ticket_acao
          WHERE ticket_id = $1
          ORDER BY criado_em ASC`,
@@ -195,6 +203,8 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('gcc'), async 
       status: a.status,
       createdDate: a.created_date,
       createdByName: a.criado_por_nome,
+      createdByEmail: a.criado_por_email,
+      createdByProfileType: a.criado_por_profile_type,
     }));
 
     const customFieldValues = cfRes.rows.map(cf => ({

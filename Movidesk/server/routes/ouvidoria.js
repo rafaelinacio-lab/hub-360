@@ -140,7 +140,7 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), 
       db.query(
         `SELECT acao_id AS id, tipo AS type, descricao AS description,
                 is_public, status, criado_em AS created_date,
-                criado_por_nome
+                criado_por_nome, criado_por_email, criado_por_profile_type
          FROM silver.ticket_acao
          WHERE ticket_id = $1
          ORDER BY criado_em ASC`,
@@ -163,6 +163,8 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), 
       status: a.status,
       createdDate: a.created_date,
       createdByName: a.criado_por_nome,
+      createdByEmail: a.criado_por_email,
+      createdByProfileType: a.criado_por_profile_type,
     }));
 
     const customFieldValues = cfRes.rows.map(cf => ({

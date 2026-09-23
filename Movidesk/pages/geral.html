@@ -134,6 +134,14 @@ input,select{font-family:inherit}
 .topbar-sub{font-size:13px;color:var(--t2);font-weight:500;white-space:nowrap}
 .vbar{width:1px;height:22px;background:var(--border);flex-shrink:0}
 
+/* ─── Seletor Painel Geral / Satisfação (dentro da aba "Movidesk") ──────── */
+.md-tabs{display:flex;gap:3px;background:var(--surface-low);padding:3px;border-radius:9px;border:1px solid var(--border);flex-shrink:0}
+.md-tab{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:7px;border:none;cursor:pointer;
+  font-size:12.5px;font-weight:600;background:transparent;color:var(--t2);white-space:nowrap;transition:background .15s,color .15s}
+.md-tab .sym{font-size:16px}
+.md-tab:hover:not(.active){color:var(--t1)}
+.md-tab.active{background:var(--orange);color:#fff}
+
 /* ─── Filter bar ─────────────────────────────────────────────────────── */
 .topbar-filters{
   display:flex;align-items:center;gap:8px;
@@ -369,6 +377,8 @@ body.modal-open{overflow:hidden}
 .td-tl-author{font-size:12.5px;font-weight:700;color:var(--t1)}
 .td-tl-date{font-size:11px;color:var(--t3)}
 .td-tl-badge{font-size:10px;color:var(--t2);background:var(--surface-mid);border-radius:999px;padding:2px 8px}
+.td-tl-badge-cliente{color:var(--orange);background:var(--orange-bg);border:1px solid var(--orange-bd)}
+.td-tl-badge-agente{color:var(--green);background:var(--green-bg);border:1px solid var(--green-bd)}
 .td-tl-desc{font-size:12.5px;color:var(--t2);line-height:1.5;max-height:120px;overflow-y:auto}
 .td-tl-desc :is(img,table){max-width:100%}
 .td-loading,.td-empty{color:var(--t3);font-size:12.5px;text-align:center;padding:20px 0}
@@ -393,6 +403,14 @@ body.modal-open{overflow:hidden}
       <div class="vbar"></div>
       <span class="topbar-sub">Todos os chamados — visão de gestão</span>
       <span style="margin-left:auto"></span>
+      <div class="md-tabs">
+        <button class="md-tab active" onclick="mdSwitchTab('movidesk')">
+          <span class="sym">dashboard</span>Painel Geral
+        </button>
+        <button class="md-tab" onclick="mdSwitchTab('satisfacao')">
+          <span class="sym">sentiment_satisfied</span>Satisfação
+        </button>
+      </div>
       <button class="btn-refresh" id="btn-atualizar" onclick="loadGeral()">
         <span class="sym">refresh</span>Atualizar
       </button>
@@ -693,6 +711,21 @@ body.modal-open{overflow:hidden}
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <script>
 if (typeof Chart !== 'undefined') Chart.defaults.animation = false;
+
+// Seletor Painel Geral / Satisfação — quando embutida no iframe do painel
+// principal (index.html), usa a navegação já existente lá (mantém a aba
+// "Movidesk" destacada, animação de transição etc.); aberta direto (sem
+// pai), troca a página mesmo.
+function mdSwitchTab(view){
+  if(view==='movidesk') return; // já estamos no Painel Geral
+  try{
+    if(window.parent&&window.parent!==window&&typeof window.parent.navigateTo==='function'){
+      window.parent.navigateTo(view);
+      return;
+    }
+  }catch{}
+  location.href=view==='movidesk'?'geral.html':'satisfacao.html';
+}
 
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;
@@ -1555,15 +1588,35 @@ function syncModalBodyLock(){
 }
 
 // ── modal de detalhe de UM ticket ───────────────────────────────────
-const ACTION_TYPE={1:'Mensagem do cliente',2:'Resposta do agente',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+const ACTION_TYPE={1:'Mensagem',2:'Mensagem',3:'Anotação interna',4:'Automação',5:'Revisão',6:'Parceiro'};
+// Classifica quem mandou a mensagem por createdBy.profileType — campo
+// OFICIAL do Movidesk pra isso (1=Agente, 2=Cliente, 3=Agente e Cliente),
+// não pelo "type" da ação (1/2), que NÃO é confiável: já encontramos ação
+// type=1 ("mensagem do cliente") criada por colaborador @viasoft.com.br
+// resumindo o que o cliente disse por telefone (profileType=3 nesse caso).
+// Sem profileType (ação antiga, ainda não resincronizada), cai pro domínio
+// do e-mail como aproximação.
+function tlAuthorLabel(a){
+  const tipo=ACTION_TYPE[a.type];
+  if(tipo&&![1,2].includes(a.type)) return {label:tipo,kind:null};
+  const pt=a.createdByProfileType!=null?Number(a.createdByProfileType):null;
+  if(pt===2) return {label:'Mensagem do cliente',kind:'cliente'};
+  if(pt===1) return {label:'Resposta do agente',kind:'agente'};
+  if(pt===3) return {label:'Agente e cliente',kind:'agente'};
+  const email=String(a.createdByEmail||'').toLowerCase();
+  if(email.endsWith('@viasoft.com.br')) return {label:'Resposta do agente',kind:'agente'};
+  if(email) return {label:'Mensagem do cliente',kind:'cliente'};
+  return {label:tipo||(a.type!=null?`Tipo ${a.type}`:'Ação'),kind:null};
+}
 function tlItem(a){
   const author=a.createdByName||'Sistema';
-  const label=ACTION_TYPE[a.type]||(a.type!=null?`Tipo ${a.type}`:'Ação');
+  const {label,kind}=tlAuthorLabel(a);
+  const badgeClass=kind?` td-tl-badge-${kind}`:'';
   return `<div class="td-tl-item">
     <div class="td-tl-meta">
       <span class="td-tl-author">${esc(author)}</span>
       <span class="td-tl-date">${fmtFull(a.createdDate)}</span>
-      <span class="td-tl-badge">${esc(label)}</span>
+      <span class="td-tl-badge${badgeClass}">${esc(label)}</span>
       ${a.status?`<span class="td-tl-badge">${esc(a.status)}</span>`:''}
       ${a.isPublic===false?'<span class="td-tl-badge">Nota interna</span>':''}
     </div>
