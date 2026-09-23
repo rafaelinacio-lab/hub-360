@@ -1614,6 +1614,20 @@ function renderDistribCharts(rows){
 }
 
 // ── motivos por locus ────────────────────────────────────────────────
+// Rótulos de motivo (locus interno/externo) costumam ser frases longas —
+// no eixo Y do gráfico horizontal, o Chart.js corta pelo FIM do espaço
+// disponível, então frase comprida aparece cortada pelo INÍCIO (perdendo o
+// começo, que é o que mais importa pra reconhecer o motivo). Encurta pro
+// eixo mostrando só as primeiras palavras + "…"; o rótulo completo continua
+// disponível no clique (abre modal com o texto inteiro no título) porque só
+// o texto exibido no eixo (ticks.callback) muda — data.labels permanece
+// intacto, que é o que chartClickHandler usa pra filtrar.
+function truncLabel(s,maxChars=26){
+  s=String(s||'');
+  if(s.length<=maxChars) return s;
+  return s.slice(0,maxChars).replace(/\s+\S*$/,'')+'…';
+}
+
 function renderInternoExternoCharts(rows){
   const col=chartColors();
 
@@ -1625,10 +1639,10 @@ function renderInternoExternoCharts(rows){
     data:{labels:internoEntries.map(e=>e[0]),datasets:[{data:internoEntries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>internoEntries[items[0].dataIndex][0]}}},
       scales:{
         x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
+        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5},callback:(val,idx)=>truncLabel(internoEntries[idx][0])}}
       },
       onHover:chartHoverCursor,
       onClick:chartClickHandler('Locus interno',(r,label)=>(r.cf_24986||'').trim()===label),
@@ -1643,10 +1657,10 @@ function renderInternoExternoCharts(rows){
     data:{labels:externoEntries.map(e=>e[0]),datasets:[{data:externoEntries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>externoEntries[items[0].dataIndex][0]}}},
       scales:{
         x:{display:false},
-        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
+        y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5},callback:(val,idx)=>truncLabel(externoEntries[idx][0])}}
       },
       onHover:chartHoverCursor,
       onClick:chartClickHandler('Locus externo',(r,label)=>(r.cf_24523||'').trim()===label),
