@@ -892,11 +892,17 @@
                                 <button class="config-btn config-btn-muted" onclick="dlFixOrganizacao()" id="dlBtnFixOrg" title="Re-sincroniza só os tickets de Ouvidoria/GCC com organização não identificada">
                                     <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"
                                 </button>
+                                <button class="config-btn config-btn-muted" onclick="dlFixDadosRelacionados()" id="dlBtnFixDados" title="Corrige tickets que entraram no banco sem ações/clientes/campos customizados — efeito colateral do Backfill campos básicos em tickets totalmente novos.">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">handyman</span> Corrigir ações/clientes faltando
+                                </button>
                                 <button class="config-btn config-btn-danger" onclick="dlCancel()" id="dlBtnCancel" style="display:none;">
                                     <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">stop_circle</span> Cancelar
                                 </button>
                                 <button class="config-btn config-btn-muted" onclick="dlBackfillBasico()" id="dlBtnBackfillBasico" title="Preenche responsável/equipe/serviço/urgência/categoria/SLA dos tickets legados que nunca trouxeram esses campos, usando os anos marcados abaixo. Bem mais rápido que Full — não mexe em ações/clientes/campos customizados.">
                                     <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos
+                                </button>
+                                <button class="config-btn config-btn-muted" onclick="dlAtualizacaoInteligente()" id="dlBtnAtualizacaoInteligente" title="Pra cada ano marcado abaixo, atualiza só quem precisa: tickets ainda em aberto (podem mudar) ou incompletos (sem responsável/ação/cliente/campo customizado). Pula quem já está fechado e completo — não gasta chamada na API à toa.">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">auto_awesome</span> Atualização inteligente
                                 </button>
                                 <button class="config-btn" onclick="dlTrigger('full')" id="dlBtnFull">
                                     <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">download_for_offline</span> Full agora

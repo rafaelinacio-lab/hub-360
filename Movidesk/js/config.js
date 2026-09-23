@@ -2515,6 +2515,75 @@ async function dlFixOrganizacao() {
     }
 }
 
+async function dlFixDadosRelacionados() {
+    const btn = document.getElementById('dlBtnFixDados');
+    const originalHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">handyman</span> Corrigir ações/clientes faltando';
+    if (!btn || btn.disabled) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+
+    const badge = document.getElementById('dlBadge');
+    const meta  = document.getElementById('dlMeta');
+
+    try {
+        const resp = await fetch('/api/loader/fix-dados-relacionados', {
+            method: 'POST',
+            headers: authHeaders(),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlLoad();
+        if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+    } catch (e) {
+        if (badge) {
+            badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">error</span> ${e.message}`;
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = 'Verifique o erro acima e tente novamente.';
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+async function dlAtualizacaoInteligente() {
+    const btn = document.getElementById('dlBtnAtualizacaoInteligente');
+    const originalHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">auto_awesome</span> Atualização inteligente';
+    if (!btn || btn.disabled) return;
+
+    const years = dlGetSelectedYears();
+    if (!years.length) {
+        alert('Marque ao menos um ano na seção "Seleção de Anos" antes de rodar a atualização inteligente.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;animation:spin 1s linear infinite">autorenew</span> Iniciando…';
+
+    const badge = document.getElementById('dlBadge');
+    const meta  = document.getElementById('dlMeta');
+
+    try {
+        const resp = await fetch('/api/loader/atualizacao-inteligente', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ years }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        dlLoad();
+        if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
+    } catch (e) {
+        if (badge) {
+            badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">error</span> ${e.message}`;
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#3f1717;color:#f87171;';
+        }
+        if (meta) meta.textContent = 'Verifique o erro acima e tente novamente.';
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
 async function dlBackfillBasico() {
     const btn = document.getElementById('dlBtnBackfillBasico');
     const originalHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos';
@@ -2710,12 +2779,14 @@ function dlRenderStatus(cur, tokenSuffix) {
     const btnFull   = document.getElementById('dlBtnFull');
     const btnInc    = document.getElementById('dlBtnInc');
     const btnFixOrg = document.getElementById('dlBtnFixOrg');
+    const btnFixDados = document.getElementById('dlBtnFixDados');
     const btnBackfillBasico = document.getElementById('dlBtnBackfillBasico');
+    const btnAtualizacaoInteligente = document.getElementById('dlBtnAtualizacaoInteligente');
     const btnCancel = document.getElementById('dlBtnCancel');
     if (!badge) return;
 
     if (cur.running) {
-        const modeLabel  = cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : 'Incremental';
+        const modeLabel  = cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : cur.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
         const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
         badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
@@ -2757,9 +2828,17 @@ function dlRenderStatus(cur, tokenSuffix) {
             btnFixOrg.disabled = true;
             btnFixOrg.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
         }
+        if (btnFixDados) {
+            btnFixDados.disabled = true;
+            btnFixDados.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">handyman</span> Corrigir ações/clientes faltando';
+        }
         if (btnBackfillBasico) {
             btnBackfillBasico.disabled = true;
             btnBackfillBasico.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos';
+        }
+        if (btnAtualizacaoInteligente) {
+            btnAtualizacaoInteligente.disabled = true;
+            btnAtualizacaoInteligente.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">auto_awesome</span> Atualização inteligente';
         }
         if (btnCancel) {
             btnCancel.style.display = '';
@@ -2775,7 +2854,7 @@ function dlRenderStatus(cur, tokenSuffix) {
         const tokenInfo = tokenSuffix ? ` · Token: ${tokenSuffix}` : '';
         if (last) {
             const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
-            const lastModeLabel = last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : 'Incremental';
+            const lastModeLabel = last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : last.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
             meta.textContent = `Última: ${lastModeLabel} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
         } else {
             meta.textContent = (cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–') + tokenInfo;
@@ -2793,9 +2872,17 @@ function dlRenderStatus(cur, tokenSuffix) {
             btnFixOrg.disabled = false;
             btnFixOrg.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir "Não informado"';
         }
+        if (btnFixDados) {
+            btnFixDados.disabled = false;
+            btnFixDados.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">handyman</span> Corrigir ações/clientes faltando';
+        }
         if (btnBackfillBasico) {
             btnBackfillBasico.disabled = false;
             btnBackfillBasico.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">bolt</span> Backfill campos básicos';
+        }
+        if (btnAtualizacaoInteligente) {
+            btnAtualizacaoInteligente.disabled = false;
+            btnAtualizacaoInteligente.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">auto_awesome</span> Atualização inteligente';
         }
         if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
     }
@@ -2810,7 +2897,7 @@ function dlRenderHistory(rows) {
     }
     const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171' };
     const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
-    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental', 'fix-organizacao': 'Correção de organização', 'backfill-basico': 'Backfill campos básicos' };
+    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental', 'fix-organizacao': 'Correção de organização', 'fix-dados-relacionados': 'Correção de ações/clientes', 'backfill-basico': 'Backfill campos básicos', 'atualizacao-inteligente': 'Atualização inteligente' };
 
     const filtroDe = (r) => {
         const partes = [];
