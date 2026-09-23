@@ -21,6 +21,11 @@ const { requireTabAccess } = require('./config');
 
 const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
 
+// baseStatus que tiram o ticket de "pendente" (mesmas listas de
+// FINALIZADO_STATUSES/CANCELADO_STATUSES em pages/geral.html — isAberto lá é
+// !finalizado && !cancelado).
+const OPEN_EXCLUDED_STATUSES = ['Resolved', 'Closed', 'Resolvido', 'Fechado', 'Canceled', 'Cancelado'];
+
 // Organização do ticket: pré-calculada em silver.ticket_organizacao (ver
 // refreshTicketOrganizacao em movidesk-loader.js) com a mesma heurística
 // usada em ouvidoria.js/gcc.js (prioriza contato externo — não
@@ -108,6 +113,30 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
     }
     console.error('Erro ao buscar painel geral:', error.message);
     res.status(500).json({ error: 'Erro ao carregar dados do painel geral: ' + error.message });
+  }
+});
+
+// ===== GET /geral/pendentes =====
+// Todos os tickets atualmente em aberto, de QUALQUER ano — independente da
+// janela padrão (ano vigente) do GET /geral acima. O card "Tickets
+// pendentes" precisa refletir o backlog real, não só o que está carregado
+// no período em tela; como só tickets ABERTOS entram aqui (não a base
+// inteira de ~720 mil), o volume fica pequeno o bastante pra sempre buscar
+// tudo de uma vez, sem paginação nem janela de data.
+router.get('/pendentes', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
+    const result = await db.query(
+      `${LIST_SELECT} WHERE t.basestatus NOT IN (${closedList}) ORDER BY t.createddate DESC`
+    );
+    res.json({ rows: result.rows || [] });
+  } catch (error) {
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
+      console.warn('[geral] silver.* ainda não existe — retornando vazio (pendentes)');
+      return res.json({ rows: [] });
+    }
+    console.error('Erro ao buscar pendentes do painel geral:', error.message);
+    res.status(500).json({ error: 'Erro ao carregar pendentes do painel geral: ' + error.message });
   }
 });
 

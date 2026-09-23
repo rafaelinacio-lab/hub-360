@@ -953,6 +953,18 @@ let _charts={};
 let _rowsFull=[];
 let _rowsById={};
 let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-vigente"
+let _rowsPendentesAll=[]; // TODOS os tickets em aberto, qualquer ano (GET /geral/pendentes)
+let _pendentesGlobal=[]; // _rowsPendentesAll já filtrado por equipe/resp/serviço/classificação/status (sem o filtro de ano)
+
+async function fetchPendentesGlobal(){
+  try{
+    const resp=await api('/geral/pendentes',60000);
+    _rowsPendentesAll=resp.rows||[];
+  } catch(e){
+    console.warn('Não foi possível carregar o total de pendentes (todos os anos):',e.message);
+    _rowsPendentesAll=[];
+  }
+}
 
 // ── load ─────────────────────────────────────────────────────────────
 // Por padrão o backend limita ao ano vigente (a base tem ~720 mil tickets —
@@ -977,7 +989,7 @@ async function loadHistoricoCompleto(){
   const btn=document.getElementById('btn-carregar-tudo');
   if(btn){ btn.disabled=true; btn.textContent='Carregando (pode levar alguns minutos)…'; }
   try{
-    const resp=await api('/geral?todos=1',10*60*1000);
+    const [resp]=await Promise.all([api('/geral?todos=1',10*60*1000),fetchPendentesGlobal()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
@@ -990,7 +1002,7 @@ async function loadHistoricoCompleto(){
 }
 async function loadGeral(){
   try{
-    const resp=await api('/geral');
+    const [resp]=await Promise.all([api('/geral'),fetchPendentesGlobal()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
@@ -1148,6 +1160,27 @@ function getFilteredRows(){
   return {rowsCtx,rowsFull};
 }
 
+// "Tickets pendentes" e tudo que deriva dele (backlog vencido, aging,
+// ranking por equipe) precisam refletir o backlog real — de QUALQUER ano —
+// então usam _rowsPendentesAll em vez do período carregado/filtrado por
+// ano/mês. Ainda respeitam os outros filtros (equipe/responsável/
+// serviço/classificação/status), só não o de Ano/Mês.
+function getPendentesGlobalRows(){
+  const equipeFils=getMsValues('f-equipe');
+  const respFils=getMsValues('f-resp');
+  const servFils=getMsValues('f-serv');
+  const classFils=getMsValues('f-class');
+  const statusFils=getMsValues('f-status');
+  if(statusFils.length&&!statusFils.includes('aberto')) return [];
+  return _rowsPendentesAll.filter(r=>{
+    if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
+    if(respFils.length&&!respFils.includes(r.responsavel)) return false;
+    if(servFils.length&&!servFils.includes(r.servico)) return false;
+    if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
+    return true;
+  });
+}
+
 // ── render ───────────────────────────────────────────────────────────
 function render(){
   if(!_rows.length && document.getElementById('geral-dash').dataset.err) return;
@@ -1165,7 +1198,10 @@ function render(){
   const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
   const mediaAcoes=abertos?somaAcoes/abertos:0;
   const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size;
-  const pendentesRows=rowsFull.filter(isAberto);
+  // "Tickets pendentes" ignora o filtro de Ano/Mês de propósito — é o
+  // backlog real, de qualquer ano, não só o do período em tela.
+  const pendentesRows=getPendentesGlobalRows();
+  _pendentesGlobal=pendentesRows;
 
   document.getElementById('k-abertos').textContent=abertos.toLocaleString('pt-BR');
   document.getElementById('k-resolvidos').textContent=resolvidos.toLocaleString('pt-BR');
@@ -1432,15 +1468,15 @@ function renderEquipesVencidoTable(pendentesRows){
     </tr>`).join('');
 }
 function openEquipeVencidoModal(equipe){
-  const matched=_rowsFull.filter(r=>isAberto(r)&&isVencido(r)&&(r.equipe||'Não informado')===equipe);
+  const matched=_pendentesGlobal.filter(r=>isVencido(r)&&(r.equipe||'Não informado')===equipe);
   openDetailModal(`Vencidos: ${equipe}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 function openVencidosModal(){
-  const matched=_rowsFull.filter(r=>isAberto(r)&&isVencido(r));
+  const matched=_pendentesGlobal.filter(isVencido);
   openDetailModal('Backlog vencido',`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 function openStatusModal(kind){
-  const matched=_rowsFull.filter(r=>kind==='aberto'?isAberto(r):isResolvido(r));
+  const matched=kind==='aberto'?_pendentesGlobal:_rowsFull.filter(isResolvido);
   openDetailModal(kind==='aberto'?'Tickets pendentes':'Tickets resolvidos',`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 
