@@ -1610,6 +1610,126 @@ async function runFixDadosRelacionados() {
   }
 }
 
+/**
+ * Atualização inteligente — pra um ou mais anos, busca no banco só os
+ * tickets que REALMENTE precisam de atenção: ainda estão em aberto (podem
+ * mudar a qualquer momento) OU estão incompletos (sem responsável, sem
+ * nenhuma ação, sem cliente vinculado, ou sem campo customizado). Tickets já
+ * fechados/resolvidos/cancelados E completos são pulados — não tem por que
+ * buscar de novo algo que não vai mudar mais (a carga incremental normal já
+ * garante que tickets em aberto ficam frescos, e reaberturas fazem o ticket
+ * voltar a aparecer aqui também, já que "aberto" é um dos critérios).
+ *
+ * Une o que runBackfillCamposBasicos e runFixDadosRelacionados faziam
+ * separado, num só passo direcionado — evita rodar os dois em sequência e
+ * evita reprocessar tickets antigos que já estão 100% ok (economiza chamada
+ * na API do Movidesk, que é o recurso limitado de verdade — ver histórico de
+ * investigação de 22-23/09/2026).
+ */
+async function runAtualizacaoInteligente({ years = [] } = {}) {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+
+  const sortedYears = [...years].map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()).sort();
+  if (!sortedYears.length) {
+    throw new Error('Selecione ao menos um ano pra rodar a atualização inteligente');
+  }
+
+  const closedList = CLOSED_STATUSES.map(s => `'${s}'`).join(',');
+  const { rows } = await db.query(`
+    SELECT t.ticket_id
+    FROM silver.ticket t
+    WHERE EXTRACT(YEAR FROM t.createddate)::int = ANY($1::int[])
+      AND (
+        t.basestatus IS NULL OR t.basestatus NOT IN (${closedList})
+        OR t.owner_name IS NULL
+        OR NOT EXISTS (SELECT 1 FROM silver.ticket_acao a WHERE a.ticket_id = t.ticket_id)
+        OR NOT EXISTS (SELECT 1 FROM silver.ticket_cliente c WHERE c.ticket_id = t.ticket_id)
+        OR NOT EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id)
+      )
+  `, [sortedYears]).catch(() => ({ rows: [] }));
+  const ticketIds = rows.map(r => r.ticket_id);
+
+  state.running          = true;
+  state.cancelRequested  = false;
+  state.mode              = 'atualizacao-inteligente';
+  state.startedAt        = new Date().toISOString();
+  state.phase             = 'corrigindo';
+  state.pagesDone        = 0;
+  state.ticketsDone      = 0;
+  state.savedIds         = new Set();
+  state.errors           = [];
+  state.years             = sortedYears;
+
+  await ensureTables();
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status, years) VALUES ('atualizacao-inteligente', NOW(), 'running', $1) RETURNING id`,
+    [sortedYears]
+  ).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+
+  console.log(`[loader] ▶ Atualização inteligente iniciada — anos: ${sortedYears.join(', ')} — ${ticketIds.length} ticket(s) precisam de atenção`);
+
+  try {
+    if (ticketIds.length) {
+      const token = await getMovideskToken();
+      for (const id of ticketIds) {
+        if (state.cancelRequested) {
+          throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+        }
+        try {
+          const url = `${MOVI_BASE}/tickets?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`;
+          const resp = await fetchWithRetry(url);
+          const data = await resp.json();
+          const full = Array.isArray(data) ? data[0] : data;
+          if (full) {
+            await saveBatch([full]);
+            state.ticketsDone++;
+          }
+        } catch (e) {
+          state.errors.push(`Ticket ${id}: ${e.message}`);
+          console.warn(`[loader] atualização do ticket ${id} falhou: ${e.message}`);
+        }
+        await sleep(120);
+      }
+    }
+
+    state.phase      = 'idle';
+    state.running    = false;
+    state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode: 'atualizacao-inteligente', tickets: state.ticketsDone, totalEncontrados: ticketIds.length, years: sortedYears };
+
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
+        [state.ticketsDone, logId]
+      ).catch(() => {});
+    }
+    console.log(`[loader] ✔ Atualização inteligente concluída — ${state.ticketsDone}/${ticketIds.length} ticket(s) reprocessado(s)`);
+    return state.lastResult;
+  } catch (err) {
+    state.running          = false;
+    state.phase            = 'idle';
+    state.cancelRequested  = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
+      ).catch(() => {});
+    }
+    if (wasCancelled) {
+      state.lastResult = { mode: 'atualizacao-inteligente', tickets: state.ticketsDone, cancelled: true };
+    } else {
+      throw err;
+    }
+  }
+}
+
 // Recalcula silver.ticket_organizacao a partir de silver.ticket_cliente, num
 // único UPSERT em lote (DISTINCT ON, mesma heurística do antigo ORG_LATERAL:
 // prioriza contato externo — não @viasoft.com.br, profile_type <> '3' — sobre
@@ -1814,4 +1934,5 @@ module.exports = {
   refreshTicketOrganizacao,
   runBackfillCamposBasicos,
   runFixDadosRelacionados,
+  runAtualizacaoInteligente,
 };
