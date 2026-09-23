@@ -352,6 +352,70 @@ async function fetchPage(token, endpoint, filter, skip, pageSize = PAGE_SIZE, ex
 // aninhado já deu timeout/429 quando testado com $top=1000.
 const CLASS_FILTER_PAGE_SIZE = 50;
 
+// Página grande pra enumeração de ids (sem $expand) — testado em produção
+// (23/09/2026): 1000 tickets com só $select=id,basestatus em ~1s, contra os
+// 42-52s por página de 100 quando o $expand completo estava junto. Sem
+// $expand, nada aqui é afetado pelo bug de corrupção de $filter+$expand.
+const ID_SCAN_PAGE_SIZE = 1000;
+
+// Busca só id+basestatus (sem $expand) — usada pro modo "diferencial" do
+// Full por ano (ver runFull): descobre rápido TODOS os ids que existem no
+// Movidesk pro período, sem pagar o custo de $expand completo pra cada um.
+async function fetchIdsPage(token, endpoint, filter, skip, pageSize = ID_SCAN_PAGE_SIZE) {
+  const params = {
+    token,
+    '$select': 'id,basestatus',
+    '$top': pageSize,
+    '$skip': skip,
+    '$orderby': 'id asc',
+  };
+  if (filter) params['$filter'] = filter;
+  const url = `${MOVI_BASE}${endpoint}?${qs(params)}`;
+  const resp = await fetchWithRetry(url);
+  const data = await resp.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchAllIds(token, endpoint, filter, pageSize = ID_SCAN_PAGE_SIZE) {
+  let skip = 0;
+  const all = [];
+  while (true) {
+    if (state.cancelRequested) {
+      throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    }
+    const batch = await fetchIdsPage(token, endpoint, filter, skip, pageSize);
+    if (!batch.length) break;
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+    skip += pageSize;
+    await sleep(150);
+  }
+  return all;
+}
+
+// Dado um lote de ids que existem no Movidesk, devolve só os que precisam de
+// atenção de verdade: não estão no banco ainda (tickets novos), estão em
+// aberto (podem mudar a qualquer momento, reabertura inclusa), ou estão
+// incompletos (sem responsável/ação/cliente/campo customizado). Tickets já
+// fechados E completos ficam de fora — não tem por que buscar de novo algo
+// que não vai mudar mais.
+async function idsQuePrecisamAtencao(ids) {
+  if (!ids.length) return [];
+  const closedList = CLOSED_STATUSES.map(s => `'${s}'`).join(',');
+  const { rows } = await db.query(`
+    SELECT x.ticket_id
+    FROM unnest($1::bigint[]) AS x(ticket_id)
+    LEFT JOIN silver.ticket t ON t.ticket_id = x.ticket_id
+    WHERE t.ticket_id IS NULL
+       OR t.basestatus IS NULL OR t.basestatus NOT IN (${closedList})
+       OR t.owner_name IS NULL
+       OR NOT EXISTS (SELECT 1 FROM silver.ticket_acao a WHERE a.ticket_id = t.ticket_id)
+       OR NOT EXISTS (SELECT 1 FROM silver.ticket_cliente c WHERE c.ticket_id = t.ticket_id)
+       OR NOT EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id)
+  `, [ids]).catch(() => ({ rows: [] }));
+  return rows.map(r => r.ticket_id);
+}
+
 // ── Itera todas as páginas de um endpoint, chamando onBatch a cada página ────
 async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_SIZE, expand = EXPAND_FIELDS) {
   let skip = 0;
@@ -986,8 +1050,53 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
           const filterStr = classFilter ? `${dateFilter} and ${classFilter}` : dateFilter;
 
           console.log(`[loader]   ── ${monthLabel}${classValueEfetivo ? ` — classificação "${classValueEfetivo}"` : ''} ──`);
-          for (const ep of ['/tickets', '/tickets/past']) {
-            await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classFilter ? classPageSize : PAGE_SIZE);
+
+          if (!classFilter) {
+            // ── Modo diferencial ───────────────────────────────────────────
+            // Descobre os ids do mês baratinho (sem $expand — ~1000
+            // tickets/segundo, medido em produção 23/09/2026), compara com o
+            // banco, e só busca de verdade (com $expand completo, individual)
+            // quem realmente precisa: ticket novo, ainda em aberto (pode
+            // mudar a qualquer momento), ou incompleto. Tickets já fechados E
+            // completos são pulados inteiramente — pedido do usuário, pra não
+            // gastar chamada da API com quem não vai mudar mais.
+            const idsUnicos = new Map();
+            for (const ep of ['/tickets', '/tickets/past']) {
+              state.endpoint = ep;
+              state.phase = 'fetching';
+              const idsDoMes = await fetchAllIds(token, ep, filterStr);
+              for (const t of idsDoMes) idsUnicos.set(String(t.id), t);
+            }
+            const todosIds = [...idsUnicos.keys()];
+            const idsAtencao = await idsQuePrecisamAtencao(todosIds);
+            console.log(`[loader]     ${monthLabel}: ${todosIds.length} ticket(s) no Movidesk, ${idsAtencao.length} precisam de atenção`);
+
+            state.phase = 'saving';
+            for (const id of idsAtencao) {
+              if (state.cancelRequested) {
+                throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+              }
+              try {
+                const url = `${MOVI_BASE}/tickets?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`;
+                const resp = await fetchWithRetry(url);
+                const data = await resp.json();
+                const full = Array.isArray(data) ? data[0] : data;
+                if (full) {
+                  await saveBatch([full]);
+                  state.savedIds.add(String(id));
+                  state.ticketsDone = state.savedIds.size;
+                }
+              } catch (e) {
+                state.errors.push(`Ticket ${id}: ${e.message}`);
+                console.warn(`[loader] atualização do ticket ${id} falhou: ${e.message}`);
+              }
+              await sleep(120);
+            }
+            state.pagesDone++;
+          } else {
+            for (const ep of ['/tickets', '/tickets/past']) {
+              await fetchEndpoint(token, ep, filterStr, saveWithClassPatch, classPageSize);
+            }
           }
         }
         state.yearsDone++;
