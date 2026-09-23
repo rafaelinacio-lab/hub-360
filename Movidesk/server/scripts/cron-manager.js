@@ -18,6 +18,7 @@ const movideskLoader = require('./movidesk-loader');
 const TASK_LABELS = {
   ouvidoria:   'Ouvidoria — em aberto',
   gcc:         'GCC — em aberto',
+  geral:       'Painel Geral — ano vigente',
   incremental: 'Incremental (todos os tickets)',
   full:        'Full (por ano/classificação/equipe)',
 };
@@ -50,6 +51,7 @@ async function runTask(job) {
   const { task, params } = job;
   if (task === 'ouvidoria') return movideskLoader.runOuvidoria();
   if (task === 'gcc') return movideskLoader.runGcc();
+  if (task === 'geral') return movideskLoader.runGeral();
   if (task === 'incremental') return movideskLoader.runIncremental();
   if (task === 'full') {
     const p = params || {};

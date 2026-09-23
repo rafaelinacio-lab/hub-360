@@ -20,7 +20,7 @@ const db      = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const cronManager = require('../scripts/cron-manager');
 
-const VALID_TASKS = ['ouvidoria', 'gcc', 'incremental', 'full'];
+const VALID_TASKS = ['ouvidoria', 'gcc', 'geral', 'incremental', 'full'];
 
 router.use(authMiddleware, requireRole('admin', 'supervisor'));
 

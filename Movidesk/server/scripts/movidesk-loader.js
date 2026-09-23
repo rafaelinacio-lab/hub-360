@@ -1387,6 +1387,104 @@ async function runIncremental() {
 }
 
 /**
+ * Carga GERAL — mesma lógica da incremental (em aberto + atualizados nos
+ * últimos 3 dias), mas escopada ao ANO VIGENTE (createdDate >= 1º de
+ * janeiro), pra bater com a janela padrão do Painel Geral (GET /geral sem
+ * ?todos=1). Mais barata que a incremental completa porque não varre anos
+ * anteriores — ideal pra manter o Painel Geral sempre fresco sem repetir o
+ * trabalho pesado que a incremental já faz pra base toda.
+ */
+async function runGeral() {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+
+  state.running         = true;
+  state.cancelRequested = false;
+  state.mode            = 'geral';
+  state.startedAt       = new Date().toISOString();
+  state.phase           = 'preparando';
+  state.pagesDone       = 0;
+  state.ticketsDone     = 0;
+  state.savedIds        = new Set();
+  state.errors          = [];
+
+  await ensureTables();
+
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('geral', NOW(), 'running') RETURNING id`
+  ).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+
+  console.log('[loader] ▶ Carga GERAL (ano vigente) iniciada');
+
+  try {
+    const token = await getMovideskToken();
+
+    const yearStart = new Date(Date.UTC(new Date().getFullYear(), 0, 1)).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const yearFilter = `createdDate ge ${yearStart}`;
+
+    const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const recentFilter = `${yearFilter} and lastUpdate ge ${since}`;
+
+    const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+    const openFilter = `${yearFilter} and ${closedExclusion}`;
+
+    const seen = new Set(); // dedup por ticket_id entre os filtros/endpoints
+    const dedupSave = async (batch) => {
+      const fresh = batch.filter(t => !seen.has(String(t.id)));
+      fresh.forEach(t => seen.add(String(t.id)));
+      if (fresh.length) await saveBatch(fresh);
+      return fresh;
+    };
+
+    console.log('[loader]   /tickets — em aberto no ano vigente');
+    await fetchEndpoint(token, '/tickets', openFilter, dedupSave);
+
+    for (const ep of ['/tickets', '/tickets/past']) {
+      console.log(`[loader]   ${ep} — atualizados nos últimos 3 dias (ano vigente)`);
+      await fetchEndpoint(token, ep, recentFilter, dedupSave);
+    }
+
+    state.phase      = 'idle';
+    state.running    = false;
+    state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode: 'geral', tickets: state.ticketsDone };
+
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
+        [state.ticketsDone, logId]
+      ).catch(() => {});
+    }
+    console.log(`[loader] ✔ Carga GERAL concluída — ${state.ticketsDone} tickets`);
+    return state.lastResult;
+  } catch (err) {
+    state.running         = false;
+    state.phase           = 'idle';
+    state.cancelRequested = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
+      ).catch(() => {});
+    }
+    if (wasCancelled) {
+      console.log(`[loader] ⏹ Carga GERAL cancelada — ${state.ticketsDone} tickets salvos`);
+      state.lastResult = { mode: 'geral', tickets: state.ticketsDone, cancelled: true };
+    } else {
+      console.error('[loader] ✖ Carga GERAL com erro:', err.message);
+      throw err;
+    }
+  }
+}
+
+/**
  * Carga OUVIDORIA — busca apenas tickets classificados como "Ouvidoria"
  * (campo personalizado 23946 "Classificação de Ticket") e grava em silver.*.
  * Mais leve que a incremental completa: filtra na própria API do Movidesk,
@@ -2055,7 +2153,7 @@ function stopSatisfacaoSync() {
 }
 
 module.exports = {
-  runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state,
+  runFull, runIncremental, runGeral, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   refreshTicketOrganizacao,
   runBackfillCamposBasicos,
