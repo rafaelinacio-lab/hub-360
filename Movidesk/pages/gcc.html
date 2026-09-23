@@ -1595,13 +1595,15 @@ function renderDistribCharts(rows){
 
   destroyChart('parcialChart');
   const parciais=rows.filter(r=>ehRescisaoParcial(r));
-  // CF 216954 é multi-seleção e o Movidesk não garante ordem consistente dos
-  // valores (ex.: "Módulos, Usuários" e "Usuários, Módulos" são a mesma
-  // combinação) — normaliza ordenando os itens antes de agrupar.
-  const normParcial=r=>(r.tipo_rescisao_parcial||'').split(',').map(s=>s.trim()).filter(Boolean).sort().join(', ');
-  const porParcial=contarPor(parciais,normParcial);
+  // CF 216954 é multi-seleção (um ticket pode marcar Módulos e Usuários ao
+  // mesmo tempo) — cada item marcado conta pro seu próprio bucket, então um
+  // ticket "Módulos, Usuários" soma 1 em Módulos e 1 em Usuários (não vira
+  // uma terceira categoria).
+  const itensParcial=r=>(r.tipo_rescisao_parcial||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const porParcial={};
+  parciais.forEach(r=>itensParcial(r).forEach(v=>{ porParcial[v]=(porParcial[v]||0)+1; }));
   const parcialEntries=Object.entries(porParcial);
-  const parcialTotal=parcialEntries.reduce((s,[,n])=>s+n,0);
+  const parcialTotal=parciais.length;
   document.getElementById('parcialCaption').textContent=parcialTotal
     ? parcialEntries.map(([k,n])=>`${esc(k)} ${(n/parcialTotal*100).toFixed(0)}%`).join(' · ')
     : 'Sem rescisão parcial no período.';
@@ -1612,7 +1614,7 @@ function renderDistribCharts(rows){
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&normParcial(r)===label),
+      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&itensParcial(r).includes(label)),
     }
   });
 }
