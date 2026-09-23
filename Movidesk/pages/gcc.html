@@ -1595,7 +1595,11 @@ function renderDistribCharts(rows){
 
   destroyChart('parcialChart');
   const parciais=rows.filter(r=>ehRescisaoParcial(r));
-  const porParcial=contarPor(parciais,r=>(r.tipo_rescisao_parcial||'').trim());
+  // CF 216954 é multi-seleção e o Movidesk não garante ordem consistente dos
+  // valores (ex.: "Módulos, Usuários" e "Usuários, Módulos" são a mesma
+  // combinação) — normaliza ordenando os itens antes de agrupar.
+  const normParcial=r=>(r.tipo_rescisao_parcial||'').split(',').map(s=>s.trim()).filter(Boolean).sort().join(', ');
+  const porParcial=contarPor(parciais,normParcial);
   const parcialEntries=Object.entries(porParcial);
   const parcialTotal=parcialEntries.reduce((s,[,n])=>s+n,0);
   document.getElementById('parcialCaption').textContent=parcialTotal
@@ -1608,7 +1612,7 @@ function renderDistribCharts(rows){
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&(r.tipo_rescisao_parcial||'').trim()===label),
+      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&normParcial(r)===label),
     }
   });
 }
