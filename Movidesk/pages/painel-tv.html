@@ -72,6 +72,8 @@
   }
   .danger-num { color: var(--text-danger); font-weight: 500; }
   .empty-state { padding: 60px 0; text-align: center; color: var(--text-secondary); font-size: 18px; }
+  .ticket-link { color: #6fb3ff; text-decoration: none; font-weight: 500; }
+  .ticket-link:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -118,7 +120,7 @@
     </div>
 
     <p class="table-title">Tickets mais antigos em aberto — ação imediata</p>
-    <p class="note">Ordenado por dias em aberto (desc). "Dias sem retorno" conta desde a última interação registrada no ticket.</p>
+    <p class="note">Ordenado por dias em aberto (desc). "Sem retorno" conta só ações públicas (visíveis ao cliente) — agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -128,7 +130,8 @@
             <th>Assunto</th>
             <th>Responsável</th>
             <th class="num">Dias aberto</th>
-            <th class="num">Dias sem retorno</th>
+            <th class="num">Sem retorno (agente)</th>
+            <th class="num">Sem retorno (cliente)</th>
             <th class="center">Status real</th>
             <th class="center">Status prazo</th>
           </tr>
@@ -163,14 +166,16 @@ function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANC
 function temPrazo(r){ return !!r.sla_solucao; }
 function isVencido(r){ return temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
 function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
-// "Dias sem retorno" = desde a última interação registrada (last_update do
-// Movidesk) — não desde a abertura. Um ticket pode estar aberto há 600+ dias
-// mas ter tido uma interação recente; os dois números contam histórias
-// diferentes (ver docs/logica_calculos_painel_tv.md).
-function diasSemRetorno(r){
-  const base=r.ultima_interacao||r.criado_em;
-  if(!base) return null;
-  return Math.floor((Date.now()-new Date(base).getTime())/86400000);
+function ticketUrl(id){ return `https://viasoft.movidesk.com/Ticket/Edit/${id}`; }
+// "Sem retorno" conta só AÇÕES PÚBLICAS (visíveis ao cliente, is_public=true
+// em silver.ticket_acao) — não conta desde a abertura nem desde qualquer
+// interação (nota interna, automação etc). Agente e cliente são calculados
+// separadamente: um ticket pode estar há dias esperando o cliente responder
+// (sem retorno do cliente alto) mas o agente ter respondido ontem (sem
+// retorno do agente baixo) — são histórias diferentes.
+function diasSemRetornoDe(dataStr){
+  if(!dataStr) return null;
+  return Math.floor((Date.now()-new Date(dataStr).getTime())/86400000);
 }
 function statusPrazoDe(r){
   if(!temPrazo(r)) return 'Sem Prazo';
@@ -263,19 +268,21 @@ function renderPrazoChart(){
 function renderTable(){
   const tbody=document.getElementById('tv-table-body');
   const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a)).slice(0,20);
-  if(!top.length){ tbody.innerHTML=`<tr><td colspan="8" class="empty-state">Nenhum ticket pendente.</td></tr>`; return; }
+  if(!top.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`; return; }
   tbody.innerHTML=top.map(r=>{
     const sp=statusPrazoDe(r);
     const badgeClass=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':'neutral';
-    const dsr=diasSemRetorno(r);
+    const dsrAgente=diasSemRetornoDe(r.ultima_publica_agente);
+    const dsrCliente=diasSemRetornoDe(r.ultima_publica_cliente);
     return `
     <tr>
-      <td>${esc(r.ticket_id)}</td>
+      <td><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a></td>
       <td class="ellipsis">${esc(r.organizacao||'—')}</td>
       <td class="ellipsis">${esc(r.assunto||'—')}</td>
       <td class="ellipsis">${esc(r.responsavel||'Não atribuído')}</td>
       <td class="num">${diasEmAberto(r)}</td>
-      <td class="num danger-num">${dsr!=null?dsr:'—'}</td>
+      <td class="num danger-num">${dsrAgente!=null?dsrAgente:'—'}</td>
+      <td class="num danger-num">${dsrCliente!=null?dsrCliente:'—'}</td>
       <td class="center"><span class="badge neutral">${esc(r.status_movidesk||r.base_status||'—')}</span></td>
       <td class="center"><span class="badge ${badgeClass}">${esc(sp)}</span></td>
     </tr>`;

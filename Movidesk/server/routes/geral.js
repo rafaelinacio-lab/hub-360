@@ -124,12 +124,40 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
 // no período em tela; como só tickets ABERTOS entram aqui (não a base
 // inteira de ~720 mil), o volume fica pequeno o bastante pra sempre buscar
 // tudo de uma vez, sem paginação nem janela de data.
+// Última ação PÚBLICA (visível ao cliente) separada por quem respondeu —
+// usada no Painel TV pra "dias sem retorno" por agente/cliente. Mesma
+// convenção de profile_type usada em pages/geral.html (tlAuthorLabel):
+// 1/3 = agente, 2 = cliente; sem profile_type (ação antiga), cai pro
+// domínio do e-mail como aproximação.
+const LAST_PUBLIC_ACTION_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT
+      MAX(criado_em) FILTER (
+        WHERE is_public AND (
+          profile_type IN ('1','3')
+          OR (profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')
+        )
+      ) AS ultima_publica_agente,
+      MAX(criado_em) FILTER (
+        WHERE is_public AND (
+          profile_type = '2'
+          OR (profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')
+        )
+      ) AS ultima_publica_cliente
+    FROM silver.ticket_acao
+    WHERE ticket_id = p.ticket_id::bigint
+  ) ap ON true
+`;
+
 router.get('/pendentes', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
-    const result = await db.query(
-      `${LIST_SELECT} WHERE t.basestatus NOT IN (${closedList}) ORDER BY t.createddate DESC`
-    );
+    const result = await db.query(`
+      SELECT p.*, ap.ultima_publica_agente, ap.ultima_publica_cliente
+      FROM (${LIST_SELECT} WHERE t.basestatus NOT IN (${closedList})) p
+      ${LAST_PUBLIC_ACTION_JOIN}
+      ORDER BY p.criado_em DESC
+    `);
     res.json({ rows: result.rows || [] });
   } catch (error) {
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
