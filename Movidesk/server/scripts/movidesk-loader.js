@@ -748,7 +748,12 @@ async function saveBatch(tickets) {
         ticket_id:      String(t.id),
         tipo:           a.type != null ? String(a.type) : null,
         descricao:      a.description ? a.description.slice(0, 500000) : null,
-        is_public:      a.isPublic != null ? (a.isPublic ? 'true' : 'false') : null,
+        // A API do Movidesk NÃO tem um campo "isPublic" na ação — a
+        // visibilidade é o próprio type (2 = ação pública, comentário
+        // visível ao cliente; ver docs/sla-calculo.md e server/utils/sla.js,
+        // mesma convenção usada em todo o projeto). O código antigo lia
+        // a.isPublic (inexistente), então is_public sempre virava NULL.
+        is_public:      a.type != null ? (a.type === 2 ? 'true' : 'false') : null,
         status:         a.status || null,
         criado_em:      a.createdDate || null,
         criado_por_id:  a.createdBy?.id ? String(a.createdBy.id) : null,
