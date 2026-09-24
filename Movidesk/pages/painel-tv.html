@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel TV — Tickets Pendentes</title>
+<style>
+  :root {
+    --bg-page: #0e0e12;
+    --bg-card: #1c1c24;
+    --bg-card-2: #20202a;
+    --border: #33333d;
+    --border-danger: #a33a3a;
+    --text-primary: #f5f4f1;
+    --text-secondary: #a3a2a0;
+    --text-muted: #6f6e6c;
+    --text-danger: #f0908f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 28px;
+  }
+  .container { max-width: 1600px; margin: 0 auto; }
+  .top-bar { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+  .top-bar h1 { font-size: 22px; font-weight: 600; margin: 0; }
+  .top-bar .clock { font-size: 16px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 2rem; }
+  .kpi {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 1.75rem;
+    text-align: center;
+  }
+  .kpi.danger { border: 2px solid var(--border-danger); }
+  .kpi .label { font-size: 16px; color: var(--text-secondary); margin: 0 0 10px; }
+  .kpi .value { font-size: 60px; font-weight: 500; margin: 0; font-family: Georgia, serif; font-variant-numeric: tabular-nums; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 2rem; }
+  .panel { background: var(--bg-card); border-radius: 12px; padding: 1.5rem; }
+  .chart-title { font-size: 17px; color: var(--text-secondary); margin: 0 0 12px; font-weight: 500; }
+  .chart-wrap { position: relative; width: 100%; }
+  .table-title { font-size: 19px; color: var(--text-danger); margin: 0 0 4px; font-weight: 500; }
+  table { width: 100%; font-size: 14px; border-collapse: collapse; white-space: nowrap; }
+  th {
+    background: var(--bg-card);
+    text-align: left;
+    color: var(--text-secondary);
+    padding: 12px 10px;
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+  }
+  th.num, td.num { text-align: right; }
+  th.center, td.center { text-align: center; }
+  td { padding: 12px 10px; border-top: 1px solid var(--border); }
+  td.ellipsis { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { padding: 4px 12px; border-radius: 6px; font-size: 13px; display: inline-block; }
+  .badge.danger { background: #3a1c1c; color: var(--text-danger); font-weight: 500; }
+  .badge.neutral { background: var(--bg-card); color: var(--text-secondary); }
+  .badge.ok { background: #163a24; color: #7fd99b; }
+  .table-wrap {
+    background: var(--bg-card-2);
+    border: 2px solid var(--border-danger);
+    border-radius: 12px;
+    overflow-x: auto;
+    max-height: 56vh;
+    overflow-y: auto;
+  }
+  .danger-num { color: var(--text-danger); font-weight: 500; }
+  .empty-state { padding: 60px 0; text-align: center; color: var(--text-secondary); font-size: 18px; }
+</style>
+</head>
+<body>
+<div class="container" id="tv-root">
+  <div class="top-bar">
+    <h1>Tickets pendentes — visão geral</h1>
+    <span class="clock" id="tv-clock"></span>
+  </div>
+  <p class="note" id="tv-updated">Carregando…</p>
+
+  <div id="tv-content" style="display:none">
+    <div class="kpi-grid">
+      <div class="kpi">
+        <p class="label">Pendentes</p>
+        <p class="value" id="k-pendentes">0</p>
+      </div>
+      <div class="kpi danger">
+        <p class="label">Vencidos</p>
+        <p class="value" id="k-vencidos" style="color:var(--text-danger)">0</p>
+      </div>
+      <div class="kpi danger">
+        <p class="label">% do backlog vencido</p>
+        <p class="value" id="k-pct-vencido" style="color:var(--text-danger)">0%</p>
+      </div>
+      <div class="kpi">
+        <p class="label">Média ações/ticket</p>
+        <p class="value" id="k-media-acoes">0</p>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <p class="chart-title">Pendentes por equipe</p>
+        <div class="chart-wrap" style="height:240px;">
+          <canvas id="teamChart"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="chart-title">Situação do prazo</p>
+        <div class="chart-wrap" style="height:240px;">
+          <canvas id="prazoChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <p class="table-title">Tickets mais antigos em aberto — ação imediata</p>
+    <p class="note">Ordenado por dias em aberto (desc). "Dias sem retorno" conta desde a última interação registrada no ticket.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Cliente</th>
+            <th>Assunto</th>
+            <th>Responsável</th>
+            <th class="num">Dias aberto</th>
+            <th class="num">Dias sem retorno</th>
+            <th class="center">Status real</th>
+            <th class="center">Status prazo</th>
+          </tr>
+        </thead>
+        <tbody id="tv-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const API = `${location.origin}/api`;
+function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function api(ep,timeoutMs=60000){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{
+    const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
+    return r.json();
+  } catch(e){
+    if(e.name==='AbortError') throw new Error('Tempo limite excedido ao carregar dados');
+    throw e;
+  } finally { clearTimeout(t); }
+}
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+
+const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
+const CANCELADO_STATUSES=['Canceled','Cancelado'];
+function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
+function temPrazo(r){ return !!r.sla_solucao; }
+function isVencido(r){ return temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
+function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
+// "Dias sem retorno" = desde a última interação registrada (last_update do
+// Movidesk) — não desde a abertura. Um ticket pode estar aberto há 600+ dias
+// mas ter tido uma interação recente; os dois números contam histórias
+// diferentes (ver docs/logica_calculos_painel_tv.md).
+function diasSemRetorno(r){
+  const base=r.ultima_interacao||r.criado_em;
+  if(!base) return null;
+  return Math.floor((Date.now()-new Date(base).getTime())/86400000);
+}
+function statusPrazoDe(r){
+  if(!temPrazo(r)) return 'Sem Prazo';
+  return isVencido(r)?'Vencido':'No Prazo';
+}
+
+let _rows=[];
+let _teamChart=null, _prazoChart=null;
+
+function updateClock(){
+  const el=document.getElementById('tv-clock');
+  if(el) el.textContent=new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+async function loadPainelTV(){
+  try{
+    const resp=await api('/geral/pendentes',60000);
+    _rows=(resp.rows||[]).filter(isAberto);
+    render();
+    document.getElementById('tv-content').style.display='block';
+    document.getElementById('tv-updated').textContent=`Atualizado às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes.`;
+  } catch(e){
+    document.getElementById('tv-content').style.display='none';
+    document.getElementById('tv-updated').innerHTML=`<span style="color:var(--text-danger)">Erro ao carregar: ${esc(e.message)}</span>`;
+  }
+}
+
+function render(){
+  const pendentes=_rows.length;
+  const vencidosRows=_rows.filter(isVencido);
+  const vencidos=vencidosRows.length;
+  const pctVencido=pendentes?vencidos/pendentes*100:0;
+  const somaAcoes=_rows.reduce((s,r)=>s+Number(r.acoes_count||0),0);
+  const mediaAcoes=pendentes?somaAcoes/pendentes:0;
+
+  document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
+  document.getElementById('k-vencidos').textContent=vencidos.toLocaleString('pt-BR');
+  document.getElementById('k-pct-vencido').textContent=`${pctVencido.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:2});
+
+  renderTeamChart();
+  renderPrazoChart();
+  renderTable();
+}
+
+function renderTeamChart(){
+  const porEquipe={};
+  _rows.forEach(r=>{
+    const e=r.equipe||'Não informado';
+    porEquipe[e]=(porEquipe[e]||0)+1;
+  });
+  const entries=Object.entries(porEquipe).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(_teamChart) _teamChart.destroy();
+  _teamChart=new Chart(document.getElementById('teamChart'), {
+    type: 'bar',
+    data: {
+      labels: entries.map(e=>e[0]),
+      datasets: [{ data: entries.map(e=>e[1]), backgroundColor: '#e66767', borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#33333d' }, ticks: { color: '#a3a2a0', font: { size: 13 }, precision: 0 } },
+        y: { grid: { display: false }, ticks: { color: '#a3a2a0', font: { size: 13 } } }
+      }
+    }
+  });
+}
+
+function renderPrazoChart(){
+  const vencido=_rows.filter(r=>statusPrazoDe(r)==='Vencido').length;
+  const semPrazo=_rows.filter(r=>statusPrazoDe(r)==='Sem Prazo').length;
+  const noPrazo=_rows.filter(r=>statusPrazoDe(r)==='No Prazo').length;
+  if(_prazoChart) _prazoChart.destroy();
+  _prazoChart=new Chart(document.getElementById('prazoChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Vencido','Sem Prazo','No Prazo'],
+      datasets: [{ data: [vencido,semPrazo,noPrazo], backgroundColor: ['#e66767','#898781','#3987e5'] }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: '#a3a2a0', boxWidth: 14, font: { size: 13 } } } },
+      cutout: '60%'
+    }
+  });
+}
+
+function renderTable(){
+  const tbody=document.getElementById('tv-table-body');
+  const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a)).slice(0,20);
+  if(!top.length){ tbody.innerHTML=`<tr><td colspan="8" class="empty-state">Nenhum ticket pendente.</td></tr>`; return; }
+  tbody.innerHTML=top.map(r=>{
+    const sp=statusPrazoDe(r);
+    const badgeClass=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':'neutral';
+    const dsr=diasSemRetorno(r);
+    return `
+    <tr>
+      <td>${esc(r.ticket_id)}</td>
+      <td class="ellipsis">${esc(r.organizacao||'—')}</td>
+      <td class="ellipsis">${esc(r.assunto||'—')}</td>
+      <td class="ellipsis">${esc(r.responsavel||'Não atribuído')}</td>
+      <td class="num">${diasEmAberto(r)}</td>
+      <td class="num danger-num">${dsr!=null?dsr:'—'}</td>
+      <td class="center"><span class="badge neutral">${esc(r.status_movidesk||r.base_status||'—')}</span></td>
+      <td class="center"><span class="badge ${badgeClass}">${esc(sp)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+updateClock();
+setInterval(updateClock,30000);
+loadPainelTV();
+// Painel de TV roda sem interação — recarrega sozinho pra ficar sempre
+// atualizado numa tela fixa.
+setInterval(loadPainelTV,5*60*1000);
+</script>
+</body>
+</html>

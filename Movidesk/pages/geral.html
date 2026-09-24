@@ -410,6 +410,9 @@ body.modal-open{overflow:hidden}
         <button class="md-tab" onclick="mdSwitchTab('satisfacao')">
           <span class="sym">sentiment_satisfied</span>Satisfação
         </button>
+        <button class="md-tab" onclick="abrirPainelTV()">
+          <span class="sym">tv</span>Painel TV
+        </button>
       </div>
       <div class="vbar"></div>
       <button class="btn-refresh" id="btn-atualizar" onclick="loadGeral()">
@@ -727,6 +730,10 @@ function mdSwitchTab(view){
   }catch{}
   location.href=view==='movidesk'?'geral.html':'satisfacao.html';
 }
+// Painel TV é uma tela de kiosk (fontes grandes, sem menu lateral, pensada
+// pra rodar sozinha numa TV/monitor) — abre em aba nova em vez de navegar
+// dentro do shell do app, que só reduziria o espaço útil na tela.
+function abrirPainelTV(){ window.open('painel-tv.html','_blank'); }
 
 // ── helpers ──────────────────────────────────────────────────────────
 const API = `${location.origin}/api`;

@@ -54,6 +54,7 @@ const LIST_SELECT = `
     t.category                        AS categoria,
     t.service_full                     AS servico,
     t.sla_solution_date                 AS sla_solucao,
+    t.last_update                        AS ultima_interacao,
     tc.organizacao_id,
     tc.organizacao_nome                  AS organizacao,
     cf.valor_texto                        AS classificacao,
