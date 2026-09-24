@@ -69,7 +69,10 @@
     overflow-x: auto;
     max-height: 56vh;
     overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge legado */
   }
+  .table-wrap::-webkit-scrollbar { display: none; } /* Chrome/Safari/Edge */
   .danger-num { color: var(--text-danger); font-weight: 500; }
   .empty-state { padding: 60px 0; text-align: center; color: var(--text-secondary); font-size: 18px; }
   .ticket-link { color: #6fb3ff; text-decoration: none; font-weight: 500; }
