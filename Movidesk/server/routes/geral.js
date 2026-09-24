@@ -108,7 +108,10 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
       janela: todos ? null : (desde || 'ano-vigente'),
     });
   } catch (error) {
-    if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
+    // 42P01 = undefined_table (silver.* ainda não existe, primeira carga) —
+    // ESPECÍFICO pra não mascarar outros erros reais (ex: 42703 coluna
+    // errada numa query nova), que precisam aparecer como 500 de verdade.
+    if (error.code === '42P01') {
       console.warn('[geral] silver.* ainda não existe — retornando vazio');
       return res.json({ rows: [], janela: null });
     }
@@ -126,22 +129,22 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
 // tudo de uma vez, sem paginação nem janela de data.
 // Última ação PÚBLICA (visível ao cliente) separada por quem respondeu —
 // usada no Painel TV pra "dias sem retorno" por agente/cliente. Mesma
-// convenção de profile_type usada em pages/geral.html (tlAuthorLabel):
-// 1/3 = agente, 2 = cliente; sem profile_type (ação antiga), cai pro
-// domínio do e-mail como aproximação.
+// convenção de criado_por_profile_type usada em pages/geral.html
+// (tlAuthorLabel): 1/3 = agente, 2 = cliente; sem profile_type (ação
+// antiga), cai pro domínio do e-mail como aproximação.
 const LAST_PUBLIC_ACTION_JOIN = `
   LEFT JOIN LATERAL (
     SELECT
       MAX(criado_em) FILTER (
         WHERE is_public AND (
-          profile_type IN ('1','3')
-          OR (profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')
+          criado_por_profile_type IN ('1','3')
+          OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')
         )
       ) AS ultima_publica_agente,
       MAX(criado_em) FILTER (
         WHERE is_public AND (
-          profile_type = '2'
-          OR (profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')
+          criado_por_profile_type = '2'
+          OR (criado_por_profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')
         )
       ) AS ultima_publica_cliente
     FROM silver.ticket_acao
@@ -160,7 +163,7 @@ router.get('/pendentes', authMiddleware, requireTabAccess('movidesk'), async (re
     `);
     res.json({ rows: result.rows || [] });
   } catch (error) {
-    if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
+    if (error.code === '42P01') {
       console.warn('[geral] silver.* ainda não existe — retornando vazio (pendentes)');
       return res.json({ rows: [] });
     }
