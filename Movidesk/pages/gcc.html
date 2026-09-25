@@ -528,7 +528,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <p class="section-label">Operacional</p>
-    <div class="grid-3">
+    <div class="grid-4">
       <div class="stat-card clickable" onclick="openKpiModal('clientes')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('clientes')}" role="button" tabindex="0">
         <p class="label">Clientes</p>
         <p class="value" id="k-clientes">0</p>
@@ -538,6 +538,11 @@ body.modal-open{overflow:hidden}
         <p class="label">Casos críticos</p>
         <p class="value" id="k-criticos">0</p>
         <p class="legend">Em aberto com urgência alta/crítica.</p>
+      </div>
+      <div class="stat-card danger clickable" id="k-risco-card" onclick="openExpandModal('risco')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpandModal('risco')}" role="button" tabindex="0">
+        <p class="label">Risco</p>
+        <p class="value bad" id="k-risco">0</p>
+        <p class="legend" id="k-risco-legend">Clientes com 2+ tickets de GCC no período.</p>
       </div>
       <div class="stat-card danger clickable" id="k-criticos-venc-card" onclick="openKpiModal('criticosVenc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('criticosVenc')}" role="button" tabindex="0">
         <p class="label">Críticos vencidos</p>
@@ -1062,8 +1067,9 @@ let _charts={};
 let _rowsFull=[];
 let _rowsById={};
 let _kpiSets={};
+const RISCO_MIN_TICKETS=2; // a partir de quantos tickets de GCC no período o cliente entra em "Risco"
 // Listas completas (sem o corte de top 8/10) do último render() — modal "expandir".
-const _exp={interno:[],externo:[],vertical:[],mrrVert:[],modulo:[],cliente:[],baixa:[],criticos:[],mrrRisco:[]};
+const _exp={risco:[],interno:[],externo:[],vertical:[],mrrVert:[],modulo:[],cliente:[],baixa:[],criticos:[],mrrRisco:[]};
 
 // ── load ─────────────────────────────────────────────────────────────
 async function loadGcc(){
@@ -1239,6 +1245,30 @@ function render(){
   document.getElementById('k-clientes').textContent=clientesUnicos.toLocaleString('pt-BR');
   document.getElementById('k-criticos').textContent=criticosRows.length.toLocaleString('pt-BR');
   document.getElementById('k-criticos-venc').textContent=criticosVencidosRows.length.toLocaleString('pt-BR');
+
+  // ── Risco: clientes com histórico recorrente de GCC no período (ex.: um
+  // cliente que já abriu 4 pedidos de redução no ano) ──
+  const porClienteRisco={};
+  rowsFull.forEach(r=>{
+    const org=(r.organizacao||'').trim();
+    if(!org) return;
+    const v=porClienteRisco[org]||(porClienteRisco[org]={n:0,total:0,parcial:0,rev:0,aberto:0,mrr:0,ultimo:null,vertical:''});
+    v.n++;
+    if(ehRescisaoTotal(r)) v.total++;
+    if(ehRescisaoParcial(r)) v.parcial++;
+    if(isRevertido(r)) v.rev++;
+    if(isAberto(r)){ v.aberto++; v.mrr+=parseMrr(r.mrr); }
+    if(r.criado_em&&(!v.ultimo||new Date(r.criado_em)>new Date(v.ultimo))) v.ultimo=r.criado_em;
+    if(!v.vertical){ const vt=verticalDe(r); if(vt&&vt!=='Não informado') v.vertical=vt; }
+  });
+  _exp.risco=Object.entries(porClienteRisco)
+    .filter(([,v])=>v.n>=RISCO_MIN_TICKETS)
+    .sort((a,b)=>b[1].n-a[1].n||b[1].mrr-a[1].mrr||a[0].localeCompare(b[0],'pt-BR'));
+  document.getElementById('k-risco').textContent=_exp.risco.length.toLocaleString('pt-BR');
+  const topRisco=_exp.risco[0];
+  document.getElementById('k-risco-legend').textContent=topRisco
+    ? `Ex.: ${topRisco[0]} — ${topRisco[1].n} tickets${topRisco[1].parcial?` (${topRisco[1].parcial} de redução)`:''}.`
+    : `Clientes com ${RISCO_MIN_TICKETS}+ tickets de GCC no período.`;
 
   // ── MRR ──
   const mrrEmRisco=rowsFull.filter(isAberto).reduce((s,r)=>s+parseMrr(r.mrr),0);
@@ -2059,6 +2089,17 @@ function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo){
   };
 }
 const EXPAND_CFG={
+  risco:{
+    titulo:'Risco — clientes com histórico recorrente de GCC', unit:['cliente','clientes'],
+    entries:()=>_exp.risco,
+    head:'<tr><th>Cliente</th><th>Vertical</th><th class="num">Tickets GCC</th><th class="num">Rescisão total</th><th class="num">Redução (parcial)</th><th class="num">Revertidos</th><th class="num">Em aberto</th><th class="num">MRR em risco</th><th>Último ticket</th></tr>',
+    cols:9,
+    row:([org,v])=>`
+      <td>${esc(org)}</td><td>${esc(v.vertical||'—')}</td><td class="num bad">${v.n}</td><td class="num">${v.total}</td><td class="num">${v.parcial}</td>
+      <td class="num">${v.rev}</td><td class="num">${v.aberto}</td><td class="num">${v.mrr?fmtMrrFull(v.mrr):'—'}</td>
+      <td class="nowrap">${v.ultimo?new Date(v.ultimo).toLocaleDateString('pt-BR'):'—'}</td>`,
+    open:([org])=>openClienteTicketsModal(org),
+  },
   interno: rankCfg('Locus interno — controlável','Motivo',['motivo','motivos'],'interno',(r,l)=>(r.cf_24986||'').trim()===l,'Locus interno'),
   externo: rankCfg('Locus externo — fora do controle','Motivo',['motivo','motivos'],'externo',(r,l)=>(r.cf_24523||'').trim()===l,'Locus externo'),
   vertical: rankCfg('Casos por vertical','Vertical',['vertical','verticais'],'vertical',(r,l)=>verticalDe(r)===l,'Vertical'),
