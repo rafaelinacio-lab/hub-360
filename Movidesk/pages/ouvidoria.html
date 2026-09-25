@@ -281,6 +281,12 @@ input,select{font-family:inherit}
 .data-panel.compact{padding:14px 16px}
 .data-panel.compact.danger{border-color:var(--orange-bd)}
 .data-panel.compact .panel-title{font-size:12px;margin-bottom:8px}
+.panel-title-exp{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.panel-expand{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--t3);cursor:pointer}
+.panel-expand .sym{font-size:16px}
+.panel-expand:hover,.panel-expand:focus-visible{color:var(--t1);border-color:var(--border);background:var(--surface-mid)}
+.data-panel .dtable tbody tr.clickable{cursor:pointer}
+.data-panel .dtable tbody tr.clickable:hover td{background:var(--surface-mid)}
 .data-panel.compact .dtable{font-size:12px}
 .data-panel.compact .dtable th{padding:5px 8px;font-size:9.5px}
 .data-panel.compact .dtable td{padding:6px 8px}
@@ -553,7 +559,7 @@ body.modal-open{overflow:hidden}
     <p class="section-label">Ação</p>
     <div class="grid-3">
       <div class="data-panel compact">
-        <p class="panel-title">Clientes com maior reincidência e procedência Reclamação</p>
+        <p class="panel-title panel-title-exp">Clientes com maior reincidência e procedência Reclamação<button type="button" class="panel-expand" onclick="openExpandModal('reinc')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
             <thead><tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr></thead>
@@ -563,7 +569,7 @@ body.modal-open{overflow:hidden}
       </div>
 
       <div class="data-panel compact">
-        <p class="panel-title">Desempenho por responsável</p>
+        <p class="panel-title panel-title-exp">Desempenho por responsável<button type="button" class="panel-expand" onclick="openExpandModal('resp')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
             <thead><tr><th>Responsável</th><th class="num">Tickets</th><th class="num">Tempo médio</th><th class="num">Taxa procedência</th></tr></thead>
@@ -573,7 +579,7 @@ body.modal-open{overflow:hidden}
       </div>
 
       <div class="data-panel compact danger">
-        <p class="panel-title">Tickets vencidos — ação necessária</p>
+        <p class="panel-title panel-title-exp">Tickets vencidos — ação necessária<button type="button" class="panel-expand" onclick="openExpandModal('venc')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
             <thead><tr><th>Ticket</th><th>Responsável</th><th class="num">Dias venc.</th></tr></thead>
@@ -680,6 +686,26 @@ body.modal-open{overflow:hidden}
         </button>
       </div>
       <p class="export-status" id="export-status"><span class="sym">progress_activity</span>Gerando arquivo…</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="expand-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="expand-modal-title">Detalhe</h3>
+        <p id="expand-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="expand-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead id="expand-modal-thead"></thead>
+          <tbody id="expand-modal-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -1363,6 +1389,7 @@ function syncModalBodyLock(){
   const open=document.getElementById('detail-modal').classList.contains('show')
     || document.getElementById('ticket-modal').classList.contains('show')
     || document.getElementById('risco-modal').classList.contains('show')
+    || document.getElementById('expand-modal').classList.contains('show')
     || document.getElementById('export-modal').classList.contains('show')
     || document.getElementById('listagem-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
@@ -1678,17 +1705,25 @@ function porClienteReincidencia(rows){
   });
   return porCliente;
 }
-function renderReincidenciaTable(rows){
-  const tbody=document.getElementById('tbl-reincidencia');
-  const porCliente=porClienteReincidencia(rows);
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1].rec-a[1].rec).slice(0,10);
-  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhuma reclamação no período filtrado.</td></tr>`; return; }
-  tbody.innerHTML=entries.map(([org,v])=>`
-    <tr>
+// Listas completas (sem o corte de 10 dos cards) do último render() — usadas
+// pelo modal de "expandir" de cada card da seção Ação.
+let _reincEntries=[], _respEntries=[], _vencEntries=[];
+
+function reincRowHtml([org,v]){
+  return `
+    <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
       <td>${esc(org)}</td>
       <td class="num">${v.rec}</td>
       <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
-    </tr>`).join('');
+    </tr>`;
+}
+function renderReincidenciaTable(rows){
+  const tbody=document.getElementById('tbl-reincidencia');
+  const porCliente=porClienteReincidencia(rows);
+  _reincEntries=Object.entries(porCliente).sort((a,b)=>b[1].rec-a[1].rec);
+  const entries=_reincEntries.slice(0,10);
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhuma reclamação no período filtrado.</td></tr>`; return; }
+  tbody.innerHTML=entries.map(reincRowHtml).join('');
 }
 
 // ── KPI + modal "Clientes em risco" ─────────────────────────────────────
@@ -1729,6 +1764,7 @@ document.getElementById('risco-modal').addEventListener('click',e=>{ if(e.target
 // do modal de Clientes em risco — reaproveita o modal de lista já usado
 // pelos cliques nos gráficos.
 function openClienteTicketsModal(org){
+  closeExpandModal();
   const matched=_rowsFull.filter(r=>(r.organizacao||'Não informado')===org && tipoKey(rawTipo(r))==='rec');
   openDetailModal(`Reclamações: ${org}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
@@ -1750,20 +1786,27 @@ function renderResponsavelTable(rows){
       if(isProcedente(r.manifesto_procedente)) p.proc++;
     }
   });
-  const entries=Object.entries(porResp).sort((a,b)=>b[1].tickets-a[1].tickets).slice(0,10);
+  _respEntries=Object.entries(porResp).sort((a,b)=>b[1].tickets-a[1].tickets);
+  const entries=_respEntries.slice(0,10);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum ticket no período filtrado.</td></tr>`; return; }
-  tbody.innerHTML=entries.map(([nome,p])=>{
-    const tempoMedio=p.nResolvidos?`${(p.somaDias/p.nResolvidos).toFixed(1)} dias`:'—';
-    const taxa=p.rec?(p.proc/p.rec*100):0;
-    const taxaTxt=p.rec?`${taxa.toFixed(1)}%`:'—';
-    return `
-    <tr>
+  tbody.innerHTML=entries.map(respRowHtml).join('');
+}
+function respRowHtml([nome,p]){
+  const tempoMedio=p.nResolvidos?`${(p.somaDias/p.nResolvidos).toFixed(1)} dias`:'—';
+  const taxa=p.rec?(p.proc/p.rec*100):0;
+  const taxaTxt=p.rec?`${taxa.toFixed(1)}%`:'—';
+  return `
+    <tr class="clickable" onclick="openResponsavelTicketsModal('${escAttr(nome)}')">
       <td>${esc(nome)}</td>
       <td class="num">${p.tickets}</td>
       <td class="num">${tempoMedio}</td>
       <td class="num${taxa>=15?' bad':''}">${taxaTxt}</td>
     </tr>`;
-  }).join('');
+}
+function openResponsavelTicketsModal(nome){
+  closeExpandModal();
+  const matched=_rowsFull.filter(r=>(r.responsavel||'Não atribuído')===nome);
+  openDetailModal(`Chamados: ${nome}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 
 // Abrevia "Raquiele Barbosa" → "Raquiele B." (primeiro nome + inicial do
@@ -1782,16 +1825,66 @@ function renderVencidosTable(rows){
     .filter(r=>!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status))
     .filter(r=>r.sla_solucao&&new Date(r.sla_solucao).getTime()<agora)
     .map(r=>({...r,diasVenc:Math.floor((agora-new Date(r.sla_solucao).getTime())/86400000)}))
-    .sort((a,b)=>b.diasVenc-a.diasVenc)
-    .slice(0,10);
+    .sort((a,b)=>b.diasVenc-a.diasVenc);
+  _vencEntries=vencidos;
   if(!vencidos.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum ticket vencido no período filtrado.</td></tr>`; return; }
-  tbody.innerHTML=vencidos.map(r=>`
-    <tr>
-      <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">${esc(r.ticket_id)}</a></td>
-      <td>${esc(shortName(r.responsavel))}</td>
-      <td class="num bad">${r.diasVenc}</td>
-    </tr>`).join('');
+  tbody.innerHTML=vencidos.slice(0,10).map(r=>vencRowHtml(r,true)).join('');
 }
+function vencRowHtml(r,curto){
+  return `
+    <tr class="clickable" onclick="openVencidoTicket('${escAttr(r.ticket_id)}')">
+      <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a></td>
+      <td>${esc(curto?shortName(r.responsavel):(r.responsavel||'Não atribuído'))}</td>
+      <td class="num bad">${r.diasVenc}</td>
+    </tr>`;
+}
+function openVencidoTicket(ticketId){
+  closeExpandModal();
+  const r=_vencEntries.find(x=>String(x.ticket_id)===String(ticketId));
+  if(r) _rowsById[r.ticket_id]=r;
+  openTicketModal(ticketId);
+}
+
+// ── modal "expandir" dos cards da seção Ação (lista completa) ─────────
+function openExpandModal(kind){
+  const cfg={
+    reinc:{
+      title:'Clientes com maior reincidência e procedência Reclamação',
+      head:'<tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr>',
+      entries:_reincEntries, row:reincRowHtml, cols:3, unit:'cliente',
+      empty:'Nenhuma reclamação no período filtrado.',
+    },
+    resp:{
+      title:'Desempenho por responsável',
+      head:'<tr><th>Responsável</th><th class="num">Tickets</th><th class="num">Tempo médio</th><th class="num">Taxa procedência</th></tr>',
+      entries:_respEntries, row:respRowHtml, cols:4, unit:'responsável',
+      empty:'Nenhum ticket no período filtrado.',
+    },
+    venc:{
+      title:'Tickets vencidos — ação necessária',
+      head:'<tr><th>Ticket</th><th>Responsável</th><th class="num">Dias venc.</th></tr>',
+      entries:_vencEntries, row:r=>vencRowHtml(r,false), cols:3, unit:'ticket',
+      empty:'Nenhum ticket vencido no período filtrado.',
+    },
+  }[kind];
+  if(!cfg) return;
+  const n=cfg.entries.length;
+  const plural=cfg.unit==='responsável'?'responsáveis':`${cfg.unit}s`;
+  document.getElementById('expand-modal-title').textContent=cfg.title;
+  document.getElementById('expand-modal-sub').textContent=`${n.toLocaleString('pt-BR')} ${n===1?cfg.unit:plural} no período filtrado`;
+  document.getElementById('expand-modal-thead').innerHTML=cfg.head;
+  document.getElementById('expand-modal-tbody').innerHTML=n
+    ? cfg.entries.map(cfg.row).join('')
+    : `<tr class="empty-row"><td colspan="${cfg.cols}">${cfg.empty}</td></tr>`;
+  document.getElementById('expand-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function closeExpandModal(){
+  document.getElementById('expand-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('expand-modal-close').addEventListener('click',closeExpandModal);
+document.getElementById('expand-modal').addEventListener('click',e=>{ if(e.target.id==='expand-modal') closeExpandModal(); });
 
 // ── sync ─────────────────────────────────────────────────────────────
 let _syncPoll=null;
