@@ -1759,6 +1759,135 @@ async function runGcc(cronJobId = null) {
   return runByClassification('gcc', 'Gestão de Combate ao Churn', cronJobId);
 }
 
+/**
+ * Carga PERSONALIZADA — tarefa criada pelo usuário em Configurações
+ * (silver.cron_task). Monta o $filter a partir dos campos da tarefa:
+ *   owner_team      → ownerTeam eq '...'           (filtro plano, barato)
+ *   classification  → CF 23946 aninhado             (só se não houver equipe)
+ *   year            → createdDate dentro do ano
+ *   only_open       → passada em /tickets só com os em aberto
+ *   recent_days     → passada em /tickets e /tickets/past com lastUpdate ≥ hoje−N
+ * Sem only_open nem recent_days, busca tudo que casa com os filtros nos dois
+ * endpoints. Mesmo tratamento do bug $filter+$expand da carga Full
+ * (corrigirCustomFieldValues) e canonicalização da classificação quando ela
+ * é informada explicitamente.
+ */
+async function runCustom(task, cronJobId = null) {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+  if (!task || !task.id) throw new Error('Tarefa personalizada inválida');
+
+  const mode           = `custom:${task.id}`.slice(0, 20);
+  const ownerTeamVal   = String(task.owner_team || '').trim();
+  const classValue     = String(task.classification || '').trim();
+  const year           = Number(task.year) || null;
+  const onlyOpen       = !!task.only_open;
+  const recentDays     = Math.max(0, Number(task.recent_days) || 0);
+
+  const classFilter = ownerTeamVal
+    ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
+    : (classValue
+        ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO}` +
+          ` and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))`
+        : null);
+  const pageSize   = (!ownerTeamVal && classValue) ? CLASS_FILTER_PAGE_SIZE : PAGE_SIZE;
+  const yearFilter = year ? `createdDate ge ${year}-01-01T00:00:00Z and createdDate lt ${year + 1}-01-01T00:00:00Z` : null;
+  const baseFilter = [classFilter, yearFilter].filter(Boolean).join(' and ');
+  if (!baseFilter && !onlyOpen && !recentDays) {
+    throw new Error('Tarefa sem nenhum filtro — informe equipe, classificação, ano, "só em aberto" ou últimos N dias');
+  }
+  const juntar = (...partes) => partes.filter(Boolean).join(' and ') || null;
+
+  state.running         = true;
+  state.cancelRequested = false;
+  state.mode            = mode;
+  state.startedAt       = new Date().toISOString();
+  state.phase           = 'preparando';
+  state.pagesDone       = 0;
+  state.ticketsDone     = 0;
+  state.savedIds        = new Set();
+  state.errors          = [];
+
+  await ensureTables();
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status, years, classification, owner_team, cron_job_id)
+     VALUES ($1, NOW(), 'running', $2, $3, $4, $5) RETURNING id`,
+    [mode, year ? [year] : null, classValue || null, ownerTeamVal || null, cronJobId]
+  ).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+  _activeLogId = logId;
+
+  console.log(`[loader] ▶ Carga personalizada "${task.name}" iniciada`);
+
+  try {
+    const token = await getMovideskToken();
+    const baseSave = classValue ? makeSaveComClassificacao(classValue) : saveBatch;
+    const seen = new Set();
+    const save = async (batch) => {
+      const fresh = batch.filter(t => !seen.has(String(t.id)));
+      fresh.forEach(t => seen.add(String(t.id)));
+      if (!fresh.length) return [];
+      state.phase = 'corrigindo';
+      await corrigirCustomFieldValues(token, fresh);
+      return baseSave(fresh);
+    };
+
+    if (onlyOpen) {
+      const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+      console.log('[loader]   /tickets — em aberto');
+      await fetchEndpoint(token, '/tickets', juntar(baseFilter, closedExclusion), save, pageSize);
+    }
+    if (recentDays) {
+      const since = new Date(Date.now() - recentDays * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      for (const ep of ['/tickets', '/tickets/past']) {
+        console.log(`[loader]   ${ep} — atualizados nos últimos ${recentDays} dia(s)`);
+        await fetchEndpoint(token, ep, juntar(baseFilter, `lastUpdate ge ${since}`), save, pageSize);
+      }
+    }
+    if (!onlyOpen && !recentDays) {
+      for (const ep of ['/tickets', '/tickets/past']) {
+        console.log(`[loader]   ${ep} — todos que casam com os filtros`);
+        await fetchEndpoint(token, ep, juntar(baseFilter), save, pageSize);
+      }
+    }
+
+    state.phase      = 'idle';
+    state.running    = false;
+    state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode, tickets: state.ticketsDone };
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
+        [state.ticketsDone, logId]
+      ).catch(() => {});
+    }
+    _activeLogId = null;
+    console.log(`[loader] ✔ Carga personalizada "${task.name}" concluída — ${state.ticketsDone} tickets`);
+    return state.lastResult;
+  } catch (err) {
+    state.running         = false;
+    state.phase           = 'idle';
+    state.cancelRequested = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [wasCancelled ? 'cancelled' : 'error', wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
+      ).catch(() => {});
+    }
+    _activeLogId = null;
+    if (wasCancelled) {
+      state.lastResult = { mode, tickets: state.ticketsDone, cancelled: true };
+    } else {
+      console.error(`[loader] ✖ Carga personalizada "${task.name}" com erro:`, err.message);
+      throw err;
+    }
+  }
+}
+
 // Busca só os tickets de Ouvidoria/GCC cuja organização não foi identificada
 // ("Não informado" no painel) e re-sincroniza CADA UM individualmente via
 // "id=" (mesma chamada limpa usada em corrigirCustomFieldValues — sem
@@ -2286,7 +2415,7 @@ function stopSatisfacaoSync() {
 }
 
 module.exports = {
-  runFull, runIncremental, runGeral, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, ensureTables, state,
+  runFull, runIncremental, runGeral, runOuvidoria, runGcc, runCustom, runFixOrganizacao, cancelLoad, ensureTables, state,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   refreshTicketOrganizacao,
   runBackfillCamposBasicos,

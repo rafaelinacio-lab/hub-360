@@ -14,6 +14,10 @@
  * POST   /api/crons/:id/run — dispara a tarefa agora, fora do agendamento
  * GET    /api/crons/:id/runs — histórico de execuções dessa cron (silver.carga_log)
  * GET    /api/crons/runs/:runId/changes — o que foi criado/alterado, chamado a chamado
+ * GET    /api/crons/tasks        — tarefas personalizadas (silver.cron_task)
+ * POST   /api/crons/tasks        — cria tarefa personalizada
+ * PATCH  /api/crons/tasks/:id    — edita tarefa personalizada
+ * DELETE /api/crons/tasks/:id    — remove (bloqueia se alguma cron usa)
  */
 
 const express = require('express');
@@ -25,6 +29,95 @@ const cronManager = require('../scripts/cron-manager');
 const VALID_TASKS = ['ouvidoria', 'gcc', 'geral', 'incremental', 'full'];
 
 router.use(authMiddleware, requireRole('admin', 'supervisor'));
+
+// Tarefa válida = uma das fixas ou 'custom:<id>' de uma tarefa que existe.
+async function tarefaValida(task) {
+  if (VALID_TASKS.includes(task)) return true;
+  const customId = cronManager.customTaskId(task);
+  if (!customId) return false;
+  const { rows } = await db.query('SELECT 1 FROM silver.cron_task WHERE id = $1', [customId]);
+  return rows.length > 0;
+}
+
+// ── Tarefas personalizadas ──────────────────────────────────────────────
+function normalizarTarefa(body = {}) {
+  const txt = v => (v === undefined || v === null) ? null : (String(v).trim() || null);
+  const int = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : null; };
+  return {
+    name:           txt(body.name),
+    owner_team:     txt(body.owner_team),
+    classification: txt(body.classification),
+    only_open:      !!body.only_open,
+    recent_days:    int(body.recent_days),
+    year:           int(body.year),
+  };
+}
+function validarTarefa(t) {
+  if (!t.name) return 'Nome é obrigatório';
+  if (t.year && (t.year < 2000 || t.year > new Date().getFullYear() + 1)) return 'Ano inválido';
+  if (!t.owner_team && !t.classification && !t.year && !t.only_open && !t.recent_days) {
+    return 'Defina ao menos um filtro: equipe, classificação, ano, "só em aberto" ou últimos N dias';
+  }
+  return null;
+}
+
+router.get('/tasks', async (req, res) => {
+  try {
+    const { rows } = await db.query('SELECT * FROM silver.cron_task ORDER BY name');
+    res.json({ tasks: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/tasks', async (req, res) => {
+  try {
+    const t = normalizarTarefa(req.body);
+    const erro = validarTarefa(t);
+    if (erro) return res.status(400).json({ error: erro });
+    const { rows } = await db.query(
+      `INSERT INTO silver.cron_task (name, owner_team, classification, only_open, recent_days, year)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year]
+    );
+    res.json({ task: rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.patch('/tasks/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const t = normalizarTarefa(req.body);
+    const erro = validarTarefa(t);
+    if (erro) return res.status(400).json({ error: erro });
+    const { rows } = await db.query(
+      `UPDATE silver.cron_task
+       SET name = $1, owner_team = $2, classification = $3, only_open = $4, recent_days = $5, year = $6, updated_at = NOW()
+       WHERE id = $7 RETURNING *`,
+      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year, id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Tarefa não encontrada' });
+    res.json({ task: rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete('/tasks/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { rows: usos } = await db.query('SELECT name FROM silver.cron_job WHERE task = $1', [`custom:${id}`]);
+    if (usos.length) {
+      return res.status(409).json({ error: `Tarefa em uso pelas crons: ${usos.map(u => u.name).join(', ')}. Troque a tarefa delas ou exclua-as antes.` });
+    }
+    await db.query('DELETE FROM silver.cron_task WHERE id = $1', [id]);
+    res.json({ deleted: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {
@@ -39,7 +132,7 @@ router.post('/', async (req, res) => {
   try {
     const { name, task, interval_minutes, enabled, params } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nome é obrigatório' });
-    if (!VALID_TASKS.includes(task)) return res.status(400).json({ error: `Tarefa inválida (use: ${VALID_TASKS.join(', ')})` });
+    if (!(await tarefaValida(task))) return res.status(400).json({ error: 'Tarefa inválida' });
     const minutes = Number(interval_minutes);
     if (!Number.isFinite(minutes) || minutes < 5) return res.status(400).json({ error: 'Intervalo mínimo é 5 minutos' });
 
@@ -65,7 +158,7 @@ router.patch('/:id', async (req, res) => {
 
     const name = req.body?.name !== undefined ? String(req.body.name).trim() : existing.name;
     const task = req.body?.task !== undefined ? req.body.task : existing.task;
-    if (!VALID_TASKS.includes(task)) return res.status(400).json({ error: `Tarefa inválida (use: ${VALID_TASKS.join(', ')})` });
+    if (!(await tarefaValida(task))) return res.status(400).json({ error: 'Tarefa inválida' });
     const minutes = req.body?.interval_minutes !== undefined ? Number(req.body.interval_minutes) : existing.interval_minutes;
     if (!Number.isFinite(minutes) || minutes < 5) return res.status(400).json({ error: 'Intervalo mínimo é 5 minutos' });
     const enabled = req.body?.enabled !== undefined ? !!req.body.enabled : existing.enabled;

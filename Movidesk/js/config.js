@@ -2644,7 +2644,7 @@ function dlRenderStatus(cur, tokenSuffix) {
     if (!badge) return;
 
     if (cur.running) {
-        const modeLabel  = cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : cur.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
+        const modeLabel  = String(cur.mode || '').startsWith('custom:') ? cronTaskLabel(cur.mode) : cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : cur.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
         const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
         badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
@@ -2696,7 +2696,7 @@ function dlRenderStatus(cur, tokenSuffix) {
         const tokenInfo = tokenSuffix ? ` · Token: ${tokenSuffix}` : '';
         if (last) {
             const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
-            const lastModeLabel = last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : last.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
+            const lastModeLabel = String(last.mode || '').startsWith('custom:') ? cronTaskLabel(last.mode) : last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : last.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
             meta.textContent = `Última: ${lastModeLabel} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
         } else {
             meta.textContent = (cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–') + tokenInfo;
@@ -2754,7 +2754,7 @@ function dlRenderHistory(rows) {
                 ? (() => { const s = Math.round((new Date(r.finished_at) - new Date(r.started_at)) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`; })()
                 : '–';
             return `<tr style="border-bottom:1px solid var(--border,#222);">
-                <td style="padding:8px 10px;font-weight:600;">${modeLabel[r.mode] || r.mode}</td>
+                <td style="padding:8px 10px;font-weight:600;">${cfgEsc(modeLabel[r.mode] || cronTaskLabel(r.mode))}</td>
                 <td style="padding:8px 10px;color:var(--muted,#71717a);font-size:12px;">${cfgEsc(filtroDe(r))}</td>
                 <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${ini}</td>
                 <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${fin} <span style="color:var(--muted,#71717a);font-size:11px;">(${dur})</span></td>
@@ -2777,9 +2777,31 @@ let _cronJobs = [];
 const CRON_TASK_LABEL = {
     ouvidoria: 'Ouvidoria — em aberto',
     gcc: 'GCC — em aberto',
+    geral: 'Painel Geral — ano vigente',
     incremental: 'Incremental — todos os tickets',
     full: 'Full — carga completa',
 };
+let _cronTasks = [];
+
+function cronTaskLabel(task) {
+    if (CRON_TASK_LABEL[task]) return CRON_TASK_LABEL[task];
+    const m = /^custom:(\d+)$/.exec(String(task || ''));
+    if (m) {
+        const t = _cronTasks.find(x => x.id === Number(m[1]));
+        return t ? `${t.name} (personalizada)` : 'Tarefa personalizada removida';
+    }
+    return task;
+}
+
+function cronTaskResumo(t) {
+    const partes = [];
+    if (t.owner_team) partes.push(`Equipe: ${t.owner_team}`);
+    if (t.classification) partes.push(`Classificação: ${t.classification}`);
+    if (t.year) partes.push(`Ano: ${t.year}`);
+    if (t.only_open) partes.push('Só em aberto');
+    if (t.recent_days) partes.push(`Atualizados nos últimos ${t.recent_days} dia(s)`);
+    return partes.join(' · ') || '—';
+}
 
 function cronFmtInterval(minutes) {
     const m = Number(minutes) || 0;
@@ -2792,10 +2814,16 @@ async function cronLoad() {
     const el = document.getElementById('cronList');
     if (!el) return;
     try {
-        const resp = await fetch(`${API_BASE}/crons`, { headers: authHeaders() });
+        const [resp, respTasks] = await Promise.all([
+            fetch(`${API_BASE}/crons`, { headers: authHeaders() }),
+            fetch(`${API_BASE}/crons/tasks`, { headers: authHeaders() }),
+        ]);
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        const dataTasks = await respTasks.json().catch(() => ({}));
+        _cronTasks = respTasks.ok ? (dataTasks.tasks || []) : [];
         _cronJobs = data.jobs || [];
+        cronRenderTasks();
         cronRenderList();
     } catch (e) {
         el.innerHTML = `<div style="color:#f87171;font-size:13px;">Erro ao carregar: ${cfgEsc(e.message)}</div>`;
@@ -2837,7 +2865,7 @@ function cronRenderList() {
             const lastLabel = running ? 'Executando...' : last;
             return `<tr style="border-bottom:1px solid var(--border,#222);">
                 <td style="padding:8px 10px;font-weight:600;">${cfgEsc(j.name)}</td>
-                <td style="padding:8px 10px;">${cfgEsc(CRON_TASK_LABEL[j.task] || j.task)}</td>
+                <td style="padding:8px 10px;">${cfgEsc(cronTaskLabel(j.task))}</td>
                 <td style="padding:8px 10px;">${cronFmtInterval(j.interval_minutes)}</td>
                 <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${lastLabel}${(!running && j.last_error) ? ` <span style="color:#f87171;font-size:11px;" title="${cfgEsc(j.last_error)}">(erro)</span>` : ''}</td>
                 <td style="padding:8px 10px;">
@@ -2986,6 +3014,117 @@ async function cronRunNow(id) {
         alert(`Não foi possível iniciar: ${e.message}`);
     }
 }
+
+// ── Tarefas personalizadas ──────────────────────────────────────────────
+function cronRenderTasks() {
+    const group = document.getElementById('cronTaskCustomGroup');
+    if (group) {
+        group.innerHTML = _cronTasks.map(t => `<option value="custom:${t.id}">${cfgEsc(t.name)}</option>`).join('');
+        group.style.display = _cronTasks.length ? '' : 'none';
+    }
+    const el = document.getElementById('cronTaskList');
+    if (!el) return;
+    if (!_cronTasks.length) {
+        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma tarefa personalizada ainda.</div>';
+        return;
+    }
+    const usos = {};
+    _cronJobs.forEach(j => { usos[j.task] = (usos[j.task] || 0) + 1; });
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
+                <th style="padding:6px 10px;">Nome</th>
+                <th style="padding:6px 10px;">Filtros</th>
+                <th style="padding:6px 10px;">Usada por</th>
+                <th style="padding:6px 10px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+        ${_cronTasks.map(t => {
+            const n = usos[`custom:${t.id}`] || 0;
+            return `<tr style="border-bottom:1px solid var(--border,#222);">
+                <td style="padding:8px 10px;font-weight:600;">${cfgEsc(t.name)}</td>
+                <td style="padding:8px 10px;">${cfgEsc(cronTaskResumo(t))}</td>
+                <td style="padding:8px 10px;">${n ? `${n} cron${n === 1 ? '' : 's'}` : '—'}</td>
+                <td style="padding:8px 10px;white-space:nowrap;">
+                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronTaskOpenModal(${t.id})" title="Editar">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">edit</span>
+                    </button>
+                    <button class="config-btn config-btn-danger" style="padding:4px 8px;font-size:11.5px;" onclick="cronTaskDelete(${t.id})" title="Excluir">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">delete</span>
+                    </button>
+                </td>
+            </tr>`;
+        }).join('')}
+        </tbody>
+    </table>`;
+}
+
+function cronTaskOpenModal(taskId) {
+    const t = taskId ? _cronTasks.find(x => x.id === taskId) : null;
+    const errorEl = document.getElementById('cronTaskModalError');
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+    document.getElementById('cronTaskModalTitle').textContent = t ? 'Editar tarefa' : 'Nova tarefa';
+    document.getElementById('cronTaskId').value = t ? t.id : '';
+    document.getElementById('cronTaskName').value = t?.name || '';
+    document.getElementById('cronTaskTeam').value = t?.owner_team || '';
+    document.getElementById('cronTaskClass').value = t?.classification || '';
+    document.getElementById('cronTaskYear').value = t?.year || '';
+    document.getElementById('cronTaskDays').value = t?.recent_days || '';
+    document.getElementById('cronTaskOpen').checked = !!t?.only_open;
+    document.getElementById('cronTaskModal').style.display = 'flex';
+}
+
+function cronTaskCloseModal() {
+    document.getElementById('cronTaskModal').style.display = 'none';
+}
+
+async function cronTaskSave() {
+    const errorEl = document.getElementById('cronTaskModalError');
+    const showError = (msg) => { errorEl.textContent = msg; errorEl.style.display = 'block'; };
+    const id = document.getElementById('cronTaskId').value;
+    const body = {
+        name: document.getElementById('cronTaskName').value.trim(),
+        owner_team: document.getElementById('cronTaskTeam').value.trim(),
+        classification: document.getElementById('cronTaskClass').value.trim(),
+        year: document.getElementById('cronTaskYear').value,
+        recent_days: document.getElementById('cronTaskDays').value,
+        only_open: document.getElementById('cronTaskOpen').checked,
+    };
+    if (!body.name) return showError('Preencha o nome.');
+    if (!body.owner_team && !body.classification && !body.year && !body.recent_days && !body.only_open) {
+        return showError('Defina ao menos um filtro: equipe, classificação, ano, "só em aberto" ou últimos N dias.');
+    }
+    try {
+        const resp = await fetch(id ? `${API_BASE}/crons/tasks/${id}` : `${API_BASE}/crons/tasks`, {
+            method: id ? 'PATCH' : 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        cronTaskCloseModal();
+        cronLoad();
+    } catch (e) {
+        showError(e.message);
+    }
+}
+
+async function cronTaskDelete(id) {
+    const t = _cronTasks.find(x => x.id === id);
+    if (!confirm(`Excluir a tarefa "${t?.name || id}"? Essa ação não pode ser desfeita.`)) return;
+    try {
+        const resp = await fetch(`${API_BASE}/crons/tasks/${id}`, { method: 'DELETE', headers: authHeaders() });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        cronLoad();
+    } catch (e) {
+        alert(`Não foi possível excluir: ${e.message}`);
+    }
+}
+
+document.getElementById('cronTaskModalClose')?.addEventListener('click', cronTaskCloseModal);
+document.getElementById('cronTaskModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronTaskModal') cronTaskCloseModal(); });
 
 // ── Histórico de execuções (log de cargas) ──────────────────────────────
 const CRON_RUN_STATUS_LABEL = { done: 'Concluída', error: 'Erro', running: 'Executando', cancelled: 'Cancelada' };
