@@ -242,7 +242,7 @@ input,select{font-family:inherit}
 .stat-card.danger{border-color:var(--orange-bd)}
 .stat-card.success{border-color:var(--green-bd)}
 .stat-card.clickable{cursor:pointer}
-.stat-card.clickable:hover{border-color:var(--border-hi)}
+.stat-card.clickable:hover,.stat-card.clickable:focus-visible{border-color:var(--border-hi);outline:none}
 .stat-card .label{font-size:12.5px;color:var(--t2);margin:0 0 6px;font-weight:500}
 .stat-card .value{
   font-size:25px;font-weight:700;margin:0;color:var(--t1);
@@ -500,27 +500,27 @@ body.modal-open{overflow:hidden}
   <div class="dash-wrap" id="gcc-dash">
     <p class="section-label">Totais do período</p>
     <div class="grid-5">
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('total')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('total')}" role="button" tabindex="0">
         <p class="label">Total de chamados</p>
         <p class="value" id="k-total">0</p>
         <p class="legend" id="k-total-legend">Fechado no período.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('rescTotal')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('rescTotal')}" role="button" tabindex="0">
         <p class="label">Rescisão total</p>
         <p class="value" id="k-resc-total">0</p>
         <p class="legend">Cancelamento completo do contrato.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('rescParcial')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('rescParcial')}" role="button" tabindex="0">
         <p class="label">Rescisão parcial</p>
         <p class="value" id="k-resc-parcial">0</p>
         <p class="legend">Redução de módulos ou usuários.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('revertidos')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('revertidos')}" role="button" tabindex="0">
         <p class="label">Revertidos</p>
         <p class="value" id="k-revertidos">0</p>
         <p class="legend">Solicitações de saída evitadas.</p>
       </div>
-      <div class="stat-card success">
+      <div class="stat-card success clickable" onclick="openKpiModal('revertidos')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('revertidos')}" role="button" tabindex="0">
         <p class="label">Taxa de reversão</p>
         <p class="value good" id="k-taxa-reversao">0%</p>
         <p class="legend">Revertidos ÷ total de solicitações.</p>
@@ -529,38 +529,38 @@ body.modal-open{overflow:hidden}
 
     <p class="section-label">Operacional</p>
     <div class="grid-3">
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('clientes')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('clientes')}" role="button" tabindex="0">
         <p class="label">Clientes</p>
         <p class="value" id="k-clientes">0</p>
         <p class="legend">Clientes únicos em GCC no período.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('criticos')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('criticos')}" role="button" tabindex="0">
         <p class="label">Casos críticos</p>
         <p class="value" id="k-criticos">0</p>
         <p class="legend">Em aberto com urgência alta/crítica.</p>
       </div>
-      <div class="stat-card danger clickable" id="k-criticos-venc-card" onclick="scrollToCriticosVencidos()">
+      <div class="stat-card danger clickable" id="k-criticos-venc-card" onclick="openKpiModal('criticosVenc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('criticosVenc')}" role="button" tabindex="0">
         <p class="label">Críticos vencidos</p>
         <p class="value bad" id="k-criticos-venc">0</p>
-        <p class="legend">Prazo de SLA já passado. Clique pra ver.</p>
+        <p class="legend">Prazo de SLA já passado.</p>
       </div>
     </div>
 
     <p class="section-label">Impacto financeiro (MRR)</p>
     <div class="grid-3">
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('mrrRisco')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('mrrRisco')}" role="button" tabindex="0">
         <p class="label">MRR em risco</p>
         <p class="value" id="k-mrr-risco">R$ 0</p>
         <p class="value-full" id="k-mrr-risco-full"></p>
         <p class="legend">Soma do MRR de todos os casos abertos.</p>
       </div>
-      <div class="stat-card success">
+      <div class="stat-card success clickable" onclick="openKpiModal('mrrProtegido')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('mrrProtegido')}" role="button" tabindex="0">
         <p class="label">MRR protegido</p>
         <p class="value good" id="k-mrr-protegido">R$ 0</p>
         <p class="value-full" id="k-mrr-protegido-full"></p>
         <p class="legend">MRR de casos revertidos com sucesso.</p>
       </div>
-      <div class="stat-card danger">
+      <div class="stat-card danger clickable" onclick="openKpiModal('mrrPerdido')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('mrrPerdido')}" role="button" tabindex="0">
         <p class="label">MRR perdido</p>
         <p class="value bad" id="k-mrr-perdido">R$ 0</p>
         <p class="value-full" id="k-mrr-perdido-full"></p>
@@ -658,8 +658,8 @@ body.modal-open{overflow:hidden}
         <p class="panel-title panel-title-exp">Casos críticos vencidos — ação necessária<button type="button" class="panel-expand" onclick="openExpandModal('criticos')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
-            <thead><tr><th>Cliente</th><th>Vertical</th><th class="num">Dias venc.</th></tr></thead>
-            <tbody id="tbl-criticos-vencidos"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
+            <thead><tr><th>Ticket</th><th>Cliente</th><th>Vertical</th><th class="num">Dias venc.</th></tr></thead>
+            <tbody id="tbl-criticos-vencidos"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1061,6 +1061,7 @@ let _rows=[];
 let _charts={};
 let _rowsFull=[];
 let _rowsById={};
+let _kpiSets={};
 // Listas completas (sem o corte de top 8/10) do último render() — modal "expandir".
 const _exp={interno:[],externo:[],vertical:[],mrrVert:[],modulo:[],cliente:[],baixa:[],criticos:[],mrrRisco:[]};
 
@@ -1250,6 +1251,19 @@ function render(){
   document.getElementById('k-mrr-perdido').textContent=fmtMrrK(mrrPerdido);
   document.getElementById('k-mrr-perdido-full').textContent=fmtMrrFull(mrrPerdido);
 
+  _kpiSets={
+    total:{title:mostrarAbertosNoTotal?'Chamados em aberto':'Chamados fechados no período',rows:mostrarAbertosNoTotal?rowsAbertos:rowsFechados},
+    rescTotal:{title:'Rescisão total',rows:rowsFechados.filter(ehRescisaoTotal)},
+    rescParcial:{title:'Rescisão parcial',rows:rowsFechados.filter(ehRescisaoParcial)},
+    revertidos:{title:'Revertidos',rows:rowsFechados.filter(isRevertido)},
+    clientes:{title:'Chamados dos clientes no período',rows:rowsFull.filter(r=>r.organizacao)},
+    criticos:{title:'Casos críticos',rows:criticosRows},
+    criticosVenc:{title:'Críticos vencidos',rows:criticosVencidosRows},
+    mrrRisco:{title:'MRR em risco — casos abertos',rows:rowsFull.filter(isAberto)},
+    mrrProtegido:{title:'MRR protegido — revertidos',rows:rowsFull.filter(isRevertido)},
+    mrrPerdido:{title:'MRR perdido — finalizados sem reversão',rows:rowsFull.filter(r=>isPerdido(r))},
+  };
+
   const byMes=bucketPorMes(rowsCtx);
   renderTrendChart(byMes);
   renderMrrTrendChart(byMes);
@@ -1283,7 +1297,7 @@ function chartHoverCursor(evt,elements){
 const LISTAGEM_COLS=[
   {label:'ID',num:true,
     get:r=>`#${r.ticket_id}`,
-    html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a>`,
+    html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a>`,
     sort:r=>Number(r.ticket_id)||0},
   {label:'Organização', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
   {label:'Assunto', get:r=>r.assunto_gcc||'—', sort:r=>(r.assunto_gcc||'').toLowerCase()},
@@ -1368,7 +1382,7 @@ function openDetailModal(title,sub,rows){
     ordenado.forEach(r=>{ _rowsById[r.ticket_id]=r; });
     tbody.innerHTML=ordenado.map(r=>`
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
-          <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
+          <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a></td>
           <td>${esc(r.organizacao||'—')}</td>
           <td>${esc(r.assunto_gcc||'—')}</td>
           <td class="num">${fmtMrrFull(parseMrr(r.mrr))}</td>
@@ -1609,7 +1623,7 @@ function renderDistribCharts(rows){
     : 'Sem dado no período.';
   _charts.locusChart=new Chart(document.getElementById('locusChart'),{
     type:'doughnut',
-    data:{labels:locusEntries.map(e=>e[0]),datasets:[{data:locusEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple]}]},
+    data:{labels:locusEntries.map(e=>e[0]),datasets:[{data:locusEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple],borderWidth:0}]},
     options:{
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
@@ -1627,7 +1641,7 @@ function renderDistribCharts(rows){
     : 'Sem dado no período.';
   _charts.tipoRescChart=new Chart(document.getElementById('tipoRescChart'),{
     type:'doughnut',
-    data:{labels:tipoEntries.map(e=>e[0]),datasets:[{data:tipoEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple]}]},
+    data:{labels:tipoEntries.map(e=>e[0]),datasets:[{data:tipoEntries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple],borderWidth:0}]},
     options:{
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
@@ -1652,7 +1666,7 @@ function renderDistribCharts(rows){
     : 'Sem rescisão parcial no período.';
   _charts.parcialChart=new Chart(document.getElementById('parcialChart'),{
     type:'doughnut',
-    data:{labels:parcialEntries.map(e=>e[0]),datasets:[{data:parcialEntries.map(e=>e[1]),backgroundColor:[col.purple,col.green,col.slate]}]},
+    data:{labels:parcialEntries.map(e=>e[0]),datasets:[{data:parcialEntries.map(e=>e[1]),backgroundColor:[col.purple,col.green,col.slate],borderWidth:0}]},
     options:{
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
@@ -1979,14 +1993,22 @@ function renderCriticosVencidosTable(rows){
     .sort((a,b)=>b.diasVenc-a.diasVenc);
   _exp.criticos=entries.slice();
   entries.splice(10);
-  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso crítico vencido no período filtrado.</td></tr>`; return; }
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum caso crítico vencido no período filtrado.</td></tr>`; return; }
   entries.forEach(r=>{ _rowsById[r.ticket_id]=r; });
   tbody.innerHTML=entries.map(r=>`
     <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
+      <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a></td>
       <td>${esc(r.organizacao||'Não informado')}</td>
       <td>${esc(verticalDe(r))}</td>
       <td class="num bad">${r.diasVenc}</td>
     </tr>`).join('');
+}
+function openKpiModal(kind){
+  const cfg=_kpiSets[kind];
+  if(!cfg) return;
+  const n=cfg.rows.length;
+  const mrr=cfg.rows.reduce((t,r)=>t+parseMrr(r.mrr),0);
+  openDetailModal(cfg.title,`${n.toLocaleString('pt-BR')} ticket${n===1?'':'s'} no período filtrado · MRR ${fmtMrrFull(mrr)}`,cfg.rows);
 }
 function scrollToCriticosVencidos(){
   document.getElementById('painel-criticos-vencidos').scrollIntoView({behavior:'smooth',block:'center'});
