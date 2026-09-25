@@ -1077,7 +1077,7 @@ function buildFilterOptions(){
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-serv','Serviço',_rows.map(r=>r.servico));
   populateMs('f-proc',[
-    {v:'proc',l:'Procedente'},{v:'improc',l:'Improcedente'},{v:'sem',l:'Sem avaliação'},
+    {v:'proc',l:'Procedente'},{v:'improc',l:'Improcedente'},
   ],'Procedência: todos',render);
   populateMs('f-status',[
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
