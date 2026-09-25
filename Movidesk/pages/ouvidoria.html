@@ -276,6 +276,7 @@ input,select{font-family:inherit}
 .dtable tbody tr:last-child td{border-bottom:none}
 .dtable .num{text-align:right;font-variant-numeric:tabular-nums}
 .dtable .bad{color:var(--orange);font-weight:700}
+.dtable .nowrap{white-space:nowrap}
 .dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
 
 .data-panel.compact{padding:14px 16px}
@@ -1355,6 +1356,14 @@ function listagemRender(){
 document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
 document.getElementById('listagem-modal').addEventListener('click',e=>{ if(e.target.id==='listagem-modal') closeListagemModal(); });
 
+// Duração legível: < 1h em minutos, < 1 dia em horas, senão em dias.
+function fmtDuracao(dias){
+  if(dias==null) return '—';
+  const h=dias*24;
+  if(h<1) return `${Math.max(1,Math.round(h*60))} min`;
+  if(dias<1) return `${h.toFixed(1)} h`;
+  return `${dias.toFixed(1)} dias`;
+}
 // Tempo do chamado (criação → resolução), em dias — null se ainda aberto.
 function diasResolucao(r){
   if(!r.criado_em||!r.resolvido_em) return null;
@@ -1388,7 +1397,7 @@ function openDetailModal(title,sub,rows,opts={}){
       if(desemp){
         const dias=diasResolucao(r);
         const proc=procedenciaDe(r);
-        meio=`<td class="num">${dias!=null?`${dias.toFixed(1)} dias`:'em aberto'}</td><td class="${proc.cls.trim()}">${proc.txt}</td>`;
+        meio=`<td class="num nowrap">${dias!=null?fmtDuracao(dias):'em aberto'}</td><td class="${proc.cls.trim()}">${proc.txt}</td>`;
       }
       return `
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
@@ -1834,14 +1843,14 @@ function renderResponsavelTable(rows){
   tbody.innerHTML=entries.map(respRowHtml).join('');
 }
 function respRowHtml([nome,p]){
-  const tempoMedio=p.nResolvidos?`${(p.somaDias/p.nResolvidos).toFixed(1)} dias`:'—';
+  const tempoMedio=p.nResolvidos?fmtDuracao(p.somaDias/p.nResolvidos):'—';
   const taxa=p.rec?(p.proc/p.rec*100):0;
   const taxaTxt=p.rec?`${taxa.toFixed(1)}%`:'—';
   return `
     <tr class="clickable" onclick="openResponsavelTicketsModal('${escAttr(nome)}')">
       <td>${esc(nome)}</td>
       <td class="num">${p.tickets}</td>
-      <td class="num">${tempoMedio}</td>
+      <td class="num nowrap">${tempoMedio}</td>
       <td class="num${taxa>=15?' bad':''}">${taxaTxt}</td>
     </tr>`;
 }
@@ -1852,7 +1861,7 @@ function openResponsavelTicketsModal(nome){
   const recs=matched.filter(r=>tipoKey(rawTipo(r))==='rec');
   const procs=recs.filter(r=>isProcedente(r.manifesto_procedente)).length;
   const partes=[`${matched.length} ticket${matched.length===1?'':'s'}`];
-  partes.push(tempos.length?`tempo médio ${(tempos.reduce((a,b)=>a+b,0)/tempos.length).toFixed(1)} dias`:'sem chamado resolvido');
+  partes.push(tempos.length?`tempo médio ${fmtDuracao(tempos.reduce((a,b)=>a+b,0)/tempos.length)}`:'sem chamado resolvido');
   if(recs.length) partes.push(`procedência ${(procs/recs.length*100).toFixed(1)}% (${procs} de ${recs.length} reclamações)`);
   openDetailModal(`Chamados: ${nome}`,partes.join(' · '),matched,{desempenho:true});
 }
