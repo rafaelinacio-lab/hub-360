@@ -2809,8 +2809,8 @@ function cronRenderList() {
         el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma cron cadastrada ainda.</div>';
         return;
     }
-    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171' };
-    const statusIcon  = { done: 'check_circle', error: 'error' };
+    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171', running: 'color:#60a5fa' };
+    const statusIcon  = { done: 'check_circle', error: 'error', running: 'sync' };
 
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
@@ -2825,26 +2825,29 @@ function cronRenderList() {
         </thead>
         <tbody>
         ${_cronJobs.map(j => {
-            const last = j.last_run_at ? new Date(j.last_run_at).toLocaleString('pt-BR') : 'Nunca rodou';
             const st = j.last_status;
+            const running = st === 'running';
+            const last = j.last_run_at ? new Date(j.last_run_at).toLocaleString('pt-BR') : 'Nunca rodou';
+            const spin = running ? 'animation:spin 1s linear infinite;' : '';
             const statusBadge = st
                 ? `<span style="display:inline-flex;align-items:center;gap:4px;${statusStyle[st] || ''}">
-                     <span class="material-symbols-outlined" style="font-size:13px;">${statusIcon[st] || 'help'}</span>
+                     <span class="material-symbols-outlined" style="font-size:13px;${spin}">${statusIcon[st] || 'help'}</span>
                    </span>`
                 : '';
+            const lastLabel = running ? 'Executando...' : last;
             return `<tr style="border-bottom:1px solid var(--border,#222);">
                 <td style="padding:8px 10px;font-weight:600;">${cfgEsc(j.name)}</td>
                 <td style="padding:8px 10px;">${cfgEsc(CRON_TASK_LABEL[j.task] || j.task)}</td>
                 <td style="padding:8px 10px;">${cronFmtInterval(j.interval_minutes)}</td>
-                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${last}${j.last_error ? ` <span style="color:#f87171;font-size:11px;" title="${cfgEsc(j.last_error)}">(erro)</span>` : ''}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${lastLabel}${(!running && j.last_error) ? ` <span style="color:#f87171;font-size:11px;" title="${cfgEsc(j.last_error)}">(erro)</span>` : ''}</td>
                 <td style="padding:8px 10px;">
                     <label style="display:inline-flex;align-items:center;cursor:pointer;">
                         <input type="checkbox" ${j.enabled ? 'checked' : ''} onchange="cronToggleEnabled(${j.id}, this.checked)">
                     </label>
                 </td>
                 <td style="padding:8px 10px;white-space:nowrap;">
-                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronRunNow(${j.id})" title="Rodar agora">
-                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">play_arrow</span>
+                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronRunNow(${j.id})" title="${running ? 'Executando...' : 'Rodar agora'}" ${running ? 'disabled' : ''}>
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;${spin}">${running ? 'sync' : 'play_arrow'}</span>
                     </button>
                     <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronOpenModal(${j.id})" title="Editar">
                         <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">edit</span>
@@ -2857,6 +2860,18 @@ function cronRenderList() {
         }).join('')}
         </tbody>
     </table>`;
+
+    const anyRunning = _cronJobs.some(j => j.last_status === 'running');
+    if (anyRunning) cronSchedulePoll();
+}
+
+let _cronPollTimer = null;
+function cronSchedulePoll() {
+    if (_cronPollTimer) return;
+    _cronPollTimer = setTimeout(() => {
+        _cronPollTimer = null;
+        cronLoad();
+    }, 2000);
 }
 
 function cronToggleFullFields() {
@@ -2960,7 +2975,10 @@ async function cronRunNow(id) {
     try {
         const resp = await fetch(`${API_BASE}/crons/${id}/run`, { method: 'POST', headers: authHeaders() });
         if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
-        setTimeout(cronLoad, 1500);
+        const job = _cronJobs.find(j => j.id === id);
+        if (job) job.last_status = 'running';
+        cronRenderList();
+        cronSchedulePoll();
     } catch (e) {
         alert(`Não foi possível iniciar: ${e.message}`);
     }
