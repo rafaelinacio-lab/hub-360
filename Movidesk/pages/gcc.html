@@ -364,6 +364,11 @@ body.modal-open{overflow:hidden}
 #detail-modal{z-index:205}
 #ticket-modal{z-index:210}
 #ticket-modal .modal-box{max-width:min(700px,92vw)}
+#expand-modal .modal-box.wide{max-width:min(1400px,96vw)}
+.risco-cli{min-width:200px}
+.risco-tags{min-width:180px}
+.risco-tag{display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:999px;background:var(--surface-mid);border:1px solid var(--border);font-size:11.5px;white-space:nowrap}
+.risco-tag b{color:var(--orange);font-weight:700;margin-left:2px}
 .td-info-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;
   padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:14px;
@@ -1252,10 +1257,14 @@ function render(){
   rowsFull.forEach(r=>{
     const org=(r.organizacao||'').trim();
     if(!org) return;
-    const v=porClienteRisco[org]||(porClienteRisco[org]={n:0,total:0,parcial:0,rev:0,aberto:0,mrr:0,ultimo:null,vertical:''});
+    const v=porClienteRisco[org]||(porClienteRisco[org]={n:0,total:0,parcial:0,rev:0,aberto:0,mrr:0,ultimo:null,vertical:'',itens:{},motivos:{}});
     v.n++;
     if(ehRescisaoTotal(r)) v.total++;
-    if(ehRescisaoParcial(r)) v.parcial++;
+    if(ehRescisaoParcial(r)){
+      v.parcial++;
+      (r.tipo_rescisao_parcial||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{ v.itens[x]=(v.itens[x]||0)+1; });
+    }
+    [r.cf_24986,r.cf_24523].map(x=>(x||'').trim()).filter(Boolean).forEach(x=>{ v.motivos[x]=(v.motivos[x]||0)+1; });
     if(isRevertido(r)) v.rev++;
     if(isAberto(r)){ v.aberto++; v.mrr+=parseMrr(r.mrr); }
     if(r.criado_em&&(!v.ultimo||new Date(r.criado_em)>new Date(v.ultimo))) v.ultimo=r.criado_em;
@@ -2092,10 +2101,12 @@ const EXPAND_CFG={
   risco:{
     titulo:'Risco — clientes com histórico recorrente de GCC', unit:['cliente','clientes'],
     entries:()=>_exp.risco,
-    head:'<tr><th>Cliente</th><th>Vertical</th><th class="num">Tickets GCC</th><th class="num">Rescisão total</th><th class="num">Redução (parcial)</th><th class="num">Revertidos</th><th class="num">Em aberto</th><th class="num">MRR em risco</th><th>Último ticket</th></tr>',
-    cols:9,
+    wide:true,
+    head:'<tr><th>Cliente</th><th>Vertical</th><th class="num">Tickets GCC</th><th class="num">Rescisão total</th><th class="num">Redução (parcial)</th><th>Tipo de redução</th><th>Motivos</th><th class="num">Revertidos</th><th class="num">Em aberto</th><th class="num">MRR em risco</th><th>Último ticket</th></tr>',
+    cols:11,
     row:([org,v])=>`
-      <td>${esc(org)}</td><td>${esc(v.vertical||'—')}</td><td class="num bad">${v.n}</td><td class="num">${v.total}</td><td class="num">${v.parcial}</td>
+      <td class="risco-cli">${esc(org)}</td><td>${esc(v.vertical||'—')}</td><td class="num bad">${v.n}</td><td class="num">${v.total}</td><td class="num">${v.parcial}</td>
+      <td class="risco-tags">${contagemTags(v.itens)}</td><td class="risco-tags">${contagemTags(v.motivos)}</td>
       <td class="num">${v.rev}</td><td class="num">${v.aberto}</td><td class="num">${v.mrr?fmtMrrFull(v.mrr):'—'}</td>
       <td class="nowrap">${v.ultimo?new Date(v.ultimo).toLocaleDateString('pt-BR'):'—'}</td>`,
     open:([org])=>openClienteTicketsModal(org),
@@ -2153,9 +2164,14 @@ const EXPAND_CFG={
   },
 };
 
+function contagemTags(obj){
+  const e=Object.entries(obj||{}).sort((a,b)=>b[1]-a[1]);
+  return e.length?e.map(([k,n])=>`<span class="risco-tag">${esc(k)} <b>${n}</b></span>`).join(''):'—';
+}
 function openExpandModal(kind){
   const cfg=EXPAND_CFG[kind];
   if(!cfg) return;
+  document.querySelector('#expand-modal .modal-box').classList.toggle('wide',!!cfg.wide);
   const all=cfg.entries()||[];
   const n=all.length;
   document.getElementById('expand-modal-title').textContent=cfg.titulo;
