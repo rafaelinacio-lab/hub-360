@@ -1054,9 +1054,14 @@
                                 <h3 class="config-card-title" style="margin-bottom:2px;">Cargas automáticas</h3>
                                 <p class="config-card-help" style="margin:0;">Ative, desative ou crie novas cargas periódicas — cada uma roda sozinha no intervalo definido.</p>
                             </div>
-                            <button class="config-btn" onclick="cronOpenModal()">
-                                <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> Nova cron
-                            </button>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <button class="config-btn config-btn-muted" onclick="runFixAutoresAcoes()" title="Busca de novo na API os tickets em aberto com ação pública sem autor — preenche o &quot;Sem retorno&quot; do Painel TV">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">build</span> Corrigir autores/ações
+                                </button>
+                                <button class="config-btn" onclick="cronOpenModal()">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> Nova cron
+                                </button>
+                            </div>
                         </div>
                         <div id="cronList" style="overflow-x:auto;">
                             <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>

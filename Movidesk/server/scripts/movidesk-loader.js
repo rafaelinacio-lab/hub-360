@@ -258,9 +258,14 @@ const SELECT_FIELDS = [
   'reopenedIn', // usado pro card "Taxa de reabertura" do Painel Geral
 ].join(',');
 
-// Movidesk OData não suporta sintaxe aninhada v4 (semicolons, $select dentro de $expand).
-// Expande apenas os nomes das entidades — o servidor retorna todos os campos delas.
-const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions';
+// Movidesk OData não suporta sintaxe aninhada v4 com semicolons ($select dentro
+// de $expand), mas aceita $expand aninhado simples. "actions" sozinho NÃO traz
+// o autor de cada ação (actions[].createdBy some da resposta) — confirmado em
+// 25/09/2026 comparando a mesma busca com "actions" e "actions($expand=createdBy)":
+// só a segunda devolve createdBy {id, profileType, businessName, email}. Sem
+// isso, silver.ticket_acao.criado_por_* ficava sempre vazio e o Painel TV não
+// conseguia separar "sem retorno do agente" de "sem retorno do cliente".
+const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions($expand=createdBy)';
 
 // $expand=owner sozinho (sem customFieldValues junto) — testado via curl em
 // produção (22/09/2026, comparando busca filtrada por mês vs. busca limpa
@@ -2097,6 +2102,107 @@ async function runFixDadosRelacionados() {
 }
 
 /**
+ * Correção de AUTORES das ações — só tickets EM ABERTO com ação pública sem
+ * autor (criado_por_profile_type e criado_por_email vazios). Essas ações foram
+ * gravadas quando o loader ainda expandia "actions" sem "($expand=createdBy)",
+ * e deixam vazio o "Sem retorno (agente/cliente)" do Painel TV. Re-sincroniza
+ * cada ticket por id= (sem $filter), já com o expand certo.
+ */
+async function runFixAutoresAcoes() {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+
+  const { rows } = await db.query(`
+    SELECT t.ticket_id
+    FROM silver.ticket t
+    WHERE t.basestatus <> ALL($1::text[])
+      AND EXISTS (
+        SELECT 1 FROM silver.ticket_acao a
+        WHERE a.ticket_id = t.ticket_id AND a.is_public
+          AND a.criado_por_profile_type IS NULL AND a.criado_por_email IS NULL
+      )
+  `, [CLOSED_STATUSES]).catch(() => ({ rows: [] }));
+  const ticketIds = rows.map(r => r.ticket_id);
+
+  state.running          = true;
+  state.cancelRequested  = false;
+  state.mode              = 'fix-autores-acoes';
+  state.startedAt        = new Date().toISOString();
+  state.phase             = 'corrigindo';
+  state.pagesDone        = 0;
+  state.ticketsDone      = 0;
+  state.savedIds         = new Set();
+  state.errors           = [];
+
+  await ensureTables();
+  await db.query(
+    `UPDATE silver.carga_log SET status='error', error_msg='Interrompido (reinício do servidor)', finished_at=NOW() WHERE status='running'`
+  ).catch(() => {});
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('fix-autores-acoes', NOW(), 'running') RETURNING id`
+  ).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+
+  console.log(`[loader] ▶ Correção de autores das ações iniciada — ${ticketIds.length} ticket(s) afetado(s)`);
+
+  try {
+    if (ticketIds.length) {
+      const token = await getMovideskToken();
+      for (const id of ticketIds) {
+        if (state.cancelRequested) {
+          throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+        }
+        try {
+          const url = `${MOVI_BASE}/tickets?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`;
+          const resp = await fetchWithRetry(url);
+          const data = await resp.json();
+          const full = Array.isArray(data) ? data[0] : data;
+          if (full) {
+            await saveBatch([full]);
+            state.ticketsDone++;
+          }
+        } catch (e) {
+          state.errors.push(`Ticket ${id}: ${e.message}`);
+          console.warn(`[loader] correção do ticket ${id} falhou: ${e.message}`);
+        }
+        await sleep(120);
+      }
+    }
+
+    state.phase      = 'idle';
+    state.running    = false;
+    state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode: 'fix-autores-acoes', tickets: state.ticketsDone, totalEncontrados: ticketIds.length };
+
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
+        [state.ticketsDone, logId]
+      ).catch(() => {});
+    }
+    console.log(`[loader] ✔ Correção de autores das ações concluída — ${state.ticketsDone}/${ticketIds.length} ticket(s) reprocessado(s)`);
+    return state.lastResult;
+  } catch (err) {
+    state.running          = false;
+    state.phase            = 'idle';
+    state.cancelRequested  = false;
+    const wasCancelled = err.cancelled === true;
+    if (!wasCancelled) state.errors.push(err.message);
+    const logStatus = wasCancelled ? 'cancelled' : 'error';
+    if (logId) {
+      await db.query(
+        `UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`,
+        [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
+      ).catch(() => {});
+    }
+    if (wasCancelled) {
+      state.lastResult = { mode: 'fix-autores-acoes', tickets: state.ticketsDone, cancelled: true };
+    } else {
+      throw err;
+    }
+  }
+}
+
+/**
  * Atualização inteligente — pra um ou mais anos, busca no banco só os
  * tickets que REALMENTE precisam de atenção: ainda estão em aberto (podem
  * mudar a qualquer momento) OU estão incompletos (sem responsável, sem
@@ -2420,5 +2526,6 @@ module.exports = {
   refreshTicketOrganizacao,
   runBackfillCamposBasicos,
   runFixDadosRelacionados,
+  runFixAutoresAcoes,
   runAtualizacaoInteligente,
 };

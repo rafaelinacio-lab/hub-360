@@ -17,12 +17,12 @@ const { getToken } = require('./config');
 const {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
-  runBackfillCamposBasicos, runFixDadosRelacionados, runAtualizacaoInteligente,
+  runBackfillCamposBasicos, runFixDadosRelacionados, runFixAutoresAcoes, runAtualizacaoInteligente,
 } = require('../scripts/movidesk-loader');
 const loader  = {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
-  runBackfillCamposBasicos, runFixDadosRelacionados, runAtualizacaoInteligente,
+  runBackfillCamposBasicos, runFixDadosRelacionados, runFixAutoresAcoes, runAtualizacaoInteligente,
 };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
@@ -100,6 +100,20 @@ router.post('/fix-organizacao', authMiddleware, requireRole('admin', 'supervisor
   loader.runFixOrganizacao().catch(e => console.error('[loader/fix-organizacao] erro:', e.message));
 
   res.json({ started: true, mode: 'fix-organizacao', startedAt: loader.state.startedAt });
+});
+
+// ── POST /api/loader/fix-autores-acoes ─────────────────────────────────────────
+// Re-sincroniza só os tickets em aberto com ação pública sem autor — ver
+// runFixAutoresAcoes em movidesk-loader.js (preenche o "Sem retorno" do Painel TV).
+router.post('/fix-autores-acoes', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  if (loader.state.running) {
+    return res.status(409).json({
+      error: 'Já existe uma carga em andamento',
+      state: sanitizeState(loader.state),
+    });
+  }
+  loader.runFixAutoresAcoes().catch(e => console.error('[loader/fix-autores-acoes] erro:', e.message));
+  res.json({ started: true, mode: 'fix-autores-acoes', startedAt: loader.state.startedAt });
 });
 
 // ── POST /api/loader/fix-dados-relacionados ────────────────────────────────────
