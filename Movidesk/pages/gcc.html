@@ -1096,6 +1096,18 @@ function populateMs(id,items,allLabel,onChange){
   updateMsLabel(id,allLabel);
 }
 
+// Ao abrir a aba, o filtro de Ano já vem com o ano vigente marcado — o
+// usuário desmarca/marca outros anos pra ver o histórico. Só na primeira
+// montagem dos filtros, pra não remarcar se o usuário limpou de propósito.
+let _anoPadraoAplicado=false;
+function aplicarAnoPadrao(){
+  if(_anoPadraoAplicado) return;
+  _anoPadraoAplicado=true;
+  if(getMsValues('f-year').length) return;
+  const chk=document.querySelector(`#f-year .ms-drop input[value="${new Date().getFullYear()}"]`);
+  if(chk){ chk.checked=true; updateMsLabel('f-year','Ano: todos'); }
+}
+
 function buildFilterOptions(){
   const fill=(id,label,values)=>{
     const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
@@ -1112,13 +1124,7 @@ function buildFilterOptions(){
     r.resolvido_em?new Date(r.resolvido_em).getFullYear():null,
   ]).filter(Boolean))].sort((a,b)=>b-a);
   populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
-  // Ao abrir a aba, filtra só o ano vigente por padrão — o usuário desmarca
-  // pra ver anos anteriores.
-  if(!getMsValues('f-year').length){
-    const anoAtual=new Date().getFullYear();
-    const chk=document.querySelector(`#f-year .ms-drop input[value="${anoAtual}"]`);
-    if(chk){ chk.checked=true; updateMsLabel('f-year','Ano: todos'); }
-  }
+  aplicarAnoPadrao();
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
 }
 
