@@ -1756,7 +1756,7 @@ function renderVencidosTable(rows){
   if(!vencidos.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum ticket vencido no período filtrado.</td></tr>`; return; }
   tbody.innerHTML=vencidos.map(r=>`
     <tr>
-      <td>#${esc(r.ticket_id)}</td>
+      <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">${esc(r.ticket_id)}</a></td>
       <td>${esc(shortName(r.responsavel))}</td>
       <td class="num bad">${r.diasVenc}</td>
     </tr>`).join('');
