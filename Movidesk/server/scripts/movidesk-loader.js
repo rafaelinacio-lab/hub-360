@@ -587,6 +587,25 @@ async function ensureTables() {
     ['silver.carga_log.years', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS years int[]`],
     ['silver.carga_log.classification', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS classification text`],
     ['silver.carga_log.owner_team', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS owner_team text`],
+    // Contadores + detalhe por ticket de cada carga — alimenta a tela
+    // "Cargas automáticas" em Configurações, onde é possível clicar numa
+    // execução e ver o que foi criado/alterado, chamado a chamado.
+    ['silver.carga_log.tickets_created', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS tickets_created int DEFAULT 0`],
+    ['silver.carga_log.tickets_updated', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS tickets_updated int DEFAULT 0`],
+    // Liga cada execução à cron automática (silver.cron_job) que a disparou —
+    // fica NULL pra cargas manuais (tela "Cargas manuais"), que usam as
+    // mesmas run*() mas sem passar cronJobId.
+    ['silver.carga_log.cron_job_id', `ALTER TABLE silver.carga_log ADD COLUMN IF NOT EXISTS cron_job_id int`],
+    ['silver.carga_log_ticket_change (create)', `
+      CREATE TABLE IF NOT EXISTS silver.carga_log_ticket_change (
+        id             bigserial PRIMARY KEY,
+        carga_log_id   int NOT NULL REFERENCES silver.carga_log(id) ON DELETE CASCADE,
+        ticket_id      bigint NOT NULL,
+        change_type    varchar(10) NOT NULL,
+        changed_fields jsonb NOT NULL DEFAULT '{}'::jsonb
+      )
+    `],
+    ['silver.carga_log_ticket_change.ix_carga_log_id', `CREATE INDEX IF NOT EXISTS ix_carga_log_ticket_change_carga_log_id ON silver.carga_log_ticket_change (carga_log_id)`],
     // Pesquisa de satisfação (satisfactionSurveyResponses, modelo "smiley
     // faces" 1-5) — antes vivia só num banco à parte (movidesk_curadoria),
     // buscada ticket a ticket direto na API. Migrado pro datalake pra cobrir
@@ -637,6 +656,91 @@ async function ensureTables() {
   _tablesEnsured = true;
 }
 
+// ── Log de mudanças por ticket (tela "Cargas automáticas" em Configurações) ───
+// Id da silver.carga_log da execução em andamento — setado pelas run*() logo
+// depois de abrir o registro, e limpo ao terminar. saveBatch() só grava
+// detalhe de mudança quando isso está setado. Assume no máximo uma carga
+// rodando por processo (mesma premissa já usada por state.running acima).
+let _activeLogId = null;
+
+const CHANGE_FIELD_LABELS = {
+  subject:             'Assunto',
+  status:              'Status',
+  basestatus:          'Status base',
+  last_update:         'Última atualização',
+  ownerteam:           'Equipe responsável',
+  owner_name:          'Responsável',
+  urgency:             'Urgência',
+  category:            'Categoria',
+  service_full:        'Serviço',
+  resolved_in:         'Resolvido em',
+  closed_in:           'Fechado em',
+  clientorganization:  'Organização do cliente',
+  sla_solution_date:   'SLA solução',
+  reopened_in:         'Reaberto em',
+};
+
+// Teto de linhas de detalhe por carga — cargas full/incremental passam por
+// milhões de tickets já sem mudança nenhuma (revalidação), então isso só
+// existe pra não deixar uma carga incomum (ex. primeiro backfill) gravar
+// detalhe demais e inchar a tabela; os contadores agregados (tickets_created/
+// tickets_updated) continuam corretos mesmo depois do teto.
+const CHANGE_LOG_CAP = 3000;
+
+function normalizeChangeValue(v) {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
+
+// Compara o estado anterior (silver.ticket) com os valores que essa carga
+// está prestes a gravar, e registra o que mudou em silver.carga_log_ticket_change.
+async function logTicketChanges(logId, ids, fieldsMap) {
+  const fieldNames = Object.keys(fieldsMap);
+  const { rows: before } = await db.query(
+    `SELECT ticket_id, ${fieldNames.join(', ')} FROM silver.ticket WHERE ticket_id = ANY($1::bigint[])`,
+    [ids]
+  );
+  const beforeMap = new Map(before.map(r => [String(r.ticket_id), r]));
+
+  const changeRows = [];
+  ids.forEach((id, i) => {
+    const prev = beforeMap.get(id);
+    const changed = {};
+    for (const f of fieldNames) {
+      const newVal = fieldsMap[f][i] ?? null;
+      const oldVal = prev ? prev[f] : null;
+      if (normalizeChangeValue(oldVal) !== normalizeChangeValue(newVal)) {
+        changed[f] = { label: CHANGE_FIELD_LABELS[f] || f, antes: oldVal ?? null, depois: newVal ?? null };
+      }
+    }
+    if (!prev) changeRows.push({ ticket_id: id, change_type: 'created', changed_fields: changed });
+    else if (Object.keys(changed).length) changeRows.push({ ticket_id: id, change_type: 'updated', changed_fields: changed });
+  });
+  if (!changeRows.length) return;
+
+  const created = changeRows.filter(c => c.change_type === 'created').length;
+  const updated = changeRows.filter(c => c.change_type === 'updated').length;
+  await db.query(
+    `UPDATE silver.carga_log SET tickets_created = COALESCE(tickets_created,0) + $1, tickets_updated = COALESCE(tickets_updated,0) + $2 WHERE id = $3`,
+    [created, updated, logId]
+  ).catch(() => {});
+
+  const { rows: countRows } = await db.query(
+    `SELECT COUNT(*)::int AS n FROM silver.carga_log_ticket_change WHERE carga_log_id = $1`, [logId]
+  ).catch(() => ({ rows: [{ n: CHANGE_LOG_CAP }] }));
+  const already = countRows[0]?.n || 0;
+  const toInsert = changeRows.slice(0, Math.max(0, CHANGE_LOG_CAP - already));
+  if (!toInsert.length) return;
+
+  await db.query(
+    `INSERT INTO silver.carga_log_ticket_change (carga_log_id, ticket_id, change_type, changed_fields)
+     SELECT $1, u.ticket_id::bigint, u.change_type, u.changed_fields::jsonb
+     FROM unnest($2::text[], $3::text[], $4::text[]) AS u(ticket_id, change_type, changed_fields)`,
+    [logId, toInsert.map(c => c.ticket_id), toInsert.map(c => c.change_type), toInsert.map(c => JSON.stringify(c.changed_fields))]
+  ).catch(e => console.error('[loader] gravação de detalhe de mudança falhou:', e.message));
+}
+
 // ── Persistir um lote de tickets ──────────────────────────────────────────────
 async function saveBatch(tickets) {
   if (!tickets.length) return [];
@@ -677,6 +781,16 @@ async function saveBatch(tickets) {
     const c = Array.isArray(t.clients) ? t.clients[0] : null;
     return c?.organization?.businessName || null;
   });
+
+  if (_activeLogId) {
+    await logTicketChanges(_activeLogId, ids, {
+      subject: subjects, status: statuses, basestatus: baseStats,
+      last_update: lastUpdates, ownerteam: ownerTeams, owner_name: ownerNames,
+      urgency: urgencies, category: categories, service_full: services,
+      resolved_in: resolvedIns, closed_in: closedIns,
+      clientorganization: clientOrgs, sla_solution_date: slaSolDs, reopened_in: reopenedIns,
+    }).catch(e => console.error('[loader] log de mudanças por ticket falhou:', e.message));
+  }
 
   await comLockRetry(client => client.query(`
     INSERT INTO silver.ticket
@@ -963,7 +1077,7 @@ async function saveBatch(tickets) {
  *   Tem prioridade sobre o mapeamento fixo de CLASS_TO_OWNER_TEAM. Vazio = usa
  *   o mapeamento (se a classificação informada tiver uma equipe conhecida).
  */
-async function runFull({ years = [], classification = '', ownerTeam = '' } = {}) {
+async function runFull({ years = [], classification = '', ownerTeam = '', cronJobId = null } = {}) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
   const sortedYears = [...years].map(Number).filter(y => y > 2000 && y <= new Date().getFullYear()).sort();
@@ -1017,11 +1131,12 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
   console.log('[loader] carga_log cleanup OK');
 
   const logRow = await db.query(
-    `INSERT INTO silver.carga_log (mode, started_at, status, years, classification, owner_team)
-     VALUES ($1, NOW(), 'running', $2, $3, $4) RETURNING id`,
-    [modeLabel, sortedYears.length ? sortedYears : null, classValueEfetivo || null, ownerTeamVal || null]
+    `INSERT INTO silver.carga_log (mode, started_at, status, years, classification, owner_team, cron_job_id)
+     VALUES ($1, NOW(), 'running', $2, $3, $4, $5) RETURNING id`,
+    [modeLabel, sortedYears.length ? sortedYears : null, classValueEfetivo || null, ownerTeamVal || null, cronJobId]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
+  _activeLogId = logId;
   console.log('[loader] carga_log insert OK, id:', logId);
 
   const yearsDesc = sortedYears.length ? `anos: ${sortedYears.join(', ')}` : 'todos os anos';
@@ -1145,6 +1260,7 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
         [state.ticketsDone, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     console.log(`[loader] ✔ Carga FULL concluída — ${state.ticketsDone} tickets`);
     return state.lastResult;
   } catch (err) {
@@ -1161,6 +1277,7 @@ async function runFull({ years = [], classification = '', ownerTeam = '' } = {})
         [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     if (wasCancelled) {
       console.log(`[loader] ⏹ Carga FULL cancelada — ${state.ticketsDone} tickets salvos`);
       state.lastResult = { mode: modeLabel, tickets: state.ticketsDone, cancelled: true };
@@ -1294,7 +1411,7 @@ async function runBackfillCamposBasicos({ years = [] } = {}) {
  *
  * Ideal para rodar diariamente (05h).
  */
-async function runIncremental() {
+async function runIncremental(cronJobId = null) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
   state.running         = true;
@@ -1318,9 +1435,11 @@ async function runIncremental() {
   console.log('[loader] carga_log cleanup OK');
 
   const logRow = await db.query(
-    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('incremental', NOW(), 'running') RETURNING id`
+    `INSERT INTO silver.carga_log (mode, started_at, status, cron_job_id) VALUES ('incremental', NOW(), 'running', $1) RETURNING id`,
+    [cronJobId]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
+  _activeLogId = logId;
   console.log('[loader] carga_log insert OK, id:', logId);
 
   console.log('[loader] ▶ Carga INCREMENTAL iniciada');
@@ -1366,6 +1485,7 @@ async function runIncremental() {
         [state.ticketsDone, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     console.log(`[loader] ✔ Carga INCREMENTAL concluída — ${state.ticketsDone} tickets`);
     return state.lastResult;
   } catch (err) {
@@ -1381,6 +1501,7 @@ async function runIncremental() {
         [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     if (wasCancelled) {
       console.log(`[loader] ⏹ Carga INCREMENTAL cancelada — ${state.ticketsDone} tickets salvos`);
       state.lastResult = { mode: 'incremental', tickets: state.ticketsDone, cancelled: true };
@@ -1399,7 +1520,7 @@ async function runIncremental() {
  * anteriores — ideal pra manter o Painel Geral sempre fresco sem repetir o
  * trabalho pesado que a incremental já faz pra base toda.
  */
-async function runGeral() {
+async function runGeral(cronJobId = null) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
   state.running         = true;
@@ -1419,9 +1540,11 @@ async function runGeral() {
   ).catch(() => {});
 
   const logRow = await db.query(
-    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ('geral', NOW(), 'running') RETURNING id`
+    `INSERT INTO silver.carga_log (mode, started_at, status, cron_job_id) VALUES ('geral', NOW(), 'running', $1) RETURNING id`,
+    [cronJobId]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
+  _activeLogId = logId;
 
   console.log('[loader] ▶ Carga GERAL (ano vigente) iniciada');
 
@@ -1464,6 +1587,7 @@ async function runGeral() {
         [state.ticketsDone, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     console.log(`[loader] ✔ Carga GERAL concluída — ${state.ticketsDone} tickets`);
     return state.lastResult;
   } catch (err) {
@@ -1479,6 +1603,7 @@ async function runGeral() {
         [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     if (wasCancelled) {
       console.log(`[loader] ⏹ Carga GERAL cancelada — ${state.ticketsDone} tickets salvos`);
       state.lastResult = { mode: 'geral', tickets: state.ticketsDone, cancelled: true };
@@ -1504,7 +1629,7 @@ async function runGeral() {
  * @param {string} mode - rótulo curto pra state.mode / silver.carga_log (ex: 'ouvidoria', 'gcc')
  * @param {string} classValue - valor exato do CF 23946 a filtrar (ex: 'Ouvidoria')
  */
-async function runByClassification(mode, classValue) {
+async function runByClassification(mode, classValue, cronJobId = null) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
   const modeUpper = mode.toUpperCase();
@@ -1528,10 +1653,11 @@ async function runByClassification(mode, classValue) {
   ).catch(() => {});
 
   const logRow = await db.query(
-    `INSERT INTO silver.carga_log (mode, started_at, status) VALUES ($1, NOW(), 'running') RETURNING id`,
-    [mode]
+    `INSERT INTO silver.carga_log (mode, started_at, status, cron_job_id) VALUES ($1, NOW(), 'running', $2) RETURNING id`,
+    [mode, cronJobId]
   ).catch(() => ({ rows: [{ id: null }] }));
   const logId = logRow.rows?.[0]?.id;
+  _activeLogId = logId;
 
   console.log(`[loader] ▶ Carga ${modeUpper} iniciada`);
 
@@ -1598,6 +1724,7 @@ async function runByClassification(mode, classValue) {
         [state.ticketsDone, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     console.log(`[loader] ✔ Carga ${modeUpper} concluída — ${state.ticketsDone} tickets`);
     return state.lastResult;
   } catch (err) {
@@ -1613,6 +1740,7 @@ async function runByClassification(mode, classValue) {
         [logStatus, wasCancelled ? 'Cancelado pelo usuário' : err.message, logId]
       ).catch(() => {});
     }
+    _activeLogId = null;
     if (wasCancelled) {
       console.log(`[loader] ⏹ Carga ${modeUpper} cancelada — ${state.ticketsDone} tickets salvos`);
       state.lastResult = { mode, tickets: state.ticketsDone, cancelled: true };
@@ -1623,12 +1751,12 @@ async function runByClassification(mode, classValue) {
   }
 }
 
-async function runOuvidoria() {
-  return runByClassification('ouvidoria', 'Ouvidoria');
+async function runOuvidoria(cronJobId = null) {
+  return runByClassification('ouvidoria', 'Ouvidoria', cronJobId);
 }
 
-async function runGcc() {
-  return runByClassification('gcc', 'Gestão de Combate ao Churn');
+async function runGcc(cronJobId = null) {
+  return runByClassification('gcc', 'Gestão de Combate ao Churn', cronJobId);
 }
 
 // Busca só os tickets de Ouvidoria/GCC cuja organização não foi identificada

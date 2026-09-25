@@ -48,17 +48,18 @@ function taskLabel(task) {
 }
 
 async function runTask(job) {
-  const { task, params } = job;
-  if (task === 'ouvidoria') return movideskLoader.runOuvidoria();
-  if (task === 'gcc') return movideskLoader.runGcc();
-  if (task === 'geral') return movideskLoader.runGeral();
-  if (task === 'incremental') return movideskLoader.runIncremental();
+  const { id, task, params } = job;
+  if (task === 'ouvidoria') return movideskLoader.runOuvidoria(id);
+  if (task === 'gcc') return movideskLoader.runGcc(id);
+  if (task === 'geral') return movideskLoader.runGeral(id);
+  if (task === 'incremental') return movideskLoader.runIncremental(id);
   if (task === 'full') {
     const p = params || {};
     return movideskLoader.runFull({
       years: Array.isArray(p.years) ? p.years : [],
       classification: p.classification || '',
       ownerTeam: p.ownerTeam || '',
+      cronJobId: id,
     });
   }
   throw new Error(`Tarefa de cron desconhecida: ${task}`);

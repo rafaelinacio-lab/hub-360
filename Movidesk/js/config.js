@@ -2849,6 +2849,9 @@ function cronRenderList() {
                     <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronRunNow(${j.id})" title="${running ? 'Executando...' : 'Rodar agora'}" ${running ? 'disabled' : ''}>
                         <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;${spin}">${running ? 'sync' : 'play_arrow'}</span>
                     </button>
+                    <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronOpenRuns(${j.id},'${cfgEsc(j.name).replace(/'/g,"\\'")}')" title="Ver histórico de execuções">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">history</span>
+                    </button>
                     <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronOpenModal(${j.id})" title="Editar">
                         <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">edit</span>
                     </button>
@@ -2983,6 +2986,122 @@ async function cronRunNow(id) {
         alert(`Não foi possível iniciar: ${e.message}`);
     }
 }
+
+// ── Histórico de execuções (log de cargas) ──────────────────────────────
+const CRON_RUN_STATUS_LABEL = { done: 'Concluída', error: 'Erro', running: 'Executando', cancelled: 'Cancelada' };
+const CRON_RUN_STATUS_COLOR = { done: '#4ade80', error: '#f87171', running: '#60a5fa', cancelled: '#fbbf24' };
+const CHANGE_FIELD_LABELS_FALLBACK = {}; // rótulos já vêm prontos do backend (changed_fields[campo].label)
+
+function cronFmtDateTime(v) {
+    return v ? new Date(v).toLocaleString('pt-BR') : '—';
+}
+
+async function cronOpenRuns(jobId, jobName) {
+    const modal = document.getElementById('cronRunsModal');
+    document.getElementById('cronRunsModalTitle').textContent = `Histórico — ${jobName || ''}`;
+    const el = document.getElementById('cronRunsList');
+    el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>';
+    if (modal) modal.style.display = 'flex';
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${jobId}/runs`, { headers: authHeaders() });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        cronRenderRuns(data.runs || []);
+    } catch (e) {
+        el.innerHTML = `<div style="color:#f87171;font-size:13px;">Erro ao carregar: ${cfgEsc(e.message)}</div>`;
+    }
+}
+
+function cronRenderRuns(runs) {
+    const el = document.getElementById('cronRunsList');
+    if (!runs.length) {
+        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Essa cron ainda não rodou nenhuma vez.</div>';
+        return;
+    }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
+                <th style="padding:6px 8px;">Início</th>
+                <th style="padding:6px 8px;">Status</th>
+                <th style="padding:6px 8px;">Trouxe</th>
+                <th style="padding:6px 8px;">Novos</th>
+                <th style="padding:6px 8px;">Alterados</th>
+                <th style="padding:6px 8px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+        ${runs.map(r => `
+            <tr style="border-bottom:1px solid var(--border,#222);${r.status !== 'running' ? 'cursor:pointer;' : ''}" ${r.status !== 'running' ? `onclick="cronOpenRunChanges(${r.id})"` : ''}>
+                <td style="padding:8px;font-variant-numeric:tabular-nums;">${cfgEsc(cronFmtDateTime(r.started_at))}</td>
+                <td style="padding:8px;color:${CRON_RUN_STATUS_COLOR[r.status] || '#a1a1aa'};">${cfgEsc(CRON_RUN_STATUS_LABEL[r.status] || r.status)}${r.error_msg ? ` <span title="${cfgEsc(r.error_msg)}" style="font-size:11px;">(?)</span>` : ''}</td>
+                <td style="padding:8px;text-align:right;font-variant-numeric:tabular-nums;">${r.tickets_loaded ?? 0}</td>
+                <td style="padding:8px;text-align:right;font-variant-numeric:tabular-nums;">${r.tickets_created ?? 0}</td>
+                <td style="padding:8px;text-align:right;font-variant-numeric:tabular-nums;">${r.tickets_updated ?? 0}</td>
+                <td style="padding:8px;">${r.status !== 'running' ? '<span class="material-symbols-outlined" style="font-size:14px;">chevron_right</span>' : ''}</td>
+            </tr>`).join('')}
+        </tbody>
+    </table>`;
+}
+
+function cronCloseRunsModal() {
+    const modal = document.getElementById('cronRunsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function cronOpenRunChanges(runId) {
+    const modal = document.getElementById('cronChangesModal');
+    const el = document.getElementById('cronChangesList');
+    const summaryEl = document.getElementById('cronChangesSummary');
+    el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>';
+    summaryEl.textContent = '';
+    if (modal) modal.style.display = 'flex';
+    try {
+        const resp = await fetch(`${API_BASE}/crons/runs/${runId}/changes`, { headers: authHeaders() });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        const run = data.run || {};
+        document.getElementById('cronChangesModalTitle').textContent = `Execução de ${cronFmtDateTime(run.started_at)}`;
+        summaryEl.textContent = `Trouxe ${run.tickets_loaded ?? 0} chamado(s) — ${run.tickets_created ?? 0} novo(s), ${run.tickets_updated ?? 0} alterado(s).`;
+        cronRenderChanges(data.changes || []);
+    } catch (e) {
+        el.innerHTML = `<div style="color:#f87171;font-size:13px;">Erro ao carregar: ${cfgEsc(e.message)}</div>`;
+    }
+}
+
+function cronRenderChanges(changes) {
+    const el = document.getElementById('cronChangesList');
+    if (!changes.length) {
+        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nada mudou nos chamados dessa execução (só reconfirmou o que já estava salvo).</div>';
+        return;
+    }
+    el.innerHTML = changes.map(c => {
+        const fields = c.changed_fields || {};
+        const fieldRows = Object.values(fields).map(f => `
+            <div style="display:flex;gap:8px;font-size:12px;padding:3px 0;">
+                <span style="color:var(--muted,#71717a);min-width:140px;">${cfgEsc(f.label || '')}</span>
+                <span style="color:#f87171;text-decoration:line-through;opacity:.8;">${cfgEsc(f.antes ?? '—')}</span>
+                <span class="material-symbols-outlined" style="font-size:13px;color:var(--muted,#71717a);">arrow_forward</span>
+                <span style="color:#4ade80;">${cfgEsc(f.depois ?? '—')}</span>
+            </div>`).join('');
+        return `<div style="border-bottom:1px solid var(--border,#222);padding:8px 0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-weight:600;font-size:13px;">Chamado #${cfgEsc(c.ticket_id)}</span>
+                <span style="font-size:11px;padding:1px 8px;border-radius:10px;background:${c.change_type === 'created' ? 'rgba(74,222,128,.15);color:#4ade80' : 'rgba(96,165,250,.15);color:#60a5fa'};">${c.change_type === 'created' ? 'Novo' : 'Alterado'}</span>
+            </div>
+            ${fieldRows || '<div style="font-size:12px;color:var(--muted,#71717a);">Sem detalhe de campos.</div>'}
+        </div>`;
+    }).join('');
+}
+
+function cronCloseChangesModal() {
+    const modal = document.getElementById('cronChangesModal');
+    if (modal) modal.style.display = 'none';
+}
+
+document.getElementById('cronRunsModalClose')?.addEventListener('click', cronCloseRunsModal);
+document.getElementById('cronRunsModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronRunsModal') cronCloseRunsModal(); });
+document.getElementById('cronChangesModalClose')?.addEventListener('click', cronCloseChangesModal);
+document.getElementById('cronChangesModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronChangesModal') cronCloseChangesModal(); });
 
 document.getElementById('cronModalClose')?.addEventListener('click', cronCloseModal);
 document.getElementById('cronModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronModal') cronCloseModal(); });

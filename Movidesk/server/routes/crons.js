@@ -12,6 +12,8 @@
  * PATCH  /api/crons/:id    — edita (nome, tarefa, intervalo, params, enabled)
  * DELETE /api/crons/:id    — remove
  * POST   /api/crons/:id/run — dispara a tarefa agora, fora do agendamento
+ * GET    /api/crons/:id/runs — histórico de execuções dessa cron (silver.carga_log)
+ * GET    /api/crons/runs/:runId/changes — o que foi criado/alterado, chamado a chamado
  */
 
 const express = require('express');
@@ -100,6 +102,53 @@ router.post('/:id/run', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Cron não encontrada' });
     cronManager.executeJob(id).catch(e => console.error('[crons] execução manual falhou:', e.message));
     res.json({ started: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Histórico de execuções dessa cron — mais recentes primeiro.
+router.get('/:id/runs', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const { rows } = await db.query(
+      `SELECT id, mode, started_at, finished_at, status, error_msg,
+              tickets_loaded, tickets_created, tickets_updated
+       FROM silver.carga_log
+       WHERE cron_job_id = $1
+       ORDER BY started_at DESC
+       LIMIT $2`,
+      [id, limit]
+    );
+    res.json({ runs: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Detalhe do que foi criado/alterado em cada chamado numa execução específica.
+router.get('/runs/:runId/changes', async (req, res) => {
+  try {
+    const runId = Number(req.params.runId);
+    const { rows: runRows } = await db.query(
+      `SELECT id, mode, started_at, finished_at, status, error_msg,
+              tickets_loaded, tickets_created, tickets_updated
+       FROM silver.carga_log WHERE id = $1`,
+      [runId]
+    );
+    if (!runRows.length) return res.status(404).json({ error: 'Execução não encontrada' });
+
+    const limit = Math.min(Number(req.query.limit) || 500, 3000);
+    const { rows: changeRows } = await db.query(
+      `SELECT ticket_id, change_type, changed_fields
+       FROM silver.carga_log_ticket_change
+       WHERE carga_log_id = $1
+       ORDER BY ticket_id
+       LIMIT $2`,
+      [runId, limit]
+    );
+    res.json({ run: runRows[0], changes: changeRows });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

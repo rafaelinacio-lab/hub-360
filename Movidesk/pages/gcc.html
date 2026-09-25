@@ -1112,6 +1112,13 @@ function buildFilterOptions(){
     r.resolvido_em?new Date(r.resolvido_em).getFullYear():null,
   ]).filter(Boolean))].sort((a,b)=>b-a);
   populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
+  // Ao abrir a aba, filtra só o ano vigente por padrão — o usuário desmarca
+  // pra ver anos anteriores.
+  if(!getMsValues('f-year').length){
+    const anoAtual=new Date().getFullYear();
+    const chk=document.querySelector(`#f-year .ms-drop input[value="${anoAtual}"]`);
+    if(chk){ chk.checked=true; updateMsLabel('f-year','Ano: todos'); }
+  }
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
 }
 

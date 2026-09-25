@@ -1064,6 +1064,37 @@
                     </div>
                 </div>
 
+                <!-- Modal: histórico de execuções de uma cron -->
+                <div id="cronRunsModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+                    <div class="pm-box" style="max-width:640px;">
+                        <div class="pm-header">
+                            <span id="cronRunsModalTitle">Histórico de execuções</span>
+                            <button class="pm-close" id="cronRunsModalClose" aria-label="Fechar">&times;</button>
+                        </div>
+                        <div class="pm-body">
+                            <div id="cronRunsList" style="max-height:60vh;overflow-y:auto;">
+                                <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal: o que foi criado/alterado numa execução específica -->
+                <div id="cronChangesModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+                    <div class="pm-box" style="max-width:720px;">
+                        <div class="pm-header">
+                            <span id="cronChangesModalTitle">O que essa execução alterou</span>
+                            <button class="pm-close" id="cronChangesModalClose" aria-label="Fechar">&times;</button>
+                        </div>
+                        <div class="pm-body">
+                            <div id="cronChangesSummary" style="font-size:13px;color:var(--muted,#71717a);margin-bottom:10px;"></div>
+                            <div id="cronChangesList" style="max-height:55vh;overflow-y:auto;">
+                                <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Modal: criar/editar cron -->
                 <div id="cronModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
                     <div class="pm-box">
