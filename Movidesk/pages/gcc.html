@@ -364,11 +364,36 @@ body.modal-open{overflow:hidden}
 #detail-modal{z-index:205}
 #ticket-modal{z-index:210}
 #ticket-modal .modal-box{max-width:min(700px,92vw)}
-#expand-modal .modal-box.wide{max-width:min(1400px,96vw)}
-.risco-cli{min-width:200px}
-.risco-tags{min-width:180px}
-.risco-tag{display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:999px;background:var(--surface-mid);border:1px solid var(--border);font-size:11.5px;white-space:nowrap}
-.risco-tag b{color:var(--orange);font-weight:700;margin-left:2px}
+#risco-modal .modal-box{max-width:min(760px,94vw);max-height:min(86vh,820px)}
+.risco-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--border);flex:none}
+.risco-sum{display:flex;gap:18px;flex-wrap:wrap}
+.risco-sum div{display:flex;flex-direction:column}
+.risco-sum b{font-size:16px;color:var(--t1);font-variant-numeric:tabular-nums}
+.risco-sum span{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+.risco-busca{background:var(--surface-mid);border:1px solid var(--border);border-radius:8px;color:var(--t1);font:inherit;font-size:12.5px;padding:7px 10px;width:200px;max-width:100%}
+.risco-busca:focus{outline:none;border-color:var(--orange)}
+#risco-lista{padding:6px 12px 12px}
+.risco-item{display:grid;grid-template-columns:52px 1fr auto;gap:4px 14px;align-items:start;padding:12px 10px;border-radius:10px;cursor:pointer;border-bottom:1px solid var(--border)}
+.risco-item:last-child{border-bottom:none}
+.risco-item:hover,.risco-item:focus-visible{background:var(--surface-mid);outline:none}
+.risco-n{grid-row:span 3;display:flex;flex-direction:column;align-items:center;justify-content:center;height:52px;border-radius:10px;background:var(--orange-bg);border:1px solid var(--orange-bd);color:var(--orange)}
+.risco-n b{font-size:19px;line-height:1;font-variant-numeric:tabular-nums}
+.risco-n small{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+.risco-nome{font-size:13px;font-weight:650;color:var(--t1);line-height:1.3;min-width:0}
+.risco-meta{font-size:11.5px;color:var(--t3);margin-top:2px}
+.risco-dir{text-align:right;white-space:nowrap}
+.risco-dir b{display:block;font-size:13px;color:var(--t1);font-variant-numeric:tabular-nums}
+.risco-dir span{font-size:10.5px;color:var(--t3)}
+.risco-bar{grid-column:2 / 4;display:flex;height:6px;border-radius:999px;overflow:hidden;background:var(--surface-low);margin-top:4px}
+.risco-bar i{display:block;height:100%}
+.risco-linha{grid-column:2 / 4;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--t2)}
+.risco-linha em{font-style:normal;color:var(--t3);margin-right:4px}
+.risco-chip{display:inline-block;margin:1px 3px 1px 0;padding:1px 7px;border-radius:999px;background:var(--surface-mid);border:1px solid var(--border);white-space:nowrap}
+.risco-chip b{color:var(--orange);margin-left:3px}
+.risco-legenda{display:flex;gap:14px;flex-wrap:wrap;padding:10px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--t3);flex:none}
+.risco-legenda i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:0}
+.risco-vazio{padding:28px 8px;text-align:center;color:var(--t3);font-size:12.5px}
+@media (max-width:560px){.risco-item{grid-template-columns:44px 1fr}.risco-dir{grid-column:2;text-align:left}.risco-bar,.risco-linha{grid-column:1 / 3}}
 .td-info-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;
   padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:14px;
@@ -544,7 +569,7 @@ body.modal-open{overflow:hidden}
         <p class="value" id="k-criticos">0</p>
         <p class="legend">Em aberto com urgência alta/crítica.</p>
       </div>
-      <div class="stat-card danger clickable" id="k-risco-card" onclick="openExpandModal('risco')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpandModal('risco')}" role="button" tabindex="0">
+      <div class="stat-card danger clickable" id="k-risco-card" onclick="openRiscoModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRiscoModal()}" role="button" tabindex="0">
         <p class="label">Risco</p>
         <p class="value bad" id="k-risco">0</p>
         <p class="legend" id="k-risco-legend">Clientes com 2+ tickets de GCC no período.</p>
@@ -730,6 +755,29 @@ body.modal-open{overflow:hidden}
           <tbody id="expand-modal-tbody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="risco-modal" role="dialog" aria-modal="true" aria-labelledby="risco-modal-title">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="risco-modal-title">Risco — clientes com GCC recorrente</h3>
+        <p id="risco-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="risco-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="risco-toolbar">
+      <div class="risco-sum" id="risco-sum"></div>
+      <input type="search" id="risco-busca" class="risco-busca" placeholder="Buscar cliente…" aria-label="Buscar cliente" oninput="renderRiscoLista()">
+    </div>
+    <div class="modal-body" id="risco-lista"></div>
+    <div class="risco-legenda">
+      <span><i style="background:var(--orange)"></i>Rescisão total</span>
+      <span><i style="background:var(--purple)"></i>Redução (parcial)</span>
+      <span><i style="background:var(--green)"></i>Revertido</span>
+      <span><i style="background:var(--slate)"></i>Outros</span>
     </div>
   </div>
 </div>
@@ -1443,7 +1491,8 @@ function syncModalBodyLock(){
     || document.getElementById('ticket-modal').classList.contains('show')
     || document.getElementById('export-modal').classList.contains('show')
     || document.getElementById('expand-modal').classList.contains('show')
-    || document.getElementById('listagem-modal').classList.contains('show');
+    || document.getElementById('listagem-modal').classList.contains('show')
+    || document.getElementById('risco-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
 
@@ -1547,6 +1596,7 @@ document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
+  else if(document.getElementById('risco-modal').classList.contains('show')) closeRiscoModal();
 });
 
 // onClick/onHover comuns pros gráficos: pega a barra/fatia clicada, filtra
@@ -2098,19 +2148,6 @@ function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo){
   };
 }
 const EXPAND_CFG={
-  risco:{
-    titulo:'Risco — clientes com histórico recorrente de GCC', unit:['cliente','clientes'],
-    entries:()=>_exp.risco,
-    wide:true,
-    head:'<tr><th>Cliente</th><th>Vertical</th><th class="num">Tickets GCC</th><th class="num">Rescisão total</th><th class="num">Redução (parcial)</th><th>Tipo de redução</th><th>Motivos</th><th class="num">Revertidos</th><th class="num">Em aberto</th><th class="num">MRR em risco</th><th>Último ticket</th></tr>',
-    cols:11,
-    row:([org,v])=>`
-      <td class="risco-cli">${esc(org)}</td><td>${esc(v.vertical||'—')}</td><td class="num bad">${v.n}</td><td class="num">${v.total}</td><td class="num">${v.parcial}</td>
-      <td class="risco-tags">${contagemTags(v.itens)}</td><td class="risco-tags">${contagemTags(v.motivos)}</td>
-      <td class="num">${v.rev}</td><td class="num">${v.aberto}</td><td class="num">${v.mrr?fmtMrrFull(v.mrr):'—'}</td>
-      <td class="nowrap">${v.ultimo?new Date(v.ultimo).toLocaleDateString('pt-BR'):'—'}</td>`,
-    open:([org])=>openClienteTicketsModal(org),
-  },
   interno: rankCfg('Locus interno — controlável','Motivo',['motivo','motivos'],'interno',(r,l)=>(r.cf_24986||'').trim()===l,'Locus interno'),
   externo: rankCfg('Locus externo — fora do controle','Motivo',['motivo','motivos'],'externo',(r,l)=>(r.cf_24523||'').trim()===l,'Locus externo'),
   vertical: rankCfg('Casos por vertical','Vertical',['vertical','verticais'],'vertical',(r,l)=>verticalDe(r)===l,'Vertical'),
@@ -2164,14 +2201,63 @@ const EXPAND_CFG={
   },
 };
 
-function contagemTags(obj){
+// ── modal Risco ─────────────────────────────────────────────────────
+function riscoChips(obj,max=3){
   const e=Object.entries(obj||{}).sort((a,b)=>b[1]-a[1]);
-  return e.length?e.map(([k,n])=>`<span class="risco-tag">${esc(k)} <b>${n}</b></span>`).join(''):'—';
+  const extra=e.length>max?` <span class="risco-chip">+${e.length-max}</span>`:'';
+  return e.slice(0,max).map(([k,n])=>`<span class="risco-chip" title="${escAttr(k)}">${esc(k.length>38?k.slice(0,36)+'…':k)}<b>${n}</b></span>`).join('')+extra;
 }
+function openRiscoModal(){
+  const lista=_exp.risco||[];
+  const tickets=lista.reduce((t,[,v])=>t+v.n,0);
+  const mrr=lista.reduce((t,[,v])=>t+v.mrr,0);
+  const parcial=lista.reduce((t,[,v])=>t+v.parcial,0);
+  document.getElementById('risco-modal-sub').textContent=`Clientes com ${RISCO_MIN_TICKETS}+ tickets de GCC no período filtrado — clique pra ver os chamados`;
+  document.getElementById('risco-sum').innerHTML=`
+    <div><b>${lista.length.toLocaleString('pt-BR')}</b><span>Clientes</span></div>
+    <div><b>${tickets.toLocaleString('pt-BR')}</b><span>Tickets</span></div>
+    <div><b>${parcial.toLocaleString('pt-BR')}</b><span>Reduções</span></div>
+    <div><b>${fmtMrrK(mrr)}</b><span>MRR em risco</span></div>`;
+  document.getElementById('risco-busca').value='';
+  renderRiscoLista();
+  document.getElementById('risco-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function renderRiscoLista(){
+  const q=document.getElementById('risco-busca').value.trim().toLowerCase();
+  const all=_exp.risco||[];
+  const box=document.getElementById('risco-lista');
+  const itens=all.map((e,i)=>[e,i]).filter(([[org]])=>!q||org.toLowerCase().includes(q));
+  if(!itens.length){ box.innerHTML=`<div class="risco-vazio">${all.length?'Nenhum cliente encontrado.':'Nenhum cliente com tickets recorrentes no período filtrado.'}</div>`; return; }
+  box.innerHTML=itens.map(([[org,v],i])=>{
+    const outros=Math.max(0,v.n-v.total-v.parcial-v.rev);
+    const seg=(n,c)=>n?`<i style="width:${n/v.n*100}%;background:var(${c})"></i>`:'';
+    const meta=[v.vertical||'Vertical não informada',
+      v.aberto?`${v.aberto} em aberto`:'nenhum em aberto',
+      v.ultimo?`último em ${new Date(v.ultimo).toLocaleDateString('pt-BR')}`:''].filter(Boolean).join(' · ');
+    const reducao=riscoChips(v.itens), motivos=riscoChips(v.motivos);
+    return `<div class="risco-item" role="button" tabindex="0" onclick="openRiscoCliente(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRiscoCliente(${i})}">
+      <div class="risco-n"><b>${v.n}</b><small>tickets</small></div>
+      <div><div class="risco-nome">${esc(org)}</div><div class="risco-meta">${esc(meta)}</div></div>
+      <div class="risco-dir">${v.mrr?`<b>${fmtMrrK(v.mrr)}</b><span>MRR em risco</span>`:'<span>sem MRR em risco</span>'}</div>
+      <div class="risco-bar" title="${v.total} total · ${v.parcial} parcial · ${v.rev} revertido(s) · ${outros} outro(s)">${seg(v.total,'--orange')}${seg(v.parcial,'--purple')}${seg(v.rev,'--green')}${seg(outros,'--slate')}</div>
+      ${reducao||motivos?`<div class="risco-linha">${reducao?`<span><em>Redução:</em>${reducao}</span>`:''}${motivos?`<span><em>Motivos:</em>${motivos}</span>`:''}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function openRiscoCliente(i){
+  const e=(_exp.risco||[])[i];
+  if(e) openClienteTicketsModal(e[0]);
+}
+function closeRiscoModal(){
+  document.getElementById('risco-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('risco-modal-close').addEventListener('click',closeRiscoModal);
+document.getElementById('risco-modal').addEventListener('click',e=>{ if(e.target.id==='risco-modal') closeRiscoModal(); });
 function openExpandModal(kind){
   const cfg=EXPAND_CFG[kind];
   if(!cfg) return;
-  document.querySelector('#expand-modal .modal-box').classList.toggle('wide',!!cfg.wide);
   const all=cfg.entries()||[];
   const n=all.length;
   document.getElementById('expand-modal-title').textContent=cfg.titulo;
