@@ -41,6 +41,26 @@ async function ensureTable() {
       updated_at       timestamptz NOT NULL DEFAULT NOW()
     )
   `).catch(() => {});
+  // Tarefas personalizadas criadas pelo usuário — uma cron aponta pra elas
+  // com task = 'custom:<id>'.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS silver.cron_task (
+      id             serial PRIMARY KEY,
+      name           text NOT NULL,
+      owner_team     text,
+      classification text,
+      only_open      boolean NOT NULL DEFAULT false,
+      recent_days    int,
+      year           int,
+      created_at     timestamptz NOT NULL DEFAULT NOW(),
+      updated_at     timestamptz NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+}
+
+function customTaskId(task) {
+  const m = /^custom:(\d+)$/.exec(String(task || ''));
+  return m ? Number(m[1]) : null;
 }
 
 function taskLabel(task) {
@@ -61,6 +81,12 @@ async function runTask(job) {
       ownerTeam: p.ownerTeam || '',
       cronJobId: id,
     });
+  }
+  const customId = customTaskId(task);
+  if (customId) {
+    const t = (await db.query('SELECT * FROM silver.cron_task WHERE id = $1', [customId])).rows[0];
+    if (!t) throw new Error(`Tarefa personalizada #${customId} não existe mais`);
+    return movideskLoader.runCustom(t, id);
   }
   throw new Error(`Tarefa de cron desconhecida: ${task}`);
 }
@@ -126,4 +152,4 @@ function stopAndRemove(jobId) {
   stopJob(jobId);
 }
 
-module.exports = { ensureTable, loadAndStartAll, reloadJob, stopAndRemove, executeJob, TASK_LABELS };
+module.exports = { ensureTable, loadAndStartAll, reloadJob, stopAndRemove, executeJob, customTaskId, TASK_LABELS };
