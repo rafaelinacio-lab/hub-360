@@ -458,6 +458,13 @@ body.modal-open{overflow:hidden}
         </button>
         <div class="ms-drop"></div>
       </div>
+      <div class="multi-sel" id="f-proc">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Procedência: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
       <div class="multi-sel" id="f-year">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Ano: todos</span>
@@ -791,6 +798,12 @@ function normalizar(v){
   }
   return semAcento.replace(/\s+/g,' ').trim().toUpperCase();
 }
+// Procedência do manifesto pro filtro: procedente, improcedente (campo
+// preenchido com outro valor) ou sem avaliação (campo vazio).
+function procKey(r){
+  if(isProcedente(r.manifesto_procedente)) return 'proc';
+  return normalizar(r.manifesto_procedente)?'improc':'sem';
+}
 function isProcedente(v){
   const n=normalizar(v);
   if(!n) return false;
@@ -1063,6 +1076,9 @@ function buildFilterOptions(){
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-serv','Serviço',_rows.map(r=>r.servico));
+  populateMs('f-proc',[
+    {v:'proc',l:'Procedente'},{v:'improc',l:'Improcedente'},{v:'sem',l:'Sem avaliação'},
+  ],'Procedência: todos',render);
   populateMs('f-status',[
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
   ],'Status: todos',render);
@@ -1089,6 +1105,7 @@ function getFilteredRows(){
   const orgFils=getMsValues('f-org');
   const servFils=getMsValues('f-serv');
   const statusFils=getMsValues('f-status');
+  const procFils=getMsValues('f-proc');
   const yearFils=getMsValues('f-year').map(Number);
   const monthFils=getMsValues('f-month').map(Number);
 
@@ -1101,6 +1118,7 @@ function getFilteredRows(){
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
     if(!statusBate(r,statusFils)) return false;
+    if(procFils.length&&!procFils.includes(procKey(r))) return false;
     return true;
   });
   const rowsFull=rowsCtx.filter(r=>{
