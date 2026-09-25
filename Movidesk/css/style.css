@@ -5574,3 +5574,21 @@ body.legacy-view-mode #embeddedPagesView {
     z-index: 10;
 }
 
+/* Modais das cargas automaticas (Configuracoes): cabecalho fixo e corpo com
+   rolagem quando o conteudo passa da altura da tela. */
+#cronModal .pm-box,
+#cronTaskModal .pm-box,
+#cronRunsModal .pm-box,
+#cronChangesModal .pm-box {
+    display: flex;
+    flex-direction: column;
+}
+#cronModal .pm-body,
+#cronTaskModal .pm-body,
+#cronRunsModal .pm-body,
+#cronChangesModal .pm-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
