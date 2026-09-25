@@ -2644,7 +2644,7 @@ function dlRenderStatus(cur, tokenSuffix) {
     if (!badge) return;
 
     if (cur.running) {
-        const modeLabel  = String(cur.mode || '').startsWith('custom:') ? cronTaskLabel(cur.mode) : cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : cur.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
+        const modeLabel  = String(cur.mode || '').startsWith('custom:') ? cronTaskLabel(cur.mode) : cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : cur.mode === 'fix-autores-acoes' ? 'Correção de autores das ações' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : cur.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
         const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
         badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
@@ -2696,7 +2696,7 @@ function dlRenderStatus(cur, tokenSuffix) {
         const tokenInfo = tokenSuffix ? ` · Token: ${tokenSuffix}` : '';
         if (last) {
             const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
-            const lastModeLabel = String(last.mode || '').startsWith('custom:') ? cronTaskLabel(last.mode) : last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : last.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
+            const lastModeLabel = String(last.mode || '').startsWith('custom:') ? cronTaskLabel(last.mode) : last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : last.mode === 'fix-autores-acoes' ? 'Correção de autores das ações' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : last.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
             meta.textContent = `Última: ${lastModeLabel} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
         } else {
             meta.textContent = (cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–') + tokenInfo;
@@ -2723,7 +2723,7 @@ function dlRenderHistory(rows) {
     }
     const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171' };
     const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
-    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental', 'fix-organizacao': 'Correção de organização', 'fix-dados-relacionados': 'Correção de ações/clientes', 'backfill-basico': 'Backfill campos básicos', 'atualizacao-inteligente': 'Atualização inteligente' };
+    const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental', 'fix-organizacao': 'Correção de organização', 'fix-dados-relacionados': 'Correção de ações/clientes', 'fix-autores-acoes': 'Correção de autores das ações', 'backfill-basico': 'Backfill campos básicos', 'atualizacao-inteligente': 'Atualização inteligente' };
 
     const filtroDe = (r) => {
         const partes = [];
@@ -3047,6 +3047,20 @@ async function cronDelete(id) {
         cronLoad();
     } catch (e) {
         alert(`Não foi possível excluir: ${e.message}`);
+    }
+}
+
+// Correção pontual: re-sincroniza por id os tickets em aberto com ação
+// pública sem autor. Andamento aparece no painel de status de carga.
+async function runFixAutoresAcoes() {
+    if (!confirm('Buscar de novo na API os tickets em aberto com ações sem autor? Pode levar de alguns minutos a meia hora.')) return;
+    try {
+        const resp = await fetch(`${API_BASE}/loader/fix-autores-acoes`, { method: 'POST', headers: authHeaders() });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        alert('Correção iniciada. Acompanhe o andamento no status da carga, nesta tela.');
+    } catch (e) {
+        alert(`Não foi possível iniciar: ${e.message}`);
     }
 }
 
