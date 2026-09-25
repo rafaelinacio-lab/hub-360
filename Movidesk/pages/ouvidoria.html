@@ -1493,12 +1493,9 @@ function renderTrendChart(byMes){
   const col=chartColors();
   const titleEl=document.getElementById('trendChartTitle');
   const yearFilsT=getMsValues('f-year');
-  // Nenhum ano filtrado — mostra só o ano vigente, não o comparativo entre
-  // todos os anos (que só faz sentido quando o usuário pede explicitamente,
-  // selecionando 2+ anos).
-  const yearFilVal=yearFilsT.length===1?yearFilsT[0]:(yearFilsT.length===0?String(new Date().getFullYear()):null);
+  const yearFilVal=yearFilsT.length===1?yearFilsT[0]:null;
 
-  if(!yearFilVal){
+  if(yearFilsT.length>=2){
     // 2+ anos selecionados — comparativo mês a mês (Jan a Dez) entre os anos
     // escolhidos, em vez de só a janela deslizante dos últimos 12 meses.
     const anos=yearFilsT.slice().sort();
@@ -1530,9 +1527,26 @@ function renderTrendChart(byMes){
     return;
   }
 
-  // Ano filtrado (com ou sem Mês) — mostra Jan a Dez desse ano específico,
-  // com zero nos meses sem dado, em vez da janela deslizante dos últimos 12
-  // meses (que podia nem incluir o ano escolhido).
+  // 1 ano filtrado — Jan a Dez desse ano, com zero nos meses sem dado.
+  // Nenhum ano filtrado — linha do tempo contínua do primeiro ao último mês
+  // com dado, pra bater com os cards (que somam todos os anos nesse caso).
+  let chaves,labels;
+  if(yearFilVal){
+    chaves=MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`);
+    labels=MONTH_NAMES;
+  } else {
+    const ks=Object.keys(byMes).sort();
+    chaves=[];
+    if(ks.length){
+      let [y,m]=ks[0].split('-').map(Number);
+      const [yEnd,mEnd]=ks[ks.length-1].split('-').map(Number);
+      while(y<yEnd||(y===yEnd&&m<=mEnd)){
+        chaves.push(`${y}-${String(m).padStart(2,'0')}`);
+        m++; if(m>12){ m=1; y++; }
+      }
+    }
+    labels=chaves.map(k=>{ const [y,m]=k.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
+  }
   // Séries = tipos selecionados no filtro "Tipo de manifesto"; sem filtro,
   // mantém o padrão Elogios vs Reclamações.
   const SERIES_TIPO={
@@ -1545,11 +1559,10 @@ function renderTrendChart(byMes){
   titleEl.textContent=tipoFilsT.length
     ? `${tiposSerie.map(k=>SERIES_TIPO[k].label).join(' vs ')} por mês`
     : 'Elogios vs reclamações por mês';
-  const chaves=MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`);
   _charts.trendChart=new Chart(document.getElementById('trendChart'),{
     type:'line',
     data:{
-      labels:MONTH_NAMES,
+      labels,
       datasets:tiposSerie.map(k=>({
         label:SERIES_TIPO[k].label,
         data:chaves.map(mk=>byMes[mk]?byMes[mk][k]:0),
