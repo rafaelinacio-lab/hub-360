@@ -1099,23 +1099,32 @@
                             </div>
                             <div class="pm-field">
                                 <label for="cronTaskTeam">Equipe / ownerTeam (opcional)</label>
-                                <input type="text" id="cronTaskTeam" placeholder="Ex: Suporte Agro — nome exato da equipe no Movidesk">
+                                <select id="cronTaskTeam"><option value="">— qualquer equipe —</option></select>
                             </div>
                             <div class="pm-field">
                                 <label for="cronTaskClass">Classificação de Ticket (opcional)</label>
-                                <input type="text" id="cronTaskClass" placeholder="Ex: Ouvidoria">
+                                <select id="cronTaskClass"><option value="">— qualquer classificação —</option></select>
                             </div>
                             <div class="pm-field">
                                 <label for="cronTaskYear">Ano de criação (opcional)</label>
-                                <input type="number" id="cronTaskYear" min="2000" step="1" placeholder="Vazio = todos os anos">
+                                <select id="cronTaskYear"><option value="">— todos os anos —</option></select>
                             </div>
                             <div class="pm-field">
-                                <label for="cronTaskDays">Atualizados nos últimos N dias (opcional)</label>
-                                <input type="number" id="cronTaskDays" min="1" step="1" placeholder="Ex: 3 — pega também os resolvidos no período">
+                                <label for="cronTaskDays">Atualizados nos últimos N dias (opcional — pega também os resolvidos no período)</label>
+                                <select id="cronTaskDays">
+                                    <option value="">— sem janela de atualização —</option>
+                                    <option value="1">Último 1 dia</option>
+                                    <option value="2">Últimos 2 dias</option>
+                                    <option value="3">Últimos 3 dias</option>
+                                    <option value="5">Últimos 5 dias</option>
+                                    <option value="7">Últimos 7 dias</option>
+                                    <option value="15">Últimos 15 dias</option>
+                                    <option value="30">Últimos 30 dias</option>
+                                </select>
                             </div>
-                            <div class="pm-field" style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="cronTaskOpen" style="width:auto;">
-                                <label for="cronTaskOpen" style="margin:0;">Só chamados em aberto</label>
+                            <div class="pm-field" style="display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;">
+                                <input type="checkbox" id="cronTaskOpen" style="width:auto;margin:0;">
+                                <label for="cronTaskOpen" style="margin:0;text-transform:none;letter-spacing:normal;cursor:pointer;">Só chamados em aberto</label>
                             </div>
                             <p class="config-card-help" style="margin:0;">Preencha ao menos um filtro. Equipe é o filtro mais leve pra API; classificação sem equipe é bem mais lenta.</p>
                             <div id="cronTaskModalError" class="pm-error" style="display:none;"></div>

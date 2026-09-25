@@ -3088,11 +3088,44 @@ function cronRenderTasks() {
     </table>`;
 }
 
+// Opções dos selects (equipes/classificações/anos) vêm do banco via
+// /crons/task-options; carregadas uma vez por abertura da tela.
+let _cronTaskOptions = null;
+async function cronTaskLoadOptions() {
+    if (_cronTaskOptions) return _cronTaskOptions;
+    try {
+        const resp = await fetch(`${API_BASE}/crons/task-options`, { headers: authHeaders() });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        _cronTaskOptions = data;
+    } catch (e) {
+        console.warn('Opções de tarefa indisponíveis:', e.message);
+        _cronTaskOptions = { teams: [], classifications: [], years: [] };
+    }
+    return _cronTaskOptions;
+}
+
+function cronTaskFillSelect(id, emptyLabel, values, fmt = v => v) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = `<option value="">${cfgEsc(emptyLabel)}</option>`
+        + values.map(v => `<option value="${cfgEsc(v)}">${cfgEsc(fmt(v))}</option>`).join('');
+}
+
+// Seleciona o valor; se não estiver na lista (ex.: equipe renomeada), inclui.
+function cronTaskSetSelect(id, value, fmt = v => v) {
+    const sel = document.getElementById(id);
+    const v = value == null ? '' : String(value);
+    if (v && ![...sel.options].some(o => o.value === v)) {
+        sel.insertAdjacentHTML('beforeend', `<option value="${cfgEsc(v)}">${cfgEsc(fmt(v))}</option>`);
+    }
+    sel.value = v;
+}
+
 function cronTaskFillFields(t) {
-    document.getElementById('cronTaskTeam').value = t?.owner_team || '';
-    document.getElementById('cronTaskClass').value = t?.classification || '';
-    document.getElementById('cronTaskYear').value = t?.year === 'vigente' ? new Date().getFullYear() : (t?.year || '');
-    document.getElementById('cronTaskDays').value = t?.recent_days || '';
+    cronTaskSetSelect('cronTaskTeam', t?.owner_team || '');
+    cronTaskSetSelect('cronTaskClass', t?.classification || '');
+    cronTaskSetSelect('cronTaskYear', t?.year === 'vigente' ? new Date().getFullYear() : (t?.year || ''));
+    cronTaskSetSelect('cronTaskDays', t?.recent_days || '', v => `Últimos ${v} dias`);
     document.getElementById('cronTaskOpen').checked = !!t?.only_open;
 }
 
@@ -3106,8 +3139,12 @@ function cronTaskApplyBase(ref) {
     if (!nomeEl.value.trim()) nomeEl.value = `${base.name} (cópia)`;
 }
 
-function cronTaskOpenModal(taskId, baseRef) {
+async function cronTaskOpenModal(taskId, baseRef) {
     const t = taskId ? _cronTasks.find(x => x.id === taskId) : null;
+    const opts = await cronTaskLoadOptions();
+    cronTaskFillSelect('cronTaskTeam', '— qualquer equipe —', opts.teams || []);
+    cronTaskFillSelect('cronTaskClass', '— qualquer classificação —', opts.classifications || []);
+    cronTaskFillSelect('cronTaskYear', '— todos os anos —', (opts.years || []).map(String));
     const errorEl = document.getElementById('cronTaskModalError');
     if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
     document.getElementById('cronTaskModalTitle').textContent = t ? 'Editar tarefa' : 'Nova tarefa';
