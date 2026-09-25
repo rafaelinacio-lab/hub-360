@@ -277,6 +277,13 @@ input,select{font-family:inherit}
 .data-panel.compact{padding:14px 16px}
 .data-panel.compact.danger{border-color:var(--orange-bd)}
 .data-panel.compact .panel-title{font-size:12px;margin-bottom:8px}
+.panel-title-exp{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.panel-expand{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--t3);cursor:pointer}
+.panel-expand .sym{font-size:16px}
+.panel-expand:hover,.panel-expand:focus-visible{color:var(--t1);border-color:var(--border);background:var(--surface-mid)}
+.data-panel .dtable tbody tr.clickable{cursor:pointer}
+.data-panel .dtable tbody tr.clickable:hover td{background:var(--surface-mid)}
+.dtable .nowrap{white-space:nowrap}
 .data-panel.compact .dtable{font-size:12px}
 .data-panel.compact .dtable th{padding:5px 8px;font-size:9.5px}
 .data-panel.compact .dtable td{padding:6px 8px}
@@ -593,11 +600,11 @@ body.modal-open{overflow:hidden}
     <p class="section-label">Motivos por locus</p>
     <div class="grid-2">
       <div class="chart-panel">
-        <p class="chart-title">Locus interno — controlável</p>
+        <p class="chart-title panel-title-exp">Locus interno — controlável<button type="button" class="panel-expand" onclick="openExpandModal('interno')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:230px"><canvas id="internoChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Locus externo — fora do controle</p>
+        <p class="chart-title panel-title-exp">Locus externo — fora do controle<button type="button" class="panel-expand" onclick="openExpandModal('externo')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:230px"><canvas id="externoChart"></canvas></div>
       </div>
     </div>
@@ -605,11 +612,11 @@ body.modal-open{overflow:hidden}
     <p class="section-label">Insatisfação e MRR por vertical</p>
     <div class="grid-2">
       <div class="chart-panel">
-        <p class="chart-title">Casos por vertical (% do total)</p>
+        <p class="chart-title panel-title-exp">Casos por vertical (% do total)<button type="button" class="panel-expand" onclick="openExpandModal('vertical')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:190px"><canvas id="verticalChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">MRR perdido por vertical</p>
+        <p class="chart-title panel-title-exp">MRR perdido por vertical<button type="button" class="panel-expand" onclick="openExpandModal('mrrVert')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:190px"><canvas id="mrrVerticalChart"></canvas></div>
       </div>
     </div>
@@ -627,11 +634,11 @@ body.modal-open{overflow:hidden}
     <p class="section-label">Ranking</p>
     <div class="grid-2">
       <div class="chart-panel">
-        <p class="chart-title">Módulos que mais rescindem</p>
+        <p class="chart-title panel-title-exp">Módulos que mais rescindem<button type="button" class="panel-expand" onclick="openExpandModal('modulo')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:220px"><canvas id="moduleChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Clientes que mais rescindem</p>
+        <p class="chart-title panel-title-exp">Clientes que mais rescindem<button type="button" class="panel-expand" onclick="openExpandModal('cliente')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:220px"><canvas id="topClientChart"></canvas></div>
       </div>
     </div>
@@ -639,7 +646,7 @@ body.modal-open{overflow:hidden}
     <p class="section-label">Ação</p>
     <div class="grid-2">
       <div class="data-panel compact">
-        <p class="panel-title">Clientes com mais casos e baixa reversão</p>
+        <p class="panel-title panel-title-exp">Clientes com mais casos e baixa reversão<button type="button" class="panel-expand" onclick="openExpandModal('baixa')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
             <thead><tr><th>Cliente</th><th class="num">Casos</th><th class="num">Revertidos</th></tr></thead>
@@ -648,7 +655,7 @@ body.modal-open{overflow:hidden}
         </div>
       </div>
       <div class="data-panel compact danger" id="painel-criticos-vencidos">
-        <p class="panel-title">Casos críticos vencidos — ação necessária</p>
+        <p class="panel-title panel-title-exp">Casos críticos vencidos — ação necessária<button type="button" class="panel-expand" onclick="openExpandModal('criticos')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
             <thead><tr><th>Cliente</th><th>Vertical</th><th class="num">Dias venc.</th></tr></thead>
@@ -659,7 +666,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="data-panel danger" style="margin-top:16px">
-      <p class="panel-title">Top clientes por MRR em risco — priorização de retenção</p>
+      <p class="panel-title panel-title-exp">Top clientes por MRR em risco — priorização de retenção<button type="button" class="panel-expand" onclick="openExpandModal('mrrRisco')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
       <div class="dtable-wrap">
         <table class="dtable">
           <thead><tr><th>Cliente</th><th class="num">MRR em risco</th><th class="num">Status</th></tr></thead>
@@ -691,6 +698,26 @@ body.modal-open{overflow:hidden}
             <tr id="detail-modal-thead"><th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th></tr>
           </thead>
           <tbody id="detail-modal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="expand-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="expand-modal-title">Detalhe</h3>
+        <p id="expand-modal-sub"></p>
+      </div>
+      <button class="modal-close" id="expand-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="dtable-scroll">
+        <table class="dtable">
+          <thead id="expand-modal-thead"></thead>
+          <tbody id="expand-modal-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -1034,6 +1061,8 @@ let _rows=[];
 let _charts={};
 let _rowsFull=[];
 let _rowsById={};
+// Listas completas (sem o corte de top 8/10) do último render() — modal "expandir".
+const _exp={interno:[],externo:[],vertical:[],mrrVert:[],modulo:[],cliente:[],baixa:[],criticos:[],mrrRisco:[]};
 
 // ── load ─────────────────────────────────────────────────────────────
 async function loadGcc(){
@@ -1360,6 +1389,7 @@ function syncModalBodyLock(){
   const open=document.getElementById('detail-modal').classList.contains('show')
     || document.getElementById('ticket-modal').classList.contains('show')
     || document.getElementById('export-modal').classList.contains('show')
+    || document.getElementById('expand-modal').classList.contains('show')
     || document.getElementById('listagem-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
@@ -1652,7 +1682,8 @@ function renderInternoExternoCharts(rows){
 
   destroyChart('internoChart');
   const porInterno=contarPor(rows,r=>(r.cf_24986||'').trim());
-  const internoEntries=Object.entries(porInterno).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _exp.interno=Object.entries(porInterno).sort((a,b)=>b[1]-a[1]);
+  const internoEntries=_exp.interno.slice(0,8);
   _charts.internoChart=new Chart(document.getElementById('internoChart'),{
     type:'bar',
     data:{labels:internoEntries.map(e=>e[0]),datasets:[{data:internoEntries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
@@ -1670,7 +1701,8 @@ function renderInternoExternoCharts(rows){
 
   destroyChart('externoChart');
   const porExterno=contarPor(rows,r=>(r.cf_24523||'').trim());
-  const externoEntries=Object.entries(porExterno).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _exp.externo=Object.entries(porExterno).sort((a,b)=>b[1]-a[1]);
+  const externoEntries=_exp.externo.slice(0,8);
   _charts.externoChart=new Chart(document.getElementById('externoChart'),{
     type:'bar',
     data:{labels:externoEntries.map(e=>e[0]),datasets:[{data:externoEntries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
@@ -1694,7 +1726,8 @@ function renderVerticalCharts(rows){
   destroyChart('verticalChart');
   const porVertical=contarPor(rows,r=>verticalDe(r));
   const total=rows.length;
-  const vertEntries=Object.entries(porVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _exp.vertical=Object.entries(porVertical).sort((a,b)=>b[1]-a[1]);
+  const vertEntries=_exp.vertical.slice(0,10);
   _charts.verticalChart=new Chart(document.getElementById('verticalChart'),{
     type:'bar',
     data:{
@@ -1720,7 +1753,8 @@ function renderVerticalCharts(rows){
     const v=verticalDe(r);
     mrrPorVertical[v]=(mrrPorVertical[v]||0)+parseMrr(r.mrr);
   });
-  const mrrVertEntries=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _exp.mrrVert=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]);
+  const mrrVertEntries=_exp.mrrVert.slice(0,10);
   _charts.mrrVerticalChart=new Chart(document.getElementById('mrrVerticalChart'),{
     type:'bar',
     data:{labels:mrrVertEntries.map(e=>e[0]),datasets:[{data:mrrVertEntries.map(e=>Math.round(e[1])),backgroundColor:col.orange,borderRadius:4}]},
@@ -1868,7 +1902,8 @@ function renderModuleChart(rows){
       porModulo[m]=(porModulo[m]||0)+1;
     });
   });
-  const entries=Object.entries(porModulo).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _exp.modulo=Object.entries(porModulo).sort((a,b)=>b[1]-a[1]);
+  const entries=_exp.modulo.slice(0,10);
   _charts.moduleChart=new Chart(document.getElementById('moduleChart'),{
     type:'bar',
     data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
@@ -1888,7 +1923,8 @@ function renderTopClientChart(rows){
   destroyChart('topClientChart');
   const col=chartColors();
   const porCliente=contarPor(rows,r=>r.organizacao||'Não informado');
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _exp.cliente=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]);
+  const entries=_exp.cliente.slice(0,10);
   _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
     type:'bar',
     data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
@@ -1911,11 +1947,15 @@ function renderBaixaReversaoTable(rows){
   const porCliente={};
   rows.forEach(r=>{
     const o=r.organizacao||'Não informado';
-    porCliente[o]=porCliente[o]||{casos:0,rev:0};
-    porCliente[o].casos++;
-    if(isRevertido(r)) porCliente[o].rev++;
+    porCliente[o]=porCliente[o]||{casos:0,rev:0,abertos:0,perdidos:0,mrrRisco:0,mrrPerdido:0};
+    const p=porCliente[o];
+    p.casos++;
+    if(isRevertido(r)) p.rev++;
+    if(isAberto(r)){ p.abertos++; p.mrrRisco+=parseMrr(r.mrr); }
+    if(isPerdido(r)){ p.perdidos++; p.mrrPerdido+=parseMrr(r.mrr); }
   });
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1].casos-a[1].casos).slice(0,10);
+  _exp.baixa=Object.entries(porCliente).sort((a,b)=>b[1].casos-a[1].casos);
+  const entries=_exp.baixa.slice(0,10);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso no período filtrado.</td></tr>`; return; }
   tbody.innerHTML=entries.map(([org,v])=>{
     const pct=v.casos?v.rev/v.casos*100:0;
@@ -1936,8 +1976,9 @@ function renderCriticosVencidosTable(rows){
   const tbody=document.getElementById('tbl-criticos-vencidos');
   const entries=rows
     .map(r=>({...r,diasVenc:diasVencido(r)}))
-    .sort((a,b)=>b.diasVenc-a.diasVenc)
-    .slice(0,10);
+    .sort((a,b)=>b.diasVenc-a.diasVenc);
+  _exp.criticos=entries.slice();
+  entries.splice(10);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso crítico vencido no período filtrado.</td></tr>`; return; }
   entries.forEach(r=>{ _rowsById[r.ticket_id]=r; });
   tbody.innerHTML=entries.map(r=>`
@@ -1961,7 +2002,8 @@ function renderTopMrrRiscoTable(rows){
     porCliente[o].mrr+=parseMrr(r.mrr);
     porCliente[o].tickets.push(r);
   });
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1].mrr-a[1].mrr).slice(0,10);
+  _exp.mrrRisco=Object.entries(porCliente).sort((a,b)=>b[1].mrr-a[1].mrr);
+  const entries=_exp.mrrRisco.slice(0,10);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="3">Nenhum caso em aberto no período filtrado.</td></tr>`; return; }
   tbody.innerHTML=entries.map(([org,v])=>{
     const statusTxt=v.tickets.length===1
@@ -1975,6 +2017,106 @@ function renderTopMrrRiscoTable(rows){
     </tr>`;
   }).join('');
 }
+
+// ── modal "expandir" (lista completa dos rankings e tabelas) ─────────
+// Guardado a cada render(), sem o corte de top 8/10 dos gráficos e cards.
+const pctTxt=(n,total)=>`${total?(n/total*100).toFixed(1):'0.0'}%`;
+const somaN=arr=>arr.reduce((a,[,n])=>a+n,0);
+const moduloBate=(r,label)=>String(r.modulos||'').split(',').map(x=>x.trim()).includes(label);
+
+// Ranking simples [rótulo, contagem] — clique traz os tickets do rótulo.
+function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo){
+  return {
+    titulo, unit,
+    entries:()=>_exp[entriesKey],
+    head:`<tr><th>${colLabel}</th><th class="num">Casos</th><th class="num">% do total</th></tr>`,
+    cols:3,
+    row:(e,i,all)=>{ const tot=somaN(all); return `
+      <td>${esc(e[0])}</td><td class="num">${e[1].toLocaleString('pt-BR')}</td><td class="num">${pctTxt(e[1],tot)}</td>`; },
+    open:e=>{ const m=_rowsFull.filter(r=>filterFn(r,e[0])); openDetailModal(`${prefixo}: ${e[0]}`,`${m.length} ticket${m.length===1?'':'s'}`,m); },
+  };
+}
+const EXPAND_CFG={
+  interno: rankCfg('Locus interno — controlável','Motivo',['motivo','motivos'],'interno',(r,l)=>(r.cf_24986||'').trim()===l,'Locus interno'),
+  externo: rankCfg('Locus externo — fora do controle','Motivo',['motivo','motivos'],'externo',(r,l)=>(r.cf_24523||'').trim()===l,'Locus externo'),
+  vertical: rankCfg('Casos por vertical','Vertical',['vertical','verticais'],'vertical',(r,l)=>verticalDe(r)===l,'Vertical'),
+  modulo: rankCfg('Módulos que mais rescindem','Módulo',['módulo','módulos'],'modulo',moduloBate,'Módulo'),
+  cliente: rankCfg('Clientes que mais rescindem','Cliente',['cliente','clientes'],'cliente',(r,l)=>(r.organizacao||'Não informado')===l,'Cliente'),
+  mrrVert:{
+    titulo:'MRR perdido por vertical', unit:['vertical','verticais'],
+    entries:()=>_exp.mrrVert,
+    head:'<tr><th>Vertical</th><th class="num">MRR perdido</th><th class="num">% do MRR perdido</th><th class="num">Clientes perdidos</th></tr>',
+    cols:4,
+    row:(e,i,all)=>{ const tot=somaN(all); const n=_rowsFull.filter(r=>isPerdido(r)&&verticalDe(r)===e[0]).length; return `
+      <td>${esc(e[0])}</td><td class="num bad">${fmtMrrFull(e[1])}</td><td class="num">${pctTxt(e[1],tot)}</td><td class="num">${n}</td>`; },
+    open:e=>{ const m=_rowsFull.filter(r=>isPerdido(r)&&verticalDe(r)===e[0]); openDetailModal(`MRR perdido — vertical: ${e[0]}`,`${m.length} ticket${m.length===1?'':'s'}`,m); },
+  },
+  baixa:{
+    titulo:'Clientes com mais casos e baixa reversão', unit:['cliente','clientes'],
+    entries:()=>_exp.baixa,
+    head:'<tr><th>Cliente</th><th class="num">Casos</th><th class="num">Revertidos</th><th class="num">% reversão</th><th class="num">Em aberto</th><th class="num">Perdidos</th><th class="num">MRR em risco</th><th class="num">MRR perdido</th></tr>',
+    cols:8,
+    row:([org,v])=>{ const pct=v.casos?v.rev/v.casos*100:0; return `
+      <td>${esc(org)}</td><td class="num">${v.casos}</td><td class="num">${v.rev}</td>
+      <td class="num${pct<30?' bad':''}">${pct.toFixed(0)}%</td><td class="num">${v.abertos}</td><td class="num">${v.perdidos}</td>
+      <td class="num nowrap">${fmtMrrFull(v.mrrRisco)}</td><td class="num nowrap">${fmtMrrFull(v.mrrPerdido)}</td>`; },
+    open:([org])=>openClienteTicketsModal(org),
+  },
+  criticos:{
+    titulo:'Casos críticos vencidos — ação necessária', unit:['caso','casos'],
+    entries:()=>_exp.criticos,
+    head:'<tr><th>Ticket</th><th>Cliente</th><th>Vertical</th><th>Responsável</th><th>Status</th><th class="num">MRR</th><th class="num">Dias venc.</th></tr>',
+    cols:7,
+    row:r=>`
+      <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a></td>
+      <td>${esc(r.organizacao||'Não informado')}</td><td>${esc(verticalDe(r))}</td><td>${esc(r.responsavel||'Não atribuído')}</td>
+      <td>${esc(r.status_movidesk||r.base_status||'—')}</td><td class="num nowrap">${fmtMrrFull(parseMrr(r.mrr))}</td><td class="num bad">${r.diasVenc}</td>`,
+    open:r=>{ _rowsById[r.ticket_id]=r; openTicketModal(r.ticket_id); },
+  },
+  mrrRisco:{
+    titulo:'Clientes por MRR em risco — priorização de retenção', unit:['cliente','clientes'],
+    entries:()=>_exp.mrrRisco,
+    head:'<tr><th>Cliente</th><th class="num">MRR em risco</th><th class="num">% do MRR em risco</th><th class="num">Casos em aberto</th><th class="num">Mais antigo (dias)</th><th>Status</th></tr>',
+    cols:6,
+    row:([org,v],i,all)=>{
+      const tot=all.reduce((a,[,x])=>a+x.mrr,0);
+      const agora=Date.now();
+      const maisAntigo=Math.max(0,...v.tickets.map(t=>t.criado_em?Math.floor((agora-new Date(t.criado_em))/86400000):0));
+      const statusTxt=v.tickets.length===1?(v.tickets[0].status_movidesk||v.tickets[0].base_status||'—'):`${v.tickets.length} casos`;
+      return `
+      <td>${esc(org)}</td><td class="num bad nowrap">${fmtMrrFull(v.mrr)}</td><td class="num">${pctTxt(v.mrr,tot)}</td>
+      <td class="num">${v.tickets.length}</td><td class="num">${maisAntigo}</td><td>${esc(statusTxt)}</td>`; },
+    open:([org,v])=>openDetailModal(`MRR em risco: ${org}`,`${v.tickets.length} caso${v.tickets.length===1?'':'s'} em aberto`,v.tickets),
+  },
+};
+
+function openExpandModal(kind){
+  const cfg=EXPAND_CFG[kind];
+  if(!cfg) return;
+  const all=cfg.entries()||[];
+  const n=all.length;
+  document.getElementById('expand-modal-title').textContent=cfg.titulo;
+  document.getElementById('expand-modal-sub').textContent=`${n.toLocaleString('pt-BR')} ${n===1?cfg.unit[0]:cfg.unit[1]} no período filtrado`;
+  document.getElementById('expand-modal-thead').innerHTML=cfg.head;
+  document.getElementById('expand-modal-tbody').innerHTML=n
+    ? all.map((e,i)=>`<tr class="clickable" onclick="openExpandItem('${kind}',${i})">${cfg.row(e,i,all)}</tr>`).join('')
+    : `<tr class="empty-row"><td colspan="${cfg.cols}">Nada no período filtrado.</td></tr>`;
+  document.getElementById('expand-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function openExpandItem(kind,idx){
+  const cfg=EXPAND_CFG[kind];
+  const e=cfg&&(cfg.entries()||[])[idx];
+  if(!e) return;
+  closeExpandModal();
+  cfg.open(e);
+}
+function closeExpandModal(){
+  document.getElementById('expand-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('expand-modal-close').addEventListener('click',closeExpandModal);
+document.getElementById('expand-modal').addEventListener('click',e=>{ if(e.target.id==='expand-modal') closeExpandModal(); });
 
 // ── sync ─────────────────────────────────────────────────────────────
 let _syncPoll=null;
