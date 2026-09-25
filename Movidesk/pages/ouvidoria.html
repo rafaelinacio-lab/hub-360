@@ -242,7 +242,7 @@ input,select{font-family:inherit}
 }
 .stat-card.danger{border-color:var(--orange-bd)}
 .stat-card.clickable{cursor:pointer}
-.stat-card.clickable:hover{border-color:var(--border-hi)}
+.stat-card.clickable:hover,.stat-card.clickable:focus-visible{border-color:var(--border-hi);outline:none}
 .stat-card .label{font-size:12.5px;color:var(--t2);margin:0 0 6px;font-weight:500}
 .stat-card .value{
   font-size:25px;font-weight:700;margin:0;color:var(--t1);
@@ -482,37 +482,37 @@ body.modal-open{overflow:hidden}
   <div class="dash-wrap" id="ov-dash">
     <p class="section-label">Totais do período</p>
     <div class="grid-7">
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('total')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('total')}" role="button" tabindex="0">
         <p class="label">Total de tickets</p>
         <p class="value" id="k-total">0</p>
         <p class="delta flat" id="k-total-d">—</p>
         <p class="legend">Todas as manifestações no período.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('elo')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('elo')}" role="button" tabindex="0">
         <p class="label">Elogios</p>
         <p class="value" id="k-elo">0</p>
         <p class="delta flat" id="k-elo-d">—</p>
         <p class="legend">Manifestações positivas no período.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('rec')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('rec')}" role="button" tabindex="0">
         <p class="label">Reclamações</p>
         <p class="value" id="k-rec">0</p>
         <p class="delta flat" id="k-rec-d">—</p>
         <p class="legend">Total no período, procedentes ou não.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('sug')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('sug')}" role="button" tabindex="0">
         <p class="label">Sugestões</p>
         <p class="value" id="k-sug">0</p>
         <p class="delta flat" id="k-sug-d">—</p>
         <p class="legend">Ideias e melhorias enviadas.</p>
       </div>
-      <div class="stat-card danger">
+      <div class="stat-card danger clickable" onclick="openKpiModal('proc')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('proc')}" role="button" tabindex="0">
         <p class="label">Procedentes</p>
         <p class="value" id="k-proc">0 <span class="pct" id="k-proc-pct"></span></p>
         <p class="delta flat" id="k-proc-d">—</p>
         <p class="legend">Reclamações confirmadas como reais.</p>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openKpiModal('pend')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('pend')}" role="button" tabindex="0">
         <p class="label">Pendentes</p>
         <p class="value" id="k-pend">0</p>
         <p class="delta flat" id="k-pend-d">—</p>
@@ -1736,6 +1736,22 @@ function renderClientesRisco(rows){
     .filter(([,v])=>v.rec>=RISCO_MIN_RECLAMACOES && v.aberto>=1)
     .sort((a,b)=>b[1].rec-a[1].rec);
   document.getElementById('k-risco').textContent=_riscoEntries.length.toLocaleString('pt-BR');
+}
+
+// Clique nos cards de totais — abre a lista dos tickets que compõem o número.
+function openKpiModal(kind){
+  const aberto=r=>!FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status);
+  const cfg={
+    total:{title:'Total de tickets',fn:()=>true},
+    elo:{title:'Elogios',fn:r=>tipoKey(rawTipo(r))==='elo'},
+    rec:{title:'Reclamações',fn:r=>tipoKey(rawTipo(r))==='rec'},
+    sug:{title:'Sugestões',fn:r=>tipoKey(rawTipo(r))==='sug'},
+    proc:{title:'Reclamações procedentes',fn:r=>tipoKey(rawTipo(r))==='rec'&&isProcedente(r.manifesto_procedente)},
+    pend:{title:'Pendentes',fn:aberto},
+  }[kind];
+  if(!cfg) return;
+  const matched=(_rowsFull||[]).filter(cfg.fn);
+  openDetailModal(cfg.title,`${matched.length.toLocaleString('pt-BR')} ticket${matched.length===1?'':'s'} no período filtrado`,matched);
 }
 
 function openClientesRiscoModal(){
