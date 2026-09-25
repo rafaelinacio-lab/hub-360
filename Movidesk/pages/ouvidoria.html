@@ -608,7 +608,7 @@ body.modal-open{overflow:hidden}
     <div class="modal-body">
       <div class="dtable-scroll">
         <table class="dtable">
-          <thead>
+          <thead id="detail-modal-thead">
             <tr><th>ID</th><th>Organização</th><th>Assunto</th><th>Tipo</th><th>Responsável</th><th>Status</th></tr>
           </thead>
           <tbody id="detail-modal-tbody"></tbody>
@@ -1355,25 +1355,51 @@ function listagemRender(){
 document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
 document.getElementById('listagem-modal').addEventListener('click',e=>{ if(e.target.id==='listagem-modal') closeListagemModal(); });
 
-function openDetailModal(title,sub,rows){
+// Tempo do chamado (criação → resolução), em dias — null se ainda aberto.
+function diasResolucao(r){
+  if(!r.criado_em||!r.resolvido_em) return null;
+  const d=(new Date(r.resolvido_em)-new Date(r.criado_em))/86400000;
+  return d>=0?d:null;
+}
+// Procedência só existe pra Reclamação.
+function procedenciaDe(r){
+  if(tipoKey(rawTipo(r))!=='rec') return {txt:'—',cls:''};
+  return isProcedente(r.manifesto_procedente)?{txt:'Procedente',cls:' bad'}:{txt:'Improcedente',cls:''};
+}
+const DETAIL_HEAD_PADRAO='<tr><th>ID</th><th>Organização</th><th>Assunto</th><th>Tipo</th><th>Responsável</th><th>Status</th></tr>';
+const DETAIL_HEAD_DESEMPENHO='<tr><th>ID</th><th>Organização</th><th>Assunto</th><th>Tipo</th><th class="num">Tempo</th><th>Procedência</th><th>Status</th></tr>';
+
+// opts.desempenho: troca a coluna Responsável por Tempo + Procedência de
+// cada chamado (modal aberto a partir de "Desempenho por responsável").
+function openDetailModal(title,sub,rows,opts={}){
+  const desemp=!!opts.desempenho;
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
+  document.getElementById('detail-modal-thead').innerHTML=desemp?DETAIL_HEAD_DESEMPENHO:DETAIL_HEAD_PADRAO;
   const tbody=document.getElementById('detail-modal-tbody');
   _rowsById={};
   if(!rows.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="6">Nenhum ticket encontrado.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="${desemp?7:6}">Nenhum ticket encontrado.</td></tr>`;
   } else {
     const ordenado=rows.slice().sort((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0));
     ordenado.forEach(r=>{ _rowsById[r.ticket_id]=r; });
-    tbody.innerHTML=ordenado.map(r=>`
+    tbody.innerHTML=ordenado.map(r=>{
+      let meio=`<td>${esc(r.responsavel||'—')}</td>`;
+      if(desemp){
+        const dias=diasResolucao(r);
+        const proc=procedenciaDe(r);
+        meio=`<td class="num">${dias!=null?`${dias.toFixed(1)} dias`:'em aberto'}</td><td class="${proc.cls.trim()}">${proc.txt}</td>`;
+      }
+      return `
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
           <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
           <td>${esc(r.organizacao||'—')}</td>
           <td>${esc(r.assunto_ouvidoria||'—')}</td>
           <td>${esc(TIPO_LABEL[tipoKey(rawTipo(r))])}</td>
-          <td>${esc(r.responsavel||'—')}</td>
+          ${meio}
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
   }
   document.getElementById('detail-modal').classList.add('show');
   syncModalBodyLock();
@@ -1822,7 +1848,13 @@ function respRowHtml([nome,p]){
 function openResponsavelTicketsModal(nome){
   closeExpandModal();
   const matched=_rowsFull.filter(r=>(r.responsavel||'Não atribuído')===nome);
-  openDetailModal(`Chamados: ${nome}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  const tempos=matched.map(diasResolucao).filter(d=>d!=null);
+  const recs=matched.filter(r=>tipoKey(rawTipo(r))==='rec');
+  const procs=recs.filter(r=>isProcedente(r.manifesto_procedente)).length;
+  const partes=[`${matched.length} ticket${matched.length===1?'':'s'}`];
+  partes.push(tempos.length?`tempo médio ${(tempos.reduce((a,b)=>a+b,0)/tempos.length).toFixed(1)} dias`:'sem chamado resolvido');
+  if(recs.length) partes.push(`procedência ${(procs/recs.length*100).toFixed(1)}% (${procs} de ${recs.length} reclamações)`);
+  openDetailModal(`Chamados: ${nome}`,partes.join(' · '),matched,{desempenho:true});
 }
 
 // Abrevia "Raquiele Barbosa" → "Raquiele B." (primeiro nome + inicial do
