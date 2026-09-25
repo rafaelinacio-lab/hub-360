@@ -547,7 +547,7 @@ body.modal-open{overflow:hidden}
         <div class="chart-wrap" style="height:190px"><canvas id="typeChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Volume por serviço</p>
+        <p class="chart-title panel-title-exp">Volume por serviço<button type="button" class="panel-expand" onclick="openExpandModal('serv')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:190px"><canvas id="areaChart"></canvas></div>
       </div>
     </div>
@@ -555,11 +555,11 @@ body.modal-open{overflow:hidden}
     <p class="section-label">Ranking</p>
     <div class="grid-2">
       <div class="chart-panel">
-        <p class="chart-title">Top 10 clientes por volume de manifestações</p>
+        <p class="chart-title panel-title-exp">Top 10 clientes por volume de manifestações<button type="button" class="panel-expand" onclick="openExpandModal('cli')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:250px"><canvas id="topClientChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Chamados por área direcionada</p>
+        <p class="chart-title panel-title-exp">Chamados por área direcionada<button type="button" class="panel-expand" onclick="openExpandModal('dir')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="chart-wrap" style="height:250px"><canvas id="direcionadoChart"></canvas></div>
       </div>
     </div>
@@ -1682,7 +1682,8 @@ function renderAreaChart(rows){
   const col=chartColors();
   const porArea={};
   rows.forEach(r=>{ const a=areaDoServico(r.servico); porArea[a]=(porArea[a]||0)+1; });
-  const entries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  _servEntries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]);
+  const entries=_servEntries.slice(0,8);
   _charts.areaChart=new Chart(document.getElementById('areaChart'),{
     type:'bar',
     data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
@@ -1703,7 +1704,8 @@ function renderTopClientChart(rows){
   const col=chartColors();
   const porCliente={};
   rows.forEach(r=>{ const o=r.organizacao||'Não informado'; porCliente[o]=(porCliente[o]||0)+1; });
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _cliEntries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]);
+  const entries=_cliEntries.slice(0,10);
   _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
     type:'bar',
     data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
@@ -1727,7 +1729,8 @@ function renderDirecionadoChart(rows){
     const a=(r.manifesto_direcionado_a||'').trim()||'Não informado';
     porArea[a]=(porArea[a]||0)+1;
   });
-  const entries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _dirEntries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]);
+  const entries=_dirEntries.slice(0,10);
   _charts.direcionadoChart=new Chart(document.getElementById('direcionadoChart'),{
     type:'bar',
     data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.purple,borderRadius:4}] },
@@ -1761,6 +1764,32 @@ function porClienteReincidencia(rows){
 // Listas completas (sem o corte de 10 dos cards) do último render() — usadas
 // pelo modal de "expandir" de cada card da seção Ação.
 let _reincEntries=[], _respEntries=[], _vencEntries=[];
+let _servEntries=[], _cliEntries=[], _dirEntries=[];
+
+// Ranking/Composição: mesmo critério de agrupamento dos gráficos, pra que o
+// clique numa linha do modal traga exatamente os tickets daquela barra.
+const RANK_GRUPO={
+  serv:{titulo:'Serviço', col:'Serviço', unit:['serviço','serviços'], key:r=>areaDoServico(r.servico)},
+  cli:{titulo:'Cliente', col:'Cliente', unit:['cliente','clientes'], key:r=>r.organizacao||'Não informado'},
+  dir:{titulo:'Direcionado a', col:'Área direcionada', unit:['área','áreas'], key:r=>((r.manifesto_direcionado_a||'').trim()||'Não informado')},
+};
+function rankRowHtml(kind,total){
+  return ([label,n],i)=>`
+    <tr class="clickable" onclick="openRankTickets('${kind}',${i})">
+      <td>${esc(label)}</td>
+      <td class="num">${n.toLocaleString('pt-BR')}</td>
+      <td class="num">${total?(n/total*100).toFixed(1):'0.0'}%</td>
+    </tr>`;
+}
+function openRankTickets(kind,idx){
+  closeExpandModal();
+  const g=RANK_GRUPO[kind];
+  const entry=({serv:_servEntries,cli:_cliEntries,dir:_dirEntries}[kind]||[])[idx];
+  if(!entry) return;
+  const label=entry[0];
+  const matched=_rowsFull.filter(r=>g.key(r)===label);
+  openDetailModal(`${g.titulo}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+}
 
 function reincRowHtml([org,v]){
   return `
@@ -1922,6 +1951,21 @@ function openVencidoTicket(ticketId){
 
 // ── modal "expandir" dos cards da seção Ação (lista completa) ─────────
 function openExpandModal(kind){
+  if(RANK_GRUPO[kind]){
+    const g=RANK_GRUPO[kind];
+    const entries={serv:_servEntries,cli:_cliEntries,dir:_dirEntries}[kind];
+    const total=entries.reduce((a,[,n])=>a+n,0);
+    const titulos={serv:'Volume por serviço',cli:'Clientes por volume de manifestações',dir:'Chamados por área direcionada'};
+    document.getElementById('expand-modal-title').textContent=titulos[kind];
+    document.getElementById('expand-modal-sub').textContent=`${entries.length.toLocaleString('pt-BR')} ${entries.length===1?g.unit[0]:g.unit[1]} · ${total.toLocaleString('pt-BR')} ticket${total===1?'':'s'} no período filtrado`;
+    document.getElementById('expand-modal-thead').innerHTML=`<tr><th>${g.col}</th><th class="num">Tickets</th><th class="num">% do total</th></tr>`;
+    document.getElementById('expand-modal-tbody').innerHTML=entries.length
+      ? entries.map(rankRowHtml(kind,total)).join('')
+      : `<tr class="empty-row"><td colspan="3">Nenhum ticket no período filtrado.</td></tr>`;
+    document.getElementById('expand-modal').classList.add('show');
+    syncModalBodyLock();
+    return;
+  }
   const cfg={
     reinc:{
       title:'Clientes com maior reincidência e procedência Reclamação',
