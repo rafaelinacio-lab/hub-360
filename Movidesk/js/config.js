@@ -2823,6 +2823,32 @@ function cronTaskFromRef(ref) {
     return null;
 }
 
+// Início local de quem acabou de clicar em "Rodar agora" — até o servidor
+// abrir o registro da execução (running_started_at), a conta parte daqui.
+const _cronLocalStart = {};
+
+function cronFmtDur(sec) {
+    sec = Math.max(0, Math.round(sec));
+    if (sec < 60) return `${sec}s`;
+    const min = Math.round(sec / 60);
+    if (min < 60) return `${min} min`;
+    const h = Math.floor(min / 60), m = min % 60;
+    return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
+// "~4 min restantes · término ~17:05", a partir da média das últimas execuções.
+function cronEstimativa(j) {
+    const avg = Number(j.avg_sec);
+    if (!avg || !isFinite(avg)) return 'sem estimativa (primeira execução)';
+    const inicio = j.running_started_at ? new Date(j.running_started_at).getTime() : (_cronLocalStart[j.id] || Date.now());
+    const decorrido = (Date.now() - inicio) / 1000;
+    const restante = avg - decorrido;
+    const media = `média de ${cronFmtDur(avg)}${j.n_amostras ? ` em ${j.n_amostras} execuç${j.n_amostras === 1 ? 'ão' : 'ões'}` : ''}`;
+    if (restante <= 0) return `passou da média (${cronFmtDur(decorrido)} rodando · ${media})`;
+    const fim = new Date(Date.now() + restante * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `~${cronFmtDur(restante)} restantes · término ~${fim}`;
+}
+
 function cronFmtInterval(minutes) {
     const m = Number(minutes) || 0;
     if (m % 1440 === 0 && m >= 1440) return `${m / 1440}x por dia`.replace('1x por dia', '1x por dia');
@@ -2882,7 +2908,9 @@ function cronRenderList() {
                      <span class="material-symbols-outlined" style="font-size:13px;${spin}">${statusIcon[st] || 'help'}</span>
                    </span>`
                 : '';
-            const lastLabel = running ? 'Executando...' : last;
+            const lastLabel = running
+                ? `Executando... <span style="color:var(--muted,#71717a);font-size:11.5px;" title="Estimativa pela duração média das últimas execuções">${cfgEsc(cronEstimativa(j))}</span>`
+                : last;
             return `<tr style="border-bottom:1px solid var(--border,#222);">
                 <td style="padding:8px 10px;font-weight:600;">${cfgEsc(j.name)}</td>
                 <td style="padding:8px 10px;">${cfgEsc(cronTaskLabel(j.task))}</td>
@@ -3027,7 +3055,8 @@ async function cronRunNow(id) {
         const resp = await fetch(`${API_BASE}/crons/${id}/run`, { method: 'POST', headers: authHeaders() });
         if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
         const job = _cronJobs.find(j => j.id === id);
-        if (job) job.last_status = 'running';
+        if (job) { job.last_status = 'running'; job.running_started_at = null; }
+        _cronLocalStart[id] = Date.now();
         cronRenderList();
         cronSchedulePoll();
     } catch (e) {

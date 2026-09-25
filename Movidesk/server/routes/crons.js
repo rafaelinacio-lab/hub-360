@@ -147,9 +147,38 @@ router.delete('/tasks/:id', async (req, res) => {
   }
 });
 
+// Além do job, devolve pra previsão de término na tela:
+//   avg_sec            — duração média das últimas 5 execuções concluídas
+//                        (da própria cron; sem histórico dela, das cargas do
+//                        mesmo tipo, inclusive manuais)
+//   running_started_at — início da execução em andamento, se houver
+const CRON_LIST_SQL = `
+  SELECT j.*, est.avg_sec, est.n_amostras, cur.started_at AS running_started_at
+  FROM silver.cron_job j
+  LEFT JOIN LATERAL (
+    SELECT AVG(EXTRACT(EPOCH FROM (finished_at - started_at)))::float AS avg_sec, COUNT(*)::int AS n_amostras
+    FROM (
+      SELECT started_at, finished_at
+      FROM silver.carga_log
+      WHERE status = 'done' AND finished_at IS NOT NULL
+        AND (cron_job_id = j.id OR (
+              NOT EXISTS (SELECT 1 FROM silver.carga_log c2 WHERE c2.cron_job_id = j.id AND c2.status = 'done')
+              AND mode = j.task))
+      ORDER BY started_at DESC
+      LIMIT 5
+    ) ult
+  ) est ON true
+  LEFT JOIN LATERAL (
+    SELECT started_at FROM silver.carga_log
+    WHERE cron_job_id = j.id AND status = 'running'
+    ORDER BY started_at DESC LIMIT 1
+  ) cur ON true
+  ORDER BY j.id`;
+
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await db.query('SELECT * FROM silver.cron_job ORDER BY id');
+    const { rows } = await db.query(CRON_LIST_SQL)
+      .catch(() => db.query('SELECT * FROM silver.cron_job ORDER BY id'));
     res.json({ jobs: rows, taskLabels: cronManager.TASK_LABELS });
   } catch (e) {
     res.status(500).json({ error: e.message });
