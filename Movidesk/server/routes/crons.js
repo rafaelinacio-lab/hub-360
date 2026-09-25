@@ -61,6 +61,33 @@ function validarTarefa(t) {
   return null;
 }
 
+// Opções pros selects do modal de tarefa: equipes, classificações e anos que
+// existem de fato nos tickets. Cache em memória — são consultas de DISTINCT
+// em tabelas grandes e a lista quase não muda.
+const CF_CLASSIFICACAO = 23946;
+let _taskOptionsCache = null;
+let _taskOptionsAt = 0;
+router.get('/task-options', async (req, res) => {
+  try {
+    if (!_taskOptionsCache || Date.now() - _taskOptionsAt > 10 * 60 * 1000) {
+      const [equipes, classes, anos] = await Promise.all([
+        db.query(`SELECT DISTINCT ownerteam AS v FROM silver.ticket WHERE NULLIF(TRIM(ownerteam), '') IS NOT NULL ORDER BY 1`),
+        db.query(`SELECT DISTINCT valor_texto AS v FROM silver.ticket_campo_customizado WHERE custom_field_id = $1 AND NULLIF(TRIM(valor_texto), '') IS NOT NULL ORDER BY 1`, [CF_CLASSIFICACAO]),
+        db.query(`SELECT DISTINCT EXTRACT(YEAR FROM createddate)::int AS v FROM silver.ticket WHERE createddate IS NOT NULL ORDER BY 1 DESC`),
+      ]);
+      _taskOptionsCache = {
+        teams: equipes.rows.map(r => r.v),
+        classifications: classes.rows.map(r => r.v),
+        years: anos.rows.map(r => r.v),
+      };
+      _taskOptionsAt = Date.now();
+    }
+    res.json(_taskOptionsCache);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/tasks', async (req, res) => {
   try {
     const { rows } = await db.query('SELECT * FROM silver.cron_task ORDER BY name');
