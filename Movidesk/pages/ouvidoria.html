@@ -745,8 +745,9 @@ function tipoKey(tipo){
   const t=(tipo||'').toLowerCase();
   if(t.includes('reclama')) return 'rec';
   if(t.includes('elogio'))  return 'elo';
-  if(t.includes('sugest'))  return 'sug';
-  return 'oth';
+  // Qualquer manifesto que não seja Reclamação/Elogio conta como Sugestão
+  // (antes existia um bucket "Outro" separado) — card, gráfico e filtro.
+  return 'sug';
 }
 const TIPO_LABEL = {rec:'Reclamação',elo:'Elogio',sug:'Sugestão',oth:'Outro'};
 
@@ -1030,7 +1031,7 @@ function buildFilterOptions(){
     populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
   populateMs('f-tipo',[
-    {v:'rec',l:'Reclamação'},{v:'elo',l:'Elogio'},{v:'sug',l:'Sugestão'},{v:'oth',l:'Outro'},
+    {v:'rec',l:'Reclamação'},{v:'elo',l:'Elogio'},{v:'sug',l:'Sugestão'},
   ],'Tipo de manifesto: todos',render);
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
@@ -1553,8 +1554,8 @@ function renderTypeChart(c){
   _charts.typeChart=new Chart(document.getElementById('typeChart'),{
     type:'doughnut',
     data:{
-      labels:['Reclamação','Elogio','Sugestão','Outro'],
-      datasets:[{data:[c.rec,c.elo,c.sug,c.oth],backgroundColor:[col.orange,col.green,col.purple,col.slate],borderWidth:0}]
+      labels:['Reclamação','Elogio','Sugestão'],
+      datasets:[{data:[c.rec,c.elo,c.sug],backgroundColor:[col.orange,col.green,col.purple],borderWidth:0}]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
