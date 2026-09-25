@@ -91,9 +91,11 @@ async function runTask(job) {
   throw new Error(`Tarefa de cron desconhecida: ${task}`);
 }
 
-async function executeJob(jobId) {
+// force = execução manual ("Rodar agora"): roda mesmo com a cron desativada —
+// o "Ativa" só controla o agendamento automático.
+async function executeJob(jobId, { force = false } = {}) {
   const row = (await db.query('SELECT * FROM silver.cron_job WHERE id = $1', [jobId]).catch(() => ({ rows: [] }))).rows[0];
-  if (!row || !row.enabled) return;
+  if (!row || (!row.enabled && !force)) return;
   console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Cron "${row.name}" (${taskLabel(row.task)}) iniciando...`);
   await db.query(`UPDATE silver.cron_job SET last_status = 'running' WHERE id = $1`, [jobId]).catch(() => {});
   try {
