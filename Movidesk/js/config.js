@@ -2783,6 +2783,17 @@ const CRON_TASK_LABEL = {
 };
 let _cronTasks = [];
 
+// Tarefas padrão descritas no mesmo formato das personalizadas — espelham o
+// que runOuvidoria/runGcc/runGeral/runIncremental fazem no loader, pra servir
+// de referência e de ponto de partida ("Usar como base").
+const CRON_BUILTIN_TASKS = [
+    { key: 'ouvidoria', name: 'Ouvidoria — em aberto', owner_team: 'Ouvidoria', classification: 'Ouvidoria', only_open: true, recent_days: 3, year: null },
+    { key: 'gcc', name: 'GCC — em aberto', owner_team: 'GCC - Gestão de Combate ao Churn', classification: 'Gestão de Combate ao Churn', only_open: true, recent_days: 3, year: null },
+    { key: 'geral', name: 'Painel Geral — ano vigente', owner_team: null, classification: null, only_open: true, recent_days: 3, year: 'vigente' },
+    { key: 'incremental', name: 'Incremental — todos os tickets', owner_team: null, classification: null, only_open: true, recent_days: 1, year: null, obs: 'janela real de 25h' },
+    { key: 'full', name: 'Full — carga completa', owner_team: null, classification: null, only_open: false, recent_days: null, year: null, obs: 'anos/classificação/equipe definidos em cada cron', semBase: true },
+];
+
 function cronTaskLabel(task) {
     if (CRON_TASK_LABEL[task]) return CRON_TASK_LABEL[task];
     const m = /^custom:(\d+)$/.exec(String(task || ''));
@@ -2797,10 +2808,19 @@ function cronTaskResumo(t) {
     const partes = [];
     if (t.owner_team) partes.push(`Equipe: ${t.owner_team}`);
     if (t.classification) partes.push(`Classificação: ${t.classification}`);
-    if (t.year) partes.push(`Ano: ${t.year}`);
+    if (t.year) partes.push(t.year === 'vigente' ? 'Ano vigente' : `Ano: ${t.year}`);
     if (t.only_open) partes.push('Só em aberto');
     if (t.recent_days) partes.push(`Atualizados nos últimos ${t.recent_days} dia(s)`);
+    if (t.obs) partes.push(`(${t.obs})`);
     return partes.join(' · ') || '—';
+}
+
+// ref = 'builtin:<key>' ou 'custom:<id>'
+function cronTaskFromRef(ref) {
+    const [tipo, v] = String(ref || '').split(':');
+    if (tipo === 'builtin') return CRON_BUILTIN_TASKS.find(t => t.key === v) || null;
+    if (tipo === 'custom') return _cronTasks.find(t => t.id === Number(v)) || null;
+    return null;
 }
 
 function cronFmtInterval(minutes) {
@@ -3024,12 +3044,18 @@ function cronRenderTasks() {
     }
     const el = document.getElementById('cronTaskList');
     if (!el) return;
-    if (!_cronTasks.length) {
-        el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma tarefa personalizada ainda.</div>';
-        return;
-    }
     const usos = {};
     _cronJobs.forEach(j => { usos[j.task] = (usos[j.task] || 0) + 1; });
+    const btnBase = (ref) => `<button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronTaskOpenModal(null,'${ref}')" title="Usar como base pra uma nova tarefa">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">content_copy</span>
+                    </button>`;
+    const usadaPor = (n) => n ? `${n} cron${n === 1 ? '' : 's'}` : '—';
+    const linhasPadrao = CRON_BUILTIN_TASKS.map(t => `<tr style="border-bottom:1px solid var(--border,#222);">
+                <td style="padding:8px 10px;font-weight:600;">${cfgEsc(t.name)} <span style="font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:10px;background:rgba(148,163,184,.15);color:var(--muted,#94a3b8);margin-left:4px;">Padrão</span></td>
+                <td style="padding:8px 10px;">${cfgEsc(cronTaskResumo(t))}</td>
+                <td style="padding:8px 10px;">${usadaPor(usos[t.key] || 0)}</td>
+                <td style="padding:8px 10px;white-space:nowrap;">${t.semBase ? '' : btnBase(`builtin:${t.key}`)}</td>
+            </tr>`).join('');
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
             <tr style="border-bottom:1px solid var(--border,#333);color:var(--muted,#71717a);text-align:left;">
@@ -3040,13 +3066,15 @@ function cronRenderTasks() {
             </tr>
         </thead>
         <tbody>
+        ${linhasPadrao}
         ${_cronTasks.map(t => {
             const n = usos[`custom:${t.id}`] || 0;
             return `<tr style="border-bottom:1px solid var(--border,#222);">
                 <td style="padding:8px 10px;font-weight:600;">${cfgEsc(t.name)}</td>
                 <td style="padding:8px 10px;">${cfgEsc(cronTaskResumo(t))}</td>
-                <td style="padding:8px 10px;">${n ? `${n} cron${n === 1 ? '' : 's'}` : '—'}</td>
+                <td style="padding:8px 10px;">${usadaPor(n)}</td>
                 <td style="padding:8px 10px;white-space:nowrap;">
+                    ${btnBase(`custom:${t.id}`)}
                     <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronTaskOpenModal(${t.id})" title="Editar">
                         <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">edit</span>
                     </button>
@@ -3060,18 +3088,45 @@ function cronRenderTasks() {
     </table>`;
 }
 
-function cronTaskOpenModal(taskId) {
+function cronTaskFillFields(t) {
+    document.getElementById('cronTaskTeam').value = t?.owner_team || '';
+    document.getElementById('cronTaskClass').value = t?.classification || '';
+    document.getElementById('cronTaskYear').value = t?.year === 'vigente' ? new Date().getFullYear() : (t?.year || '');
+    document.getElementById('cronTaskDays').value = t?.recent_days || '';
+    document.getElementById('cronTaskOpen').checked = !!t?.only_open;
+}
+
+// Preenche os filtros a partir de uma tarefa existente (padrão ou
+// personalizada). Não mexe no nome se o usuário já digitou um.
+function cronTaskApplyBase(ref) {
+    const base = cronTaskFromRef(ref);
+    if (!base) return;
+    cronTaskFillFields(base);
+    const nomeEl = document.getElementById('cronTaskName');
+    if (!nomeEl.value.trim()) nomeEl.value = `${base.name} (cópia)`;
+}
+
+function cronTaskOpenModal(taskId, baseRef) {
     const t = taskId ? _cronTasks.find(x => x.id === taskId) : null;
     const errorEl = document.getElementById('cronTaskModalError');
     if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
     document.getElementById('cronTaskModalTitle').textContent = t ? 'Editar tarefa' : 'Nova tarefa';
     document.getElementById('cronTaskId').value = t ? t.id : '';
     document.getElementById('cronTaskName').value = t?.name || '';
-    document.getElementById('cronTaskTeam').value = t?.owner_team || '';
-    document.getElementById('cronTaskClass').value = t?.classification || '';
-    document.getElementById('cronTaskYear').value = t?.year || '';
-    document.getElementById('cronTaskDays').value = t?.recent_days || '';
-    document.getElementById('cronTaskOpen').checked = !!t?.only_open;
+    cronTaskFillFields(t);
+
+    const baseSel = document.getElementById('cronTaskBase');
+    document.getElementById('cronTaskBaseField').style.display = t ? 'none' : '';
+    baseSel.innerHTML = '<option value="">— em branco —</option>'
+        + '<optgroup label="Tarefas padrão">'
+        + CRON_BUILTIN_TASKS.filter(b => !b.semBase).map(b => `<option value="builtin:${b.key}">${cfgEsc(b.name)}</option>`).join('')
+        + '</optgroup>'
+        + (_cronTasks.length ? '<optgroup label="Tarefas personalizadas">'
+            + _cronTasks.map(c => `<option value="custom:${c.id}">${cfgEsc(c.name)}</option>`).join('')
+            + '</optgroup>' : '');
+    baseSel.value = '';
+    if (!t && baseRef) { baseSel.value = baseRef; cronTaskApplyBase(baseRef); }
+
     document.getElementById('cronTaskModal').style.display = 'flex';
 }
 

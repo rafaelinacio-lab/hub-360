@@ -1068,7 +1068,7 @@
                         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
                             <div>
                                 <h3 class="config-card-title" style="margin-bottom:2px;">Tarefas personalizadas</h3>
-                                <p class="config-card-help" style="margin:0;">Monte uma carga com os filtros que precisar (equipe, classificação, ano, só em aberto, últimos N dias). Ela aparece como opção de Tarefa ao criar uma cron.</p>
+                                <p class="config-card-help" style="margin:0;">Monte uma carga com os filtros que precisar (equipe, classificação, ano, só em aberto, últimos N dias). Ela aparece como opção de Tarefa ao criar uma cron. As tarefas padrão do sistema estão listadas também — use qualquer uma como base pra uma nova.</p>
                             </div>
                             <button class="config-btn" onclick="cronTaskOpenModal()">
                                 <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">add</span> Nova tarefa
@@ -1089,6 +1089,10 @@
                         </div>
                         <div class="pm-body">
                             <input type="hidden" id="cronTaskId">
+                            <div class="pm-field" id="cronTaskBaseField">
+                                <label for="cronTaskBase">Começar a partir de (opcional)</label>
+                                <select id="cronTaskBase" onchange="cronTaskApplyBase(this.value)"></select>
+                            </div>
                             <div class="pm-field">
                                 <label for="cronTaskName">Nome</label>
                                 <input type="text" id="cronTaskName" placeholder="Ex: Suporte — abertos">
