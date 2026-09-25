@@ -1207,7 +1207,13 @@ function render(){
     ['k-total-d','k-elo-d','k-rec-d','k-sug-d','k-proc-d','k-pend-d'].forEach(id=>setDelta(id,{text:'sem histórico suficiente',cls:'flat'}));
   }
 
-  renderTrendChart(byMes,meses);
+  // A tendência respeita também o filtro de Mês (o byMes acima não, porque
+  // o delta precisa do mês anterior mesmo quando ele não está selecionado).
+  const monthFilsT=getMsValues('f-month').map(Number);
+  const byMesTrend=monthFilsT.length
+    ? bucketPorMes(rowsCtx.filter(r=>r.criado_em&&monthFilsT.includes(new Date(r.criado_em).getMonth()+1)))
+    : byMes;
+  renderTrendChart(byMesTrend);
   renderTypeChart(c);
   renderAreaChart(rowsFull);
   renderTopClientChart(rowsFull);
@@ -1482,7 +1488,7 @@ const TIPO_LABEL_TO_KEY={'Reclamação':'rec','Elogio':'elo','Sugestão':'sug','
 // Cores extras pro comparativo entre anos (além de orange/green já usados
 // pra Reclamações/Elogios no modo padrão).
 const TREND_YEAR_COLORS=['orange','purple','slate','green','t1'];
-function renderTrendChart(byMes,meses){
+function renderTrendChart(byMes){
   destroyChart('trendChart');
   const col=chartColors();
   const titleEl=document.getElementById('trendChartTitle');
@@ -1527,16 +1533,28 @@ function renderTrendChart(byMes,meses){
   // Ano filtrado (com ou sem Mês) — mostra Jan a Dez desse ano específico,
   // com zero nos meses sem dado, em vez da janela deslizante dos últimos 12
   // meses (que podia nem incluir o ano escolhido).
-  titleEl.textContent='Elogios vs reclamações por mês';
+  // Séries = tipos selecionados no filtro "Tipo de manifesto"; sem filtro,
+  // mantém o padrão Elogios vs Reclamações.
+  const SERIES_TIPO={
+    elo:{label:'Elogios',cor:col.green},
+    rec:{label:'Reclamações',cor:col.orange},
+    sug:{label:'Sugestões',cor:col.purple},
+  };
+  const tipoFilsT=getMsValues('f-tipo').filter(k=>SERIES_TIPO[k]);
+  const tiposSerie=tipoFilsT.length?['elo','rec','sug'].filter(k=>tipoFilsT.includes(k)):['elo','rec'];
+  titleEl.textContent=tipoFilsT.length
+    ? `${tiposSerie.map(k=>SERIES_TIPO[k].label).join(' vs ')} por mês`
+    : 'Elogios vs reclamações por mês';
   const chaves=MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`);
   _charts.trendChart=new Chart(document.getElementById('trendChart'),{
     type:'line',
     data:{
       labels:MONTH_NAMES,
-      datasets:[
-        {label:'Elogios',data:chaves.map(mk=>byMes[mk]?byMes[mk].elo:0),borderColor:col.green,backgroundColor:col.green+'26',fill:true,tension:.3,pointRadius:3},
-        {label:'Reclamações',data:chaves.map(mk=>byMes[mk]?byMes[mk].rec:0),borderColor:col.orange,backgroundColor:col.orange+'26',fill:true,tension:.3,pointRadius:3},
-      ]
+      datasets:tiposSerie.map(k=>({
+        label:SERIES_TIPO[k].label,
+        data:chaves.map(mk=>byMes[mk]?byMes[mk][k]:0),
+        borderColor:SERIES_TIPO[k].cor,backgroundColor:SERIES_TIPO[k].cor+'26',fill:true,tension:.3,pointRadius:3,
+      })),
     },
     options:{
       responsive:true,maintainAspectRatio:false,
