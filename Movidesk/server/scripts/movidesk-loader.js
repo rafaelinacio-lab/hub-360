@@ -1779,7 +1779,7 @@ async function runFixOrganizacao() {
       SELECT organizacao_nome
       FROM silver.ticket_cliente
       WHERE ticket_id = t.ticket_id
-      ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
+      ORDER BY COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
       LIMIT 1
     ) tc ON true
     WHERE tc.organizacao_nome IS NULL OR tc.organizacao_nome = ''
@@ -2104,7 +2104,7 @@ async function refreshTicketOrganizacao() {
       INSERT INTO silver.ticket_organizacao (ticket_id, organizacao_id, organizacao_nome, atualizado_em)
       SELECT DISTINCT ON (ticket_id) ticket_id, organizacao_id, organizacao_nome, NOW()
       FROM silver.ticket_cliente
-      ORDER BY ticket_id, (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
+      ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
       ON CONFLICT (ticket_id) DO UPDATE SET
         organizacao_id   = EXCLUDED.organizacao_id,
         organizacao_nome = EXCLUDED.organizacao_nome,

@@ -72,7 +72,7 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         -- INFORMATICA LTDA" em vez do cliente de verdade); e-mail @viasoft.com.br
         -- também desempata pro mesmo lado (funcionário nosso cadastrado como
         -- contato "Executivo de Relacionamento" no ticket do cliente real).
-        ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
+        ORDER BY COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
         LIMIT 1
       ) tc ON true
       LEFT JOIN LATERAL (
@@ -144,7 +144,7 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, re
         -- INFORMATICA LTDA" em vez do cliente de verdade); e-mail @viasoft.com.br
         -- também desempata pro mesmo lado (funcionário nosso cadastrado como
         -- contato "Executivo de Relacionamento" no ticket do cliente real).
-        ORDER BY (email ILIKE '%@viasoft.com.br'), (profile_type = '3'), organizacao_nome IS NULL
+        ORDER BY COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
         LIMIT 1
       ) tc ON true
       WHERE t.ticket_id = $1
