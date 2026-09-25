@@ -25,6 +25,7 @@ const router  = express.Router();
 const db      = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const cronManager = require('../scripts/cron-manager');
+const movideskLoader = require('../scripts/movidesk-loader');
 
 const VALID_TASKS = ['ouvidoria', 'gcc', 'geral', 'incremental', 'full'];
 
@@ -220,7 +221,10 @@ router.post('/:id/run', async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await db.query('SELECT * FROM silver.cron_job WHERE id = $1', [id]);
     if (!rows.length) return res.status(404).json({ error: 'Cron não encontrada' });
-    cronManager.executeJob(id).catch(e => console.error('[crons] execução manual falhou:', e.message));
+    if (movideskLoader.state?.running) {
+      return res.status(409).json({ error: `Já existe uma carga em andamento (${movideskLoader.state.mode || 'outra carga'}). Aguarde terminar e tente de novo.` });
+    }
+    cronManager.executeJob(id, { force: true }).catch(e => console.error('[crons] execução manual falhou:', e.message));
     res.json({ started: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
