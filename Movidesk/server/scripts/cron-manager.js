@@ -24,6 +24,9 @@ const TASK_LABELS = {
 };
 
 const timers = new Map(); // job id -> { intervalHandle, timeoutHandle }
+const pending = new Set(); // jobs na fila ou rodando agora
+const QUEUE_POLL_MS = 20 * 1000;
+const QUEUE_MAX_WAIT_MS = 3 * 60 * 60 * 1000;
 
 async function ensureTable() {
   await db.query(`
@@ -96,9 +99,24 @@ async function runTask(job) {
 async function executeJob(jobId, { force = false } = {}) {
   const row = (await db.query('SELECT * FROM silver.cron_job WHERE id = $1', [jobId]).catch(() => ({ rows: [] }))).rows[0];
   if (!row || (!row.enabled && !force)) return;
-  console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Cron "${row.name}" (${taskLabel(row.task)}) iniciando...`);
-  await db.query(`UPDATE silver.cron_job SET last_status = 'running' WHERE id = $1`, [jobId]).catch(() => {});
+  // Mesma cron já na fila/rodando (ex.: timer disparou de novo enquanto a
+  // anterior esperava) — não empilha outra.
+  if (pending.has(jobId)) return;
+  pending.add(jobId);
   try {
+    // Só uma carga roda por vez no loader. Antes, se outra cron (ou carga
+    // manual) estivesse em andamento, esta falhava na hora com "Já existe uma
+    // carga em andamento" — agora espera na fila até o loader liberar.
+    if (movideskLoader.state.running) {
+      await db.query(`UPDATE silver.cron_job SET last_status = 'queued' WHERE id = $1`, [jobId]).catch(() => {});
+      const limite = Date.now() + QUEUE_MAX_WAIT_MS;
+      while (movideskLoader.state.running) {
+        if (Date.now() > limite) throw new Error(`Outra carga (${movideskLoader.state.mode || '?'}) ficou em andamento por mais de ${QUEUE_MAX_WAIT_MS / 3600000}h — execução pulada`);
+        await new Promise(r => setTimeout(r, QUEUE_POLL_MS));
+      }
+    }
+    console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Cron "${row.name}" (${taskLabel(row.task)}) iniciando...`);
+    await db.query(`UPDATE silver.cron_job SET last_status = 'running' WHERE id = $1`, [jobId]).catch(() => {});
     await runTask(row);
     await db.query(
       `UPDATE silver.cron_job SET last_run_at = NOW(), last_status = 'done', last_error = NULL WHERE id = $1`,
@@ -111,6 +129,8 @@ async function executeJob(jobId, { force = false } = {}) {
       [jobId, e.message]
     ).catch(() => {});
     console.error(`✘ Cron "${row.name}" falhou: ${e.message}`);
+  } finally {
+    pending.delete(jobId);
   }
 }
 

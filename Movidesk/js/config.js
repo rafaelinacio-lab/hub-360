@@ -2883,8 +2883,8 @@ function cronRenderList() {
         el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma cron cadastrada ainda.</div>';
         return;
     }
-    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171', running: 'color:#60a5fa' };
-    const statusIcon  = { done: 'check_circle', error: 'error', running: 'sync' };
+    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171', running: 'color:#60a5fa', queued: 'color:#fbbf24' };
+    const statusIcon  = { done: 'check_circle', error: 'error', running: 'sync', queued: 'hourglass_top' };
 
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
@@ -2900,7 +2900,8 @@ function cronRenderList() {
         <tbody>
         ${_cronJobs.map(j => {
             const st = j.last_status;
-            const running = st === 'running';
+            const queued = st === 'queued';
+            const running = st === 'running' || queued;
             const last = j.last_run_at ? new Date(j.last_run_at).toLocaleString('pt-BR') : 'Nunca rodou';
             const spin = running ? 'animation:spin 1s linear infinite;' : '';
             const statusBadge = st
@@ -2908,14 +2909,16 @@ function cronRenderList() {
                      <span class="material-symbols-outlined" style="font-size:13px;${spin}">${statusIcon[st] || 'help'}</span>
                    </span>`
                 : '';
-            const lastLabel = running
+            const lastLabel = queued
+                ? `Na fila… <span style="color:var(--muted,#71717a);font-size:11.5px;">aguardando outra carga terminar</span>`
+                : running
                 ? `Executando... <span style="color:var(--muted,#71717a);font-size:11.5px;" title="Estimativa pela duração média das últimas execuções">${cfgEsc(cronEstimativa(j))}</span>`
                 : last;
             return `<tr style="border-bottom:1px solid var(--border,#222);">
                 <td style="padding:8px 10px;font-weight:600;">${cfgEsc(j.name)}</td>
                 <td style="padding:8px 10px;">${cfgEsc(cronTaskLabel(j.task))}</td>
                 <td style="padding:8px 10px;">${cronFmtInterval(j.interval_minutes)}</td>
-                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${lastLabel}${(!running && j.last_error) ? ` <span style="color:#f87171;font-size:11px;" title="${cfgEsc(j.last_error)}">(erro)</span>` : ''}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${lastLabel}${(!running && j.last_error) ? `<div style="color:#f87171;font-size:11px;margin-top:3px;max-width:420px;white-space:normal;line-height:1.35;" title="${cfgEsc(j.last_error)}">${cfgEsc(j.last_error.length > 160 ? j.last_error.slice(0, 158) + '…' : j.last_error)}</div>` : ''}</td>
                 <td style="padding:8px 10px;">
                     <label style="display:inline-flex;align-items:center;cursor:pointer;">
                         <input type="checkbox" ${j.enabled ? 'checked' : ''} onchange="cronToggleEnabled(${j.id}, this.checked)">
@@ -2940,7 +2943,7 @@ function cronRenderList() {
         </tbody>
     </table>`;
 
-    const anyRunning = _cronJobs.some(j => j.last_status === 'running');
+    const anyRunning = _cronJobs.some(j => j.last_status === 'running' || j.last_status === 'queued');
     if (anyRunning) cronSchedulePoll();
 }
 
@@ -3068,8 +3071,9 @@ async function cronRunNow(id) {
     try {
         const resp = await fetch(`${API_BASE}/crons/${id}/run`, { method: 'POST', headers: authHeaders() });
         if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+        const d = await resp.json().catch(() => ({}));
         const job = _cronJobs.find(j => j.id === id);
-        if (job) { job.last_status = 'running'; job.running_started_at = null; }
+        if (job) { job.last_status = d.queued ? 'queued' : 'running'; job.running_started_at = null; }
         _cronLocalStart[id] = Date.now();
         cronRenderList();
         cronSchedulePoll();
