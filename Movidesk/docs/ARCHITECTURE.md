@@ -47,6 +47,17 @@ Não existe login por senha. Usuários são desativados em **Pessoas**
 | `/api/pessoas/foto*` | sessão |
 | `/api/config/*`, `/api/crons/*`, `/api/loader/*`, `/api/users/*` | sessão + papel (quase tudo admin) |
 
+## Limites e cabeçalhos
+
+- Limite de requisições em memória (`utils/rateLimit.js`): login Google 20 /
+  15 min por IP; `curadoria/ai/chat` 120 / 10 min por usuário;
+  `tickets/:id/executive-summary` 30 / 10 min por usuário. Excedeu → 429.
+- `helmet` com Content-Security-Policy listando só os hosts usados pelo front
+  (jsDelivr, cdnjs, Tailwind CDN, Google Fonts, Google Sign-In, fotos do
+  Google, DiceBear). Ainda precisa de `'unsafe-inline'` por causa dos scripts
+  e `onclick` inline. `frame-ancestors 'self'` e `object-src 'none'`.
+  `CSP_REPORT_ONLY=1` troca pra modo só-relatório.
+
 ## Segredos
 
 `config` guarda token do Movidesk, chave da OpenAI e senha de banco

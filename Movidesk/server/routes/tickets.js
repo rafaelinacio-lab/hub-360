@@ -6,6 +6,7 @@ const { getToken, getPrompt, requireTabAccess } = require('./config');
 const { decryptToken } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
 const datalake = require('../utils/datalakeClient');
+const { rateLimit } = require('../utils/rateLimit');
 
 // Todas as rotas de /api/tickets exigem sessão válida. Antes dava pra chamar
 // sem token e o perfil (e a vertical) vinha de ?viewerRole=/?viewerVertical=,
@@ -1543,7 +1544,8 @@ function fetchTicketForExecutiveSummaryFromLocalDb(id) {
 // actions/clients/statusHistories adaptados via nativeRowToTicketShape (ver
 // comentário acima de inferTicketContext), sem heurística: tipo/origem da
 // ação já vêm como os códigos numéricos reais do Movidesk.
-router.post('/:id/executive-summary', requireTabAccess('chamados'), async (req, res) => {
+const aiSummaryLimiter = rateLimit({ name: 'tickets/executive-summary', windowMs: 10 * 60 * 1000, max: 30 });
+router.post('/:id/executive-summary', requireTabAccess('chamados'), aiSummaryLimiter, async (req, res) => {
   const { id } = req.params;
   try {
     let ticket;

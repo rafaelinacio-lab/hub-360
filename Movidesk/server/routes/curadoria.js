@@ -4,6 +4,7 @@ const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { decryptToken } = require('../utils/crypto');
 const datalake = require('../utils/datalakeClient');
+const { rateLimit } = require('../utils/rateLimit');
 const {
   getToken, getCuradoriaPromptAnalise, getCuradoriaQueryConfig,
   getCuradoriaMovideskConfig, sanitizeRawWhere,
@@ -1798,7 +1799,11 @@ const AI_CHAT_PURPOSES = {
 const AI_CHAT_MODEL = 'gpt-4o-mini';
 const AI_CHAT_MAX_INPUT_CHARS = 20000;
 
-router.post('/ai/chat', authMiddleware, requireTabAccess('chamados'), async (req, res) => {
+// A análise de competências manda lotes de 15 chamados em sequência —
+// 120 chamadas / 10 min por usuário cobre um atendente grande com folga.
+const aiChatLimiter = rateLimit({ name: 'curadoria/ai/chat', windowMs: 10 * 60 * 1000, max: 120 });
+
+router.post('/ai/chat', authMiddleware, requireTabAccess('chamados'), aiChatLimiter, async (req, res) => {
   const { purpose, user: userText, meta } = req.body || {};
   const cfg = AI_CHAT_PURPOSES[purpose];
   if (!cfg) return res.status(400).json({ error: 'Finalidade de IA inválida' });

@@ -23,11 +23,36 @@ const cronManager = require('./scripts/cron-manager');
 const { getCuradoriaMovideskConfig, reencryptLegacyValues } = require('./routes/config');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
+// Atrás de um proxy reverso (Caddy/nginx), defina TRUST_PROXY=1 pra que
+// req.ip (usado no limite de login) seja o IP real do cliente.
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+
+// CSP: só os hosts que o front realmente usa. As páginas têm muito script e
+// onclick inline, então 'unsafe-inline' continua necessário por enquanto —
+// o ganho aqui é bloquear script/iframe/conexão de qualquer outra origem,
+// plugins (object-src) e clickjacking (frame-ancestors).
+const CSP_DIRECTIVES = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.tailwindcss.com', 'https://accounts.google.com'],
+  scriptSrcAttr: ["'unsafe-inline'"],
+  styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://accounts.google.com'],
+  fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+  imgSrc: ["'self'", 'data:', 'blob:', 'https://*.googleusercontent.com', 'https://api.dicebear.com'],
+  connectSrc: ["'self'", 'https://accounts.google.com', 'https://cdn.jsdelivr.net'],
+  frameSrc: ["'self'", 'https://accounts.google.com'],
+  frameAncestors: ["'self'"],
+  objectSrc: ["'none'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  upgradeInsecureRequests: null,
+};
 app.use(helmet({
-  contentSecurityPolicy: false,
+  // CSP_REPORT_ONLY=1 só registra violações no console do navegador, sem
+  // bloquear — útil pra investigar se algo quebrar depois de um deploy.
+  contentSecurityPolicy: { useDefaults: false, directives: CSP_DIRECTIVES, reportOnly: process.env.CSP_REPORT_ONLY === '1' },
   // Login com Google (GSI) abre um popup pra fazer o handshake do OAuth e
   // depois avisa a janela original via postMessage. O padrão do helmet
   // (Cross-Origin-Opener-Policy: same-origin) bloqueia essa comunicação e
@@ -37,7 +62,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
-    : [`http://localhost:${process.env.PORT || 3000}`],
+    : [`http://localhost:${PORT}`],
   credentials: true
 }));
 app.use(express.json());
