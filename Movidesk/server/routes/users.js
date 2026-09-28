@@ -68,6 +68,36 @@ router.delete('/roles/:id', authMiddleware, requireRole('admin'), async (req, re
   } catch (_) { return res.status(500).json({ error: 'Erro ao remover perfil' }); }
 });
 
+// /access-logs precisa vir ANTES de /:id — senão o Express trata
+// "access-logs" como :id e esta rota nunca é alcançada.
+// GET /users/access-logs
+router.get('/access-logs', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT l.*, u.email, u.name FROM access_logs l
+       LEFT JOIN users u ON l.user_id = u.id
+       WHERE l.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY l.created_at DESC LIMIT 1000`
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao buscar logs' });
+  }
+});
+
+// GET /users/access-logs/:userId
+router.get('/access-logs/:userId', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT * FROM access_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
+      [req.params.userId]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao buscar logs' });
+  }
+});
+
 // GET /users/:id
 router.get('/:id', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
@@ -239,35 +269,6 @@ router.post('/:id/reset-password', authMiddleware, requireRole('admin'), async (
   } catch (err) {
     console.error('POST /users/:id/reset-password error:', err.message);
     return res.status(500).json({ error: 'Erro ao resetar senha' });
-  }
-});
-
-// GET /users/roles (deve vir ANTES de /:id para não conflitar)
-// GET /users/access-logs
-router.get('/access-logs', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT l.*, u.email, u.name FROM access_logs l
-       LEFT JOIN users u ON l.user_id = u.id
-       WHERE l.created_at >= NOW() - INTERVAL '30 days'
-       ORDER BY l.created_at DESC LIMIT 1000`
-    );
-    return res.json(result.rows);
-  } catch (err) {
-    return res.status(500).json({ error: 'Erro ao buscar logs' });
-  }
-});
-
-// GET /users/access-logs/:userId
-router.get('/access-logs/:userId', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT * FROM access_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
-      [req.params.userId]
-    );
-    return res.json(result.rows);
-  } catch (err) {
-    return res.status(500).json({ error: 'Erro ao buscar logs' });
   }
 });
 

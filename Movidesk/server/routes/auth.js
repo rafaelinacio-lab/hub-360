@@ -15,6 +15,7 @@ const {
   validateEmail,
   hashSessionToken
 } = require('../utils/auth');
+const { rateLimit } = require('../utils/rateLimit');
 const { isGoogleSsoConfigured, verifyGoogleIdToken, GOOGLE_CLIENT_ID, ALLOWED_DOMAIN } = require('../utils/googleAuth');
 
 // ===== Middleware de Autenticação =====
@@ -75,7 +76,10 @@ router.get('/google-config', (req, res) => {
 // - Se não está cadastrada, ganha automaticamente o perfil "guest" (só vê a
 //   Dashboard) — um admin pode promover essa pessoa depois, em Pessoas.
 // A única forma de bloquear alguém é desativar o cadastro dela em Pessoas.
-router.post('/google', async (req, res) => {
+// 20 tentativas de login a cada 15 min por IP.
+const loginLimiter = rateLimit({ name: 'auth/google', windowMs: 15 * 60 * 1000, max: 20, keyFn: req => `ip:${req.ip}` });
+
+router.post('/google', loginLimiter, async (req, res) => {
   const { credential } = req.body || {};
 
   let googleUser;
