@@ -498,6 +498,13 @@ body.modal-open{overflow:hidden}
         </button>
         <div class="ms-drop"></div>
       </div>
+      <div class="multi-sel" id="f-vertical" title="Campo GCC - Verticais Insatisfação">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Vertical: todas</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
       <div class="multi-sel" id="f-status">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Status: todos</span>
@@ -1204,6 +1211,13 @@ function buildFilterOptions(){
   };
   fill('f-tipo',"Tipo de rescisão",_rows.map(tipoRescNorm));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
+  // Vertical = CF 98697 (GCC - Verticais Insatisfação); "Não informado" entra
+  // como opção pra achar os tickets sem o campo preenchido.
+  {
+    const verts=[...new Set(_rows.map(verticalDe))]
+      .sort((a,b)=>(a==='Não informado')-(b==='Não informado')||a.localeCompare(b,'pt'));
+    populateMs('f-vertical',verts.map(v=>({v,l:v})),'Vertical: todas',render);
+  }
   populateMs('f-status',[
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
   ],'Status: todos',render);
@@ -1228,6 +1242,7 @@ function statusBate(r,statusFils){
 function getFilteredRows(){
   const tipoFils=getMsValues('f-tipo');
   const orgFils=getMsValues('f-org');
+  const verticalFils=getMsValues('f-vertical');
   const statusFils=getMsValues('f-status');
   const yearFils=getMsValues('f-year').map(Number);
   const monthFils=getMsValues('f-month').map(Number);
@@ -1238,6 +1253,7 @@ function getFilteredRows(){
     if(CANCELADO_STATUSES.includes(r.base_status)) return false;
     if(tipoFils.length&&!tipoFils.includes(tipoRescNorm(r))) return false;
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
+    if(verticalFils.length&&!verticalFils.includes(verticalDe(r))) return false;
     if(!statusBate(r,statusFils)) return false;
     return true;
   });
