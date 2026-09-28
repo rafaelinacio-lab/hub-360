@@ -298,7 +298,7 @@ function createAvatarHTML(email, name, googlePicture) {
     return `
         <div class="avatar-container" title="${escapeHtml(name || '')}">
             <img
-                src="${imageSrc || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}"
+                ${imgSrcAttr(imageSrc || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')}
                 alt="${escapeHtml(name || '')}"
                 class="avatar-foto"
                 data-fallback="${escapeHtml(fallback)}"
@@ -657,9 +657,6 @@ function setupConfigEvents() {
 // Inicializar quando a página carregar
 document.addEventListener('DOMContentLoaded', async function() {
     applyRuntimeLayoutMode();
-
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.addEventListener('submit', loginSubmit);
 
     const current = await loadCurrentUser();
     if (!current) {

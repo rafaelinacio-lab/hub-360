@@ -1,419 +1,80 @@
-# 🏗️ Arquitetura do Sistema de Autenticação
+# Arquitetura
 
-## Diagrama de Banco de Dados
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      SISTEMA DE AUTENTICAÇÃO                     │
-└─────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────┐
-│      roles           │
-├──────────────────────┤
-│ id (PK)              │
-│ name (UNIQUE)        │
-│ description          │
-│ permissions (JSON)   │
-│ createdAt            │
-└──────────┬───────────┘
-           │
-           │ (1:N)
-           │
-┌──────────▼────────────────────────┐
-│         users                      │
-├────────────────────────────────────┤
-│ id (PK)                            │
-│ email (UNIQUE)                     │
-│ name                               │
-│ password_hash (PBKDF2-SHA512)     │
-│ role_id (FK → roles)               │
-│ is_active                          │
-│ first_access                       │
-│ failed_login_attempts              │
-│ locked_until                       │
-│ last_login                         │
-│ created_at                         │
-│ updated_at                         │
-└──────────┬─────────────────────────┘
-           │
-      ┌────┴────┬──────────────┐
-      │          │              │
-      │ (1:1)    │ (1:1)        │ (1:N)
-      │          │              │
-   ┌──▼─────┐  ┌─▼────────────────────┐  ┌─▼──────────────────┐
-   │mfa_    │  │ password_            │  │  sessions          │
-   │settings│  │ resets               │  │                    │
-   ├────────┤  ├──────────────────────┤  ├────────────────────┤
-   │id (PK) │  │ id (PK)              │  │ id (PK)            │
-   │user_id │  │ user_id              │  │ user_id (FK)       │
-   │mfa_    │  │ token (UNIQUE)       │  │ token (UNIQUE)     │
-   │type    │  │ expires_at           │  │ ip_address         │
-   │totp_   │  │ used                 │  │ user_agent         │
-   │secret  │  │ created_at           │  │ expires_at         │
-   │backup_ │  │                      │  │ created_at         │
-   │codes   │  │                      │  │                    │
-   │is_     │  │                      │  │                    │
-   │enabled │  │                      │  │                    │
-   │verified│  │                      │  │                    │
-   │_at     │  │                      │  │                    │
-   └────────┘  └──────────────────────┘  └────────────────────┘
-
-┌───────────────────────────────────┐
-│       access_logs                 │
-├───────────────────────────────────┤
-│ id (PK)                           │
-│ user_id (FK → users) [NULLABLE]  │
-│ action (login, logout, etc)       │
-│ resource                          │
-│ ip_address                        │
-│ success                           │
-│ details                           │
-│ created_at                        │
-└───────────────────────────────────┘
-```
-
----
-
-## Fluxo de Autenticação
+## Visão geral
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   PRIMEIRO LOGIN                             │
-└─────────────────────────────────────────────────────────────┘
-
-1. Usuário recebe:
-   Email: usuario@example.com
-   Senha: ABC123DEF456 (gerada pelo Admin)
-   ↓
-2. POST /api/auth/login
-   {email, password}
-   ↓
-3. Validar email/senha
-   └─→ ❌ Falhou → Incrementar tentativas → Bloquear se 5+
-   └─→ ✅ Ok → Continuar
-   ↓
-4. Verificar MFA habilitado
-   ├─→ ❌ Não → Criar sessão 24h → Retornar token
-   └─→ ✅ Sim → Criar sessão temporária 10min → Retornar tempToken
-   ↓
-5. POST /api/auth/verify-mfa
-   {tempToken, code}
-   ├─→ TOTP válido → Criar sessão permanente
-   ├─→ Backup code válido → Marcar como usado → Criar sessão
-   └─→ Inválido → Erro 401
+Navegador ──HTTPS──▶ Express (server/server.js)
+                     ├─ estáticos: /css /js /pages, index.html, login.html, /admin
+                     ├─ /api/*  (server/routes/*.js)
+                     ├─ cargas Movidesk (server/scripts/movidesk-loader.js)
+                     │    agendadas por silver.cron_job (server/scripts/cron-manager.js)
+                     └─ Postgres ── tabelas do painel (users, sessions, config, …)
+                                 └─ datalake bronze/silver/gold (silver.ticket, …)
 ```
 
----
+A aplicação é um shell (`index.html`) com as abas carregadas em iframes de
+`pages/*.html`. Todas as páginas falam com `/api` mandando o token da sessão
+em `Authorization: Bearer <token>`.
 
-## Fluxo de Primeiro Acesso
+## Autenticação
 
-```
-┌────────────────────────────────────────────────────┐
-│         PRIMEIRO ACESSO - MUDANÇA DE SENHA         │
-└────────────────────────────────────────────────────┘
+1. `login.html` usa o Google Identity Services e manda o ID token para
+   `POST /api/auth/google`.
+2. O backend valida o token (`utils/googleAuth.js`, domínio `ALLOWED_DOMAIN`),
+   encontra/cria o usuário (sem cadastro → perfil `guest`) e cria uma sessão
+   de 24 h.
+3. O token devolvido ao navegador é aleatório (32 bytes). A tabela `sessions`
+   guarda só `sha256:<hash>` dele (`utils/auth.js → hashSessionToken`).
+4. `authMiddleware` (`routes/auth.js`) resolve o token → usuário; nenhuma rota
+   aceita perfil ou vertical vindos da query string.
 
-1. User logado com first_access: true
-   ↓
-2. POST /api/auth/first-access
-   {
-     email,
-     initialPassword,  ← senha recebida
-     newPassword       ← senha forte definida
-   }
-   ↓
-3. Validar initialPassword (deve ser hash correto)
-   ↓
-4. Validar newPassword (força mínima)
-   ├─→ 8+ caracteres
-   ├─→ 1+ maiúscula
-   ├─→ 1+ minúscula
-   ├─→ 1+ número
-   └─→ 1+ caractere especial
-   ↓
-5. Gerar novo hash com PBKDF2-SHA512
-   ↓
-6. UPDATE user SET password_hash = ?, first_access = 0
-   ↓
-7. Próximo passo: Configurar MFA
-```
+Não existe login por senha. Usuários são desativados em **Pessoas**
+(`is_active = false`), o que também encerra as sessões.
 
----
+## Autorização
 
-## Fluxo de MFA Setup
+- `requireRole(...)` — rotas administrativas (Configurações, Pessoas, crons,
+  cargas manuais).
+- `requireTabAccess(aba | [abas])` (`routes/config.js`) — rotas de dados de
+  cada aba. `admin` passa sempre; os demais perfis seguem o que está salvo em
+  **Configurações → Acesso** (`config.role_tab_permissions`).
 
-```
-┌─────────────────────────────────────────────┐
-│    CONFIGURAÇÃO DE AUTENTICAÇÃO 2FA         │
-└─────────────────────────────────────────────┘
+| Rota | Exige |
+|---|---|
+| `/api/tickets/*` | sessão + aba `dashboard`, `movidesk` ou `chamados`; `stats/overview` só admin; `executive-summary` aba `chamados` |
+| `/api/curadoria/*` (inclui `ai/chat`) | sessão + aba `chamados` |
+| `/api/ouvidoria`, `/api/gcc`, `/api/geral`, `/api/satisfacao`, `/api/jira` | sessão + aba correspondente |
+| `/api/pessoas/foto*` | sessão |
+| `/api/config/*`, `/api/crons/*`, `/api/loader/*`, `/api/users/*` | sessão + papel (quase tudo admin) |
 
-1. POST /api/auth/setup-mfa
-   Headers: Authorization: Bearer <token>
-   ↓
-2. Gerar segredo TOTP (Base32, 32 bytes)
-   ↓
-3. Gerar QR Code (otpauth://...)
-   ↓
-4. Retornar:
-   {
-     qrCode: "data:image/png;base64,...",
-     secret: "JBSWY3DPEBLW64TMMQ...",
-     message: "Escaneie o código QR"
-   }
-   ↓
-5. Usuário escaneia com:
-   • Google Authenticator
-   • Microsoft Authenticator
-   • Authy
-   • 1Password
-   • Etc...
-   ↓
-6. POST /api/auth/verify-and-enable-mfa
-   {code: "123456"}  ← código 6 dígitos
-   ↓
-7. Validar TOTP
-   └─→ ❌ Inválido → Erro 401
-   └─→ ✅ Válido → Continuar
-   ↓
-8. Gerar 10 Backup Codes
-   Formato: XXXX-XXXX (8 caracteres aleatórios)
-   ↓
-9. UPDATE mfa_settings
-   SET is_enabled = 1,
-       backup_codes = JSON,
-       verified_at = NOW()
-   ↓
-10. Retornar:
-    {
-      message: "MFA ativado",
-      backupCodes: [...],
-      warning: "Guarde em local seguro!"
-    }
-```
+## Segredos
 
----
+`config` guarda token do Movidesk, chave da OpenAI e senha de banco
+criptografados por `utils/crypto.js`:
 
-## Fluxo de Login com MFA
+- AES-256-GCM, chave derivada da `ENCRYPTION_KEY` por scrypt, formato
+  `v2:<iv>:<tag>:<cifra>`.
+- `ENCRYPTION_KEY` é obrigatória (≥ 32 caracteres); o servidor não sobe sem ela.
+- Valores no formato antigo (AES-256-CBC) ainda são lidos e são regravados no
+  formato v2 no boot (`reencryptLegacyValues`).
 
-```
-┌──────────────────────────────────────────────┐
-│   LOGIN SUBSEQUENTE COM MFA ATIVADO          │
-└──────────────────────────────────────────────┘
+A chave da OpenAI nunca vai para o navegador. As análises de IA da Curadoria
+passam por `POST /api/curadoria/ai/chat`, que só aceita finalidades conhecidas
+(`team_narrative`, `competencias`), usa o prompt de sistema salvo no servidor,
+limita tamanho de entrada e tokens de saída e registra o uso em
+`ai_usage_log`.
 
-1. POST /api/auth/login
-   {email, password}
-   ↓
-2. Validar credenciais
-   ├─→ ❌ Inválidas → +1 tentativa → Bloquear se 5+
-   └─→ ✅ Válidas → Continuar
-   ↓
-3. Verificar MFA ativo
-   ├─→ Não → Retornar token permanente
-   └─→ Sim → Continuar
-   ↓
-4. Criar sessão temporária (10 min)
-   ↓
-5. Retornar:
-   {
-     requiresMFA: true,
-     tempToken: "abc123...",
-     message: "Forneça código MFA"
-   }
-   ↓
-6. POST /api/auth/verify-mfa
-   {tempToken, code}
-   ↓
-7. Validar código (TOTP ou Backup)
-   ├─→ ❌ Inválido → Erro 401
-   └─→ ✅ Válido → Continuar
-   ↓
-8. Se Backup Code:
-   └─→ Marcar como usado (used: true)
-       Atualizar JSON de backup_codes
-   ↓
-9. Deletar sessão temporária
-   ↓
-10. Criar sessão permanente (24h)
-    ↓
-11. Retornar:
-    {
-      token: "abc123...",
-      user: {id, email, name, roleId}
-    }
-```
+## Cargas do Movidesk
 
----
+`movidesk-loader.js` busca `/tickets` e `/tickets/past` (com
+`actions($expand=createdBy)`), grava em `silver.*` e registra cada execução em
+`silver.carga_log` (+ diffs por ticket em `silver.carga_log_ticket_change`).
+`cron-manager.js` agenda os jobs de `silver.cron_job`; como o loader roda uma
+carga por vez, um job que dispara com outra em andamento espera na fila.
 
-## Fluxo de Controle de Acesso
+## Fotos
 
-```
-┌──────────────────────────────────────────┐
-│    AUTORIZAÇÃO POR ROLE (RBAC)           │
-└──────────────────────────────────────────┘
-
-Requisição:
-  GET /api/users
-  Authorization: Bearer <token>
-  ↓
-1. authMiddleware
-   ├─→ Extrair token do header
-   ├─→ Buscar sessão válida (não expirada)
-   ├─→ ❌ Não encontrada → 401
-   └─→ ✅ Válida → Carregar req.user
-   ↓
-2. requireRole(['admin', 'supervisor'])
-   ├─→ SELECT role FROM users WHERE id = ?
-   ├─→ ❌ Role não está na lista → 403
-   └─→ ✅ Role autorizado → next()
-   ↓
-3. Handler executa
-   ↓
-4. Retornar dados
-```
-
----
-
-## Matriz de Permissões
-
-```
-┌─────────────────────┬────────┬───────────┬──────────┐
-│ Recurso/Ação        │ Admin  │ Supervisor│ Atendente│
-├─────────────────────┼────────┼───────────┼──────────┤
-│ Gerenciar Usuários  │   ✅   │     ❌    │    ❌    │
-│ Ler Usuários        │   ✅   │     ✅    │    ❌    │
-│ Gerenciar Roles     │   ✅   │     ❌    │    ❌    │
-│ Ler Logs            │   ✅   │     ✅    │    ❌    │
-│ Atualizar Tickets   │   ✅   │     ✅    │    ✅    │
-│ Deletar Tickets     │   ✅   │     ❌    │    ❌    │
-│ Acessar Config      │   ✅   │     ❌    │    ❌    │
-│ Resetar Senha Outro │   ✅   │     ❌    │    ❌    │
-└─────────────────────┴────────┴───────────┴──────────┘
-```
-
----
-
-## Segurança - Hash de Senha
-
-```
-┌────────────────────────────────────────┐
-│   PBKDF2-SHA512 COM SALT                │
-└────────────────────────────────────────┘
-
-1. Entrada: "MinhaSeha123!"
-   ↓
-2. Gerar Salt:
-   salt = crypto.randomBytes(16).toString('hex')
-   salt = "8e9c8d6f5a4b3c2d1e0f..."
-   ↓
-3. Derivar Chave:
-   hash = PBKDF2(password, salt, 10000, 64, 'sha512')
-   hash = "a1b2c3d4e5f6a7b8c9d0..."
-   ↓
-4. Armazenar:
-   password_hash = "salt:hash"
-   = "8e9c8d6f5a4b3c2d1e0f:a1b2c3d4e5f6a7b8c9d0..."
-   ↓
-5. Verificação de Login:
-   password_hash = "8e9c8d6f5a4b3c2d1e0f:a1b2c3d4e5f6a7b8c9d0..."
-   
-   [salt, storedHash] = password_hash.split(':')
-   
-   testHash = PBKDF2(inputPassword, salt, 10000, 64, 'sha512')
-   
-   if (testHash === storedHash) → ✅ Válido
-   else → ❌ Inválido
-```
-
----
-
-## Segurança - TOTP MFA
-
-```
-┌────────────────────────────────────────┐
-│   TIME-BASED ONE-TIME PASSWORD (TOTP)  │
-└────────────────────────────────────────┘
-
-Servidor:
-  secret = "JBSWY3DPEBLW64TMMQ6HVPV4I"
-  ↓
-Dispositivo do Usuário (Google Authenticator):
-  ├─ Recebe: otpauth://totp/Dashboard%20Movidesk?secret=JBSWY3...
-  ├─ Deriva: Base32 decode do secret
-  ├─ Calcula: HMAC-SHA1(secret, contador de tempo)
-  ├─ Extrai: 6 dígitos do HMAC
-  └─ Exibe: 123456 (válido por 30 segundos)
-  ↓
-Usuário entra: "123456"
-  ↓
-Servidor:
-  ├─ Calcula TOTP para: TIME-1 (período anterior)
-  ├─ Calcula TOTP para: TIME   (período atual)
-  ├─ Calcula TOTP para: TIME+1 (próximo período)
-  ├─ Compara com código fornecido
-  └─ Se match → ✅ Válido
-
-Janela = 2 períodos (60 segundos total)
-Permite sincronização de relógio com 30s de tolerância
-```
-
----
-
-## Limites e Proteções
-
-```
-┌──────────────────────────────────────────────┐
-│      PROTEÇÃO CONTRA ATAQUES                 │
-└──────────────────────────────────────────────┘
-
-Brute Force:
-  ├─ Máximo: 5 tentativas falhas
-  ├─ Bloqueio: 15 minutos
-  ├─ Reseta: Ao primeiro acesso bem-sucedido
-  └─ Rastreamento: Por usuário
-
-Rate Limiting:
-  ├─ Pode ser implementado em nginx/cloudflare
-  └─ Recomendado: 10 requisições por min por IP
-
-Sessão:
-  ├─ Duração: 24 horas
-  ├─ Expiração automática
-  ├─ Rastreamento: IP + User-Agent
-  └─ Deletar ao logout
-
-TOTP:
-  ├─ Período: 30 segundos
-  ├─ Dígitos: 6
-  ├─ Algoritmo: HMAC-SHA1
-  ├─ Janela: ±2 períodos
-  └─ Backup codes: 10 de uso único
-```
-
----
-
-## Estrutura de Arquivos
-
-```
-server/
-├── db/
-│   └── database.js          ← Inicialização e schemas
-├── routes/
-│   ├── auth.js              ← Login, MFA, primeiro acesso
-│   ├── users.js             ← Gerencamento de usuários
-│   ├── tickets.js           ← Tickets (existente)
-│   └── config.js            ← Config (existente)
-├── utils/
-│   ├── auth.js              ← Hash, TOTP, validações
-│   └── crypto.js            ← Encrypt/decrypt (existente)
-└── server.js                ← Servidor principal
-
-docs/
-├── auth-api.md              ← Documentação API
-└── init-users.sql           ← Script de inicialização
-
-AUTH-SETUP.md                 ← Setup e instruções
-```
-
----
-
-**Diagrama Atualizado em**: Janeiro 2024  
-**Status**: ✅ Implementado e Testado
+`/api/pessoas/foto/:email` e `/foto-por-nome/:name` leem as pastas de
+`PHOTOS_DIRS`. Como `<img src>` não manda o header de autorização, o front
+marca essas imagens com `data-auth-src` e `js/auth.js` as baixa com o token
+(blob URL).

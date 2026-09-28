@@ -99,7 +99,7 @@ function pessoasRenderTable(users) {
             <td>
                 <div class="pt-avatar-container">
                     <img
-                        src="${fotoUrl}"
+                        ${imgSrcAttr(fotoUrl)}
                         alt="${escapeHtml(u.name)}"
                         class="pt-avatar-foto"
                         data-fallback="${escapeHtml(googlePicture)}"

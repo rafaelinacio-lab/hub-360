@@ -14,6 +14,47 @@ function authHeaders(extra = {}) {
     };
 }
 
+// ── Fotos protegidas ────────────────────────────────────────────────────
+// /api/pessoas/foto* exige sessão, mas <img src> não manda o header
+// Authorization. Imagens com data-auth-src são baixadas via fetch com o token
+// e recebem um blob URL; se falhar, dispara "error" (o onerror do <img> segue
+// o fallback normal: foto do Google → iniciais).
+const _authImgCache = new Map(); // url -> Promise<blobUrl|null>
+function isProtectedPhotoUrl(url) {
+    return typeof url === 'string' && url.startsWith(`${window.location.origin}/api/pessoas/foto`);
+}
+// Atributo de origem da imagem: data-auth-src pras fotos protegidas, src pro resto.
+function imgSrcAttr(url) {
+    const esc = String(url || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return isProtectedPhotoUrl(url) ? `data-auth-src="${esc}"` : `src="${esc}"`;
+}
+function loadAuthImage(img) {
+    const url = img.getAttribute('data-auth-src');
+    if (!url) return;
+    img.removeAttribute('data-auth-src');
+    let p = _authImgCache.get(url);
+    if (!p) {
+        p = fetch(url, { headers: authHeaders() })
+            .then(r => (r.ok ? r.blob() : null))
+            .then(b => (b ? URL.createObjectURL(b) : null))
+            .catch(() => null);
+        _authImgCache.set(url, p);
+    }
+    p.then(src => {
+        if (src) img.src = src;
+        else img.dispatchEvent(new Event('error'));
+    });
+}
+function scanAuthImages(root) {
+    if (!root || !root.querySelectorAll) return;
+    if (root.matches && root.matches('img[data-auth-src]')) loadAuthImage(root);
+    root.querySelectorAll('img[data-auth-src]').forEach(loadAuthImage);
+}
+new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) scanAuthImages(n); }));
+}).observe(document.documentElement, { childList: true, subtree: true });
+document.addEventListener('DOMContentLoaded', () => scanAuthImages(document));
+
 // Função para buscar tickets da API local
 
 function isCurrentUserAdmin() {

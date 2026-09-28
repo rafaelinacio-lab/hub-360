@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db/remote');
-const { encryptToken, decryptToken } = require('../utils/crypto');
+const { encryptToken, decryptToken, isLegacyEncrypted } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
 
 function saveConfigValue(key, value, callback) {
@@ -69,21 +69,6 @@ router.get('/gpt-key', authMiddleware, requireRole('admin'), (req, res) => {
       return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
     }
     res.json({ configured: !!row });
-  });
-});
-
-// GET - Retorna chave GPT descriptografada para uso no frontend (qualquer usuário autenticado)
-// A chave é usada para chamadas diretas à OpenAI a partir do browser
-router.get('/gpt-key-for-client', authMiddleware, (req, res) => {
-  getConfigValue('openai_api_key', (err, row) => {
-    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
-    if (!row) return res.json({ configured: false, apiKey: null });
-    try {
-      const apiKey = decryptToken(row.value);
-      res.json({ configured: true, apiKey });
-    } catch {
-      res.json({ configured: false, apiKey: null });
-    }
   });
 });
 
@@ -1109,8 +1094,12 @@ function getTabPermissions(callback) {
 
 // Middleware — bloqueia quem não tem a aba `tabKey` liberada pro perfil dele.
 // admin passa direto; os demais dependem do que está salvo em Configurações → Acesso.
+// tabKey pode ser uma lista — libera se o perfil tiver QUALQUER uma delas
+// (ex.: /api/tickets alimenta Dashboard, Movidesk e Chamados).
 function requireTabAccess(tabKey) {
+  const keys = Array.isArray(tabKey) ? tabKey : [tabKey];
   return async (req, res, next) => {
+    if (!req.user?.id) return res.status(401).json({ error: 'Não autenticado' });
     try {
       const roleResult = await db.query(
         `SELECT r.name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1`,
@@ -1126,7 +1115,7 @@ function requireTabAccess(tabKey) {
           return res.status(500).json({ error: 'Erro ao verificar permissão' });
         }
         const allowed = perms[roleName] || [];
-        if (!allowed.includes(tabKey)) {
+        if (!keys.some(k => allowed.includes(k))) {
           return res.status(403).json({ error: 'Seu perfil não tem acesso a esta área.' });
         }
         next();
@@ -1167,10 +1156,34 @@ router.post('/tab-permissions', authMiddleware, requireRole('admin'), async (req
   });
 });
 
+// Regrava no formato v2 (AES-256-GCM + scrypt) os segredos que ainda estão
+// no formato antigo. Roda no boot; se algum não puder ser lido (chave antiga
+// diferente), só avisa — o admin precisa salvar de novo em Configurações.
+const ENCRYPTED_CONFIG_KEYS = ['movidesk_token', 'openai_api_key', 'db_password'];
+async function reencryptLegacyValues() {
+  for (const key of ENCRYPTED_CONFIG_KEYS) {
+    try {
+      const { rows } = await db.query('SELECT value FROM config WHERE key = $1', [key]);
+      const value = rows[0]?.value;
+      if (!value || !isLegacyEncrypted(value)) continue;
+      let plain;
+      try { plain = decryptToken(value); }
+      catch {
+        console.warn(`[crypto] "${key}" está no formato antigo e não foi possível ler com a chave atual — defina LEGACY_ENCRYPTION_KEY com a chave antiga ou salve o valor de novo em Configurações.`);
+        continue;
+      }
+      await db.query('UPDATE config SET value = $1 WHERE key = $2', [encryptToken(plain), key]);
+      console.log(`[crypto] "${key}" migrado para o formato v2`);
+    } catch (err) {
+      console.error(`[crypto] falha ao migrar "${key}":`, err.message);
+    }
+  }
+}
+
 module.exports = {
   router, getToken, getPrompt, getDatabaseConfig, getMovideskConditions,
   getCuradoriaPromptAnalise, getCuradoriaPromptCompetencias, getCuradoriaPromptNarrativa,
   getCuradoriaQueryConfig, getCuradoriaMovideskConfig, sanitizeRawWhere,
   getCuradoriaSlaThresholds, getCuradoriaPromptSlaEstouro,
-  requireTabAccess, getTabPermissions
+  requireTabAccess, getTabPermissions, reencryptLegacyValues
 };

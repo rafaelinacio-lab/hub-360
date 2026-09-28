@@ -45,7 +45,9 @@ Preencha (ver comentários no próprio `.env.example` pra detalhes de cada um):
 - `PORT` — porta que o painel vai escutar (padrão `5000`)
 - `ALLOWED_ORIGINS` — origem(ns) que podem chamar a API
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — Postgres
-- `ENCRYPTION_KEY` — chave para criptografar tokens salvos no banco (gere uma: `openssl rand -hex 32`)
+- `ENCRYPTION_KEY` — chave para criptografar os segredos salvos no banco (gere uma: `openssl rand -hex 32`). **Obrigatória, mínimo 32 caracteres** — sem ela o container não sobe (veja `docker compose logs painel`).
+- `LEGACY_ENCRYPTION_KEY` — só se os segredos atuais foram gravados com outra chave (ou sem `ENCRYPTION_KEY`, quando o código usava um valor padrão). No boot eles são regravados no formato novo; depois disso pode remover a variável. Se não souber a chave antiga, basta salvar de novo o token do Movidesk e a chave da IA em Configurações.
+- `PHOTOS_DIRS` — pasta(s) com as fotos oficiais das pessoas (`email_dominio.jpg`), separadas por `;`. Dentro do container precisa ser um caminho montado como volume (ver `docker-compose.yml`). Sem ela, os avatares usam a foto do Google ou as iniciais.
 - `DATALAKE_API_URL`/`DATALAKE_API_TOKEN` — apidatalake (perfil `painel-sla`); ver [[project_apidatalake_vm_access]]
 - `GOOGLE_CLIENT_ID`/`ALLOWED_DOMAIN` — SSO Google
 - `JIRA_DATA_DIR` — já vem correto (`../Jira`) se o clone manteve a estrutura padrão
@@ -96,16 +98,18 @@ sudo firewall-cmd --reload
 
 Depois disso, `http://<IP-publico-da-VM>:${PORT}` deve responder de fora.
 
-## 6. Primeiro acesso — criar usuário admin
+## 6. Primeiro acesso — primeiro admin
 
-Só na primeira vez (o script cria `admin@example.com` / `Admin@123456`):
+O único login é o do Google. A primeira pessoa entra como `guest`; promova-a
+a admin direto no banco (uma vez só):
 
-```bash
-docker compose exec painel node create-admin.js
+```sql
+UPDATE users SET role_id = (SELECT id FROM roles WHERE name = 'admin') WHERE email = 'seu.email@viasoft.com.br';
 ```
 
-Faça login em `http://<IP-da-VM>:${PORT}/login` e **troque a senha
-imediatamente** pelo próprio painel (Configurações → Usuários).
+Depois disso, os demais perfis são atribuídos pela tela **Pessoas**. Não
+existe mais usuário/senha padrão — o antigo `admin@example.com` é desativado
+automaticamente no boot.
 
 ## 7. Atualizações futuras
 
@@ -132,3 +136,18 @@ Isso foi corrigido: agora só `/css`, `/js` e `/pages` são servidos
 estaticamente (ver `server/server.js`). Depois do deploy, vale confirmar que
 `http://<IP>:${PORT}/.env` e `http://<IP>:${PORT}/curadoria_chamados.xlsx`
 retornam 404.
+
+## Endurecimento de segurança (set/2026)
+
+- `/api/tickets/*` exige sessão e acesso à aba (o perfil não pode mais ser
+  forjado com `?viewerRole=`).
+- Login por senha (`/api/auth/login`, `/first-access`, `/verify-mfa`)
+  removido; `admin@example.com` desativado no boot.
+- A chave da OpenAI não sai mais do servidor: a Curadoria chama
+  `POST /api/curadoria/ai/chat`.
+- `ENCRYPTION_KEY` obrigatória; segredos em AES-256-GCM com chave derivada
+  por scrypt (os antigos são migrados no boot).
+- Sessões gravadas só como hash — **no primeiro boot com essa versão, todo
+  mundo precisa entrar de novo pelo Google**.
+- Fotos (`/api/pessoas/foto*`) exigem sessão; a pasta vem de `PHOTOS_DIRS`.
+

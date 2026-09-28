@@ -35,6 +35,14 @@ function generateToken(length = 32) {
   return crypto.randomBytes(length).toString('hex');
 }
 
+// A tabela sessions guarda só o hash do token (quem ler o banco não consegue
+// reaproveitar uma sessão). O prefixo marca o formato — no boot, sessões
+// antigas sem ele (token em texto claro) são apagadas.
+const SESSION_HASH_PREFIX = 'sha256:';
+function hashSessionToken(token) {
+  return SESSION_HASH_PREFIX + crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
 // ===== MFA (TOTP) =====
 
 async function generateTOTPSecret(email, appName = 'Dashboard Movidesk') {
@@ -110,6 +118,8 @@ function createSessionPayload(userId, email, role) {
 module.exports = {
   generateInitialPassword,
   generateToken,
+  hashSessionToken,
+  SESSION_HASH_PREFIX,
   hashPassword,
   verifyPassword,
   generateTOTPSecret,

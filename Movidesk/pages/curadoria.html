@@ -1375,33 +1375,11 @@ MENOR SCORE (podem precisar de apoio): ${values.precisamApoio}`;
 }
 
 async function callTeamNarrativeLLM(systemPrompt, userPrompt) {
-    const gptKey = window._gptApiKey || null;
-    if (!gptKey) throw new Error('Chave da API GPT não configurada em Configurações → Inteligência Artificial.');
-
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini', temperature: 0.3, max_tokens: 700,
-            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }]
-        })
-    });
-    const data = await resp.json();
-    const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) throw new Error(data.error?.message || 'A IA não retornou nenhum texto.');
-
-    try {
-        const usage = data.usage || {};
-        if ((usage.prompt_tokens || 0) > 0) {
-            fetch(`${API_BASE}/config/ai-usage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                body: JSON.stringify({ source: 'team_narrative_curadoria', model: 'gpt-4o-mini',
-                    input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0 })
-            }).catch(() => {});
-        }
-    } catch (_) {}
-
+    // O prompt de sistema e a chave ficam no servidor (/curadoria/ai/chat);
+    // systemPrompt aqui só existe pela assinatura antiga da função.
+    const data = await aiChat('team_narrative', userPrompt);
+    const text = data?.text?.trim();
+    if (!text) throw new Error('A IA não retornou nenhum texto.');
     return text;
 }
 
@@ -1646,6 +1624,17 @@ async function apiCall(endpoint, method='GET', body=null) {
     if(!res.ok) throw new Error(`API error: ${res.statusText}`);
     return res.json();
 }
+// Chamada de IA pelo servidor (a chave da OpenAI nunca chega ao navegador).
+async function aiChat(purpose, user, meta) {
+    const res = await fetch(`${API_BASE}/curadoria/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ purpose, user, meta })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Falha na IA (${res.status})`);
+    return data;
+}
 function escapeHtml(str) { const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
 function normalizeOwnerName(name) { return String(name||'').toLowerCase().trim(); }
 function photoByName(name) { return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=random`; }
@@ -1726,8 +1715,9 @@ async function loadPerfCategories() {
 
     // Carrega chave GPT separadamente, sem bloquear
     try {
-        const keyData = await apiCall('/config/gpt-key-for-client').catch(()=>null);
-        if(keyData?.apiKey) window._gptApiKey = keyData.apiKey;
+        // A chave da IA fica só no servidor — aqui só descobrimos se ela existe.
+        const aiData = await apiCall('/curadoria/ai/status').catch(()=>null);
+        window._aiConfigured = !!aiData?.configured;
     } catch(_) {}
 }
 
@@ -1866,34 +1856,12 @@ function showCompetenciaModal(key, scope = 'owner') {
 }
 
 // Chama a IA para classificar UM lote de chamados (~15-20) e retorna { ticket_id: {chave: percentual} }
-async function classifyCompetenciasBatch(batchRows, owner, gptKey, keyByNorm) {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini', temperature: 0, max_tokens: 1600,
-            response_format: { type: 'json_object' },
-            messages: [
-                { role: 'system', content: CURADORIA_PROMPT_COMPETENCIAS },
-                { role: 'user', content: `Atendente: ${owner}\n\nCOMPETÊNCIAS: ${PERF_CATEGORIES.map(c => `${c.key}="${c.label}"`).join(' | ')}\n\nCHAMADOS:\n${batchRows.map(r => `#${r.ticket_id}: ${competenciaRowText(r).substring(0, 240)}`).join('\n')}` }
-            ]
-        })
-    });
-    const data = await resp.json();
-    const raw = data.choices?.[0]?.message?.content?.trim() || '{}';
-
-    try {
-        const usage = data.usage || {};
-        if ((usage.prompt_tokens || 0) > 0) {
-            fetch(`${API_BASE}/config/ai-usage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                body: JSON.stringify({ source: 'competencias_curadoria', model: 'gpt-4o-mini',
-                    input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0,
-                    meta: { owner, batchSize: batchRows.length } })
-            }).catch(() => {});
-        }
-    } catch (_) {}
+async function classifyCompetenciasBatch(batchRows, owner, keyByNorm) {
+    // Prompt de sistema (curadoria_prompt_competencias), chave e modelo ficam no servidor.
+    const data = await aiChat('competencias',
+            `Atendente: ${owner}\n\nCOMPETÊNCIAS: ${PERF_CATEGORIES.map(c => `${c.key}="${c.label}"`).join(' | ')}\n\nCHAMADOS:\n${batchRows.map(r => `#${r.ticket_id}: ${competenciaRowText(r).substring(0, 240)}`).join('\n')}`,
+            { owner, batchSize: batchRows.length });
+    const raw = data?.text?.trim() || '{}';
 
     const rawResults = JSON.parse(raw).results || {};
     const out = {};
@@ -1914,8 +1882,7 @@ async function classifyCompetenciasBatch(batchRows, owner, gptKey, keyByNorm) {
 // gravando o resultado no banco a cada lote. Chamados já processados nunca são reanalisados.
 const COMPETENCIAS_BATCH_SIZE = 15;
 async function processOwnerCompetencias(ownerRows, owner, onBatchDone) {
-    const gptKey = window._gptApiKey || null;
-    if (!gptKey) return;
+    if (!window._aiConfigured) return;
     const keyByNorm = competenciaKeyMap();
 
     let pending = ownerRows.filter(r => !r.competencias);
@@ -1926,7 +1893,7 @@ async function processOwnerCompetencias(ownerRows, owner, onBatchDone) {
         let results = {};
         if (withContent.length) {
             try {
-                results = await classifyCompetenciasBatch(withContent, owner, gptKey, keyByNorm);
+                results = await classifyCompetenciasBatch(withContent, owner, keyByNorm);
             } catch (e) {
                 console.warn('[AI] falha ao classificar lote de competências:', e.message);
             }
@@ -2401,7 +2368,7 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
         return;
     }
 
-    if (!window._gptApiKey) {
+    if (!window._aiConfigured) {
         // Sem chave GPT configurada — não há como classificar os chamados pendentes.
         const sorted = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
         barsEl.innerHTML = sorted.map((c, idx) => renderSingleCompCard(c, idx, catCount, null, false)).join('');

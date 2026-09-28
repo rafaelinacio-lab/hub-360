@@ -8,6 +8,7 @@ const {
   getToken, getCuradoriaPromptAnalise, getCuradoriaQueryConfig,
   getCuradoriaMovideskConfig, sanitizeRawWhere,
   getCuradoriaSlaThresholds, getCuradoriaPromptSlaEstouro,
+  getCuradoriaPromptCompetencias, getCuradoriaPromptNarrativa,
   requireTabAccess
 } = require('./config');
 
@@ -1777,4 +1778,77 @@ router.get('/full-load/status', authMiddleware, requireRole('admin'), (req, res)
 });
 
 router.runFullLoad = runFullLoad;
+// ── IA da Curadoria chamada pelo navegador ──────────────────────────────────
+// Antes o front buscava a chave da OpenAI em /config/gpt-key-for-client e
+// chamava api.openai.com direto do navegador — qualquer usuário logado
+// conseguia ler a chave. Agora o navegador só manda o conteúdo do usuário; a
+// chave, o modelo, o prompt de sistema e o limite de tokens ficam no servidor.
+const AI_CHAT_PURPOSES = {
+  team_narrative: {
+    source: 'team_narrative_curadoria', maxTokens: 700, temperature: 0.3, json: false,
+    system: () => new Promise((resolve, reject) =>
+      getCuradoriaPromptNarrativa((err, cfg) => err ? reject(err) : resolve(cfg?.system || ''))),
+  },
+  competencias: {
+    source: 'competencias_curadoria', maxTokens: 1600, temperature: 0, json: true,
+    system: () => new Promise((resolve, reject) =>
+      getCuradoriaPromptCompetencias((err, prompt) => err ? reject(err) : resolve(prompt || ''))),
+  },
+};
+const AI_CHAT_MODEL = 'gpt-4o-mini';
+const AI_CHAT_MAX_INPUT_CHARS = 20000;
+
+router.post('/ai/chat', authMiddleware, requireTabAccess('chamados'), async (req, res) => {
+  const { purpose, user: userText, meta } = req.body || {};
+  const cfg = AI_CHAT_PURPOSES[purpose];
+  if (!cfg) return res.status(400).json({ error: 'Finalidade de IA inválida' });
+  if (typeof userText !== 'string' || !userText.trim()) return res.status(400).json({ error: 'Conteúdo vazio' });
+  if (userText.length > AI_CHAT_MAX_INPUT_CHARS) return res.status(413).json({ error: 'Conteúdo grande demais para a IA' });
+
+  try {
+    const apiKey = await getOpenAiApiKey();
+    if (!apiKey) return res.status(503).json({ error: 'Chave da API GPT não configurada em Configurações → Inteligência Artificial.' });
+    const systemPrompt = await cfg.system();
+
+    const body = {
+      model: AI_CHAT_MODEL, temperature: cfg.temperature, max_tokens: cfg.maxTokens,
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userText }],
+    };
+    if (cfg.json) body.response_format = { type: 'json_object' };
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      console.error('POST /curadoria/ai/chat OpenAI:', resp.status, data?.error?.message);
+      return res.status(502).json({ error: data?.error?.message || `Falha na IA (${resp.status})` });
+    }
+    const text = data.choices?.[0]?.message?.content?.trim() || '';
+
+    const usage = data.usage || {};
+    const inTok = usage.prompt_tokens || 0, outTok = usage.completion_tokens || 0;
+    if (inTok || outTok) {
+      db.run(
+        `INSERT INTO ai_usage_log (source, model, input_tokens, output_tokens, total_tokens, estimated_cost_usd, user_email, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [cfg.source, AI_CHAT_MODEL, inTok, outTok, inTok + outTok, ((inTok * 0.15) + (outTok * 0.60)) / 1_000_000,
+         req.user?.email || null, meta ? JSON.stringify(meta).slice(0, 2000) : null],
+        () => {}
+      );
+    }
+    res.json({ text });
+  } catch (err) {
+    console.error('POST /curadoria/ai/chat error:', err.message);
+    res.status(500).json({ error: 'Erro ao chamar a IA' });
+  }
+});
+
+// Só diz se a IA está configurada — nunca devolve a chave.
+router.get('/ai/status', authMiddleware, requireTabAccess('chamados'), async (req, res) => {
+  try { res.json({ configured: !!(await getOpenAiApiKey()) }); }
+  catch { res.json({ configured: false }); }
+});
+
 module.exports = router;
