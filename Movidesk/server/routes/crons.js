@@ -250,11 +250,11 @@ router.post('/:id/run', async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await db.query('SELECT * FROM silver.cron_job WHERE id = $1', [id]);
     if (!rows.length) return res.status(404).json({ error: 'Cron não encontrada' });
-    if (movideskLoader.state?.running) {
-      return res.status(409).json({ error: `Já existe uma carga em andamento (${movideskLoader.state.mode || 'outra carga'}). Aguarde terminar e tente de novo.` });
-    }
+    // Com outra carga em andamento, entra na fila (executeJob espera o loader
+    // liberar) em vez de recusar.
+    const queued = !!movideskLoader.state?.running;
     cronManager.executeJob(id, { force: true }).catch(e => console.error('[crons] execução manual falhou:', e.message));
-    res.json({ started: true });
+    res.json({ started: true, queued });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
