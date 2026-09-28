@@ -500,7 +500,7 @@ body.modal-open{overflow:hidden}
       </div>
       <div class="multi-sel" id="f-vertical" title="Campo GCC - Verticais Insatisfação">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Vertical: todas</span>
+          <span class="ms-lbl">Vertical Insatisfação: todas</span>
           <span class="sym ms-arrow">expand_more</span>
         </button>
         <div class="ms-drop"></div>
@@ -920,6 +920,11 @@ function diasVencido(r){
 function verticalDe(r){ return (r.vertical||'').trim()||'Não informado'; }
 // O campo é multi-seleção: um ticket pode vir "Sistema para RH, Agrotitan".
 // Pro filtro cada vertical conta sozinha (e sem repetir por espaço/caixa).
+const VERTICAIS_INSATISFACAO=[
+  'Agrotitan','Automação Comercial','Construshow','Fisco Contábil','Combustíveis',
+  'Sistema para RH','Voors','Agrotitan Fazendas','Forlog','Supermercados','Serviços',
+  'Analytics','Nimitz','Oracle Cloud','CRM','Personalizações','Tips','Orion','Voors LMS',
+];
 function verticaisDe(r){
   const itens=(r.vertical||'').split(',').map(v=>v.trim().replace(/\s+/g,' ')).filter(Boolean);
   return itens.length?[...new Set(itens)]:['Não informado'];
@@ -1220,9 +1225,15 @@ function buildFilterOptions(){
   // Vertical = CF 98697 (GCC - Verticais Insatisfação); "Não informado" entra
   // como opção pra achar os tickets sem o campo preenchido.
   {
-    const verts=[...new Set(_rows.flatMap(verticaisDe))]
-      .sort((a,b)=>(a==='Não informado')-(b==='Não informado')||a.localeCompare(b,'pt'));
-    populateMs('f-vertical',verts.map(v=>({v,l:v})),'Vertical: todas',render);
+    // Lista oficial de valores do campo no Movidesk — aparece sempre, mesmo
+    // sem ticket no período. Valor que vier fora dela (renomeado/novo) entra
+    // depois, pra não sumir do filtro; "Não informado" fica por último.
+    const naLista=new Set(VERTICAIS_INSATISFACAO);
+    const extras=[...new Set(_rows.flatMap(verticaisDe))]
+      .filter(v=>!naLista.has(v)&&v!=='Não informado')
+      .sort((a,b)=>a.localeCompare(b,'pt'));
+    const verts=[...VERTICAIS_INSATISFACAO,...extras,'Não informado'];
+    populateMs('f-vertical',verts.map(v=>({v,l:v})),'Vertical Insatisfação: todas',render);
   }
   populateMs('f-status',[
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
