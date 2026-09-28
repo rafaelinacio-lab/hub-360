@@ -20,7 +20,7 @@ const loaderRoutes = require('./routes/loader');
 const cronsRoutes = require('./routes/crons');
 const movideskLoader = require('./scripts/movidesk-loader');
 const cronManager = require('./scripts/cron-manager');
-const { getCuradoriaMovideskConfig } = require('./routes/config');
+const { getCuradoriaMovideskConfig, reencryptLegacyValues } = require('./routes/config');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -124,6 +124,21 @@ async function seedDefaultCronJobs() {
      VALUES ('Ouvidoria automática', 'ouvidoria', 120, true, '{}'::jsonb)`
   ).catch(e => console.error('[cron-manager] seed falhou:', e.message));
 }
+
+reencryptLegacyValues().catch(e => console.error('[crypto] migração de segredos falhou:', e.message));
+
+// Endurecimento de autenticação (roda a cada boot, idempotente):
+// - sessões antigas guardavam o token em texto claro; agora só o hash
+//   (prefixo "sha256:") é gravado, então as antigas são descartadas — quem
+//   estava logado só precisa entrar de novo pelo Google.
+// - o admin de bootstrap (admin@example.com, senha fixa do create-admin.js)
+//   fica desativado e sem senha; o login por senha não existe mais.
+db.query(`DELETE FROM sessions WHERE token NOT LIKE 'sha256:%'`)
+  .then(r => { if (r?.rowCount) console.log(`[auth] ${r.rowCount} sessão(ões) em texto claro descartada(s)`); })
+  .catch(e => console.error('[auth] limpeza de sessões falhou:', e.message));
+db.query(`UPDATE users SET is_active = FALSE, password_hash = NULL WHERE email = 'admin@example.com' AND (is_active OR password_hash IS NOT NULL)`)
+  .then(r => { if (r?.rowCount) console.log('[auth] admin de bootstrap (admin@example.com) desativado'); })
+  .catch(e => console.error('[auth] desativação do admin de bootstrap falhou:', e.message));
 
 cronManager.ensureTable()
   .then(seedDefaultCronJobs)

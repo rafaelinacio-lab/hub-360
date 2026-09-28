@@ -1067,54 +1067,6 @@ function setLoginError(message) {
     err.style.display = message ? 'block' : 'none';
 }
 
-async function loginSubmit(event) {
-    event.preventDefault();
-    const email = document.getElementById('loginEmail')?.value?.trim();
-    const password = document.getElementById('loginPassword')?.value?.trim();
-    const btn = document.getElementById('loginSubmit');
-    setLoginError('');
-
-    if (!email || !password) {
-        setLoginError('Informe e-mail e senha.');
-        return;
-    }
-
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Entrando...';
-    }
-
-    try {
-        const response = await fetch(`${API_BASE}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Falha no login');
-        }
-
-        if (data.requiresMFA) {
-            throw new Error('MFA habilitado neste usuário. O fluxo de confirmação ainda não está implementado nesta tela.');
-        }
-
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        _currentUser = data.user;
-        setLoginError('');
-        hideLoginScreen();
-        await initializeApp();
-    } catch (error) {
-        setLoginError(error.message || 'Erro ao entrar.');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Entrar';
-        }
-    }
-}
 
 async function logout() {
     try {

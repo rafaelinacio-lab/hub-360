@@ -12,7 +12,8 @@ const {
   verifyBackupCode,
   createSessionPayload,
   validatePasswordStrength,
-  validateEmail
+  validateEmail,
+  hashSessionToken
 } = require('../utils/auth');
 const { isGoogleSsoConfigured, verifyGoogleIdToken, GOOGLE_CLIENT_ID, ALLOWED_DOMAIN } = require('../utils/googleAuth');
 
@@ -28,7 +29,7 @@ async function authMiddleware(req, res, next) {
        FROM sessions s
        JOIN users u ON s.user_id = u.id
        WHERE s.token = $1 AND s.expires_at > NOW()`,
-      [token]
+      [hashSessionToken(token)]
     );
     const session = result.rows[0];
     if (!session) return res.status(401).json({ error: 'Sessão inválida ou expirada' });
@@ -123,7 +124,7 @@ router.post('/google', async (req, res) => {
     await db.query(
       `INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at)
        VALUES ($1, $2, $3, $4, $5)`,
-      [user.id, token, req.ip, req.get('user-agent'), expiresAt]
+      [user.id, hashSessionToken(token), req.ip, req.get('user-agent'), expiresAt]
     );
     await db.query(`UPDATE users SET last_login = NOW() WHERE id = $1`, [user.id]);
     // Atualiza a foto da conta Google a cada login — acompanha trocas de foto
@@ -154,210 +155,9 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// ===== POST /auth/login (legado — mantido no backend, não é mais usado pelo front-end) =====
-
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password)
-    return res.status(400).json({ error: 'Email e senha são obrigatórios' });
-
-  try {
-    const userResult = await db.query(
-      `SELECT u.*, r.name as role FROM users u
-       JOIN roles r ON u.role_id = r.id
-       WHERE u.email = $1`,
-      [email.toLowerCase()]
-    );
-    const user = userResult.rows[0];
-
-    if (!user || !user.is_active)
-      return res.status(401).json({ error: 'Usuário não encontrado ou inativo' });
-
-    if (user.locked_until && new Date(user.locked_until) > new Date())
-      return res.status(429).json({ error: 'Conta temporariamente bloqueada. Tente novamente mais tarde.' });
-
-    const valid = await verifyPassword(password, user.password_hash || '');
-    if (!valid) {
-      const newAttempts = (user.failed_login_attempts || 0) + 1;
-      const lockUntil = newAttempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-      await db.query(
-        `UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3`,
-        [newAttempts, lockUntil, user.id]
-      );
-      return res.status(401).json({ error: 'Email ou senha inválidos' });
-    }
-
-    // Reset tentativas falhas
-    await db.query(
-      `UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1`,
-      [user.id]
-    );
-
-    // Verificar MFA
-    const mfaResult = await db.query(
-      `SELECT is_enabled FROM mfa_settings WHERE user_id = $1 AND is_enabled = TRUE`,
-      [user.id]
-    );
-    const mfa = mfaResult.rows[0];
-
-    if (mfa) {
-      const tempToken = generateToken();
-      await db.query(
-        `INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at)
-         VALUES ($1, $2, $3, $4, NOW() + INTERVAL '10 minutes')`,
-        [user.id, tempToken, req.ip, req.get('user-agent')]
-      );
-      return res.json({
-        requiresMFA: true,
-        tempToken,
-        message: 'Forneça o código MFA para completar o login'
-      });
-    }
-
-    // Sessão completa
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await db.query(
-      `INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [user.id, token, req.ip, req.get('user-agent'), expiresAt]
-    );
-    await db.query(`UPDATE users SET last_login = NOW() WHERE id = $1`, [user.id]);
-    await db.query(
-      `INSERT INTO access_logs (user_id, action, ip_address, success) VALUES ($1, 'login', $2, TRUE)`,
-      [user.id, req.ip]
-    );
-
-    return res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        vertical: user.vertical || null,
-        firstAccess: user.first_access
-      }
-    });
-  } catch (err) {
-    console.error('POST /login error:', err.message);
-    return res.status(500).json({ error: 'Erro na autenticação' });
-  }
-});
-
-// ===== POST /auth/verify-mfa =====
-
-router.post('/verify-mfa', async (req, res) => {
-  const { tempToken, code } = req.body;
-  if (!tempToken || !code)
-    return res.status(400).json({ error: 'Token temporário e código MFA são obrigatórios' });
-
-  try {
-    const sessionResult = await db.query(
-      `SELECT s.*, u.email, u.name, u.role_id, u.vertical, r.name as role
-       FROM sessions s
-       JOIN users u ON s.user_id = u.id
-       JOIN roles r ON u.role_id = r.id
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
-      [tempToken]
-    );
-    const session = sessionResult.rows[0];
-    if (!session) return res.status(401).json({ error: 'Sessão inválida ou expirada' });
-
-    const mfaResult = await db.query(
-      `SELECT * FROM mfa_settings WHERE user_id = $1`,
-      [session.user_id]
-    );
-    const mfa = mfaResult.rows[0];
-    if (!mfa) return res.status(500).json({ error: 'Erro ao verificar MFA' });
-
-    let verified = verifyTOTP(mfa.totp_secret, code);
-    let usedBackup = false;
-
-    if (!verified) {
-      const backupResult = verifyBackupCode(code, mfa.backup_codes);
-      if (backupResult.valid) {
-        await db.query(
-          `UPDATE mfa_settings SET backup_codes = $1 WHERE user_id = $2`,
-          [backupResult.remaining, session.user_id]
-        );
-        verified = true;
-        usedBackup = true;
-      }
-    }
-
-    if (!verified) return res.status(401).json({ error: 'Código MFA inválido' });
-
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await db.query(`DELETE FROM sessions WHERE token = $1`, [tempToken]);
-    await db.query(
-      `INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [session.user_id, token, req.ip, req.get('user-agent'), expiresAt]
-    );
-    await db.query(`UPDATE users SET last_login = NOW() WHERE id = $1`, [session.user_id]);
-    await db.query(
-      `INSERT INTO access_logs (user_id, action, ip_address, success)
-       VALUES ($1, $2, $3, TRUE)`,
-      [session.user_id, usedBackup ? 'login_backup_code' : 'login_mfa_success', req.ip]
-    );
-
-    return res.json({
-      token,
-      user: {
-        id: session.user_id,
-        email: session.email,
-        name: session.name,
-        roleId: session.role_id,
-        role: session.role,
-        vertical: session.vertical || null
-      }
-    });
-  } catch (err) {
-    console.error('POST /verify-mfa error:', err.message);
-    return res.status(500).json({ error: 'Erro ao verificar MFA' });
-  }
-});
-
-// ===== POST /auth/first-access =====
-
-router.post('/first-access', async (req, res) => {
-  const { email, initialPassword, newPassword } = req.body;
-  if (!email || !initialPassword || !newPassword)
-    return res.status(400).json({ error: 'Email, senha inicial e nova senha são obrigatórios' });
-
-  const validation = validatePasswordStrength(newPassword);
-  if (!validation.valid)
-    return res.status(400).json({ error: 'Senha fraca', details: validation.errors });
-
-  try {
-    const userResult = await db.query(
-      `SELECT * FROM users WHERE email = $1 AND first_access = TRUE`,
-      [email.toLowerCase()]
-    );
-    const user = userResult.rows[0];
-    if (!user) return res.status(401).json({ error: 'Usuário não encontrado ou já completou primeiro acesso' });
-
-    const valid = await verifyPassword(initialPassword, user.password_hash || '');
-    if (!valid) return res.status(401).json({ error: 'Senha inicial incorreta' });
-
-    const newHash = await hashPassword(newPassword);
-    await db.query(
-      `UPDATE users SET password_hash = $1, first_access = FALSE, updated_at = NOW() WHERE id = $2`,
-      [newHash, user.id]
-    );
-    await db.query(
-      `INSERT INTO access_logs (user_id, action, success) VALUES ($1, 'first_access_completed', TRUE)`,
-      [user.id]
-    );
-
-    return res.json({ message: 'Senha alterada com sucesso', nextStep: 'mfa-setup' });
-  } catch (err) {
-    console.error('POST /first-access error:', err.message);
-    return res.status(500).json({ error: 'Erro ao atualizar senha' });
-  }
-});
+// Login por e-mail/senha (/auth/login), /auth/verify-mfa e /auth/first-access
+// foram removidos: o único jeito de entrar no painel é o SSO Google acima.
+// Eles mantinham vivo o admin de bootstrap com senha fixa (admin@example.com).
 
 // ===== POST /auth/setup-mfa =====
 
@@ -423,7 +223,7 @@ router.post('/verify-and-enable-mfa', authMiddleware, async (req, res) => {
 
 router.post('/logout', authMiddleware, async (req, res) => {
   try {
-    await db.query(`DELETE FROM sessions WHERE token = $1`, [req.sessionToken]);
+    await db.query(`DELETE FROM sessions WHERE token = $1`, [hashSessionToken(req.sessionToken)]);
     await db.query(
       `INSERT INTO access_logs (user_id, action, success) VALUES ($1, 'logout', TRUE)`,
       [req.user.id]

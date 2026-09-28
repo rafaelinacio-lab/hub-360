@@ -2,10 +2,17 @@ const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
 const db = require('../db/remote');
-const { getToken, getPrompt } = require('./config');
+const { getToken, getPrompt, requireTabAccess } = require('./config');
 const { decryptToken } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
 const datalake = require('../utils/datalakeClient');
+
+// Todas as rotas de /api/tickets exigem sessão válida. Antes dava pra chamar
+// sem token e o perfil (e a vertical) vinha de ?viewerRole=/?viewerVertical=,
+// então qualquer um se passava por admin só mudando a URL.
+router.use(authMiddleware);
+const TICKETS_TABS = ['dashboard', 'movidesk', 'chamados'];
+const requireTicketsAccess = requireTabAccess(TICKETS_TABS);
 
 const MOVIDESK_API = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
 
@@ -632,34 +639,22 @@ function extractFirstJsonObject(text) {
   throw new Error('Modelo nao retornou JSON valido');
 }
 
-function resolveViewerContext(req) {
-  return new Promise((resolve) => {
-    const token = req.headers.authorization?.replace('Bearer ', '').trim();
-    if (!token) {
-      return resolve({
-        role: req.query.viewerRole || null,
-        vertical: req.query.viewerVertical || null,
-      });
-    }
-
-    db.get(
-      `SELECT r.name as role, u.vertical
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       JOIN roles r ON r.id = u.role_id
-       WHERE s.token = ? AND s.expires_at > NOW()`,
-      [token],
-      (err, row) => {
-        if (err || !row) {
-          return resolve({
-            role: req.query.viewerRole || null,
-            vertical: req.query.viewerVertical || null,
-          });
-        }
-        resolve({ role: row.role, vertical: row.vertical || null });
-      }
+// Perfil e vertical vêm SEMPRE da sessão (req.user, preenchido pelo
+// authMiddleware) — nunca da query string.
+async function resolveViewerContext(req) {
+  try {
+    const { rows } = await db.query(
+      `SELECT r.name AS role, u.vertical
+       FROM users u JOIN roles r ON r.id = u.role_id
+       WHERE u.id = $1`,
+      [req.user.id]
     );
-  });
+    const row = rows[0] || {};
+    return { role: row.role || null, vertical: row.vertical || null };
+  } catch (err) {
+    console.error('resolveViewerContext error:', err.message);
+    return { role: null, vertical: null };
+  }
 }
 
 function sleep(ms) {
@@ -1258,7 +1253,7 @@ function fetchActiveTicketsFromLocalDb(viewer, includeAll) {
 // ?scope=all — usado pela aba Movidesk, que agora tem filtro de status e
 // precisa ver também os chamados já fechados/resolvidos/cancelados (não só
 // os ativos que alimentam o Dashboard).
-router.get('/', async (req, res) => {
+router.get('/', requireTicketsAccess, async (req, res) => {
   const viewer = await resolveViewerContext(req);
   const includeAll = req.query.scope === 'all';
   const cacheKey = getViewerCacheKey(viewer, includeAll ? 'tickets:all' : 'tickets:active');
@@ -1360,7 +1355,7 @@ async function fetchFiltersFromLocalDb(viewer) {
 // conhecido na apidatalake ainda — ver plano de migração, seção de custom
 // fields). Isso é uma aproximação deliberada: pode incluir mais valores do
 // que a rota `GET /` de fato mostra depois de aplicar o filtro de customField.
-router.get('/filters', async (req, res) => {
+router.get('/filters', requireTicketsAccess, async (req, res) => {
   const viewer = await resolveViewerContext(req);
   const cacheKey = getViewerCacheKey(viewer, 'tickets:filters');
   const cachedFilters = getCachedResponse(cacheKey);
@@ -1436,7 +1431,7 @@ function fetchPastTicketsFromLocalDb(viewer) {
 // GET - Buscar tickets históricos (past) - resolvidos, encerrados, etc.
 // Nota: hoje não é chamada por nenhuma tela do painel (js/, admin/) — migrada
 // por consistência com o resto do arquivo, mas não é prioridade de teste.
-router.get('/past', async (req, res) => {
+router.get('/past', requireTicketsAccess, async (req, res) => {
   const viewer = await resolveViewerContext(req);
   if (viewer.role === 'supervisor' && !viewer.vertical) {
     return res.json([]);
@@ -1487,7 +1482,7 @@ function fetchTicketByIdFromLocalDb(id) {
 // cada 10-60min), enquanto o banco local pode já ter uma cópia mais recente
 // via scripts/sync-movidesk.js. Qualquer outro erro (config ausente,
 // token/escopo inválido) propaga como 502 em vez de cair no banco local.
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireTicketsAccess, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1548,7 +1543,7 @@ function fetchTicketForExecutiveSummaryFromLocalDb(id) {
 // actions/clients/statusHistories adaptados via nativeRowToTicketShape (ver
 // comentário acima de inferTicketContext), sem heurística: tipo/origem da
 // ação já vêm como os códigos numéricos reais do Movidesk.
-router.post('/:id/executive-summary', async (req, res) => {
+router.post('/:id/executive-summary', requireTabAccess('chamados'), async (req, res) => {
   const { id } = req.params;
   try {
     let ticket;
@@ -1849,7 +1844,7 @@ function fetchStatsOverviewFromLocalDb() {
 // da apidatalake, porque esse mart agrega todo mundo por owner_team sem
 // aplicar o filtro de customField ("Suporte Técnico") que os KPIs de hoje
 // consideram; usaria um universo diferente do que a rota mostra.
-router.get('/stats/overview', async (req, res) => {
+router.get('/stats/overview', requireRole('admin'), async (req, res) => {
   try {
     const conditions = await getConditionsPromise();
     let candidates = await fetchCandidateTicketsFromDatalake(conditions, { basestatuses: ACTIVE_BASE_STATUSES });
@@ -1922,7 +1917,7 @@ function emptySlaResult(id, abertura, motivo) {
 // em GET /:id e no resumo executivo) e adapta pro shape que
 // calcularSLAPrimeiroContato() espera (ver nativeRowToTicketShape) — sem
 // heurística, tipo/origem da ação já vêm como os códigos numéricos reais.
-router.get('/:id/sla', async (req, res) => {
+router.get('/:id/sla', requireTicketsAccess, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1978,7 +1973,7 @@ router.get('/:id/sla', async (req, res) => {
 });
 
 // POST - Calcular SLA para um ticket enviado no corpo
-router.post('/sla', (req, res) => {
+router.post('/sla', requireTicketsAccess, (req, res) => {
   try {
     const ticket = req.body;
     

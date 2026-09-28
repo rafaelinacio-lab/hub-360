@@ -166,81 +166,62 @@ router.post('/:id/revoke-sessions', authMiddleware, requireRole('admin'), async 
   }
 });
 
-// GET /api/pessoas/foto/:email — rota pública
-router.get('/foto/:email', (req, res) => {
-  const fs = require('fs');
-  const path = require('path');
-  const email = req.params.email;
-  const emailFileName = email.replace('@', '_');
-  const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-  const dirs = [
-    '\\\\192.168.90.149\\htdocs\\painel_ti\\usuarios\\fotos',
-    'Z:\\painel_ti\\usuarios\\fotos'
-  ];
-
-  let foundFile = null;
-  for (const dir of dirs) {
-    for (const ext of extensions) {
-      const filePath = path.join(dir, `${emailFileName}${ext}`);
-      if (fs.existsSync(filePath)) { foundFile = filePath; break; }
-    }
-    if (foundFile) break;
-  }
-
-  if (!foundFile) return res.status(404).json({ error: 'Foto não encontrada' });
-
-  const ext = path.extname(foundFile).toLowerCase();
-  const mimeMap = { '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.gif':'image/gif','.webp':'image/webp' };
-  res.setHeader('Content-Type', mimeMap[ext] || 'image/jpeg');
-  res.setHeader('Cache-Control', 'public, max-age=86400');
-  const stream = fs.createReadStream(foundFile);
-  stream.on('error', () => res.status(500).json({ error: 'Erro ao ler arquivo' }));
+// ── Fotos da pasta de TI ────────────────────────────────────────────────
+// Exigem sessão (antes eram públicas). As pastas vêm de PHOTOS_DIRS no .env
+// (separadas por ";"), em vez do compartilhamento de rede fixo no código.
+const fs = require('fs');
+const path = require('path');
+const PHOTO_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const PHOTO_MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' };
+function photoDirs() {
+  return String(process.env.PHOTOS_DIRS || '').split(';').map(d => d.trim()).filter(Boolean);
+}
+function sendPhoto(res, filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  res.setHeader('Content-Type', PHOTO_MIME[ext] || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  const stream = fs.createReadStream(filePath);
+  stream.on('error', () => { if (!res.headersSent) res.status(500).json({ error: 'Erro ao ler arquivo' }); else res.end(); });
   stream.pipe(res);
+}
+
+// GET /api/pessoas/foto/:email
+router.get('/foto/:email', authMiddleware, (req, res) => {
+  const email = String(req.params.email || '');
+  // Só e-mail simples — bloqueia "../" e separadores de caminho.
+  if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$/.test(email) || email.includes('..')) {
+    return res.status(400).json({ error: 'E-mail inválido' });
+  }
+  const base = email.replace('@', '_');
+  for (const dir of photoDirs()) {
+    for (const ext of PHOTO_EXTS) {
+      const filePath = path.join(dir, `${base}${ext}`);
+      if (fs.existsSync(filePath)) return sendPhoto(res, filePath);
+    }
+  }
+  return res.status(404).json({ error: 'Foto não encontrada' });
 });
 
-// GET /api/pessoas/foto-por-nome/:name — rota pública
-router.get('/foto-por-nome/:name', (req, res) => {
-  const fs = require('fs');
-  const path = require('path');
-  const name = req.params.name;
-  if (!name || name.length < 2) return res.status(400).json({ error: 'Nome muito curto' });
+// GET /api/pessoas/foto-por-nome/:name
+router.get('/foto-por-nome/:name', authMiddleware, (req, res) => {
+  const name = String(req.params.name || '');
+  if (name.length < 2) return res.status(400).json({ error: 'Nome muito curto' });
 
-  const dirs = [
-    '\\\\192.168.90.149\\htdocs\\painel_ti\\usuarios\\fotos',
-    'Z:\\painel_ti\\usuarios\\fotos'
-  ];
-
-  let files = [];
-  for (const dir of dirs) {
-    try { files = fs.readdirSync(dir) || []; break; } catch {}
+  const nameParts = name.toLowerCase().split(' ').filter(Boolean);
+  let best = null, bestScore = 0;
+  for (const dir of photoDirs()) {
+    let files = [];
+    try { files = fs.readdirSync(dir) || []; } catch { continue; }
+    for (const filename of files) {
+      if (!PHOTO_EXTS.includes(path.extname(filename).toLowerCase())) continue;
+      const lower = filename.toLowerCase();
+      const score = nameParts.reduce((acc, p) => acc + (lower.includes(p) ? 1 : 0), 0);
+      if (score > bestScore) { bestScore = score; best = path.join(dir, filename); }
+    }
+    if (best) break;
   }
-  if (!files.length) return res.status(500).json({ error: 'Pasta de fotos inacessível' });
-
-  const nameParts = name.toLowerCase().split(' ').filter(p => p.length > 0);
-  let bestMatch = null, bestScore = 0;
-
-  files.forEach(filename => {
-    const lower = filename.toLowerCase();
-    let score = nameParts.reduce((s, p) => s + (lower.includes(p) ? 1 : 0), 0);
-    if (score > bestScore) { bestScore = score; bestMatch = filename; }
-  });
-
-  if (!bestMatch || bestScore === 0) return res.status(404).json({ error: 'Nenhuma foto encontrada' });
-
-  let fullPath = null;
-  for (const dir of dirs) {
-    const p = path.join(dir, bestMatch);
-    if (fs.existsSync(p)) { fullPath = p; break; }
-  }
-  if (!fullPath) return res.status(404).json({ error: 'Arquivo não encontrado' });
-
-  const ext = path.extname(fullPath).toLowerCase();
-  const mimeMap = { '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.gif':'image/gif','.webp':'image/webp' };
-  res.setHeader('Content-Type', mimeMap[ext] || 'image/jpeg');
-  res.setHeader('Cache-Control', 'public, max-age=86400');
-  const stream = fs.createReadStream(fullPath);
-  stream.on('error', () => res.status(500).json({ error: 'Erro ao ler arquivo' }));
-  stream.pipe(res);
+  if (!best) return res.status(404).json({ error: 'Nenhuma foto encontrada' });
+  return sendPhoto(res, best);
 });
 
 module.exports = router;

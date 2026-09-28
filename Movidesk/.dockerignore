@@ -20,13 +20,6 @@ docs/
 *.xlsx
 *.xls
 
-# Scripts avulsos de debug/manutenção manual — não usados por `npm start`
-debug-sessions.js
-debug_survey2_tmp.js
-check-columns.js
-check-perf.js
-check-perf2.js
-analyze-overdue.js
 
 Dockerfile
 docker-compose.yml
