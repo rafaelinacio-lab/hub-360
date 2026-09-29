@@ -654,7 +654,6 @@ body.modal-open{overflow:hidden}
     </div>
 
     <p class="section-label">Insatisfação e MRR por vertical</p>
-    <p class="legend" id="vert-inferida-nota" style="display:none;margin:-6px 0 10px"></p>
     <div class="grid-2">
       <div class="chart-panel">
         <p class="chart-title panel-title-exp">Casos por vertical (% do total)<button type="button" class="panel-expand" onclick="openExpandModal('vertical')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
@@ -1456,16 +1455,6 @@ function render(){
   renderDistribCharts(rowsFull);
   renderInternoExternoCharts(rowsFull);
   renderVerticalCharts(rowsFull);
-  {
-    const inf=rowsFull.filter(r=>r.vertical_inferida);
-    const nota=document.getElementById('vert-inferida-nota');
-    const porConf={alta:0,media:0,baixa:0};
-    inf.forEach(r=>{ porConf[r.vertical_confianca]=(porConf[r.vertical_confianca]||0)+1; });
-    nota.style.display=inf.length?'':'none';
-    nota.textContent=inf.length
-      ?`${inf.length} chamado${inf.length===1?'':'s'} sem a vertical preenchida no Movidesk ${inf.length===1?'usa':'usam'} a vertical deduzida pelo serviço/texto (${porConf.alta||0} alta, ${porConf.media||0} média, ${porConf.baixa||0} baixa confiança).`
-      :'';
-  }
   renderStatesMap(rowsFull);
   renderModuleChart(rowsFull);
   renderTopClientChart(rowsFull);
