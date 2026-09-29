@@ -513,7 +513,7 @@ body.modal-open{overflow:hidden}
       <div class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
         <p class="label">Tickets pendentes</p>
         <p class="value bad" id="k-pendentes">0</p>
-        <p class="legend">Ainda em aberto. Clique pra ver.</p>
+        <p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p>
       </div>
     </div>
 
@@ -961,7 +961,7 @@ let _rowsFull=[];
 let _rowsById={};
 let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-vigente"
 let _rowsPendentesAll=[]; // TODOS os tickets em aberto, qualquer ano (GET /geral/pendentes)
-let _pendentesGlobal=[]; // _rowsPendentesAll já filtrado por equipe/resp/serviço/classificação/status (sem o filtro de ano)
+let _pendentesGlobal=[]; // _rowsPendentesAll já filtrado por equipe/resp/serviço/classificação/status e, se houver, por ano/mês de ABERTURA
 
 async function fetchPendentesGlobal(){
   try{
@@ -1182,18 +1182,27 @@ function getFilteredRows(){
 }
 
 // "Tickets pendentes" e tudo que deriva dele (backlog vencido, aging,
-// ranking por equipe) precisam refletir o backlog real — de QUALQUER ano —
-// então usam _rowsPendentesAll em vez do período carregado/filtrado por
-// ano/mês. Ainda respeitam os outros filtros (equipe/responsável/
-// serviço/classificação/status), só não o de Ano/Mês.
+// ranking por equipe) usam _rowsPendentesAll (todos os abertos, de qualquer
+// ano) e respeitam os mesmos filtros do resto do painel, INCLUINDO Ano/Mês —
+// aplicados sobre a data de ABERTURA. Com "Ano: 2026" o painel mostra a
+// volumetria de 2026 (abertos em 2026, ainda pendentes); sem nenhum ano
+// marcado volta a ser o backlog real, de todos os anos.
 function getPendentesGlobalRows(){
   const equipeFils=getMsValues('f-equipe');
   const respFils=getMsValues('f-resp');
   const servFils=getMsValues('f-serv');
   const classFils=getMsValues('f-class');
   const statusFils=getMsValues('f-status');
+  const yearFils=getMsValues('f-year').map(Number);
+  const monthFils=getMsValues('f-month').map(Number);
   if(statusFils.length&&!statusFils.includes('aberto')) return [];
   return _rowsPendentesAll.filter(r=>{
+    if(yearFils.length||monthFils.length){
+      if(!r.criado_em) return false;
+      const d=new Date(r.criado_em);
+      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
+      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
+    }
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
@@ -1219,8 +1228,8 @@ function render(){
   const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
   const mediaAcoes=abertos?somaAcoes/abertos:0;
   const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size;
-  // "Tickets pendentes" ignora o filtro de Ano/Mês de propósito — é o
-  // backlog real, de qualquer ano, não só o do período em tela.
+  // "Tickets pendentes" também segue o filtro de Ano/Mês (data de abertura):
+  // com 2026 marcado, são os abertos em 2026 que ainda estão pendentes.
   const pendentesRows=getPendentesGlobalRows();
   _pendentesGlobal=pendentesRows;
 
@@ -1230,6 +1239,11 @@ function render(){
   document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:1});
   document.getElementById('k-clientes').textContent=clientesUnicos.toLocaleString('pt-BR');
   document.getElementById('k-pendentes').textContent=pendentesRows.length.toLocaleString('pt-BR');
+  {
+    const yf=getMsValues('f-year'), mf=getMsValues('f-month');
+    const rotuloPeriodo=(yf.length||mf.length)?'Abertos no período e ainda em aberto. Clique pra ver.':'Ainda em aberto (todos os anos). Clique pra ver.';
+    document.getElementById('k-pendentes-legend').textContent=rotuloPeriodo;
+  }
 
   // ── SLA / backlog ──
   const resolvidosComPrazo=resolvidosRows.filter(temPrazo);
