@@ -900,7 +900,29 @@ function fmtFull(v){
 const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
 const CANCELADO_STATUSES=['Canceled','Cancelado'];
 function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
-function isRevertido(r){ return !!(r.data_reversao&&String(r.data_reversao).trim()); }
+// Cada chamado cai em UMA categoria, usando STATUS e TIPO DE RESCISÃO juntos:
+//   status "GCC - Revertido" ou tipo "Revertido"      -> revertido
+//   status "GCC - Parcial"  -> parcial; "GCC - Rescisão" -> total (o status manda)
+//   status genérico (Fechado, Resolvido…)             -> vale o tipo de rescisão
+//   sem status GCC nem tipo: data de reversão         -> revertido; senão sem classificação
+// Antes os cards contavam só pelo campo de tipo e pela data de reversão, e o mesmo
+// chamado podia entrar em dois cards (ou em nenhum).
+function semAcentoMin(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase(); }
+function categoriaRescisao(r){
+  if(r._cat!==undefined) return r._cat;
+  const st=semAcentoMin(r.status_movidesk), tp=semAcentoMin(r.tipo_rescisao);
+  let cat='sem';
+  if(st.startsWith('gcc') && st.includes('revertid')) cat='revertido';
+  else if(tp.includes('revertid')) cat='revertido';
+  else if(st.startsWith('gcc') && st.includes('parcial')) cat='parcial';
+  else if(st.startsWith('gcc') && st.includes('rescis')) cat='total';
+  else if(tp.includes('parcial')) cat='parcial';
+  else if(tp.includes('total')) cat='total';
+  else if(r.data_reversao&&String(r.data_reversao).trim()) cat='revertido';
+  r._cat=cat;
+  return cat;
+}
+function isRevertido(r){ return categoriaRescisao(r)==='revertido'; }
 function isPerdido(r){ return FINALIZADO_STATUSES.includes(r.base_status)&&!isRevertido(r); }
 function isCritico(r){
   const u=(r.urgencia||'').trim().toLowerCase();
@@ -1183,12 +1205,15 @@ function downloadBlob(blob,filename){
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
-function tipoRescNorm(r){ return (r.tipo_rescisao||'').trim(); }
+const ROTULO_CATEGORIA={total:'Rescisão Total',parcial:'Rescisão Parcial',revertido:'Revertido'};
+// Rótulo do tipo de rescisão já reconciliado com o status (ver categoriaRescisao).
+// Sem categoria reconhecida, devolve o texto cru do campo (pode ser vazio).
+function tipoRescNorm(r){ return ROTULO_CATEGORIA[categoriaRescisao(r)]||(r.tipo_rescisao||'').trim(); }
 // O valor real do CF 87894 é "Rescisão Total"/"Rescisão Parcial" (confirmado
 // com dado real do Movidesk), não "Total"/"Parcial" soltos — por isso usa
 // includes() em vez de igualdade exata.
-function ehRescisaoTotal(r){ return tipoRescNorm(r).toLowerCase().includes('total'); }
-function ehRescisaoParcial(r){ return tipoRescNorm(r).toLowerCase().includes('parcial'); }
+function ehRescisaoTotal(r){ return categoriaRescisao(r)==='total'; }
+function ehRescisaoParcial(r){ return categoriaRescisao(r)==='parcial'; }
 // Chamados de GCC que ainda não têm o campo customizado "Tipo de Rescisão"
 // (CF 87894) preenchido como Total nem Parcial — não aparecem em nenhum
 // gráfico/ranking por tipo, mas contam no "Total de chamados".
@@ -1734,7 +1759,9 @@ function bucketPorMes(rows){
       if(isAberto(r)) b.mrrRisco+=parseMrr(r.mrr);
     }
     if(isRevertido(r)){
-      get(monthKeyOf(r.data_reversao)).rev++;
+      // revertido só pelo status não tem data de reversão: usa a de resolução
+      const dRev=r.data_reversao||r.resolvido_em;
+      if(dRev) get(monthKeyOf(dRev)).rev++;
     }
     const dataPerda=r.data_rescisao||r.resolvido_em;
     if(dataPerda&&isPerdido(r)){
