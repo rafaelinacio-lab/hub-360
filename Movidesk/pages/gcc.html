@@ -606,7 +606,7 @@ body.modal-open{overflow:hidden}
         <p class="label">MRR perdido</p>
         <p class="value bad" id="k-mrr-perdido">R$ 0</p>
         <p class="value-full" id="k-mrr-perdido-full"></p>
-        <p class="legend">MRR de casos finalizados sem reversão.</p>
+        <p class="legend">GCC - MRR − MRR pós churn dos casos finalizados sem reversão.</p>
       </div>
     </div>
 
@@ -950,6 +950,12 @@ function parseMrr(v){
   else if(s.includes(',')) s=s.replace(',','.');
   const n=parseFloat(s);
   return isFinite(n)?n:0;
+}
+// MRR perdido de um ticket = GCC - MRR − GCC - MRR pós churn (o que o
+// cliente continua pagando). Pós churn vazio = perdeu tudo (rescisão total).
+function mrrPerdidoDe(r){
+  if(!isPerdido(r)) return 0;
+  return Math.max(0,parseMrr(r.mrr)-parseMrr(r.mrr_pos_churn));
 }
 function fmtMrrK(v){
   const abs=Math.abs(v);
@@ -1363,7 +1369,7 @@ function render(){
   // ── MRR ──
   const mrrEmRisco=rowsFull.filter(isAberto).reduce((s,r)=>s+parseMrr(r.mrr),0);
   const mrrProtegido=rowsFull.filter(isRevertido).reduce((s,r)=>s+parseMrr(r.mrr),0);
-  const mrrPerdido=rowsFull.filter(r=>isPerdido(r)).reduce((s,r)=>s+parseMrr(r.mrr),0);
+  const mrrPerdido=rowsFull.reduce((s,r)=>s+mrrPerdidoDe(r),0);
   document.getElementById('k-mrr-risco').textContent=fmtMrrK(mrrEmRisco);
   document.getElementById('k-mrr-risco-full').textContent=fmtMrrFull(mrrEmRisco);
   document.getElementById('k-mrr-protegido').textContent=fmtMrrK(mrrProtegido);
@@ -1659,7 +1665,7 @@ function bucketPorMes(rows){
     }
     const dataPerda=r.data_rescisao||r.resolvido_em;
     if(dataPerda&&isPerdido(r)){
-      get(monthKeyOf(dataPerda)).mrrPerdido+=parseMrr(r.mrr);
+      get(monthKeyOf(dataPerda)).mrrPerdido+=mrrPerdidoDe(r);
     }
   });
   return by;
@@ -1887,7 +1893,7 @@ function renderVerticalCharts(rows){
   const mrrPorVertical={};
   perdidosRows.forEach(r=>{
     const v=verticalDe(r);
-    mrrPorVertical[v]=(mrrPorVertical[v]||0)+parseMrr(r.mrr);
+    mrrPorVertical[v]=(mrrPorVertical[v]||0)+mrrPerdidoDe(r);
   });
   _exp.mrrVert=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]);
   const mrrVertEntries=_exp.mrrVert.slice(0,10);
@@ -2001,7 +2007,7 @@ function renderStatesMap(rows){
     </div>
   `;
 }
-// Clique num estado do mapa mostra só organização + MRR total perdido ali
+// Clique num estado do mapa mostra só organização + MRR perdido ali
 // (agrupado), não a lista de tickets — pedido explícito, diferente do
 // padrão usado nos outros gráficos/tabelas.
 function openEstadoTicketsModal(uf,nome){
@@ -2009,7 +2015,7 @@ function openEstadoTicketsModal(uf,nome){
   const porOrg={};
   matched.forEach(r=>{
     const org=r.organizacao||'Não informado';
-    porOrg[org]=(porOrg[org]||0)+parseMrr(r.mrr);
+    porOrg[org]=(porOrg[org]||0)+mrrPerdidoDe(r);
   });
   const entries=Object.entries(porOrg).sort((a,b)=>b[1]-a[1]);
 
@@ -2017,7 +2023,7 @@ function openEstadoTicketsModal(uf,nome){
   document.getElementById('detail-modal-sub').textContent=
     `${entries.length} organizaç${entries.length===1?'ão':'ões'} · ${matched.length} ticket${matched.length===1?'':'s'}`;
   document.getElementById('detail-modal-thead').innerHTML=
-    '<th>Organização</th><th class="num">MRR total</th>';
+    '<th>Organização</th><th class="num">MRR perdido</th>';
   const tbody=document.getElementById('detail-modal-tbody');
   tbody.innerHTML=entries.length
     ? entries.map(([org,mrr])=>`
@@ -2088,7 +2094,7 @@ function renderBaixaReversaoTable(rows){
     p.casos++;
     if(isRevertido(r)) p.rev++;
     if(isAberto(r)){ p.abertos++; p.mrrRisco+=parseMrr(r.mrr); }
-    if(isPerdido(r)){ p.perdidos++; p.mrrPerdido+=parseMrr(r.mrr); }
+    if(isPerdido(r)){ p.perdidos++; p.mrrPerdido+=mrrPerdidoDe(r); }
   });
   _exp.baixa=Object.entries(porCliente).sort((a,b)=>b[1].casos-a[1].casos);
   const entries=_exp.baixa.slice(0,10);
@@ -2129,7 +2135,7 @@ function openKpiModal(kind){
   const cfg=_kpiSets[kind];
   if(!cfg) return;
   const n=cfg.rows.length;
-  const mrr=cfg.rows.reduce((t,r)=>t+parseMrr(r.mrr),0);
+  const mrr=cfg.rows.reduce((t,r)=>t+(kind==='mrrPerdido'?mrrPerdidoDe(r):parseMrr(r.mrr)),0);
   openDetailModal(cfg.title,`${n.toLocaleString('pt-BR')} ticket${n===1?'':'s'} no período filtrado · MRR ${fmtMrrFull(mrr)}`,cfg.rows);
 }
 function scrollToCriticosVencidos(){
