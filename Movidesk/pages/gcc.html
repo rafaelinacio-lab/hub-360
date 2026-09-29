@@ -363,6 +363,7 @@ body.modal-open{overflow:hidden}
 /* empilhamento: detail-modal (lista de tickets) < ticket-modal (detalhe
    de UM ticket, aberto a partir da lista) */
 #detail-modal{z-index:205}
+#export-modal{z-index:220}
 #ticket-modal{z-index:210}
 #ticket-modal .modal-box{max-width:min(700px,92vw)}
 #risco-modal .modal-box{max-width:min(760px,94vw);max-height:min(86vh,820px)}
@@ -729,7 +730,7 @@ body.modal-open{overflow:hidden}
         <p id="detail-modal-sub"></p>
       </div>
       <div style="display:flex;align-items:center;gap:4px">
-        <button class="modal-close" id="detail-modal-export" title="Exportar" aria-label="Exportar" onclick="closeDetailModal();openExportModal();">
+        <button class="modal-close" id="detail-modal-export" title="Exportar" aria-label="Exportar" onclick="openExportModal('detail')">
           <span class="sym" style="font-size:18px">download</span>
         </button>
         <button class="modal-close" id="detail-modal-close" aria-label="Fechar">&times;</button>
@@ -799,7 +800,7 @@ body.modal-open{overflow:hidden}
         <p id="listagem-sub"></p>
       </div>
       <div style="display:flex;align-items:center;gap:4px">
-        <button class="modal-close" title="Exportar" aria-label="Exportar" onclick="closeListagemModal();openExportModal();">
+        <button class="modal-close" title="Exportar" aria-label="Exportar" onclick="openExportModal('listagem')">
           <span class="sym" style="font-size:18px">download</span>
         </button>
         <button class="modal-close" id="listagem-close" aria-label="Fechar">&times;</button>
@@ -841,8 +842,8 @@ body.modal-open{overflow:hidden}
   <div class="modal-box" style="max-width:420px">
     <div class="modal-head">
       <div>
-        <h3>Exportar dados</h3>
-        <p>Considera os filtros aplicados no momento</p>
+        <h3 id="export-modal-title">Exportar dados</h3>
+        <p id="export-modal-sub">Considera os filtros aplicados no momento</p>
       </div>
       <button class="modal-close" id="export-modal-close" aria-label="Fechar">&times;</button>
     </div>
@@ -1028,7 +1029,32 @@ function captureChartImages(){
     return {title,dataUrl:off.toDataURL('image/png',1.0),width:src.width,height:src.height};
   });
 }
-function openExportModal(){
+// Escopo do export: null = dashboard inteiro (filtros aplicados + gráficos);
+// 'detail' / 'listagem' = SÓ a tabela que está aberta naquele modal, do jeito
+// que aparece (mesmas colunas, mesma ordem, busca aplicada), sem gráficos.
+let _exportCtx=null;
+let _exportHeaders=EXPORT_HEADERS;
+const EXPORT_ESCOPOS={
+  detail:{thead:'detail-modal-thead',tbody:'detail-modal-tbody',titulo:()=>document.getElementById('detail-modal-title').textContent,sub:()=>document.getElementById('detail-modal-sub').textContent},
+  listagem:{thead:'listagem-thead',tbody:'listagem-tbody',titulo:()=>'Chamados',sub:()=>document.getElementById('listagem-sub').textContent},
+};
+function capturarTabelaDoModal(escopo){
+  const cfg=EXPORT_ESCOPOS[escopo];
+  const limpa=t=>String(t||'').replace(/\s+/g,' ').trim();
+  const headers=[...document.querySelectorAll(`#${cfg.thead} th`)].map(th=>{
+    const c=th.cloneNode(true); c.querySelectorAll('.sort-arrow').forEach(x=>x.remove()); return limpa(c.textContent);
+  });
+  const rows=[...document.querySelectorAll(`#${cfg.tbody} tr`)]
+    .filter(tr=>!tr.classList.contains('empty-row'))
+    .map(tr=>[...tr.children].map(td=>limpa(td.textContent)));
+  return {headers,rows,titulo:limpa(cfg.titulo()),sub:limpa(cfg.sub())};
+}
+function openExportModal(escopo){
+  _exportCtx=escopo&&EXPORT_ESCOPOS[escopo]?capturarTabelaDoModal(escopo):null;
+  document.getElementById('export-modal-title').textContent=_exportCtx?'Exportar esta lista':'Exportar dados';
+  document.getElementById('export-modal-sub').textContent=_exportCtx
+    ?`${_exportCtx.titulo} — ${_exportCtx.rows.length.toLocaleString('pt-BR')} linha${_exportCtx.rows.length===1?'':'s'}, exatamente como está na tela`
+    :'Considera os filtros aplicados no momento';
   document.getElementById('export-modal').classList.add('show');
   syncModalBodyLock();
 }
@@ -1046,11 +1072,17 @@ async function runExport(format){
   document.getElementById('export-status').classList.add('show');
   try{
     const hoje=new Date().toISOString().slice(0,10);
-    const charts=captureChartImages();
-    const rows=buildExportRows();
-    if(format==='xlsx') await exportXlsx(rows,charts,`gcc_export_${hoje}.xlsx`);
-    else if(format==='pdf') await exportPdf(rows,charts,`gcc_export_${hoje}.pdf`,'GCC — Gestão de Combate ao Churn');
-    else if(format==='docx') await exportDocx(rows,charts,`gcc_export_${hoje}.docx`,'GCC — Gestão de Combate ao Churn');
+    const ctx=_exportCtx;
+    const charts=ctx?[]:captureChartImages();
+    const rows=ctx?ctx.rows:buildExportRows();
+    _exportHeaders=ctx?ctx.headers:EXPORT_HEADERS;
+    const base=ctx
+      ?'gcc_'+(ctx.titulo.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'lista')
+      :'gcc_export';
+    const titulo=ctx?`GCC — ${ctx.titulo}`:'GCC — Gestão de Combate ao Churn';
+    if(format==='xlsx') await exportXlsx(rows,charts,`${base}_${hoje}.xlsx`);
+    else if(format==='pdf') await exportPdf(rows,charts,`${base}_${hoje}.pdf`,titulo);
+    else if(format==='docx') await exportDocx(rows,charts,`${base}_${hoje}.docx`,titulo);
     closeExportModal();
   } catch(e){
     console.error(e);
@@ -1063,7 +1095,7 @@ async function exportXlsx(rows,charts,filename){
   if(typeof ExcelJS==='undefined') throw new Error('Biblioteca ExcelJS não carregou (verifique a conexão com a internet/CDN).');
   const wb=new ExcelJS.Workbook();
   const wsData=wb.addWorksheet('Dados');
-  wsData.addRow(EXPORT_HEADERS).font={bold:true};
+  wsData.addRow(_exportHeaders).font={bold:true};
   rows.forEach(r=>wsData.addRow(r));
   wsData.columns.forEach(c=>c.width=18);
   if(charts.length){
@@ -1104,13 +1136,17 @@ async function exportPdf(rows,charts,filename,titulo){
     doc.addImage(ch.dataUrl,'PNG',margin,y+8,w,h);
     y+=h+28;
   });
-  doc.addPage();
-  doc.setFontSize(14);
-  doc.text('Dados',margin,36);
+  let startY=y;
+  if(charts.length){
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('Dados',margin,36);
+    startY=48;
+  }
   doc.autoTable({
-    head:[EXPORT_HEADERS],
+    head:[_exportHeaders],
     body:rows,
-    startY:48,
+    startY,
     margin:{left:margin,right:margin},
     styles:{fontSize:7,cellPadding:3},
     headStyles:{fillColor:[232,93,4]},
@@ -1135,7 +1171,7 @@ async function exportDocx(rows,charts,filename,titulo){
     children.push(new Paragraph({children:[new ImageRun({data:bytes,transformation:{width:w,height:h}})]}));
   }
   children.push(new Paragraph({text:'Dados',heading:HeadingLevel.HEADING_2,spacing:{before:300}}));
-  const headerRow=new TableRow({children:EXPORT_HEADERS.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
+  const headerRow=new TableRow({children:_exportHeaders.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
   const bodyRows=rows.map(r=>new TableRow({children:r.map(v=>new TableCell({children:[new Paragraph(String(v??''))]}))}));
   children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[headerRow,...bodyRows]}));
   const doc=new Document({sections:[{children}]});
@@ -1683,7 +1719,8 @@ document.getElementById('ticket-modal').addEventListener('click',e=>{ if(e.targe
 
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
+  if(document.getElementById('export-modal').classList.contains('show')) closeExportModal();
+  else if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
   else if(document.getElementById('risco-modal').classList.contains('show')) closeRiscoModal();
 });
