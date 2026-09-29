@@ -578,6 +578,22 @@ async function ensureTables() {
         atualizado_em    timestamptz NOT NULL DEFAULT NOW()
       )
     `],
+    // Vertical DEDUZIDA dos chamados de GCC cujo campo "GCC - Verticais
+    // Insatisfação" (CF 98697) está vazio no Movidesk — ver
+    // refreshGccVerticalInferida(). Fica numa tabela à parte de propósito: a
+    // carga apaga e regrava silver.ticket_campo_customizado a cada recarga do
+    // chamado, e isto nunca deve se misturar com o dado real do Movidesk.
+    // origem: 'servico' | 'texto' | 'servico (medio)' | 'manual' (confirmado por
+    // uma pessoa — nunca é sobrescrito pela dedução).
+    ['silver.gcc_vertical_inferida (create)', `
+      CREATE TABLE IF NOT EXISTS silver.gcc_vertical_inferida (
+        ticket_id     bigint PRIMARY KEY,
+        vertical      text NOT NULL,
+        origem        text NOT NULL,
+        confianca     text NOT NULL,
+        atualizado_em timestamptz NOT NULL DEFAULT NOW()
+      )
+    `],
     ['silver.carga_log (create)', `
       CREATE TABLE IF NOT EXISTS silver.carga_log (
         id           serial PRIMARY KEY,
@@ -2328,6 +2344,115 @@ async function runAtualizacaoInteligente({ years = [] } = {}) {
 // o agente interno que às vezes também aparece em clients[]). Chamada no boot
 // e periodicamente (ver setInterval em server.js) — idempotente, então rodar
 // de novo só atualiza tickets/clientes novos desde a última vez.
+// ── Vertical deduzida (GCC) ────────────────────────────────────────────────
+// Chamados de GCC sem a vertical preenchida no Movidesk: deduz pela vertical
+// mais comum do SERVIÇO do chamado (medida nos chamados que têm vertical) e
+// pelo texto do assunto/ações. Regra e limiares validados em produção
+// (30/09/2026) contra os chamados que já têm vertical:
+//   serviço com >= 85% de acerto (e >= 5 chamados)  -> 'alta'
+//   texto cita UMA palavra confiável                -> 'alta' se concorda com o serviço,
+//                                                       senão 'media' (e serviço >= 85% vence)
+//   serviço com 70-84% de acerto                    -> 'baixa'
+//   nada disso                                      -> sem dedução ("Não informado")
+// Palavras do texto com precisão medida: Agrotitan Fazendas 100%, Automação
+// Comercial 93%, Agrotitan 89%, Combustíveis 87%, Construshow 84%. Voors, Orion,
+// Oracle Cloud, Fisco Contábil, Sistema para RH e Forlog ficaram de fora
+// (precisão < 35% — aparecem em chamados de qualquer vertical).
+// O acerto do serviço conta a vertical CONTIDA no campo, que é multi-seleção
+// ("Construshow, Fisco Contábil" conta como acerto pra Construshow).
+const GCC_TEAM = 'GCC - Gestão de Combate ao Churn';
+const GCC_VERTICAL_TEXTO = [
+  ['Agrotitan Fazendas', 'agrotitan\\s+fazendas'],
+  ['Agrotitan',          'agrotitan(?!\\s+fazendas)'],
+  ['Construshow',        'construshow'],
+  ['Automação Comercial', 'automa[cç][aã]o\\s+comercial'],
+  ['Combustíveis',       'combust[ií]ve(l|is)'],
+];
+const contemVertical = (col, nome) => `(', ' || ${col} || ', ') LIKE '%, ' || ${nome} || ', %'`;
+const GCC_VERTICAL_INFERIDA_SQL = `
+  WITH base AS (
+    SELECT t.ticket_id, t.service_full, t.subject
+    FROM silver.ticket t
+    JOIN silver.ticket_campo_customizado cl ON cl.ticket_id = t.ticket_id AND cl.custom_field_id = 23946
+      AND cl.valor_texto = 'Gestão de Combate ao Churn'
+    WHERE t.ownerteam = '${GCC_TEAM}'
+      AND t.basestatus NOT IN ('Canceled', 'Cancelado')
+      AND NOT EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id
+                        AND cf.custom_field_id = 98697 AND NULLIF(TRIM(cf.valor_texto), '') IS NOT NULL)
+      AND NOT EXISTS (SELECT 1 FROM silver.gcc_vertical_inferida m WHERE m.ticket_id = t.ticket_id AND m.origem = 'manual')
+  ),
+  vals AS (
+    SELECT t.service_full, TRIM(v.valor_texto) AS val, COUNT(*) AS c
+    FROM silver.ticket t
+    JOIN silver.ticket_campo_customizado v ON v.ticket_id = t.ticket_id AND v.custom_field_id = 98697
+      AND NULLIF(TRIM(v.valor_texto), '') IS NOT NULL
+    WHERE t.ownerteam = '${GCC_TEAM}' AND t.basestatus NOT IN ('Canceled', 'Cancelado')
+    GROUP BY t.service_full, TRIM(v.valor_texto)
+  ),
+  topv AS (SELECT DISTINCT ON (service_full) service_full, val AS vertical FROM vals ORDER BY service_full, c DESC),
+  svc AS (
+    SELECT tp.service_full, tp.vertical, SUM(vs.c) AS n,
+           100.0 * SUM(vs.c) FILTER (WHERE ${contemVertical('vs.val', 'tp.vertical')}) / SUM(vs.c) AS pct
+    FROM topv tp JOIN vals vs ON vs.service_full IS NOT DISTINCT FROM tp.service_full
+    GROUP BY tp.service_full, tp.vertical
+  ),
+  txt AS (
+    SELECT b.ticket_id, ARRAY_REMOVE(ARRAY[${GCC_VERTICAL_TEXTO.map(([n, rx]) => `CASE WHEN x.tx ~ '${rx}' THEN '${n}' END`).join(', ')}], NULL) AS achados
+    FROM base b
+    CROSS JOIN LATERAL (
+      SELECT LOWER(COALESCE(b.subject, '') || ' ' || COALESCE((SELECT string_agg(a.descricao, ' ') FROM silver.ticket_acao a WHERE a.ticket_id = b.ticket_id), '')) AS tx
+    ) x
+  ),
+  r AS (
+    SELECT b.ticket_id, s.vertical AS v_servico, tx.achados,
+           (s.n >= 5 AND s.pct >= 85) AS svc_alta,
+           (s.n >= 5 AND s.pct >= 70) AS svc_media,
+           (CARDINALITY(tx.achados) = 1) AS txt_unico
+    FROM base b
+    LEFT JOIN svc s ON s.service_full IS NOT DISTINCT FROM b.service_full
+    LEFT JOIN txt tx ON tx.ticket_id = b.ticket_id
+  )
+  SELECT ticket_id,
+         CASE WHEN svc_alta THEN v_servico WHEN txt_unico THEN achados[1] WHEN svc_media THEN v_servico END AS vertical,
+         CASE WHEN svc_alta THEN 'servico' WHEN txt_unico THEN 'texto' WHEN svc_media THEN 'servico (medio)' END AS origem,
+         CASE
+           WHEN svc_alta AND (txt_unico IS NOT TRUE OR ${contemVertical('v_servico', 'achados[1]')}) THEN 'alta'
+           WHEN txt_unico AND svc_media AND ${contemVertical('v_servico', 'achados[1]')} THEN 'alta'
+           WHEN svc_alta OR txt_unico THEN 'media'
+           WHEN svc_media THEN 'baixa'
+         END AS confianca
+  FROM r
+`;
+
+let _refreshingVerticalInferida = false;
+async function refreshGccVerticalInferida() {
+  if (_refreshingVerticalInferida) return;
+  _refreshingVerticalInferida = true;
+  const t0 = Date.now();
+  try {
+    await ensureTables();
+    const ins = await db.query(`
+      WITH d AS (${GCC_VERTICAL_INFERIDA_SQL})
+      INSERT INTO silver.gcc_vertical_inferida (ticket_id, vertical, origem, confianca, atualizado_em)
+      SELECT ticket_id, vertical, origem, confianca, NOW() FROM d WHERE vertical IS NOT NULL
+      ON CONFLICT (ticket_id) DO UPDATE
+        SET vertical = EXCLUDED.vertical, origem = EXCLUDED.origem, confianca = EXCLUDED.confianca, atualizado_em = NOW()
+        WHERE silver.gcc_vertical_inferida.origem <> 'manual'
+    `);
+    // Sai quem não precisa mais de dedução: ganhou a vertical real no Movidesk,
+    // deixou de ser GCC ou a regra não sugere mais nada. 'manual' nunca é apagado.
+    const del = await db.query(`
+      DELETE FROM silver.gcc_vertical_inferida g
+      WHERE g.origem <> 'manual' AND g.atualizado_em < $1::timestamptz
+    `, [new Date(t0).toISOString()]);
+    console.log(`[loader] ✔ silver.gcc_vertical_inferida — ${ins.rowCount} deduzido(s), ${del.rowCount} removido(s) (${Date.now() - t0}ms)`);
+  } catch (e) {
+    console.error('[loader] refreshGccVerticalInferida falhou:', e.message);
+  } finally {
+    _refreshingVerticalInferida = false;
+  }
+}
+
 let _refreshingOrganizacao = false;
 async function refreshTicketOrganizacao() {
   if (_refreshingOrganizacao) return;
@@ -2524,6 +2649,7 @@ module.exports = {
   runFull, runIncremental, runGeral, runOuvidoria, runGcc, runCustom, runFixOrganizacao, cancelLoad, ensureTables, state,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   refreshTicketOrganizacao,
+  refreshGccVerticalInferida,
   runBackfillCamposBasicos,
   runFixDadosRelacionados,
   runFixAutoresAcoes,

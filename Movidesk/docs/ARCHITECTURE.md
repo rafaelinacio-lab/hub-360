@@ -89,3 +89,22 @@ carga por vez, um job que dispara com outra em andamento espera na fila.
 `PHOTOS_DIRS`. Como `<img src>` não manda o header de autorização, o front
 marca essas imagens com `data-auth-src` e `js/auth.js` as baixa com o token
 (blob URL).
+
+## Vertical deduzida (GCC)
+
+Chamados de GCC sem o campo "GCC - Verticais Insatisfação" (CF 98697)
+preenchido no Movidesk recebem uma vertical **deduzida**, guardada em
+`silver.gcc_vertical_inferida` (nunca no campo real, que a carga sobrescreve).
+`refreshGccVerticalInferida()` (loader) recalcula no boot e a cada 30 min:
+
+- serviço do chamado com ≥ 85% de acerto (≥ 5 chamados) → confiança **alta**;
+- exatamente uma palavra confiável no assunto/ações (Agrotitan Fazendas,
+  Agrotitan, Construshow, Automação Comercial, Combustíveis) → **alta** se
+  concorda com o serviço, senão **média**;
+- serviço com 70–84% de acerto → **baixa**; sem base → continua "Não informado".
+
+A vertical real do Movidesk sempre vence. Linhas com `origem = 'manual'` são
+confirmações humanas e nunca são sobrescritas. `GET /api/gcc` devolve
+`vertical_inferida`, `vertical_confianca` e `vertical_origem`, e a tela marca
+"(deduzida · confiança)".
+
