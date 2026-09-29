@@ -2368,6 +2368,12 @@ const GCC_VERTICAL_TEXTO = [
   ['Automação Comercial', 'automa[cç][aã]o\\s+comercial'],
   ['Combustíveis',       'combust[ií]ve(l|is)'],
 ];
+// Lista oficial de valores de "GCC - Verticais Insatisfação" no Movidesk.
+const GCC_VERTICAIS_OFICIAIS = [
+  'Agrotitan', 'Automação Comercial', 'Construshow', 'Fisco Contábil', 'Combustíveis',
+  'Sistema para RH', 'Voors', 'Agrotitan Fazendas', 'Forlog', 'Supermercados', 'Serviços',
+  'Analytics', 'Nimitz', 'Oracle Cloud', 'CRM', 'Personalizações', 'Tips', 'Orion', 'Voors LMS',
+];
 const contemVertical = (col, nome) => `(', ' || ${col} || ', ') LIKE '%, ' || ${nome} || ', %'`;
 const GCC_VERTICAL_INFERIDA_SQL = `
   WITH base AS (
@@ -2405,6 +2411,10 @@ const GCC_VERTICAL_INFERIDA_SQL = `
   ),
   r AS (
     SELECT b.ticket_id, s.vertical AS v_servico, tx.achados,
+           -- último recurso: o próprio nome do serviço ("GCC > Supermercados",
+           -- "Supermercados") é uma vertical oficial, mesmo sem chamados de base
+           (SELECT o.nome FROM (VALUES ${GCC_VERTICAIS_OFICIAIS.map(v => `('${v}')`).join(', ')}) o(nome)
+             WHERE LOWER(o.nome) = LOWER(TRIM(REGEXP_REPLACE(COALESCE(b.service_full, ''), '^.*>\\s*', ''))) LIMIT 1) AS v_nome,
            (s.n >= 5 AND s.pct >= 85) AS svc_alta,
            (s.n >= 5 AND s.pct >= 70) AS svc_media,
            (CARDINALITY(tx.achados) = 1) AS txt_unico
@@ -2413,13 +2423,13 @@ const GCC_VERTICAL_INFERIDA_SQL = `
     LEFT JOIN txt tx ON tx.ticket_id = b.ticket_id
   )
   SELECT ticket_id,
-         CASE WHEN svc_alta THEN v_servico WHEN txt_unico THEN achados[1] WHEN svc_media THEN v_servico END AS vertical,
-         CASE WHEN svc_alta THEN 'servico' WHEN txt_unico THEN 'texto' WHEN svc_media THEN 'servico (medio)' END AS origem,
+         CASE WHEN svc_alta THEN v_servico WHEN txt_unico THEN achados[1] WHEN svc_media THEN v_servico WHEN v_nome IS NOT NULL THEN v_nome END AS vertical,
+         CASE WHEN svc_alta THEN 'servico' WHEN txt_unico THEN 'texto' WHEN svc_media THEN 'servico (medio)' WHEN v_nome IS NOT NULL THEN 'nome do servico' END AS origem,
          CASE
            WHEN svc_alta AND (txt_unico IS NOT TRUE OR ${contemVertical('v_servico', 'achados[1]')}) THEN 'alta'
            WHEN txt_unico AND svc_media AND ${contemVertical('v_servico', 'achados[1]')} THEN 'alta'
            WHEN svc_alta OR txt_unico THEN 'media'
-           WHEN svc_media THEN 'baixa'
+           WHEN svc_media OR v_nome IS NOT NULL THEN 'baixa'
          END AS confianca
   FROM r
 `;
