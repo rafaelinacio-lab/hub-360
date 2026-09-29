@@ -772,7 +772,12 @@ body.modal-open{overflow:hidden}
         <h3 id="risco-modal-title">Risco — clientes com GCC recorrente</h3>
         <p id="risco-modal-sub"></p>
       </div>
-      <button class="modal-close" id="risco-modal-close" aria-label="Fechar">&times;</button>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="modal-close" id="risco-modal-export" title="Exportar" aria-label="Exportar" onclick="openExportModal('risco')">
+          <span class="sym" style="font-size:18px">download</span>
+        </button>
+        <button class="modal-close" id="risco-modal-close" aria-label="Fechar">&times;</button>
+      </div>
     </div>
     <div class="risco-toolbar">
       <div class="risco-sum" id="risco-sum"></div>
@@ -1065,9 +1070,32 @@ let _exportHeaders=EXPORT_HEADERS;
 const EXPORT_ESCOPOS={
   detail:{thead:'detail-modal-thead',tbody:'detail-modal-tbody',titulo:()=>document.getElementById('detail-modal-title').textContent,sub:()=>document.getElementById('detail-modal-sub').textContent},
   listagem:{thead:'listagem-thead',tbody:'listagem-tbody',titulo:()=>'Chamados',sub:()=>document.getElementById('listagem-sub').textContent},
+  // O modal Risco não é uma tabela: as linhas saem dos dados da lista (com a busca aplicada).
+  risco:{capturar:()=>capturarRisco()},
 };
+// Uma linha por cliente, com a mesma informação do modal (e os motivos/tipos de
+// redução completos, sem o "+N" do cartão).
+function capturarRisco(){
+  const q=(document.getElementById('risco-busca').value||'').trim().toLowerCase();
+  const lista=(_exp.risco||[]).filter(([org])=>!q||org.toLowerCase().includes(q));
+  const lin=obj=>Object.entries(obj||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} (${n})`).join('; ');
+  const rows=lista.map(([org,v])=>{
+    const outros=Math.max(0,v.n-v.total-v.parcial-v.rev);
+    return [org,v.vertical||'Vertical não informada',v.n,v.aberto,
+      v.ultimo?new Date(v.ultimo).toLocaleDateString('pt-BR'):'',
+      v.mrr?fmtMrrFull(v.mrr):'',
+      v.total,v.parcial,v.rev,outros,lin(v.itens),lin(v.motivos)];
+  });
+  return {
+    headers:['Cliente','Vertical','Tickets','Em aberto','Último ticket','MRR em risco','Rescisão total','Redução (parcial)','Revertidos','Outros','Tipo de redução','Motivos'],
+    rows,
+    titulo:document.getElementById('risco-modal-title').textContent.trim(),
+    sub:document.getElementById('risco-modal-sub').textContent.trim(),
+  };
+}
 function capturarTabelaDoModal(escopo){
   const cfg=EXPORT_ESCOPOS[escopo];
+  if(cfg.capturar) return cfg.capturar();
   const limpa=t=>String(t||'').replace(/\s+/g,' ').trim();
   const headers=[...document.querySelectorAll(`#${cfg.thead} th`)].map(th=>{
     const c=th.cloneNode(true); c.querySelectorAll('.sort-arrow').forEach(x=>x.remove()); return limpa(c.textContent);
