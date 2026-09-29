@@ -25,6 +25,8 @@ const TASK_LABELS = {
 
 const timers = new Map(); // job id -> { intervalHandle, timeoutHandle }
 const pending = new Set(); // jobs na fila ou rodando agora
+const cancelRequested = new Set(); // jobs que pediram pra parar enquanto estavam na fila
+let runningJobId = null;           // job cuja carga está no loader agora
 const QUEUE_POLL_MS = 20 * 1000;
 const QUEUE_MAX_WAIT_MS = 3 * 60 * 60 * 1000;
 
@@ -111,13 +113,26 @@ async function executeJob(jobId, { force = false } = {}) {
       await db.query(`UPDATE silver.cron_job SET last_status = 'queued' WHERE id = $1`, [jobId]).catch(() => {});
       const limite = Date.now() + QUEUE_MAX_WAIT_MS;
       while (movideskLoader.state.running) {
+        if (cancelRequested.has(jobId)) throw Object.assign(new Error('Parado manualmente (estava na fila)'), { stopped: true });
         if (Date.now() > limite) throw new Error(`Outra carga (${movideskLoader.state.mode || '?'}) ficou em andamento por mais de ${QUEUE_MAX_WAIT_MS / 3600000}h — execução pulada`);
         await new Promise(r => setTimeout(r, QUEUE_POLL_MS));
       }
     }
     console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Cron "${row.name}" (${taskLabel(row.task)}) iniciando...`);
+    if (cancelRequested.has(jobId)) throw Object.assign(new Error('Parado manualmente'), { stopped: true });
     await db.query(`UPDATE silver.cron_job SET last_status = 'running' WHERE id = $1`, [jobId]).catch(() => {});
-    await runTask(row);
+    runningJobId = jobId;
+    // Cargas canceladas não devolvem nada — o resultado fica em state.lastResult
+    // (que cada carga sobrescreve ao terminar, então é o desta execução).
+    const result = (await runTask(row)) || movideskLoader.state.lastResult;
+    if (result?.cancelled) {
+      await db.query(
+        `UPDATE silver.cron_job SET last_run_at = NOW(), last_status = 'cancelled', last_error = 'Parado manualmente' WHERE id = $1`,
+        [jobId]
+      ).catch(() => {});
+      console.log(`⏹ Cron "${row.name}" parada manualmente.`);
+      return;
+    }
     await db.query(
       `UPDATE silver.cron_job SET last_run_at = NOW(), last_status = 'done', last_error = NULL WHERE id = $1`,
       [jobId]
@@ -125,13 +140,47 @@ async function executeJob(jobId, { force = false } = {}) {
     console.log(`✔ Cron "${row.name}" concluída.`);
   } catch (e) {
     await db.query(
-      `UPDATE silver.cron_job SET last_run_at = NOW(), last_status = 'error', last_error = $2 WHERE id = $1`,
-      [jobId, e.message]
+      `UPDATE silver.cron_job SET last_run_at = NOW(), last_status = $3, last_error = $2 WHERE id = $1`,
+      [jobId, e.message, e.stopped ? 'cancelled' : 'error']
     ).catch(() => {});
     console.error(`✘ Cron "${row.name}" falhou: ${e.message}`);
   } finally {
     pending.delete(jobId);
+    cancelRequested.delete(jobId);
+    if (runningJobId === jobId) runningJobId = null;
   }
+}
+
+// Botão "Parar" da tela de crons. Três casos:
+// - a carga desta cron está rodando no loader → pede cancelamento (o loader
+//   para no próximo ponto de checagem e grava o que já salvou);
+// - está na fila esperando outra carga → sai da fila;
+// - o status ficou "running" de uma execução que morreu (ex.: container
+//   reiniciado no meio) → só corrige o status no banco.
+async function stopJobRun(jobId) {
+  if (runningJobId === jobId && movideskLoader.state.running) {
+    const ok = movideskLoader.cancelLoad();
+    return { action: ok ? 'cancelling' : 'too_early' };
+  }
+  if (pending.has(jobId)) {
+    cancelRequested.add(jobId);
+    return { action: 'dequeued' };
+  }
+  await markInterrupted(jobId, 'Parado manualmente (execução não estava mais ativa)');
+  return { action: 'reset' };
+}
+
+async function markInterrupted(jobId, msg) {
+  await db.query(
+    `UPDATE silver.cron_job SET last_status = 'error', last_error = $2, last_run_at = COALESCE(last_run_at, NOW())
+     WHERE id = $1 AND last_status IN ('running', 'queued')`,
+    [jobId, msg]
+  ).catch(() => {});
+  await db.query(
+    `UPDATE silver.carga_log SET status = 'error', error_msg = $2, finished_at = NOW()
+     WHERE cron_job_id = $1 AND status = 'running'`,
+    [jobId, msg]
+  ).catch(() => {});
 }
 
 function stopJob(jobId) {
@@ -157,6 +206,17 @@ function startJob(job) {
 // e agenda cada um.
 async function loadAndStartAll() {
   await ensureTable();
+  // Ao subir, nenhuma cron está rodando de verdade — se alguma ficou marcada
+  // como "running"/"queued" é porque o processo morreu no meio (deploy,
+  // restart). Sem isso ela aparecia "Executando..." pra sempre.
+  const stale = await db.query(
+    `UPDATE silver.cron_job SET last_status = 'error', last_error = 'Interrompida (reinício do servidor)'
+     WHERE last_status IN ('running', 'queued') RETURNING id`
+  ).catch(() => ({ rows: [] }));
+  if (stale.rows.length) console.log(`[cron-manager] ${stale.rows.length} cron(s) interrompida(s) pelo reinício marcada(s) como erro`);
+  await db.query(
+    `UPDATE silver.carga_log SET status = 'error', error_msg = 'Interrompido (reinício do servidor)', finished_at = NOW() WHERE status = 'running'`
+  ).catch(() => {});
   const rows = (await db.query('SELECT * FROM silver.cron_job').catch(() => ({ rows: [] }))).rows;
   rows.forEach(startJob);
   console.log(`[cron-manager] ${rows.filter(r => r.enabled).length}/${rows.length} cron(s) automática(s) ativa(s)`);
@@ -174,4 +234,4 @@ function stopAndRemove(jobId) {
   stopJob(jobId);
 }
 
-module.exports = { ensureTable, loadAndStartAll, reloadJob, stopAndRemove, executeJob, customTaskId, TASK_LABELS };
+module.exports = { ensureTable, loadAndStartAll, reloadJob, stopAndRemove, executeJob, stopJobRun, customTaskId, TASK_LABELS };
