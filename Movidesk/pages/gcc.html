@@ -699,7 +699,7 @@ body.modal-open{overflow:hidden}
         <p class="panel-title panel-title-exp">Casos críticos vencidos — ação necessária<button type="button" class="panel-expand" onclick="openExpandModal('criticos')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
-            <thead><tr><th>Ticket</th><th>Cliente</th><th>Vertical</th><th class="num">Dias venc.</th></tr></thead>
+            <thead><tr><th>Ticket</th><th>Cliente</th><th>Vertical</th><th class="num">Vencido há</th></tr></thead>
             <tbody id="tbl-criticos-vencidos"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
           </table>
         </div>
@@ -933,6 +933,16 @@ function isVencido(r){
 }
 function diasVencido(r){
   return Math.floor((Date.now()-new Date(r.sla_solucao).getTime())/86400000);
+}
+// Quanto tempo o chamado está vencido (ms desde o prazo de solução).
+function msVencido(r){ return Date.now()-new Date(r.sla_solucao).getTime(); }
+// 1 dia ou mais -> dias; menos de 1 dia -> horas; menos de 1 hora -> minutos.
+// (Antes tudo virava dias inteiros, então quem venceu ontem à noite aparecia "0".)
+function fmtVencido(ms){
+  const min=Math.max(0,Math.floor(ms/60000));
+  if(min>=1440){ const d=Math.floor(min/1440); return `${d} ${d===1?'dia':'dias'}`; }
+  if(min>=60) return `${Math.floor(min/60)} h`;
+  return `${min} min`;
 }
 // "Vertical" — CF 98697 (GCC - Verticais Insatisfação). Confirmado com dado
 // real (ticket 900840 = "Agrotitan"). Não dá pra derivar de service_full: o
@@ -2217,8 +2227,8 @@ function openClienteTicketsModal(org){
 function renderCriticosVencidosTable(rows){
   const tbody=document.getElementById('tbl-criticos-vencidos');
   const entries=rows
-    .map(r=>({...r,diasVenc:diasVencido(r)}))
-    .sort((a,b)=>b.diasVenc-a.diasVenc);
+    .map(r=>({...r,diasVenc:diasVencido(r),vencMs:msVencido(r)}))
+    .sort((a,b)=>b.vencMs-a.vencMs);
   _exp.criticos=entries.slice();
   entries.splice(10);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum caso crítico vencido no período filtrado.</td></tr>`; return; }
@@ -2228,7 +2238,7 @@ function renderCriticosVencidosTable(rows){
       <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a></td>
       <td>${esc(r.organizacao||'Não informado')}</td>
       <td>${esc(verticalDe(r))}</td>
-      <td class="num bad">${r.diasVenc}</td>
+      <td class="num bad nowrap">${fmtVencido(r.vencMs)}</td>
     </tr>`).join('');
 }
 function openKpiModal(kind){
@@ -2315,12 +2325,12 @@ const EXPAND_CFG={
   criticos:{
     titulo:'Casos críticos vencidos — ação necessária', unit:['caso','casos'],
     entries:()=>_exp.criticos,
-    head:'<tr><th>Ticket</th><th>Cliente</th><th>Vertical</th><th>Responsável</th><th>Status</th><th class="num">MRR</th><th class="num">Dias venc.</th></tr>',
+    head:'<tr><th>Ticket</th><th>Cliente</th><th>Vertical</th><th>Responsável</th><th>Status</th><th class="num">MRR</th><th class="num">Vencido há</th></tr>',
     cols:7,
     row:r=>`
       <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a></td>
       <td>${esc(r.organizacao||'Não informado')}</td><td>${esc(verticalDe(r))}</td><td>${esc(r.responsavel||'Não atribuído')}</td>
-      <td>${esc(r.status_movidesk||r.base_status||'—')}</td><td class="num nowrap">${fmtMrrFull(parseMrr(r.mrr))}</td><td class="num bad">${r.diasVenc}</td>`,
+      <td>${esc(r.status_movidesk||r.base_status||'—')}</td><td class="num nowrap">${fmtMrrFull(parseMrr(r.mrr))}</td><td class="num bad nowrap">${fmtVencido(r.vencMs)}</td>`,
     open:r=>{ _rowsById[r.ticket_id]=r; openTicketModal(r.ticket_id); },
   },
   mrrRisco:{
