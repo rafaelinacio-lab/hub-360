@@ -401,9 +401,7 @@ function navigateTo(view) {
     if (normalizedView === 'chamados') loadCuradoria();
     if (normalizedView === 'configuracoes') {
         loadMovideskTokenStatus();
-        loadAdminStats();
         loadGptStatus();
-        loadLastSyncedAt();
         loadCategoriesConfig();
         loadScoreWeightsConfig();
         loadCuradoriaPendingCount();
@@ -574,9 +572,6 @@ function setupConfigEvents() {
     const saveTokenBtn = document.getElementById('cfgSaveMovideskToken');
     if (saveTokenBtn) saveTokenBtn.addEventListener('click', saveMovideskToken);
 
-    const reloadBtn = document.getElementById('cfgReloadStats');
-    if (reloadBtn) reloadBtn.addEventListener('click', loadAdminStats);
-
     const saveGptBtn = document.getElementById('cfgSaveGptApiKey');
     if (saveGptBtn) saveGptBtn.addEventListener('click', saveGptApiKey);
 
@@ -591,15 +586,6 @@ function setupConfigEvents() {
 
     const reloadDbBtn = document.getElementById('cfgReloadDbConfig');
     if (reloadDbBtn) reloadDbBtn.addEventListener('click', loadDbConfig);
-
-    const saveMovideskCondBtn = document.getElementById('cfgSaveMovideskConditions');
-    if (saveMovideskCondBtn) saveMovideskCondBtn.addEventListener('click', saveMovideskConditions);
-
-    const resetMovideskCondBtn = document.getElementById('cfgResetMovideskConditions');
-    if (resetMovideskCondBtn) resetMovideskCondBtn.addEventListener('click', resetMovideskConditions);
-
-    const addTeamConditionBtn = document.getElementById('cfgAddTeamCondition');
-    if (addTeamConditionBtn) addTeamConditionBtn.addEventListener('click', addTeamCondition);
 
     // Curadoria Avançado
     const saveCuradoriaPromptAnaliseBtn = document.getElementById('cfgSaveCuradoriaPromptAnalise');
@@ -746,8 +732,6 @@ async function initializeApp() {
     setupConfigEvents();
     loadGptPrompt();
     loadDbConfig();
-    loadMovideskConditions();
-    loadLastSyncedAt();
 
     const toggleBtn = document.getElementById('toggleBtn');
     if (toggleBtn && !toggleBtn.dataset.bound) {
