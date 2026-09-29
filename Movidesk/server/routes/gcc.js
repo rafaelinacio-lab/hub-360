@@ -26,9 +26,27 @@ const CF_VERTICAL       = 98697;  // GCC - Verticais Insatisfação (confirmado 
 // GCC_CF_MRR_POS_CHURN no .env.
 const CF_MRR_POS_CHURN  = Number(process.env.GCC_CF_MRR_POS_CHURN) || 92847; // confirmado no ticket 898263 (3794,40)
 
+// Vertical DEDUZIDA (serviço/texto) pros chamados sem "GCC - Verticais
+// Insatisfação" no Movidesk — ver refreshGccVerticalInferida() no loader. A
+// vertical real sempre vence; a deduzida só entra onde o campo está vazio.
+// A tabela é garantida aqui também pra rota não quebrar se subir antes do loader.
+let _inferidaPronta = null;
+function garantirTabelaInferida() {
+  if (!_inferidaPronta) {
+    _inferidaPronta = db.query(`
+      CREATE TABLE IF NOT EXISTS silver.gcc_vertical_inferida (
+        ticket_id bigint PRIMARY KEY, vertical text NOT NULL, origem text NOT NULL,
+        confianca text NOT NULL, atualizado_em timestamptz NOT NULL DEFAULT NOW()
+      )`).catch(e => { _inferidaPronta = null; throw e; });
+  }
+  return _inferidaPronta;
+}
+const VERTICAL_REAL = `NULLIF(TRIM(MAX(CASE WHEN cf.custom_field_id = ${CF_VERTICAL} THEN cf.valor_texto END)), '')`;
+
 // ===== GET /gcc =====
 router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
   try {
+    await garantirTabelaInferida().catch(() => {});
     const result = await db.query(`
       SELECT
         t.ticket_id::varchar                                                        AS ticket_id,
@@ -48,7 +66,10 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_RESCISAO}  THEN cf.valor_texto END) AS tipo_rescisao,
         MAX(CASE WHEN cf.custom_field_id = ${CF_TIPO_RESC_PARC} THEN cf.valor_texto END) AS tipo_rescisao_parcial,
         MAX(CASE WHEN cf.custom_field_id = ${CF_MODULOS}        THEN cf.valor_texto END) AS modulos,
-        MAX(CASE WHEN cf.custom_field_id = ${CF_VERTICAL}       THEN cf.valor_texto END) AS vertical,
+        COALESCE(${VERTICAL_REAL}, gi.vertical)                                     AS vertical,
+        (${VERTICAL_REAL} IS NULL AND gi.vertical IS NOT NULL)                      AS vertical_inferida,
+        CASE WHEN ${VERTICAL_REAL} IS NULL THEN gi.confianca END                    AS vertical_confianca,
+        CASE WHEN ${VERTICAL_REAL} IS NULL THEN gi.origem END                       AS vertical_origem,
         t.createddate   AS criado_em,
         t.status        AS status_movidesk,
         t.basestatus    AS base_status,
@@ -67,6 +88,7 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         AND cf_class.custom_field_id = ${CF_CLASSIFICACAO}
         AND cf_class.valor_texto = 'Gestão de Combate ao Churn'
       LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id
+      LEFT JOIN silver.gcc_vertical_inferida gi ON gi.ticket_id = t.ticket_id
       LEFT JOIN LATERAL (
         SELECT organizacao_id, organizacao_nome
         FROM silver.ticket_cliente
@@ -88,7 +110,7 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
       -- silver.cliente_estado. NULLIF pra cobrir string vazia do CSV.
       LEFT JOIN silver.cliente_estado ce ON ce.organizacao_id = tc.organizacao_id AND NULLIF(ce.estado, '') IS NOT NULL
       WHERE t.ownerteam = 'GCC - Gestão de Combate ao Churn'
-      GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
+      GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id, gi.vertical, gi.confianca, gi.origem,
                t.subject, t.service_full, t.createddate, t.status, t.basestatus, t.resolved_in, t.closed_in,
                t.owner_name, t.urgency, t.sla_solution_date, ac.n, ce.estado
       ORDER BY t.createddate DESC

@@ -191,6 +191,16 @@ setInterval(() => {
   movideskLoader.refreshTicketOrganizacao().catch(() => {});
 }, 30 * 60 * 1000);
 
+// silver.gcc_vertical_inferida — vertical deduzida (serviço/texto) dos chamados
+// de GCC sem "Verticais Insatisfação" no Movidesk. Recalcula no boot e a cada
+// 30 min (chamado que ganha a vertical real no Movidesk sai da tabela sozinho).
+movideskLoader.refreshGccVerticalInferida().catch(e => {
+  console.error('[server] refreshGccVerticalInferida na inicialização falhou (não bloqueia o boot):', e.message);
+});
+setInterval(() => {
+  movideskLoader.refreshGccVerticalInferida().catch(() => {});
+}, 30 * 60 * 1000);
+
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);

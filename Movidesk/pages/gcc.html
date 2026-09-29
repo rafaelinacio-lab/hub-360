@@ -653,6 +653,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <p class="section-label">Insatisfação e MRR por vertical</p>
+    <p class="legend" id="vert-inferida-nota" style="display:none;margin:-6px 0 10px"></p>
     <div class="grid-2">
       <div class="chart-panel">
         <p class="chart-title panel-title-exp">Casos por vertical (% do total)<button type="button" class="panel-expand" onclick="openExpandModal('vertical')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
@@ -919,6 +920,17 @@ function diasVencido(r){
 // primeiro segmento do serviço é sempre "GCC" (o próprio departamento), não
 // o produto/vertical do cliente.
 function verticalDe(r){ return (r.vertical||'').trim()||'Não informado'; }
+// Vertical deduzida (serviço/texto das ações) onde o campo está vazio no
+// Movidesk — vem marcada do servidor (vertical_inferida).
+function verticalRotulo(r){
+  const v=verticalDe(r);
+  return r.vertical_inferida?`${v} (deduzida · ${r.vertical_confianca||'—'})`:v;
+}
+function verticalDicaInferida(r){
+  if(!r.vertical_inferida) return '';
+  const de=r.vertical_origem==='texto'?'do texto do chamado':r.vertical_origem==='manual'?'confirmada manualmente':'do serviço do chamado';
+  return `Vertical deduzida ${de} (confiança ${r.vertical_confianca||'—'}) — o campo "GCC - Verticais Insatisfação" está vazio no Movidesk.`;
+}
 // O campo é multi-seleção: um ticket pode vir "Sistema para RH, Agrotitan".
 // Pro filtro cada vertical conta sozinha (e sem repetir por espaço/caixa).
 const VERTICAIS_INSATISFACAO=[
@@ -990,7 +1002,7 @@ function buildExportRows(){
     r.assunto_gcc||'',
     r.status_movidesk||r.base_status||'',
     r.tipo_rescisao||'',
-    verticalDe(r),
+    verticalRotulo(r),
     r.motivo_churn||'',
     fmtMrrFull(parseMrr(r.mrr)),
     r.mrr_pos_churn?fmtMrrFull(parseMrr(r.mrr_pos_churn)):'',
@@ -1408,6 +1420,16 @@ function render(){
   renderDistribCharts(rowsFull);
   renderInternoExternoCharts(rowsFull);
   renderVerticalCharts(rowsFull);
+  {
+    const inf=rowsFull.filter(r=>r.vertical_inferida);
+    const nota=document.getElementById('vert-inferida-nota');
+    const porConf={alta:0,media:0,baixa:0};
+    inf.forEach(r=>{ porConf[r.vertical_confianca]=(porConf[r.vertical_confianca]||0)+1; });
+    nota.style.display=inf.length?'':'none';
+    nota.textContent=inf.length
+      ?`${inf.length} chamado${inf.length===1?'':'s'} sem a vertical preenchida no Movidesk ${inf.length===1?'usa':'usam'} a vertical deduzida pelo serviço/texto (${porConf.alta||0} alta, ${porConf.media||0} média, ${porConf.baixa||0} baixa confiança).`
+      :'';
+  }
   renderStatesMap(rowsFull);
   renderModuleChart(rowsFull);
   renderTopClientChart(rowsFull);
@@ -1441,7 +1463,7 @@ const LISTAGEM_COLS=[
   {label:'Assunto', get:r=>r.assunto_gcc||'—', sort:r=>(r.assunto_gcc||'').toLowerCase()},
   {label:'Status', get:r=>r.status_movidesk||r.base_status||'—', sort:r=>(r.status_movidesk||r.base_status||'').toLowerCase()},
   {label:'Tipo Rescisão', get:r=>r.tipo_rescisao||'—', sort:r=>(r.tipo_rescisao||'').toLowerCase()},
-  {label:'Vertical', get:r=>verticalDe(r), sort:r=>verticalDe(r).toLowerCase()},
+  {label:'Vertical', get:r=>verticalRotulo(r), sort:r=>verticalDe(r).toLowerCase()},
   {label:'Motivo Churn', get:r=>r.motivo_churn||'—', sort:r=>(r.motivo_churn||'').toLowerCase()},
   {label:'MRR',num:true, get:r=>fmtMrrFull(parseMrr(r.mrr)), sort:r=>parseMrr(r.mrr)},
   {label:'Estado (UF)', get:r=>r.estado_cliente||'—', sort:r=>(r.estado_cliente||'').toLowerCase()},
@@ -1607,6 +1629,7 @@ function openTicketModal(ticketId){
       <div><p class="lbl">Assunto</p><p class="val">${esc(r.assunto_gcc||'—')}</p></div>
       <div><p class="lbl">Locus</p><p class="val">${esc(locusNorm(r)||'—')}</p></div>
       <div><p class="lbl">Tipo de rescisão</p><p class="val">${esc(tipoRescNorm(r)||'—')}</p></div>
+      <div><p class="lbl">Vertical</p><p class="val"${r.vertical_inferida?` title="${escAttr(verticalDicaInferida(r))}"`:''}>${esc(verticalRotulo(r))}</p></div>
       <div><p class="lbl">MRR</p><p class="val">${fmtMrrFull(parseMrr(r.mrr))}</p></div>
       <div><p class="lbl">Responsável</p><p class="val">${esc(r.responsavel||'—')}</p></div>
       <div><p class="lbl">Status</p><p class="val">${esc(r.status_movidesk||r.base_status||'—')}</p></div>
