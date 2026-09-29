@@ -1261,6 +1261,10 @@ function locusNorm(r){ return (r.classificacao_locus||'').trim(); }
 let _rows=[];
 let _charts={};
 let _rowsFull=[];
+// Base dos gráficos de rescisão (roscas e motivos por locus): a MESMA dos cards do topo —
+// chamados finalizados no período. _rowsFull inclui também os abertos, o que fazia a rosca
+// dizer "Revertido 12" com o card em 11, e o clique abrir chamados que o card não conta.
+let _rowsBaseRescisao=[];
 let _rowsById={};
 let _kpiSets={};
 const RISCO_MIN_TICKETS=2; // a partir de quantos tickets de GCC no período o cliente entra em "Risco"
@@ -1429,6 +1433,7 @@ function render(){
   if(!_rows.length && document.getElementById('gcc-dash').dataset.err) return;
   const {rowsCtx,rowsFull,rowsFechados,rowsAbertos,statusFils}=getFilteredRows();
   _rowsFull=rowsFull;
+  _rowsBaseRescisao=rowsFechados;
   _rowsById={};
   rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
 
@@ -1512,8 +1517,8 @@ function render(){
   const byMes=bucketPorMes(rowsCtx);
   renderTrendChart(byMes);
   renderMrrTrendChart(byMes);
-  renderDistribCharts(rowsFull);
-  renderInternoExternoCharts(rowsFull);
+  renderDistribCharts(rowsFechados);
+  renderInternoExternoCharts(rowsFechados);
   renderVerticalCharts(rowsFull);
   renderStatesMap(rowsFull);
   renderModuleChart(rowsFull);
@@ -1776,12 +1781,12 @@ document.addEventListener('keydown',e=>{
 
 // onClick/onHover comuns pros gráficos: pega a barra/fatia clicada, filtra
 // os tickets daquela categoria e abre o modal de lista.
-function chartClickHandler(titlePrefix,filterFn){
+function chartClickHandler(titlePrefix,filterFn,baseFn){
   return (evt,elements,chart)=>{
     if(!elements.length) return;
     const idx=elements[0].index;
     const label=chart.data.labels[idx];
-    const matched=_rowsFull.filter(r=>filterFn(r,label));
+    const matched=(baseFn?baseFn():_rowsFull).filter(r=>filterFn(r,label));
     openDetailModal(`${titlePrefix}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
   };
 }
@@ -1894,7 +1899,7 @@ function renderDistribCharts(rows){
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Locus',(r,label)=>locusNorm(r)===label),
+      onClick:chartClickHandler('Locus',(r,label)=>locusNorm(r)===label,()=>_rowsBaseRescisao),
     }
   });
 
@@ -1912,7 +1917,7 @@ function renderDistribCharts(rows){
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Tipo de rescisão',(r,label)=>tipoRescNorm(r)===label),
+      onClick:chartClickHandler('Tipo de rescisão',(r,label)=>tipoRescNorm(r)===label,()=>_rowsBaseRescisao),
     }
   });
 
@@ -1937,7 +1942,7 @@ function renderDistribCharts(rows){
       responsive:true,maintainAspectRatio:false,cutout:'65%',
       plugins:{legend:{display:false}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&itensParcial(r).includes(label)),
+      onClick:chartClickHandler('Rescisão parcial',(r,label)=>ehRescisaoParcial(r)&&itensParcial(r).includes(label),()=>_rowsBaseRescisao),
     }
   });
 }
@@ -1975,7 +1980,7 @@ function renderInternoExternoCharts(rows){
         y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5},callback:(val,idx)=>truncLabel(internoEntries[idx][0])}}
       },
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Locus interno',(r,label)=>(r.cf_24986||'').trim()===label),
+      onClick:chartClickHandler('Locus interno',(r,label)=>(r.cf_24986||'').trim()===label,()=>_rowsBaseRescisao),
     }
   });
 
@@ -1994,7 +1999,7 @@ function renderInternoExternoCharts(rows){
         y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5},callback:(val,idx)=>truncLabel(externoEntries[idx][0])}}
       },
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Locus externo',(r,label)=>(r.cf_24523||'').trim()===label),
+      onClick:chartClickHandler('Locus externo',(r,label)=>(r.cf_24523||'').trim()===label,()=>_rowsBaseRescisao),
     }
   });
 }
@@ -2322,7 +2327,7 @@ const somaN=arr=>arr.reduce((a,[,n])=>a+n,0);
 const moduloBate=(r,label)=>String(r.modulos||'').split(',').map(x=>x.trim()).includes(label);
 
 // Ranking simples [rótulo, contagem] — clique traz os tickets do rótulo.
-function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo,totalFn){
+function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo,totalFn,baseFn){
   return {
     titulo, unit,
     entries:()=>_exp[entriesKey],
@@ -2330,12 +2335,12 @@ function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo,totalFn){
     cols:3,
     row:(e,i,all)=>{ const tot=totalFn?totalFn():somaN(all); return `
       <td>${esc(e[0])}</td><td class="num">${e[1].toLocaleString('pt-BR')}</td><td class="num">${pctTxt(e[1],tot)}</td>`; },
-    open:e=>{ const m=_rowsFull.filter(r=>filterFn(r,e[0])); openDetailModal(`${prefixo}: ${e[0]}`,`${m.length} ticket${m.length===1?'':'s'}`,m); },
+    open:e=>{ const m=(baseFn?baseFn():_rowsFull).filter(r=>filterFn(r,e[0])); openDetailModal(`${prefixo}: ${e[0]}`,`${m.length} ticket${m.length===1?'':'s'}`,m); },
   };
 }
 const EXPAND_CFG={
-  interno: rankCfg('Locus interno — controlável','Motivo',['motivo','motivos'],'interno',(r,l)=>(r.cf_24986||'').trim()===l,'Locus interno'),
-  externo: rankCfg('Locus externo — fora do controle','Motivo',['motivo','motivos'],'externo',(r,l)=>(r.cf_24523||'').trim()===l,'Locus externo'),
+  interno: rankCfg('Locus interno — controlável','Motivo',['motivo','motivos'],'interno',(r,l)=>(r.cf_24986||'').trim()===l,'Locus interno',null,()=>_rowsBaseRescisao),
+  externo: rankCfg('Locus externo — fora do controle','Motivo',['motivo','motivos'],'externo',(r,l)=>(r.cf_24523||'').trim()===l,'Locus externo',null,()=>_rowsBaseRescisao),
   vertical: rankCfg('Casos por vertical','Vertical',['vertical','verticais'],'vertical',(r,l)=>verticaisDe(r).includes(l),'Vertical',()=>_rowsFull.length),
   modulo: rankCfg('Módulos que mais rescindem','Módulo',['módulo','módulos'],'modulo',moduloBate,'Módulo'),
   cliente: rankCfg('Clientes que mais rescindem','Cliente',['cliente','clientes'],'cliente',(r,l)=>(r.organizacao||'Não informado')===l,'Cliente'),
