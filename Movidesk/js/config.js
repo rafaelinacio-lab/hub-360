@@ -2673,8 +2673,8 @@ function dlRenderHistory(rows) {
         el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma execução registrada.</div>';
         return;
     }
-    const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171' };
-    const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error' };
+    const statusStyle = { done: 'color:#4ade80', running: 'color:#60a5fa', error: 'color:#f87171', cancelled: 'color:#a1a1aa' };
+    const statusIcon  = { done: 'check_circle', running: 'autorenew', error: 'error', cancelled: 'stop_circle' };
     const modeLabel   = { full: 'Full', 'full-anos': 'Full (anos)', incremental: 'Incremental', 'fix-organizacao': 'Correção de organização', 'fix-dados-relacionados': 'Correção de ações/clientes', 'fix-autores-acoes': 'Correção de autores das ações', 'backfill-basico': 'Backfill campos básicos', 'atualizacao-inteligente': 'Atualização inteligente' };
 
     const filtroDe = (r) => {
@@ -2835,8 +2835,8 @@ function cronRenderList() {
         el.innerHTML = '<div style="color:var(--muted,#71717a);font-size:13px;">Nenhuma cron cadastrada ainda.</div>';
         return;
     }
-    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171', running: 'color:#60a5fa', queued: 'color:#fbbf24' };
-    const statusIcon  = { done: 'check_circle', error: 'error', running: 'sync', queued: 'hourglass_top' };
+    const statusStyle = { done: 'color:#4ade80', error: 'color:#f87171', running: 'color:#60a5fa', queued: 'color:#fbbf24', cancelled: 'color:#a1a1aa' };
+    const statusIcon  = { done: 'check_circle', error: 'error', running: 'sync', queued: 'hourglass_top', cancelled: 'stop_circle' };
 
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
@@ -2880,6 +2880,9 @@ function cronRenderList() {
                     <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronRunNow(${j.id})" title="${running ? 'Executando...' : 'Rodar agora'}" ${running ? 'disabled' : ''}>
                         <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;${spin}">${running ? 'sync' : 'play_arrow'}</span>
                     </button>
+                    ${running ? `<button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;color:#f87171;border-color:rgba(248,113,113,.4);" onclick="cronStop(${j.id})" title="Parar execução">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">stop</span>
+                    </button>` : ''}
                     <button class="config-btn config-btn-muted" style="padding:4px 8px;font-size:11.5px;" onclick="cronOpenRuns(${j.id},'${cfgEsc(j.name).replace(/'/g,"\\'")}')" title="Ver histórico de execuções">
                         <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px;">history</span>
                     </button>
@@ -3016,6 +3019,24 @@ async function runFixAutoresAcoes() {
         alert('Correção iniciada. Acompanhe o andamento no status da carga, nesta tela.');
     } catch (e) {
         alert(`Não foi possível iniciar: ${e.message}`);
+    }
+}
+
+async function cronStop(id) {
+    const job = _cronJobs.find(j => j.id === id);
+    if (!confirm(`Parar a execução de "${job?.name || 'cron'}"? O que já foi salvo fica no banco.`)) return;
+    try {
+        const resp = await fetch(`${API_BASE}/crons/${id}/stop`, { method: 'POST', headers: authHeaders() });
+        const d = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(d.error || `HTTP ${resp.status}`);
+        // 'cancelling' termina no próximo ponto de checagem da carga — o polling
+        // atualiza a linha quando o loader liberar.
+        if (d.action !== 'cancelling' && job) { job.last_status = 'cancelled'; job.last_error = 'Parado manualmente'; }
+        cronRenderList();
+        cronSchedulePoll();
+        setTimeout(cronLoad, 1500);
+    } catch (e) {
+        alert(`Não foi possível parar: ${e.message}`);
     }
 }
 

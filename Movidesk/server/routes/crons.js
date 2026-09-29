@@ -260,6 +260,21 @@ router.post('/:id/run', async (req, res) => {
   }
 });
 
+// Para a execução em andamento (ou na fila) dessa cron — ou corrige o status
+// se ela ficou "Executando..." de uma execução que já morreu.
+router.post('/:id/stop', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { rows } = await db.query('SELECT id FROM silver.cron_job WHERE id = $1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Cron não encontrada' });
+    const r = await cronManager.stopJobRun(id);
+    if (r.action === 'too_early') return res.status(409).json({ error: 'A carga acabou de começar — tente de novo em alguns segundos.' });
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Histórico de execuções dessa cron — mais recentes primeiro.
 router.get('/:id/runs', async (req, res) => {
   try {
