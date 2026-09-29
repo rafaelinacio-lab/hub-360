@@ -272,6 +272,7 @@ input,select{font-family:inherit}
 .dtable tbody tr:last-child td{border-bottom:none}
 .dtable .num{text-align:right;font-variant-numeric:tabular-nums}
 .dtable .bad{color:var(--orange);font-weight:700}
+.dtable .good{color:var(--green);font-weight:700}
 .dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
 
 .data-panel.compact{padding:14px 16px}
@@ -600,7 +601,7 @@ body.modal-open{overflow:hidden}
         <p class="label">MRR protegido</p>
         <p class="value good" id="k-mrr-protegido">R$ 0</p>
         <p class="value-full" id="k-mrr-protegido-full"></p>
-        <p class="legend">MRR de casos revertidos com sucesso.</p>
+        <p class="legend">MRR pós churn dos casos finalizados (revertido sem pós churn conta o MRR cheio).</p>
       </div>
       <div class="stat-card danger clickable" onclick="openKpiModal('mrrPerdido')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('mrrPerdido')}" role="button" tabindex="0">
         <p class="label">MRR perdido</p>
@@ -953,6 +954,14 @@ function parseMrr(v){
 }
 // MRR perdido de um ticket = GCC - MRR − GCC - MRR pós churn (o que o
 // cliente continua pagando). Pós churn vazio = perdeu tudo (rescisão total).
+// MRR protegido de um ticket finalizado = GCC - MRR pós churn (o que o
+// cliente continua pagando). Revertido sem pós churn preenchido = manteve o
+// MRR inteiro. Aberto não conta (ainda está "em risco").
+function mrrProtegidoDe(r){
+  if(isAberto(r)) return 0;
+  if(String(r.mrr_pos_churn||'').trim()) return parseMrr(r.mrr_pos_churn);
+  return isRevertido(r)?parseMrr(r.mrr):0;
+}
 function mrrPerdidoDe(r){
   if(!isPerdido(r)) return 0;
   return Math.max(0,parseMrr(r.mrr)-parseMrr(r.mrr_pos_churn));
@@ -1370,7 +1379,7 @@ function render(){
 
   // ── MRR ──
   const mrrEmRisco=rowsFull.filter(isAberto).reduce((s,r)=>s+parseMrr(r.mrr),0);
-  const mrrProtegido=rowsFull.filter(isRevertido).reduce((s,r)=>s+parseMrr(r.mrr),0);
+  const mrrProtegido=rowsFull.reduce((s,r)=>s+mrrProtegidoDe(r),0);
   const mrrPerdido=rowsFull.reduce((s,r)=>s+mrrPerdidoDe(r),0);
   document.getElementById('k-mrr-risco').textContent=fmtMrrK(mrrEmRisco);
   document.getElementById('k-mrr-risco-full').textContent=fmtMrrFull(mrrEmRisco);
@@ -1388,7 +1397,7 @@ function render(){
     criticos:{title:'Casos críticos',rows:criticosRows},
     criticosVenc:{title:'Críticos vencidos',rows:criticosVencidosRows},
     mrrRisco:{title:'MRR em risco — casos abertos',rows:rowsFull.filter(isAberto)},
-    mrrProtegido:{title:'MRR protegido — revertidos',rows:rowsFull.filter(isRevertido)},
+    mrrProtegido:{title:'MRR protegido — pós churn e revertidos',rows:rowsFull.filter(r=>mrrProtegidoDe(r)>0)},
     mrrPerdido:{title:'MRR perdido — finalizados sem reversão',rows:rowsFull.filter(r=>isPerdido(r))},
   };
 
@@ -1500,19 +1509,22 @@ document.getElementById('listagem-modal').addEventListener('click',e=>{ if(e.tar
 // Listas de "MRR perdido" (card, gráfico/expandir por vertical) ganham as
 // colunas MRR pós churn e MRR perdido e vêm ordenadas pelo maior perdido.
 function openDetailModal(title,sub,rows,opts={}){
-  const perdido=opts.perdido ?? /^MRR perdido/.test(title);
+  const perdido=opts.perdido ?? /^MRR (perdido|protegido)/.test(title);
+  const protegidoSort=/^MRR protegido/.test(title);
   const nCols=perdido?7:5;
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
   document.getElementById('detail-modal-thead').innerHTML=
     '<th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th>'
-    +(perdido?'<th class="num">MRR pós churn</th><th class="num">MRR perdido</th>':'')
+    +(perdido?`<th class="num">MRR pós churn</th><th class="num">${protegidoSort?'MRR protegido':'MRR perdido'}</th>`:'')
     +'<th>Status</th>';
   const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
     tbody.innerHTML=`<tr class="empty-row"><td colspan="${nCols}">Nenhum ticket encontrado.</td></tr>`;
   } else {
-    const ordenado=rows.slice().sort(perdido
+    const ordenado=rows.slice().sort(protegidoSort
+      ?(a,b)=>mrrProtegidoDe(b)-mrrProtegidoDe(a)
+      :perdido
       ?(a,b)=>mrrPerdidoDe(b)-mrrPerdidoDe(a)
       :(a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0));
     ordenado.forEach(r=>{ _rowsById[r.ticket_id]=r; });
@@ -1523,7 +1535,9 @@ function openDetailModal(title,sub,rows,opts={}){
           <td>${esc(r.assunto_gcc||'—')}</td>
           <td class="num nowrap">${fmtMrrFull(parseMrr(r.mrr))}</td>
           ${perdido?`<td class="num nowrap">${r.mrr_pos_churn?fmtMrrFull(parseMrr(r.mrr_pos_churn)):'—'}</td>
-          <td class="num nowrap bad">${fmtMrrFull(mrrPerdidoDe(r))}</td>`:''}
+          ${protegidoSort
+            ?`<td class="num nowrap good">${fmtMrrFull(mrrProtegidoDe(r))}</td>`
+            :`<td class="num nowrap bad">${fmtMrrFull(mrrPerdidoDe(r))}</td>`}`:''}
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
         </tr>`).join('');
   }
@@ -2147,7 +2161,7 @@ function openKpiModal(kind){
   const cfg=_kpiSets[kind];
   if(!cfg) return;
   const n=cfg.rows.length;
-  const mrr=cfg.rows.reduce((t,r)=>t+(kind==='mrrPerdido'?mrrPerdidoDe(r):parseMrr(r.mrr)),0);
+  const mrr=cfg.rows.reduce((t,r)=>t+(kind==='mrrPerdido'?mrrPerdidoDe(r):kind==='mrrProtegido'?mrrProtegidoDe(r):parseMrr(r.mrr)),0);
   openDetailModal(cfg.title,`${n.toLocaleString('pt-BR')} ticket${n===1?'':'s'} no período filtrado · MRR ${fmtMrrFull(mrr)}`,cfg.rows);
 }
 function scrollToCriticosVencidos(){
