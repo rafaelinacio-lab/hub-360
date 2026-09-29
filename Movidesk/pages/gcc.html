@@ -2252,8 +2252,12 @@ function renderBaixaReversaoTable(rows){
     </tr>`;
   }).join('');
 }
+// Compara o nome ignorando espaços nas pontas/repetidos: o Risco e outras listas agrupam
+// pelo nome já aparado, e o banco pode ter o nome do cliente com espaço sobrando.
+const nomeOrgNorm=t=>String(t||'').replace(/\s+/g,' ').trim();
 function openClienteTicketsModal(org){
-  const matched=_rowsFull.filter(r=>(r.organizacao||'Não informado')===org);
+  const alvo=nomeOrgNorm(org);
+  const matched=_rowsFull.filter(r=>(nomeOrgNorm(r.organizacao)||'Não informado')===alvo);
   openDetailModal(`Casos: ${org}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 
