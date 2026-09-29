@@ -972,7 +972,7 @@ function dtStr(v){
 }
 
 // ── exportação (Excel / PDF / Word) ─────────────────────────────────
-const EXPORT_HEADERS=['ID','Organização','Assunto','Status','Tipo Rescisão','Vertical','Motivo Churn','MRR','Estado (UF)','Responsável','Criado em','Resolvido em'];
+const EXPORT_HEADERS=['ID','Organização','Assunto','Status','Tipo Rescisão','Vertical','Motivo Churn','MRR','MRR pós churn','MRR perdido','Estado (UF)','Responsável','Criado em','Resolvido em'];
 function buildExportRows(){
   return (_rowsFull||[]).map(r=>[
     r.ticket_id,
@@ -983,6 +983,8 @@ function buildExportRows(){
     verticalDe(r),
     r.motivo_churn||'',
     fmtMrrFull(parseMrr(r.mrr)),
+    r.mrr_pos_churn?fmtMrrFull(parseMrr(r.mrr_pos_churn)):'',
+    isPerdido(r)?fmtMrrFull(mrrPerdidoDe(r)):'',
     r.estado_cliente||'',
     r.responsavel||'',
     dtStr(r.criado_em),
@@ -1495,23 +1497,33 @@ function listagemRender(){
 document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
 document.getElementById('listagem-modal').addEventListener('click',e=>{ if(e.target.id==='listagem-modal') closeListagemModal(); });
 
-function openDetailModal(title,sub,rows){
+// Listas de "MRR perdido" (card, gráfico/expandir por vertical) ganham as
+// colunas MRR pós churn e MRR perdido e vêm ordenadas pelo maior perdido.
+function openDetailModal(title,sub,rows,opts={}){
+  const perdido=opts.perdido ?? /^MRR perdido/.test(title);
+  const nCols=perdido?7:5;
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
   document.getElementById('detail-modal-thead').innerHTML=
-    '<th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th><th>Status</th>';
+    '<th>ID</th><th>Organização</th><th>Assunto</th><th class="num">MRR</th>'
+    +(perdido?'<th class="num">MRR pós churn</th><th class="num">MRR perdido</th>':'')
+    +'<th>Status</th>';
   const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="5">Nenhum ticket encontrado.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="${nCols}">Nenhum ticket encontrado.</td></tr>`;
   } else {
-    const ordenado=rows.slice().sort((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0));
+    const ordenado=rows.slice().sort(perdido
+      ?(a,b)=>mrrPerdidoDe(b)-mrrPerdidoDe(a)
+      :(a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0));
     ordenado.forEach(r=>{ _rowsById[r.ticket_id]=r; });
     tbody.innerHTML=ordenado.map(r=>`
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
           <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.ticket_id)}</a></td>
           <td>${esc(r.organizacao||'—')}</td>
           <td>${esc(r.assunto_gcc||'—')}</td>
-          <td class="num">${fmtMrrFull(parseMrr(r.mrr))}</td>
+          <td class="num nowrap">${fmtMrrFull(parseMrr(r.mrr))}</td>
+          ${perdido?`<td class="num nowrap">${r.mrr_pos_churn?fmtMrrFull(parseMrr(r.mrr_pos_churn)):'—'}</td>
+          <td class="num nowrap bad">${fmtMrrFull(mrrPerdidoDe(r))}</td>`:''}
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
         </tr>`).join('');
   }
