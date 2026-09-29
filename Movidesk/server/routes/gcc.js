@@ -21,6 +21,10 @@ const CF_TIPO_RESCISAO  = 87894;  // GCC - Tipo Rescisão (Total/Parcial)
 const CF_TIPO_RESC_PARC = 216954; // GCC - Tipo de Rescisão Parcial (Módulos/Usuários)
 const CF_MODULOS        = 216958; // GCC - Módulos
 const CF_VERTICAL       = 98697;  // GCC - Verticais Insatisfação (confirmado com dado real: "Agrotitan" etc.)
+// GCC - MRR pós churn: quanto o cliente continua pagando depois da rescisão.
+// MRR perdido = GCC - MRR − GCC - MRR pós churn. Sobrescrevível por
+// GCC_CF_MRR_POS_CHURN no .env.
+const CF_MRR_POS_CHURN  = Number(process.env.GCC_CF_MRR_POS_CHURN) || null;
 
 // ===== GET /gcc =====
 router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
@@ -37,6 +41,7 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
         MAX(CASE WHEN cf.custom_field_id = ${CF_LOCUS_EXTERNO} THEN cf.valor_texto END) AS cf_24523,
         MAX(CASE WHEN cf.custom_field_id = ${CF_LOCUS_INTERNO} THEN cf.valor_texto END) AS cf_24986,
         MAX(CASE WHEN cf.custom_field_id = ${CF_MRR}           THEN cf.valor_texto END) AS mrr,
+        ${CF_MRR_POS_CHURN ? `MAX(CASE WHEN cf.custom_field_id = ${CF_MRR_POS_CHURN} THEN cf.valor_texto END)` : 'NULL::text'} AS mrr_pos_churn,
         MAX(CASE WHEN cf.custom_field_id = ${CF_DATA_MRR}      THEN cf.valor_texto END) AS data_mrr,
         MAX(CASE WHEN cf.custom_field_id = ${CF_DATA_RESCISAO} THEN cf.valor_texto END) AS data_rescisao,
         MAX(CASE WHEN cf.custom_field_id = ${CF_DATA_REVERSAO} THEN cf.valor_texto END) AS data_reversao,
