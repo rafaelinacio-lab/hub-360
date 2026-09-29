@@ -2004,7 +2004,11 @@ function renderVerticalCharts(rows){
   const col=chartColors();
 
   destroyChart('verticalChart');
-  const porVertical=contarPor(rows,r=>verticalDe(r));
+  // O campo é multi-seleção: um chamado com "Oracle Cloud, Combustíveis" conta em
+  // CADA vertical (não vira uma categoria "Oracle Cloud, Combustíveis"). Por isso as
+  // barras podem somar mais de 100% — o % é sempre sobre o total de chamados.
+  const porVertical={};
+  rows.forEach(r=>verticaisDe(r).forEach(v=>{ porVertical[v]=(porVertical[v]||0)+1; }));
   const total=rows.length;
   _exp.vertical=Object.entries(porVertical).sort((a,b)=>b[1]-a[1]);
   const vertEntries=_exp.vertical.slice(0,10);
@@ -2022,16 +2026,17 @@ function renderVerticalCharts(rows){
         y:{grid:{display:false},ticks:{color:col.t2}}
       },
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Vertical',(r,label)=>verticalDe(r)===label),
+      onClick:chartClickHandler('Vertical',(r,label)=>verticaisDe(r).includes(label)),
     }
   });
 
   destroyChart('mrrVerticalChart');
   const perdidosRows=rows.filter(r=>isPerdido(r));
   const mrrPorVertical={};
+  // Chamado com mais de uma vertical: o MRR perdido dele entra inteiro em cada uma.
   perdidosRows.forEach(r=>{
-    const v=verticalDe(r);
-    mrrPorVertical[v]=(mrrPorVertical[v]||0)+mrrPerdidoDe(r);
+    const m=mrrPerdidoDe(r);
+    verticaisDe(r).forEach(v=>{ mrrPorVertical[v]=(mrrPorVertical[v]||0)+m; });
   });
   _exp.mrrVert=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]);
   const mrrVertEntries=_exp.mrrVert.slice(0,10);
@@ -2047,7 +2052,7 @@ function renderVerticalCharts(rows){
       },
       onHover:chartHoverCursor,
       onClick:chartClickHandler('MRR perdido — vertical',(r,label)=>
-        isPerdido(r)&&verticalDe(r)===label),
+        isPerdido(r)&&verticaisDe(r).includes(label)),
     }
   });
 }
@@ -2313,13 +2318,13 @@ const somaN=arr=>arr.reduce((a,[,n])=>a+n,0);
 const moduloBate=(r,label)=>String(r.modulos||'').split(',').map(x=>x.trim()).includes(label);
 
 // Ranking simples [rótulo, contagem] — clique traz os tickets do rótulo.
-function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo){
+function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo,totalFn){
   return {
     titulo, unit,
     entries:()=>_exp[entriesKey],
     head:`<tr><th>${colLabel}</th><th class="num">Casos</th><th class="num">% do total</th></tr>`,
     cols:3,
-    row:(e,i,all)=>{ const tot=somaN(all); return `
+    row:(e,i,all)=>{ const tot=totalFn?totalFn():somaN(all); return `
       <td>${esc(e[0])}</td><td class="num">${e[1].toLocaleString('pt-BR')}</td><td class="num">${pctTxt(e[1],tot)}</td>`; },
     open:e=>{ const m=_rowsFull.filter(r=>filterFn(r,e[0])); openDetailModal(`${prefixo}: ${e[0]}`,`${m.length} ticket${m.length===1?'':'s'}`,m); },
   };
@@ -2327,7 +2332,7 @@ function rankCfg(titulo,colLabel,unit,entriesKey,filterFn,prefixo){
 const EXPAND_CFG={
   interno: rankCfg('Locus interno — controlável','Motivo',['motivo','motivos'],'interno',(r,l)=>(r.cf_24986||'').trim()===l,'Locus interno'),
   externo: rankCfg('Locus externo — fora do controle','Motivo',['motivo','motivos'],'externo',(r,l)=>(r.cf_24523||'').trim()===l,'Locus externo'),
-  vertical: rankCfg('Casos por vertical','Vertical',['vertical','verticais'],'vertical',(r,l)=>verticalDe(r)===l,'Vertical'),
+  vertical: rankCfg('Casos por vertical','Vertical',['vertical','verticais'],'vertical',(r,l)=>verticaisDe(r).includes(l),'Vertical',()=>_rowsFull.length),
   modulo: rankCfg('Módulos que mais rescindem','Módulo',['módulo','módulos'],'modulo',moduloBate,'Módulo'),
   cliente: rankCfg('Clientes que mais rescindem','Cliente',['cliente','clientes'],'cliente',(r,l)=>(r.organizacao||'Não informado')===l,'Cliente'),
   mrrVert:{
@@ -2335,9 +2340,9 @@ const EXPAND_CFG={
     entries:()=>_exp.mrrVert,
     head:'<tr><th>Vertical</th><th class="num">MRR perdido</th><th class="num">% do MRR perdido</th><th class="num">Clientes perdidos</th></tr>',
     cols:4,
-    row:(e,i,all)=>{ const tot=somaN(all); const n=_rowsFull.filter(r=>isPerdido(r)&&verticalDe(r)===e[0]).length; return `
+    row:(e,i,all)=>{ const tot=_rowsFull.reduce((s,r)=>s+mrrPerdidoDe(r),0); const n=_rowsFull.filter(r=>isPerdido(r)&&verticaisDe(r).includes(e[0])).length; return `
       <td>${esc(e[0])}</td><td class="num bad">${fmtMrrFull(e[1])}</td><td class="num">${pctTxt(e[1],tot)}</td><td class="num">${n}</td>`; },
-    open:e=>{ const m=_rowsFull.filter(r=>isPerdido(r)&&verticalDe(r)===e[0]); openDetailModal(`MRR perdido — vertical: ${e[0]}`,`${m.length} ticket${m.length===1?'':'s'}`,m); },
+    open:e=>{ const m=_rowsFull.filter(r=>isPerdido(r)&&verticaisDe(r).includes(e[0])); openDetailModal(`MRR perdido — vertical: ${e[0]}`,`${m.length} ticket${m.length===1?'':'s'}`,m); },
   },
   baixa:{
     titulo:'Clientes com mais casos e baixa reversão', unit:['cliente','clientes'],
