@@ -24,7 +24,7 @@ const CF_VERTICAL       = 98697;  // GCC - Verticais Insatisfação (confirmado 
 // GCC - MRR pós churn: quanto o cliente continua pagando depois da rescisão.
 // MRR perdido = GCC - MRR − GCC - MRR pós churn. Sobrescrevível por
 // GCC_CF_MRR_POS_CHURN no .env.
-const CF_MRR_POS_CHURN  = Number(process.env.GCC_CF_MRR_POS_CHURN) || null;
+const CF_MRR_POS_CHURN  = Number(process.env.GCC_CF_MRR_POS_CHURN) || 92847; // confirmado no ticket 898263 (3794,40)
 
 // ===== GET /gcc =====
 router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
