@@ -1219,9 +1219,7 @@ function navigateTo(view) {
     if (normalizedView === 'chamados') loadCuradoria();
     if (normalizedView === 'configuracoes') {
         loadMovideskTokenStatus();
-        loadAdminStats();
         loadGptStatus();
-        loadLastSyncedAt();
         loadCategoriesConfig();
         loadScoreWeightsConfig();
         loadCuradoriaPendingCount();
