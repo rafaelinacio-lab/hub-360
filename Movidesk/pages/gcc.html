@@ -972,7 +972,8 @@ function fmtMrrK(v){
   if(abs>=1000) return `R$ ${(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})}k`;
   return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`;
 }
-function fmtMrrFull(v){ return `R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`; }
+// Valor exato, com centavos (R$ 13.160,00) — fmtMrrK continua sendo o resumido dos cards.
+function fmtMrrFull(v){ return `R$ ${(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`; }
 
 function dtStr(v){
   if(!v) return '';
