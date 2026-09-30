@@ -13,13 +13,49 @@ async function fetchMovideskTickets() {
     _cachedMovideskTickets = await response.json();
 }
 
+// Equipe do usuário logado: o Dashboard mostra por padrão só os chamados da(s) equipe(s)
+// dele. Admin e supervisor podem alternar para "Todas as equipes" (lembrado no navegador).
+let _escopoEquipeIniciado = false;
+async function carregarEscopoEquipe() {
+    const info = document.getElementById('escopoEquipeInfo');
+    const sel = document.getElementById('filterEscopoEquipe');
+    if (!info || !sel) return;
+    let quer = 'minha';
+    try { quer = localStorage.getItem('dashEscopoEquipe') === 'todas' ? 'todas' : 'minha'; } catch (e) { /* sem storage */ }
+    try {
+        const r = await fetch(`${API_BASE}/tickets/minha-equipe?equipe=${quer}`, { headers: authHeaders() });
+        if (!r.ok) return;
+        const d = await r.json();
+        sel.style.display = d.podeVerTodas ? '' : 'none';
+        sel.value = d.podeVerTodas ? quer : 'minha';
+        if (!d.equipes.length) {
+            info.textContent = 'Equipe não identificada — mostrando todos os chamados';
+        } else if (d.filtrando) {
+            info.textContent = `Equipe: ${d.equipes.join(', ')}`;
+        } else {
+            info.textContent = 'Todas as equipes';
+        }
+        info.style.display = '';
+    } catch (e) { /* mantém o padrão do servidor */ }
+    if (!_escopoEquipeIniciado) {
+        _escopoEquipeIniciado = true;
+        sel.addEventListener('change', () => {
+            try { localStorage.setItem('dashEscopoEquipe', sel.value); } catch (e) { /* sem storage */ }
+            fetchOpenTickets();
+        });
+    }
+}
+
 async function fetchOpenTickets() {
     const container = document.getElementById('cardsContainer');
     if (!container) return;
     
     try {
+        await carregarEscopoEquipe();
+        const escopoSel = document.getElementById('filterEscopoEquipe');
+        const pedeTodas = escopoSel && escopoSel.style.display !== 'none' && escopoSel.value === 'todas';
         // Buscar tickets ativos
-        const activeResponse = await fetch(`${API_BASE}/tickets`, {
+        const activeResponse = await fetch(`${API_BASE}/tickets${pedeTodas ? '?equipe=todas' : ''}`, {
             headers: authHeaders()
         });
         

@@ -7,6 +7,7 @@ const { decryptToken } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
 const datalake = require('../utils/datalakeClient');
 const { rateLimit } = require('../utils/rateLimit');
+const { escopoEquipe, filtrarPorEquipes } = require('../utils/movideskPeople');
 
 // Todas as rotas de /api/tickets exigem sessão válida. Antes dava pra chamar
 // sem token e o perfil (e a vertical) vinha de ?viewerRole=/?viewerVertical=,
@@ -1257,7 +1258,19 @@ function fetchActiveTicketsFromLocalDb(viewer, includeAll) {
 router.get('/', requireTicketsAccess, async (req, res) => {
   const viewer = await resolveViewerContext(req);
   const includeAll = req.query.scope === 'all';
-  const cacheKey = getViewerCacheKey(viewer, includeAll ? 'tickets:all' : 'tickets:active');
+  // Dashboard (só ativos): mostra os chamados da(s) equipe(s) de quem está logado. A aba
+  // Movidesk (scope=all) continua com o universo completo.
+  let equipesDoUsuario = null;
+  if (!includeAll) {
+    try {
+      const esc = await escopoEquipe(req.user, req.query.equipe === 'todas');
+      if (esc.filtrar) equipesDoUsuario = esc.equipes;
+    } catch (err) {
+      console.warn('[tickets] não consegui descobrir a equipe do usuário, sem filtro de equipe:', err.message);
+    }
+  }
+  const sufixoEquipe = equipesDoUsuario ? `:eq=${equipesDoUsuario.join('|')}` : '';
+  const cacheKey = getViewerCacheKey(viewer, (includeAll ? 'tickets:all' : 'tickets:active') + sufixoEquipe);
   const cachedTickets = getCachedResponse(cacheKey);
   if (cachedTickets) return res.json(cachedTickets);
 
@@ -1282,6 +1295,7 @@ router.get('/', requireTicketsAccess, async (req, res) => {
     if (viewer.role === 'supervisor') {
       candidates = candidates.filter((r) => (r.servicefirstlevel || '') === viewer.vertical);
     }
+    candidates = filtrarPorEquipes(candidates, equipesDoUsuario, (r) => r.owner_team ?? r.ownerteam);
     candidates = await filterByCustomFieldCondition(candidates, conditions);
     candidates.sort((a, b) => new Date(b.createddate || 0) - new Date(a.createddate || 0));
     rows = candidates.slice(0, includeAll ? 10000 : 100).map(datalakeRowToTicketShape);
@@ -1294,6 +1308,7 @@ router.get('/', requireTicketsAccess, async (req, res) => {
     console.warn('[tickets] apidatalake indisponível em GET /, usando fallback do banco local:', error.message);
     try {
       rows = await fetchActiveTicketsFromLocalDb(viewer, includeAll);
+      rows = filtrarPorEquipes(rows, equipesDoUsuario, (r) => r.owner_team ?? r.ownerTeam ?? r.ownerteam);
     } catch (dbErr) {
       return res.status(500).json({ error: 'Erro ao buscar tickets' });
     }
