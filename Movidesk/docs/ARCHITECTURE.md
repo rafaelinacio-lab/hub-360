@@ -44,6 +44,7 @@ Não existe login por senha. Usuários são desativados em **Pessoas**
 | `/api/tickets/*` | sessão + aba `dashboard`, `movidesk` ou `chamados`; `stats/overview` só admin; `executive-summary` aba `chamados` |
 | `/api/curadoria/*` (inclui `ai/chat`) | sessão + aba `chamados` |
 | `/api/ouvidoria`, `/api/gcc`, `/api/geral`, `/api/satisfacao`, `/api/jira` | sessão + aba correspondente |
+| `/api/tickets/:id/workspace*` (Central do chamado) | ler: sessão + aba `dashboard`/`movidesk`/`chamados`; escrever (responder, status, responsável): além disso perfil `admin`/`supervisor`/`atendente` |
 | `/api/pessoas/foto*` | sessão |
 | `/api/config/*`, `/api/crons/*`, `/api/loader/*`, `/api/users/*` | sessão + papel (quase tudo admin) |
 
@@ -108,3 +109,18 @@ confirmações humanas e nunca são sobrescritas. `GET /api/gcc` devolve
 `vertical_inferida`, `vertical_confianca` e `vertical_origem`, e a tela marca
 "(deduzida · confiança)".
 
+
+## Central do chamado (Dashboard)
+
+Clicar num chamado do Dashboard abre a conversa dele (lida ao vivo da API do Movidesk) e
+permite responder ao cliente, registrar nota interna, mudar o status e trocar o responsável
+sem abrir o Movidesk (`routes/ticket-workspace.js`, `js/ticket-workspace.js`).
+
+- A ação é gravada no Movidesk em nome do próprio usuário: o agente é achado pelo e-mail do
+  login (`persons?$filter=userName eq ...`). Sem agente ativo com esse e-mail, não escreve.
+- Status só aceita valores que existem nos chamados dos últimos 180 dias; Parado/Cancelado
+  exigem justificativa. Responsável só aceita agentes ativos do Movidesk.
+- Mudanças de status e de responsável também deixam uma nota interna "… pelo Hub 360".
+- Toda escrita (sucesso ou erro) fica em `public.hub_ticket_interacoes`.
+- `MOVIDESK_WRITE_API` muda a URL base da API; `MOVIDESK_ACTION_ORIGIN` muda o código de
+  origem das ações (padrão 9 = API).
