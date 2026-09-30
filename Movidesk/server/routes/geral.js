@@ -79,6 +79,8 @@ const LIST_SELECT = `
 // limita a janela ao ano vigente (1º de janeiro até agora); ?todos=1 busca
 // tudo (uso explícito e consciente, via botão "Carregar histórico completo"
 // no frontend) e ?desde=YYYY-MM-DD permite uma janela customizada.
+// A janela pega também os chamados RESOLVIDOS dentro dela, mesmo abertos em anos
+// anteriores: a contagem de resolvidos não depende do ano de abertura.
 // ===== GET /geral =====
 router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
@@ -93,9 +95,9 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
     if (!todos) {
       if (desde) {
         params.push(desde);
-        whereClause = `WHERE t.createddate >= $1::date`;
+        whereClause = `WHERE t.createddate >= $1::date OR t.resolved_in >= $1::date`;
       } else {
-        whereClause = `WHERE t.createddate >= date_trunc('year', NOW())`;
+        whereClause = `WHERE t.createddate >= date_trunc('year', NOW()) OR t.resolved_in >= date_trunc('year', NOW())`;
       }
     }
 

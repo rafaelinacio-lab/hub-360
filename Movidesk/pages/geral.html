@@ -958,6 +958,7 @@ function downloadBlob(blob,filename){
 let _rows=[];
 let _charts={};
 let _rowsFull=[];
+let _rowsResolv=[];
 let _rowsById={};
 let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-vigente"
 let _rowsPendentesAll=[]; // TODOS os tickets em aberto, qualquer ano (GET /geral/pendentes)
@@ -1096,7 +1097,8 @@ function buildFilterOptions(){
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
   ],'Status: todos',render);
 
-  const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
+  const anoIniJ=anoInicioJanela();
+  const years=[...new Set(_rows.map(r=>r.criado_em?new Date(r.criado_em).getFullYear():null).filter(y=>y&&(!anoIniJ||y>=anoIniJ)))].sort((a,b)=>b-a);
   populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
   aplicarAnoPadrao();
   renderYearLoadMore(years);
@@ -1151,6 +1153,15 @@ function statusBate(r,statusFils){
     ||(s==='finalizado'&&isResolvido(r))
   );
 }
+// Primeiro ano coberto pela janela carregada (null = histórico completo). O
+// backend também devolve chamados abertos em anos anteriores que foram
+// RESOLVIDOS dentro da janela; eles contam como resolvidos, mas não como abertos.
+function anoInicioJanela(){
+  if(!_janela) return null;
+  const m=/^(\d{4})-/.exec(String(_janela));
+  return m?Number(m[1]):new Date().getFullYear();
+}
+
 function getFilteredRows(){
   const equipeFils=getMsValues('f-equipe');
   const respFils=getMsValues('f-resp');
@@ -1169,7 +1180,9 @@ function getFilteredRows(){
     if(!statusBate(r,statusFils)) return false;
     return true;
   });
+  const anoIni=anoInicioJanela();
   const rowsFull=rowsCtx.filter(r=>{
+    if(anoIni&&r.criado_em&&new Date(r.criado_em).getFullYear()<anoIni) return false;
     if(yearFils.length||monthFils.length){
       if(!r.criado_em) return false;
       const d=new Date(r.criado_em);
@@ -1178,7 +1191,19 @@ function getFilteredRows(){
     }
     return true;
   });
-  return {rowsCtx,rowsFull};
+  // Resolvidos: o Ano/Mês vale para a data de RESOLUÇÃO, não a de abertura —
+  // um chamado aberto em 2025 e resolvido em 2026 conta como resolvido de 2026.
+  const rowsResolv=rowsCtx.filter(r=>{
+    if(!isResolvido(r)) return false;
+    if(yearFils.length||monthFils.length){
+      if(!r.resolvido_em) return false;
+      const d=new Date(r.resolvido_em);
+      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
+      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
+    }
+    return true;
+  });
+  return {rowsCtx,rowsFull,rowsResolv};
 }
 
 // "Tickets pendentes" e tudo que deriva dele (backlog vencido, aging,
@@ -1215,14 +1240,16 @@ function getPendentesGlobalRows(){
 function render(){
   if(!_rows.length && document.getElementById('geral-dash').dataset.err) return;
   renderJanelaBanner();
-  const {rowsCtx,rowsFull}=getFilteredRows();
+  const {rowsCtx,rowsFull,rowsResolv}=getFilteredRows();
   _rowsFull=rowsFull;
+  _rowsResolv=rowsResolv;
   _rowsById={};
   rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+  rowsResolv.forEach(r=>{ _rowsById[r.ticket_id]=r; });
 
   // ── Totais do período ──
   const abertos=rowsFull.length;
-  const resolvidosRows=rowsFull.filter(isResolvido);
+  const resolvidosRows=rowsResolv;
   const resolvidos=resolvidosRows.length;
   const taxaResolucao=abertos?resolvidos/abertos:0;
   const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
@@ -1343,7 +1370,8 @@ function bucketPorMes(rows){
   const by={};
   const get=mk=>{ by[mk]=by[mk]||{abertos:0,resolvidos:0}; return by[mk]; };
   rows.forEach(r=>{
-    if(r.criado_em) get(monthKeyOf(r.criado_em)).abertos++;
+    const anoIni=anoInicioJanela();
+    if(r.criado_em&&!(anoIni&&new Date(r.criado_em).getFullYear()<anoIni)) get(monthKeyOf(r.criado_em)).abertos++;
     if(r.resolvido_em&&isResolvido(r)) get(monthKeyOf(r.resolvido_em)).resolvidos++;
   });
   return by;
@@ -1511,7 +1539,7 @@ function openVencidosModal(){
   openDetailModal('Backlog vencido',`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 function openStatusModal(kind){
-  const matched=kind==='aberto'?_pendentesGlobal:_rowsFull.filter(isResolvido);
+  const matched=kind==='aberto'?_pendentesGlobal:_rowsResolv;
   openDetailModal(kind==='aberto'?'Tickets pendentes':'Tickets resolvidos',`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 
