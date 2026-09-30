@@ -106,6 +106,7 @@
             <div class="ws-secao">
                 <h4>Status</h4>
                 <select id="wsStatus" aria-label="Novo status">${optsStatus}</select>
+                <select id="wsJustificativaSel" style="display:none;" aria-label="Justificativa"></select>
                 <input type="text" id="wsJustificativa" placeholder="Justificativa (obrigatória para Parado/Cancelado)" aria-label="Justificativa">
                 <button type="button" class="ws-btn" id="wsAplicarStatus">Alterar status</button>
             </div>
@@ -122,10 +123,39 @@
         $('wsAplicarStatus')?.addEventListener('click', alterarStatus);
         $('wsAplicarResp')?.addEventListener('click', alterarResponsavel);
         $('wsResp')?.addEventListener('change', ajustarEquipeResponsavel);
+        $('wsStatus')?.addEventListener('change', ajustarJustificativa);
+        ajustarJustificativa();
         document.querySelectorAll('input[name="wsTipo"]').forEach(r => r.addEventListener('change', () => {
             const publica = document.querySelector('input[name="wsTipo"]:checked')?.value === 'publica';
             $('wsDica').textContent = publica ? 'O cliente recebe esta mensagem.' : 'Só a equipe vê esta nota.';
         }));
+    }
+
+    // Justificativas que já existem no Movidesk para o status escolhido: vira uma lista para escolher.
+    // Sem nenhuma conhecida, cai no campo de texto (obrigatório só para Parado/Cancelado).
+    function justificativaAtual() {
+        const sel = $('wsJustificativaSel');
+        if (sel && sel.style.display !== 'none') return sel.value;
+        return ($('wsJustificativa')?.value || '').trim();
+    }
+    function ajustarJustificativa() {
+        const sel = $('wsJustificativaSel'), txt = $('wsJustificativa');
+        if (!sel || !txt) return;
+        const status = $('wsStatus').value;
+        const lista = ((_ws.opcoes && _ws.opcoes.justificativas) || {})[String(status).trim().toLowerCase()] || [];
+        const base = ((_ws.opcoes.status || []).find(s => s.status === status) || {}).baseStatus;
+        const obrigatoria = ['Stopped', 'Canceled'].includes(base);
+        if (lista.length) {
+            sel.innerHTML = (obrigatoria ? '<option value="">Escolha a justificativa…</option>' : '<option value="">Sem justificativa</option>') +
+                lista.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
+            sel.style.display = '';
+            txt.style.display = 'none';
+        } else {
+            sel.style.display = 'none';
+            sel.innerHTML = '';
+            txt.style.display = '';
+            txt.placeholder = obrigatoria ? 'Justificativa (obrigatória)' : 'Justificativa (opcional)';
+        }
     }
 
     // Se o novo responsável está em mais de uma equipe, o Movidesk exige escolher a do chamado.
@@ -201,7 +231,7 @@
 
     function alterarStatus() {
         const status = $('wsStatus').value;
-        const justificativa = $('wsJustificativa').value.trim();
+        const justificativa = justificativaAtual();
         if (status === _ws.dados.status) return avisar('O chamado já está com esse status.', true);
         const base = (_ws.opcoes.status || []).find(s => s.status === status)?.baseStatus;
         if (['Resolved', 'Closed', 'Canceled'].includes(base) && !confirm(`Mudar o chamado para "${status}"? O cliente pode ser notificado.`)) return;
@@ -240,6 +270,12 @@
             ]);
             _ws.opcoes = opcoes;
             desenhar();
+            // Justificativas em segundo plano: o modal já está usável; o campo vira lista quando chegam.
+            chamar(`/workspace/justificativas?tipo=${encodeURIComponent((_ws.dados && _ws.dados.tipoTicket) || '')}`).then((r) => {
+                if (_ws.id !== Number(ticketId)) return;
+                _ws.opcoes.justificativas = r.justificativas || {};
+                ajustarJustificativa();
+            }).catch(() => { /* sem lista: continua o campo de texto */ });
         } catch (e) {
             $('wsConversa').innerHTML = `<div class="ws-vazio ws-erro">Não consegui carregar o chamado: ${esc(e.message)}</div>`;
         }

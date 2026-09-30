@@ -60,6 +60,41 @@ async function listaStatus() {
   return cacheStatus.lista;
 }
 
+// Justificativas cadastradas no Movidesk (exportação em server/data/justificativas-movidesk.json).
+// Só as ativas entram, filtradas pelo tipo do chamado (interno/público) e indexadas pelo status
+// (minúsculas). Para atualizar a lista, substitua o JSON pela nova exportação.
+const fs = require('fs');
+const path = require('path');
+const ARQ_JUSTIFICATIVAS = path.join(__dirname, '..', 'data', 'justificativas-movidesk.json');
+const normStatus = (v) => String(v || '').trim().toLowerCase();
+let cacheJust = { mtime: 0, lista: [] };
+function justificativasCadastradas() {
+  try {
+    const m = fs.statSync(ARQ_JUSTIFICATIVAS).mtimeMs;
+    if (m !== cacheJust.mtime) {
+      const j = JSON.parse(fs.readFileSync(ARQ_JUSTIFICATIVAS, 'utf8'));
+      cacheJust = { mtime: m, lista: (j.justificativas || []).filter((x) => x.ativa) };
+    }
+  } catch (e) {
+    console.error('[workspace] não consegui ler as justificativas:', e.message);
+  }
+  return cacheJust.lista;
+}
+// tipo: 'interno' | 'publico' (qualquer outro valor não filtra por tipo).
+function justificativasPorStatus(tipo) {
+  const mapa = {};
+  for (const x of justificativasCadastradas()) {
+    if (x.tickets !== 'ambos' && (tipo === 'interno' || tipo === 'publico') && x.tickets !== tipo) continue;
+    for (const st of x.status) {
+      const k = normStatus(st);
+      (mapa[k] = mapa[k] || []).push(x.nome);
+    }
+  }
+  for (const k of Object.keys(mapa)) mapa[k].sort((p, q) => p.localeCompare(q, 'pt'));
+  return mapa;
+}
+const tipoDoTicket = (t) => (t === 1 ? 'interno' : t === 2 ? 'publico' : null);
+
 // ── auditoria ───────────────────────────────────────────────────────────────
 let tabelaPronta = null;
 function garantirTabela() {
@@ -135,6 +170,11 @@ router.get('/workspace/opcoes', requireLeitura, async (req, res) => {
   } catch (e) { erroParaResposta(res, e); }
 });
 
+// Justificativas ativas por status (as cadastradas no Movidesk), para o tipo de chamado informado.
+router.get('/workspace/justificativas', requireLeitura, (req, res) => {
+  res.json({ justificativas: justificativasPorStatus(req.query.tipo) });
+});
+
 // Chamado + conversa, lidos ao vivo do Movidesk.
 router.get('/:id/workspace', requireLeitura, async (req, res) => {
   const id = idValido(req.params.id);
@@ -143,7 +183,7 @@ router.get('/:id/workspace', requireLeitura, async (req, res) => {
     const t = await movidesk('GET', '/tickets', {
       query: {
         id,
-        $select: 'id,subject,status,baseStatus,justification,createdDate,lastUpdate,ownerTeam,serviceFirstLevel',
+        $select: 'id,subject,status,baseStatus,justification,createdDate,lastUpdate,ownerTeam,serviceFirstLevel,type',
         $expand: 'owner($select=id,businessName,userName),clients($select=id,businessName),actions($select=id,type,origin,createdDate,description,htmlDescription;$expand=createdBy($select=id,businessName,profileType))',
       },
     });
@@ -168,6 +208,7 @@ router.get('/:id/workspace', requireLeitura, async (req, res) => {
       justificativa: t.justification || null,
       criadoEm: t.createdDate,
       atualizadoEm: t.lastUpdate,
+      tipoTicket: tipoDoTicket(t.type),
       equipe: t.ownerTeam || null,
       servico: t.serviceFirstLevel || null,
       responsavel: t.owner ? { id: String(t.owner.id), nome: t.owner.businessName } : null,
@@ -214,6 +255,12 @@ router.post('/:id/workspace/status', requireLeitura, exigirEscrita, limiteEscrit
     if (!escolhido) return res.status(400).json({ error: 'Status desconhecido. Escolha um da lista.' });
     const exigeJustificativa = ['Stopped', 'Canceled'].includes(escolhido.baseStatus);
     if (exigeJustificativa && !justificativa) return res.status(400).json({ error: `O status "${status}" exige uma justificativa.` });
+    // Com justificativas cadastradas para o status, só vale uma delas (nada digitado à mão).
+    const tipoT = tipoDoTicket((await movidesk('GET', '/tickets', { query: { id, $select: 'id,type' } }).catch(() => null))?.type);
+    const conhecidas = justificativasPorStatus(tipoT)[normStatus(status)] || [];
+    if (justificativa && conhecidas.length && !conhecidas.includes(justificativa)) {
+      return res.status(400).json({ error: 'Justificativa desconhecida para esse status. Escolha uma da lista.' });
+    }
     const agente = await exigirAgente(req, res);
     if (!agente) return;
     const body = { status, actions: [notaDeRastro(agente, `Status alterado para "${status}" pelo Hub 360${justificativa ? ` — ${justificativa}` : ''}.`)] };
