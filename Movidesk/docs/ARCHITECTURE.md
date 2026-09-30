@@ -45,6 +45,7 @@ Não existe login por senha. Usuários são desativados em **Pessoas**
 | `/api/curadoria/*` (inclui `ai/chat`) | sessão + aba `chamados` |
 | `/api/ouvidoria`, `/api/gcc`, `/api/geral`, `/api/satisfacao`, `/api/jira` | sessão + aba correspondente |
 | `/api/tickets/:id/workspace*` (Central do chamado) | ler: sessão + aba `dashboard`/`movidesk`/`chamados`; escrever (responder, status, responsável): além disso perfil `admin`/`supervisor`/`atendente` |
+| `/api/incidentes/*` | ler: sessão + aba `incidentes`; criar/alterar/vincular: além disso perfil `admin`/`supervisor`/`atendente` |
 | `/api/pessoas/foto*` | sessão |
 | `/api/config/*`, `/api/crons/*`, `/api/loader/*`, `/api/users/*` | sessão + papel (quase tudo admin) |
 
@@ -144,3 +145,17 @@ personalizada com a equipe "VIASOFT - Sistemas Internos" e "atualizados nos últ
 pegar também os que foram resolvidos/fechados e sair da lista. `DASHBOARD_SOURCE=datalake` volta ao
 caminho antigo; `DASHBOARD_MAX_ROWS` (padrão 1000) limita a lista. Campos que só existem no
 Movidesk (e-mail do responsável, origem da última ação) ficam vazios nesse caminho.
+
+## Incidentes (ITIL)
+
+Um incidente agrupa N chamados do mesmo problema de serviço (aba **Incidentes**, `routes/incidentes.js`,
+`pages/incidentes.html`). Tabelas em `public` (criadas sozinhas na primeira chamada):
+`incidente`, `incidente_ticket` (1 chamado → no máximo 1 incidente) e `incidente_evento` (linha do tempo).
+
+- **Prioridade** = matriz impacto × urgência (1 alto … 3 baixo): 1×1 → P1; 1×2 e 2×1 → P2; 1×3, 2×2 e 3×1 → P3; demais → P4.
+- **Metas** (reconhecer / resolver): P1 15 min / 4 h · P2 30 min / 8 h · P3 2 h / 24 h · P4 8 h / 72 h (constante `METAS`).
+- **Ciclo**: aberto → investigando → mitigado → resolvido → fechado (resolvido pode ser reaberto). Resolver exige o texto
+  da solução; fechar exige a causa. Toda mudança (status, prioridade, responsável, vínculos, notas, comunicados) vira evento.
+- **Indicadores** (`/metricas`): ativos por prioridade, graves, metas estouradas, MTTA, MTTR e % de metas cumpridas (30 dias).
+- **Central do chamado**: a seção *Incidente* mostra o incidente do chamado, vincula a um aberto ou abre um novo.
+- Nesta fase o incidente vive só no Hub (nada é escrito no Movidesk).
