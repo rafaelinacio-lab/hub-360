@@ -1,0 +1,616 @@
+{
+ "_comentario": "Justificativas cadastradas no Movidesk (exportação de 30/09/2026). Só as com \"ativa\": true aparecem na Central do chamado. tickets: ambos | interno | publico.",
+ "justificativas": [
+  {
+   "nome": "Aguardando assinatura do cliente",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em espera de",
+    "Aguardando assinatura"
+   ]
+  },
+  {
+   "nome": "Aguardando atualização/tms",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Aguardando BKP",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Retorno ao cliente - Atendente"
+   ]
+  },
+  {
+   "nome": "Análise",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Análise causa raiz",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando",
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Análise Comitê",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando",
+    "Em Análise"
+   ]
+  },
+  {
+   "nome": "Aprovação de Agenda Consultor",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Aprovação de Serviço Interno",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Área serviços",
+   "ativa": false,
+   "tickets": "interno",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Área suporte",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Áreas",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Assinatura",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Atendimento N2",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Atendimento N3",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Atualização",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Aux. Desenvolvimento",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Aux. Spotter",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Bugs",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Comitê de IA",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Em Análise"
+   ]
+  },
+  {
+   "nome": "Conferencia",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Documentação"
+   ]
+  },
+  {
+   "nome": "Consultor",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Consultor Executando",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Demonstração",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Desenvolvimento",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Dpto. Financeiro",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Em tratativas com o Cliente",
+   "ativa": true,
+   "tickets": "interno",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "ENN - Negociando",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "ENN - Nova Oportunidade",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Novo"
+   ]
+  },
+  {
+   "nome": "ENN - Retorno do Orçamento",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "ENN - Validação Consultor",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Equipe de analise",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Equipe de desenvolvimento",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Equipe de implantação",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Equipe de Teste",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Equipe Desenvolvimento",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Erro Operacional",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "ETAPA 1",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "AGUARDANDO REVISÃO"
+   ]
+  },
+  {
+   "nome": "ETAPA 2",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "AGUARDANDO REVISÃO"
+   ]
+  },
+  {
+   "nome": "Execução Consultor",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Faltante",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Documentação"
+   ]
+  },
+  {
+   "nome": "Faturamento",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Faturamento PipeHub",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Fornecedores",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Franquia",
+   "ativa": false,
+   "tickets": "interno",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Implantação de liberação gratuita",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Implantação PipeHub",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Integrações",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Joint Effort",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Jurídico",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Em Análise"
+   ]
+  },
+  {
+   "nome": "Liberação de versão",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Lista de Alunos",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Melhorias",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "N1",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "N2",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "N3",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Orçamento Aprovado",
+   "ativa": false,
+   "tickets": "publico",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Pré - análise",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Presencial",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Propostas PipeHub",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Remoto",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Requisito",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Reset de liberação gratuita",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Resolvido",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Resolvido"
+   ]
+  },
+  {
+   "nome": "Respondido pelo cliente",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Retorno Assessor",
+   "ativa": false,
+   "tickets": "interno",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Retorno de Faturamento",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Retorno do cliente",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Retorno Orçamento",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Retorno Taxa de Análise",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Serviços",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "TMS",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Validação Cliente",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Validação do Consultor",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Validação Ficha",
+   "ativa": false,
+   "tickets": "ambos",
+   "status": [
+    "Em atendimento"
+   ]
+  },
+  {
+   "nome": "Verificação Cliente",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  },
+  {
+   "nome": "Viasoft",
+   "ativa": true,
+   "tickets": "ambos",
+   "status": [
+    "Aguardando"
+   ]
+  }
+ ]
+}
