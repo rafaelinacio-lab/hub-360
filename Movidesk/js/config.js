@@ -58,19 +58,41 @@ async function saveMovideskToken() {
     }
 }
 
-// Atualiza o dashboard com dados do banco a cada 1 minuto (sem disparar sync na API)
+// Atualiza o dashboard a cada 2 minutos buscando de novo os chamados da equipe do usuário
+// logado (o servidor aplica o filtro de equipe). Não dispara sync na API do Movidesk.
+// Com a aba do navegador escondida não busca; ao voltar, atualiza na hora se já passou o prazo.
+const DASHBOARD_REFRESH_MS = 2 * 60 * 1000;
 let _dashboardRefreshIntervalId = null;
+let _dashboardRefreshRunning = false;
+let _dashboardRefreshLastAt = 0;
+
+async function runDashboardRefresh() {
+    if (_dashboardRefreshRunning) return;
+    _dashboardRefreshRunning = true;
+    try {
+        await fetchOpenTickets();
+        _dashboardRefreshLastAt = Date.now();
+    } catch (e) {
+        console.warn('Dashboard refresh silencioso falhou:', e.message);
+    } finally {
+        _dashboardRefreshRunning = false;
+    }
+}
 
 function startDashboardRefreshLoop() {
     if (_dashboardRefreshIntervalId) return;
-    _dashboardRefreshIntervalId = setInterval(async () => {
-        try {
-            await fetchOpenTickets();
-        } catch (e) {
-            console.warn('Dashboard refresh silencioso falhou:', e.message);
-        }
-    }, 60 * 1000);
+    _dashboardRefreshLastAt = Date.now();
+    _dashboardRefreshIntervalId = setInterval(() => {
+        if (document.hidden) return;
+        runDashboardRefresh();
+    }, DASHBOARD_REFRESH_MS);
 }
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && _dashboardRefreshIntervalId && Date.now() - _dashboardRefreshLastAt >= DASHBOARD_REFRESH_MS) {
+        runDashboardRefresh();
+    }
+});
 
 function stopDashboardRefreshLoop() {
     if (_dashboardRefreshIntervalId) {

@@ -90,7 +90,7 @@ async function fetchOpenTickets() {
 
         const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
         localStorage.setItem('lastSyncTime', hora);
-        updateSyncStatus(`⏰ Atualizado em ${hora}`);
+        updateSyncStatus(`⏰ Atualizado em ${hora} · renova a cada 2 min`);
         
     } catch (error) {
         console.error('Erro ao buscar chamados:', error);
