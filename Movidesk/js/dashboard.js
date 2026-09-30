@@ -66,18 +66,21 @@ async function fetchOpenTickets() {
         const tickets = await activeResponse.json();
         
         _cachedTickets = tickets;
-        renderTickets(tickets, container);
-
-        try {
-            updateSummaryCards(tickets);
-        } catch (summaryError) {
-            console.error('Erro ao atualizar resumo da dashboard:', summaryError);
-        }
 
         try {
             populateDashboardFilters();
         } catch (filtersError) {
             console.error('Erro ao popular filtros da dashboard:', filtersError);
+        }
+
+        // Renderiza já respeitando busca, chips e filtros ativos — assim a renovação automática
+        // (a cada 2 min) não "desfaz" o que o usuário filtrou.
+        try {
+            if (typeof applyDashboardFilters === 'function') applyDashboardFilters();
+            else { renderTickets(tickets, container); updateSummaryCards(tickets); }
+        } catch (summaryError) {
+            console.error('Erro ao atualizar a dashboard:', summaryError);
+            renderTickets(tickets, container);
         }
 
         try {
@@ -226,16 +229,6 @@ function computeKpiCounts(tickets) {
 // Atualiza os cards de resumo por status e SLA (Dashboard)
 function updateSummaryCards(tickets) {
     const { counts, kpiLists } = computeKpiCounts(tickets);
-    const attendantMap = {};
-
-    (tickets || []).forEach(t => {
-        const owner = getTicketValue(t, 'ownerName', 'ownername', 'Sem atribuição');
-        const ownerEmail = getTicketValue(t, 'ownerEmail', 'owneremail', '');
-        if (!attendantMap[owner]) attendantMap[owner] = { count: 0, tickets: [], email: ownerEmail };
-        attendantMap[owner].count++;
-        const urg = getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', ''));
-        attendantMap[owner].tickets.push({ id: t.id, urgClass: urg.class });
-    });
 
     window._dashboardKpiLists = kpiLists;
 
@@ -247,28 +240,29 @@ function updateSummaryCards(tickets) {
     document.getElementById('countOnTime').textContent = counts.onTime;
     document.getElementById('countOverdue').textContent = counts.overdue;
 
-    // Renderizar sparklines (dados aleatórios para demo)
-    const sparklineData = [5, 12, 8, 15, 9, 14, 11];
-    drawSparkline('sparkNew', sparklineData, '#1d9e75');
-    drawSparkline('sparkInAttendance', sparklineData.map(v => v + 2), '#378add');
-    drawSparkline('sparkStopped', sparklineData.map(v => v + 5), '#ef9f27');
-    drawSparkline('sparkTotal', sparklineData.map(v => v + 8), '#8b5cf6');
-
-    // Renderizar donuts
-    const onTimePercentage = total > 0 ? (counts.onTime / total) * 100 : 0;
-    const overduePercentage = total > 0 ? (counts.overdue / total) * 100 : 0;
-
-    drawDonut('donutOntime', onTimePercentage, '#10b981');
-    drawDonut('donutOverdue', overduePercentage, '#ef4444');
-
-    document.getElementById('pctOnTime').textContent = onTimePercentage.toFixed(1) + '%';
-    document.getElementById('pctOverdue').textContent = overduePercentage.toFixed(1) + '%';
+    // Barra de saúde do SLA + percentuais (números reais dos chamados em tela)
+    const totalTk = (tickets || []).length;
+    const pct = (n) => (totalTk > 0 ? (n / totalTk) * 100 : 0);
+    const outros = Math.max(0, totalTk - counts.onTime - counts.overdue);
+    const setW = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = v.toFixed(2) + '%'; };
+    setW('slaBarOk', pct(counts.onTime));
+    setW('slaBarOther', pct(outros));
+    setW('slaBarLate', pct(counts.overdue));
+    const fmtPctBr = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    document.getElementById('pctOnTime').textContent = fmtPctBr(pct(counts.onTime));
+    document.getElementById('pctOverdue').textContent = fmtPctBr(pct(counts.overdue));
+    const bar = document.getElementById('slaBar');
+    if (bar) bar.setAttribute('aria-label', `SLA: ${counts.onTime} no prazo, ${outros} pausados ou sem prazo, ${counts.overdue} atrasados`);
 
     // Gerar insight do card "Fora do Prazo" (desativado temporariamente)
     const insightEl = document.getElementById('overdueInsight');
     if (insightEl) insightEl.textContent = '';
 
-    updateAttendantsList(attendantMap);
+    // A carga por atendente sempre considera todos os chamados carregados (não só os filtrados),
+    // senão clicar num atendente faria os outros sumirem da lista.
+    const base = (typeof _cachedTickets !== 'undefined' && _cachedTickets && _cachedTickets.length) ? _cachedTickets : (tickets || []);
+    updateAttendantsList(buildAttendantMap(base));
+    updateQuickChipCounts(base);
 }
 
 // ─── Aba Movidesk: KPIs com filtros próprios ───────────────────────────────
@@ -882,59 +876,166 @@ document.addEventListener('click', (e) => {
     openTicketsListModal(tickets, `${meta.title}: ${item.label}`);
 });
 
-// Atualiza a lista de atendentes
+// ── Carga por atendente ──────────────────────────────────────────────────────
+function buildAttendantMap(tickets) {
+    const map = {};
+    (tickets || []).forEach(t => {
+        const owner = getTicketValue(t, 'ownerName', 'ownername', 'Sem atribuição') || 'Sem atribuição';
+        const email = getTicketValue(t, 'ownerEmail', 'owneremail', '');
+        if (!map[owner]) map[owner] = { count: 0, late: 0, email };
+        map[owner].count++;
+        if (tkSlaInfo(t).kind === 'late') map[owner].late++;
+    });
+    return map;
+}
+
 function updateAttendantsList(attendantMap) {
     const container = document.getElementById('attendantsContainer');
     if (!container) return;
-
-    let html = '';
-    Object.entries(attendantMap)
-        .sort((a, b) => b[1].count - a[1].count)
-        .forEach(([name, data]) => {
-            const slugId = 'att-' + name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-            const ticketLinks = data.tickets
-                .map(({ id, urgClass }) => `<a class="att-ticket-link ${urgClass}" onclick="openTicketWorkspace(${id});event.stopPropagation()" href="#">#${id}</a>`)
-                .join('');
-            
-            // Usar avatar com foto (email ou nome) ou fallback com iniciais
-            const avatarHTML = createAvatarHTML(data.email || null, name);
-            
-            html += `
-                <div class="attendant-item attendant-expandable" onclick="toggleAttendant('${slugId}')">
-                    <div class="attendant-header">
-                        <div class="attendant-avatar-wrapper">
-                            ${avatarHTML}
-                        </div>
-                        <div class="attendant-info">
-                            <div class="attendant-name">${escapeHtml(name)}</div>
-                        </div>
-                    </div>
-                    <span class="attendant-count">${data.count}</span>
-                    <div class="attendant-tickets" id="${slugId}">${ticketLinks}</div>
-                </div>
-            `;
-        });
-
-    container.innerHTML = html || '<p style="color: #999;">Nenhum atendente</p>';
+    const ativo = document.getElementById('filterAtendente')?.value || '';
+    const entradas = Object.entries(attendantMap).sort((a, b) => b[1].count - a[1].count);
+    const max = entradas.length ? entradas[0][1].count : 1;
+    container.innerHTML = entradas.map(([name, d]) => `
+        <button type="button" class="att-row" data-att="${escapeHtml(name)}" aria-pressed="${ativo === name}" title="Filtrar pelos chamados de ${escapeHtml(name)}">
+            ${createAvatarHTML(d.email || null, name)}
+            <span class="att-nome">${escapeHtml(name)}</span>
+            <span class="att-n">${d.count}</span>
+            <span class="att-barra"><i class="${d.late ? 'tem-atraso' : ''}" style="width:${Math.max(6, (d.count / max) * 100)}%"></i></span>
+            <span class="att-meta">${d.late ? `${d.late} fora do prazo` : 'nenhum fora do prazo'}</span>
+        </button>`).join('') || '<p style="color: var(--muted);">Nenhum atendente</p>';
+    container.querySelectorAll('.att-row').forEach(btn => btn.addEventListener('click', () => {
+        const sel = document.getElementById('filterAtendente');
+        if (!sel) return;
+        sel.value = sel.value === btn.dataset.att ? '' : btn.dataset.att;
+        applyDashboardFilters();
+    }));
 }
 
 function toggleAttendant(id) {
     const el = document.getElementById(id);
-    if (!el) return;
-    el.classList.toggle('expanded');
+    if (el) el.classList.toggle('expanded');
 }
 
-// Função para renderizar os tickets como cards
+// ── Lista densa de chamados ─────────────────────────────────────────────────
+// Situação do prazo de solução: late | soon (< 2 h) | ok | paused | none, com o texto pronto.
+function tkSlaInfo(t) {
+    const paused = getTicketValue(t, 'slaSolutionDateIsPaused', 'slasolutiondateispaused', false);
+    const isPaused = paused === 1 || paused === true;
+    const dl = getTicketValue(t, 'slaSolutionDate', 'slasolutiondate', '');
+    const slaTime = getTicketValue(t, 'slaSolutionTime', 'slasolutiontime', '');
+    const created = getTicketValue(t, 'createdDate', 'createddate', '');
+    let deadline = null;
+    if (dl) deadline = new Date(dl);
+    else if (isPaused && slaTime && created) deadline = new Date(new Date(created).getTime() + slaTime * 60000);
+    if (!deadline || isNaN(deadline)) return { kind: isPaused ? 'paused' : 'none', label: isPaused ? 'Pausado' : 'Sem prazo', ms: Infinity };
+    const diff = deadline - new Date();
+    const abs = Math.abs(diff);
+    const d = Math.floor(abs / 86400000), h = Math.floor((abs % 86400000) / 3600000), m = Math.floor((abs % 3600000) / 60000);
+    const txt = d > 0 ? `${d}d ${h}h` : (h > 0 ? `${h}h ${m}min` : `${m}min`);
+    if (isPaused && diff > 0) return { kind: 'paused', label: `Pausado · ${txt}`, ms: Infinity };
+    if (diff <= 0) return { kind: 'late', label: `Atrasado ${txt}`, ms: diff };
+    return { kind: diff < 2 * 3600000 ? 'soon' : 'ok', label: txt, ms: diff };
+}
+
+function tkAgo(v) {
+    if (!v) return '';
+    const min = Math.round((Date.now() - new Date(v).getTime()) / 60000);
+    if (isNaN(min)) return '';
+    if (min < 1) return 'agora';
+    if (min < 60) return `há ${min} min`;
+    if (min < 1440) return `há ${Math.floor(min / 60)} h`;
+    return `há ${Math.floor(min / 1440)} d`;
+}
+
+const TK_STATUS_LABEL = { New: 'Novo', InAttendance: 'Em atendimento', Stopped: 'Aguardando', InProgress: 'Em andamento' };
+const TK_URG_ORDER = { 'Crítica': 0, 'Alta': 1, 'Média': 2, 'Baixa': 3 };
+let _dashView = 'lista';
+try { _dashView = localStorage.getItem('dashView') === 'cards' ? 'cards' : 'lista'; } catch (e) { /* sem storage */ }
+let _dashSort = { key: 'sla', dir: 1 };
+
+function setDashView(mode) {
+    _dashView = mode === 'cards' ? 'cards' : 'lista';
+    try { localStorage.setItem('dashView', _dashView); } catch (e) { /* sem storage */ }
+    if (typeof applyDashboardFilters === 'function') applyDashboardFilters();
+}
+
+function sortDashTable(key) {
+    _dashSort = _dashSort.key === key ? { key, dir: -_dashSort.dir } : { key, dir: 1 };
+    if (typeof applyDashboardFilters === 'function') applyDashboardFilters();
+}
+
+function tkSortValue(t, key) {
+    switch (key) {
+        case 'sla': return tkSlaInfo(t).ms;
+        case 'id': return Number(t.id) || 0;
+        case 'urg': return TK_URG_ORDER[getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', '')).label] ?? 9;
+        case 'upd': return -(new Date(getTicketValue(t, 'lastUpdate', 'lastupdate', '') || 0).getTime());
+        default: return 0;
+    }
+}
+
+function renderTicketsTable(tickets) {
+    const linhas = tickets.slice().sort((a, b) => {
+        const va = tkSortValue(a, _dashSort.key), vb = tkSortValue(b, _dashSort.key);
+        return (va === vb ? 0 : (va < vb ? -1 : 1)) * _dashSort.dir;
+    });
+    const seta = (k) => (_dashSort.key === k ? (_dashSort.dir === 1 ? ' ↑' : ' ↓') : '');
+    const th = (k, rotulo) => `<th scope="col"><button type="button" onclick="sortDashTable('${k}')">${rotulo}${seta(k)}</button></th>`;
+    const corpo = linhas.map(t => {
+        const sla = tkSlaInfo(t);
+        const urg = getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', ''));
+        const base = normalizeDashboardBaseStatus(getTicketValue(t, 'baseStatus', 'basestatus', '') || getTicketValue(t, 'status', 'status', ''));
+        const statusTxt = getTicketValue(t, 'status', 'status', '') || TK_STATUS_LABEL[base] || base;
+        const dono = getTicketValue(t, 'ownerName', 'ownername', 'Não atribuído') || 'Não atribuído';
+        const cliente = getTicketValue(t, 'clientName', 'clientname', '') || getTicketValue(t, 'clientOrganization', 'clientorganization', '');
+        const quem = getTicketValue(t, 'lastActionCreatedByBusinessName', 'lastactioncreatedbybusinessname', '');
+        const origem = getTicketValue(t, 'lastActionOrigin', 'lastactionorigin', '');
+        const upd = getTicketValue(t, 'lastUpdate', 'lastupdate', '') || getTicketValue(t, 'lastActionDate', 'lastactiondate', '');
+        return `
+        <tr class="tk-row" tabindex="0" role="button" onclick="openTicketWorkspace(${t.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTicketWorkspace(${t.id});}">
+            <td><span class="tk-pill sla-${sla.kind}">${escapeHtml(sla.label)}</span></td>
+            <td class="tk-id">#${escapeHtml(t.id)}</td>
+            <td><div class="tk-title" title="${escapeHtml(t.subject)}">${escapeHtml(t.subject)}</div><div class="tk-sub">${escapeHtml(cliente || '—')}</div></td>
+            <td><span class="urgency-bubble ${urg.class}">${urg.label}</span></td>
+            <td class="tk-col-agente"><div class="tk-agent">${createAvatarHTML(getTicketValue(t, 'ownerEmail', 'owneremail', '') || null, dono)}<span>${escapeHtml(dono)}</span></div></td>
+            <td><span class="tk-st st-${escapeHtml(base)}">${escapeHtml(statusTxt)}</span></td>
+            <td class="tk-col-last tk-last ${origem === 'Customer' ? 'cliente' : ''}"><span class="tk-last-quem">${origem === 'Customer' ? 'Cliente' : 'Agente'}${quem ? ' · ' + escapeHtml(quem) : ''}</span><small>${escapeHtml(tkAgo(upd))}</small></td>
+        </tr>`;
+    }).join('');
+    return `<div class="tk-wrap"><table class="tk-table">
+        <thead><tr>${th('sla', 'Prazo')}${th('id', 'Nº')}<th scope="col">Assunto / cliente</th>${th('urg', 'Urgência')}<th scope="col" class="tk-col-agente">Agente</th><th scope="col">Status</th>${th('upd', 'Última ação')}</tr></thead>
+        <tbody>${corpo}</tbody></table></div>`;
+}
+
+// Contadores dos filtros rápidos (sempre sobre todos os chamados carregados).
+function updateQuickChipCounts(all) {
+    const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n ? `(${n})` : ''; };
+    let atras = 0, semRet = 0, novos = 0, pausa = 0;
+    (all || []).forEach(t => {
+        const k = tkSlaInfo(t).kind;
+        if (k === 'late') atras++;
+        if (k === 'paused') pausa++;
+        if (getTicketValue(t, 'lastActionOrigin', 'lastactionorigin', '') === 'Customer') semRet++;
+        if (normalizeDashboardBaseStatus(getTicketValue(t, 'baseStatus', 'basestatus', '') || getTicketValue(t, 'status', 'status', '')) === 'New') novos++;
+    });
+    set('chipAtrasados', atras); set('chipSemRetorno', semRet); set('chipNovos', novos); set('chipPausa', pausa);
+}
+
+// Função para renderizar os chamados (lista densa ou cartões)
 function renderTickets(tickets, container) {
+    const seg = { lista: document.getElementById('viewLista'), cards: document.getElementById('viewCards') };
+    if (seg.lista) seg.lista.setAttribute('aria-pressed', String(_dashView === 'lista'));
+    if (seg.cards) seg.cards.setAttribute('aria-pressed', String(_dashView === 'cards'));
+    container.classList.toggle('tk-list-mode', _dashView === 'lista');
+
     if (!tickets || tickets.length === 0) {
-        container.innerHTML = `
-            <div style="grid-column: 1/-1; padding: 40px; text-align: center;">
-                <p style="color: #7f8c8d; font-size: 16px;">Nenhum chamado encontrado. Acesse o painel admin para sincronizar.</p>
-            </div>
-        `;
+        container.innerHTML = '<div class="tk-vazio" style="grid-column: 1/-1;">Nenhum chamado encontrado para estes filtros.</div>';
         return;
     }
-    
+    if (_dashView === 'lista') {
+        container.innerHTML = renderTicketsTable(tickets);
+        return;
+    }
     container.innerHTML = tickets.map(ticket => createCardHTML(ticket)).join('');
     loadFirstResponseSla(tickets);
 }

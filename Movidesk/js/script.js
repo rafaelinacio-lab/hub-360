@@ -423,6 +423,7 @@ function applyDashboardFilters() {
     const teamFilter = document.getElementById('filterEquipe')?.value?.trim() || '';
     const lastActionFilter = document.getElementById('filterLastAction')?.value?.trim() || '';
     const slaFilter = document.getElementById('filterSla')?.value?.trim() || '';
+    const busca = (document.getElementById('filterBusca')?.value || '').trim().toLowerCase();
 
     if (!_cachedTickets || _cachedTickets.length === 0) {
         container.innerHTML = '<div style="grid-column: 1/-1; padding: 40px; text-align: center;"><p>Nenhum chamado encontrado.</p></div>';
@@ -431,6 +432,17 @@ function applyDashboardFilters() {
     }
 
     let filtered = _cachedTickets.filter(ticket => {
+        // Busca livre: nº, assunto, cliente ou atendente
+        if (busca) {
+            const palheiro = [
+                ticket.id,
+                getTicketValue(ticket, 'subject', 'subject', ''),
+                getTicketValue(ticket, 'clientName', 'clientname', ''),
+                getTicketValue(ticket, 'clientOrganization', 'clientorganization', ''),
+                getTicketValue(ticket, 'ownerName', 'ownername', ''),
+            ].join(' ').toLowerCase();
+            if (!palheiro.includes(busca)) return false;
+        }
         // Filtro por Status
         if (statusFilter) {
             const baseStatusRaw = getTicketValue(ticket, 'baseStatus', 'basestatus', '') || getTicketValue(ticket, 'status', 'status', '');
@@ -496,11 +508,23 @@ function applyDashboardFilters() {
 
     renderTickets(filtered, container);
     updateSummaryCards(filtered);
-    
-    const countText = filtered.length === _cachedTickets.length 
-        ? '' 
+
+    const countText = filtered.length === _cachedTickets.length
+        ? `${filtered.length} chamado${filtered.length === 1 ? '' : 's'}`
         : `${filtered.length} de ${_cachedTickets.length}`;
     document.getElementById('filterCount').textContent = countText;
+    syncQuickChips({ statusFilter, slaFilter, lastActionFilter, hasOther: !!(urgencyFilter || attendeeFilter || teamFilter || busca) });
+}
+
+// Destaca o filtro rápido que corresponde aos selects (e só esse).
+function syncQuickChips({ statusFilter, slaFilter, lastActionFilter, hasOther }) {
+    const ativo = hasOther ? '' :
+        (slaFilter === 'overdue' && !statusFilter && !lastActionFilter) ? 'atrasados' :
+        (lastActionFilter === 'Customer' && !statusFilter && !slaFilter) ? 'semretorno' :
+        (statusFilter === 'New' && !slaFilter && !lastActionFilter) ? 'novos' :
+        (slaFilter === 'paused' && !statusFilter && !lastActionFilter) ? 'pausa' :
+        (!statusFilter && !slaFilter && !lastActionFilter) ? 'todos' : '';
+    document.querySelectorAll('#quickChips .tk-chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.chip === ativo)));
 }
 
 function populateDashboardFilters() {
@@ -555,8 +579,30 @@ function setupDashboardFilters() {
     if (filterLastAction) filterLastAction.addEventListener('change', applyDashboardFilters);
     if (filterSla) filterSla.addEventListener('change', applyDashboardFilters);
 
+    // Busca, modo de visualização e filtros rápidos
+    const busca = document.getElementById('filterBusca');
+    if (busca) {
+        let t = null;
+        busca.addEventListener('input', () => { clearTimeout(t); t = setTimeout(applyDashboardFilters, 150); });
+    }
+    document.getElementById('viewLista')?.addEventListener('click', () => setDashView('lista'));
+    document.getElementById('viewCards')?.addEventListener('click', () => setDashView('cards'));
+    document.querySelectorAll('#quickChips .tk-chip').forEach(chip => chip.addEventListener('click', () => {
+        const set = (el, v) => { if (el) el.value = v; };
+        set(filterStatus, ''); set(filterSla, ''); set(filterLastAction, '');
+        switch (chip.dataset.chip) {
+            case 'atrasados': set(filterSla, 'overdue'); break;
+            case 'semretorno': set(filterLastAction, 'Customer'); break;
+            case 'novos': set(filterStatus, 'New'); break;
+            case 'pausa': set(filterSla, 'paused'); break;
+            default: break;
+        }
+        applyDashboardFilters();
+    }));
+
     if (filterClear) {
         filterClear.addEventListener('click', () => {
+            if (busca) busca.value = '';
             if (filterStatus) filterStatus.value = '';
             if (filterUrgency) filterUrgency.value = '';
             if (filterAtendente) filterAtendente.value = '';

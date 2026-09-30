@@ -6,6 +6,7 @@
     <title>Dashboard - Movidesk</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/dashboard-v2.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <script>
         (function() {
@@ -1201,75 +1202,51 @@
                 <!-- Coluna principal -->
                 <div class="dashboard-main">
 
-                    <!-- Resumo por status (4 cards com sparklines) -->
-                    <div class="status-summary">
-                        <div class="summary-card summary-new" onclick="openKpiModal('New', 'Chamados Novos')" title="Ver chamados">
-                            <div class="summary-card-info">
-                                <span class="summary-count" id="countNew">—</span>
-                                <span class="summary-label">NOVOS</span>
-                            </div>
-                            <canvas class="sparkline-canvas" id="sparkNew" width="90" height="44"></canvas>
-                        </div>
-                        <div class="summary-card summary-inattendance" onclick="openKpiModal('InAttendance', 'Chamados em Atendimento')" title="Ver chamados">
-                            <div class="summary-card-info">
-                                <span class="summary-count" id="countInAttendance">—</span>
-                                <span class="summary-label">EM ATENDIMENTO</span>
-                            </div>
-                            <canvas class="sparkline-canvas" id="sparkInAttendance" width="90" height="44"></canvas>
-                        </div>
-                        <div class="summary-card summary-stopped" onclick="openKpiModal('Stopped', 'Chamados Aguardando')" title="Ver chamados">
-                            <div class="summary-card-info">
-                                <span class="summary-count" id="countStopped">—</span>
-                                <span class="summary-label">AGUARDANDO</span>
-                            </div>
-                            <canvas class="sparkline-canvas" id="sparkStopped" width="90" height="44"></canvas>
-                        </div>
-                        <div class="summary-card summary-total" onclick="openKpiModal('Total', 'Todos os Chamados')" title="Ver chamados">
-                            <div class="summary-card-info">
-                                <span class="summary-count" id="countTotal">—</span>
-                                <span class="summary-label">TOTAL</span>
-                            </div>
-                            <canvas class="sparkline-canvas" id="sparkTotal" width="90" height="44"></canvas>
-                        </div>
+                    <!-- Faixa de KPIs (números reais dos chamados em tela) -->
+                    <div class="kpi-strip" id="kpiStrip">
+                        <button type="button" class="kpi-tile" onclick="openKpiModal('Total', 'Todos os Chamados')" title="Ver chamados">
+                            <span class="kpi-label">Abertos</span><span class="kpi-num" id="countTotal">—</span><span class="kpi-sub">&nbsp;</span>
+                        </button>
+                        <button type="button" class="kpi-tile" onclick="openKpiModal('New', 'Chamados Novos')" title="Ver chamados">
+                            <span class="kpi-label">Novos</span><span class="kpi-num" id="countNew">—</span><span class="kpi-sub">&nbsp;</span>
+                        </button>
+                        <button type="button" class="kpi-tile" onclick="openKpiModal('InAttendance', 'Chamados em Atendimento')" title="Ver chamados">
+                            <span class="kpi-label">Em atendimento</span><span class="kpi-num" id="countInAttendance">—</span><span class="kpi-sub">&nbsp;</span>
+                        </button>
+                        <button type="button" class="kpi-tile" onclick="openKpiModal('Stopped', 'Chamados Aguardando')" title="Ver chamados">
+                            <span class="kpi-label">Aguardando</span><span class="kpi-num" id="countStopped">—</span><span class="kpi-sub">&nbsp;</span>
+                        </button>
+                        <button type="button" class="kpi-tile kpi-late" onclick="openKpiModal('overdue', 'Chamados Fora do Prazo')" title="Ver chamados">
+                            <span class="kpi-label">Fora do prazo</span><span class="kpi-num" id="countOverdue">—</span><span class="kpi-sub"><span id="pctOverdue">—%</span> do total <span class="overdue-insight" id="overdueInsight"></span></span>
+                        </button>
+                        <button type="button" class="kpi-tile kpi-ok" onclick="openKpiModal('onTime', 'Chamados Dentro do Prazo')" title="Ver chamados">
+                            <span class="kpi-label">Dentro do prazo</span><span class="kpi-num" id="countOnTime">—</span><span class="kpi-sub"><span id="pctOnTime">—%</span> do total</span>
+                        </button>
                     </div>
-
-                    <!-- Resumo por SLA (2 cards com donuts) -->
-                    <div class="sla-row">
-                        <div class="sla-card sla-ontime" onclick="openKpiModal('onTime', 'Chamados Dentro do Prazo')" title="Ver chamados">
-                            <div class="sla-card-info">
-                                <span class="sla-count" id="countOnTime">—</span>
-                                <span class="sla-label">DENTRO DO PRAZO</span>
-                            </div>
-                            <div class="sla-donut-wrap">
-                                <svg class="sla-donut" viewBox="0 0 80 80" width="80" height="80">
-                                    <circle class="donut-bg" cx="40" cy="40" r="30"/>
-                                    <circle class="donut-arc donut-ontime" id="donutOntime" cx="40" cy="40" r="30"
-                                        stroke-dasharray="0 188.5" stroke-dashoffset="47.1"/>
-                                </svg>
-                                <span class="donut-pct" id="pctOnTime">—%</span>
-                            </div>
-                        </div>
-                        <div class="sla-card sla-overdue" onclick="openKpiModal('overdue', 'Chamados Fora do Prazo')" title="Ver chamados">
-                            <div class="sla-card-info">
-                                <span class="sla-count" id="countOverdue">—</span>
-                                <span class="sla-label">FORA DO PRAZO</span>
-                                <span class="overdue-insight" id="overdueInsight"></span>
-                            </div>
-                            <div class="sla-donut-wrap">
-                                <svg class="sla-donut" viewBox="0 0 80 80" width="80" height="80">
-                                    <circle class="donut-bg" cx="40" cy="40" r="30"/>
-                                    <circle class="donut-arc donut-overdue" id="donutOverdue" cx="40" cy="40" r="30"
-                                        stroke-dasharray="0 188.5" stroke-dashoffset="47.1"/>
-                                </svg>
-                                <span class="donut-pct" id="pctOverdue">—%</span>
-                            </div>
-                        </div>
+                    <div class="sla-bar-wrap">
+                        <div class="sla-bar" id="slaBar" role="img" aria-label="Saúde do SLA"><span class="sla-bar-ok" id="slaBarOk" style="width:0"></span><span class="sla-bar-other" id="slaBarOther" style="width:0"></span><span class="sla-bar-late" id="slaBarLate" style="width:0"></span></div>
+                        <div class="sla-bar-legend"><span><i style="background:var(--grn-mid)"></i>No prazo</span><span><i style="background:var(--hint)"></i>Pausado ou sem prazo</span><span><i style="background:var(--red-mid)"></i>Atrasado</span></div>
                     </div>
 
                     <!-- Chamados em Aberto (colapsável) -->
                     <section class="section" id="cardsSection">
-                        <div class="section-header">
+                        <div class="section-header tk-head">
                             <button id="toggleBtn" class="toggle-section-btn">▼ Chamados em Aberto</button>
+                            <span class="filter-count" id="filterCount"></span>
+                            <div class="tk-head-right">
+                                <input type="search" id="filterBusca" class="tk-busca" placeholder="Buscar por nº, assunto ou cliente…" aria-label="Buscar chamados" autocomplete="off">
+                                <div class="tk-seg" role="group" aria-label="Modo de visualização">
+                                    <button type="button" id="viewLista" aria-pressed="true">Lista</button>
+                                    <button type="button" id="viewCards" aria-pressed="false">Cartões</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tk-chips" id="quickChips" role="group" aria-label="Filtros rápidos">
+                            <button type="button" class="tk-chip" data-chip="todos" aria-pressed="true">Todos</button>
+                            <button type="button" class="tk-chip" data-chip="atrasados" aria-pressed="false">Fora do prazo <b id="chipAtrasados"></b></button>
+                            <button type="button" class="tk-chip" data-chip="semretorno" aria-pressed="false">Cliente aguardando retorno <b id="chipSemRetorno"></b></button>
+                            <button type="button" class="tk-chip" data-chip="novos" aria-pressed="false">Novos <b id="chipNovos"></b></button>
+                            <button type="button" class="tk-chip" data-chip="pausa" aria-pressed="false">Em pausa <b id="chipPausa"></b></button>
                         </div>
 
                         <!-- Barra de filtros -->
@@ -1310,7 +1287,6 @@
                                 <option value="paused">Em pausa</option>
                             </select>
                             <button class="filter-clear" id="filterClear" title="Limpar filtros">✕ Limpar</button>
-                            <span class="filter-count" id="filterCount"></span>
                         </div>
 
                         <div class="cards-container" id="cardsContainer">
@@ -1324,7 +1300,7 @@
 
                 <!-- Sidebar de atendentes -->
                 <aside class="dashboard-sidebar">
-                    <p class="sidebar-title">Atendentes</p>
+                    <p class="sidebar-title">Carga por atendente</p>
                     <div class="attendants-container" id="attendantsContainer">
                         <p style="color: #999;">Carregando...</p>
                     </div>
