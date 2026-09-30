@@ -1095,6 +1095,71 @@ async function collectCurrentOpenTicketIds(token, conditions) {
 
 const ACTIVE_BASE_STATUSES = ['New', 'InAttendance', 'Stopped', 'InProgress'];
 
+// Fonte do Dashboard (chamados ativos): 'db' lê direto de silver.ticket — alimentada pelas
+// crons de carga (ex.: uma cron só da equipe Sistemas Internos) — e 'datalake' usa a
+// apidatalake como antes. DASHBOARD_SOURCE=datalake volta ao comportamento antigo.
+const DASHBOARD_SOURCE = String(process.env.DASHBOARD_SOURCE || 'db').toLowerCase();
+const DASHBOARD_MAX_ROWS = Number(process.env.DASHBOARD_MAX_ROWS) || 1000;
+
+// Monta a lista do Dashboard a partir do banco. Sem equipe do usuário (admin vendo "todas"),
+// usa as equipes configuradas em "Condições do Movidesk". Devolve linhas no formato que
+// datalakeRowToTicketShape/normalizeTicketRow já conhecem.
+async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewer }) {
+  const params = [ACTIVE_BASE_STATUSES];
+  const where = ['t.basestatus = ANY($1::text[])'];
+  if (equipesDoUsuario && equipesDoUsuario.length) {
+    const alvos = equipesDoUsuario.map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+    params.push(alvos);
+    where.push(`(EXISTS (SELECT 1 FROM unnest($${params.length}::text[]) a WHERE lower(t.ownerteam) LIKE '%' || a || '%')
+                 OR lower(split_part(t.service_full, ' > ', 1)) = ANY($${params.length}::text[]))`);
+  } else {
+    const teams = Array.from(new Set(getTicketConditions(conditions).map((c) => c.ownerTeam).filter(Boolean)));
+    if (teams.length) { params.push(teams); where.push(`t.ownerteam = ANY($${params.length}::text[])`); }
+  }
+  if (viewer.role === 'supervisor') {
+    params.push(String(viewer.vertical || '').toLowerCase());
+    where.push(`lower(split_part(t.service_full, ' > ', 1)) = $${params.length}`);
+  }
+  if (conditions.customFieldId && conditions.customFieldValue) {
+    params.push(String(conditions.customFieldId));
+    params.push(String(conditions.customFieldValue).trim().toLowerCase());
+    where.push(`EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf
+                         WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = $${params.length - 1}
+                           AND lower(trim(cf.valor_texto)) = $${params.length})`);
+  }
+  const { rows } = await db.query(`
+    SELECT
+      t.ticket_id::varchar                                   AS ticket_id,
+      t.subject, t.status, t.basestatus, t.createddate,
+      t.last_update                                          AS lastupdate,
+      t.ownerteam                                            AS owner_team,
+      t.owner_name                                           AS ownername,
+      t.urgency                                              AS slaagreementrule,
+      t.urgency                                              AS urgencia,
+      split_part(t.service_full, ' > ', 1)                   AS servicefirstlevel,
+      NULLIF(split_part(t.service_full, ' > ', 2), '')       AS servicesecondlevel,
+      t.sla_solution_date                                    AS slasolutiondate,
+      (t.basestatus = 'Stopped')                             AS slasolutiondateispaused,
+      t.sla_response_date                                    AS slaresponsedate,
+      COALESCE(org.organizacao_nome, t.clientorganization)   AS clientorganization,
+      COALESCE(org.organizacao_nome, t.clientorganization)   AS clientname,
+      COALESCE(ac.total, 0)                                  AS actionscount,
+      ac.ultima_em                                           AS lastactiondate,
+      ac.ultima_por                                          AS lastactioncreatedbybusinessname
+    FROM silver.ticket t
+    LEFT JOIN silver.ticket_organizacao org ON org.ticket_id = t.ticket_id::bigint
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int AS total,
+             MAX(criado_em) AS ultima_em,
+             (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC))[1] AS ultima_por
+        FROM silver.ticket_acao WHERE ticket_id = t.ticket_id::bigint
+    ) ac ON true
+    WHERE ${where.join(' AND ')}
+    ORDER BY t.createddate DESC NULLS LAST
+    LIMIT ${DASHBOARD_MAX_ROWS}`, params);
+  return rows;
+}
+
 // Decide se um erro vindo da apidatalake justifica cair no Postgres local ou
 // se deve propagar como erro pra quem chamou a rota. `allow404` habilita a
 // exceção documentada acima (atraso do pipeline silver) pras rotas de
@@ -1285,6 +1350,17 @@ router.get('/', requireTicketsAccess, async (req, res) => {
     // includeAll (aba Movidesk, ?scope=all) precisa do universo completo
     // (inclusive fechados) — só o Dashboard (ativos) filtra por basestatus
     // já na apidatalake, ver comentário de fetchCandidateTicketsFromDatalake.
+    if (!includeAll && DASHBOARD_SOURCE === 'db') {
+      let linhas;
+      try {
+        linhas = await fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewer });
+      } catch (dbErr) {
+        console.error('[tickets] Erro ao ler o Dashboard de silver.ticket:', dbErr);
+        return res.status(500).json({ error: 'Erro ao ler os chamados do banco', detail: dbErr.message });
+      }
+      console.log(`[tickets] GET / servido pelo banco (silver.ticket): ${linhas.length} chamados.`);
+      return res.json(cacheResponse(cacheKey, linhas.map(datalakeRowToTicketShape).map(normalizeTicketRow)));
+    }
     let candidates = await fetchCandidateTicketsFromDatalake(
       conditions,
       includeAll ? {} : { basestatuses: ACTIVE_BASE_STATUSES }
