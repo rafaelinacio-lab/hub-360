@@ -124,3 +124,13 @@ sem abrir o Movidesk (`routes/ticket-workspace.js`, `js/ticket-workspace.js`).
 - Toda escrita (sucesso ou erro) fica em `public.hub_ticket_interacoes`.
 - `MOVIDESK_WRITE_API` muda a URL base da API; `MOVIDESK_ACTION_ORIGIN` muda o código de
   origem das ações (padrão 9 = API).
+
+## Dashboard por equipe
+
+`GET /api/tickets` (Dashboard, só ativos) devolve por padrão os chamados da(s) equipe(s) do
+usuário logado (`utils/movideskPeople.js → escopoEquipe`). A equipe vem do cadastro da pessoa no
+Movidesk (campo `teams`, achada pelo e-mail do login); se estiver vazio, vale o histórico:
+equipes dos chamados que ela atendeu nos últimos 90 dias. Sem nenhuma das duas, não filtra e a
+tela avisa. Admin e supervisor podem alternar para "Todas as equipes" (`?equipe=todas`);
+atendente fica sempre na própria equipe. A aba Movidesk (`?scope=all`) não é filtrada.
+`GET /api/tickets/minha-equipe` informa as equipes e se o usuário pode ver todas.

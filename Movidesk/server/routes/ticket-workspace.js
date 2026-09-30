@@ -10,16 +10,15 @@
 //  - status só aceita valores que já existem nos chamados (nada digitado à mão);
 //  - toda escrita fica em public.hub_ticket_interacoes (quem, quando, o quê, resultado).
 const express = require('express');
-const fetch = require('node-fetch');
 const db = require('../db/remote');
-const { getToken, requireTabAccess } = require('./config');
+const { requireTabAccess } = require('./config');
+const { MovideskError, movidesk, agenteDoUsuario, listaAgentes, escopoEquipe } = require('../utils/movideskPeople');
 const { authMiddleware } = require('./auth');
 const { rateLimit } = require('../utils/rateLimit');
 
 const router = express.Router();
 router.use(authMiddleware);
 
-const MOVIDESK_API = process.env.MOVIDESK_WRITE_API || 'https://apimovidesk.viasoftcloud.com.br/public/v1';
 const ROLES_ESCRITA = ['admin', 'supervisor', 'atendente'];
 // type: 1 = nota interna, 2 = resposta pública (visível ao cliente). origin 9 = API.
 const ACAO_TIPO = { interna: 1, publica: 2 };
@@ -28,10 +27,6 @@ const MAX_TEXTO = 20000;
 
 const requireLeitura = requireTabAccess(['dashboard', 'movidesk', 'chamados']);
 const limiteEscrita = rateLimit({ name: 'tickets/workspace-write', windowMs: 10 * 60 * 1000, max: 60 });
-
-function tokenMovidesk() {
-  return new Promise((resolve, reject) => getToken((err, t) => (err || !t ? reject(err || new Error('Token do Movidesk não configurado')) : resolve(t))));
-}
 
 async function papelDoUsuario(userId) {
   const r = await db.query(`SELECT r.name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1`, [userId]);
@@ -49,59 +44,6 @@ async function exigirEscrita(req, res, next) {
   } catch (e) {
     res.status(500).json({ error: 'Erro ao verificar permissão' });
   }
-}
-
-class MovideskError extends Error {
-  constructor(status, detalhe) { super(`Movidesk respondeu ${status}${detalhe ? `: ${detalhe}` : ''}`); this.status = status; this.detalhe = detalhe; }
-}
-
-async function movidesk(method, caminho, { query = {}, body } = {}) {
-  const token = await tokenMovidesk();
-  const qs = Object.entries({ token, ...query }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-  const resp = await fetch(`${MOVIDESK_API}${caminho}?${qs}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    timeout: 30000,
-  });
-  const raw = await resp.text();
-  let json = null;
-  try { json = raw ? JSON.parse(raw) : null; } catch { json = null; }
-  if (!resp.ok) {
-    const msg = (json && (json.message || json.Message || json.error)) || raw || '';
-    throw new MovideskError(resp.status, String(msg).slice(0, 400));
-  }
-  return json;
-}
-
-// ── agente do Movidesk correspondente ao usuário logado ─────────────────────
-const cacheAgentePorEmail = new Map(); // email -> { id, nome, ate }
-async function agenteDoUsuario(email) {
-  const chave = String(email || '').trim().toLowerCase();
-  if (!chave) return null;
-  const c = cacheAgentePorEmail.get(chave);
-  if (c && c.ate > Date.now()) return c.agente;
-  const safe = chave.replace(/'/g, "''");
-  const lista = await movidesk('GET', '/persons', {
-    query: { $select: 'id,businessName,userName,isActive,profileType', $filter: `userName eq '${safe}' and isActive eq true`, $top: 5 },
-  });
-  const pessoa = (Array.isArray(lista) ? lista : []).find(p => p.profileType === 1 || p.profileType === 3) || null;
-  const agente = pessoa ? { id: String(pessoa.id), nome: pessoa.businessName } : null;
-  cacheAgentePorEmail.set(chave, { agente, ate: Date.now() + 10 * 60 * 1000 });
-  return agente;
-}
-
-let cacheAgentes = { ate: 0, lista: [] };
-async function listaAgentes() {
-  if (cacheAgentes.ate > Date.now()) return cacheAgentes.lista;
-  const lista = await movidesk('GET', '/persons', {
-    query: { $select: 'id,businessName,userName', $filter: '(profileType eq 1 or profileType eq 3) and isActive eq true', $orderby: 'businessName', $top: 1000 },
-  });
-  cacheAgentes = {
-    ate: Date.now() + 10 * 60 * 1000,
-    lista: (Array.isArray(lista) ? lista : []).map(p => ({ id: String(p.id), nome: p.businessName, email: p.userName })),
-  };
-  return cacheAgentes.lista;
 }
 
 // Status que existem de verdade no Movidesk da empresa (nome + status base), tirados dos
@@ -181,6 +123,14 @@ function notaDeRastro(agente, texto) {
 }
 
 // ── rotas ───────────────────────────────────────────────────────────────────
+// Equipe(s) do usuário logado e se ele pode alternar para "todas" (usado pelo Dashboard).
+router.get('/minha-equipe', requireLeitura, async (req, res) => {
+  try {
+    const e = await escopoEquipe(req.user, req.query.equipe === 'todas');
+    res.json({ equipes: e.equipes, origem: e.origem, podeVerTodas: e.podeVerTodas, filtrando: e.filtrar });
+  } catch (err) { erroParaResposta(res, err); }
+});
+
 // Opções para os seletores (status existentes + agentes).
 router.get('/workspace/opcoes', requireLeitura, async (req, res) => {
   try {
