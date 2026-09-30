@@ -80,6 +80,7 @@
                 <div class="ws-campo">
                     <label for="wsResp">Responsável</label>
                     <select id="wsResp">${optsAg}</select>
+                    <select id="wsEquipeResp" style="display:none;" title="Equipe do chamado"></select>
                     <button type="button" class="pm-btn pm-btn-cancel" id="wsAplicarResp">Atribuir</button>
                 </div>
             </div>`;
@@ -89,6 +90,23 @@
         $('wsEnviar')?.addEventListener('click', enviarAcao);
         $('wsAplicarStatus')?.addEventListener('click', alterarStatus);
         $('wsAplicarResp')?.addEventListener('click', alterarResponsavel);
+        $('wsResp')?.addEventListener('change', ajustarEquipeResponsavel);
+    }
+
+    // Se o novo responsável está em mais de uma equipe, o Movidesk exige escolher a do chamado.
+    function ajustarEquipeResponsavel() {
+        const sel = $('wsEquipeResp');
+        if (!sel) return;
+        const ag = (_ws.opcoes.agentes || []).find(a => a.id === $('wsResp').value);
+        const equipes = ag && ag.equipes ? ag.equipes : [];
+        if (equipes.length > 1) {
+            const atual = _ws.dados && _ws.dados.equipe;
+            sel.innerHTML = equipes.map(e => `<option value="${esc(e)}" ${e === atual ? 'selected' : ''}>Equipe: ${esc(e)}</option>`).join('');
+            sel.style.display = '';
+        } else {
+            sel.style.display = 'none';
+            sel.innerHTML = '';
+        }
     }
 
     function desenhar() {
@@ -155,7 +173,8 @@
         if (!responsavelId) return avisar('Escolha o novo responsável.', true);
         if (_ws.dados.responsavel && responsavelId === _ws.dados.responsavel.id) return avisar('Esse já é o responsável.', true);
         executar($('wsAplicarResp'), 'Atribuindo…', async () => {
-            await chamar(`/${_ws.id}/workspace/responsavel`, { method: 'POST', body: JSON.stringify({ responsavelId }) });
+            const equipe = $('wsEquipeResp') && $('wsEquipeResp').style.display !== 'none' ? $('wsEquipeResp').value : '';
+            await chamar(`/${_ws.id}/workspace/responsavel`, { method: 'POST', body: JSON.stringify({ responsavelId, equipe }) });
             avisar('Responsável alterado.');
         });
     }

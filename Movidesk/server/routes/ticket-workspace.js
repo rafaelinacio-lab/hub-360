@@ -242,11 +242,23 @@ router.post('/:id/workspace/responsavel', requireLeitura, exigirEscrita, limiteE
     if (!novo) return res.status(400).json({ error: 'Responsável desconhecido. Escolha um da lista.' });
     const agente = await exigirAgente(req, res);
     if (!agente) return;
-    await movidesk('PATCH', '/tickets', {
-      query: { id },
-      body: { owner: { id: novo.id }, actions: [notaDeRastro(agente, `Responsável alterado para ${novo.nome} pelo Hub 360.`)] },
-    });
-    await auditar(req, id, 'responsavel', { para: novo.nome, agente: agente.nome });
+    // O Movidesk exige trocar responsável E equipe juntos. Mantém a equipe atual do chamado se o
+    // novo responsável faz parte dela; senão usa a única equipe dele; com várias, o usuário escolhe.
+    const atual = await movidesk('GET', '/tickets', { query: { id, $select: 'id,ownerTeam' } });
+    const equipeAtual = String(atual?.ownerTeam || '').trim();
+    const pedida = String(req.body?.equipe || '').trim();
+    let equipe;
+    if (pedida) {
+      if (novo.equipes.length && !novo.equipes.includes(pedida)) return res.status(400).json({ error: `${novo.nome} não faz parte da equipe "${pedida}".` });
+      equipe = pedida;
+    } else if (novo.equipes.includes(equipeAtual)) equipe = equipeAtual;
+    else if (novo.equipes.length === 1) equipe = novo.equipes[0];
+    else if (novo.equipes.length === 0) equipe = equipeAtual;
+    else return res.status(409).json({ error: `${novo.nome} está em mais de uma equipe. Escolha a equipe do chamado.`, equipes: novo.equipes });
+    const body = { owner: { id: novo.id }, actions: [notaDeRastro(agente, `Responsável alterado para ${novo.nome}${equipe ? ` (equipe ${equipe})` : ''} pelo Hub 360.`)] };
+    if (equipe) body.ownerTeam = equipe;
+    await movidesk('PATCH', '/tickets', { query: { id }, body });
+    await auditar(req, id, 'responsavel', { para: novo.nome, equipe, agente: agente.nome });
     res.json({ ok: true });
   } catch (e) {
     await auditar(req, id, 'responsavel', { para: novoId }, e.message);

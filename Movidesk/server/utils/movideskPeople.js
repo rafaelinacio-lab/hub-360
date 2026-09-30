@@ -33,7 +33,9 @@ async function movidesk(method, caminho, { query = {}, body } = {}) {
   let json = null;
   try { json = raw ? JSON.parse(raw) : null; } catch { json = null; }
   if (!resp.ok) {
-    const msg = (json && (json.message || json.Message || json.error)) || raw || '';
+    const msg = Array.isArray(json)
+      ? json.map((x) => x.errorMessage || x.message || JSON.stringify(x)).join('; ')
+      : (json && (json.message || json.Message || json.error)) || raw || '';
     throw new MovideskError(resp.status, String(msg).slice(0, 400));
   }
   return json;
@@ -61,11 +63,11 @@ let cacheAgentes = { ate: 0, lista: [] };
 async function listaAgentes() {
   if (cacheAgentes.ate > Date.now()) return cacheAgentes.lista;
   const lista = await movidesk('GET', '/persons', {
-    query: { $select: 'id,businessName,userName', $filter: '(profileType eq 1 or profileType eq 3) and isActive eq true', $orderby: 'businessName', $top: 1000 },
+    query: { $select: 'id,businessName,userName,teams', $filter: '(profileType eq 1 or profileType eq 3) and isActive eq true', $orderby: 'businessName', $top: 1000 },
   });
   cacheAgentes = {
     ate: Date.now() + TTL,
-    lista: (Array.isArray(lista) ? lista : []).map(p => ({ id: String(p.id), nome: p.businessName, email: p.userName })),
+    lista: (Array.isArray(lista) ? lista : []).map(p => ({ id: String(p.id), nome: p.businessName, email: p.userName, equipes: (Array.isArray(p.teams) ? p.teams : []).map(t => String(t).trim()).filter(Boolean) })),
   };
   return cacheAgentes.lista;
 }
