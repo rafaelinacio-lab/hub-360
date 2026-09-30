@@ -128,9 +128,10 @@ sem abrir o Movidesk (`routes/ticket-workspace.js`, `js/ticket-workspace.js`).
 ## Dashboard por equipe
 
 `GET /api/tickets` (Dashboard, só ativos) devolve por padrão os chamados da(s) equipe(s) do
-usuário logado (`utils/movideskPeople.js → escopoEquipe`). A equipe vem do cadastro da pessoa no
-Movidesk (campo `teams`, achada pelo e-mail do login); se estiver vazio, vale o histórico:
-equipes dos chamados que ela atendeu nos últimos 90 dias. Sem nenhuma das duas, não filtra e a
-tela avisa. Admin e supervisor podem alternar para "Todas as equipes" (`?equipe=todas`);
+usuário logado (`utils/movideskPeople.js → escopoEquipe`). A equipe é a **vertical** cadastrada
+em Pessoas; um chamado entra se a equipe dele contém o nome da vertical (ex.: "Sistemas Internos"
+casa com "VIASOFT - Sistemas Internos") ou se o serviço de 1º nível é essa vertical. Só se a
+vertical estiver vazia vale o cadastro de equipes do Movidesk e, depois, o histórico dos últimos
+90 dias. Sem nenhuma das opções, não filtra e a tela avisa. Admin e supervisor podem alternar para "Todas as equipes" (`?equipe=todas`);
 atendente fica sempre na própria equipe. A aba Movidesk (`?scope=all`) não é filtrada.
 `GET /api/tickets/minha-equipe` informa as equipes e se o usuário pode ver todas.
