@@ -135,3 +135,12 @@ vertical estiver vazia vale o cadastro de equipes do Movidesk e, depois, o hist�
 90 dias. Sem nenhuma das opções, não filtra e a tela avisa. Admin e supervisor podem alternar para "Todas as equipes" (`?equipe=todas`);
 atendente fica sempre na própria equipe. A aba Movidesk (`?scope=all`) não é filtrada.
 `GET /api/tickets/minha-equipe` informa as equipes e se o usuário pode ver todas.
+
+### De onde vêm os chamados do Dashboard
+
+Por padrão (`DASHBOARD_SOURCE=db`) a lista sai direto de `silver.ticket` (+ organização, ações e
+custom field), sem chamar a apidatalake: quem alimenta é uma cron de carga — ex.: tarefa
+personalizada com a equipe "VIASOFT - Sistemas Internos" e "atualizados nos últimos N dias", para
+pegar também os que foram resolvidos/fechados e sair da lista. `DASHBOARD_SOURCE=datalake` volta ao
+caminho antigo; `DASHBOARD_MAX_ROWS` (padrão 1000) limita a lista. Campos que só existem no
+Movidesk (e-mail do responsável, origem da última ação) ficam vazios nesse caminho.
