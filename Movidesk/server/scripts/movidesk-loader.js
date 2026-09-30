@@ -306,6 +306,13 @@ const EXPAND_FIELDS = 'owner,clients,customFieldValues,actions($expand=createdBy
 // de tickets novos.
 const EXPAND_OWNER_ONLY = 'owner';
 
+// Listagem LEVE para as cargas que passam por corrigirCustomFieldValues: essa função rebusca cada
+// chamado por id (com EXPAND_FIELDS completo) e sobrescreve customFieldValues, clients, owner e
+// actions — então pedir tudo isso em cada PÁGINA da listagem era trabalho jogado fora, e combinado
+// com o filtro aninhado customFieldValues/any(...) estourava o tempo da API (HTTP 500 após ~56 s
+// em 30/09/2026, carga "Suporte Técnico"). A listagem só precisa trazer os ids/campos básicos.
+const EXPAND_LISTAGEM_LEVE = 'owner';
+
 // Bug confirmado na API do Movidesk: QUALQUER $filter (mesmo o mais simples,
 // tipo "ownerTeam eq 'Ouvidoria'") combinado com $expand=customFieldValues faz
 // os campos customizados virem com value:null e SEM a chave "items" — pra
@@ -452,6 +459,9 @@ async function idsQuePrecisamAtencao(ids) {
 async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_SIZE, expand = EXPAND_FIELDS) {
   let skip = 0;
   let total = 0;
+  // Se o Movidesk devolver erro (500/timeout) mesmo depois das tentativas, encolhe a página pela
+  // metade e tenta de novo do mesmo ponto (a ordenação por id torna o $skip estável) — até 10.
+  let size = pageSize;
 
   state.endpoint = endpoint;
 
@@ -462,7 +472,15 @@ async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_S
     }
 
     state.phase = 'fetching';
-    const batch = await fetchPage(token, endpoint, filter, skip, pageSize, expand);
+    let batch;
+    try {
+      batch = await fetchPage(token, endpoint, filter, skip, size, expand);
+    } catch (e) {
+      if (e.cancelled || size <= 10) throw e;
+      size = Math.max(10, Math.floor(size / 2));
+      console.warn(`[loader] ${endpoint} falhou em skip=${skip} (${e.message}) — reduzindo a página para ${size}`);
+      continue;
+    }
     if (!batch.length) break;
 
     state.phase = 'saving';
@@ -478,8 +496,8 @@ async function fetchEndpoint(token, endpoint, filter, onBatch, pageSize = PAGE_S
     state.ticketsDone = state.savedIds.size;
     total += batch.length;
 
-    if (batch.length < pageSize) break;
-    skip += pageSize;
+    if (batch.length < size) break;
+    skip += size;
     await sleep(150); // cortesia de rate-limit
   }
   return total;
@@ -1758,11 +1776,11 @@ async function runByClassification(mode, classValue, cronJobId = null) {
     };
 
     console.log(`[loader]   /tickets — buscando ${modeUpper} em aberto`);
-    await fetchEndpoint(token, '/tickets', openFilter, savePatched, pageSize);
+    await fetchEndpoint(token, '/tickets', openFilter, savePatched, pageSize, EXPAND_LISTAGEM_LEVE);
 
     for (const ep of ['/tickets', '/tickets/past']) {
       console.log(`[loader]   ${ep} — buscando ${modeUpper} atualizados nos últimos 3 dias (pega resolvidos)`);
-      await fetchEndpoint(token, ep, recentFilter, savePatched, pageSize);
+      await fetchEndpoint(token, ep, recentFilter, savePatched, pageSize, EXPAND_LISTAGEM_LEVE);
     }
     console.log(`[loader]   ${state.ticketsDone} ticket(s) de ${modeUpper} encontrados`);
 
@@ -1890,19 +1908,19 @@ async function runCustom(task, cronJobId = null) {
     if (onlyOpen) {
       const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
       console.log('[loader]   /tickets — em aberto');
-      await fetchEndpoint(token, '/tickets', juntar(baseFilter, closedExclusion), save, pageSize);
+      await fetchEndpoint(token, '/tickets', juntar(baseFilter, closedExclusion), save, pageSize, EXPAND_LISTAGEM_LEVE);
     }
     if (recentDays) {
       const since = new Date(Date.now() - recentDays * 24 * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
       for (const ep of ['/tickets', '/tickets/past']) {
         console.log(`[loader]   ${ep} — atualizados nos últimos ${recentDays} dia(s)`);
-        await fetchEndpoint(token, ep, juntar(baseFilter, `lastUpdate ge ${since}`), save, pageSize);
+        await fetchEndpoint(token, ep, juntar(baseFilter, `lastUpdate ge ${since}`), save, pageSize, EXPAND_LISTAGEM_LEVE);
       }
     }
     if (!onlyOpen && !recentDays) {
       for (const ep of ['/tickets', '/tickets/past']) {
         console.log(`[loader]   ${ep} — todos que casam com os filtros`);
-        await fetchEndpoint(token, ep, juntar(baseFilter), save, pageSize);
+        await fetchEndpoint(token, ep, juntar(baseFilter), save, pageSize, EXPAND_LISTAGEM_LEVE);
       }
     }
 
