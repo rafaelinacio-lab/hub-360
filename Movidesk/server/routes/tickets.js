@@ -1295,7 +1295,7 @@ router.get('/', requireTicketsAccess, async (req, res) => {
     if (viewer.role === 'supervisor') {
       candidates = candidates.filter((r) => (r.servicefirstlevel || '') === viewer.vertical);
     }
-    candidates = filtrarPorEquipes(candidates, equipesDoUsuario, (r) => r.owner_team ?? r.ownerteam);
+    candidates = filtrarPorEquipes(candidates, equipesDoUsuario, (r) => r.owner_team ?? r.ownerteam, (r) => r.servicefirstlevel);
     candidates = await filterByCustomFieldCondition(candidates, conditions);
     candidates.sort((a, b) => new Date(b.createddate || 0) - new Date(a.createddate || 0));
     rows = candidates.slice(0, includeAll ? 10000 : 100).map(datalakeRowToTicketShape);
@@ -1308,7 +1308,7 @@ router.get('/', requireTicketsAccess, async (req, res) => {
     console.warn('[tickets] apidatalake indisponível em GET /, usando fallback do banco local:', error.message);
     try {
       rows = await fetchActiveTicketsFromLocalDb(viewer, includeAll);
-      rows = filtrarPorEquipes(rows, equipesDoUsuario, (r) => r.owner_team ?? r.ownerTeam ?? r.ownerteam);
+      rows = filtrarPorEquipes(rows, equipesDoUsuario, (r) => r.owner_team ?? r.ownerTeam ?? r.ownerteam, (r) => r.serviceFirstLevel ?? r.servicefirstlevel);
     } catch (dbErr) {
       return res.status(500).json({ error: 'Erro ao buscar tickets' });
     }

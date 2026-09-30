@@ -108,18 +108,29 @@ async function equipesDoUsuario(email, nomeUsuario) {
 }
 
 const norm = (t) => String(t || '').trim().toLowerCase();
-function filtrarPorEquipes(linhas, equipes, campo) {
+// Um chamado pertence à equipe/vertical quando a equipe dele É ou TERMINA/CONTÉM esse nome
+// (ex.: vertical "Sistemas Internos" casa com a equipe "VIASOFT - Sistemas Internos") ou quando o
+// serviço de primeiro nível dele é exatamente essa vertical.
+function filtrarPorEquipes(linhas, equipes, campoEquipe, campoServico) {
   if (!equipes || !equipes.length) return linhas;
-  const set = new Set(equipes.map(norm));
-  return linhas.filter(l => set.has(norm(campo(l))));
+  const alvos = equipes.map(norm).filter(Boolean);
+  return linhas.filter((l) => {
+    const eq = norm(campoEquipe(l));
+    const sv = campoServico ? norm(campoServico(l)) : '';
+    return alvos.some((a) => eq === a || eq.includes(a) || sv === a);
+  });
 }
 
-// Quais equipes o Dashboard deve mostrar para este usuário. Admin e supervisor podem pedir
-// "todas"; atendente fica sempre na(s) própria(s) equipe(s). Sem equipe descoberta, não filtra.
+// Quais equipes o Dashboard deve mostrar para este usuário. A fonte é a VERTICAL cadastrada em
+// Pessoas (é o que o admin mantém); só se ela estiver vazia cai no cadastro de equipes do
+// Movidesk / histórico. Admin e supervisor podem pedir "todas"; atendente fica na própria
+// equipe. Sem nada descoberto, não filtra.
 async function escopoEquipe(user, queroTodas) {
-  const r = await db.query(`SELECT u.name, r.name AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [user.id]);
-  const { name, role } = r.rows[0] || {};
-  const info = await equipesDoUsuario(user.email, name);
+  const r = await db.query(`SELECT u.name, u.vertical, r.name AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [user.id]);
+  const { name, role, vertical } = r.rows[0] || {};
+  const info = vertical && String(vertical).trim()
+    ? { equipes: [String(vertical).trim()], origem: 'vertical' }
+    : await equipesDoUsuario(user.email, name);
   const podeVerTodas = ['admin', 'supervisor'].includes(role);
   const filtrar = info.equipes.length > 0 && !(queroTodas && podeVerTodas);
   return { equipes: info.equipes, origem: info.origem, podeVerTodas, filtrar, role };
