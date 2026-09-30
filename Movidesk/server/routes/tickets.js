@@ -1101,8 +1101,8 @@ const ACTIVE_BASE_STATUSES = ['New', 'InAttendance', 'Stopped', 'InProgress'];
 const DASHBOARD_SOURCE = String(process.env.DASHBOARD_SOURCE || 'db').toLowerCase();
 const DASHBOARD_MAX_ROWS = Number(process.env.DASHBOARD_MAX_ROWS) || 1000;
 
-// Monta a lista do Dashboard a partir do banco. Sem equipe do usuário (admin vendo "todas"),
-// usa as equipes configuradas em "Condições do Movidesk". Devolve linhas no formato que
+// Monta a lista do Dashboard a partir do banco: chamados ativos da classificação Suporte Técnico,
+// da(s) equipe(s) do usuário (ou de todas, para admin/supervisor que pediram). Devolve linhas no formato que
 // datalakeRowToTicketShape/normalizeTicketRow já conhecem.
 async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewer }) {
   const params = [ACTIVE_BASE_STATUSES];
@@ -1112,21 +1112,20 @@ async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewe
     params.push(alvos);
     where.push(`(EXISTS (SELECT 1 FROM unnest($${params.length}::text[]) a WHERE lower(t.ownerteam) LIKE '%' || a || '%')
                  OR lower(split_part(t.service_full, ' > ', 1)) = ANY($${params.length}::text[]))`);
-  } else {
-    const teams = Array.from(new Set(getTicketConditions(conditions).map((c) => c.ownerTeam).filter(Boolean)));
-    if (teams.length) { params.push(teams); where.push(`t.ownerteam = ANY($${params.length}::text[])`); }
   }
   if (viewer.role === 'supervisor') {
     params.push(String(viewer.vertical || '').toLowerCase());
     where.push(`lower(split_part(t.service_full, ' > ', 1)) = $${params.length}`);
   }
-  if (conditions.customFieldId && conditions.customFieldValue) {
-    params.push(String(conditions.customFieldId));
-    params.push(String(conditions.customFieldValue).trim().toLowerCase());
-    where.push(`EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf
-                         WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = $${params.length - 1}
-                           AND lower(trim(cf.valor_texto)) = $${params.length})`);
-  }
+  // Classificação do Dashboard: Suporte Técnico (campo 23946) por padrão, ou a que estiver
+  // nas Condições do Movidesk. Compara sem acento e sem diferença de maiúsculas.
+  const cfId = String(conditions.customFieldId || process.env.CF_CLASSIFICACAO || 23946);
+  const cfValor = String(conditions.customFieldValue || 'Suporte Técnico').trim().toLowerCase();
+  params.push(cfId);
+  params.push(cfValor);
+  where.push(`EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf
+                       WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = $${params.length - 1}
+                         AND translate(lower(trim(cf.valor_texto)), 'áàâãéêíóôõúç', 'aaaaeeiooouc') = translate($${params.length}, 'áàâãéêíóôõúç', 'aaaaeeiooouc'))`);
   const { rows } = await db.query(`
     SELECT
       t.ticket_id::varchar                                   AS ticket_id,
