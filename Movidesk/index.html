@@ -1045,7 +1045,12 @@
                             <button class="pm-close" id="cronChangesModalClose" aria-label="Fechar">&times;</button>
                         </div>
                         <div class="pm-body">
-                            <div id="cronChangesSummary" style="font-size:13px;color:var(--muted,#71717a);margin-bottom:10px;"></div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+                                <div id="cronChangesSummary" style="font-size:13px;color:var(--muted,#71717a);"></div>
+                                <button type="button" id="cronChangesExport" class="btn btn-secondary" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;" disabled>
+                                    <span class="material-symbols-outlined" style="font-size:16px;">download</span> Exportar CSV
+                                </button>
+                            </div>
                             <div id="cronChangesList" style="max-height:55vh;overflow-y:auto;">
                                 <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
                             </div>

@@ -307,7 +307,7 @@ router.get('/runs/:runId/changes', async (req, res) => {
     );
     if (!runRows.length) return res.status(404).json({ error: 'Execução não encontrada' });
 
-    const limit = Math.min(Number(req.query.limit) || 500, 3000);
+    const limit = Math.min(Number(req.query.limit) || 500, 100000);
     const { rows: changeRows } = await db.query(
       `SELECT ticket_id, change_type, changed_fields
        FROM silver.carga_log_ticket_change

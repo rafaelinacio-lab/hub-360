@@ -3033,7 +3033,12 @@ function cronCloseRunsModal() {
     if (modal) modal.style.display = 'none';
 }
 
+let _cronChangesRunId = null;
+
 async function cronOpenRunChanges(runId) {
+    _cronChangesRunId = runId;
+    const btnExp = document.getElementById('cronChangesExport');
+    if (btnExp) btnExp.disabled = true;
     const modal = document.getElementById('cronChangesModal');
     const el = document.getElementById('cronChangesList');
     const summaryEl = document.getElementById('cronChangesSummary');
@@ -3048,6 +3053,7 @@ async function cronOpenRunChanges(runId) {
         document.getElementById('cronChangesModalTitle').textContent = `Execução de ${cronFmtDateTime(run.started_at)}`;
         summaryEl.textContent = `Trouxe ${run.tickets_loaded ?? 0} chamado(s) — ${run.tickets_created ?? 0} novo(s), ${run.tickets_updated ?? 0} alterado(s).`;
         cronRenderChanges(data.changes || []);
+        if (btnExp) btnExp.disabled = false;
     } catch (e) {
         el.innerHTML = `<div style="color:#f87171;font-size:13px;">Erro ao carregar: ${cfgEsc(e.message)}</div>`;
     }
@@ -3078,6 +3084,49 @@ function cronRenderChanges(changes) {
     }).join('');
 }
 
+// Exporta o log da execução aberta: uma linha por campo alterado (chamado, tipo,
+// campo, antes, depois). Busca de novo sem o limite da tela (que mostra só 500).
+async function cronExportRunChanges() {
+    const runId = _cronChangesRunId;
+    const btn = document.getElementById('cronChangesExport');
+    if (!runId || !btn) return;
+    const htmlOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = 'Gerando…';
+    try {
+        const resp = await fetch(`${API_BASE}/crons/runs/${runId}/changes?limit=100000`, { headers: authHeaders() });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        const run = data.run || {};
+        const q = (v) => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+        const linhas = [['Execução', 'Chamado', 'Tipo', 'Campo', 'Antes', 'Depois'].map(q).join(';')];
+        for (const c of (data.changes || [])) {
+            const tipo = c.change_type === 'created' ? 'Novo' : 'Alterado';
+            const campos = Object.values(c.changed_fields || {});
+            if (!campos.length) {
+                linhas.push([cronFmtDateTime(run.started_at), c.ticket_id, tipo, '', '', ''].map(q).join(';'));
+                continue;
+            }
+            for (const f of campos) {
+                linhas.push([cronFmtDateTime(run.started_at), c.ticket_id, tipo, f.label || '', f.antes ?? '', f.depois ?? ''].map(q).join(';'));
+            }
+        }
+        const blob = new Blob(['\ufeffsep=;\r\n' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `log-execucao-${runId}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (e) {
+        alert('Erro ao exportar: ' + e.message);
+    } finally {
+        btn.innerHTML = htmlOriginal;
+        btn.disabled = false;
+    }
+}
+
 function cronCloseChangesModal() {
     const modal = document.getElementById('cronChangesModal');
     if (modal) modal.style.display = 'none';
@@ -3085,6 +3134,7 @@ function cronCloseChangesModal() {
 
 document.getElementById('cronRunsModalClose')?.addEventListener('click', cronCloseRunsModal);
 document.getElementById('cronRunsModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronRunsModal') cronCloseRunsModal(); });
+document.getElementById('cronChangesExport')?.addEventListener('click', cronExportRunChanges);
 document.getElementById('cronChangesModalClose')?.addEventListener('click', cronCloseChangesModal);
 document.getElementById('cronChangesModal')?.addEventListener('click', (e) => { if (e.target.id === 'cronChangesModal') cronCloseChangesModal(); });
 
