@@ -33,6 +33,8 @@ const MAX_RETRIES = 5;
 const FETCH_TIMEOUT_MS = 60000;
 
 // baseStatus que indicam chamado FECHADO (incremental não precisa incluir)
+const SEM_ID_CLIENTE = 'sem-id';
+
 const CLOSED_STATUSES = [
   'Resolved', 'Closed', 'Canceled',
   'Resolvido', 'Fechado', 'Cancelado',
@@ -1027,7 +1029,11 @@ async function saveBatch(tickets) {
                      || null;
       cliRows.push({
         ticket_id:        String(t.id),
-        cliente_id:       c.id ? String(c.id) : null,
+        // Cliente sem id no Movidesk (contato removido/sem cadastro): a tabela criada
+        // pelo extrator Java tem cliente_id NOT NULL, e um único cliente assim derrubava
+        // o lote inteiro ("null value in column cliente_id ... violates not-null").
+        // Grava um marcador em vez de perder o cliente (e a organização dele).
+        cliente_id:       c.id ? String(c.id) : SEM_ID_CLIENTE,
         nome:             c.businessName || null,
         email:            c.email || null,
         organizacao_id:   orgId,
@@ -1057,7 +1063,7 @@ async function saveBatch(tickets) {
           INSERT INTO silver.ticket_cliente
             (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type, extracted_at)
           SELECT
-            u.ticket_id::bigint, NULLIF(u.cliente_id, ''), u.nome, u.email,
+            u.ticket_id::bigint, COALESCE(NULLIF(u.cliente_id, ''), '${SEM_ID_CLIENTE}'), u.nome, u.email,
             NULLIF(u.organizacao_id, ''), u.organizacao_nome, u.profile_type, NOW()
           FROM unnest(
             $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]
