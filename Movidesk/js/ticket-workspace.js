@@ -2,7 +2,7 @@
 // O servidor (routes/ticket-workspace.js) lê e escreve direto na API do Movidesk.
 (function () {
     const MOVIDESK_TICKET_URL = 'https://viasoft.movidesk.com/Ticket/Edit/';
-    let _ws = { id: null, dados: null, opcoes: null, enviando: false };
+    let _ws = { id: null, dados: null, opcoes: null, enviando: false, filtro: 'todas', ordem: 'recentes' };
 
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -28,17 +28,20 @@
         if (msg && !erro) setTimeout(() => { if (el.textContent === msg) avisar(''); }, 4000);
     }
 
-    function renderConversa(acoes) {
-        if (!acoes.length) return '<div class="ws-vazio">Sem ações neste chamado.</div>';
-        return acoes.map(a => `
-            <div class="ws-acao ${a.tipo === 'interna' ? 'ws-interna' : 'ws-publica'}">
-                <div class="ws-acao-topo">
-                    <strong>${esc(a.autor)}</strong>
-                    <span class="ws-tag">${a.tipo === 'interna' ? 'Nota interna' : 'Resposta ao cliente'}</span>
-                    <span class="ws-data">${fmt(a.criadoEm)}</span>
-                </div>
-                <div class="ws-acao-texto">${esc(a.texto).replace(/\n/g, '<br>') || '<em>(sem texto)</em>'}</div>
-            </div>`).join('');
+    // cliente = resposta pública de um cliente; equipe = resposta pública de um agente; interna = nota
+    function classeAcao(a) {
+        if (a.tipo === 'interna') return 'interna';
+        return a.autorPerfil === 2 ? 'cliente' : 'equipe';
+    }
+    const ROTULO_CLASSE = { interna: 'Nota interna', cliente: 'Cliente', equipe: 'Resposta ao cliente' };
+
+    function quandoRelativo(v) {
+        if (!v) return '';
+        const min = Math.round((Date.now() - new Date(v).getTime()) / 60000);
+        if (min < 1) return 'agora';
+        if (min < 60) return `há ${min} min`;
+        if (min < 60 * 24) return `há ${Math.floor(min / 60)} h`;
+        return `há ${Math.floor(min / 1440)} d`;
     }
 
     function renderCabecalho(d) {
@@ -48,9 +51,39 @@
                 <span class="ws-chip">${esc(d.status)}</span>
                 <span>Responsável: <strong>${esc(d.responsavel?.nome || 'Não atribuído')}</strong></span>
                 ${d.clientes.length ? `<span>Cliente: <strong>${esc(d.clientes[0])}</strong></span>` : ''}
-                ${d.equipe ? `<span>Equipe: ${esc(d.equipe)}</span>` : ''}
+                ${d.equipe ? `<span>Equipe: <strong>${esc(d.equipe)}</strong></span>` : ''}
+                ${d.servico ? `<span>Serviço: ${esc(d.servico)}</span>` : ''}
                 <span>Aberto em ${fmt(d.criadoEm)}</span>
             </div>`;
+    }
+
+    function renderToolbar(d) {
+        const cont = { todas: d.acoes.length, cliente: 0, equipe: 0, interna: 0 };
+        d.acoes.forEach(a => { cont[classeAcao(a)]++; });
+        const chip = (k, r) => `<button type="button" class="ws-filtro" data-filtro="${k}" aria-pressed="${_ws.filtro === k}">${r} (${cont[k]})</button>`;
+        return chip('todas', 'Todas') + chip('cliente', 'Cliente') + chip('equipe', 'Equipe → cliente') + chip('interna', 'Internas') +
+            `<button type="button" class="ws-filtro ws-ordem" id="wsOrdem" aria-pressed="false">${_ws.ordem === 'recentes' ? '↓ Mais recentes primeiro' : '↑ Mais antigas primeiro'}</button>`;
+    }
+
+    function renderTimeline(d) {
+        let itens = d.acoes.filter(a => _ws.filtro === 'todas' || classeAcao(a) === _ws.filtro);
+        if (_ws.ordem === 'recentes') itens = itens.slice().reverse();
+        if (!itens.length) return '<div class="ws-vazio">Nenhuma ação neste filtro.</div>';
+        return itens.map(a => {
+            const c = classeAcao(a);
+            return `
+            <div class="ws-item ws-${c}">
+                <span class="ws-dot" aria-hidden="true"></span>
+                <div class="ws-card">
+                    <div class="ws-acao-topo">
+                        <strong>${esc(a.autor)}</strong>
+                        <span class="ws-tag">${ROTULO_CLASSE[c]}</span>
+                        <span class="ws-data" title="${fmt(a.criadoEm)}">${fmt(a.criadoEm)} · ${quandoRelativo(a.criadoEm)}</span>
+                    </div>
+                    <div class="ws-acao-texto">${esc(a.texto).replace(/\n/g, '<br>') || '<em>(sem texto)</em>'}</div>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function renderControles(d, op) {
@@ -60,29 +93,27 @@
         const optsStatus = (op.status || []).map(s => `<option value="${esc(s.status)}" ${s.status === d.status ? 'selected' : ''}>${esc(s.status)}</option>`).join('');
         const optsAg = ['<option value="">Escolher…</option>'].concat((op.agentes || []).map(a => `<option value="${esc(a.id)}" ${d.responsavel && a.id === d.responsavel.id ? 'selected' : ''}>${esc(a.nome)}</option>`)).join('');
         return `
-            <div class="ws-composer">
-                <div class="ws-tipos">
-                    <label><input type="radio" name="wsTipo" value="interna" checked> Nota interna <small>(só a equipe vê)</small></label>
-                    <label><input type="radio" name="wsTipo" value="publica"> Responder ao cliente <small>(o cliente recebe)</small></label>
+            <div class="ws-secao">
+                <h4>Responder</h4>
+                <div class="ws-segmentos" role="radiogroup" aria-label="Tipo de mensagem">
+                    <label><input type="radio" name="wsTipo" value="interna" checked> Nota interna</label>
+                    <label><input type="radio" name="wsTipo" value="publica"> Ao cliente</label>
                 </div>
-                <textarea id="wsTexto" rows="4" maxlength="20000" placeholder="Escreva aqui…"></textarea>
-                <div class="ws-linha">
-                    <button type="button" class="pm-btn pm-btn-save" id="wsEnviar">Enviar</button>
-                </div>
+                <p class="ws-dica" id="wsDica">Só a equipe vê esta nota.</p>
+                <textarea id="wsTexto" maxlength="20000" placeholder="Escreva aqui…" aria-label="Mensagem"></textarea>
+                <button type="button" class="ws-btn ws-btn-primario" id="wsEnviar">Enviar</button>
             </div>
-            <div class="ws-acoes-rapidas">
-                <div class="ws-campo">
-                    <label for="wsStatus">Status</label>
-                    <select id="wsStatus">${optsStatus}</select>
-                    <input type="text" id="wsJustificativa" placeholder="Justificativa (obrigatória para Parado/Cancelado)">
-                    <button type="button" class="pm-btn pm-btn-cancel" id="wsAplicarStatus">Alterar status</button>
-                </div>
-                <div class="ws-campo">
-                    <label for="wsResp">Responsável</label>
-                    <select id="wsResp">${optsAg}</select>
-                    <select id="wsEquipeResp" style="display:none;" title="Equipe do chamado"></select>
-                    <button type="button" class="pm-btn pm-btn-cancel" id="wsAplicarResp">Atribuir</button>
-                </div>
+            <div class="ws-secao">
+                <h4>Status</h4>
+                <select id="wsStatus" aria-label="Novo status">${optsStatus}</select>
+                <input type="text" id="wsJustificativa" placeholder="Justificativa (obrigatória para Parado/Cancelado)" aria-label="Justificativa">
+                <button type="button" class="ws-btn" id="wsAplicarStatus">Alterar status</button>
+            </div>
+            <div class="ws-secao">
+                <h4>Responsável</h4>
+                <select id="wsResp" aria-label="Novo responsável">${optsAg}</select>
+                <select id="wsEquipeResp" style="display:none;" aria-label="Equipe do chamado"></select>
+                <button type="button" class="ws-btn" id="wsAplicarResp">Atribuir</button>
             </div>`;
     }
 
@@ -91,6 +122,10 @@
         $('wsAplicarStatus')?.addEventListener('click', alterarStatus);
         $('wsAplicarResp')?.addEventListener('click', alterarResponsavel);
         $('wsResp')?.addEventListener('change', ajustarEquipeResponsavel);
+        document.querySelectorAll('input[name="wsTipo"]').forEach(r => r.addEventListener('change', () => {
+            const publica = document.querySelector('input[name="wsTipo"]:checked')?.value === 'publica';
+            $('wsDica').textContent = publica ? 'O cliente recebe esta mensagem.' : 'Só a equipe vê esta nota.';
+        }));
     }
 
     // Se o novo responsável está em mais de uma equipe, o Movidesk exige escolher a do chamado.
@@ -109,15 +144,23 @@
         }
     }
 
+    function desenharTimeline() {
+        const d = _ws.dados;
+        $('wsToolbar').innerHTML = renderToolbar(d);
+        $('wsConversa').innerHTML = renderTimeline(d);
+        $('wsToolbar').querySelectorAll('[data-filtro]').forEach(b => b.addEventListener('click', () => { _ws.filtro = b.dataset.filtro; desenharTimeline(); }));
+        $('wsOrdem')?.addEventListener('click', () => { _ws.ordem = _ws.ordem === 'recentes' ? 'antigas' : 'recentes'; desenharTimeline(); });
+        const c = $('wsConversa');
+        c.scrollTop = _ws.ordem === 'recentes' ? 0 : c.scrollHeight;
+    }
+
     function desenhar() {
         const d = _ws.dados;
         $('wsTitulo').textContent = `Chamado #${d.id}`;
         $('wsCabecalho').innerHTML = renderCabecalho(d);
-        $('wsConversa').innerHTML = renderConversa(d.acoes);
         $('wsControles').innerHTML = renderControles(d, _ws.opcoes || {});
         ligarEventos();
-        const c = $('wsConversa');
-        if (c) c.scrollTop = c.scrollHeight;
+        desenharTimeline();
     }
 
     async function carregar() {
@@ -182,10 +225,11 @@
     window.openTicketWorkspace = async function (ticketId) {
         const modal = $('ticketWorkspaceModal');
         if (!modal) { window.open(MOVIDESK_TICKET_URL + ticketId, '_blank'); return; }
-        _ws = { id: Number(ticketId), dados: null, opcoes: null, enviando: false };
+        _ws = { id: Number(ticketId), dados: null, opcoes: null, enviando: false, filtro: 'todas', ordem: 'recentes' };
         $('wsTitulo').textContent = `Chamado #${ticketId}`;
         $('wsCabecalho').innerHTML = '';
-        $('wsConversa').innerHTML = '<div class="ws-vazio">Carregando conversa do Movidesk…</div>';
+        $('wsToolbar').innerHTML = '';
+        $('wsConversa').innerHTML = '<div class="ws-vazio">Carregando a linha do tempo do Movidesk…</div>';
         $('wsControles').innerHTML = '';
         avisar('');
         modal.style.display = 'flex';
