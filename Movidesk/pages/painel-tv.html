@@ -28,6 +28,14 @@
   .top-bar { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
   .top-bar h1 { font-size: 22px; font-weight: 600; margin: 0; }
   .top-bar .clock { font-size: 16px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .filtro-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; }
+  .filtro-bar label { font-size: 14px; color: var(--text-secondary); }
+  .filtro-bar select {
+    background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; min-width: 260px; max-width: 520px;
+  }
+  .filtro-bar select:focus { outline: 2px solid #3987e5; outline-offset: 1px; }
+  .filtro-chip { background: #163a24; color: #7fd99b; border-radius: 999px; padding: 4px 12px; font-size: 13px; }
   .note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
   .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 2rem; }
   .kpi {
@@ -89,6 +97,14 @@
     <span class="clock" id="tv-clock"></span>
   </div>
   <p class="note" id="tv-updated">Carregando…</p>
+
+  <div class="filtro-bar">
+    <label for="f-servico">Serviço</label>
+    <select id="f-servico" aria-label="Filtrar por serviço">
+      <option value="">Todos os serviços</option>
+    </select>
+    <span class="filtro-chip" id="f-chip" style="display:none"></span>
+  </div>
 
   <div id="tv-content" style="display:none">
     <div class="kpi-grid">
@@ -200,8 +216,61 @@ function statusPrazoDe(r){
   return isVencido(r)?'Vencido':'No Prazo';
 }
 
-let _rows=[];
+let _rowsAll=[]; // todos os pendentes
+let _rows=[];    // pendentes depois do filtro de serviço
 let _teamChart=null, _prazoChart=null;
+
+// Ao escolher um serviço, o painel mostra só os chamados daquele serviço com esta
+// classificação. Sem serviço escolhido, mostra todos os pendentes.
+const CLASSIFICACAO_DO_SERVICO='Suporte Técnico';
+const semAcentoMin=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+const ehClassificacaoAlvo=r=>semAcentoMin(r.classificacao)===semAcentoMin(CLASSIFICACAO_DO_SERVICO);
+
+// O painel roda sem ninguém mexendo: a escolha fica salva no navegador (e a URL
+// pode fixar um serviço: painel-tv.html?servico=Nome do serviço).
+const CHAVE_SERVICO='painelTvServico';
+function lerServicoSalvo(){
+  try{
+    const u=new URLSearchParams(location.search).get('servico');
+    if(u!==null) return u;
+    return localStorage.getItem(CHAVE_SERVICO)||'';
+  }catch(_){ return ''; }
+}
+let _servicoSel=lerServicoSalvo();
+
+function montarOpcoesServico(){
+  const sel=document.getElementById('f-servico');
+  // conta, por serviço, só os que têm a classificação alvo (é o que vai aparecer)
+  const cont={};
+  _rowsAll.forEach(r=>{
+    const sv=(r.servico||'').trim();
+    if(!sv) return;
+    cont[sv]=cont[sv]||0;
+    if(ehClassificacaoAlvo(r)) cont[sv]++;
+  });
+  if(_servicoSel && !(_servicoSel in cont)) cont[_servicoSel]=0; // não perde a escolha se o serviço zerou
+  const servicos=Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt'));
+  sel.innerHTML='<option value="">Todos os serviços</option>'+servicos.map(sv=>
+    `<option value="${escAttr(sv)}">${esc(sv)} (${cont[sv]})</option>`).join('');
+  sel.value=_servicoSel;
+}
+function aplicarFiltro(){
+  _rows=_servicoSel
+    ? _rowsAll.filter(r=>(r.servico||'').trim()===_servicoSel && ehClassificacaoAlvo(r))
+    : _rowsAll.slice();
+  const chip=document.getElementById('f-chip');
+  chip.style.display=_servicoSel?'':'none';
+  chip.textContent=`Classificação: ${CLASSIFICACAO_DO_SERVICO}`;
+}
+function atualizarNota(){
+  const filtro=_servicoSel?` — serviço "${_servicoSel}", classificação ${CLASSIFICACAO_DO_SERVICO}`:'';
+  document.getElementById('tv-updated').textContent=`Atualizado às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
+}
+document.getElementById('f-servico').addEventListener('change',e=>{
+  _servicoSel=e.target.value;
+  try{ localStorage.setItem(CHAVE_SERVICO,_servicoSel); }catch(_){}
+  aplicarFiltro(); render(); atualizarNota();
+});
 
 function updateClock(){
   const el=document.getElementById('tv-clock');
@@ -211,10 +280,12 @@ function updateClock(){
 async function loadPainelTV(){
   try{
     const resp=await api('/geral/pendentes',60000);
-    _rows=(resp.rows||[]).filter(isAberto);
+    _rowsAll=(resp.rows||[]).filter(isAberto);
+    montarOpcoesServico();
+    aplicarFiltro();
     render();
     document.getElementById('tv-content').style.display='block';
-    document.getElementById('tv-updated').textContent=`Atualizado às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes.`;
+    atualizarNota();
   } catch(e){
     document.getElementById('tv-content').style.display='none';
     document.getElementById('tv-updated').innerHTML=`<span style="color:var(--text-danger)">Erro ao carregar: ${esc(e.message)}</span>`;
