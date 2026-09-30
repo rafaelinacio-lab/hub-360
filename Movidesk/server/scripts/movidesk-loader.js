@@ -35,6 +35,31 @@ const FETCH_TIMEOUT_MS = 60000;
 // baseStatus que indicam chamado FECHADO (incremental não precisa incluir)
 const SEM_ID_CLIENTE = 'sem-id';
 
+// silver.ticket_cliente tem chave primária (criada pelo extrator Java) — provavelmente
+// (ticket_id, cliente_id). Então, dentro de um chamado: (1) cada cliente SEM id recebe um
+// marcador próprio ('sem-id-1', 'sem-id-2'…), pra dois deles não colidirem; e (2) o mesmo
+// cliente repetido em clients[] vira uma linha só, ficando com a que tem organização.
+function dedupeClientes(linhas) {
+  const semIdPorTicket = {};
+  const posicao = new Map();
+  const saida = [];
+  for (const r of linhas) {
+    if (r.cliente_id === SEM_ID_CLIENTE) {
+      semIdPorTicket[r.ticket_id] = (semIdPorTicket[r.ticket_id] || 0) + 1;
+      r.cliente_id = `${SEM_ID_CLIENTE}-${semIdPorTicket[r.ticket_id]}`;
+    }
+    const chave = `${r.ticket_id}|${r.cliente_id}`;
+    if (posicao.has(chave)) {
+      const i = posicao.get(chave);
+      if (!saida[i].organizacao_nome && r.organizacao_nome) saida[i] = r;
+      continue;
+    }
+    posicao.set(chave, saida.length);
+    saida.push(r);
+  }
+  return saida;
+}
+
 const CLOSED_STATUSES = [
   'Resolved', 'Closed', 'Canceled',
   'Resolvido', 'Fechado', 'Cancelado',
@@ -1011,7 +1036,7 @@ async function saveBatch(tickets) {
   }
 
   // ── 4. silver.ticket_cliente ── (schema Java: ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
-  const cliRows = [];
+  const cliRowsBruto = [];
   for (const t of tickets) {
     if (!Array.isArray(t.clients)) continue;
     for (const c of t.clients) {
@@ -1027,7 +1052,7 @@ async function saveBatch(tickets) {
       const orgNome = c.organization?.businessName
                      || (c.personType === 2 ? c.businessName : null)
                      || null;
-      cliRows.push({
+      cliRowsBruto.push({
         ticket_id:        String(t.id),
         // Cliente sem id no Movidesk (contato removido/sem cadastro): a tabela criada
         // pelo extrator Java tem cliente_id NOT NULL, e um único cliente assim derrubava
@@ -1048,6 +1073,7 @@ async function saveBatch(tickets) {
       });
     }
   }
+  const cliRows = dedupeClientes(cliRowsBruto);
   if (cliRows.length) {
     // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT
     // por ticket, na mesma transação (mesmo motivo do bloco acima).
