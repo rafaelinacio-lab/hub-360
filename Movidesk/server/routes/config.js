@@ -1069,10 +1069,10 @@ router.get('/performance-history-latest', authMiddleware, (req, res) => {
 // "Pessoas" e "Configurações" também ficam de fora — continuam restritas
 // a admin por uma checagem própria (isCurrentUserAdmin), não por aqui.
 // ══════════════════════════════════════════════════════════════════
-const TAB_PERMISSION_TABS = ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao'];
+const TAB_PERMISSION_TABS = ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes'];
 const DEFAULT_TAB_PERMISSIONS = {
-  supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'],
-  atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'],
+  supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'incidentes'],
+  atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'incidentes'],
   guest: ['dashboard'],
 };
 

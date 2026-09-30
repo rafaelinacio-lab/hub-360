@@ -115,6 +115,10 @@
                 <select id="wsResp" aria-label="Novo responsável">${optsAg}</select>
                 <select id="wsEquipeResp" style="display:none;" aria-label="Equipe do chamado"></select>
                 <button type="button" class="ws-btn" id="wsAplicarResp">Atribuir</button>
+            </div>
+            <div class="ws-secao" id="wsIncidente" style="display:none;">
+                <h4>Incidente</h4>
+                <div id="wsIncBody"></div>
             </div>`;
     }
 
@@ -184,6 +188,69 @@
         c.scrollTop = _ws.ordem === 'recentes' ? 0 : c.scrollHeight;
     }
 
+    // ── Incidente ligado a este chamado (ITIL): ver, vincular a um aberto ou abrir um novo ──
+    async function chamarInc(caminho, opcoes = {}) {
+        const resp = await fetch(`${API_BASE}/incidentes${caminho}`, { ...opcoes, headers: authHeaders(opcoes.body ? { 'Content-Type': 'application/json' } : {}) });
+        const raw = await resp.text();
+        let data = {};
+        try { data = raw ? JSON.parse(raw) : {}; } catch { data = { error: raw }; }
+        if (!resp.ok) { const e = new Error(data.error || `HTTP ${resp.status}`); e.status = resp.status; throw e; }
+        return data;
+    }
+    function abrirIncidenteNaAba(id) {
+        try {
+            const shell = window.top;
+            if (shell && typeof shell.navigateTo === 'function') {
+                shell.navigateTo('incidentes');
+                const frame = shell.document.getElementById('embeddedPageFrame');
+                if (frame) frame.setAttribute('src', `pages/incidentes.html?id=${id}`);
+                window.closeTicketWorkspace();
+                return;
+            }
+        } catch (e) { /* cross-frame indisponível */ }
+        window.open(`pages/incidentes.html?id=${id}`, '_blank');
+    }
+    async function carregarIncidente() {
+        const box = $('wsIncidente'), body = $('wsIncBody');
+        if (!box || !body) return;
+        const idAtual = _ws.id;
+        try {
+            const r = await chamarInc(`/por-ticket/${idAtual}`);
+            if (_ws.id !== idAtual) return;
+            box.style.display = '';
+            if (r.incidente) {
+                const i = r.incidente;
+                body.innerHTML = `<div><strong>${esc(i.codigo)}</strong> · P${i.prioridade} · ${esc(i.rotuloStatus)}</div>
+                    <div class="ws-dica">${esc(i.titulo)}</div>
+                    <button type="button" class="ws-btn" id="wsIncAbrir">Abrir o incidente</button>`;
+                $('wsIncAbrir').addEventListener('click', () => abrirIncidenteNaAba(i.id));
+                return;
+            }
+            const abertos = (await chamarInc('/?escopo=abertos').catch(() => ({ incidentes: [] }))).incidentes || [];
+            body.innerHTML = `<p class="ws-dica">Este chamado não está ligado a nenhum incidente.</p>
+                ${abertos.length ? `<select id="wsIncSel" aria-label="Incidente aberto"><option value="">Vincular a um incidente aberto…</option>${abertos.map(i => `<option value="${i.id}">${esc(i.codigo)} · P${i.prioridade} · ${esc(i.titulo.slice(0, 60))}</option>`).join('')}</select>
+                <button type="button" class="ws-btn" id="wsIncVincular">Vincular</button>` : ''}
+                <button type="button" class="ws-btn" id="wsIncNovo">Abrir novo incidente com este chamado</button>`;
+            $('wsIncVincular')?.addEventListener('click', async () => {
+                const inc = $('wsIncSel').value;
+                if (!inc) return avisar('Escolha o incidente.', true);
+                try { await chamarInc(`/${inc}/tickets`, { method: 'POST', body: JSON.stringify({ ticketIds: [idAtual] }) }); avisar('Chamado vinculado ao incidente.'); carregarIncidente(); }
+                catch (e) { avisar(e.message, true); }
+            });
+            $('wsIncNovo').addEventListener('click', async () => {
+                const titulo = prompt('Título do incidente (descreva o problema de serviço, não só este chamado):', (_ws.dados && _ws.dados.assunto) || '');
+                if (!titulo) return;
+                try {
+                    const n = await chamarInc('/', { method: 'POST', body: JSON.stringify({ titulo, servico: (_ws.dados && _ws.dados.servico) || '', ticketIds: [idAtual] }) });
+                    avisar(`Incidente ${n.incidente.codigo} aberto (P${n.incidente.prioridade}). Ajuste impacto e urgência na aba Incidentes.`);
+                    carregarIncidente();
+                } catch (e) { avisar(e.message, true); }
+            });
+        } catch (e) {
+            box.style.display = 'none'; // sem acesso à aba Incidentes: não mostra a seção
+        }
+    }
+
     function desenhar() {
         const d = _ws.dados;
         $('wsTitulo').textContent = `Chamado #${d.id}`;
@@ -191,6 +258,7 @@
         $('wsControles').innerHTML = renderControles(d, _ws.opcoes || {});
         ligarEventos();
         desenharTimeline();
+        carregarIncidente();
     }
 
     async function carregar() {

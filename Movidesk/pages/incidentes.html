@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incidentes</title>
+<script>
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
+    });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f1ee; --surface:#ffffff; --surface-mid:#f7f6f3; --border:#e5e3de; --border-hi:#cac8c2;
+  --t1:#1a1917; --t2:#57554f; --t3:#9b9892;
+  --p1:#dc2626; --p1-bg:#fee2e2; --p2:#ea580c; --p2-bg:#ffedd5; --p3:#ca8a04; --p3-bg:#fef9c3; --p4:#2563eb; --p4-bg:#dbeafe;
+  --ok:#15803d; --ok-bg:#dcfce7; --warn:#b45309; --warn-bg:#fef3c7; --bad:#b91c1c; --bad-bg:#fee2e2;
+  --accent:#e85d04; --sh:0 16px 48px rgba(0,0,0,.14);
+}
+html.dark{
+  --bg:#0f1117; --surface:#1a1d27; --surface-mid:#1e2232; --border:#2a2d3a; --border-hi:#3a3e50;
+  --t1:#e8e8e2; --t2:#a8a8a0; --t3:#75756e;
+  --p1:#f87171; --p1-bg:#3b1515; --p2:#fb923c; --p2-bg:#3a2010; --p3:#facc15; --p3-bg:#33290a; --p4:#60a5fa; --p4-bg:#14264a;
+  --ok:#4ade80; --ok-bg:#12301c; --warn:#fbbf24; --warn-bg:#33270a; --bad:#f87171; --bad-bg:#3b1515;
+  --sh:0 16px 48px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:Inter,system-ui,sans-serif;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+.page{padding:20px 24px 40px;max-width:1500px;margin:0 auto}
+.topo{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.topo h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.topo p{margin:2px 0 0;color:var(--t3);font-size:13px}
+.topo .sp{flex:1}
+.btn{border:1px solid var(--border-hi);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.btn:hover:not(:disabled){background:var(--surface-mid)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.primario{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primario:hover:not(:disabled){filter:brightness(.93);background:var(--accent)}
+.btn.perigo{color:var(--bad)}
+.btn.peq{padding:5px 10px;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.kpi .r{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);font-weight:600}
+.kpi .n{font-size:26px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--t3)}
+.kpi.alerta .n{color:var(--p1)}
+.barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--t1);color:var(--surface);border-color:var(--t1)}
+.barra input[type=search],.barra select{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 10px;font-size:13px}
+.barra input[type=search]{width:240px;max-width:100%}
+.tab-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr.linha{cursor:pointer}
+tr.linha:hover,tr.linha:focus-visible{background:var(--surface-mid);outline:none}
+tr.linha:last-child td{border-bottom:none}
+.cod{font-variant-numeric:tabular-nums;color:var(--t3);white-space:nowrap}
+.tit{font-weight:600;max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub{font-size:12px;color:var(--t3)}
+.pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.pp1{background:var(--p1-bg);color:var(--p1)} .pp2{background:var(--p2-bg);color:var(--p2)} .pp3{background:var(--p3-bg);color:var(--p3)} .pp4{background:var(--p4-bg);color:var(--p4)}
+.st{font-size:12px;white-space:nowrap}
+.st::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--t3)}
+.st.aberto::before{background:var(--p1)} .st.investigando::before{background:var(--p2)} .st.mitigado::before{background:var(--p3)} .st.resolvido::before{background:var(--ok)} .st.fechado::before{background:var(--t3)}
+.grave{display:inline-block;background:var(--p1);color:#fff;border-radius:4px;font-size:10px;font-weight:800;padding:1px 6px;margin-left:6px;letter-spacing:.04em;vertical-align:middle}
+.meta{display:inline-block;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;white-space:nowrap;margin-right:4px}
+.meta.no_prazo{background:var(--ok-bg);color:var(--ok)} .meta.cumprido{background:var(--ok-bg);color:var(--ok)} .meta.estourado{background:var(--bad-bg);color:var(--bad)} .meta.nao_aplica{background:var(--surface-mid);color:var(--t3)}
+.vazio{padding:48px 20px;text-align:center;color:var(--t3)}
+/* gaveta */
+.fundo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
+.fundo.aberto{display:block}
+.gaveta{position:fixed;top:0;right:0;bottom:0;width:min(1040px,100vw);background:var(--bg);box-shadow:var(--sh);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s;z-index:51}
+.gaveta.aberta{transform:none}
+@media (prefers-reduced-motion:reduce){.gaveta{transition:none}}
+.g-topo{display:flex;align-items:flex-start;gap:12px;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.g-topo h2{margin:0;font-size:18px;line-height:1.3}
+.g-topo .x{margin-left:auto;border:none;background:none;font-size:26px;line-height:1;cursor:pointer;color:var(--t2)}
+.g-corpo{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px}
+.g-esq{overflow-y:auto;padding:16px 20px;min-width:0}
+.g-dir{overflow-y:auto;padding:16px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;gap:16px}
+.sec h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec + .sec{padding-top:14px;border-top:1px solid var(--border)}
+.g-dir input,.g-dir select,.g-dir textarea,.modal input,.modal select,.modal textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg);font-size:13px}
+.g-dir textarea,.modal textarea{resize:vertical;min-height:70px}
+.g-dir label,.modal label{font-size:12px;color:var(--t2);font-weight:600;display:flex;flex-direction:column;gap:4px}
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.aviso{font-size:12px;padding:8px 10px;border-radius:8px;word-break:break-word}
+.aviso:empty{display:none}
+.aviso.ok{background:var(--ok-bg);color:var(--ok)} .aviso.erro{background:var(--bad-bg);color:var(--bad)}
+.resumo{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--t2);margin-bottom:14px}
+.resumo strong{color:var(--t1)}
+.descr{white-space:pre-wrap;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px}
+.tks{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;max-height:340px;overflow-y:auto}
+.sec + .sec{margin-top:6px}
+.tk{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.tk .id{font-variant-numeric:tabular-nums;color:var(--t3);font-weight:600}
+.tk .as{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.tk .cl{grid-column:2;font-size:12px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk button{grid-row:1/span 2;grid-column:3;border:none;background:none;cursor:pointer;color:var(--t3);font-size:18px}
+.tk button:hover{color:var(--bad)}
+.linha-tempo{position:relative;list-style:none;margin:0;padding:0}
+.ev{position:relative;padding:0 0 14px 28px}
+.ev::before{content:"";position:absolute;left:8px;top:18px;bottom:-2px;width:2px;background:var(--border)}
+.ev:last-child::before{display:none}
+.ev i{position:absolute;left:0;top:2px;width:18px;height:18px;border-radius:50%;background:var(--surface);border:3px solid var(--t3)}
+.ev.status i{border-color:var(--p2)} .ev.criado i{border-color:var(--p1)} .ev.comunicado i{border-color:var(--p4)} .ev.nota i{border-color:var(--ok)}
+.ev .q{font-size:12px;color:var(--t3)} .ev .q b{color:var(--t1)}
+.ev .t{font-size:13px;white-space:pre-wrap;word-break:break-word;margin-top:2px}
+.ev.comunicado .t{background:var(--p4-bg);border-radius:8px;padding:6px 10px}
+/* modal novo */
+.modal-fundo{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:60}
+.modal-fundo.aberto{display:flex}
+.modal{background:var(--surface);border-radius:14px;width:min(620px,100%);max-height:94vh;overflow-y:auto;box-shadow:var(--sh);padding:20px;display:flex;flex-direction:column;gap:12px}
+.modal h3{margin:0;font-size:17px}
+.prio-prev{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)}
+.acoes{display:flex;justify-content:flex-end;gap:8px}
+@media (max-width:900px){.g-corpo{grid-template-columns:1fr;overflow-y:auto}.g-dir{border-left:none;border-top:1px solid var(--border)}.g-esq,.g-dir{overflow:visible}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topo">
+    <div>
+      <h1>Incidentes</h1>
+      <p>Falhas de serviço que agrupam vários chamados — prioridade por impacto × urgência, metas e linha do tempo.</p>
+    </div>
+    <div class="sp"></div>
+    <button class="btn primario" id="btnNovo" type="button">+ Novo incidente</button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="barra">
+    <button class="chip" data-escopo="abertos" aria-pressed="true" type="button">Abertos</button>
+    <button class="chip" data-escopo="encerrados" aria-pressed="false" type="button">Encerrados</button>
+    <button class="chip" data-escopo="todos" aria-pressed="false" type="button">Todos</button>
+    <button class="chip" id="chipGrave" aria-pressed="false" type="button">Só graves</button>
+    <select id="fServico" aria-label="Filtrar por serviço"><option value="">Todos os serviços</option></select>
+    <input type="search" id="fBusca" placeholder="Buscar por código, título ou nº do chamado…" aria-label="Buscar incidentes">
+  </div>
+
+  <div class="tab-wrap">
+    <table>
+      <thead><tr><th>Código</th><th>Prior.</th><th>Incidente</th><th>Status</th><th>Chamados</th><th>Responsável</th><th>Aberto</th><th>Metas</th></tr></thead>
+      <tbody id="corpo"><tr><td colspan="8" class="vazio">Carregando…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="fundo" id="fundo"></div>
+<aside class="gaveta" id="gaveta" aria-hidden="true" role="dialog" aria-label="Detalhe do incidente">
+  <div class="g-topo">
+    <div style="min-width:0"><div class="sub" id="gCodigo"></div><h2 id="gTitulo"></h2><div id="gBadges" style="margin-top:6px"></div></div>
+    <button class="x" id="gFechar" aria-label="Fechar" type="button">&times;</button>
+  </div>
+  <div class="g-corpo">
+    <div class="g-esq" id="gEsq"></div>
+    <div class="g-dir" id="gDir"></div>
+  </div>
+</aside>
+
+<div class="modal-fundo" id="mFundo">
+  <form class="modal" id="mForm" autocomplete="off">
+    <h3>Novo incidente</h3>
+    <label>Título <input id="nTitulo" maxlength="200" placeholder="Ex.: Emissão de NF-e fora do ar para clientes do ERP" required></label>
+    <div class="duas">
+      <label>Serviço afetado <select id="nServico"><option value="">Selecione…</option></select></label>
+      <label>Responsável <select id="nResp"><option value="">Sem responsável</option></select></label>
+    </div>
+    <div class="duas">
+      <label>Impacto <select id="nImpacto"><option value="1">1 — Alto (muitos clientes / serviço parado)</option><option value="2" selected>2 — Médio</option><option value="3">3 — Baixo (poucos clientes)</option></select></label>
+      <label>Urgência <select id="nUrgencia"><option value="1">1 — Alta (sem alternativa)</option><option value="2" selected>2 — Média</option><option value="3">3 — Baixa (há contorno)</option></select></label>
+    </div>
+    <div class="prio-prev">Prioridade resultante: <span class="pill pp3" id="nPrio">P3</span> <span id="nMetas"></span></div>
+    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="nGrave" style="width:auto"> Incidente grave (aciona o ritual de crise)</label>
+    <label>Descrição <textarea id="nDescricao" placeholder="O que está acontecendo, desde quando e quem é afetado."></textarea></label>
+    <label>Chamados já abertos sobre isso <input id="nTickets" placeholder="Números separados por vírgula ou espaço (opcional)"></label>
+    <div class="aviso" id="nAviso" role="status"></div>
+    <div class="acoes"><button class="btn" type="button" id="nCancelar">Cancelar</button><button class="btn primario" type="submit" id="nSalvar">Abrir incidente</button></div>
+  </form>
+</div>
+
+<script>
+const API=`${location.origin}/api/incidentes`;
+const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
+async function api(ep,{method='GET',body}={}){
+  const r=await fetch(API+ep,{method,headers:{Authorization:`Bearer ${tok()}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  const raw=await r.text(); let d={}; try{d=raw?JSON.parse(raw):{};}catch{d={error:raw};}
+  if(!r.ok){const e=new Error(d.error||`HTTP ${r.status}`);e.dados=d;e.status=r.status;throw e;}
+  return d;
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmt=v=>v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+function dur(min){ if(min==null||isNaN(min))return '—'; const a=Math.abs(Math.round(min)); const d=Math.floor(a/1440),h=Math.floor(a%1440/60),m=a%60; return d?`${d}d ${h}h`:(h?`${h}h ${m}min`:`${m}min`); }
+function ha(v){ const m=(Date.now()-new Date(v).getTime())/60000; return m<1?'agora':'há '+dur(m); }
+
+let CFG=null, S={escopo:'abertos',grave:false,servico:'',q:'',lista:[],podeEscrever:false,resp:[],servicos:[],abertoId:null};
+const MATRIZ_LOCAL=()=>CFG?CFG.matriz:{};
+const prioDe=(i,u)=>(MATRIZ_LOCAL()[`${i}-${u}`]||3);
+
+function pillMeta(nome,m){
+  const r={no_prazo:`${nome}: ${dur(m.restanteMin)} restantes`,cumprido:`${nome}: cumprida`,estourado:m.restanteMin!=null&&m.estado==='estourado'&&m.restanteMin<0?`${nome}: estourada há ${dur(m.restanteMin)}`:`${nome}: estourada`,nao_aplica:`${nome}: —`}[m.estado];
+  return `<span class="meta ${m.estado}" title="Meta de ${nome.toLowerCase()}: ${dur(m.alvoMin)}">${esc(r)}</span>`;
+}
+
+async function carregarKpis(){
+  try{
+    const k=await api('/metricas');
+    const c=(r,n,s,alerta)=>`<div class="kpi ${alerta?'alerta':''}"><div class="r">${r}</div><div class="n">${n}</div><div class="s">${s||'&nbsp;'}</div></div>`;
+    const p=Object.fromEntries((k.ativosPorPrioridade||[]).map(x=>[x.prioridade,x.n]));
+    $('kpis').innerHTML=
+      c('Incidentes ativos',k.totalAtivos,`P1: ${p[1]||0} · P2: ${p[2]||0} · P3: ${p[3]||0} · P4: ${p[4]||0}`,(p[1]||0)>0)+
+      c('Graves ativos',k.gravesAtivos,'em tratamento',k.gravesAtivos>0)+
+      c('Com meta estourada',k.comMetaEstourada,'entre os ativos',k.comMetaEstourada>0)+
+      c('MTTA (30 dias)',k.mttaMin==null?'—':dur(k.mttaMin),'tempo até reconhecer')+
+      c('MTTR (30 dias)',k.mttrMin==null?'—':dur(k.mttrMin),'tempo até resolver')+
+      c('Metas cumpridas',k.cumprimentoResolucao==null?'—':k.cumprimentoResolucao+'%',k.cumprimentoReconhecimento==null?'resolução':`resolução · reconhecer ${k.cumprimentoReconhecimento}%`);
+  }catch(e){ $('kpis').innerHTML=''; }
+}
+
+async function carregarLista(){
+  const qs=new URLSearchParams({escopo:S.escopo}); if(S.grave)qs.set('grave','1'); if(S.servico)qs.set('servico',S.servico); if(S.q)qs.set('q',S.q);
+  try{
+    const d=await api('/?'+qs);
+    S.lista=d.incidentes;
+    if(!d.incidentes.length){ $('corpo').innerHTML=`<tr><td colspan="8" class="vazio">Nenhum incidente ${S.escopo==='abertos'?'aberto':'encontrado'}. ${S.podeEscrever?'Use “Novo incidente” quando um problema afetar vários chamados.':''}</td></tr>`; return; }
+    $('corpo').innerHTML=d.incidentes.map(i=>`
+      <tr class="linha" tabindex="0" data-id="${i.id}" role="button">
+        <td class="cod">${i.codigo}</td>
+        <td><span class="pill pp${i.prioridade}">P${i.prioridade}</span></td>
+        <td><div class="tit" title="${esc(i.titulo)}">${esc(i.titulo)}${i.grave?'<span class="grave">GRAVE</span>':''}</div><div class="sub">${esc(i.servico||'Serviço não informado')}</div></td>
+        <td><span class="st ${i.status}">${esc(i.rotuloStatus)}</span></td>
+        <td>${i.n_tickets}</td>
+        <td>${esc(i.responsavel_nome||'—')}</td>
+        <td class="sub" title="${fmt(i.aberto_em)}">${ha(i.aberto_em)}</td>
+        <td>${pillMeta('Reconhecer',i.sla.reconhecer)}${pillMeta('Resolver',i.sla.resolver)}</td>
+      </tr>`).join('');
+    document.querySelectorAll('tr.linha').forEach(tr=>{
+      const abrir=()=>abrirGaveta(Number(tr.dataset.id));
+      tr.addEventListener('click',abrir);
+      tr.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();abrir();}});
+    });
+  }catch(e){ $('corpo').innerHTML=`<tr><td colspan="8" class="vazio" style="color:var(--bad)">Erro ao carregar: ${esc(e.message)}</td></tr>`; }
+}
+
+/* ── gaveta de detalhe ───────────────────────────────────────── */
+function aviso(id,msg,erro){ const el=$(id); if(!el)return; el.textContent=msg||''; el.className='aviso'+(msg?(erro?' erro':' ok'):''); }
+async function abrirGaveta(id){
+  S.abertoId=id;
+  $('fundo').classList.add('aberto'); $('gaveta').classList.add('aberta'); $('gaveta').setAttribute('aria-hidden','false');
+  $('gEsq').innerHTML='<div class="vazio">Carregando…</div>'; $('gDir').innerHTML='';
+  try{ desenharGaveta(await api('/'+id)); }catch(e){ $('gEsq').innerHTML=`<div class="vazio" style="color:var(--bad)">${esc(e.message)}</div>`; }
+}
+function fecharGaveta(){ S.abertoId=null; $('fundo').classList.remove('aberto'); $('gaveta').classList.remove('aberta'); $('gaveta').setAttribute('aria-hidden','true'); }
+const ICONE_EVENTO={criado:'Abertura',status:'Status',nota:'Nota',comunicado:'Comunicado',prioridade:'Prioridade',responsavel:'Responsável',edicao:'Edição',ticket_vinculado:'Chamados',ticket_removido:'Chamados'};
+
+function desenharGaveta(d){
+  const i=d.incidente, enc=i.status==='fechado', pode=S.podeEscrever&&!enc;
+  $('gCodigo').textContent=i.codigo+' · aberto em '+fmt(i.aberto_em);
+  $('gTitulo').textContent=i.titulo;
+  $('gBadges').innerHTML=`<span class="pill pp${i.prioridade}">P${i.prioridade}</span> <span class="st ${i.status}" style="margin-left:8px">${esc(i.rotuloStatus)}</span>${i.grave?'<span class="grave">GRAVE</span>':''}`;
+
+  const tickets=d.tickets.map(t=>`
+    <div class="tk"><span class="id">#${t.ticket_id}</span><span class="as" title="${esc(t.assunto||'')}">${esc(t.assunto||'(chamado ainda não carregado no banco)')}</span>
+      ${pode?`<button type="button" title="Desvincular" data-rm="${t.ticket_id}">&times;</button>`:''}
+      <span class="cl">${esc(t.cliente||'—')}${t.status?' · '+esc(t.status):''}</span></div>`).join('');
+  const eventos=d.eventos.map(e=>`
+    <li class="ev ${e.tipo}"><i></i><div class="q"><b>${esc(e.autor_nome||'Sistema')}</b> · ${ICONE_EVENTO[e.tipo]||e.tipo} · ${fmt(e.criado_em)}</div><div class="t">${esc(e.texto||'')}</div></li>`).join('');
+  $('gEsq').innerHTML=`
+    <div class="resumo"><span>Serviço: <strong>${esc(i.servico||'—')}</strong></span><span>Responsável: <strong>${esc(i.responsavel_nome||'—')}</strong></span>
+      <span>Reconhecido: <strong>${i.reconhecido_em?fmt(i.reconhecido_em):'ainda não'}</strong></span><span>Resolvido: <strong>${i.resolvido_em?fmt(i.resolvido_em):'—'}</strong></span></div>
+    <div style="margin-bottom:14px">${pillMeta('Reconhecer',i.sla.reconhecer)}${pillMeta('Resolver',i.sla.resolver)}</div>
+    ${i.descricao?`<div class="descr">${esc(i.descricao)}</div>`:''}
+    <div class="sec"><h4>Linha do tempo</h4><ul class="linha-tempo">${eventos||'<li class="sub">Sem eventos.</li>'}</ul></div>
+    <div class="sec"><h4>Chamados vinculados (${d.tickets.length})</h4><div class="tks" style="margin:0">${tickets||'<div class="sub">Nenhum chamado vinculado ainda.</div>'}</div></div>`;
+
+  if(!S.podeEscrever){ $('gDir').innerHTML='<div class="sub" style="text-align:center">Seu perfil pode acompanhar os incidentes, mas não alterá-los.</div>'; return; }
+  if(enc){ $('gDir').innerHTML='<div class="sub" style="text-align:center">Incidente fechado — somente leitura.</div>'; return; }
+
+  const trans=(CFG.transicoes[i.status]||[]).map(s=>`<button type="button" class="btn ${s==='resolvido'||s==='fechado'?'primario':''} peq" data-ir="${s}">${i.status==='resolvido'&&s==='investigando'?'Reabrir':esc(CFG.rotuloStatus[s])}</button>`).join(' ');
+  const optsResp='<option value="">Sem responsável</option>'+S.resp.map(u=>`<option value="${u.id}" ${u.id===i.responsavel_id?'selected':''}>${esc(u.name)}</option>`).join('');
+  const optsServ='<option value="">—</option>'+S.servicos.concat(i.servico&&!S.servicos.includes(i.servico)?[i.servico]:[]).map(s=>`<option ${s===i.servico?'selected':''}>${esc(s)}</option>`).join('');
+  const nivel=(v,tipo)=>`<option value="1" ${v===1?'selected':''}>1 — ${tipo==='i'?'Alto':'Alta'}</option><option value="2" ${v===2?'selected':''}>2 — Médio/Média</option><option value="3" ${v===3?'selected':''}>3 — ${tipo==='i'?'Baixo':'Baixa'}</option>`;
+  $('gDir').innerHTML=`
+    <div class="aviso" id="gAviso" role="status"></div>
+    <div class="sec"><h4>Status</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${trans||'<span class="sub">Sem transições.</span>'}</div>
+      <textarea id="gTextoStatus" placeholder="Como foi resolvido / observação da mudança (obrigatório ao resolver)"></textarea></div>
+    <div class="sec"><h4>Registrar na linha do tempo</h4>
+      <textarea id="gNota" placeholder="Nota interna ou comunicado para acompanhamento…"></textarea>
+      <div style="display:flex;gap:6px"><button type="button" class="btn peq" data-nota="nota">Adicionar nota</button><button type="button" class="btn peq" data-nota="comunicado">Registrar comunicado</button></div></div>
+    <div class="sec"><h4>Vincular chamados</h4><input id="gAddTk" placeholder="Nº dos chamados (vírgula ou espaço)"><button type="button" class="btn peq" id="gBtnAddTk">Vincular</button></div>
+    <div class="sec"><h4>Classificação</h4>
+      <div class="duas"><label>Impacto<select id="gImp">${nivel(i.impacto,'i')}</select></label><label>Urgência<select id="gUrg">${nivel(i.urgencia,'u')}</select></label></div>
+      <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="gGrave" style="width:auto" ${i.grave?'checked':''}> Incidente grave</label>
+      <label>Responsável<select id="gResp">${optsResp}</select></label>
+      <label>Serviço<select id="gServ">${optsServ}</select></label></div>
+    <div class="sec"><h4>Diagnóstico</h4>
+      <label>Causa<textarea id="gCausa">${esc(i.causa||'')}</textarea></label>
+      <label>Contorno (workaround)<textarea id="gContorno">${esc(i.contorno||'')}</textarea></label>
+      <label>Solução aplicada<textarea id="gResolucao">${esc(i.resolucao||'')}</textarea></label>
+      <label>Problema relacionado (link ou chave do Jira)<input id="gProb" value="${esc(i.problema_ref||'')}"></label>
+      <button type="button" class="btn primario peq" id="gSalvar">Salvar alterações</button></div>`;
+
+  const recarregar=async(msg)=>{ const dd=await api('/'+i.id); desenharGaveta(dd); aviso('gAviso',msg); carregarLista(); carregarKpis(); };
+  const falha=(e)=>aviso('gAviso',e.message,true);
+  document.querySelectorAll('[data-ir]').forEach(b=>b.addEventListener('click',async()=>{
+    const novo=b.dataset.ir, texto=$('gTextoStatus').value.trim();
+    if(novo==='resolvido'&&!texto&&!i.resolucao) return aviso('gAviso','Descreva como o incidente foi resolvido no campo acima.',true);
+    const body={status:novo,texto};
+    if(novo==='fechado'){ const causa=$('gCausa').value.trim(); if(!causa&&!i.causa) return aviso('gAviso','Preencha a Causa (em Diagnóstico) antes de fechar.',true); body.causa=causa; }
+    if(novo==='fechado'&&!confirm('Fechar o incidente? Depois disso ele fica somente leitura.')) return;
+    b.disabled=true;
+    try{ await api(`/${i.id}/status`,{method:'POST',body}); await recarregar('Status atualizado.'); }catch(e){ falha(e); b.disabled=false; }
+  }));
+  document.querySelectorAll('[data-nota]').forEach(b=>b.addEventListener('click',async()=>{
+    const texto=$('gNota').value.trim(); if(!texto) return aviso('gAviso','Escreva o texto antes de registrar.',true);
+    b.disabled=true;
+    try{ await api(`/${i.id}/notas`,{method:'POST',body:{texto,tipo:b.dataset.nota}}); await recarregar('Registrado na linha do tempo.'); }catch(e){ falha(e); b.disabled=false; }
+  }));
+  $('gBtnAddTk').addEventListener('click',async()=>{
+    const ticketIds=$('gAddTk').value; if(!ticketIds.trim()) return aviso('gAviso','Informe o número dos chamados.',true);
+    try{ await api(`/${i.id}/tickets`,{method:'POST',body:{ticketIds}}); await recarregar('Chamados vinculados.'); }
+    catch(e){
+      if(e.dados&&e.dados.podeMover&&confirm(e.message+'\n\nMover para este incidente?')){ try{ await api(`/${i.id}/tickets`,{method:'POST',body:{ticketIds,mover:true}}); await recarregar('Chamados movidos para este incidente.'); }catch(e2){ falha(e2); } }
+      else falha(e);
+    }
+  });
+  document.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',async()=>{
+    if(!confirm(`Desvincular o chamado #${b.dataset.rm} deste incidente?`)) return;
+    try{ await api(`/${i.id}/tickets/${b.dataset.rm}`,{method:'DELETE'}); await recarregar('Chamado desvinculado.'); }catch(e){ falha(e); }
+  }));
+  $('gSalvar').addEventListener('click',async()=>{
+    const body={impacto:Number($('gImp').value),urgencia:Number($('gUrg').value),grave:$('gGrave').checked,responsavelId:$('gResp').value||null,servico:$('gServ').value,
+      causa:$('gCausa').value,contorno:$('gContorno').value,resolucao:$('gResolucao').value,problemaRef:$('gProb').value};
+    try{ await api('/'+i.id,{method:'PATCH',body}); await recarregar('Alterações salvas.'); }catch(e){ falha(e); }
+  });
+}
+
+/* ── novo incidente ──────────────────────────────────────────── */
+function atualizarPrevia(){
+  const p=prioDe($('nImpacto').value,$('nUrgencia').value);
+  $('nPrio').className='pill pp'+p; $('nPrio').textContent='P'+p;
+  const m=CFG&&CFG.metas[p]; $('nMetas').textContent=m?`reconhecer em até ${dur(m.reconhecer)} · resolver em até ${dur(m.resolver)}`:'';
+}
+function abrirNovo(prefill={}){
+  $('mForm').reset(); aviso('nAviso','');
+  $('nServico').innerHTML='<option value="">Selecione…</option>'+S.servicos.map(s=>`<option>${esc(s)}</option>`).join('');
+  $('nResp').innerHTML='<option value="">Sem responsável</option>'+S.resp.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
+  if(prefill.tickets) $('nTickets').value=prefill.tickets;
+  atualizarPrevia(); $('mFundo').classList.add('aberto'); $('nTitulo').focus();
+}
+$('mForm').addEventListener('submit',async(ev)=>{
+  ev.preventDefault(); $('nSalvar').disabled=true; aviso('nAviso','');
+  try{
+    const r=await api('/',{method:'POST',body:{titulo:$('nTitulo').value,servico:$('nServico').value,responsavelId:$('nResp').value||null,impacto:Number($('nImpacto').value),urgencia:Number($('nUrgencia').value),grave:$('nGrave').checked,descricao:$('nDescricao').value,ticketIds:$('nTickets').value}});
+    $('mFundo').classList.remove('aberto'); await Promise.all([carregarLista(),carregarKpis()]); abrirGaveta(r.incidente.id);
+  }catch(e){ aviso('nAviso',e.message,true); }
+  $('nSalvar').disabled=false;
+});
+$('nImpacto').addEventListener('change',atualizarPrevia); $('nUrgencia').addEventListener('change',atualizarPrevia);
+$('nCancelar').addEventListener('click',()=>$('mFundo').classList.remove('aberto'));
+$('mFundo').addEventListener('click',e=>{ if(e.target.id==='mFundo') $('mFundo').classList.remove('aberto'); });
+
+/* ── eventos gerais ──────────────────────────────────────────── */
+document.querySelectorAll('[data-escopo]').forEach(b=>b.addEventListener('click',()=>{
+  S.escopo=b.dataset.escopo; document.querySelectorAll('[data-escopo]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); carregarLista();
+}));
+$('chipGrave').addEventListener('click',()=>{ S.grave=!S.grave; $('chipGrave').setAttribute('aria-pressed',String(S.grave)); carregarLista(); });
+$('fServico').addEventListener('change',()=>{ S.servico=$('fServico').value; carregarLista(); });
+let tb=null; $('fBusca').addEventListener('input',()=>{ clearTimeout(tb); tb=setTimeout(()=>{ S.q=$('fBusca').value.trim(); carregarLista(); },250); });
+$('btnNovo').addEventListener('click',()=>abrirNovo());
+$('fundo').addEventListener('click',fecharGaveta); $('gFechar').addEventListener('click',fecharGaveta);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('mFundo').classList.contains('aberto')) $('mFundo').classList.remove('aberto'); else fecharGaveta(); } });
+
+(async function init(){
+  try{ CFG=await api('/config'); }catch(e){ $('corpo').innerHTML=`<tr><td colspan="8" class="vazio" style="color:var(--bad)">${esc(e.message)}</td></tr>`; return; }
+  S.podeEscrever=!!CFG.podeEscrever;
+  $('btnNovo').style.display=S.podeEscrever?'':'none';
+  const [sv,rs]=await Promise.all([api('/servicos').catch(()=>({servicos:[]})),api('/responsaveis').catch(()=>({responsaveis:[]}))]);
+  S.servicos=sv.servicos; S.resp=rs.responsaveis;
+  $('fServico').innerHTML='<option value="">Todos os serviços</option>'+S.servicos.map(s=>`<option>${esc(s)}</option>`).join('');
+  await Promise.all([carregarLista(),carregarKpis()]);
+  setInterval(()=>{ if(!document.hidden && !$('gaveta').classList.contains('aberta')){ carregarLista(); carregarKpis(); } },60000);
+  const abrir=new URLSearchParams(location.search).get('id'); if(abrir) abrirGaveta(Number(abrir));
+})();
+</script>
+</body>
+</html>

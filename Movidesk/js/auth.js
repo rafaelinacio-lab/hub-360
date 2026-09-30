@@ -102,7 +102,7 @@ async function loadCurrentUser() {
 const TAB_PERMISSION_BTN_BY_KEY = {
     dashboard: 'navDashboard', chamados: 'navChamados',
     ouvidoria: 'navOuvidoria', gcc: 'navGcc', jira: 'navJira',
-    movidesk: 'navMovidesk',
+    movidesk: 'navMovidesk', incidentes: 'navIncidentes',
 };
 
 async function applyRoleBasedNavigation() {
@@ -132,7 +132,7 @@ async function applyRoleBasedNavigation() {
         // parte do fallback restrito, mesmo se a chamada abaixo falhar.
         let allowed = isCurrentUserGuest()
             ? ['dashboard']
-            : ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk'];
+            : ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'incidentes'];
         try {
             const res = await fetch(`${API_BASE}/config/tab-permissions`, { headers: authHeaders() });
             if (res.ok) {
