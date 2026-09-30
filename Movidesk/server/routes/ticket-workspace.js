@@ -93,10 +93,6 @@ async function auditar(req, ticketId, tipo, detalhes, erro) {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
-function paraHtml(texto) {
-  const esc = String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return esc.replace(/\r?\n/g, '<br>');
-}
 function idValido(v) {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? n : null;
@@ -119,7 +115,7 @@ async function exigirAgente(req, res) {
 }
 // Nota interna automática que deixa registrado no chamado que a mudança veio do Hub.
 function notaDeRastro(agente, texto) {
-  return { type: ACAO_TIPO.interna, origin: ACAO_ORIGEM, description: texto, htmlDescription: paraHtml(texto), createdBy: { id: agente.id } };
+  return { type: ACAO_TIPO.interna, origin: ACAO_ORIGEM, description: texto, createdBy: { id: agente.id } };
 }
 
 // ── rotas ───────────────────────────────────────────────────────────────────
@@ -196,7 +192,7 @@ router.post('/:id/workspace/acao', requireLeitura, exigirEscrita, limiteEscrita,
     if (!agente) return;
     await movidesk('PATCH', '/tickets', {
       query: { id },
-      body: { actions: [{ type: ACAO_TIPO[tipo], origin: ACAO_ORIGEM, description: texto, htmlDescription: paraHtml(texto), createdBy: { id: agente.id } }] },
+      body: { actions: [{ type: ACAO_TIPO[tipo], origin: ACAO_ORIGEM, description: texto, createdBy: { id: agente.id } }] },
     });
     await auditar(req, id, `acao_${tipo}`, { tamanho: texto.length, agente: agente.nome });
     res.json({ ok: true });

@@ -1482,55 +1482,93 @@
             </div>
 
 
-            <!-- Modal: Central do chamado (conversa + interação com o Movidesk) -->
-            <div id="ticketWorkspaceModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+            <!-- Modal: Central do chamado (linha do tempo + menu lateral de ações) -->
+            <div id="ticketWorkspaceModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="wsTitulo">
                 <div class="pm-box ws-box">
                     <div class="pm-header">
                         <span id="wsTitulo">Chamado</span>
-                        <button class="pm-close" id="wsFechar" aria-label="Fechar">&times;</button>
+                        <div class="ws-header-acoes">
+                            <button class="ws-link" id="wsAnalise" type="button">Análise com IA</button>
+                            <button class="ws-link" id="wsAbrirMovidesk" type="button">Abrir no Movidesk ↗</button>
+                            <button class="pm-close" id="wsFechar" aria-label="Fechar">&times;</button>
+                        </div>
                     </div>
-                    <div class="ws-corpo">
-                        <div id="wsCabecalho"></div>
-                        <div id="wsConversa" class="ws-conversa"></div>
-                        <div id="wsAviso" class="ws-aviso" role="status"></div>
-                        <div id="wsControles"></div>
-                    </div>
-                    <div class="executive-modal-actions">
-                        <button class="pm-btn pm-btn-cancel" id="wsAnalise" type="button">Análise com IA</button>
-                        <button class="pm-btn pm-btn-cancel" id="wsAbrirMovidesk" type="button">Abrir no Movidesk</button>
+                    <div class="ws-layout">
+                        <section class="ws-main">
+                            <div id="wsCabecalho" class="ws-cabecalho"></div>
+                            <div class="ws-toolbar" id="wsToolbar"></div>
+                            <div id="wsConversa" class="ws-timeline" tabindex="0" aria-label="Linha do tempo do chamado"></div>
+                        </section>
+                        <aside class="ws-side" aria-label="Interagir com o chamado">
+                            <div id="wsAviso" class="ws-aviso" role="status"></div>
+                            <div id="wsControles"></div>
+                        </aside>
                     </div>
                 </div>
             </div>
             <style>
-                .ws-box{width:760px;max-width:96vw;display:flex;flex-direction:column}
-                .ws-corpo{padding:14px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;min-height:0}
-                .ws-assunto{font-size:15px;font-weight:700;color:var(--section-text)}
-                .ws-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:6px;align-items:center}
-                .ws-chip{background:var(--blu-bg);color:var(--blu-dark);padding:2px 10px;border-radius:999px;font-weight:600}
-                .ws-conversa{display:flex;flex-direction:column;gap:8px;max-height:38vh;overflow-y:auto;padding:2px}
-                .ws-acao{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--surface)}
-                .ws-acao.ws-interna{background:var(--amb-bg);border-color:transparent}
+                .ws-box{width:min(1120px,96vw);height:min(88vh,860px);max-height:calc(100vh - 24px);display:flex;flex-direction:column}
+                .ws-header-acoes{display:flex;align-items:center;gap:14px}
+                .ws-link{background:none;border:none;color:var(--blu-mid);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:4px 2px}
+                .ws-link:hover{text-decoration:underline}
+                .ws-layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px}
+                .ws-main{display:flex;flex-direction:column;min-height:0;min-width:0;padding:16px 20px 0}
+                .ws-side{border-left:1px solid var(--border);background:var(--bg);overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;min-height:0}
+                .ws-cabecalho{padding-bottom:12px;border-bottom:1px solid var(--border)}
+                .ws-assunto{font-size:16px;font-weight:700;color:var(--section-text);line-height:1.3}
+                .ws-meta{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--muted);margin-top:8px;align-items:center}
+                .ws-meta strong{color:var(--text)}
+                .ws-chip{background:var(--blu-bg);color:var(--blu-dark);padding:2px 10px;border-radius:999px;font-weight:600;font-size:11px}
+                .ws-toolbar{display:flex;align-items:center;gap:6px;padding:10px 0;flex-wrap:wrap}
+                .ws-filtro{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:999px;padding:3px 12px;font:inherit;font-size:12px;cursor:pointer}
+                .ws-filtro[aria-pressed="true"]{background:var(--section-text);color:var(--surface);border-color:var(--section-text)}
+                .ws-toolbar .ws-ordem{margin-left:auto}
+                .ws-timeline{flex:1;min-height:0;overflow-y:auto;list-style:none;margin:0;padding:6px 6px 24px 2px;position:relative}
+                .ws-item{position:relative;padding:0 0 14px 30px}
+                .ws-item::before{content:"";position:absolute;left:9px;top:18px;bottom:-4px;width:2px;background:var(--border)}
+                .ws-item:last-child::before{display:none}
+                .ws-dot{position:absolute;left:2px;top:6px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:3px solid var(--blu-mid)}
+                .ws-item.ws-interna .ws-dot{border-color:var(--amb-mid)}
+                .ws-item.ws-cliente .ws-dot{border-color:var(--grn-mid)}
+                .ws-card{border:1px solid var(--border);border-radius:12px;padding:10px 14px;background:var(--surface)}
+                .ws-item.ws-interna .ws-card{background:var(--amb-bg);border-color:transparent;color:var(--amb-dark)}
+                .ws-item.ws-interna .ws-acao-texto,.ws-item.ws-interna .ws-acao-topo strong{color:var(--amb-dark)}
                 .ws-acao-topo{display:flex;gap:8px;align-items:center;font-size:12px;flex-wrap:wrap}
-                .ws-acao-topo .ws-data{margin-left:auto;color:var(--muted)}
-                .ws-tag{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-                .ws-acao-texto{font-size:13px;margin-top:4px;word-break:break-word;color:var(--text)}
-                .ws-vazio{padding:20px;text-align:center;color:var(--muted);font-size:13px}
+                .ws-acao-topo strong{font-size:13px;color:var(--section-text)}
+                .ws-acao-topo .ws-data{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+                .ws-tag{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--bg);color:var(--muted)}
+                .ws-item.ws-interna .ws-tag{background:rgba(0,0,0,.08);color:var(--amb-dark)}
+                .ws-item.ws-cliente .ws-tag{background:var(--grn-bg);color:var(--grn-dark)}
+                .ws-acao-texto{font-size:13px;margin-top:6px;word-break:break-word;color:var(--text);line-height:1.5}
+                .ws-vazio{padding:28px;text-align:center;color:var(--muted);font-size:13px}
                 .ws-erro{color:var(--red-mid)}
-                .ws-composer{display:flex;flex-direction:column;gap:8px}
-                .ws-tipos{display:flex;gap:16px;flex-wrap:wrap;font-size:13px}
-                .ws-tipos small{color:var(--muted)}
-                .ws-composer textarea{width:100%;resize:vertical;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:var(--surface);color:var(--text)}
-                .ws-linha{display:flex;justify-content:flex-end}
-                .ws-acoes-rapidas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
-                .ws-campo{display:flex;flex-direction:column;gap:6px;border:1px solid var(--border);border-radius:10px;padding:10px}
-                .ws-campo label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-                .ws-campo select,.ws-campo input{border:1px solid var(--border);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px;background:var(--surface);color:var(--text)}
-                .ws-campo .pm-btn{color:var(--text);border:1px solid var(--border);background:var(--surface);font-weight:600}
-                .ws-campo .pm-btn:hover:not(:disabled){background:var(--bg)}
-                .ws-aviso{font-size:12px;min-height:0}
-                .ws-aviso-ok{color:var(--grn-dark);background:var(--grn-bg);padding:6px 10px;border-radius:8px}
-                .ws-aviso-erro{color:var(--red-dark);background:var(--red-bg);padding:6px 10px;border-radius:8px}
-                .ws-somente-leitura{font-size:12px;color:var(--muted);text-align:center}
+                .ws-secao{display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+                .ws-secao + .ws-secao{padding-top:14px;border-top:1px solid var(--border)}
+                .ws-secao h4{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+                .ws-segmentos{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--border);border-radius:10px;padding:3px}
+                .ws-segmentos label{text-align:center;font-size:12px;font-weight:600;padding:6px 4px;border-radius:8px;cursor:pointer;color:var(--text);line-height:1.2}
+                .ws-segmentos input{position:absolute;opacity:0;pointer-events:none}
+                .ws-segmentos label:has(input:checked){background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+                .ws-segmentos label:has(input:focus-visible){outline:2px solid var(--blu-mid)}
+                .ws-dica{font-size:11px;color:var(--muted);margin:0}
+                .ws-side textarea,.ws-side select,.ws-side input[type=text]{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:var(--surface);color:var(--text)}
+                .ws-side textarea{resize:vertical;min-height:110px}
+                .ws-btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+                .ws-btn:hover:not(:disabled){background:var(--bg)}
+                .ws-btn:disabled{opacity:.6;cursor:default}
+                .ws-btn-primario{background:var(--blu-mid);border-color:var(--blu-mid);color:#fff}
+                .ws-btn-primario:hover:not(:disabled){background:var(--blu-dark)}
+                .ws-aviso:empty{display:none}
+                .ws-aviso{font-size:12px;padding:8px 10px;border-radius:8px;word-break:break-word}
+                .ws-aviso-ok{color:var(--grn-dark);background:var(--grn-bg)}
+                .ws-aviso-erro{color:var(--red-dark);background:var(--red-bg)}
+                .ws-somente-leitura{font-size:12px;color:var(--muted);text-align:center;padding:12px}
+                @media (max-width:860px){
+                    .ws-box{height:calc(100vh - 24px)}
+                    .ws-layout{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;overflow-y:auto}
+                    .ws-side{border-left:none;border-top:1px solid var(--border);overflow-y:visible}
+                    .ws-main{min-height:55vh}
+                }
             </style>
 
             <!-- Modal: lista de chamados de um KPI da Dashboard -->
