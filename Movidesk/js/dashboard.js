@@ -857,7 +857,7 @@ function updateAttendantsList(attendantMap) {
         .forEach(([name, data]) => {
             const slugId = 'att-' + name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
             const ticketLinks = data.tickets
-                .map(({ id, urgClass }) => `<a class="att-ticket-link ${urgClass}" onclick="handleCardClick(${id});event.stopPropagation()" href="#">#${id}</a>`)
+                .map(({ id, urgClass }) => `<a class="att-ticket-link ${urgClass}" onclick="openTicketWorkspace(${id});event.stopPropagation()" href="#">#${id}</a>`)
                 .join('');
             
             // Usar avatar com foto (email ou nome) ou fallback com iniciais
@@ -1179,7 +1179,7 @@ function createCardHTML(ticket) {
     `;
 
     return `
-        <div class="card" onclick="handleCardClick(${ticket.id})">
+        <div class="card" onclick="openTicketWorkspace(${ticket.id})">
             <div class="card-header-new">
                 <span class="card-id">#${ticket.id}</span>
                 <span class="urgency-bubble ${urgency.class}">${urgency.label}</span>
