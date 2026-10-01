@@ -188,3 +188,13 @@ Só perfis admin/supervisor/atendente usam. A IA devolve **rascunhos**: nada é 
 
 O conteúdo dos chamados é delimitado nos prompts (`<<<ROTULO … ROTULO>>>`) e tratado como dado, nunca como instrução; notas
 internas servem de contexto mas não podem aparecer na resposta ao cliente.
+
+## Assistente de IA configurável
+
+Configurações → **Assistente de IA** (admin) controla a IA dos chamados e dos incidentes sem mexer em código.
+Os parâmetros ficam num JSON na tabela `config` (chave `ai_assist_settings`), lido por `server/utils/aiSettings.js`
+(padrões, validação/limites, cache de 15 s). Rotas: `GET/PUT /api/config/ai-assist`.
+Cobre: modelo, diretrizes da empresa (entram em todos os prompts), limites de uso por pessoa, e por função
+(resposta, correção, análise do cliente, resumo e comunicado de incidente) liga/desliga, tom/estilo, tamanhos,
+quanto contexto é enviado, janelas do histórico do cliente, termos de risco, nº de hipóteses/passos/riscos e
+orientação extra. Funções desligadas respondem 403 e os botões somem na tela (via `/ia/status`).

@@ -212,16 +212,21 @@
 
     // ── IA embutida: sugestão de resposta, correção de texto e análise do cliente ──
     // Só gera RASCUNHOS: nada é enviado ao cliente até a pessoa revisar e clicar em Enviar.
-    let _iaConfigurada = null;
+    let _iaStatus = null;
     async function verificarIa() {
-        if (_iaConfigurada === null) {
-            try { _iaConfigurada = !!(await chamar('/workspace/ia/status')).configurada; } catch { _iaConfigurada = false; }
+        if (_iaStatus === null) {
+            try { _iaStatus = await chamar('/workspace/ia/status'); } catch { _iaStatus = { configurada: false }; }
         }
-        if (_iaConfigurada) return;
-        ['wsIaResposta', 'wsIaCorrigir', 'wsIaCliente'].forEach((id) => {
-            const b = $(id);
-            if (b) { b.disabled = true; b.title = 'A chave da IA ainda não foi configurada (Configurações → Inteligência Artificial).'; }
+        const rec = _iaStatus.recursos || {};
+        const regras = [['wsIaResposta', 'resposta'], ['wsIaCorrigir', 'corrigir'], ['wsIaCliente', 'cliente']];
+        if (_iaStatus.tomPadrao && $('wsIaTom') && !$('wsIaTom').dataset.ajustado) { $('wsIaTom').value = _iaStatus.tomPadrao; $('wsIaTom').dataset.ajustado = '1'; }
+        regras.forEach(([id, chave]) => {
+            const b = $(id); if (!b) return;
+            if (rec[chave] === false) { b.style.display = 'none'; if (chave === 'resposta' && $('wsIaTom')) $('wsIaTom').style.display = 'none'; return; }
+            if (!_iaStatus.configurada) { b.disabled = true; b.title = 'A chave da IA ainda não foi configurada (Configurações → Inteligência Artificial).'; }
         });
+        const grupo = document.querySelector('.ws-ia');
+        if (grupo && rec.resposta === false && rec.corrigir === false) grupo.style.display = 'none';
     }
     async function comIa(botao, rotulo, fn) {
         if (_ws.enviando || botao.dataset.ocupado) return;
