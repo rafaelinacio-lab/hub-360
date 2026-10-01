@@ -162,7 +162,7 @@ Um incidente agrupa N chamados do mesmo problema de serviço (aba **Incidentes**
 
 ## Agendamento das cargas automáticas
 
-Cada cron (`silver.cron_job`) tem `interval_minutes` (de 5 min a 24 dias; na tela: atalhos ou "Personalizado…" em
+Cada cron (`silver.cron_job`) tem `interval_minutes` (de 1 min a 24 dias; na tela: atalhos ou "Personalizado…" em
 minutos/horas/dias) e, opcionalmente, `params.schedule` (regras em `utils/cronSchedule.js`, horário de Brasília):
 
 - `inicio`/`fim`: janela de horário em que pode rodar (início > fim atravessa a meia-noite);
