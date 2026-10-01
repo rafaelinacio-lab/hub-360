@@ -166,3 +166,14 @@
     .kb-col { scroll-snap-align: start; }
     .kb-lista { max-height: 70vh; }
 }
+
+/* ── Barras de rolagem escondidas nas áreas rolantes novas (a rolagem continua funcionando) ── */
+.kb-lista, .kb-board, .tk-wrap,
+.ws-timeline, .ws-side, .ws-main, .ws-layout, .ws-box, #wsConversa, #wsControles {
+    scrollbar-width: none; -ms-overflow-style: none;
+}
+.kb-lista::-webkit-scrollbar, .kb-board::-webkit-scrollbar, .tk-wrap::-webkit-scrollbar,
+.ws-timeline::-webkit-scrollbar, .ws-side::-webkit-scrollbar, .ws-main::-webkit-scrollbar,
+.ws-layout::-webkit-scrollbar, .ws-box::-webkit-scrollbar, #wsConversa::-webkit-scrollbar, #wsControles::-webkit-scrollbar {
+    display: none; width: 0; height: 0;
+}
