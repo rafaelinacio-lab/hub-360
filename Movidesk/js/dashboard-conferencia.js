@@ -20,7 +20,7 @@
         if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
         return d;
     }
-    const MOTIVO_FALTA = { nao_carregado: 'ainda não está no banco (o cron não trouxe)', sem_classificacao: 'sem Classificação de Ticket', outra_classificacao: 'classificação diferente de Suporte Técnico', status_antigo: 'status desatualizado no banco', outro: 'motivo não identificado' };
+    const MOTIVO_FALTA = { nao_carregado: 'ainda não está no banco (o cron não trouxe)', sem_classificacao: 'sem Classificação de Ticket', outra_classificacao: 'classificação diferente de Suporte Técnico', status_antigo: 'status desatualizado no banco', dados_incompletos: 'está no banco com dados incompletos (equipe vazia)', outro: 'motivo não identificado' };
     function tabelaResumo(r) {
         if (!r) return '';
         const sts = [...new Set([...Object.keys(r.movidesk.porStatus), ...Object.keys(r.painel.porStatus)])].sort();
@@ -47,7 +47,7 @@
             el.innerHTML = `<h4>${n} de ${d.verificados} chamado(s) diferentes do Movidesk</h4>
               <div class="conf-lista">${d.divergencias.map((x) => `<div class="conf-lin"><strong>#${x.id}</strong><span title="${esc(x.assunto)}">${esc((x.assunto || '').slice(0, 70))} <em>— ${MOTIVO[x.motivo] || x.motivo}</em></span>
                 <span class="de-para">${esc(x.banco.status || '—')} → ${esc(x.movidesk ? x.movidesk.status : '—')}</span></div>`).join('')}</div>${tabelaResumo(d.resumo)}${blocoFaltando(d)}${falhas}
-              <div class="conf-acoes"><button type="button" class="tk-conferir" data-aplicar>Corrigir o painel (${d.divergencias.filter((x) => x.movidesk).length})</button><button type="button" class="tk-conferir" data-fechar>Fechar</button></div>`;
+              <div class="conf-acoes"><button type="button" class="tk-conferir" data-aplicar>Corrigir o painel (${d.divergencias.filter((x) => x.movidesk).length + (d.faltando || []).filter((x) => x.noBanco && ['status_antigo', 'dados_incompletos', 'outro'].includes(x.motivo)).length})</button><button type="button" class="tk-conferir" data-fechar>Fechar</button></div>`;
         }
     }
     async function executar(aplicar) {

@@ -59,7 +59,7 @@ router.post('/', limite, async (req, res) => {
         for (const nome of nomes) {
           for (let skip = 0; skip < 600; skip += 100) {
             const lote = await movidesk('GET', '/tickets', { query: {
-              $select: 'id,subject,status,baseStatus,ownerTeam',
+              $select: 'id,subject,status,baseStatus,ownerTeam,lastUpdate',
               $filter: `ownerTeam eq '${nome.replace(/'/g, "''")}' and baseStatus ne 'Resolved' and baseStatus ne 'Closed' and baseStatus ne 'Canceled'`,
               $orderby: 'id asc', $top: 100, $skip: skip } });
             const arr = Array.isArray(lote) ? lote : [];
@@ -71,14 +71,15 @@ router.post('/', limite, async (req, res) => {
         const ausentes = vivos.filter((t) => ATIVOS.includes(t.baseStatus) && !noPainel.has(Number(t.id)));
         if (ausentes.length) {
           const dbRows = new Map((await db.query(`
-            SELECT t.ticket_id::bigint AS id, t.status, t.basestatus,
+            SELECT t.ticket_id::bigint AS id, t.status, t.basestatus, t.ownerteam,
                    (SELECT string_agg(DISTINCT cf.valor_texto, ', ') FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = '23946') AS classificacao
               FROM silver.ticket t WHERE t.ticket_id::bigint = ANY($1::bigint[])`, [ausentes.map((t) => Number(t.id))])).rows.map((r) => [Number(r.id), r]));
           faltando = ausentes.map((t) => {
             const b = dbRows.get(Number(t.id));
             let motivo = 'nao_carregado';                                   // o cron ainda não trouxe para o banco
-            if (b) motivo = !b.classificacao ? 'sem_classificacao' : (!/suporte t[eé]cnico/i.test(b.classificacao) ? 'outra_classificacao' : (!ATIVOS.includes(b.basestatus) ? 'status_antigo' : 'outro'));
-            return { id: Number(t.id), assunto: t.subject, status: t.status, motivo, classificacao: b ? b.classificacao : null, statusBanco: b ? b.status : null };
+            if (b) motivo = !b.classificacao ? 'sem_classificacao' : (!/suporte t[eé]cnico/i.test(b.classificacao) ? 'outra_classificacao' : (!ATIVOS.includes(b.basestatus) ? 'status_antigo' : (!b.ownerteam ? 'dados_incompletos' : 'outro')));
+            return { id: Number(t.id), assunto: t.subject, status: t.status, motivo, classificacao: b ? b.classificacao : null, statusBanco: b ? b.status : null,
+                     noBanco: !!b, movidesk: { status: t.status, base: t.baseStatus, equipe: t.ownerTeam, lastUpdate: t.lastUpdate } };
           });
         }
         const contar = (arr, f) => arr.reduce((m, x) => { const k = f(x) || '—'; m[k] = (m[k] || 0) + 1; return m; }, {});
@@ -92,7 +93,9 @@ router.post('/', limite, async (req, res) => {
 
     let aplicados = 0;
     if (aplicar) {
-      for (const d of divergencias) {
+      // também os que estão no banco mas invisíveis no painel (status antigo, equipe vazia...): regrava com o que o Movidesk diz
+      const corrigiveis = [...divergencias, ...faltando.filter((x) => x.noBanco && ['status_antigo', 'dados_incompletos', 'outro'].includes(x.motivo))];
+      for (const d of corrigiveis) {
         if (!d.movidesk) continue;
         await db.query(`UPDATE silver.ticket SET status = $2, basestatus = $3, ownerteam = $4, last_update = COALESCE($5::timestamptz, last_update) WHERE ticket_id::bigint = $1`,
           [d.id, d.movidesk.status, d.movidesk.base, d.movidesk.equipe || null, d.movidesk.lastUpdate || null]);
