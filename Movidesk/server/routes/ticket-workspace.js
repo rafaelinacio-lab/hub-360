@@ -14,7 +14,8 @@ const db = require('../db/remote');
 const { requireTabAccess } = require('./config');
 const { MovideskError, movidesk, agenteDoUsuario, listaAgentes, escopoEquipe } = require('../utils/movideskPeople');
 const { authMiddleware } = require('./auth');
-const { rateLimit } = require('../utils/rateLimit');
+const { rateLimit, rateLimitDinamico } = require('../utils/rateLimit');
+const cfg = require('../utils/aiSettings');
 const { chamarIA, configurada: iaConfigurada, IaError, REGRAS, dados, conversaEmTexto, limitar, dataBr } = require('../utils/ai');
 
 const router = express.Router();
@@ -228,7 +229,12 @@ router.get('/:id/workspace', requireLeitura, async (req, res) => {
 // ── IA embutida: sugestão de resposta, correção de texto e análise do cliente ─────────────────
 // Só devolvem RASCUNHOS (nada é enviado ao cliente nem gravado no Movidesk); chave, modelo e prompts
 // ficam no servidor (utils/ai.js).
-const limiteIA = rateLimit({ name: 'tickets/ia', windowMs: 10 * 60 * 1000, max: 40 });
+const limiteIA = rateLimitDinamico({ name: 'tickets/ia', windowMs: 10 * 60 * 1000, getMax: async () => (await cfg.obter()).geral.limiteChamadosPor10min });
+// Recurso desligado em Configurações → Assistente de IA: responde 403 antes de gastar tokens.
+const recursoLigado = (chave) => async (req, res, next) => {
+  try { if (!(await cfg.obter())[chave].ativo) return res.status(403).json({ error: 'Este recurso de IA foi desativado nas Configurações.' }); } catch { /* segue */ }
+  next();
+};
 function erroIA(res, e) {
   if (e instanceof IaError) return res.status(e.status).json({ error: e.message });
   return erroParaResposta(res, e);
@@ -240,28 +246,30 @@ const TONS = {
 };
 
 router.get('/workspace/ia/status', requireLeitura, async (req, res) => {
-  res.json({ configurada: await iaConfigurada().catch(() => false) });
+  const S = await cfg.obter();
+  res.json({ configurada: await iaConfigurada().catch(() => false), recursos: { resposta: S.resposta.ativo, corrigir: S.corrigir.ativo, cliente: S.cliente.ativo }, tomPadrao: S.resposta.tomPadrao });
 });
 
-router.post('/:id/workspace/ia/resposta', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+router.post('/:id/workspace/ia/resposta', requireLeitura, exigirEscrita, recursoLigado('resposta'), limiteIA, async (req, res) => {
   const id = idValido(req.params.id);
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
-  const tom = TONS[req.body?.tom] ? req.body.tom : 'padrao';
+  const S = await cfg.obter(), C = S.resposta;
+  const tom = TONS[req.body?.tom] ? req.body.tom : C.tomPadrao;
   const instrucao = limitar(String(req.body?.instrucao || '').trim(), 600);
   try {
     const t = await lerTicketAoVivo(id);
     if (!t) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
     const ultimoCliente = [...t.acoes].reverse().find(a => a.tipo === 'publica' && a.autorPerfil === 2);
-    const system = `${REGRAS}
+    const system = `${REGRAS}${cfg.diretrizes(S)}
 Tarefa: redija a PRÓXIMA resposta pública da equipe de suporte ao cliente, neste chamado.
 Tom: ${TONS[tom]}.
 Regras da resposta:
 - Comece cumprimentando pelo nome do solicitante quando ele aparecer nos dados; responda ao pedido MAIS RECENTE do cliente.
 - Se houver orientação a seguir, use passos numerados curtos. Não prometa prazos nem retornos que não estejam nos dados.
-- Se faltar informação para resolver, peça no máximo 3 itens, de forma específica (ex.: print da tela, versão, horário do erro).
+- ${C.maxPerguntas > 0 ? `Se faltar informação para resolver, peça no máximo ${C.maxPerguntas} itens, de forma específica (ex.: print da tela, versão, horário do erro).` : 'Não peça informações adicionais ao cliente; trabalhe com o que há nos dados e liste o que falta apenas em informacoes_faltantes.'}
 - Notas internas servem só de contexto: NUNCA cite, copie nem insinue o conteúdo delas para o cliente.
 - Sem assinatura e sem placeholders entre colchetes.
-Responda em JSON: {"resposta": "texto pronto para enviar", "pontos_de_atencao": ["o que o atendente deve conferir antes de enviar"], "informacoes_faltantes": ["dados que não estavam no chamado"]}`;
+Responda em JSON: {"resposta": "texto pronto para enviar", "pontos_de_atencao": ["o que o atendente deve conferir antes de enviar"], "informacoes_faltantes": ["dados que não estavam no chamado"]}${cfg.extra(C.instrucaoExtra)}`;
     const user = `${instrucao ? `Instrução do atendente (confiável): ${instrucao}
 
 ` : ''}${dados('CHAMADO', `Assunto: ${limitar(t.assunto, 300)}
@@ -270,8 +278,8 @@ Cliente(s): ${t.clientes.join(', ') || '—'}
 Último autor do cliente: ${ultimoCliente ? ultimoCliente.autor : 'não identificado'}
 
 Conversa (da mais antiga para a mais recente):
-${conversaEmTexto(t.acoes)}`)}`;
-    const r = await chamarIA({ source: 'ticket_sugestao_resposta', system, user, maxTokens: 900, temperature: 0.4, userEmail: req.user.email, meta: { ticket: id, tom } });
+${conversaEmTexto(t.acoes, C.contextoCaracteres)}`)}`;
+    const r = await chamarIA({ source: 'ticket_sugestao_resposta', system, user, maxTokens: cfg.TAMANHO_RESPOSTA[C.tamanho], temperature: cfg.temperatura(C.criatividade), userEmail: req.user.email, meta: { ticket: id, tom } });
     res.json({
       resposta: limitar(r.resposta, 6000),
       pontosDeAtencao: (Array.isArray(r.pontos_de_atencao) ? r.pontos_de_atencao : []).slice(0, 6).map(x => limitar(x, 300)),
@@ -280,19 +288,20 @@ ${conversaEmTexto(t.acoes)}`)}`;
   } catch (e) { erroIA(res, e); }
 });
 
-router.post('/:id/workspace/ia/corrigir', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+router.post('/:id/workspace/ia/corrigir', requireLeitura, exigirEscrita, recursoLigado('corrigir'), limiteIA, async (req, res) => {
   const texto = String(req.body?.texto || '');
   if (!texto.trim()) return res.status(400).json({ error: 'Escreva o texto antes de corrigir.' });
-  if (texto.length > 8000) return res.status(400).json({ error: 'Texto grande demais para corrigir de uma vez (máx. 8.000 caracteres).' });
+  const S = await cfg.obter(), C = S.corrigir;
+  if (texto.length > C.maxCaracteres) return res.status(400).json({ error: `Texto grande demais para corrigir de uma vez (máx. ${C.maxCaracteres.toLocaleString('pt-BR')} caracteres).` });
   try {
-    const system = `${REGRAS}
+    const system = `${REGRAS}${cfg.diretrizes(S)}
 Tarefa: revisar ortografia, acentuação, concordância, pontuação e digitação do texto abaixo.
 Regras:
 - Corrija SOMENTE erros. Preserve o sentido, o tom, os nomes, números, códigos, links, termos técnicos e as quebras de linha.
 - Não acrescente, remova nem reescreva ideias; não deixe o texto mais formal do que está.
 - Se não houver nada a corrigir, devolva o texto idêntico e a lista de alterações vazia.
-Responda em JSON: {"texto_corrigido": "texto completo corrigido", "alteracoes": [{"de": "trecho original", "para": "trecho corrigido", "motivo": "ortografia | acentuação | concordância | pontuação | digitação"}]} (no máximo 15 alterações, as mais relevantes).`;
-    const r = await chamarIA({ source: 'ticket_correcao_texto', system, user: dados('TEXTO', texto), maxTokens: 1800, temperature: 0, userEmail: req.user.email, meta: { ticket: req.params.id } });
+Responda em JSON: {"texto_corrigido": "texto completo corrigido", "alteracoes": [{"de": "trecho original", "para": "trecho corrigido", "motivo": "ortografia | acentuação | concordância | pontuação | digitação"}]} (no máximo 15 alterações, as mais relevantes).${cfg.extra(C.instrucaoExtra)}`;
+    const r = await chamarIA({ source: 'ticket_correcao_texto', system, user: dados('TEXTO', texto), maxTokens: Math.min(4000, Math.max(1000, Math.ceil(texto.length / 2) + 600)), temperature: 0, userEmail: req.user.email, meta: { ticket: req.params.id } });
     const corrigido = typeof r.texto_corrigido === 'string' && r.texto_corrigido.trim() ? r.texto_corrigido : texto;
     res.json({
       textoCorrigido: corrigido,
@@ -303,54 +312,58 @@ Responda em JSON: {"texto_corrigido": "texto completo corrigido", "alteracoes": 
 });
 
 // Números do relacionamento da organização com o suporte (vêm do banco; a IA só interpreta).
-async function historicoDaOrganizacao(ticketId) {
+async function historicoDaOrganizacao(ticketId, C) {
+  const dias = Number(C.janelaDias) | 0, meses = Number(C.mesesHistorico) | 0;   // vêm de uma lista fixa validada
+  const termos = C.termosGcc ? C.termosGcc.split(', ') : [];
   const h = { organizacao: null, tickets90d: null, abertosAgora: null, tickets12m: null, reabertos12m: null, tempoMedioResolucaoH: null, servicosFrequentes: [], assuntosRecentes: [], tocouGcc12m: null };
   try {
     const org = (await db.query(`SELECT organizacao_id, organizacao_nome FROM silver.ticket_organizacao WHERE ticket_id = $1`, [ticketId])).rows[0];
     if (!org || !org.organizacao_id) return h;
     h.organizacao = org.organizacao_nome;
     const base = `FROM silver.ticket t JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id::bigint WHERE o.organizacao_id = $1 AND t.ticket_id::bigint <> $2`;
+    const pTermos = termos.map((x) => `%${x.replace(/[%_]/g, '')}%`);
     const r = await db.query(`
-      SELECT COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '90 days')::int AS t90,
+      SELECT COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '${dias} days')::int AS t90,
              COUNT(*) FILTER (WHERE t.basestatus IN ('New','InAttendance','Stopped','InProgress'))::int AS abertos,
-             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '12 months')::int AS t12,
-             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '12 months' AND t.reopened_in IS NOT NULL)::int AS reab,
-             ROUND((AVG(EXTRACT(EPOCH FROM (t.resolved_in - t.createddate)) / 3600) FILTER (WHERE t.createddate >= NOW() - INTERVAL '90 days' AND t.resolved_in IS NOT NULL))::numeric, 1) AS tmr,
-             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '12 months' AND (lower(COALESCE(t.ownerteam,'')) LIKE '%gcc%' OR lower(COALESCE(t.ownerteam,'')) LIKE '%churn%'))::int AS gcc
-      ${base}`, [org.organizacao_id, ticketId]);
+             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '${meses} months')::int AS t12,
+             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '${meses} months' AND t.reopened_in IS NOT NULL)::int AS reab,
+             ROUND((AVG(EXTRACT(EPOCH FROM (t.resolved_in - t.createddate)) / 3600) FILTER (WHERE t.createddate >= NOW() - INTERVAL '${dias} days' AND t.resolved_in IS NOT NULL))::numeric, 1) AS tmr,
+             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '${meses} months' AND (${termos.length ? termos.map((_, i) => `lower(COALESCE(t.ownerteam,'')) LIKE $${i + 3}`).join(' OR ') : 'FALSE'}))::int AS gcc
+      ${base}`, [org.organizacao_id, ticketId, ...pTermos]);
     const x = r.rows[0] || {};
     h.tickets90d = x.t90; h.abertosAgora = x.abertos; h.tickets12m = x.t12; h.reabertos12m = x.reab;
     h.tempoMedioResolucaoH = x.tmr == null ? null : Number(x.tmr); h.tocouGcc12m = x.gcc;
-    h.servicosFrequentes = (await db.query(`SELECT split_part(t.service_full, ' > ', 1) AS s, COUNT(*)::int AS n ${base} AND t.createddate >= NOW() - INTERVAL '90 days' AND t.service_full IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 4`, [org.organizacao_id, ticketId])).rows.map(y => `${y.s} (${y.n})`);
+    h.servicosFrequentes = (await db.query(`SELECT split_part(t.service_full, ' > ', 1) AS s, COUNT(*)::int AS n ${base} AND t.createddate >= NOW() - INTERVAL '${dias} days' AND t.service_full IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 4`, [org.organizacao_id, ticketId])).rows.map(y => `${y.s} (${y.n})`);
     h.assuntosRecentes = (await db.query(`SELECT t.subject ${base} ORDER BY t.createddate DESC LIMIT 8`, [org.organizacao_id, ticketId])).rows.map(y => limitar(y.subject, 140));
   } catch (e) { console.warn('[ia] histórico da organização indisponível:', e.message); }
   return h;
 }
 
-router.post('/:id/workspace/ia/cliente', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+router.post('/:id/workspace/ia/cliente', requireLeitura, exigirEscrita, recursoLigado('cliente'), limiteIA, async (req, res) => {
   const id = idValido(req.params.id);
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   try {
     const t = await lerTicketAoVivo(id);
     if (!t) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
-    const hist = await historicoDaOrganizacao(id);
-    const system = `${REGRAS}
+    const S = await cfg.obter(), C = S.cliente;
+    const hist = await historicoDaOrganizacao(id, C);
+    const system = `${REGRAS}${cfg.diretrizes(S)}
 Tarefa: analisar o CLIENTE deste chamado para ajudar o atendente a conduzir o atendimento.
 Considere o tom das mensagens do cliente (cordial, ansioso, irritado, ameaçando cancelar etc.), a urgência real do problema, a recorrência e o histórico de chamados da organização.
 Sentimento: positivo | neutro | frustrado | irritado. Urgência percebida: baixa | media | alta. Risco de churn: baixo | medio | alto — justifique pelos sinais (reclamação repetida, menção a cancelar/concorrente, muitos chamados reabertos, passagem pelo GCC, demora). Sem sinais, não infle o risco.
-Responda em JSON: {"resumo": "2 a 3 frases sobre a situação e o que o cliente precisa", "sentimento": "...", "urgencia_percebida": "...", "risco_de_churn": "...", "sinais": ["evidências curtas, citando o que o cliente disse ou os números do histórico"], "perfil_do_cliente": "1 frase (ex.: contato técnico objetivo, usuário leigo que precisa de passo a passo)", "recomendacoes": ["até 4 ações práticas para o atendente"]}`;
+Responda em JSON: {"resumo": "2 a 3 frases sobre a situação e o que o cliente precisa", "sentimento": "...", "urgencia_percebida": "...", "risco_de_churn": "...", "sinais": ["evidências curtas, citando o que o cliente disse ou os números do histórico"], "perfil_do_cliente": "1 frase (ex.: contato técnico objetivo, usuário leigo que precisa de passo a passo)", "recomendacoes": ["até 4 ações práticas para o atendente"]}${cfg.extra(C.instrucaoExtra)}`;
     const user = dados('CHAMADO', `Assunto: ${limitar(t.assunto, 300)}
 Status: ${t.status} · Serviço: ${t.servico || '—'}
 Cliente(s): ${t.clientes.join(', ') || '—'}
 Aberto em: ${dataBr(t.criadoEm)}
 
 Conversa:
-${conversaEmTexto(t.acoes, 9000)}`) + '\n\n' + dados('HISTORICO', JSON.stringify({
-      organizacao: hist.organizacao, chamados_ultimos_90_dias: hist.tickets90d, chamados_abertos_agora_alem_deste: hist.abertosAgora,
-      chamados_ultimos_12_meses: hist.tickets12m, reabertos_12_meses: hist.reabertos12m, tempo_medio_de_resolucao_horas: hist.tempoMedioResolucaoH,
-      chamados_do_gcc_12_meses: hist.tocouGcc12m, servicos_mais_frequentes: hist.servicosFrequentes, assuntos_recentes: hist.assuntosRecentes,
+${conversaEmTexto(t.acoes, C.contextoCaracteres)}`) + '\n\n' + dados('HISTORICO', JSON.stringify({
+      organizacao: hist.organizacao, [`chamados_ultimos_${C.janelaDias}_dias`]: hist.tickets90d, chamados_abertos_agora_alem_deste: hist.abertosAgora,
+      [`chamados_ultimos_${C.mesesHistorico}_meses`]: hist.tickets12m, [`reabertos_${C.mesesHistorico}_meses`]: hist.reabertos12m, tempo_medio_de_resolucao_horas: hist.tempoMedioResolucaoH,
+      [`chamados_do_gcc_${C.mesesHistorico}_meses`]: hist.tocouGcc12m, servicos_mais_frequentes: hist.servicosFrequentes, assuntos_recentes: hist.assuntosRecentes,
     }, null, 1));
-    const r = await chamarIA({ source: 'ticket_analise_cliente', system, user, maxTokens: 800, temperature: 0.2, userEmail: req.user.email, meta: { ticket: id } });
+    const r = await chamarIA({ source: 'ticket_analise_cliente', system, user, maxTokens: 800, temperature: cfg.temperatura(C.criatividade), userEmail: req.user.email, meta: { ticket: id } });
     const pick = (v, ok, pad) => (ok.includes(String(v).toLowerCase()) ? String(v).toLowerCase() : pad);
     res.json({
       resumo: limitar(r.resumo, 700),

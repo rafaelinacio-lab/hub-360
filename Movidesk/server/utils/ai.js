@@ -8,9 +8,9 @@
 const fetch = require('node-fetch');
 const db = require('../db/remote');
 const { decryptToken } = require('./crypto');
+const cfg = require('./aiSettings');
 
 const BASE = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-const MODELO = process.env.AI_ASSIST_MODEL || 'gpt-4o-mini';
 // US$ por 1 milhão de tokens (entrada, saída) — só para o painel de consumo.
 const PRECOS = { 'gpt-4o-mini': [0.15, 0.60], 'gpt-4.1-mini': [0.40, 1.60], 'gpt-4o': [5.0, 15.0], 'gpt-4.1': [2.0, 8.0] };
 
@@ -28,7 +28,7 @@ async function getApiKey() {
 
 async function configurada() { return !!(await getApiKey()); }
 
-function registrarUso(source, usage, userEmail, meta) {
+function registrarUso(source, usage, userEmail, meta, MODELO) {
   try {
     const inT = usage?.prompt_tokens || 0, outT = usage?.completion_tokens || 0;
     if (!inT && !outT) return;
@@ -51,6 +51,7 @@ function extrairJson(texto) {
 
 async function chamarIA({ source, system, user, json = true, maxTokens = 900, temperature = 0.3, userEmail, meta }) {
   const apiKey = await getApiKey();
+  const MODELO = (await cfg.obter()).geral.modelo;   // escolhido em Configurações → Assistente de IA
   if (!apiKey) throw new IaError(503, 'A chave da API de IA não está configurada (Configurações → Inteligência Artificial).');
   const body = {
     model: MODELO, temperature, max_tokens: maxTokens,
@@ -69,7 +70,7 @@ async function chamarIA({ source, system, user, json = true, maxTokens = 900, te
     console.error('[ia]', source, resp.status, data?.error?.message);
     throw new IaError(resp.status === 429 ? 429 : 502, resp.status === 429 ? 'A IA está com muitas requisições agora. Tente de novo em instantes.' : (data?.error?.message || `Falha na IA (${resp.status})`));
   }
-  registrarUso(source, data.usage, userEmail, meta);
+  registrarUso(source, data.usage, userEmail, meta, MODELO);
   const texto = data.choices?.[0]?.message?.content?.trim() || '';
   if (!texto) throw new IaError(502, 'A IA não devolveu texto.');
   return json ? extrairJson(texto) : texto;
@@ -110,4 +111,4 @@ const REGRAS = [
   'Seu resultado é um RASCUNHO para uma pessoa revisar; não mencione que é uma IA.',
 ].join(' ');
 
-module.exports = { chamarIA, configurada, IaError, REGRAS, dados, conversaEmTexto, limitar, semHtml, dataBr, MODELO };
+module.exports = { chamarIA, configurada, IaError, REGRAS, dados, conversaEmTexto, limitar, semHtml, dataBr };

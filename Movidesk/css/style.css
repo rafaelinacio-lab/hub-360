@@ -5592,3 +5592,53 @@ body.legacy-view-mode #embeddedPagesView {
     overflow-y: auto;
     overscroll-behavior: contain;
 }
+
+/* ===== Configurações → Assistente de IA ===== */
+.aia-card { padding: 0; overflow: hidden; }
+.aia-cab { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
+.aia-cab-txt, .aia-cab > div { flex: 1; min-width: 0; }
+.aia-cab .config-card-title { margin: 0 0 2px; }
+.aia-ico { font-size: 22px; color: #6366f1; background: rgba(99,102,241,.1); border-radius: 10px; padding: 7px; }
+.aia-desc { margin: 0; font-size: 12.5px; color: var(--text-muted, #6b7280); }
+.aia-grupo { display: flex; align-items: center; gap: 8px; margin: 22px 2px 10px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted, #6b7280); }
+.aia-grupo .material-symbols-outlined { font-size: 18px; }
+.aia-corpo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; padding: 4px 18px 14px; border-top: 1px solid var(--border); }
+.aia-campo { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px dashed var(--border); }
+.aia-largo { grid-column: 1 / -1; }
+.aia-rot { display: flex; flex-direction: column; gap: 2px; }
+.aia-lbl { font-size: 13px; font-weight: 600; color: var(--section-text); }
+.aia-help { font-size: 12px; color: var(--text-muted, #6b7280); line-height: 1.4; }
+.aia-ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.aia-ctl .config-input { min-width: 0; width: 100%; }
+.aia-ctl .aia-sel { width: auto; min-width: 200px; max-width: 100%; flex: 0 1 auto; }
+.aia-txt { min-height: 64px; resize: vertical; }
+.aia-cont { font-size: 11px; color: var(--text-muted, #6b7280); margin-left: auto; }
+.aia-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); }
+.aia-seg button { border: 0; background: transparent; color: var(--text); padding: 8px 14px; font-size: 13px; cursor: pointer; border-right: 1px solid var(--border); }
+.aia-seg button:last-child { border-right: 0; }
+.aia-seg button.on { background: #6366f1; color: #fff; font-weight: 600; }
+.aia-seg button:focus-visible, .aia-num button:focus-visible, .aia-link:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+.aia-num { display: inline-flex; align-items: center; gap: 6px; }
+.aia-num button { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 17px; cursor: pointer; }
+.aia-num input { width: 84px; text-align: center; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 7px 4px; font-size: 14px; }
+.aia-num span { font-size: 12px; color: var(--text-muted, #6b7280); }
+.aia-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex: none; cursor: pointer; }
+.aia-switch input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+.aia-switch span { position: absolute; inset: 0; border-radius: 99px; background: #9ca3af; transition: background .15s; }
+.aia-switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.aia-switch input:checked + span { background: #10b981; }
+.aia-switch input:checked + span::after { transform: translateX(20px); }
+.aia-switch input:focus-visible + span { outline: 2px solid #3b82f6; outline-offset: 2px; }
+.aia-switch-sm { width: 40px; height: 22px; }
+.aia-switch-sm span::after { width: 16px; height: 16px; }
+.aia-switch-sm input:checked + span::after { transform: translateX(18px); }
+.aia-off .aia-corpo, .aia-off .aia-rodape { opacity: .45; pointer-events: none; }
+.aia-off .aia-ico { color: #9ca3af; background: rgba(156,163,175,.12); }
+.aia-rodape { padding: 8px 18px 12px; border-top: 1px solid var(--border); }
+.aia-link { background: none; border: 0; padding: 0; color: #6366f1; font-size: 12px; cursor: pointer; text-decoration: underline; }
+.aia-barra { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; margin-top: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 -4px 18px rgba(0,0,0,.08); }
+.aia-barra #aiaBarraTxt { flex: 1; min-width: 200px; font-size: 13px; color: var(--text-muted, #6b7280); }
+.aia-barra.aia-sujo { border-color: #f59e0b; }
+.aia-barra.aia-sujo #aiaBarraTxt { color: #b45309; font-weight: 600; }
+.aia-barra .config-btn:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 760px) { .aia-corpo { grid-template-columns: 1fr; } }

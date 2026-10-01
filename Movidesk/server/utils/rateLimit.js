@@ -32,4 +32,15 @@ function rateLimit({ windowMs, max, name, keyFn }) {
   };
 }
 
-module.exports = { rateLimit };
+// Limite cujo teto vem de uma função (ex.: configurações editáveis). Cada teto tem seu próprio contador.
+function rateLimitDinamico({ windowMs, name, getMax }) {
+  const porTeto = new Map();
+  return async (req, res, next) => {
+    let max = 30;
+    try { max = await getMax(); } catch { /* mantém o padrão */ }
+    if (!porTeto.has(max)) porTeto.set(max, rateLimit({ windowMs, max, name }));
+    return porTeto.get(max)(req, res, next);
+  };
+}
+
+module.exports = { rateLimit, rateLimitDinamico };

@@ -878,6 +878,7 @@ function switchConfigTab(tab) {
     document.querySelector('.main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
     // Carregar consumo de IA ao abrir aba IA
     if (tab === 'ia') loadAiUsage();
+    if (tab === 'ia-assist') { aiaInit(); loadAiAssistTab(); }
     if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') loadTabPermissionsConfig();
@@ -3237,3 +3238,172 @@ if (!document.getElementById('dlSpinStyle')) {
 
 
 document.getElementById('cronInterval')?.addEventListener('change', cronToggleCustomInterval);
+
+// ─── Assistente de IA: parâmetros da IA nos chamados e nos incidentes ──────────────────────
+// A tela é montada a partir deste esquema; o servidor valida tudo de novo (utils/aiSettings.js).
+const AIA_CRIAT = { t: 'seg', k: 'criatividade', label: 'Estilo da resposta', help: 'Mais fiel segue os dados à risca; mais criativo varia o texto.', opts: [['baixa', 'Mais fiel'], ['media', 'Equilibrado'], ['alta', 'Mais criativo']] };
+const AIA_EXTRA = { t: 'txt', k: 'instrucaoExtra', label: 'Orientação extra (opcional)', help: 'Uma regra sua para esta função. Ex.: "sempre confirme a versão do sistema antes de orientar".', max: 800 };
+const AIA_SECOES = [
+    { grupo: 'Chamados', icone: 'confirmation_number', itens: [
+        { sec: 'resposta', icone: 'edit_note', titulo: 'Sugestão de resposta', desc: 'Rascunho da próxima resposta ao cliente, a partir da conversa do chamado.', campos: [
+            { t: 'seg', k: 'tomPadrao', label: 'Tom inicial', help: 'O atendente ainda pode trocar o tom na hora.', opts: [['padrao', 'Padrão'], ['empatico', 'Empático'], ['objetivo', 'Objetivo']] },
+            { t: 'seg', k: 'tamanho', label: 'Tamanho da resposta', help: 'Respostas longas gastam mais tokens.', opts: [['curta', 'Curta'], ['media', 'Média'], ['longa', 'Longa']] },
+            AIA_CRIAT,
+            { t: 'num', k: 'maxPerguntas', label: 'Pedidos de informação', help: 'Quantas informações a IA pode pedir ao cliente. 0 = nunca pedir.', min: 0, max: 6, unit: 'no máx.' },
+            { t: 'num', k: 'contextoCaracteres', label: 'Quanto da conversa ler', help: 'A 1ª mensagem e as mais recentes que couberem neste tamanho.', min: 3000, max: 30000, step: 1000, unit: 'caracteres' },
+            AIA_EXTRA] },
+        { sec: 'corrigir', icone: 'spellcheck', titulo: 'Correção de texto', desc: 'Corrige ortografia, acentuação e pontuação sem mudar o que foi escrito.', campos: [
+            { t: 'num', k: 'maxCaracteres', label: 'Tamanho máximo do texto', help: 'Textos maiores são recusados antes de gastar IA.', min: 500, max: 12000, step: 500, unit: 'caracteres' },
+            AIA_EXTRA] },
+        { sec: 'cliente', icone: 'person_search', titulo: 'Análise do cliente', desc: 'Sentimento, urgência percebida e risco de churn, com o histórico da organização.', campos: [
+            { t: 'sel', k: 'janelaDias', num: true, label: 'Histórico recente', help: 'Período usado para contar chamados, tempo médio e serviços mais frequentes.', opts: [[30, 'Últimos 30 dias'], [90, 'Últimos 90 dias'], [180, 'Últimos 180 dias'], [365, 'Último ano']] },
+            { t: 'sel', k: 'mesesHistorico', num: true, label: 'Histórico longo', help: 'Período usado para reaberturas e passagens pelo GCC.', opts: [[3, '3 meses'], [6, '6 meses'], [12, '12 meses'], [24, '24 meses']] },
+            { t: 'line', k: 'termosGcc', label: 'Equipes que indicam risco', help: 'Chamados cuja equipe contenha estes termos entram como sinal de churn. Separe por vírgula.' },
+            { t: 'num', k: 'contextoCaracteres', label: 'Quanto da conversa ler', help: 'Tamanho máximo da conversa enviada à IA.', min: 3000, max: 30000, step: 1000, unit: 'caracteres' },
+            AIA_CRIAT, AIA_EXTRA] },
+    ] },
+    { grupo: 'Incidentes', icone: 'crisis_alert', itens: [
+        { sec: 'incidenteResumo', icone: 'summarize', titulo: 'Resumo e próximos passos', desc: 'Leitura do incidente: resumo, hipóteses de causa, riscos, lacunas e ações.', campos: [
+            { t: 'num', k: 'maxHipoteses', label: 'Hipóteses de causa', help: '0 = não sugerir hipóteses.', min: 0, max: 5, unit: 'no máx.' },
+            { t: 'num', k: 'maxPassos', label: 'Próximos passos', help: 'Ações priorizadas sugeridas.', min: 1, max: 8, unit: 'no máx.' },
+            { t: 'num', k: 'maxRiscos', label: 'Riscos', help: '0 = não listar riscos.', min: 0, max: 5, unit: 'no máx.' },
+            { t: 'sw', k: 'usarMetas', label: 'Comparar com as metas de P1 a P4', help: 'A IA avisa quando reconhecimento ou resolução estão estourando a meta.' },
+            { t: 'num', k: 'chamadosNoContexto', label: 'Chamados enviados à IA', help: 'Quantos chamados vinculados entram na análise.', min: 10, max: 200, step: 10, unit: 'chamados' },
+            { t: 'num', k: 'eventosNoContexto', label: 'Eventos da linha do tempo', help: 'Os mais recentes entram na análise.', min: 10, max: 100, step: 10, unit: 'eventos' },
+            AIA_CRIAT, AIA_EXTRA] },
+        { sec: 'incidenteComunicado', icone: 'campaign', titulo: 'Rascunho de comunicado', desc: 'Texto de aviso para clientes ou equipe; você revisa antes de registrar.', campos: [
+            { t: 'seg', k: 'publicoPadrao', label: 'Para quem, por padrão', help: 'Já vem selecionado ao abrir o incidente.', opts: [['clientes', 'Clientes'], ['interno', 'Equipe']] },
+            { t: 'seg', k: 'tipoPadrao', label: 'Tipo, por padrão', help: 'Já vem selecionado ao abrir o incidente.', opts: [['inicial', 'Primeiro aviso'], ['atualizacao', 'Atualização'], ['resolucao', 'Resolução']] },
+            { t: 'seg', k: 'estilo', label: 'Linguagem para clientes', help: 'Simples evita jargão; formal soa mais institucional.', opts: [['simples', 'Simples'], ['formal', 'Formal']] },
+            { t: 'num', k: 'palavrasClientes', label: 'Tamanho para clientes', help: 'Comunicados curtos são mais lidos.', min: 40, max: 400, step: 10, unit: 'palavras' },
+            { t: 'num', k: 'palavrasEquipe', label: 'Tamanho para a equipe', help: 'Pode ser um pouco mais técnico.', min: 40, max: 600, step: 10, unit: 'palavras' },
+            AIA_CRIAT, AIA_EXTRA] },
+    ] },
+];
+let AIA = { settings: null, defaults: null, modelos: {}, sujo: false };
+const aiaEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function aiaCampo(sec, c, S) {
+    const v = S[sec][c.k], id = `aia-${sec}-${c.k}`;
+    const rotulo = `<label class="aia-lbl" for="${id}">${aiaEsc(c.label)}</label><span class="aia-help">${aiaEsc(c.help || '')}</span>`;
+    let ctl = '';
+    if (c.t === 'sw') ctl = `<label class="aia-switch aia-switch-sm"><input type="checkbox" id="${id}" data-sec="${sec}" data-k="${c.k}" ${v ? 'checked' : ''}><span></span></label>`;
+    else if (c.t === 'seg') ctl = `<div class="aia-seg" role="radiogroup" aria-label="${aiaEsc(c.label)}">${c.opts.map(([o, t]) => `<button type="button" role="radio" aria-checked="${v === o}" class="${v === o ? 'on' : ''}" data-sec="${sec}" data-k="${c.k}" data-v="${o}">${aiaEsc(t)}</button>`).join('')}</div>`;
+    else if (c.t === 'sel') ctl = `<select id="${id}" class="config-input aia-sel" data-sec="${sec}" data-k="${c.k}" data-num="${c.num ? 1 : ''}">${c.opts.map(([o, t]) => `<option value="${o}" ${String(v) === String(o) ? 'selected' : ''}>${aiaEsc(t)}</option>`).join('')}</select>`;
+    else if (c.t === 'num') ctl = `<div class="aia-num"><button type="button" data-step="-1" data-sec="${sec}" data-k="${c.k}" aria-label="Diminuir">−</button><input type="number" id="${id}" data-sec="${sec}" data-k="${c.k}" min="${c.min}" max="${c.max}" step="${c.step || 1}" value="${v}"><button type="button" data-step="1" data-sec="${sec}" data-k="${c.k}" aria-label="Aumentar">+</button><span>${aiaEsc(c.unit || '')}</span></div>`;
+    else if (c.t === 'line') ctl = `<input type="text" id="${id}" class="config-input" data-sec="${sec}" data-k="${c.k}" value="${aiaEsc(v)}" maxlength="200">`;
+    else if (c.t === 'txt') ctl = `<textarea id="${id}" class="config-input config-textarea aia-txt" data-sec="${sec}" data-k="${c.k}" maxlength="${c.max}" rows="2" placeholder="Deixe em branco para usar só o comportamento padrão">${aiaEsc(v)}</textarea><span class="aia-cont" data-cont="${id}">${String(v).length}/${c.max}</span>`;
+    return `<div class="aia-campo ${c.t === 'txt' || c.t === 'line' ? 'aia-largo' : ''}"><div class="aia-rot">${rotulo}</div><div class="aia-ctl">${ctl}</div></div>`;
+}
+
+function aiaRender() {
+    const root = document.getElementById('aiaRoot');
+    if (!root || !AIA.settings) return;
+    const S = AIA.settings, G = S.geral;
+    const modelos = Object.entries(AIA.modelos).map(([m, t]) => `<option value="${m}" ${G.modelo === m ? 'selected' : ''}>${aiaEsc(t)}</option>`).join('');
+    const geral = `<section class="config-card aia-card">
+        <header class="aia-cab"><span class="material-symbols-outlined aia-ico">tune</span><div><h3 class="config-card-title">Geral</h3><p class="aia-desc">Vale para todas as funções de IA dos chamados e dos incidentes.</p></div></header>
+        <div class="aia-corpo">
+            <div class="aia-campo"><div class="aia-rot"><label class="aia-lbl" for="aia-geral-modelo">Modelo de IA</label><span class="aia-help">Modelos maiores acertam mais e custam mais. O consumo aparece em "Consumo de IA".</span></div><div class="aia-ctl"><select id="aia-geral-modelo" class="config-input aia-sel" data-sec="geral" data-k="modelo">${modelos}</select></div></div>
+            <div class="aia-campo aia-largo"><div class="aia-rot"><label class="aia-lbl" for="aia-geral-diretrizes">Diretrizes da empresa</label><span class="aia-help">Regras que a IA segue em TODAS as funções. Ex.: "nunca prometa prazo", "trate o cliente por senhor/senhora", "cite sempre o número do chamado".</span></div><div class="aia-ctl"><textarea id="aia-geral-diretrizes" class="config-input config-textarea aia-txt" data-sec="geral" data-k="diretrizes" maxlength="1500" rows="3" placeholder="Deixe em branco para usar só o comportamento padrão">${aiaEsc(G.diretrizes)}</textarea><span class="aia-cont" data-cont="aia-geral-diretrizes">${G.diretrizes.length}/1500</span></div></div>
+            ${aiaCampo('geral', { t: 'num', k: 'limiteChamadosPor10min', label: 'Limite por pessoa nos chamados', help: 'Protege o custo: usos de IA em 10 minutos por usuário.', min: 5, max: 300, step: 5, unit: 'usos / 10 min' }, S)}
+            ${aiaCampo('geral', { t: 'num', k: 'limiteIncidentesPor10min', label: 'Limite por pessoa nos incidentes', help: 'Usos de IA em 10 minutos por usuário.', min: 5, max: 300, step: 5, unit: 'usos / 10 min' }, S)}
+        </div></section>`;
+    const grupos = AIA_SECOES.map((g) => `<h3 class="aia-grupo"><span class="material-symbols-outlined">${g.icone}</span>${g.grupo}</h3>` + g.itens.map((it) => {
+        const on = S[it.sec].ativo;
+        return `<section class="config-card aia-card ${on ? '' : 'aia-off'}" data-card="${it.sec}">
+            <header class="aia-cab"><span class="material-symbols-outlined aia-ico">${it.icone}</span><div class="aia-cab-txt"><h3 class="config-card-title">${it.titulo}</h3><p class="aia-desc">${it.desc}</p></div>
+                <label class="aia-switch" title="${on ? 'Ligada' : 'Desligada'}"><input type="checkbox" data-sec="${it.sec}" data-k="ativo" ${on ? 'checked' : ''} aria-label="Ativar ${it.titulo}"><span></span></label></header>
+            <div class="aia-corpo">${it.campos.map((c) => aiaCampo(it.sec, c, S)).join('')}</div>
+            <footer class="aia-rodape"><button type="button" class="aia-link" data-padrao="${it.sec}">Voltar esta função ao padrão</button></footer>
+        </section>`;
+    }).join('')).join('');
+    const foco = document.activeElement && document.activeElement.id;
+    root.innerHTML = geral + grupos;
+    if (foco) document.getElementById(foco)?.focus({ preventScroll: true });
+    aiaMarcarSujo(AIA.sujo);
+}
+
+function aiaMarcarSujo(sujo) {
+    AIA.sujo = sujo;
+    const bar = document.getElementById('aiaBarra'); if (!bar) return;
+    bar.classList.toggle('aia-sujo', sujo);
+    document.getElementById('aiaBarraTxt').textContent = sujo ? 'Você tem alterações não salvas.' : 'Tudo salvo. As mudanças valem para os próximos usos da IA.';
+    document.getElementById('aiaSalvar').disabled = !sujo;
+    document.getElementById('aiaDescartar').disabled = !sujo;
+}
+
+function aiaAplicar(sec, k, valor) {
+    AIA.settings[sec][k] = valor;
+    aiaMarcarSujo(true);
+}
+
+async function loadAiAssistTab() {
+    const root = document.getElementById('aiaRoot');
+    if (!root || !isCurrentUserAdmin()) return;
+    if (!AIA.settings) root.innerHTML = '<p class="config-card-help">Carregando…</p>';
+    try {
+        const r = await fetch(`${API_BASE}/config/ai-assist`, { headers: authHeaders() });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Falha ao carregar');
+        AIA = { settings: d.settings, defaults: d.defaults, modelos: d.modelos, sujo: false };
+        aiaRender();
+    } catch (e) { root.innerHTML = `<p class="config-status error">${aiaEsc(e.message)}</p>`; }
+}
+
+async function aiaSalvar() {
+    const st = document.getElementById('aiaStatus');
+    const btn = document.getElementById('aiaSalvar'); btn.disabled = true;
+    try {
+        const r = await fetch(`${API_BASE}/config/ai-assist`, { method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: AIA.settings }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Falha ao salvar');
+        AIA.settings = d.settings; AIA.sujo = false; aiaRender();
+        st.className = 'config-status ok'; st.textContent = 'Configurações salvas.';
+    } catch (e) { st.className = 'config-status error'; st.textContent = e.message; btn.disabled = false; }
+    setTimeout(() => { if (st.textContent === 'Configurações salvas.') st.textContent = ''; }, 4000);
+}
+
+function aiaInit() {
+    const root = document.getElementById('aiaRoot');
+    if (!root || root.dataset.pronto) return;
+    root.dataset.pronto = '1';
+    root.addEventListener('click', (e) => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.padrao) {
+            AIA.settings[b.dataset.padrao] = JSON.parse(JSON.stringify(AIA.defaults[b.dataset.padrao]));
+            aiaMarcarSujo(true); aiaRender(); return;
+        }
+        const { sec, k } = b.dataset; if (!sec) return;
+        if (b.dataset.v !== undefined) { aiaAplicar(sec, k, b.dataset.v); aiaRender(); return; }
+        if (b.dataset.step) {
+            const inp = document.getElementById(`aia-${sec}-${k}`), passo = Number(inp.step) || 1;
+            const n = Math.min(Number(inp.max), Math.max(Number(inp.min), (Number(inp.value) || 0) + passo * Number(b.dataset.step)));
+            inp.value = n; aiaAplicar(sec, k, n);
+        }
+    });
+    root.addEventListener('input', (e) => {
+        const t = e.target; if (!t.dataset || !t.dataset.sec || t.type === 'checkbox') return;
+        const { sec, k } = t.dataset;
+        if (t.type === 'number') { if (t.value !== '') aiaAplicar(sec, k, Number(t.value)); return; }
+        if (t.tagName === 'SELECT') return;
+        aiaAplicar(sec, k, t.value);
+        root.querySelector(`[data-cont="${t.id}"]`)?.replaceChildren(`${t.value.length}/${t.maxLength}`);
+    });
+    root.addEventListener('change', (e) => {
+        const t = e.target; if (!t.dataset || !t.dataset.sec) return;
+        const { sec, k } = t.dataset;
+        if (t.type === 'checkbox') { aiaAplicar(sec, k, t.checked); if (k === 'ativo') aiaRender(); }
+        else if (t.tagName === 'SELECT') { aiaAplicar(sec, k, t.dataset.num ? Number(t.value) : t.value); }
+        else if (t.type === 'number') {
+            const n = Math.min(Number(t.max), Math.max(Number(t.min), Number(t.value) || Number(t.min)));
+            t.value = n; aiaAplicar(sec, k, n);
+        }
+    });
+    document.getElementById('aiaSalvar').addEventListener('click', aiaSalvar);
+    document.getElementById('aiaDescartar').addEventListener('click', () => loadAiAssistTab());
+    document.getElementById('aiaRestaurar').addEventListener('click', () => {
+        if (!confirm('Voltar TODAS as configurações do assistente de IA ao padrão? Isso só vale depois de salvar.')) return;
+        AIA.settings = JSON.parse(JSON.stringify(AIA.defaults)); aiaMarcarSujo(true); aiaRender();
+    });
+}

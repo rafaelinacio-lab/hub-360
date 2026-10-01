@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/remote');
 const { encryptToken, decryptToken, isLegacyEncrypted } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
+const aiSettings = require('../utils/aiSettings');
 
 function saveConfigValue(key, value, callback) {
   db.run(
@@ -29,6 +30,18 @@ function saveConfigValue(key, value, callback) {
 function getConfigValue(key, callback) {
   db.get('SELECT value FROM config WHERE key = ?', [key], callback);
 }
+
+// ── Assistente de IA (Central do chamado e Incidentes): parâmetros editáveis pelo admin ───────────
+router.get('/ai-assist', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    res.json({ settings: await aiSettings.obter(), defaults: aiSettings.normalizar({}), modelos: aiSettings.MODELOS });
+  } catch (e) { res.status(500).json({ error: 'Erro ao ler as configurações da IA' }); }
+});
+router.put('/ai-assist', authMiddleware, requireRole('admin'), async (req, res) => {
+  if (!req.body || typeof req.body.settings !== 'object' || Array.isArray(req.body.settings)) return res.status(400).json({ error: 'Formato inválido' });
+  try { res.json({ success: true, settings: await aiSettings.salvar(req.body.settings) }); }
+  catch (e) { console.error('[config] ai-assist:', e.message); res.status(500).json({ error: 'Erro ao salvar as configurações da IA' }); }
+});
 
 // GET - Obter status do token Movidesk (somente admin)
 router.get('/token', authMiddleware, requireRole('admin'), (req, res) => {

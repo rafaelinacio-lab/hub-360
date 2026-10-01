@@ -226,6 +226,9 @@
                     <button class="cfg-tab-btn" data-tab="ia" onclick="switchConfigTab('ia')">
                         <span class="material-symbols-outlined">smart_toy</span> Inteligência Artificial
                     </button>
+                    <button class="cfg-tab-btn" data-tab="ia-assist" onclick="switchConfigTab('ia-assist')">
+                        <span class="material-symbols-outlined">auto_awesome</span> Assistente de IA
+                    </button>
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
@@ -692,6 +695,22 @@
                         <div id="cfgUsageChart" style="margin-top:8px"></div>
 
                         <div id="cfgUsageStatus" class="config-status" style="margin-top:8px"></div>
+                    </div>
+                </div>
+
+                <!-- ABA: Assistente de IA (chamados e incidentes) -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-ia-assist">
+                    <div class="config-card aia-intro">
+                        <h3 class="config-card-title">Assistente de IA nos chamados e incidentes</h3>
+                        <p class="config-card-help">Ajuste como a IA ajuda a equipe: o que ela faz, quanto lê, o tom e as regras da empresa. A IA só gera rascunhos; a chave da API fica na aba <a href="#" onclick="switchConfigTab('ia');return false;">Inteligência Artificial</a>. As mudanças valem a partir do próximo uso, sem reiniciar nada.</p>
+                    </div>
+                    <div id="aiaRoot"></div>
+                    <div class="aia-barra" id="aiaBarra">
+                        <span id="aiaBarraTxt">Tudo salvo.</span>
+                        <span id="aiaStatus" class="config-status" role="status"></span>
+                        <button type="button" class="config-btn config-btn-muted" id="aiaRestaurar">Restaurar padrões</button>
+                        <button type="button" class="config-btn config-btn-muted" id="aiaDescartar" disabled>Descartar</button>
+                        <button type="button" class="config-btn" id="aiaSalvar" disabled>Salvar alterações</button>
                     </div>
                 </div>
 

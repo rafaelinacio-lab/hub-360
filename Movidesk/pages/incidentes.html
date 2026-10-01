@@ -348,6 +348,13 @@ function desenharGaveta(d){
   }));
   const comIa=async(btn,rotulo,fn)=>{ if(btn.dataset.o) return; btn.dataset.o='1'; const t=btn.innerHTML; btn.disabled=true; btn.textContent=rotulo; aviso('gAviso',''); try{ await fn(); }catch(e){ falha(e); } btn.disabled=false; btn.innerHTML=t; delete btn.dataset.o; };
   const lista=(t,a)=>a&&a.length?`<div><h5>${t}</h5><ul>${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+  (S.iaStatus||(S.iaStatus=api('/ia/status').catch(()=>({})))).then(st=>{
+    const rec=st.recursos||{}, pad=st.padroes||{};
+    if(rec.resumo===false) $('gIaResumo').style.display='none';
+    if(rec.comunicado===false){ $('gIaComunicado').style.display='none'; const l=$('gIaPublico')&&$('gIaPublico').parentNode; if(l) l.style.display='none'; }
+    else { if(pad.publico&&$('gIaPublico')) $('gIaPublico').value=pad.publico; if(pad.tipo&&$('gIaTipo')) $('gIaTipo').value=pad.tipo; }
+    if(rec.resumo===false&&rec.comunicado===false){ const sec=$('gIaResumo').closest('.sec'); if(sec) sec.style.display='none'; }
+  });
   $('gIaResumo').addEventListener('click',()=>comIa($('gIaResumo'),'Analisando…',async()=>{
     const r=await api(`/${i.id}/ia/resumo`,{method:'POST',body:{}});
     $('gIaPainel').innerHTML=`<h5>Leitura da IA</h5><div>${esc(r.resumo)}</div>
