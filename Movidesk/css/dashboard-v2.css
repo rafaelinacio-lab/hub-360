@@ -177,3 +177,17 @@
 .ws-layout::-webkit-scrollbar, .ws-box::-webkit-scrollbar, #wsConversa::-webkit-scrollbar, #wsControles::-webkit-scrollbar {
     display: none; width: 0; height: 0;
 }
+
+/* Conferência com o Movidesk */
+.tk-conferir { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.tk-conferir:hover { border-color: #6366f1; }
+.tk-conferir:disabled { opacity: .6; cursor: wait; }
+.conf-painel { margin: 10px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 13px; }
+.conf-painel.ok { border-color: #10b981; }
+.conf-painel.dif { border-color: #f59e0b; }
+.conf-painel h4 { margin: 0 0 6px; font-size: 14px; }
+.conf-lista { margin: 8px 0; max-height: 260px; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 4px; }
+.conf-lista::-webkit-scrollbar { display: none; }
+.conf-lin { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 4px 10px; align-items: baseline; font-size: 12.5px; }
+.conf-lin .de-para { color: var(--text-muted, #6b7280); white-space: nowrap; }
+.conf-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }

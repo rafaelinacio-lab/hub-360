@@ -17,6 +17,7 @@ const gccRoutes = require('./routes/gcc');
 const geralRoutes = require('./routes/geral');
 const satisfacaoRoutes = require('./routes/satisfacao');
 const incidentesRoutes = require('./routes/incidentes');
+const dashboardConferenciaRoutes = require('./routes/dashboard-conferencia');
 const incidentesAvancadoRoutes = require('./routes/incidentes-avancado');
 const jiraRoutes = require('./routes/jira');
 const loaderRoutes = require('./routes/loader');
@@ -91,6 +92,7 @@ app.use('/api/ouvidoria', ouvidoriaRoutes);
 app.use('/api/gcc', gccRoutes);
 app.use('/api/geral', geralRoutes);
 app.use('/api/satisfacao', satisfacaoRoutes);
+app.use('/api/dashboard-conferencia', dashboardConferenciaRoutes);
 // rotas fixas (sugestões, problemas, pós-incidente...) antes das de /:id
 app.use('/api/incidentes', incidentesAvancadoRoutes);
 app.use('/api/incidentes', incidentesRoutes);
