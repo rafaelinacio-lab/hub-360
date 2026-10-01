@@ -154,6 +154,9 @@ a.id{color:var(--t3);font-weight:600;text-decoration:none} a.id:hover{text-decor
 .pm-linha{display:grid;grid-template-columns:minmax(0,1fr) 140px 150px auto auto;gap:6px;align-items:center}
 .pm-linha input[type=checkbox]{width:auto}
 .modal.larga{width:min(760px,100%)}
+.modal label.rel{display:grid;flex-direction:row;font-weight:400;color:var(--t1)}
+.av-linha{display:flex;gap:8px;align-items:center}
+.av-linha select{flex:1;min-width:0}
 .prb{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center}
 .prb .sub{grid-column:1/-1}
 .pill.pr{background:var(--surface-mid);color:var(--t2)}
@@ -251,7 +254,10 @@ a.id{color:var(--t3);font-weight:600;text-decoration:none} a.id:hover{text-decor
     <div class="sec"><h4>Tipo</h4>
       <label style="flex-direction:row;gap:8px;align-items:center"><input type="radio" name="avTipo" value="interna" checked style="width:auto"> Nota interna (só a equipe vê)</label>
       <label style="flex-direction:row;gap:8px;align-items:center"><input type="radio" name="avTipo" value="publica" style="width:auto"> Resposta pública (o cliente recebe)</label></div>
-    <label>Texto <textarea id="avTexto" maxlength="8000" placeholder="Mensagem para os chamados vinculados"></textarea></label>
+    <div class="sec"><h4>Mensagem</h4>
+      <div class="av-linha"><select id="avModelo" aria-label="Modelo de mensagem"></select><button type="button" class="btn peq ia-btn" id="avIa" title="A IA escreve um rascunho com base no incidente">✨ Sugerir com IA</button></div>
+      <textarea id="avTexto" maxlength="8000" placeholder="Escolha um modelo acima ou escreva a mensagem. Você pode editar antes de enviar." aria-label="Texto da mensagem"></textarea>
+      <div class="sub">Os modelos já vêm preenchidos com os dados do incidente (serviço, contorno, solução). Edite à vontade antes de enviar.</div></div>
     <div class="sec"><h4 id="avTitTk">Chamados</h4><div class="tks" id="avTks" style="margin:0"></div></div>
     <label id="avConfLbl" style="flex-direction:row;gap:8px;align-items:center;display:none"><input type="checkbox" id="avConf" style="width:auto"> Confirmo que este texto será enviado ao cliente</label>
     <div class="aviso" id="avAviso" role="status"></div>
@@ -544,7 +550,8 @@ function abrirPosmortem(i,r){
   $('pmFundo').classList.add('aberto');
 }
 let PM_IA=true;
-api('/ia/status').then(s=>{ PM_IA=s.configurada&&s.recursos&&s.recursos.posmortem!==false; }).catch(()=>{ PM_IA=false; });
+let IA_ST={};
+api('/ia/status').then(s=>{ IA_ST=s; PM_IA=s.configurada&&s.recursos&&s.recursos.posmortem!==false; }).catch(()=>{ PM_IA=false; });
 async function salvarPm(publicar){
   const b=lerPm(); b.publicar=publicar; aviso('pmAviso','');
   if(publicar&&!confirm('Publicar o pós-incidente? Ele passa a contar como concluído para este incidente.')) return;
@@ -568,15 +575,58 @@ $('pmIa').addEventListener('click',async()=>{
 
 /* ── avisar chamados no Movidesk ─────────────────────────────── */
 let AV=null;
+function modelosAviso(i){
+  const serv=i.servico||'um de nossos serviços', cod=i.codigo, tit=i.titulo;
+  const ctr=(i.contorno||'').trim(), res=(i.resolucao||'').trim();
+  const interna=[
+    ['vinculo','Vínculo com o incidente',`Chamado vinculado ao incidente ${cod} — ${tit}. O tratamento é centralizado no incidente; novas informações serão registradas lá.`],
+    ['investigando','Incidente em investigação',`${cod}: incidente em investigação pela equipe. Aguardando diagnóstico; este chamado será atualizado assim que houver novidades.`],
+    ['mitigado','Contorno aplicado',`${cod}: contorno aplicado${ctr?` — ${ctr}`:''}. Validar com o cliente se o serviço normalizou.`],
+    ['resolvido','Incidente resolvido',`${cod}: incidente resolvido${res?` — ${res}`:''}. Validar com o cliente e encerrar este chamado se ele confirmar.`],
+  ];
+  const publica=[
+    ['inicial','Primeiro aviso ao cliente',`Olá! Identificamos uma instabilidade em ${serv} que pode estar afetando o seu atendimento. Nossa equipe já está atuando na correção e vamos atualizar este chamado assim que tivermos novidades.`],
+    ['atualizacao','Atualização ao cliente',`Olá! Seguimos trabalhando na instabilidade em ${serv}.${ctr?` Enquanto isso, uma alternativa: ${ctr}.`:''} Retornaremos neste chamado assim que houver novidades.`],
+    ['resolucao','Resolução ao cliente',`Olá! O problema em ${serv} foi corrigido e o serviço foi restabelecido.${res?` ${res.replace(/[.\s]+$/,'')}.`:''} Por favor, confirme se está tudo normal. Se algo persistir, é só responder a este chamado.`],
+  ];
+  return {interna,publica};
+}
+const MODELO_PADRAO={aberto:['vinculo','inicial'],investigando:['investigando','atualizacao'],mitigado:['mitigado','atualizacao'],resolvido:['resolvido','resolucao'],fechado:['resolvido','resolucao']};
+function montarModelos(){
+  const tipo=document.querySelector('input[name=avTipo]:checked').value, m=modelosAviso(AV.i)[tipo];
+  $('avModelo').innerHTML='<option value="">Mensagem personalizada</option>'+m.map(x=>`<option value="${x[0]}">${esc(x[1])}</option>`).join('');
+  return m;
+}
+function aplicarModelo(){
+  const tipo=document.querySelector('input[name=avTipo]:checked').value, m=modelosAviso(AV.i)[tipo].find(x=>x[0]===$('avModelo').value);
+  if(m) $('avTexto').value=m[2];
+}
 function abrirAviso(i,d,texto){
   const abertos=d.tickets.filter(t=>!t.basestatus||['New','InAttendance','Stopped','InProgress'].includes(t.basestatus));
   if(!abertos.length) return aviso('gAviso','Nenhum chamado aberto vinculado para avisar.',true);
-  AV={i}; $('avTexto').value=texto||''; aviso('avAviso','');
+  AV={i}; aviso('avAviso','');
   document.querySelector('input[name=avTipo][value=interna]').checked=true; $('avConf').checked=false; $('avConfLbl').style.display='none';
   $('avTks').innerHTML=abertos.map(t=>`<label class="rel" style="grid-template-columns:auto auto minmax(0,1fr)"><input type="checkbox" value="${t.ticket_id}" checked style="width:auto"><a class="id" href="${ticketUrl(t.ticket_id)}" target="_blank" rel="noopener">#${t.ticket_id}</a><span class="as">${esc(t.assunto||'')} <span class="sub">· ${esc(t.cliente||'—')}</span></span></label>`).join('');
+  montarModelos(); $('avIa').style.display=IA_ST.configurada&&IA_ST.recursos&&IA_ST.recursos.comunicado!==false?'':'none';
+  if(texto){ $('avTexto').value=texto; $('avModelo').value=''; }
+  else { const padrao=(MODELO_PADRAO[i.status]||MODELO_PADRAO.aberto)[0]; $('avModelo').value=padrao; aplicarModelo(); }
   $('avFundo').classList.add('aberto'); $('avTexto').focus();
 }
-document.querySelectorAll('input[name=avTipo]').forEach(r=>r.addEventListener('change',()=>{ $('avConfLbl').style.display=document.querySelector('input[name=avTipo]:checked').value==='publica'?'flex':'none'; }));
+$('avModelo').addEventListener('change',aplicarModelo);
+$('avIa').addEventListener('click',async()=>{
+  const tipo=document.querySelector('input[name=avTipo]:checked').value, st=AV.i.status;
+  if($('avTexto').value.trim()&&!confirm('A sugestão da IA vai substituir o texto atual. Continuar?')) return;
+  const b=$('avIa'), t=b.textContent; b.disabled=true; b.textContent='Escrevendo…'; aviso('avAviso','');
+  try{ const r=await api(`/${AV.i.id}/ia/comunicado`,{method:'POST',body:{publico:tipo==='publica'?'clientes':'interno',tipo:(MODELO_PADRAO[st]||MODELO_PADRAO.aberto)[1]}});
+    $('avTexto').value=r.texto; $('avModelo').value=''; aviso('avAviso','Rascunho da IA preenchido. Revise antes de enviar.'); }
+  catch(e){ aviso('avAviso',e.message,true); }
+  b.disabled=false; b.textContent=t;
+});
+document.querySelectorAll('input[name=avTipo]').forEach(r=>r.addEventListener('change',()=>{
+  const pub=document.querySelector('input[name=avTipo]:checked').value==='publica';
+  $('avConfLbl').style.display=pub?'flex':'none'; if(!pub) $('avConf').checked=false;
+  montarModelos(); const tipoIdx=pub?1:0; $('avModelo').value=(MODELO_PADRAO[AV.i.status]||MODELO_PADRAO.aberto)[tipoIdx]; aplicarModelo();
+}));
 $('avCancelar').addEventListener('click',()=>$('avFundo').classList.remove('aberto'));
 $('avForm').addEventListener('submit',async(ev)=>{
   ev.preventDefault();
