@@ -1038,24 +1038,74 @@ function updateQuickChipCounts(all) {
     set('chipAtrasados', atras); set('chipSemRetorno', semRet); set('chipNovos', novos); set('chipPausa', pausa);
 }
 
-// Função para renderizar os chamados (lista densa ou cartões)
+// ── Kanban ────────────────────────────────────────────────────────────────────
+// Colunas por status; em cada uma o mais severo (urgência) fica no topo. Cartão enxuto: o
+// que importa pra decidir o que pegar agora (urgência, prazo, assunto, cliente, quem e
+// se o cliente está esperando). Clicar abre a Central do chamado.
+const KB_COLUNAS = [
+    { key: 'New', titulo: 'Novos' },
+    { key: 'InAttendance', titulo: 'Em atendimento' },
+    { key: 'Stopped', titulo: 'Aguardando' },
+];
+
+function renderKanbanCard(t) {
+    const sla = tkSlaInfo(t);
+    const urg = getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', ''));
+    const dono = getTicketValue(t, 'ownerName', 'ownername', 'Não atribuído') || 'Não atribuído';
+    const cliente = getTicketValue(t, 'clientName', 'clientname', '') || getTicketValue(t, 'clientOrganization', 'clientorganization', '');
+    const origem = getTicketValue(t, 'lastActionOrigin', 'lastactionorigin', '');
+    const quem = getTicketValue(t, 'lastActionCreatedByBusinessName', 'lastactioncreatedbybusinessname', '');
+    const upd = getTicketValue(t, 'lastUpdate', 'lastupdate', '') || getTicketValue(t, 'lastActionDate', 'lastactiondate', '');
+    const primeiroNome = String(dono).split(' ')[0];
+    return `
+    <article class="kb-card kb-${sla.kind}" tabindex="0" role="button" aria-label="Chamado ${escapeHtml(t.id)}: ${escapeHtml(t.subject)}"
+        onclick="openTicketWorkspace(${t.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTicketWorkspace(${t.id});}">
+        <div class="kb-topo">
+            <span class="urgency-bubble ${urg.class}">${urg.label}</span>
+            <span class="kb-id">#${escapeHtml(t.id)}</span>
+            <span class="tk-pill sla-${sla.kind} kb-sla">${escapeHtml(sla.label)}</span>
+        </div>
+        <h4 class="kb-titulo" title="${escapeHtml(t.subject)}">${escapeHtml(t.subject)}</h4>
+        <div class="kb-cliente" title="${escapeHtml(cliente)}">${escapeHtml(cliente || 'Cliente não informado')}</div>
+        <div class="kb-rodape">
+            <span class="kb-agente" title="${escapeHtml(dono)}">${createAvatarHTML(getTicketValue(t, 'ownerEmail', 'owneremail', '') || null, dono)}<span>${escapeHtml(primeiroNome)}</span></span>
+            ${origem === 'Customer' ? '<span class="kb-espera" title="A última ação foi do cliente — ele aguarda retorno">Cliente aguarda</span>' : `${quem && String(quem).split(' ')[0] !== primeiroNome ? `<span class="kb-ult" title="Última ação: ${escapeHtml(quem)}">↩ ${escapeHtml(String(quem).split(' ')[0])}</span>` : ''}`}
+            <span class="kb-quando">${escapeHtml(tkAgo(upd))}</span>
+        </div>
+    </article>`;
+}
+
+function renderKanban(tickets) {
+    const ordenados = tkSorted(tickets);
+    const grupos = {};
+    KB_COLUNAS.forEach(c => { grupos[c.key] = []; });
+    const outros = [];
+    ordenados.forEach(t => {
+        const base = normalizeDashboardBaseStatus(getTicketValue(t, 'baseStatus', 'basestatus', '') || getTicketValue(t, 'status', 'status', ''));
+        (grupos[base] || outros).push(t);
+    });
+    const colunas = KB_COLUNAS.map(c => ({ ...c, itens: grupos[c.key] }));
+    if (outros.length) colunas.push({ key: 'Outros', titulo: 'Outros status', itens: outros });
+    return `<div class="kb-board">${colunas.map(c => `
+        <section class="kb-col kb-col-${c.key}" aria-label="${escapeHtml(c.titulo)}">
+            <header class="kb-col-topo"><h3>${escapeHtml(c.titulo)}</h3><span class="kb-col-n">${c.itens.length}</span></header>
+            <div class="kb-lista">${c.itens.length ? c.itens.map(renderKanbanCard).join('') : '<div class="kb-vazio">Nenhum chamado</div>'}</div>
+        </section>`).join('')}</div>`;
+}
+
+// Função para renderizar os chamados (lista densa ou kanban)
 function renderTickets(tickets, container) {
     const seg = { lista: document.getElementById('viewLista'), cards: document.getElementById('viewCards') };
     if (seg.lista) seg.lista.setAttribute('aria-pressed', String(_dashView === 'lista'));
     if (seg.cards) seg.cards.setAttribute('aria-pressed', String(_dashView === 'cards'));
     container.classList.toggle('tk-list-mode', _dashView === 'lista');
+    container.classList.toggle('kb-mode', _dashView === 'cards');
 
     if (!tickets || tickets.length === 0) {
         container.innerHTML = '<div class="tk-vazio" style="grid-column: 1/-1;">Nenhum chamado encontrado para estes filtros.</div>';
         return;
     }
-    if (_dashView === 'lista') {
-        container.innerHTML = renderTicketsTable(tickets);
-        return;
-    }
-    const ordenados = tkSorted(tickets);
-    container.innerHTML = ordenados.map(ticket => createCardHTML(ticket)).join('');
-    loadFirstResponseSla(ordenados);
+    container.innerHTML = _dashView === 'lista' ? renderTicketsTable(tickets) : renderKanban(tickets);
 }
 
 function normalizeDashboardBaseStatus(value) {
