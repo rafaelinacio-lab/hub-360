@@ -2189,4 +2189,5 @@ async function runIncrementalSync() {
 
 module.exports = router;
 module.exports.runSync = runSync;
+module.exports.limparCache = () => ticketsResponseCache.clear();
 module.exports.runIncrementalSync = runIncrementalSync;
