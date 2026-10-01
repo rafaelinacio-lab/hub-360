@@ -425,6 +425,14 @@ router.post('/:id/workspace/status', requireLeitura, exigirEscrita, limiteEscrit
     const body = { status, actions: [notaDeRastro(agente, `Status alterado para "${status}" pelo Hub 360${justificativa ? ` — ${justificativa}` : ''}.`)] };
     if (justificativa) body.justification = justificativa;
     await movidesk('PATCH', '/tickets', { query: { id }, body });
+    // O Movidesk pode aceitar o PATCH (e gravar a nota) e mesmo assim não aplicar o status — por regra de negócio,
+    // campo obrigatório ou transição bloqueada. Só damos sucesso se o status realmente mudou.
+    const depois = await movidesk('GET', '/tickets', { query: { id, $select: 'id,status,justification' } }).catch(() => null);
+    if (depois && depois.status && String(depois.status).trim().toLowerCase() !== status.toLowerCase()) {
+      const msg = `O Movidesk registrou a nota, mas o status continua "${depois.status}". Isso costuma ser regra do Movidesk (campo obrigatório ou transição bloqueada para "${status}"): confira o chamado lá.`;
+      await auditar(req, id, 'status', { para: status, justificativa: justificativa || null, agente: agente.nome }, `status não mudou (continua ${depois.status})`);
+      return res.status(409).json({ error: msg });
+    }
     await auditar(req, id, 'status', { para: status, justificativa: justificativa || null, agente: agente.nome });
     res.json({ ok: true });
   } catch (e) {
