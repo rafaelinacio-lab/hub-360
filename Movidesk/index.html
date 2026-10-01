@@ -1102,8 +1102,50 @@
                                     <option value="720">A cada 12 horas</option>
                                     <option value="1440">1x por dia</option>
                                     <option value="10080">1x por semana</option>
+                                    <option value="custom">Personalizado…</option>
                                 </select>
                             </div>
+                            <div class="pm-field" id="cronCustomRow" style="display:none;">
+                                <label>Rodar a cada</label>
+                                <div style="display:flex;gap:8px;">
+                                    <input type="number" id="cronCustomValor" min="1" step="1" value="45" style="width:110px;" aria-label="Quantidade">
+                                    <select id="cronCustomUnidade" aria-label="Unidade">
+                                        <option value="1">minutos</option>
+                                        <option value="60">horas</option>
+                                        <option value="1440">dias</option>
+                                    </select>
+                                </div>
+                                <small style="color:var(--muted,#71717a);display:block;margin-top:4px;">Mínimo de 5 minutos; máximo de 24 dias.</small>
+                            </div>
+                            <details class="pm-field" id="cronHorarioBox" style="border:1px solid var(--border,#2a2d3a);border-radius:10px;padding:10px 12px;">
+                                <summary style="cursor:pointer;font-weight:600;">Horário e dias <span id="cronHorarioResumo" style="font-weight:400;color:var(--muted,#71717a);"></span></summary>
+                                <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+                                    <div>
+                                        <label style="display:block;margin-bottom:4px;">Só rodar dentro desta janela de horário (opcional)</label>
+                                        <div style="display:flex;gap:8px;align-items:center;">
+                                            <input type="time" id="cronJanelaInicio" aria-label="Início da janela"> <span>até</span> <input type="time" id="cronJanelaFim" aria-label="Fim da janela">
+                                        </div>
+                                        <small style="color:var(--muted,#71717a);">Fora da janela a execução agendada é pulada. Se o fim for menor que o início, a janela atravessa a meia-noite.</small>
+                                    </div>
+                                    <div>
+                                        <label style="display:block;margin-bottom:4px;">Dias da semana (nenhum marcado = todos)</label>
+                                        <div style="display:flex;gap:10px;flex-wrap:wrap;" id="cronDias">
+                                            <label style="display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" value="1" style="width:auto;"> Seg</label>
+                                            <label style="display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" value="2" style="width:auto;"> Ter</label>
+                                            <label style="display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" value="3" style="width:auto;"> Qua</label>
+                                            <label style="display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" value="4" style="width:auto;"> Qui</label>
+                                            <label style="display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" value="5" style="width:auto;"> Sex</label>
+                                            <label style="display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" value="6" style="width:auto;"> Sáb</label>
+                                            <label style="display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" value="0" style="width:auto;"> Dom</label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style="display:block;margin-bottom:4px;">Alinhar as execuções a partir de (opcional)</label>
+                                        <input type="time" id="cronAncora" aria-label="Horário de alinhamento">
+                                        <small style="color:var(--muted,#71717a);display:block;">Ex.: 02:00 com “1x por dia” roda todo dia às 02:00; 00:00 com “a cada 30 min” roda em :00 e :30. Sem isso, a contagem começa quando o servidor sobe ou a cron é salva. Horário de Brasília.</small>
+                                    </div>
+                                </div>
+                            </details>
                             <div id="cronFullFields" style="display:none;flex-direction:column;gap:16px;">
                                 <div class="pm-field">
                                     <label>Anos (opcional, separados por vírgula)</label>

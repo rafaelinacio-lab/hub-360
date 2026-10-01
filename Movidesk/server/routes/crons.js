@@ -185,18 +185,29 @@ router.get('/', async (req, res) => {
   }
 });
 
+const cronSchedule = require('../utils/cronSchedule');
+// params pode trazer `schedule` (janela de horário, dias, âncora): valida e limpa; devolve o objeto de params final.
+function comScheduleValidado(params) {
+  const p = { ...(params && typeof params === 'object' ? params : {}) };
+  const sch = cronSchedule.normalizarSchedule(p.schedule);
+  if (sch) p.schedule = sch; else delete p.schedule;
+  return p;
+}
+
 router.post('/', async (req, res) => {
   try {
     const { name, task, interval_minutes, enabled, params } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nome é obrigatório' });
     if (!(await tarefaValida(task))) return res.status(400).json({ error: 'Tarefa inválida' });
-    const minutes = Number(interval_minutes);
-    if (!Number.isFinite(minutes) || minutes < 5) return res.status(400).json({ error: 'Intervalo mínimo é 5 minutos' });
+    let minutes;
+    try { minutes = cronSchedule.validarIntervalo(interval_minutes); } catch (e) { return res.status(400).json({ error: e.message }); }
+    let paramsOk;
+    try { paramsOk = comScheduleValidado(params); } catch (e) { return res.status(400).json({ error: e.message }); }
 
     const { rows } = await db.query(
       `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params)
        VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING *`,
-      [String(name).trim(), task, minutes, enabled !== false, JSON.stringify(params || {})]
+      [String(name).trim(), task, minutes, enabled !== false, JSON.stringify(paramsOk)]
     );
     const job = rows[0];
     await cronManager.reloadJob(job.id);
@@ -216,16 +227,17 @@ router.patch('/:id', async (req, res) => {
     const name = req.body?.name !== undefined ? String(req.body.name).trim() : existing.name;
     const task = req.body?.task !== undefined ? req.body.task : existing.task;
     if (!(await tarefaValida(task))) return res.status(400).json({ error: 'Tarefa inválida' });
-    const minutes = req.body?.interval_minutes !== undefined ? Number(req.body.interval_minutes) : existing.interval_minutes;
-    if (!Number.isFinite(minutes) || minutes < 5) return res.status(400).json({ error: 'Intervalo mínimo é 5 minutos' });
+    let minutes;
+    try { minutes = cronSchedule.validarIntervalo(req.body?.interval_minutes !== undefined ? req.body.interval_minutes : existing.interval_minutes); } catch (e) { return res.status(400).json({ error: e.message }); }
     const enabled = req.body?.enabled !== undefined ? !!req.body.enabled : existing.enabled;
-    const params = req.body?.params !== undefined ? req.body.params : existing.params;
+    let params;
+    try { params = comScheduleValidado(req.body?.params !== undefined ? req.body.params : existing.params); } catch (e) { return res.status(400).json({ error: e.message }); }
 
     const { rows } = await db.query(
       `UPDATE silver.cron_job
        SET name = $1, task = $2, interval_minutes = $3, enabled = $4, params = $5::jsonb, updated_at = NOW()
        WHERE id = $6 RETURNING *`,
-      [name, task, minutes, enabled, JSON.stringify(params || {}), id]
+      [name, task, minutes, enabled, JSON.stringify(params), id]
     );
     await cronManager.reloadJob(id);
     res.json({ job: rows[0] });
