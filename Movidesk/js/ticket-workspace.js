@@ -45,16 +45,21 @@
     }
 
     function renderCabecalho(d) {
+        const campo = (rotulo, valor, destaque) => `
+            <div class="ws-info-item"><dt>${esc(rotulo)}</dt><dd${destaque ? ' class="ws-info-forte"' : ''} title="${esc(valor)}">${esc(valor)}</dd></div>`;
         return `
-            <div class="ws-assunto">${esc(d.assunto)}</div>
-            <div class="ws-meta">
+            <div class="ws-titulo-linha">
+                <div class="ws-assunto" title="${esc(d.assunto)}">${esc(d.assunto)}</div>
                 <span class="ws-chip">${esc(d.status)}</span>
-                <span>Responsável: <strong>${esc(d.responsavel?.nome || 'Não atribuído')}</strong></span>
-                ${d.clientes.length ? `<span>Cliente: <strong>${esc(d.clientes[0])}</strong></span>` : ''}
-                ${d.equipe ? `<span>Equipe: <strong>${esc(d.equipe)}</strong></span>` : ''}
-                ${d.servico ? `<span>Serviço: ${esc(d.servico)}</span>` : ''}
-                <span>Aberto em ${fmt(d.criadoEm)}</span>
-            </div>`;
+            </div>
+            <dl class="ws-info">
+                ${campo('Responsável', d.responsavel?.nome || 'Não atribuído', true)}
+                ${campo('Cliente', d.clientes[0] || '—', true)}
+                ${campo('Equipe', d.equipe || '—')}
+                ${campo('Serviço', d.servico || '—')}
+                ${campo('Aberto em', fmt(d.criadoEm))}
+                ${campo('Atualizado', d.atualizadoEm ? `${fmt(d.atualizadoEm)} · ${quandoRelativo(d.atualizadoEm)}` : '—')}
+            </dl>`;
     }
 
     function renderToolbar(d) {
