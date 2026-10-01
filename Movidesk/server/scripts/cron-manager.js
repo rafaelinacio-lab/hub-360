@@ -24,6 +24,7 @@ const TASK_LABELS = {
 };
 
 const timers = new Map(); // job id -> { intervalHandle, timeoutHandle }
+const cronSchedule = require('../utils/cronSchedule');
 const pending = new Set(); // jobs na fila ou rodando agora
 const cancelRequested = new Set(); // jobs que pediram pra parar enquanto estavam na fila
 let runningJobId = null;           // job cuja carga está no loader agora
@@ -101,6 +102,12 @@ async function runTask(job) {
 async function executeJob(jobId, { force = false } = {}) {
   const row = (await db.query('SELECT * FROM silver.cron_job WHERE id = $1', [jobId]).catch(() => ({ rows: [] }))).rows[0];
   if (!row || (!row.enabled && !force)) return;
+  // Janela de horário / dias da semana: a execução AGENDADA fora dela é pulada em silêncio
+  // (o "Rodar agora" ignora a janela).
+  if (!force && !cronSchedule.dentroDaJanela(row.params && row.params.schedule)) {
+    console.log(`⏭  Cron "${row.name}" fora da janela de horário — execução pulada.`);
+    return;
+  }
   // Mesma cron já na fila/rodando (ex.: timer disparou de novo enquanto a
   // anterior esperava) — não empilha outra.
   if (pending.has(jobId)) return;
@@ -194,12 +201,25 @@ function stopJob(jobId) {
 function startJob(job) {
   stopJob(job.id);
   if (!job.enabled) return;
-  const ms = Math.max(1, Number(job.interval_minutes) || 60) * 60 * 1000;
-  // primeira execução 15s depois de (re)agendar — dá tempo do servidor
-  // terminar de subir / da rota de update responder antes de disparar carga
-  const timeoutHandle = setTimeout(() => executeJob(job.id), 15 * 1000);
-  const intervalHandle = setInterval(() => executeJob(job.id), ms);
-  timers.set(job.id, { timeoutHandle, intervalHandle });
+  const minutos = Math.min(cronSchedule.MAX_INTERVALO, Math.max(1, Number(job.interval_minutes) || 60));
+  const ms = minutos * 60 * 1000;
+  const anchor = cronSchedule.parseHM(job.params && job.params.schedule && job.params.schedule.anchor);
+  const entry = { timeoutHandle: null, intervalHandle: null };
+  if (anchor != null) {
+    // Horário-âncora: nada de rodar 15 s depois do boot — espera o próximo horário alinhado
+    // (âncora + k × intervalo) e dali em diante repete a cada intervalo.
+    const atraso = cronSchedule.atrasoAteProximo(anchor, minutos);
+    entry.timeoutHandle = setTimeout(() => {
+      executeJob(job.id);
+      entry.intervalHandle = setInterval(() => executeJob(job.id), ms);
+    }, atraso);
+  } else {
+    // primeira execução 15s depois de (re)agendar — dá tempo do servidor
+    // terminar de subir / da rota de update responder antes de disparar carga
+    entry.timeoutHandle = setTimeout(() => executeJob(job.id), 15 * 1000);
+    entry.intervalHandle = setInterval(() => executeJob(job.id), ms);
+  }
+  timers.set(job.id, entry);
 }
 
 // Chamado no boot do servidor — carrega todos os jobs habilitados do banco

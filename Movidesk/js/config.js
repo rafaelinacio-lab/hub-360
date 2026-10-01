@@ -2559,9 +2559,66 @@ function cronEstimativa(j) {
 
 function cronFmtInterval(minutes) {
     const m = Number(minutes) || 0;
-    if (m % 1440 === 0 && m >= 1440) return `${m / 1440}x por dia`.replace('1x por dia', '1x por dia');
-    if (m % 60 === 0) return `A cada ${m / 60}h`;
-    return `A cada ${m}min`;
+    if (m >= 1440 && m % 1440 === 0) return m === 1440 ? '1x por dia' : (m === 10080 ? '1x por semana' : `A cada ${m / 1440} dias`);
+    if (m >= 60 && m % 60 === 0) return m === 60 ? 'A cada 1 hora' : `A cada ${m / 60} horas`;
+    return `A cada ${m} min`;
+}
+
+const CRON_DIAS_NOME = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+function cronFmtSchedule(s) {
+    if (!s) return '';
+    const p = [];
+    if (Array.isArray(s.dias) && s.dias.length) {
+        const d = s.dias;
+        const seq = d.every((x, i) => i === 0 || x === d[i - 1] + 1);
+        p.push(seq && d.length > 2 ? `${CRON_DIAS_NOME[d[0]]}–${CRON_DIAS_NOME[d[d.length - 1]]}` : d.map(x => CRON_DIAS_NOME[x]).join(', '));
+    }
+    if (s.inicio && s.fim) p.push(`${s.inicio}–${s.fim}`);
+    if (s.anchor) p.push(`alinhada às ${s.anchor}`);
+    return p.join(' · ');
+}
+
+// Intervalo "Personalizado…": mostra/oculta a linha de quantidade + unidade.
+function cronToggleCustomInterval() {
+    const custom = document.getElementById('cronInterval').value === 'custom';
+    const row = document.getElementById('cronCustomRow');
+    if (row) row.style.display = custom ? '' : 'none';
+}
+function cronSetIntervalControls(minutes) {
+    const sel = document.getElementById('cronInterval');
+    const preset = [...sel.options].some(o => o.value === String(minutes) && o.value !== 'custom');
+    if (preset) { sel.value = String(minutes); }
+    else {
+        sel.value = 'custom';
+        const m = Number(minutes) || 60;
+        const un = (m >= 1440 && m % 1440 === 0) ? 1440 : (m >= 60 && m % 60 === 0 ? 60 : 1);
+        document.getElementById('cronCustomUnidade').value = String(un);
+        document.getElementById('cronCustomValor').value = String(m / un);
+    }
+    cronToggleCustomInterval();
+}
+function cronReadIntervalMinutes() {
+    const v = document.getElementById('cronInterval').value;
+    if (v !== 'custom') return Number(v);
+    return Math.round(Number(document.getElementById('cronCustomValor').value) * Number(document.getElementById('cronCustomUnidade').value));
+}
+function cronReadSchedule() {
+    const dias = [...document.querySelectorAll('#cronDias input:checked')].map(i => Number(i.value));
+    return {
+        inicio: document.getElementById('cronJanelaInicio').value || null,
+        fim: document.getElementById('cronJanelaFim').value || null,
+        anchor: document.getElementById('cronAncora').value || null,
+        dias,
+    };
+}
+function cronWriteSchedule(s) {
+    s = s || {};
+    document.getElementById('cronJanelaInicio').value = s.inicio || '';
+    document.getElementById('cronJanelaFim').value = s.fim || '';
+    document.getElementById('cronAncora').value = s.anchor || '';
+    document.querySelectorAll('#cronDias input').forEach(i => { i.checked = Array.isArray(s.dias) && s.dias.includes(Number(i.value)); });
+    document.getElementById('cronHorarioBox').open = !!(s.inicio || s.anchor || (s.dias && s.dias.length));
+    document.getElementById('cronHorarioResumo').textContent = cronFmtSchedule(s) ? `— ${cronFmtSchedule(s)}` : '';
 }
 
 async function cronLoad() {
@@ -2625,7 +2682,7 @@ function cronRenderList() {
             return `<tr style="border-bottom:1px solid var(--border,#222);">
                 <td style="padding:8px 10px;font-weight:600;">${cfgEsc(j.name)}</td>
                 <td style="padding:8px 10px;">${cfgEsc(cronTaskLabel(j.task))}</td>
-                <td style="padding:8px 10px;">${cronFmtInterval(j.interval_minutes)}</td>
+                <td style="padding:8px 10px;">${cronFmtInterval(j.interval_minutes)}${cronFmtSchedule(j.params && j.params.schedule) ? `<div style="color:var(--muted,#71717a);font-size:11.5px;">${cfgEsc(cronFmtSchedule(j.params.schedule))}</div>` : ''}</td>
                 <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${statusBadge} ${lastLabel}${(!running && j.last_error) ? `<div style="color:#f87171;font-size:11px;margin-top:3px;max-width:420px;white-space:normal;line-height:1.35;" title="${cfgEsc(j.last_error)}">${cfgEsc(j.last_error.length > 160 ? j.last_error.slice(0, 158) + '…' : j.last_error)}</div>` : ''}</td>
                 <td style="padding:8px 10px;">
                     <label style="display:inline-flex;align-items:center;cursor:pointer;">
@@ -2683,7 +2740,8 @@ function cronOpenModal(jobId) {
     document.getElementById('cronId').value = job ? job.id : '';
     document.getElementById('cronName').value = job ? job.name : '';
     document.getElementById('cronTask').value = job ? job.task : 'ouvidoria';
-    document.getElementById('cronInterval').value = job ? String(job.interval_minutes) : '120';
+    cronSetIntervalControls(job ? job.interval_minutes : 120);
+    cronWriteSchedule(job && job.params ? job.params.schedule : null);
     document.getElementById('cronEnabled').checked = job ? !!job.enabled : true;
     const params = job?.params || {};
     document.getElementById('cronFullYears').value = Array.isArray(params.years) ? params.years.join(', ') : '';
@@ -2706,10 +2764,14 @@ async function cronSave() {
     const id = document.getElementById('cronId').value;
     const name = document.getElementById('cronName').value.trim();
     const task = document.getElementById('cronTask').value;
-    const interval_minutes = Number(document.getElementById('cronInterval').value);
+    const interval_minutes = cronReadIntervalMinutes();
     const enabled = document.getElementById('cronEnabled').checked;
 
     if (!name) return showError('Preencha o nome.');
+    if (!Number.isFinite(interval_minutes) || interval_minutes < 5) return showError('O intervalo mínimo é 5 minutos.');
+    if (interval_minutes > 24 * 24 * 60) return showError('O intervalo máximo é 24 dias.');
+    const sch = cronReadSchedule();
+    if ((sch.inicio && !sch.fim) || (!sch.inicio && sch.fim)) return showError('Informe o início e o fim da janela de horário (ou deixe os dois vazios).');
 
     let params = {};
     if (task === 'full') {
@@ -2721,6 +2783,8 @@ async function cronSave() {
         };
     }
 
+    // Regras de horário valem para qualquer tarefa (as de carga completa guardam também os próprios filtros).
+    params.schedule = sch;
     const body = JSON.stringify({ name, task, interval_minutes, enabled, params });
     try {
         const resp = await fetch(id ? `${API_BASE}/crons/${id}` : `${API_BASE}/crons`, {
@@ -3171,3 +3235,5 @@ if (!document.getElementById('dlSpinStyle')) {
     document.head.appendChild(s);
 }
 
+
+document.getElementById('cronInterval')?.addEventListener('change', cronToggleCustomInterval);
