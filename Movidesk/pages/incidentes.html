@@ -121,6 +121,15 @@ tr.linha:last-child td{border-bottom:none}
 .ev .t{font-size:13px;white-space:pre-wrap;word-break:break-word;margin-top:2px}
 .ev.comunicado .t{background:var(--p4-bg);border-radius:8px;padding:6px 10px}
 /* modal novo */
+.ia-btn{border-color:var(--p4);color:var(--p4)}
+.ia-painel:empty{display:none}
+.ia-painel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.ia-painel h5{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.ia-painel ul{margin:2px 0 0;padding-left:18px}.ia-painel li{margin:3px 0}
+.ia-painel .ia-rod{font-size:11px;color:var(--t3)}
+.ia-hip{background:var(--surface-mid);border-radius:8px;padding:6px 10px}
+.ia-hip small{display:block;color:var(--t2)}
+.ia-linha{display:flex;gap:6px}.ia-linha select{width:auto;flex:1}
 .modal-fundo{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:60}
 .modal-fundo.aberto{display:flex}
 .modal{background:var(--surface);border-radius:14px;width:min(620px,100%);max-height:94vh;overflow-y:auto;box-shadow:var(--sh);padding:20px;display:flex;flex-direction:column;gap:12px}
@@ -284,6 +293,7 @@ function desenharGaveta(d){
     <div class="resumo"><span>Serviço: <strong>${esc(i.servico||'—')}</strong></span><span>Responsável: <strong>${esc(i.responsavel_nome||'—')}</strong></span>
       <span>Reconhecido: <strong>${i.reconhecido_em?fmt(i.reconhecido_em):'ainda não'}</strong></span><span>Resolvido: <strong>${i.resolvido_em?fmt(i.resolvido_em):'—'}</strong></span></div>
     <div style="margin-bottom:14px">${pillMeta('Reconhecer',i.sla.reconhecer)}${pillMeta('Resolver',i.sla.resolver)}</div>
+    <div class="ia-painel" id="gIaPainel" aria-live="polite"></div>
     ${i.descricao?`<div class="descr">${esc(i.descricao)}</div>`:''}
     <div class="sec"><h4>Linha do tempo</h4><ul class="linha-tempo">${eventos||'<li class="sub">Sem eventos.</li>'}</ul></div>
     <div class="sec"><h4>Chamados vinculados (${d.tickets.length})</h4><div class="tks" style="margin:0">${tickets||'<div class="sub">Nenhum chamado vinculado ainda.</div>'}</div></div>`;
@@ -299,6 +309,11 @@ function desenharGaveta(d){
     <div class="aviso" id="gAviso" role="status"></div>
     <div class="sec"><h4>Status</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${trans||'<span class="sub">Sem transições.</span>'}</div>
       <textarea id="gTextoStatus" placeholder="Como foi resolvido / observação da mudança (obrigatório ao resolver)"></textarea></div>
+    <div class="sec"><h4>Assistente de IA</h4>
+      <button type="button" class="btn peq ia-btn" id="gIaResumo" title="Resumo, hipóteses de causa, riscos e próximos passos com base nos chamados e na linha do tempo">✨ Resumo e próximos passos</button>
+      <div class="ia-linha"><select id="gIaPublico" aria-label="Para quem"><option value="clientes">Para clientes</option><option value="interno">Para a equipe</option></select>
+        <select id="gIaTipo" aria-label="Tipo de comunicado"><option value="inicial">Primeiro aviso</option><option value="atualizacao" selected>Atualização</option><option value="resolucao">Resolução</option></select></div>
+      <button type="button" class="btn peq ia-btn" id="gIaComunicado" title="Escreve um rascunho de comunicado na caixa abaixo; você revisa e registra">✨ Rascunho de comunicado</button></div>
     <div class="sec"><h4>Registrar na linha do tempo</h4>
       <textarea id="gNota" placeholder="Nota interna ou comunicado para acompanhamento…"></textarea>
       <div style="display:flex;gap:6px"><button type="button" class="btn peq" data-nota="nota">Adicionar nota</button><button type="button" class="btn peq" data-nota="comunicado">Registrar comunicado</button></div></div>
@@ -330,6 +345,21 @@ function desenharGaveta(d){
     const texto=$('gNota').value.trim(); if(!texto) return aviso('gAviso','Escreva o texto antes de registrar.',true);
     b.disabled=true;
     try{ await api(`/${i.id}/notas`,{method:'POST',body:{texto,tipo:b.dataset.nota}}); await recarregar('Registrado na linha do tempo.'); }catch(e){ falha(e); b.disabled=false; }
+  }));
+  const comIa=async(btn,rotulo,fn)=>{ if(btn.dataset.o) return; btn.dataset.o='1'; const t=btn.innerHTML; btn.disabled=true; btn.textContent=rotulo; aviso('gAviso',''); try{ await fn(); }catch(e){ falha(e); } btn.disabled=false; btn.innerHTML=t; delete btn.dataset.o; };
+  const lista=(t,a)=>a&&a.length?`<div><h5>${t}</h5><ul>${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+  $('gIaResumo').addEventListener('click',()=>comIa($('gIaResumo'),'Analisando…',async()=>{
+    const r=await api(`/${i.id}/ia/resumo`,{method:'POST',body:{}});
+    $('gIaPainel').innerHTML=`<h5>Leitura da IA</h5><div>${esc(r.resumo)}</div>
+      ${r.hipoteses.length?`<div><h5>Hipóteses de causa</h5>${r.hipoteses.map(h=>`<div class="ia-hip"><b>${esc(h.hipotese)}</b><small>${esc(h.evidencias)}</small></div>`).join('')}</div>`:'<div class="sub">Sem base suficiente para hipóteses de causa.</div>'}
+      ${lista('Próximos passos',r.proximosPassos)}${lista('Riscos',r.riscos)}${lista('O que falta registrar',r.lacunas)}
+      <div class="ia-rod">Gerado por IA a partir dos chamados e da linha do tempo — confirme antes de agir.</div>`;
+    $('gIaPainel').scrollIntoView({block:'nearest'});
+  }));
+  $('gIaComunicado').addEventListener('click',()=>comIa($('gIaComunicado'),'Escrevendo…',async()=>{
+    const r=await api(`/${i.id}/ia/comunicado`,{method:'POST',body:{publico:$('gIaPublico').value,tipo:$('gIaTipo').value}});
+    $('gNota').value=(r.assunto?`Assunto: ${r.assunto}\n\n`:'')+r.texto; $('gNota').focus();
+    aviso('gAviso','Rascunho colocado em “Registrar na linha do tempo”. Revise e clique em “Registrar comunicado”.');
   }));
   $('gBtnAddTk').addEventListener('click',async()=>{
     const ticketIds=$('gAddTk').value; if(!ticketIds.trim()) return aviso('gAviso','Informe o número dos chamados.',true);

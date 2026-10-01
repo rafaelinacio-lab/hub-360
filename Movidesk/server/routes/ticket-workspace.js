@@ -15,6 +15,7 @@ const { requireTabAccess } = require('./config');
 const { MovideskError, movidesk, agenteDoUsuario, listaAgentes, escopoEquipe } = require('../utils/movideskPeople');
 const { authMiddleware } = require('./auth');
 const { rateLimit } = require('../utils/rateLimit');
+const { chamarIA, configurada: iaConfigurada, IaError, REGRAS, dados, conversaEmTexto, limitar, dataBr } = require('../utils/ai');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -175,48 +176,193 @@ router.get('/workspace/justificativas', requireLeitura, (req, res) => {
   res.json({ justificativas: justificativasPorStatus(req.query.tipo) });
 });
 
-// Chamado + conversa, lidos ao vivo do Movidesk.
+// Chamado + conversa, lidos ao vivo do Movidesk (usado pela tela e pela IA).
+async function lerTicketAoVivo(id) {
+  const t = await movidesk('GET', '/tickets', {
+    query: {
+      id,
+      $select: 'id,subject,status,baseStatus,justification,createdDate,lastUpdate,ownerTeam,serviceFirstLevel,type',
+      $expand: 'owner($select=id,businessName,userName),clients($select=id,businessName),actions($select=id,type,origin,createdDate,description,htmlDescription;$expand=createdBy($select=id,businessName,profileType))',
+    },
+  });
+  if (!t || !t.id) return null;
+  const acoes = (Array.isArray(t.actions) ? t.actions : [])
+    .map(a => ({
+      id: a.id,
+      tipo: a.type === 2 ? 'publica' : 'interna',
+      origem: a.origin,
+      criadoEm: a.createdDate,
+      autor: a.createdBy?.businessName || '—',
+      autorPerfil: a.createdBy?.profileType ?? null,
+      texto: a.description || '',
+    }))
+    .sort((x, y) => new Date(x.criadoEm) - new Date(y.criadoEm));
+  return {
+    id: t.id,
+    assunto: t.subject,
+    status: t.status,
+    baseStatus: t.baseStatus,
+    justificativa: t.justification || null,
+    criadoEm: t.createdDate,
+    atualizadoEm: t.lastUpdate,
+    tipoTicket: tipoDoTicket(t.type),
+    equipe: t.ownerTeam || null,
+    servico: t.serviceFirstLevel || null,
+    responsavel: t.owner ? { id: String(t.owner.id), nome: t.owner.businessName } : null,
+    clientes: (Array.isArray(t.clients) ? t.clients : []).map(c => c.businessName).filter(Boolean),
+    acoes,
+  };
+}
+
 router.get('/:id/workspace', requireLeitura, async (req, res) => {
   const id = idValido(req.params.id);
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   try {
-    const t = await movidesk('GET', '/tickets', {
-      query: {
-        id,
-        $select: 'id,subject,status,baseStatus,justification,createdDate,lastUpdate,ownerTeam,serviceFirstLevel,type',
-        $expand: 'owner($select=id,businessName,userName),clients($select=id,businessName),actions($select=id,type,origin,createdDate,description,htmlDescription;$expand=createdBy($select=id,businessName,profileType))',
-      },
-    });
-    if (!t || !t.id) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
+    const t = await lerTicketAoVivo(id);
+    if (!t) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
     const papel = await papelDoUsuario(req.user.id);
-    const acoes = (Array.isArray(t.actions) ? t.actions : [])
-      .map(a => ({
-        id: a.id,
-        tipo: a.type === 2 ? 'publica' : 'interna',
-        origem: a.origin,
-        criadoEm: a.createdDate,
-        autor: a.createdBy?.businessName || '—',
-        autorPerfil: a.createdBy?.profileType ?? null,
-        texto: a.description || '',
-      }))
-      .sort((x, y) => new Date(x.criadoEm) - new Date(y.criadoEm));
-    res.json({
-      id: t.id,
-      assunto: t.subject,
-      status: t.status,
-      baseStatus: t.baseStatus,
-      justificativa: t.justification || null,
-      criadoEm: t.createdDate,
-      atualizadoEm: t.lastUpdate,
-      tipoTicket: tipoDoTicket(t.type),
-      equipe: t.ownerTeam || null,
-      servico: t.serviceFirstLevel || null,
-      responsavel: t.owner ? { id: String(t.owner.id), nome: t.owner.businessName } : null,
-      clientes: (Array.isArray(t.clients) ? t.clients : []).map(c => c.businessName).filter(Boolean),
-      acoes,
-      podeInteragir: ROLES_ESCRITA.includes(papel),
-    });
+    res.json({ ...t, podeInteragir: ROLES_ESCRITA.includes(papel) });
   } catch (e) { erroParaResposta(res, e); }
+});
+
+// ── IA embutida: sugestão de resposta, correção de texto e análise do cliente ─────────────────
+// Só devolvem RASCUNHOS (nada é enviado ao cliente nem gravado no Movidesk); chave, modelo e prompts
+// ficam no servidor (utils/ai.js).
+const limiteIA = rateLimit({ name: 'tickets/ia', windowMs: 10 * 60 * 1000, max: 40 });
+function erroIA(res, e) {
+  if (e instanceof IaError) return res.status(e.status).json({ error: e.message });
+  return erroParaResposta(res, e);
+}
+const TONS = {
+  padrao: 'cordial e profissional',
+  empatico: 'acolhedor: reconheça a dificuldade do cliente em uma frase antes de orientar, sem exagerar',
+  objetivo: 'direto e curto: vá ao ponto em poucas linhas',
+};
+
+router.get('/workspace/ia/status', requireLeitura, async (req, res) => {
+  res.json({ configurada: await iaConfigurada().catch(() => false) });
+});
+
+router.post('/:id/workspace/ia/resposta', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+  const id = idValido(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
+  const tom = TONS[req.body?.tom] ? req.body.tom : 'padrao';
+  const instrucao = limitar(String(req.body?.instrucao || '').trim(), 600);
+  try {
+    const t = await lerTicketAoVivo(id);
+    if (!t) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
+    const ultimoCliente = [...t.acoes].reverse().find(a => a.tipo === 'publica' && a.autorPerfil === 2);
+    const system = `${REGRAS}
+Tarefa: redija a PRÓXIMA resposta pública da equipe de suporte ao cliente, neste chamado.
+Tom: ${TONS[tom]}.
+Regras da resposta:
+- Comece cumprimentando pelo nome do solicitante quando ele aparecer nos dados; responda ao pedido MAIS RECENTE do cliente.
+- Se houver orientação a seguir, use passos numerados curtos. Não prometa prazos nem retornos que não estejam nos dados.
+- Se faltar informação para resolver, peça no máximo 3 itens, de forma específica (ex.: print da tela, versão, horário do erro).
+- Notas internas servem só de contexto: NUNCA cite, copie nem insinue o conteúdo delas para o cliente.
+- Sem assinatura e sem placeholders entre colchetes.
+Responda em JSON: {"resposta": "texto pronto para enviar", "pontos_de_atencao": ["o que o atendente deve conferir antes de enviar"], "informacoes_faltantes": ["dados que não estavam no chamado"]}`;
+    const user = `${instrucao ? `Instrução do atendente (confiável): ${instrucao}
+
+` : ''}${dados('CHAMADO', `Assunto: ${limitar(t.assunto, 300)}
+Status: ${t.status} · Serviço: ${t.servico || '—'} · Equipe: ${t.equipe || '—'}
+Cliente(s): ${t.clientes.join(', ') || '—'}
+Último autor do cliente: ${ultimoCliente ? ultimoCliente.autor : 'não identificado'}
+
+Conversa (da mais antiga para a mais recente):
+${conversaEmTexto(t.acoes)}`)}`;
+    const r = await chamarIA({ source: 'ticket_sugestao_resposta', system, user, maxTokens: 900, temperature: 0.4, userEmail: req.user.email, meta: { ticket: id, tom } });
+    res.json({
+      resposta: limitar(r.resposta, 6000),
+      pontosDeAtencao: (Array.isArray(r.pontos_de_atencao) ? r.pontos_de_atencao : []).slice(0, 6).map(x => limitar(x, 300)),
+      informacoesFaltantes: (Array.isArray(r.informacoes_faltantes) ? r.informacoes_faltantes : []).slice(0, 6).map(x => limitar(x, 300)),
+    });
+  } catch (e) { erroIA(res, e); }
+});
+
+router.post('/:id/workspace/ia/corrigir', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+  const texto = String(req.body?.texto || '');
+  if (!texto.trim()) return res.status(400).json({ error: 'Escreva o texto antes de corrigir.' });
+  if (texto.length > 8000) return res.status(400).json({ error: 'Texto grande demais para corrigir de uma vez (máx. 8.000 caracteres).' });
+  try {
+    const system = `${REGRAS}
+Tarefa: revisar ortografia, acentuação, concordância, pontuação e digitação do texto abaixo.
+Regras:
+- Corrija SOMENTE erros. Preserve o sentido, o tom, os nomes, números, códigos, links, termos técnicos e as quebras de linha.
+- Não acrescente, remova nem reescreva ideias; não deixe o texto mais formal do que está.
+- Se não houver nada a corrigir, devolva o texto idêntico e a lista de alterações vazia.
+Responda em JSON: {"texto_corrigido": "texto completo corrigido", "alteracoes": [{"de": "trecho original", "para": "trecho corrigido", "motivo": "ortografia | acentuação | concordância | pontuação | digitação"}]} (no máximo 15 alterações, as mais relevantes).`;
+    const r = await chamarIA({ source: 'ticket_correcao_texto', system, user: dados('TEXTO', texto), maxTokens: 1800, temperature: 0, userEmail: req.user.email, meta: { ticket: req.params.id } });
+    const corrigido = typeof r.texto_corrigido === 'string' && r.texto_corrigido.trim() ? r.texto_corrigido : texto;
+    res.json({
+      textoCorrigido: corrigido,
+      mudou: corrigido.trim() !== texto.trim(),
+      alteracoes: (Array.isArray(r.alteracoes) ? r.alteracoes : []).slice(0, 15).map(a => ({ de: limitar(a.de, 160), para: limitar(a.para, 160), motivo: limitar(a.motivo, 40) })),
+    });
+  } catch (e) { erroIA(res, e); }
+});
+
+// Números do relacionamento da organização com o suporte (vêm do banco; a IA só interpreta).
+async function historicoDaOrganizacao(ticketId) {
+  const h = { organizacao: null, tickets90d: null, abertosAgora: null, tickets12m: null, reabertos12m: null, tempoMedioResolucaoH: null, servicosFrequentes: [], assuntosRecentes: [], tocouGcc12m: null };
+  try {
+    const org = (await db.query(`SELECT organizacao_id, organizacao_nome FROM silver.ticket_organizacao WHERE ticket_id = $1`, [ticketId])).rows[0];
+    if (!org || !org.organizacao_id) return h;
+    h.organizacao = org.organizacao_nome;
+    const base = `FROM silver.ticket t JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id::bigint WHERE o.organizacao_id = $1 AND t.ticket_id::bigint <> $2`;
+    const r = await db.query(`
+      SELECT COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '90 days')::int AS t90,
+             COUNT(*) FILTER (WHERE t.basestatus IN ('New','InAttendance','Stopped','InProgress'))::int AS abertos,
+             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '12 months')::int AS t12,
+             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '12 months' AND t.reopened_in IS NOT NULL)::int AS reab,
+             ROUND((AVG(EXTRACT(EPOCH FROM (t.resolved_in - t.createddate)) / 3600) FILTER (WHERE t.createddate >= NOW() - INTERVAL '90 days' AND t.resolved_in IS NOT NULL))::numeric, 1) AS tmr,
+             COUNT(*) FILTER (WHERE t.createddate >= NOW() - INTERVAL '12 months' AND (lower(COALESCE(t.ownerteam,'')) LIKE '%gcc%' OR lower(COALESCE(t.ownerteam,'')) LIKE '%churn%'))::int AS gcc
+      ${base}`, [org.organizacao_id, ticketId]);
+    const x = r.rows[0] || {};
+    h.tickets90d = x.t90; h.abertosAgora = x.abertos; h.tickets12m = x.t12; h.reabertos12m = x.reab;
+    h.tempoMedioResolucaoH = x.tmr == null ? null : Number(x.tmr); h.tocouGcc12m = x.gcc;
+    h.servicosFrequentes = (await db.query(`SELECT split_part(t.service_full, ' > ', 1) AS s, COUNT(*)::int AS n ${base} AND t.createddate >= NOW() - INTERVAL '90 days' AND t.service_full IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 4`, [org.organizacao_id, ticketId])).rows.map(y => `${y.s} (${y.n})`);
+    h.assuntosRecentes = (await db.query(`SELECT t.subject ${base} ORDER BY t.createddate DESC LIMIT 8`, [org.organizacao_id, ticketId])).rows.map(y => limitar(y.subject, 140));
+  } catch (e) { console.warn('[ia] histórico da organização indisponível:', e.message); }
+  return h;
+}
+
+router.post('/:id/workspace/ia/cliente', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+  const id = idValido(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
+  try {
+    const t = await lerTicketAoVivo(id);
+    if (!t) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
+    const hist = await historicoDaOrganizacao(id);
+    const system = `${REGRAS}
+Tarefa: analisar o CLIENTE deste chamado para ajudar o atendente a conduzir o atendimento.
+Considere o tom das mensagens do cliente (cordial, ansioso, irritado, ameaçando cancelar etc.), a urgência real do problema, a recorrência e o histórico de chamados da organização.
+Sentimento: positivo | neutro | frustrado | irritado. Urgência percebida: baixa | media | alta. Risco de churn: baixo | medio | alto — justifique pelos sinais (reclamação repetida, menção a cancelar/concorrente, muitos chamados reabertos, passagem pelo GCC, demora). Sem sinais, não infle o risco.
+Responda em JSON: {"resumo": "2 a 3 frases sobre a situação e o que o cliente precisa", "sentimento": "...", "urgencia_percebida": "...", "risco_de_churn": "...", "sinais": ["evidências curtas, citando o que o cliente disse ou os números do histórico"], "perfil_do_cliente": "1 frase (ex.: contato técnico objetivo, usuário leigo que precisa de passo a passo)", "recomendacoes": ["até 4 ações práticas para o atendente"]}`;
+    const user = dados('CHAMADO', `Assunto: ${limitar(t.assunto, 300)}
+Status: ${t.status} · Serviço: ${t.servico || '—'}
+Cliente(s): ${t.clientes.join(', ') || '—'}
+Aberto em: ${dataBr(t.criadoEm)}
+
+Conversa:
+${conversaEmTexto(t.acoes, 9000)}`) + '\n\n' + dados('HISTORICO', JSON.stringify({
+      organizacao: hist.organizacao, chamados_ultimos_90_dias: hist.tickets90d, chamados_abertos_agora_alem_deste: hist.abertosAgora,
+      chamados_ultimos_12_meses: hist.tickets12m, reabertos_12_meses: hist.reabertos12m, tempo_medio_de_resolucao_horas: hist.tempoMedioResolucaoH,
+      chamados_do_gcc_12_meses: hist.tocouGcc12m, servicos_mais_frequentes: hist.servicosFrequentes, assuntos_recentes: hist.assuntosRecentes,
+    }, null, 1));
+    const r = await chamarIA({ source: 'ticket_analise_cliente', system, user, maxTokens: 800, temperature: 0.2, userEmail: req.user.email, meta: { ticket: id } });
+    const pick = (v, ok, pad) => (ok.includes(String(v).toLowerCase()) ? String(v).toLowerCase() : pad);
+    res.json({
+      resumo: limitar(r.resumo, 700),
+      sentimento: pick(r.sentimento, ['positivo', 'neutro', 'frustrado', 'irritado'], 'neutro'),
+      urgenciaPercebida: pick(String(r.urgencia_percebida).replace('média', 'media'), ['baixa', 'media', 'alta'], 'media'),
+      riscoDeChurn: pick(String(r.risco_de_churn).replace('médio', 'medio'), ['baixo', 'medio', 'alto'], 'baixo'),
+      sinais: (Array.isArray(r.sinais) ? r.sinais : []).slice(0, 6).map(x => limitar(x, 260)),
+      perfil: limitar(r.perfil_do_cliente, 300),
+      recomendacoes: (Array.isArray(r.recomendacoes) ? r.recomendacoes : []).slice(0, 4).map(x => limitar(x, 260)),
+      historico: hist,
+    });
+  } catch (e) { erroIA(res, e); }
 });
 
 // Nota interna ou resposta ao cliente.

@@ -10,6 +10,8 @@ const express = require('express');
 const db = require('../db/remote');
 const { requireTabAccess } = require('./config');
 const { authMiddleware } = require('./auth');
+const { rateLimit } = require('../utils/rateLimit');
+const { chamarIA, configurada: iaConfigurada, IaError, REGRAS, dados, limitar, dataBr } = require('../utils/ai');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -385,6 +387,93 @@ router.post('/:id/status', requireLeitura, exigirEscrita, async (req, res) => {
     await evento(id, req, 'status', `${ROTULO_STATUS[atual.status]} → ${ROTULO_STATUS[novo]}${texto ? ` — ${texto}` : ''}`);
     res.json({ ok: true });
   } catch (e) { erro(res, e); }
+});
+
+// ── IA embutida: resumo com próximos passos e rascunho de comunicado ───────────────────────────
+// Só devolvem RASCUNHOS; nada é enviado a clientes nem gravado sem a pessoa decidir (utils/ai.js).
+const limiteIA = rateLimit({ name: 'incidentes/ia', windowMs: 10 * 60 * 1000, max: 30 });
+const erroIA = (res, e) => (e instanceof IaError ? res.status(e.status).json({ error: e.message }) : erro(res, e));
+
+router.get('/ia/status', requireLeitura, async (req, res) => {
+  res.json({ configurada: await iaConfigurada().catch(() => false) });
+});
+
+// Monta o contexto do incidente em texto para a IA.
+async function contextoDoIncidente(id) {
+  const inc = (await db.query(`SELECT i.*, u.name AS responsavel_nome FROM public.incidente i LEFT JOIN users u ON u.id = i.responsavel_id WHERE i.id = $1`, [id])).rows[0];
+  if (!inc) return null;
+  const tickets = (await db.query(`
+    SELECT it.ticket_id, t.subject, t.status, COALESCE(org.organizacao_nome, t.clientorganization) AS cliente
+      FROM public.incidente_ticket it
+      LEFT JOIN silver.ticket t ON t.ticket_id::bigint = it.ticket_id
+      LEFT JOIN silver.ticket_organizacao org ON org.ticket_id = it.ticket_id
+     WHERE it.incidente_id = $1 ORDER BY it.vinculado_em LIMIT 60`, [id])).rows;
+  const total = (await db.query(`SELECT COUNT(*)::int AS n FROM public.incidente_ticket WHERE incidente_id = $1`, [id])).rows[0].n;
+  const eventos = (await db.query(`SELECT tipo, texto, autor_nome, criado_em FROM public.incidente_evento WHERE incidente_id = $1 ORDER BY criado_em DESC, id DESC LIMIT 40`, [id])).rows.reverse();
+  const clientes = [...new Set(tickets.map((t) => t.cliente).filter(Boolean))];
+  const texto = `Código: ${codigoDe(inc.id)}
+Título: ${limitar(inc.titulo, 300)}
+Serviço: ${inc.servico || '—'}
+Prioridade: P${inc.prioridade} (impacto ${inc.impacto}, urgência ${inc.urgencia})${inc.grave ? ' · INCIDENTE GRAVE' : ''}
+Status: ${ROTULO_STATUS[inc.status]} · Responsável: ${inc.responsavel_nome || '—'}
+Aberto em: ${dataBr(inc.aberto_em)} · Reconhecido: ${inc.reconhecido_em ? dataBr(inc.reconhecido_em) : 'ainda não'} · Mitigado: ${inc.mitigado_em ? dataBr(inc.mitigado_em) : '—'} · Resolvido: ${inc.resolvido_em ? dataBr(inc.resolvido_em) : '—'}
+Descrição: ${limitar(inc.descricao, 1500) || '—'}
+Causa registrada: ${limitar(inc.causa, 800) || '—'}
+Contorno registrado: ${limitar(inc.contorno, 800) || '—'}
+Solução registrada: ${limitar(inc.resolucao, 800) || '—'}
+
+Chamados vinculados: ${total} (clientes distintos nos primeiros ${tickets.length}: ${clientes.length})
+${tickets.map((t) => `- #${t.ticket_id} ${limitar(t.subject, 120) || '(ainda não carregado)'} — ${t.cliente || 'cliente?'}`).join('\n')}
+
+Linha do tempo (mais antiga → mais recente):
+${eventos.map((e) => `[${dataBr(e.criado_em)}] ${e.tipo} · ${e.autor_nome || 'Sistema'}: ${limitar(e.texto, 500)}`).join('\n')}`;
+  return { inc, texto };
+}
+
+router.post('/:id/ia/resumo', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+  const id = idValido(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Número de incidente inválido' });
+  try {
+    const ctx = await contextoDoIncidente(id);
+    if (!ctx) return res.status(404).json({ error: 'Incidente não encontrado' });
+    const system = `${REGRAS}
+Tarefa: apoiar a gestão deste INCIDENTE de serviço (modelo ITIL): vários chamados de clientes sobre a mesma falha.
+Faça uma leitura objetiva para quem assume o incidente agora:
+- resumo: 2 a 4 frases (o que quebrou, quem é afetado, desde quando, em que ponto está);
+- hipoteses: no máximo 3 hipóteses de causa, cada uma com as evidências que a sustentam NOS DADOS (assuntos dos chamados, horários, serviço, mensagens). Se não há base, devolva lista vazia — não chute;
+- proximos_passos: até 5 ações práticas e priorizadas (diagnóstico, mitigação, comunicação, vínculo de chamados novos);
+- riscos: até 3 riscos (estouro de meta, cliente crítico, falta de responsável, falta de comunicado);
+- lacunas: o que falta registrar (causa, contorno, responsável, comunicado...).
+Compare os tempos com as metas: P1 reconhecer 15 min / resolver 4 h; P2 30 min / 8 h; P3 2 h / 24 h; P4 8 h / 72 h.
+Responda em JSON: {"resumo": "", "hipoteses": [{"hipotese": "", "evidencias": ""}], "proximos_passos": [""], "riscos": [""], "lacunas": [""]}`;
+    const r = await chamarIA({ source: 'incidente_resumo', system, user: dados('INCIDENTE', ctx.texto), maxTokens: 1100, temperature: 0.2, userEmail: req.user.email, meta: { incidente: id } });
+    const lista = (v, n, t) => (Array.isArray(v) ? v : []).slice(0, n).map((x) => limitar(typeof x === 'string' ? x : JSON.stringify(x), t));
+    res.json({
+      resumo: limitar(r.resumo, 900),
+      hipoteses: (Array.isArray(r.hipoteses) ? r.hipoteses : []).slice(0, 3).map((h) => ({ hipotese: limitar(h && h.hipotese, 300), evidencias: limitar(h && h.evidencias, 400) })),
+      proximosPassos: lista(r.proximos_passos, 5, 300), riscos: lista(r.riscos, 3, 300), lacunas: lista(r.lacunas, 5, 200),
+    });
+  } catch (e) { erroIA(res, e); }
+});
+
+router.post('/:id/ia/comunicado', requireLeitura, exigirEscrita, limiteIA, async (req, res) => {
+  const id = idValido(req.params.id);
+  const publico = req.body?.publico === 'interno' ? 'interno' : 'clientes';
+  const tipo = ['inicial', 'atualizacao', 'resolucao'].includes(req.body?.tipo) ? req.body.tipo : 'atualizacao';
+  if (!id) return res.status(400).json({ error: 'Número de incidente inválido' });
+  try {
+    const ctx = await contextoDoIncidente(id);
+    if (!ctx) return res.status(404).json({ error: 'Incidente não encontrado' });
+    const descTipo = { inicial: 'primeiro aviso: reconhece o problema, diz quem/o que é afetado e que a equipe está trabalhando', atualizacao: 'atualização de andamento: o que já foi feito, situação atual e o que vem a seguir', resolucao: 'encerramento: o serviço foi restabelecido, o que foi feito (em linguagem simples) e como falar com o suporte se persistir' }[tipo];
+    const system = `${REGRAS}
+Tarefa: redigir um COMUNICADO de incidente — ${descTipo}.
+Público: ${publico === 'clientes' ? 'CLIENTES. Linguagem simples, empática e sem jargão; sem culpar terceiros; nada de detalhes técnicos internos, nomes de pessoas da equipe, causas não confirmadas ou prazos que não estejam nos dados.' : 'EQUIPE INTERNA. Pode ser técnico e direto; inclua o estado, o responsável, as metas e os próximos passos.'}
+- Use apenas fatos dos dados. Se a causa ou o horário previsto não estão confirmados, diga que será informado.
+- Curto: no máximo ~120 palavras para clientes e ~180 para a equipe. Sem placeholders entre colchetes.
+Responda em JSON: {"assunto": "linha de assunto curta", "texto": "corpo do comunicado"}`;
+    const r = await chamarIA({ source: 'incidente_comunicado', system, user: dados('INCIDENTE', ctx.texto), maxTokens: 700, temperature: 0.4, userEmail: req.user.email, meta: { incidente: id, publico, tipo } });
+    res.json({ assunto: limitar(r.assunto, 200), texto: limitar(r.texto, 3000) });
+  } catch (e) { erroIA(res, e); }
 });
 
 // ── notas e comunicados na linha do tempo ───────────────────────────────────

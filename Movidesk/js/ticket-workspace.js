@@ -100,8 +100,21 @@
                     <label><input type="radio" name="wsTipo" value="publica"> Ao cliente</label>
                 </div>
                 <p class="ws-dica" id="wsDica">Só a equipe vê esta nota.</p>
+                <div class="ws-ia" role="group" aria-label="Assistente de IA">
+                    <select id="wsIaTom" aria-label="Tom da sugestão" title="Tom da sugestão de resposta">
+                        <option value="padrao">Tom padrão</option><option value="empatico">Empático</option><option value="objetivo">Objetivo</option>
+                    </select>
+                    <button type="button" class="ws-btn ws-btn-ia" id="wsIaResposta" title="A IA escreve um rascunho de resposta ao cliente com base na conversa. Se já houver texto na caixa, ele é usado como base.">✨ Sugerir resposta</button>
+                    <button type="button" class="ws-btn ws-btn-ia" id="wsIaCorrigir" title="Corrige ortografia, acentuação e pontuação sem mudar o que você quis dizer">Corrigir texto</button>
+                </div>
                 <textarea id="wsTexto" maxlength="20000" placeholder="Escreva aqui…" aria-label="Mensagem"></textarea>
+                <div id="wsIaNota" class="ws-ia-nota" role="status"></div>
                 <button type="button" class="ws-btn ws-btn-primario" id="wsEnviar">Enviar</button>
+            </div>
+            <div class="ws-secao">
+                <h4>Cliente</h4>
+                <button type="button" class="ws-btn ws-btn-ia" id="wsIaCliente" title="Sentimento, risco de churn, histórico de chamados e recomendações">✨ Analisar cliente</button>
+                <div id="wsIaClienteBox" class="ws-cli-box" aria-live="polite"></div>
             </div>
             <div class="ws-secao">
                 <h4>Status</h4>
@@ -124,6 +137,10 @@
 
     function ligarEventos() {
         $('wsEnviar')?.addEventListener('click', enviarAcao);
+        $('wsIaResposta')?.addEventListener('click', iaSugerirResposta);
+        $('wsIaCorrigir')?.addEventListener('click', iaCorrigirTexto);
+        $('wsIaCliente')?.addEventListener('click', iaAnalisarCliente);
+        verificarIa();
         $('wsAplicarStatus')?.addEventListener('click', alterarStatus);
         $('wsAplicarResp')?.addEventListener('click', alterarResponsavel);
         $('wsResp')?.addEventListener('change', ajustarEquipeResponsavel);
@@ -186,6 +203,80 @@
         $('wsOrdem')?.addEventListener('click', () => { _ws.ordem = _ws.ordem === 'recentes' ? 'antigas' : 'recentes'; desenharTimeline(); });
         const c = $('wsConversa');
         c.scrollTop = _ws.ordem === 'recentes' ? 0 : c.scrollHeight;
+    }
+
+    // ── IA embutida: sugestão de resposta, correção de texto e análise do cliente ──
+    // Só gera RASCUNHOS: nada é enviado ao cliente até a pessoa revisar e clicar em Enviar.
+    let _iaConfigurada = null;
+    async function verificarIa() {
+        if (_iaConfigurada === null) {
+            try { _iaConfigurada = !!(await chamar('/workspace/ia/status')).configurada; } catch { _iaConfigurada = false; }
+        }
+        if (_iaConfigurada) return;
+        ['wsIaResposta', 'wsIaCorrigir', 'wsIaCliente'].forEach((id) => {
+            const b = $(id);
+            if (b) { b.disabled = true; b.title = 'A chave da IA ainda não foi configurada (Configurações → Inteligência Artificial).'; }
+        });
+    }
+    async function comIa(botao, rotulo, fn) {
+        if (_ws.enviando || botao.dataset.ocupado) return;
+        botao.dataset.ocupado = '1';
+        const original = botao.innerHTML;
+        botao.disabled = true;
+        botao.textContent = rotulo;
+        avisar('');
+        try { await fn(); } catch (e) { avisar(e.message, true); }
+        finally { botao.disabled = false; botao.innerHTML = original; delete botao.dataset.ocupado; }
+    }
+    function listaHtml(titulo, itens) {
+        return itens && itens.length ? `<div class="ws-ia-bloco"><strong>${esc(titulo)}</strong><ul>${itens.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '';
+    }
+    let _textoAntesDaIa = null;
+    function mostrarNotaIa(html, desfazer) {
+        const box = $('wsIaNota');
+        box.innerHTML = html + (desfazer ? '<button type="button" class="ws-link" id="wsIaDesfazer">Desfazer</button>' : '');
+        $('wsIaDesfazer')?.addEventListener('click', () => { $('wsTexto').value = _textoAntesDaIa || ''; box.innerHTML = ''; });
+    }
+    function iaSugerirResposta() {
+        comIa($('wsIaResposta'), 'Pensando…', async () => {
+            const atual = $('wsTexto').value.trim();
+            const r = await chamar(`/${_ws.id}/workspace/ia/resposta`, { method: 'POST', body: JSON.stringify({ tom: $('wsIaTom').value, instrucao: atual }) });
+            _textoAntesDaIa = $('wsTexto').value;
+            $('wsTexto').value = r.resposta;
+            const pub = document.querySelector('input[name="wsTipo"][value="publica"]');
+            if (pub) { pub.checked = true; $('wsDica').textContent = 'O cliente recebe esta mensagem.'; }
+            mostrarNotaIa(`<div class="ws-ia-aviso">Rascunho da IA — revise antes de enviar.</div>${listaHtml('Confira antes de enviar', r.pontosDeAtencao)}${listaHtml('Faltou no chamado', r.informacoesFaltantes)}`, atual.length > 0);
+        });
+    }
+    function iaCorrigirTexto() {
+        const original = $('wsTexto').value;
+        if (!original.trim()) return avisar('Escreva o texto antes de pedir a correção.', true);
+        comIa($('wsIaCorrigir'), 'Corrigindo…', async () => {
+            const r = await chamar(`/${_ws.id}/workspace/ia/corrigir`, { method: 'POST', body: JSON.stringify({ texto: original }) });
+            if (!r.mudou) { mostrarNotaIa('<div class="ws-ia-aviso ws-ia-ok">Nenhum erro encontrado.</div>', false); return; }
+            _textoAntesDaIa = original;
+            $('wsTexto').value = r.textoCorrigido;
+            const mud = (r.alteracoes || []).map(a => `<li><s>${esc(a.de)}</s> → <b>${esc(a.para)}</b>${a.motivo ? ` <span class="ws-dica">(${esc(a.motivo)})</span>` : ''}</li>`).join('');
+            mostrarNotaIa(`<div class="ws-ia-aviso ws-ia-ok">Texto corrigido.</div>${mud ? `<div class="ws-ia-bloco"><strong>O que mudou</strong><ul>${mud}</ul></div>` : ''}`, true);
+        });
+    }
+    const COR = { positivo: 'ok', neutro: 'neutro', frustrado: 'alerta', irritado: 'ruim', baixo: 'ok', baixa: 'ok', medio: 'alerta', media: 'alerta', alto: 'ruim', alta: 'ruim' };
+    const ROT = { media: 'média', medio: 'médio' };
+    const pilula = (rotulo, valor) => `<span class="ws-pilula ws-pilula-${COR[valor] || 'neutro'}"><small>${esc(rotulo)}</small> ${esc(ROT[valor] || valor)}</span>`;
+    function iaAnalisarCliente() {
+        comIa($('wsIaCliente'), 'Analisando…', async () => {
+            const r = await chamar(`/${_ws.id}/workspace/ia/cliente`, { method: 'POST' });
+            const h = r.historico || {};
+            const num = (v, suf = '') => (v == null ? '—' : v + suf);
+            $('wsIaClienteBox').innerHTML = `
+                <div class="ws-pilulas">${pilula('Sentimento', r.sentimento)}${pilula('Urgência', r.urgenciaPercebida)}${pilula('Risco de churn', r.riscoDeChurn)}</div>
+                <p class="ws-cli-resumo">${esc(r.resumo)}</p>
+                ${r.perfil ? `<p class="ws-dica"><b>Perfil:</b> ${esc(r.perfil)}</p>` : ''}
+                ${listaHtml('Sinais', r.sinais)}${listaHtml('Recomendações', r.recomendacoes)}
+                ${h.organizacao ? `<div class="ws-hist"><strong>${esc(h.organizacao)}</strong>
+                    <div class="ws-hist-grid"><span><b>${num(h.tickets90d)}</b> chamados<br>90 dias</span><span><b>${num(h.tickets12m)}</b> chamados<br>12 meses</span><span><b>${num(h.abertosAgora)}</b> abertos<br>agora</span><span><b>${num(h.reabertos12m)}</b> reabertos<br>12 meses</span><span><b>${num(h.tempoMedioResolucaoH, ' h')}</b> resolução<br>média 90d</span><span><b>${num(h.tocouGcc12m)}</b> no GCC<br>12 meses</span></div></div>` : '<p class="ws-dica">Organização não identificada no banco — análise só pela conversa.</p>'}
+                <p class="ws-dica">Análise gerada por IA a partir da conversa e do histórico; use como apoio.</p>`;
+        });
     }
 
     // ── Incidente ligado a este chamado (ITIL): ver, vincular a um aberto ou abrir um novo ──
