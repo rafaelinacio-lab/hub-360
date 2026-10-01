@@ -25,6 +25,7 @@
         if (!el) return;
         el.textContent = msg || '';
         el.className = 'ws-aviso' + (msg ? (erro ? ' ws-aviso-erro' : ' ws-aviso-ok') : '');
+        if (msg) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         if (msg && !erro) setTimeout(() => { if (el.textContent === msg) avisar(''); }, 4000);
     }
 
@@ -401,7 +402,7 @@
     function alterarStatus() {
         const status = $('wsStatus').value;
         const justificativa = justificativaAtual();
-        if (status === _ws.dados.status) return avisar('O chamado já está com esse status.', true);
+        if (status === _ws.dados.status) return avisar(`O chamado já está em "${status}". Escolha outro status na lista para alterar.`, true);
         const base = (_ws.opcoes.status || []).find(s => s.status === status)?.baseStatus;
         if (['Resolved', 'Closed', 'Canceled'].includes(base) && !confirm(`Mudar o chamado para "${status}"? O cliente pode ser notificado.`)) return;
         executar($('wsAplicarStatus'), 'Alterando…', async () => {
