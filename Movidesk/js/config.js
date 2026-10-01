@@ -3271,6 +3271,10 @@ const AIA_SECOES = [
             { t: 'num', k: 'chamadosNoContexto', label: 'Chamados enviados à IA', help: 'Quantos chamados vinculados entram na análise.', min: 10, max: 200, step: 10, unit: 'chamados' },
             { t: 'num', k: 'eventosNoContexto', label: 'Eventos da linha do tempo', help: 'Os mais recentes entram na análise.', min: 10, max: 100, step: 10, unit: 'eventos' },
             AIA_CRIAT, AIA_EXTRA] },
+        { sec: 'incidentePosmortem', icone: 'history_edu', titulo: 'Rascunho do pós-incidente', desc: 'Primeira versão da análise de causa raiz, lições aprendidas e ações corretivas, sem apontar culpados.', campos: [
+            { t: 'num', k: 'maxPorques', label: 'Níveis de "por quês"', help: 'Quantos porquês encadeados a IA pode propor até a causa raiz.', min: 1, max: 7, unit: 'no máx.' },
+            { t: 'num', k: 'maxAcoes', label: 'Ações corretivas', help: 'Quantas ações de prevenção ela pode sugerir.', min: 1, max: 12, unit: 'no máx.' },
+            AIA_CRIAT, AIA_EXTRA] },
         { sec: 'incidenteComunicado', icone: 'campaign', titulo: 'Rascunho de comunicado', desc: 'Texto de aviso para clientes ou equipe; você revisa antes de registrar.', campos: [
             { t: 'seg', k: 'publicoPadrao', label: 'Para quem, por padrão', help: 'Já vem selecionado ao abrir o incidente.', opts: [['clientes', 'Clientes'], ['interno', 'Equipe']] },
             { t: 'seg', k: 'tipoPadrao', label: 'Tipo, por padrão', help: 'Já vem selecionado ao abrir o incidente.', opts: [['inicial', 'Primeiro aviso'], ['atualizacao', 'Atualização'], ['resolucao', 'Resolução']] },

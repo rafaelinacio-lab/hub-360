@@ -21,6 +21,7 @@ const PADRAO = {
   corrigir: { ativo: true, maxCaracteres: 8000, instrucaoExtra: '' },
   cliente: { ativo: true, janelaDias: 90, mesesHistorico: 12, termosGcc: 'gcc, churn', contextoCaracteres: 9000, criatividade: 'baixa', instrucaoExtra: '' },
   incidenteResumo: { ativo: true, maxHipoteses: 3, maxPassos: 5, maxRiscos: 3, chamadosNoContexto: 60, eventosNoContexto: 40, usarMetas: true, criatividade: 'baixa', instrucaoExtra: '' },
+  incidentePosmortem: { ativo: true, maxPorques: 5, maxAcoes: 6, criatividade: 'baixa', instrucaoExtra: '' },
   incidenteComunicado: { ativo: true, publicoPadrao: 'clientes', tipoPadrao: 'atualizacao', palavrasClientes: 120, palavrasEquipe: 180, estilo: 'simples', criatividade: 'media', instrucaoExtra: '' },
 };
 
@@ -32,7 +33,7 @@ const bool = (v, pad) => (typeof v === 'boolean' ? v : pad);
 // Aceita um objeto parcial e devolve sempre um objeto completo e válido.
 function normalizar(entrada) {
   const e = entrada && typeof entrada === 'object' ? entrada : {};
-  const g = e.geral || {}, r = e.resposta || {}, c = e.corrigir || {}, cl = e.cliente || {}, ir = e.incidenteResumo || {}, ic = e.incidenteComunicado || {};
+  const g = e.geral || {}, r = e.resposta || {}, c = e.corrigir || {}, cl = e.cliente || {}, ir = e.incidenteResumo || {}, ip = e.incidentePosmortem || {}, ic = e.incidenteComunicado || {};
   const P = PADRAO;
   const cri = (v, pad) => esc(v, Object.keys(CRIATIVIDADE), pad);
   return {
@@ -61,6 +62,10 @@ function normalizar(entrada) {
       maxPassos: num(ir.maxPassos, 1, 8, P.incidenteResumo.maxPassos), maxRiscos: num(ir.maxRiscos, 0, 5, P.incidenteResumo.maxRiscos),
       chamadosNoContexto: num(ir.chamadosNoContexto, 10, 200, P.incidenteResumo.chamadosNoContexto), eventosNoContexto: num(ir.eventosNoContexto, 10, 100, P.incidenteResumo.eventosNoContexto),
       usarMetas: bool(ir.usarMetas, P.incidenteResumo.usarMetas), criatividade: cri(ir.criatividade, P.incidenteResumo.criatividade), instrucaoExtra: txt(ir.instrucaoExtra, 800),
+    },
+    incidentePosmortem: {
+      ativo: bool(ip.ativo, P.incidentePosmortem.ativo), maxPorques: num(ip.maxPorques, 1, 7, P.incidentePosmortem.maxPorques),
+      maxAcoes: num(ip.maxAcoes, 1, 12, P.incidentePosmortem.maxAcoes), criatividade: cri(ip.criatividade, P.incidentePosmortem.criatividade), instrucaoExtra: txt(ip.instrucaoExtra, 800),
     },
     incidenteComunicado: {
       ativo: bool(ic.ativo, P.incidenteComunicado.ativo), publicoPadrao: esc(ic.publicoPadrao, ['clientes', 'interno'], P.incidenteComunicado.publicoPadrao),

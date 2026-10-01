@@ -198,3 +198,16 @@ Cobre: modelo, diretrizes da empresa (entram em todos os prompts), limites de us
 (resposta, correção, análise do cliente, resumo e comunicado de incidente) liga/desliga, tom/estilo, tamanhos,
 quanto contexto é enviado, janelas do histórico do cliente, termos de risco, nº de hipóteses/passos/riscos e
 orientação extra. Funções desligadas respondem 403 e os botões somem na tela (via `/ia/status`).
+
+## Incidentes — fase 2 (correlação, Movidesk, pós-incidente, problemas)
+
+`server/routes/incidentes-avancado.js` (montado antes de `incidentes.js`, porque tem rotas fixas):
+- **Correlação automática** (`utils/correlacao.js`, sem IA): agrupa chamados abertos recentes do mesmo serviço com assuntos parecidos
+  (sobreposição de termos, ignorando palavras genéricas). Só vira sugestão com ≥3 chamados de ≥2 clientes. `GET /sugestoes`,
+  `POST /sugestoes/ignorar`, e `GET /:id/relacionados` para chamados soltos parecidos com um incidente aberto. Só lê; quem cria/vincula é a pessoa.
+- **Movidesk**: `POST /:id/movidesk/avisar` escreve nota interna ou resposta pública nos chamados vinculados, em nome do usuário logado
+  (mesmo agente do Movidesk da Central do chamado), com confirmação, no máx. 50 por envio, resultado por chamado e registro na linha do tempo.
+  `modelo: 'vinculo'` deixa em cada chamado uma nota informando o incidente.
+- **Pós-incidente** (`incidente_posmortem`): resumo, impacto, causa raiz, porquês, o que funcionou/melhorar e ações; rascunho → publicado
+  (exige incidente resolvido, resumo, causa raiz e ≥1 ação). Obrigatório para graves/P1/P2 (`/posmortem/pendentes` alimenta o KPI). Rascunho por IA configurável.
+- **Problemas** (`problema`, `problema_incidente`): causa raiz compartilhada; status aberto → em análise → erro conhecido (exige contorno) → resolvido (exige causa).

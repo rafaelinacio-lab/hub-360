@@ -401,7 +401,7 @@ const erroIA = (res, e) => (e instanceof IaError ? res.status(e.status).json({ e
 
 router.get('/ia/status', requireLeitura, async (req, res) => {
   const S = await cfg.obter();
-  res.json({ configurada: await iaConfigurada().catch(() => false), recursos: { resumo: S.incidenteResumo.ativo, comunicado: S.incidenteComunicado.ativo }, padroes: { publico: S.incidenteComunicado.publicoPadrao, tipo: S.incidenteComunicado.tipoPadrao } });
+  res.json({ configurada: await iaConfigurada().catch(() => false), recursos: { resumo: S.incidenteResumo.ativo, comunicado: S.incidenteComunicado.ativo, posmortem: S.incidentePosmortem.ativo }, padroes: { publico: S.incidenteComunicado.publicoPadrao, tipo: S.incidenteComunicado.tipoPadrao } });
 });
 
 // Monta o contexto do incidente em texto para a IA.
@@ -548,6 +548,8 @@ router.delete('/:id/tickets/:ticketId', requireLeitura, exigirEscrita, async (re
     res.json({ ok: true });
   } catch (e) { erro(res, e); }
 });
+
+router.helpers = { requireLeitura, exigirEscrita, evento, idValido, erro, codigoDe, formatarIncidente, contextoDoIncidente, garantirTabelas, listaTickets, IaError, erroIA, recursoLigado, limiteIA };
 
 module.exports = router;
 module.exports.prioridadeDe = prioridadeDe;
