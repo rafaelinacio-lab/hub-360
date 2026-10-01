@@ -8,7 +8,7 @@
 //   }
 // Horários sempre no fuso de São Paulo (o do time), independente do fuso do servidor.
 const TZ = 'America/Sao_Paulo';
-const MIN_INTERVALO = 5;
+const MIN_INTERVALO = 1;
 // setInterval estoura em 2^31 ms (~24,8 dias): acima disso dispararia sem parar.
 const MAX_INTERVALO = 24 * 24 * 60;
 const DIAS_SEMANA = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -56,7 +56,7 @@ function normalizarSchedule(bruto) {
 
 function validarIntervalo(v) {
   const m = Number(v);
-  if (!Number.isFinite(m) || !Number.isInteger(m) || m < MIN_INTERVALO) throw new Error(`O intervalo mínimo é ${MIN_INTERVALO} minutos.`);
+  if (!Number.isFinite(m) || !Number.isInteger(m) || m < MIN_INTERVALO) throw new Error(`O intervalo mínimo é ${MIN_INTERVALO} minuto.`);
   if (m > MAX_INTERVALO) throw new Error(`O intervalo máximo é ${MAX_INTERVALO / 1440} dias.`);
   return m;
 }

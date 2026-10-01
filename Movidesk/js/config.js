@@ -2768,7 +2768,7 @@ async function cronSave() {
     const enabled = document.getElementById('cronEnabled').checked;
 
     if (!name) return showError('Preencha o nome.');
-    if (!Number.isFinite(interval_minutes) || interval_minutes < 5) return showError('O intervalo mínimo é 5 minutos.');
+    if (!Number.isFinite(interval_minutes) || interval_minutes < 1) return showError('O intervalo mínimo é 1 minuto.');
     if (interval_minutes > 24 * 24 * 60) return showError('O intervalo máximo é 24 dias.');
     const sch = cronReadSchedule();
     if ((sch.inicio && !sch.fim) || (!sch.inicio && sch.fim)) return showError('Informe o início e o fim da janela de horário (ou deixe os dois vazios).');
