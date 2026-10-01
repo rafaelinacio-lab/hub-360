@@ -170,3 +170,21 @@ minutos/horas/dias) e, opcionalmente, `params.schedule` (regras em `utils/cronSc
 - `anchor`: alinha as execuções a partir desse horário (âncora + k × intervalo), sem rodar logo após subir o servidor.
 
 Fora da janela a execução agendada é pulada; "Rodar agora" ignora a janela.
+
+## IA embutida (Central do chamado e Incidentes)
+
+`utils/ai.js` concentra a chamada à OpenAI (chave de Configurações → Inteligência Artificial; modelo `AI_ASSIST_MODEL`,
+padrão `gpt-4o-mini`; `OPENAI_BASE_URL` para testes). Chave, modelo e prompts ficam só no servidor; cada chamada entra em
+`ai_usage_log` (fontes `ticket_*` e `incidente_*`) e tem limite por usuário (40 / 10 min nos chamados, 30 nos incidentes).
+Só perfis admin/supervisor/atendente usam. A IA devolve **rascunhos**: nada é enviado ao cliente nem gravado sem a pessoa decidir.
+
+| Onde | Rota | O que faz |
+|---|---|---|
+| Chamado | `POST /api/tickets/:id/workspace/ia/resposta` | rascunho de resposta ao cliente (tom padrão/empático/objetivo; usa o texto da caixa como base) |
+| Chamado | `…/ia/corrigir` | corrige ortografia/pontuação sem mudar o sentido; devolve o que mudou |
+| Chamado | `…/ia/cliente` | sentimento, urgência, risco de churn, sinais e recomendações + histórico da organização (vem do banco) |
+| Incidente | `POST /api/incidentes/:id/ia/resumo` | resumo, hipóteses de causa (com evidências), riscos, próximos passos e lacunas |
+| Incidente | `…/ia/comunicado` | rascunho de comunicado (clientes ou equipe; primeiro aviso, atualização ou resolução) |
+
+O conteúdo dos chamados é delimitado nos prompts (`<<<ROTULO … ROTULO>>>`) e tratado como dado, nunca como instrução; notas
+internas servem de contexto mas não podem aparecer na resposta ao cliente.

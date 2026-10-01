@@ -1584,6 +1584,32 @@
                 .ws-btn:disabled{opacity:.6;cursor:default}
                 .ws-btn-primario{background:var(--blu-mid);border-color:var(--blu-mid);color:#fff}
                 .ws-btn-primario:hover:not(:disabled){background:var(--blu-dark)}
+                .ws-ia{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+                .ws-ia select{width:auto;flex:none;padding:6px 8px}
+                .ws-btn-ia{padding:6px 10px;font-size:12px;border-color:var(--blu-mid);color:var(--blu-dark)}
+                [data-theme="dark"] .ws-btn-ia{color:var(--blu-mid)}
+                .ws-ia-nota:empty{display:none}
+                .ws-ia-nota{font-size:12px;display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px dashed var(--border);border-radius:8px;padding:8px 10px}
+                .ws-ia-aviso{font-weight:600;color:var(--blu-dark)}
+                [data-theme="dark"] .ws-ia-aviso{color:var(--blu-mid)}
+                .ws-ia-ok{color:var(--grn-dark)}
+                [data-theme="dark"] .ws-ia-ok{color:var(--grn-mid)}
+                .ws-ia-bloco ul{margin:4px 0 0;padding-left:18px}
+                .ws-ia-bloco li{margin:2px 0}
+                .ws-link{background:none;border:none;color:var(--blu-mid);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;align-self:flex-start}
+                .ws-cli-box:empty{display:none}
+                .ws-cli-box{display:flex;flex-direction:column;gap:8px;font-size:12px}
+                .ws-cli-resumo{margin:0;font-size:13px;line-height:1.45;color:var(--text)}
+                .ws-pilulas{display:flex;gap:6px;flex-wrap:wrap}
+                .ws-pilula{border-radius:999px;padding:3px 10px;font-weight:700;font-size:12px;text-transform:capitalize}
+                .ws-pilula small{font-weight:600;opacity:.75;text-transform:none;margin-right:2px}
+                .ws-pilula-ok{background:var(--grn-bg);color:var(--grn-dark)}
+                .ws-pilula-neutro{background:var(--border);color:var(--text)}
+                .ws-pilula-alerta{background:var(--amb-bg);color:var(--amb-dark)}
+                .ws-pilula-ruim{background:var(--red-bg);color:var(--red-dark)}
+                .ws-hist{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--surface)}
+                .ws-hist-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;text-align:center;line-height:1.25}
+                .ws-hist-grid b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
                 .ws-aviso:empty{display:none}
                 .ws-aviso{font-size:12px;padding:8px 10px;border-radius:8px;word-break:break-word}
                 .ws-aviso-ok{color:var(--grn-dark);background:var(--grn-bg)}
