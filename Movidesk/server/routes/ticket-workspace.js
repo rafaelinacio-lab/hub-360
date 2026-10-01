@@ -383,57 +383,77 @@ router.post('/:id/workspace/acao', requireLeitura, exigirEscrita, limiteEscrita,
   const id = idValido(req.params.id);
   const tipo = req.body?.tipo;
   const texto = String(req.body?.texto || '').trim();
+  const status = String(req.body?.status || '').trim();          // opcional: mudar o status junto com a ação, como no Movidesk
+  const justificativa = String(req.body?.justificativa || '').trim();
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   if (!ACAO_TIPO[tipo]) return res.status(400).json({ error: 'Tipo deve ser "interna" ou "publica"' });
   if (!texto) return res.status(400).json({ error: 'Escreva a mensagem antes de enviar' });
   if (texto.length > MAX_TEXTO) return res.status(400).json({ error: `Mensagem grande demais (máx. ${MAX_TEXTO} caracteres)` });
   try {
+    let extra = {};
+    if (status) {
+      const prep = await prepararStatus(id, status, justificativa);
+      if (prep.erro) { await auditar(req, id, `acao_${tipo}`, { tamanho: texto.length, status }, prep.erro); return res.status(400).json({ error: prep.erro }); }
+      extra = prep.body;
+    }
     const agente = await exigirAgente(req, res);
     if (!agente) return;
     await movidesk('PATCH', '/tickets', {
       query: { id },
-      body: { actions: [{ type: ACAO_TIPO[tipo], origin: ACAO_ORIGEM, description: texto, createdBy: { id: agente.id } }] },
+      body: { ...extra, actions: [{ type: ACAO_TIPO[tipo], origin: ACAO_ORIGEM, description: texto, createdBy: { id: agente.id } }] },
     });
-    await auditar(req, id, `acao_${tipo}`, { tamanho: texto.length, agente: agente.nome });
+    const naoMudou = status ? await statusNaoMudou(id, status) : null;
+    await auditar(req, id, `acao_${tipo}`, { tamanho: texto.length, agente: agente.nome, ...(status ? { status, justificativa: justificativa || null } : {}) }, naoMudou);
+    if (naoMudou) return res.status(409).json({ error: naoMudou });
     res.json({ ok: true });
   } catch (e) {
-    await auditar(req, id, `acao_${tipo}`, { tamanho: texto.length }, e.message);
+    await auditar(req, id, `acao_${tipo}`, { tamanho: texto.length, ...(status ? { status } : {}) }, e.message);
     erroParaResposta(res, e);
   }
 });
 
 // Mudança de status (somente valores que existem nos chamados).
+// Valida uma mudança de status pedida pela tela (existe? exige justificativa? a justificativa é conhecida?).
+// Devolve { body } com os campos do PATCH, ou { erro } com a mensagem para o usuário.
+async function prepararStatus(id, status, justificativa) {
+  const conhecidos = await listaStatus();
+  const escolhido = conhecidos.find(x => x.status === status);
+  if (!escolhido) return { erro: 'Status desconhecido. Escolha um da lista.' };
+  const exigeJustificativa = ['Stopped', 'Canceled'].includes(escolhido.baseStatus);
+  if (exigeJustificativa && !justificativa) return { erro: `O status "${status}" exige uma justificativa.` };
+  // Com justificativas cadastradas para o status, só vale uma delas (nada digitado à mão).
+  const tipoT = tipoDoTicket((await movidesk('GET', '/tickets', { query: { id, $select: 'id,type' } }).catch(() => null))?.type);
+  const conhecidas = justificativasPorStatus(tipoT)[normStatus(status)] || [];
+  if (justificativa && conhecidas.length && !conhecidas.includes(justificativa)) return { erro: 'Justificativa desconhecida para esse status. Escolha uma da lista.' };
+  const body = { status };
+  if (justificativa) body.justification = justificativa;
+  return { body };
+}
+// O Movidesk pode aceitar o PATCH (e gravar a nota) e mesmo assim não aplicar o status — por regra de negócio,
+// campo obrigatório ou transição bloqueada. Só damos sucesso se o status realmente mudou.
+async function statusNaoMudou(id, status) {
+  const depois = await movidesk('GET', '/tickets', { query: { id, $select: 'id,status,justification' } }).catch(() => null);
+  if (depois && depois.status && String(depois.status).trim().toLowerCase() !== status.toLowerCase()) {
+    return `O Movidesk registrou a nota, mas o status continua "${depois.status}". Isso costuma ser regra do Movidesk (campo obrigatório ou transição bloqueada para "${status}"): confira o chamado lá.`;
+  }
+  return null;
+}
+
 router.post('/:id/workspace/status', requireLeitura, exigirEscrita, limiteEscrita, async (req, res) => {
   const id = idValido(req.params.id);
   const status = String(req.body?.status || '').trim();
   const justificativa = String(req.body?.justificativa || '').trim();
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   try {
-    const conhecidos = await listaStatus();
-    const escolhido = conhecidos.find(s => s.status === status);
-    if (!escolhido) return res.status(400).json({ error: 'Status desconhecido. Escolha um da lista.' });
-    const exigeJustificativa = ['Stopped', 'Canceled'].includes(escolhido.baseStatus);
-    if (exigeJustificativa && !justificativa) return res.status(400).json({ error: `O status "${status}" exige uma justificativa.` });
-    // Com justificativas cadastradas para o status, só vale uma delas (nada digitado à mão).
-    const tipoT = tipoDoTicket((await movidesk('GET', '/tickets', { query: { id, $select: 'id,type' } }).catch(() => null))?.type);
-    const conhecidas = justificativasPorStatus(tipoT)[normStatus(status)] || [];
-    if (justificativa && conhecidas.length && !conhecidas.includes(justificativa)) {
-      return res.status(400).json({ error: 'Justificativa desconhecida para esse status. Escolha uma da lista.' });
-    }
+    const prep = await prepararStatus(id, status, justificativa);
+    if (prep.erro) { await auditar(req, id, 'status', { para: status }, prep.erro); return res.status(400).json({ error: prep.erro }); }
     const agente = await exigirAgente(req, res);
     if (!agente) return;
-    const body = { status, actions: [notaDeRastro(agente, `Status alterado para "${status}" pelo Hub 360${justificativa ? ` — ${justificativa}` : ''}.`)] };
-    if (justificativa) body.justification = justificativa;
+    const body = { ...prep.body, actions: [notaDeRastro(agente, `Status alterado para "${status}" pelo Hub 360${justificativa ? ` — ${justificativa}` : ''}.`)] };
     await movidesk('PATCH', '/tickets', { query: { id }, body });
-    // O Movidesk pode aceitar o PATCH (e gravar a nota) e mesmo assim não aplicar o status — por regra de negócio,
-    // campo obrigatório ou transição bloqueada. Só damos sucesso se o status realmente mudou.
-    const depois = await movidesk('GET', '/tickets', { query: { id, $select: 'id,status,justification' } }).catch(() => null);
-    if (depois && depois.status && String(depois.status).trim().toLowerCase() !== status.toLowerCase()) {
-      const msg = `O Movidesk registrou a nota, mas o status continua "${depois.status}". Isso costuma ser regra do Movidesk (campo obrigatório ou transição bloqueada para "${status}"): confira o chamado lá.`;
-      await auditar(req, id, 'status', { para: status, justificativa: justificativa || null, agente: agente.nome }, `status não mudou (continua ${depois.status})`);
-      return res.status(409).json({ error: msg });
-    }
-    await auditar(req, id, 'status', { para: status, justificativa: justificativa || null, agente: agente.nome });
+    const naoMudou = await statusNaoMudou(id, status);
+    await auditar(req, id, 'status', { para: status, justificativa: justificativa || null, agente: agente.nome }, naoMudou);
+    if (naoMudou) return res.status(409).json({ error: naoMudou });
     res.json({ ok: true });
   } catch (e) {
     await auditar(req, id, 'status', { para: status }, e.message);

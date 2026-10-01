@@ -115,7 +115,16 @@
                 </div>
                 <textarea id="wsTexto" maxlength="20000" placeholder="Escreva aqui…" aria-label="Mensagem"></textarea>
                 <div id="wsIaNota" class="ws-ia-nota" role="status"></div>
-                <button type="button" class="ws-btn ws-btn-primario" id="wsEnviar">Enviar</button>
+                <div class="ws-envio">
+                    <select id="wsAcaoStatus" aria-label="Status do chamado ao enviar" title="Como no Movidesk: você pode mudar o status junto com a ação">
+                        <option value="">Manter o status atual (${esc(d.status)})</option>${(op.status || []).filter(x => x.status !== d.status).map(x => `<option value="${esc(x.status)}">Mudar para: ${esc(x.status)}</option>`).join('')}
+                    </select>
+                    <button type="button" class="ws-btn ws-btn-primario" id="wsEnviar">Enviar</button>
+                </div>
+                <div id="wsAcaoJustBox" style="display:none">
+                    <select id="wsAcaoJustSel" style="display:none;" aria-label="Justificativa do status"></select>
+                    <input type="text" id="wsAcaoJust" placeholder="Justificativa" aria-label="Justificativa do status">
+                </div>
             </div>
             <div class="ws-secao">
                 <h4>Cliente</h4>
@@ -150,7 +159,11 @@
         $('wsAplicarStatus')?.addEventListener('click', alterarStatus);
         $('wsAplicarResp')?.addEventListener('click', alterarResponsavel);
         $('wsResp')?.addEventListener('change', ajustarEquipeResponsavel);
-        $('wsStatus')?.addEventListener('change', ajustarJustificativa);
+        $('wsStatus')?.addEventListener('change', () => ajustarJustificativa());
+        $('wsAcaoStatus')?.addEventListener('change', () => {
+            $('wsAcaoJustBox').style.display = $('wsAcaoStatus').value ? '' : 'none';
+            ajustarJustificativa('wsAcaoStatus', 'wsAcaoJustSel', 'wsAcaoJust');
+        });
         ajustarJustificativa();
         document.querySelectorAll('input[name="wsTipo"]').forEach(r => r.addEventListener('change', () => {
             const publica = document.querySelector('input[name="wsTipo"]:checked')?.value === 'publica';
@@ -160,15 +173,16 @@
 
     // Justificativas que já existem no Movidesk para o status escolhido: vira uma lista para escolher.
     // Sem nenhuma conhecida, cai no campo de texto (obrigatório só para Parado/Cancelado).
-    function justificativaAtual() {
-        const sel = $('wsJustificativaSel');
+    function justificativaAtual(idSel = 'wsJustificativaSel', idTxt = 'wsJustificativa') {
+        const sel = $(idSel);
         if (sel && sel.style.display !== 'none') return sel.value;
-        return ($('wsJustificativa')?.value || '').trim();
+        return ($(idTxt)?.value || '').trim();
     }
-    function ajustarJustificativa() {
-        const sel = $('wsJustificativaSel'), txt = $('wsJustificativa');
+    function ajustarJustificativa(idStatus = 'wsStatus', idSel = 'wsJustificativaSel', idTxt = 'wsJustificativa') {
+        const sel = $(idSel), txt = $(idTxt);
         if (!sel || !txt) return;
-        const status = $('wsStatus').value;
+        const status = $(idStatus).value;
+        if (!status) { sel.style.display = 'none'; txt.style.display = 'none'; return; }
         const lista = ((_ws.opcoes && _ws.opcoes.justificativas) || {})[String(status).trim().toLowerCase()] || [];
         const base = ((_ws.opcoes.status || []).find(s => s.status === status) || {}).baseStatus;
         const obrigatoria = ['Stopped', 'Canceled'].includes(base);
@@ -391,11 +405,17 @@
     function enviarAcao() {
         const tipo = document.querySelector('input[name="wsTipo"]:checked')?.value;
         const texto = $('wsTexto').value.trim();
+        const status = ($('wsAcaoStatus')?.value || '').trim();
+        const justificativa = status ? justificativaAtual('wsAcaoJustSel', 'wsAcaoJust') : '';
         if (!texto) return avisar('Escreva a mensagem antes de enviar.', true);
+        const base = status ? (_ws.opcoes.status || []).find(s => s.status === status)?.baseStatus : null;
+        if (['Stopped', 'Canceled'].includes(base) && !justificativa) return avisar(`O status "${status}" exige uma justificativa.`, true);
         if (tipo === 'publica' && !confirm('Esta mensagem será enviada ao CLIENTE. Confirmar?')) return;
+        if (['Resolved', 'Closed', 'Canceled'].includes(base) && !confirm(`Além de enviar a mensagem, mudar o chamado para "${status}"? O cliente pode ser notificado.`)) return;
         executar($('wsEnviar'), 'Enviando…', async () => {
-            await chamar(`/${_ws.id}/workspace/acao`, { method: 'POST', body: JSON.stringify({ tipo, texto }) });
-            avisar(tipo === 'publica' ? 'Resposta enviada ao cliente.' : 'Nota interna registrada.');
+            await chamar(`/${_ws.id}/workspace/acao`, { method: 'POST', body: JSON.stringify({ tipo, texto, status, justificativa }) });
+            const msg = tipo === 'publica' ? 'Resposta enviada ao cliente' : 'Nota interna registrada';
+            avisar(status ? `${msg} e status alterado para "${status}".` : `${msg}.`);
         });
     }
 
@@ -445,6 +465,7 @@
                 if (_ws.id !== Number(ticketId)) return;
                 _ws.opcoes.justificativas = r.justificativas || {};
                 ajustarJustificativa();
+                if ($('wsAcaoStatus')?.value) ajustarJustificativa('wsAcaoStatus', 'wsAcaoJustSel', 'wsAcaoJust');
             }).catch(() => { /* sem lista: continua o campo de texto */ });
         } catch (e) {
             $('wsConversa').innerHTML = `<div class="ws-vazio ws-erro">Não consegui carregar o chamado: ${esc(e.message)}</div>`;
