@@ -1843,6 +1843,54 @@ async function runGcc(cronJobId = null) {
  * (corrigirCustomFieldValues) e canonicalização da classificação quando ela
  * é informada explicitamente.
  */
+// Chamados que o banco ainda considera ABERTOS mas que o Movidesk não devolveu numa carga "só em aberto":
+// foram encerrados (ou mudaram de classificação) e, como a carga só traz abertos, ninguém atualizaria a linha
+// antiga — o Dashboard os mostraria abertos para sempre. Aqui cada um é buscado individualmente ("id=",
+// mesma chamada limpa de corrigirCustomFieldValues; se não estiver em /tickets, tenta /tickets/past) e regravado.
+// Os mais antigos primeiro, no máximo RECONFERIR_MAX por rodada, e cada chamado só é reconferido de novo
+// depois de RECONFERIR_ESPERA_MS — assim chamados legitimamente abertos fora do filtro (ex.: de outro ano)
+// não geram uma enxurrada de consultas a cada 15 minutos.
+const RECONFERIR_MAX = 60;
+const RECONFERIR_ESPERA_MS = 6 * 60 * 60 * 1000;
+const _reconferidoEm = new Map();
+async function reconferirAbertosPresos(token, seen, { classValue, ownerTeamVal, salvar }) {
+  const params = [['New', 'InAttendance', 'Stopped', 'InProgress']];
+  const where = ['t.basestatus = ANY($1::text[])'];
+  if (ownerTeamVal) { params.push(ownerTeamVal.toLowerCase()); where.push(`lower(t.ownerteam) = $${params.length}`); }
+  if (classValue) {
+    params.push(String(CF_CLASSIFICACAO), classValue.trim().toLowerCase());
+    where.push(`EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = $${params.length - 1}
+                          AND translate(lower(trim(cf.valor_texto)), 'áàâãéêíóôõúç', 'aaaaeeiooouc') = translate($${params.length}, 'áàâãéêíóôõúç', 'aaaaeeiooouc'))`);
+  }
+  const { rows } = await db.query(
+    `SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE ${where.join(' AND ')} ORDER BY t.last_update ASC NULLS FIRST LIMIT 600`, params
+  );
+  const agora = Date.now();
+  const alvo = rows.map(r => String(r.id))
+    .filter(id => !seen.has(id) && !(_reconferidoEm.get(id) > agora - RECONFERIR_ESPERA_MS))
+    .slice(0, RECONFERIR_MAX);
+  let atualizados = 0;
+  for (const id of alvo) {
+    if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    try {
+      let full = null;
+      for (const ep of ['/tickets', '/tickets/past']) {
+        const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
+        const data = await resp.json();
+        const t = Array.isArray(data) ? data[0] : data;
+        if (t && t.id) { full = t; break; }
+      }
+      _reconferidoEm.set(id, Date.now());
+      if (full) { await salvar([full]); atualizados++; }
+    } catch (e) {
+      console.warn(`[loader] reconferência do ticket ${id} falhou: ${e.message}`);
+    }
+    await sleep(120);
+  }
+  if (alvo.length) console.log(`[loader]   reconferência: ${alvo.length} chamado(s) abertos no banco e fora da resposta do Movidesk → ${atualizados} atualizado(s)`);
+  return { reconferidos: alvo.length, atualizados };
+}
+
 async function runCustom(task, cronJobId = null) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
   if (!task || !task.id) throw new Error('Tarefa personalizada inválida');
@@ -1923,11 +1971,17 @@ async function runCustom(task, cronJobId = null) {
         await fetchEndpoint(token, ep, juntar(baseFilter), save, pageSize, EXPAND_LISTAGEM_LEVE);
       }
     }
+    let reconferencia = null;
+    if (onlyOpen && (classValue || ownerTeamVal)) {
+      state.phase = 'reconferindo';
+      reconferencia = await reconferirAbertosPresos(token, seen, { classValue, ownerTeamVal, salvar: baseSave })
+        .catch((e) => { if (e.cancelled) throw e; console.warn('[loader] reconferência ignorada:', e.message); return null; });
+    }
 
     state.phase      = 'idle';
     state.running    = false;
     state.lastFinish = new Date().toISOString();
-    state.lastResult = { mode, tickets: state.ticketsDone };
+    state.lastResult = { mode, tickets: state.ticketsDone, ...(reconferencia ? { reconferidos: reconferencia.reconferidos, atualizadosNaReconferencia: reconferencia.atualizados } : {}) };
     if (logId) {
       await db.query(
         `UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`,
@@ -2714,4 +2768,5 @@ module.exports = {
   runFixDadosRelacionados,
   runFixAutoresAcoes,
   runAtualizacaoInteligente,
+  reconferirAbertosPresos,
 };
