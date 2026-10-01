@@ -135,7 +135,7 @@
                 <h4>Status</h4>
                 <select id="wsStatus" aria-label="Novo status">${optsStatus}</select>
                 <select id="wsJustificativaSel" style="display:none;" aria-label="Justificativa"></select>
-                <input type="text" id="wsJustificativa" placeholder="Justificativa (obrigatória para Parado/Cancelado)" aria-label="Justificativa">
+                <input type="text" id="wsJustificativa" placeholder="Justificativa (opcional)" aria-label="Justificativa">
                 <button type="button" class="ws-btn" id="wsAplicarStatus">Alterar status</button>
             </div>
             <div class="ws-secao">
@@ -173,6 +173,11 @@
 
     // Justificativas que já existem no Movidesk para o status escolhido: vira uma lista para escolher.
     // Sem nenhuma conhecida, cai no campo de texto (obrigatório só para Parado/Cancelado).
+    // Obrigatória só se o status é Parado/Cancelado e há justificativas cadastradas para ele (o servidor confere de novo).
+    function exigeJustificativa(status, base) {
+        const lista = ((_ws.opcoes && _ws.opcoes.justificativas) || {})[String(status).trim().toLowerCase()] || [];
+        return ['Stopped', 'Canceled'].includes(base) && lista.length > 0;
+    }
     function justificativaAtual(idSel = 'wsJustificativaSel', idTxt = 'wsJustificativa') {
         const sel = $(idSel);
         if (sel && sel.style.display !== 'none') return sel.value;
@@ -185,7 +190,7 @@
         if (!status) { sel.style.display = 'none'; txt.style.display = 'none'; return; }
         const lista = ((_ws.opcoes && _ws.opcoes.justificativas) || {})[String(status).trim().toLowerCase()] || [];
         const base = ((_ws.opcoes.status || []).find(s => s.status === status) || {}).baseStatus;
-        const obrigatoria = ['Stopped', 'Canceled'].includes(base);
+        const obrigatoria = ['Stopped', 'Canceled'].includes(base) && lista.length > 0;
         if (lista.length) {
             sel.innerHTML = (obrigatoria ? '<option value="">Escolha a justificativa…</option>' : '<option value="">Sem justificativa</option>') +
                 lista.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
@@ -409,7 +414,7 @@
         const justificativa = status ? justificativaAtual('wsAcaoJustSel', 'wsAcaoJust') : '';
         if (!texto) return avisar('Escreva a mensagem antes de enviar.', true);
         const base = status ? (_ws.opcoes.status || []).find(s => s.status === status)?.baseStatus : null;
-        if (['Stopped', 'Canceled'].includes(base) && !justificativa) return avisar(`O status "${status}" exige uma justificativa.`, true);
+        if (exigeJustificativa(status, base) && !justificativa) return avisar(`O status "${status}" exige uma justificativa.`, true);
         if (tipo === 'publica' && !confirm('Esta mensagem será enviada ao CLIENTE. Confirmar?')) return;
         if (['Resolved', 'Closed', 'Canceled'].includes(base) && !confirm(`Além de enviar a mensagem, mudar o chamado para "${status}"? O cliente pode ser notificado.`)) return;
         executar($('wsEnviar'), 'Enviando…', async () => {
