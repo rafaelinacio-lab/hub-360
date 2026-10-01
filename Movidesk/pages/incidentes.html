@@ -31,6 +31,9 @@ html.dark{
   --sh:0 16px 48px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box}
+/* barras de rolagem escondidas (a rolagem por mouse, toque e teclado continua) */
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
 body{margin:0;background:var(--bg);color:var(--t1);font-family:Inter,system-ui,sans-serif;font-size:14px}
 button,input,select,textarea{font:inherit;color:inherit}
 .page{padding:20px 24px 40px;max-width:1500px;margin:0 auto}
@@ -84,7 +87,7 @@ tr.linha:last-child td{border-bottom:none}
 .g-topo{display:flex;align-items:flex-start;gap:12px;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
 .g-topo h2{margin:0;font-size:18px;line-height:1.3}
 .g-topo .x{margin-left:auto;border:none;background:none;font-size:26px;line-height:1;cursor:pointer;color:var(--t2)}
-.g-corpo{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px}
+.g-corpo{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:minmax(0,1fr)}
 .g-esq{overflow-y:auto;padding:16px 20px;min-width:0}
 .g-dir{overflow-y:auto;padding:16px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;gap:16px}
 .sec h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
@@ -124,7 +127,7 @@ tr.linha:last-child td{border-bottom:none}
 .modal h3{margin:0;font-size:17px}
 .prio-prev{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)}
 .acoes{display:flex;justify-content:flex-end;gap:8px}
-@media (max-width:900px){.g-corpo{grid-template-columns:1fr;overflow-y:auto}.g-dir{border-left:none;border-top:1px solid var(--border)}.g-esq,.g-dir{overflow:visible}}
+@media (max-width:900px){.g-corpo{grid-template-columns:1fr;grid-template-rows:auto;overflow-y:auto}.g-dir{border-left:none;border-top:1px solid var(--border)}.g-esq,.g-dir{overflow:visible}}
 </style>
 </head>
 <body>
