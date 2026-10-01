@@ -951,7 +951,8 @@ const TK_STATUS_LABEL = { New: 'Novo', InAttendance: 'Em atendimento', Stopped: 
 const TK_URG_ORDER = { 'Crítica': 0, 'Alta': 1, 'Média': 2, 'Baixa': 3 };
 let _dashView = 'lista';
 try { _dashView = localStorage.getItem('dashView') === 'cards' ? 'cards' : 'lista'; } catch (e) { /* sem storage */ }
-let _dashSort = { key: 'sla', dir: 1 };
+// Padrão: o mais severo (urgência) no topo; dentro da mesma urgência, o prazo mais estourado primeiro.
+let _dashSort = { key: 'urg', dir: 1 };
 
 function setDashView(mode) {
     _dashView = mode === 'cards' ? 'cards' : 'lista';
@@ -964,21 +965,37 @@ function sortDashTable(key) {
     if (typeof applyDashboardFilters === 'function') applyDashboardFilters();
 }
 
+function tkUrgRank(t) {
+    return TK_URG_ORDER[getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', '')).label] ?? 9;
+}
+
+// Ordena os chamados pela coluna escolhida. Em qualquer coluna, os empates saem por
+// urgência (mais severa primeiro), depois pelo prazo (mais estourado primeiro) e por fim
+// pelo chamado mais antigo — assim a ordem nunca fica aleatória.
+function tkSorted(tickets) {
+    return (tickets || []).slice().sort((a, b) => {
+        const va = tkSortValue(a, _dashSort.key), vb = tkSortValue(b, _dashSort.key);
+        if (va !== vb) return (va < vb ? -1 : 1) * _dashSort.dir;
+        const ua = tkUrgRank(a), ub = tkUrgRank(b);
+        if (ua !== ub) return ua - ub;
+        const sa = tkSlaInfo(a).ms, sb = tkSlaInfo(b).ms;
+        if (sa !== sb) return sa < sb ? -1 : 1;
+        return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+}
+
 function tkSortValue(t, key) {
     switch (key) {
         case 'sla': return tkSlaInfo(t).ms;
         case 'id': return Number(t.id) || 0;
-        case 'urg': return TK_URG_ORDER[getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', '')).label] ?? 9;
+        case 'urg': return tkUrgRank(t);
         case 'upd': return -(new Date(getTicketValue(t, 'lastUpdate', 'lastupdate', '') || 0).getTime());
         default: return 0;
     }
 }
 
 function renderTicketsTable(tickets) {
-    const linhas = tickets.slice().sort((a, b) => {
-        const va = tkSortValue(a, _dashSort.key), vb = tkSortValue(b, _dashSort.key);
-        return (va === vb ? 0 : (va < vb ? -1 : 1)) * _dashSort.dir;
-    });
+    const linhas = tkSorted(tickets);
     const seta = (k) => (_dashSort.key === k ? (_dashSort.dir === 1 ? ' ↑' : ' ↓') : '');
     const th = (k, rotulo) => `<th scope="col"><button type="button" onclick="sortDashTable('${k}')">${rotulo}${seta(k)}</button></th>`;
     const corpo = linhas.map(t => {
@@ -1036,8 +1053,9 @@ function renderTickets(tickets, container) {
         container.innerHTML = renderTicketsTable(tickets);
         return;
     }
-    container.innerHTML = tickets.map(ticket => createCardHTML(ticket)).join('');
-    loadFirstResponseSla(tickets);
+    const ordenados = tkSorted(tickets);
+    container.innerHTML = ordenados.map(ticket => createCardHTML(ticket)).join('');
+    loadFirstResponseSla(ordenados);
 }
 
 function normalizeDashboardBaseStatus(value) {
