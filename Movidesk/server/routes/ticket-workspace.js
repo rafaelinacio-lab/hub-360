@@ -419,11 +419,13 @@ async function prepararStatus(id, status, justificativa) {
   const conhecidos = await listaStatus();
   const escolhido = conhecidos.find(x => x.status === status);
   if (!escolhido) return { erro: 'Status desconhecido. Escolha um da lista.' };
-  const exigeJustificativa = ['Stopped', 'Canceled'].includes(escolhido.baseStatus);
-  if (exigeJustificativa && !justificativa) return { erro: `O status "${status}" exige uma justificativa.` };
-  // Com justificativas cadastradas para o status, só vale uma delas (nada digitado à mão).
+  // Justificativas cadastradas no Movidesk da empresa para esse status (por tipo de chamado).
   const tipoT = tipoDoTicket((await movidesk('GET', '/tickets', { query: { id, $select: 'id,type' } }).catch(() => null))?.type);
   const conhecidas = justificativasPorStatus(tipoT)[normStatus(status)] || [];
+  // Só é obrigatória quando o status é Parado/Cancelado E existe lista de justificativas para escolher. Um status sem
+  // nenhuma justificativa cadastrada (ex.: "Cancelado") o próprio Movidesk aceita sem — não exigimos mais que ele.
+  if (['Stopped', 'Canceled'].includes(escolhido.baseStatus) && conhecidas.length && !justificativa) return { erro: `O status "${status}" exige uma justificativa.` };
+  // Com justificativas cadastradas para o status, só vale uma delas (nada digitado à mão).
   if (justificativa && conhecidas.length && !conhecidas.includes(justificativa)) return { erro: 'Justificativa desconhecida para esse status. Escolha uma da lista.' };
   const body = { status };
   if (justificativa) body.justification = justificativa;
