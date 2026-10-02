@@ -120,7 +120,8 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
     const esc = await escopoVertical(req.user.id);
     if (!esc.filtrar) return res.json(result.rows || []);
     if (esc.semVertical) return res.json([]);
-    return res.json((result.rows || []).filter((r) => pertence(esc.vertical, { vertical: r.vertical, servico: r.servico_gcc })));
+    // a vertical de insatisfação manda; o serviço só vale quando ela está vazia
+    return res.json((result.rows || []).filter((r) => pertence(esc.verticais, { vertical: r.vertical, servico: r.vertical ? null : r.servico_gcc })));
   } catch (error) {
     // Se as tabelas silver.* ainda não existem (datalake não carregado), retorna vazio
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
@@ -142,7 +143,7 @@ async function garantirVertical(req, res, ticketId) {
       FROM silver.ticket t
       LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id
       LEFT JOIN silver.gcc_vertical_inferida gi ON gi.ticket_id = t.ticket_id
-     WHERE t.ticket_id::text = $1 GROUP BY t.ticket_id, gi.vertical, t.service_full`, [ticketId]).then((r) => r.rows[0] && pertence(esc.vertical, { vertical: r.rows[0].vertical, servico: r.rows[0].servico })).catch(() => false));
+     WHERE t.ticket_id::text = $1 GROUP BY t.ticket_id, gi.vertical, t.service_full`, [ticketId]).then((r) => r.rows[0] && pertence(esc.verticais, { vertical: r.rows[0].vertical, servico: r.rows[0].vertical ? null : r.rows[0].servico })).catch(() => false));
   if (!ok) { res.status(404).json({ error: 'Chamado não encontrado na sua vertical' }); return false; }
   return true;
 }

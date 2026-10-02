@@ -26,10 +26,18 @@ async function pessoasLoad() {
     }
 }
 
+// Um usuário pode participar de várias verticais: ficam guardadas juntas, separadas por ";".
+function pmListaVerticais(txt) { return [...new Set(String(txt || '').split(/[;|]/).map(x => x.trim()).filter(Boolean))]; }
+function pmGetVerticais() { return [...document.querySelectorAll('#pmVertical input[type=checkbox]:checked')].map(i => i.value); }
+function pmSetVerticais(txt) {
+    const lista = pmListaVerticais(txt).map(x => x.toLowerCase());
+    document.querySelectorAll('#pmVertical input[type=checkbox]').forEach(i => { i.checked = lista.includes(i.value.toLowerCase()); });
+}
+
 function pessoasPopulateEquipeFilter(users) {
     const select = document.getElementById('pessoasFilterEquipe');
     if (!select) return;
-    const equipes = [...new Set(users.map(u => u.vertical).filter(Boolean))].sort();
+    const equipes = [...new Set(users.flatMap(u => pmListaVerticais(u.vertical)))].sort();
     const current = select.value;
     select.innerHTML = '<option value="">Todas as equipes</option>' +
         equipes.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
@@ -42,7 +50,7 @@ function pessoasApplyFilters() {
 
     const filtered = _pessoasAllUsers.filter(u => {
         if (search && !u.name?.toLowerCase().includes(search) && !u.email?.toLowerCase().includes(search)) return false;
-        if (equipe && u.vertical !== equipe) return false;
+        if (equipe && !pmListaVerticais(u.vertical).includes(equipe)) return false;
         return true;
     });
     pessoasRenderTable(filtered);
@@ -117,7 +125,7 @@ function pessoasRenderTable(users) {
             </td>
             <td class="pt-email">${escapeHtml(u.email)}</td>
             <td><span class="pt-role ${roleClass}">${roleLabel}</span></td>
-            <td><span class="pt-vertical">${escapeHtml(u.vertical || '—')}</span></td>
+            <td><span class="pt-vertical">${escapeHtml(pmListaVerticais(u.vertical).join(', ') || '—')}</span></td>
             <td><span class="pt-status ${statusClass}">${statusLabel}</span></td>
             <td class="pt-date">${lastLogin}</td>
             <td>
@@ -143,8 +151,7 @@ async function pessoasOpenNovo() {
     document.getElementById('pmName').value = '';
     document.getElementById('pmEmail').value = '';
     await pessoasLoadRoles('atendente');
-    const vertical = document.getElementById('pmVertical');
-    if (vertical) vertical.value = '';
+    pmSetVerticais('');
     document.getElementById('pmEmailField').style.display = '';
     document.getElementById('pmActiveField').style.display = 'none';
     document.getElementById('pmError').style.display = 'none';
@@ -166,8 +173,7 @@ async function pessoasOpenEdit(id) {
         document.getElementById('pmName').value = u.name;
         document.getElementById('pmEmail').value = u.email;
         await pessoasLoadRoles(u.role);
-        const vertical = document.getElementById('pmVertical');
-        if (vertical) vertical.value = u.vertical || '';
+        pmSetVerticais(u.vertical);
         document.getElementById('pmActive').value = u.is_active ? '1' : '0';
         document.getElementById('pmEmailField').style.display = '';
         document.getElementById('pmActiveField').style.display = '';
@@ -191,7 +197,7 @@ async function pessoasSubmit(e) {
     const name  = document.getElementById('pmName').value.trim();
     const email = document.getElementById('pmEmail').value.trim();
     const role  = document.getElementById('pmRole').value;
-    const vertical = document.getElementById('pmVertical').value;
+    const vertical = pmGetVerticais().join('; ');
     const active = document.getElementById('pmActive').value;
     const errEl = document.getElementById('pmError');
     const saveBtn = document.getElementById('pmSave');
@@ -208,7 +214,7 @@ async function pessoasSubmit(e) {
         if (!id) {
             // Criar
             if (!email) { pmShowError('E-mail é obrigatório.'); return; }
-            if (!vertical) { pmShowError('Vertical é obrigatória.'); return; }
+            if (!vertical) { pmShowError('Marque pelo menos uma vertical.'); return; }
             res = await fetch(PESSOAS_API, {
                 method: 'POST',
                 headers: {

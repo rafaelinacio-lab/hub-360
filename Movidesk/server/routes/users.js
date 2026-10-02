@@ -1,4 +1,10 @@
 const express = require('express');
+// Aceita texto ("A; B") ou lista e devolve "A; B" (sem repetidos), ou null quando vazio.
+function normalizarVerticais(v) {
+  const itens = Array.isArray(v) ? v : String(v == null ? '' : v).split(/[;|]/);
+  const lista = [...new Set(itens.map((x) => String(x).trim()).filter(Boolean))].slice(0, 20);
+  return lista.length ? lista.join('; ') : null;
+}
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
@@ -122,7 +128,8 @@ router.get('/:id', authMiddleware, requireRole('admin', 'supervisor'), async (re
 
 // POST /users
 router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
-  const { email, name, role, vertical } = req.body;
+  const { email, name, role } = req.body;
+  const vertical = normalizarVerticais(req.body.vertical);
 
   if (!email || !name || !role)
     return res.status(400).json({ error: 'Email, nome e role são obrigatórios' });
@@ -169,7 +176,8 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
 // PUT /users/:id
 router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
-  const { name, role, is_active, vertical } = req.body;
+  const { name, role, is_active } = req.body;
+  const vertical = req.body.vertical === undefined ? undefined : normalizarVerticais(req.body.vertical);
 
   if (!name && role === undefined && is_active === undefined && vertical === undefined)
     return res.status(400).json({ error: 'Forneça pelo menos um campo para atualizar' });
