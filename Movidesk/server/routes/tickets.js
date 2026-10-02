@@ -652,10 +652,11 @@ async function resolveViewerContext(req) {
       [req.user.id]
     );
     const row = rows[0] || {};
-    return { role: row.role || null, vertical: row.vertical || null };
+    const verticais = String(row.vertical || '').split(/[;|]/).map((x) => x.trim()).filter(Boolean);
+    return { role: row.role || null, vertical: verticais.length ? verticais.join('; ') : null, verticais };
   } catch (err) {
     console.error('resolveViewerContext error:', err.message);
-    return { role: null, vertical: null };
+    return { role: null, vertical: null, verticais: [] };
   }
 }
 
@@ -1114,8 +1115,8 @@ async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewe
                  OR lower(split_part(t.service_full, ' > ', 1)) = ANY($${params.length}::text[]))`);
   }
   if (viewer.role === 'supervisor') {
-    params.push(String(viewer.vertical || '').toLowerCase());
-    where.push(`lower(split_part(t.service_full, ' > ', 1)) = $${params.length}`);
+    params.push((viewer.verticais || []).map((v) => v.toLowerCase()));
+    where.push(`lower(split_part(t.service_full, ' > ', 1)) = ANY($${params.length}::text[])`);
   }
   // Classificação do Dashboard: Suporte Técnico (campo 23946) por padrão, ou a que estiver
   // nas Condições do Movidesk. Compara sem acento e sem diferença de maiúsculas.
@@ -1299,8 +1300,8 @@ function fetchActiveTicketsFromLocalDb(viewer, includeAll) {
       whereClauses.push(`baseStatus IN ('New', 'InAttendance', 'Stopped', 'InProgress')`);
     }
     if (viewer.role === 'supervisor') {
-      whereClauses.push(`serviceFirstLevel = ?`);
-      params.push(viewer.vertical);
+      whereClauses.push(`serviceFirstLevel IN (${viewer.verticais.map(() => '?').join(',')})`);
+      params.push(...viewer.verticais);
     }
     if (whereClauses.length) {
       query += ` WHERE ${whereClauses.join(' AND ')}`;
@@ -1368,7 +1369,7 @@ router.get('/', requireTicketsAccess, async (req, res) => {
       candidates = candidates.filter((r) => ACTIVE_BASE_STATUSES.includes(r.basestatus));
     }
     if (viewer.role === 'supervisor') {
-      candidates = candidates.filter((r) => (r.servicefirstlevel || '') === viewer.vertical);
+      candidates = candidates.filter((r) => viewer.verticais.includes(r.servicefirstlevel || ''));
     }
     candidates = filtrarPorEquipes(candidates, equipesDoUsuario, (r) => r.owner_team ?? r.ownerteam, (r) => r.servicefirstlevel);
     candidates = await filterByCustomFieldCondition(candidates, conditions);
@@ -1400,8 +1401,8 @@ async function fetchFiltersFromLocalDb(viewer) {
   let where = '';
   const params = [];
   if (viewer.role === 'supervisor') {
-    where = `WHERE serviceFirstLevel = ?`;
-    params.push(viewer.vertical);
+    where = `WHERE serviceFirstLevel IN (${viewer.verticais.map(() => '?').join(',')})`;
+    params.push(...viewer.verticais);
   }
 
   const distinctValues = async (column) => {
@@ -1461,7 +1462,7 @@ router.get('/filters', requireTicketsAccess, async (req, res) => {
     const conditions = await getConditionsPromise();
     let candidates = await fetchCandidateTicketsFromDatalake(conditions);
     if (viewer.role === 'supervisor') {
-      candidates = candidates.filter((r) => (r.servicefirstlevel || '') === viewer.vertical);
+      candidates = candidates.filter((r) => viewer.verticais.includes(r.servicefirstlevel || ''));
     }
     const blankStatus = candidates.some((r) => !r.basestatus || !String(r.basestatus).trim());
     const statusValues = distinctNonEmpty(candidates.map((r) => r.basestatus));
@@ -1507,8 +1508,8 @@ function fetchPastTicketsFromLocalDb(viewer) {
     `;
     const params = [];
     if (viewer.role === 'supervisor') {
-      query += ` AND serviceFirstLevel = ?`;
-      params.push(viewer.vertical);
+      query += ` AND serviceFirstLevel IN (${viewer.verticais.map(() => '?').join(',')})`;
+      params.push(...viewer.verticais);
     }
     query += ` ORDER BY createdDate DESC LIMIT 100`;
 
@@ -1534,7 +1535,7 @@ router.get('/past', requireTicketsAccess, async (req, res) => {
     let candidates = await fetchCandidateTicketsFromDatalake(conditions);
     candidates = candidates.filter((r) => !ACTIVE_BASE_STATUSES.includes(r.basestatus));
     if (viewer.role === 'supervisor') {
-      candidates = candidates.filter((r) => (r.servicefirstlevel || '') === viewer.vertical);
+      candidates = candidates.filter((r) => viewer.verticais.includes(r.servicefirstlevel || ''));
     }
     candidates.sort((a, b) => new Date(b.createddate || 0) - new Date(a.createddate || 0));
     rows = candidates.slice(0, 100).map(datalakeRowToTicketShape);

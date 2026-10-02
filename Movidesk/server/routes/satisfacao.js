@@ -83,10 +83,10 @@ router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res)
     const esc = await escopoVertical(req.user.id);
     if (!esc.filtrar) return res.json({ universo: universoRes.rows?.[0]?.total || 0, rows: rowsRes.rows || [] });
     if (esc.semVertical) return res.json({ universo: 0, rows: [] });
-    const rows = (rowsRes.rows || []).filter((r) => pertence(esc.vertical, { servico: r.servico, equipe: r.equipe }));
+    const rows = (rowsRes.rows || []).filter((r) => pertence(esc.verticais, { servico: r.servico, equipe: r.equipe }));
     const universo = (await db.query(
       `SELECT COUNT(*)::int AS total FROM silver.ticket t WHERE t.basestatus IN ${FINALIZADO_STATUSES}
-         AND (lower(split_part(t.service_full, ' > ', 1)) = lower($1) OR lower(COALESCE(t.ownerteam,'')) LIKE '%' || lower($1) || '%')`, [esc.vertical]
+         AND (lower(split_part(t.service_full, ' > ', 1)) = ANY($1::text[]) OR EXISTS (SELECT 1 FROM unnest($1::text[]) v WHERE lower(COALESCE(t.ownerteam,'')) LIKE '%' || v || '%'))`, [esc.verticais.map((v) => v.toLowerCase())]
     ).catch(() => ({ rows: [{ total: 0 }] }))).rows[0].total;
     res.json({ universo, rows });
   } catch (error) {

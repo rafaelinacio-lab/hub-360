@@ -238,3 +238,6 @@ O admin tem o botão "Copiar briefing de desenvolvimento" (texto pronto para col
 `server/utils/verticalScope.js`: `admin` vê tudo; os demais perfis veem só a vertical definida em Pessoas (`users.vertical`). Casa (sem acento/maiúsculas) por
 campo "vertical" (GCC, real ou inferida), 1º nível do serviço ou, na Satisfação, equipe que contém a vertical. Sem vertical definida: nada é exibido e as telas avisam
 (`GET /api/escopo-vertical`). Os detalhes do GCC (`/:ticketId`, `/actions`) também checam, para não abrir chamado de outra vertical pelo número.
+
+Um usuário pode participar de **várias verticais**: `users.vertical` guarda a lista separada por `;` (ex.: `Agro; Construshow`). Pessoas edita com caixas de seleção;
+`verticalScope.listaVerticais`/`escopoVertical`, `escopoEquipe` (Dashboard) e o filtro de supervisor em `tickets.js` aceitam a lista. Valores antigos (uma só vertical) continuam válidos.

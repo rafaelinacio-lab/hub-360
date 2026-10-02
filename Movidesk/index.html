@@ -1235,30 +1235,8 @@
                             </select>
                         </div>
                         <div class="pm-field">
-                            <label for="pmVertical">Vertical</label>
-                            <select id="pmVertical">
-                                <option value="">Selecione uma vertical</option>
-                                <option value="Agronegócio">Agronegócio</option>
-                                <option value="Agrotitan Fazendas">Agrotitan Fazendas</option>
-                                <option value="Analytics - B.I">Analytics - B.I</option>
-                                <option value="Automação Comercial">Automação Comercial</option>
-                                <option value="Combustíveis">Combustíveis</option>
-                                <option value="Comitê de IA">Comitê de IA</option>
-                                <option value="Construshow">Construshow</option>
-                                <option value="CRM">CRM</option>
-                                <option value="Filt">Filt</option>
-                                <option value="Fisco Contábil">Fisco Contábil</option>
-                                <option value="GCC">GCC</option>
-                                <option value="Oracle Cloud">Oracle Cloud</option>
-                                <option value="Ouvidoria">Ouvidoria</option>
-                                <option value="Serviços">Serviços</option>
-                                <option value="Sistema para RH">Sistema para RH</option>
-                                <option value="Sistemas Internos">Sistemas Internos</option>
-                                <option value="Supermercados">Supermercados</option>
-                                <option value="Tecnologia">Tecnologia</option>
-                                <option value="Viabot">Viabot</option>
-                                <option value="Voors">Voors</option>
-                            </select>
+                            <label>Verticais <span style="font-weight:400;opacity:.7">(marque uma ou mais)</span></label>
+                            <div id="pmVertical" class="pm-verts" role="group" aria-label="Verticais"><label class="pm-vert"><input type="checkbox" value="Agronegócio"> Agronegócio</label><label class="pm-vert"><input type="checkbox" value="Agrotitan Fazendas"> Agrotitan Fazendas</label><label class="pm-vert"><input type="checkbox" value="Analytics - B.I"> Analytics - B.I</label><label class="pm-vert"><input type="checkbox" value="Automação Comercial"> Automação Comercial</label><label class="pm-vert"><input type="checkbox" value="Combustíveis"> Combustíveis</label><label class="pm-vert"><input type="checkbox" value="Comitê de IA"> Comitê de IA</label><label class="pm-vert"><input type="checkbox" value="Construshow"> Construshow</label><label class="pm-vert"><input type="checkbox" value="CRM"> CRM</label><label class="pm-vert"><input type="checkbox" value="Filt"> Filt</label><label class="pm-vert"><input type="checkbox" value="Fisco Contábil"> Fisco Contábil</label><label class="pm-vert"><input type="checkbox" value="GCC"> GCC</label><label class="pm-vert"><input type="checkbox" value="Oracle Cloud"> Oracle Cloud</label><label class="pm-vert"><input type="checkbox" value="Ouvidoria"> Ouvidoria</label><label class="pm-vert"><input type="checkbox" value="Serviços"> Serviços</label><label class="pm-vert"><input type="checkbox" value="Sistema para RH"> Sistema para RH</label><label class="pm-vert"><input type="checkbox" value="Sistemas Internos"> Sistemas Internos</label><label class="pm-vert"><input type="checkbox" value="Supermercados"> Supermercados</label><label class="pm-vert"><input type="checkbox" value="Tecnologia"> Tecnologia</label><label class="pm-vert"><input type="checkbox" value="Viabot"> Viabot</label><label class="pm-vert"><input type="checkbox" value="Voors"> Voors</label></div>
                         </div>
                         <div class="pm-field" id="pmActiveField" style="display:none;">
                             <label for="pmActive">Status</label>
@@ -1661,6 +1639,8 @@
                 .ws-mais{margin-top:6px}
                 .ws-mais summary{cursor:pointer;font-size:12px;color:var(--text-muted,#6b7280);padding:4px 0}
                 .ws-mais[open]{display:flex;flex-direction:column;gap:6px}
+                .pm-verts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--bg)}
+                .pm-vert{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
                 .ws-aviso:empty{display:none}
                 .ws-aviso{font-size:12px;padding:8px 10px;border-radius:8px;word-break:break-word;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.12)}
                 .ws-aviso-ok{color:var(--grn-dark);background:var(--grn-bg)}

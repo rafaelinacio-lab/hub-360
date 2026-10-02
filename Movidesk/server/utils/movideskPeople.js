@@ -130,8 +130,9 @@ function filtrarPorEquipes(linhas, equipes, campoEquipe, campoServico) {
 async function escopoEquipe(user, queroTodas) {
   const r = await db.query(`SELECT u.name, u.vertical, r.name AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [user.id]);
   const { name, role, vertical } = r.rows[0] || {};
-  const info = vertical && String(vertical).trim()
-    ? { equipes: [String(vertical).trim()], origem: 'vertical' }
+  const lista = String(vertical == null ? '' : vertical).split(/[;|]/).map((x) => x.trim()).filter(Boolean);   // várias verticais
+  const info = lista.length
+    ? { equipes: [...new Set(lista)], origem: 'vertical' }
     : await equipesDoUsuario(user.email, name);
   const podeVerTodas = ['admin', 'supervisor'].includes(role);
   const filtrar = info.equipes.length > 0 && !(queroTodas && podeVerTodas);
