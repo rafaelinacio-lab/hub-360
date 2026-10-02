@@ -63,13 +63,7 @@ router.get('/:id(\\d+)', requireLeitura, async (req, res) => {
   } catch (e) { erro(res, e); }
 });
 
-const INSTRUCOES = `Você é um agente de análise de suporte técnico. Recebe uma lista de chamados, cada um com ID, cliente (organização), time responsável, data de criação, assunto e o HISTÓRICO COMPLETO de ações (todas as mensagens, em ordem cronológica, marcadas como CLIENTE, EQUIPE ou NOTA INTERNA). Trate o histórico completo como a fonte principal de verdade: leia cada chamado como uma narrativa do início ao fim, não como o estado final.
-Identifique RECORRÊNCIAS DE PROBLEMA em três dimensões:
-DIMENSÃO 0 — dentro do mesmo chamado: o mesmo sintoma relatado mais de uma vez no histórico (mesmo depois de uma correção do suporte); expressões como "de novo", "novamente", "voltou a acontecer", "igual da última vez" em QUALQUER mensagem; chamado que aparentou resolvido e voltou. Para cada ocorrência: data aproximada e resumo de uma frase; diga se houve correção entre as ocorrências e qual.
-DIMENSÃO A — mesmo cliente, chamados diferentes, mesmo TIPO de problema. Compare históricos completos, por similaridade SEMÂNTICA (não só palavras-chave), mesmo com IDs, datas, responsáveis ou palavras diferentes. Exemplos do que conta como o mesmo problema: "SPED com erro" e "arquivo fiscal não gera"; "não consigo emitir DANFE" e "nota não abre para impressão"; "servidor caiu" e "não acesso o sistema". NÃO conta: "erro ao emitir nota" e "dúvida sobre cadastro"; pedido de melhoria junto com bug técnico do mesmo módulo.
-DIMENSÃO B — mesmo tipo de problema em ${'{{MIN}}'} OU MAIS clientes diferentes (indício de bug sistêmico ou lacuna de produto). Informe o módulo provável (fiscal, financeiro, cadastro, relatórios, integração...) e a recomendação: "provável bug sistêmico — recomendar escalonamento para desenvolvimento/produto" OU "pode ser coincidência de temas semelhantes, mas causas distintas — recomendar verificação manual antes de escalar".
-REGRAS: (1) nunca junte chamados só por palavras em comum (ex.: "nota fiscal"); a correspondência é sobre o SINTOMA/CAUSA específico. (2) leia o histórico inteiro; uma mensagem do meio vale tanto quanto a última. (3) menção explícita a "já aconteceu antes", "mesmo problema do ticket X", "de novo", "novamente" em qualquer mensagem é sinal FORTE: confiança Alta. (4) Dimensão B exige o mínimo de clientes distintos informado. (5) correção que funcionou e falhou de novo no mesmo histórico conta como recorrência mesmo com o chamado marcado resolvido. (6) nunca omita um caso por falta de certeza: use confiança Baixa e explique a incerteza. (7) se não houver recorrência relevante em uma dimensão, devolva lista vazia em vez de forçar agrupamento fraco. (8) use SOMENTE os IDs de chamado fornecidos.
-Responda em JSON: {"dimensao0":[{"ticket_id":0,"ocorrencias":[{"quando":"AAAA-MM-DD ou aproximado","resumo":""}],"correcao_aplicada":"sim/não + descrição","confianca":"Alta|Média|Baixa"}],"dimensaoA":[{"problema":"1 frase neutra","ticket_ids":[0],"confianca":"Alta|Média|Baixa","justificativa":"por que é o mesmo problema"}],"dimensaoB":[{"problema":"1-2 frases","ticket_ids":[0],"modulo":"","confianca":"Alta|Média|Baixa","recomendacao":""}],"resumo":"2-3 frases com os 2 ou 3 casos mais críticos entre as três dimensões"}`;
+const { FORMATO_TECNICO, montarPrompt } = require('../utils/reincidenciaPrompt');
 
 // Roda uma análise completa (usada pelo botão e pela rotina automática). `usuario` = null quando é automática.
 let analisando = false;
@@ -102,7 +96,7 @@ async function executar(entrada, usuario) {
         autorPerfil: a.criado_por_profile_type == null ? null : Number(a.criado_por_profile_type), texto: a.descricao })), orcamento);
       return `### CHAMADO ${t.id}\nCliente: ${limitar(t.cliente, 120)} · Time: ${t.ownerteam || '—'} · Serviço: ${t.servico || '—'} · Criado em: ${dia(t.createddate)} · Status: ${t.status || '—'}\nAssunto: ${limitar(t.subject, 200)}\nHistórico:\n${hist}`;
     }).join('\n\n');
-    const system = `${REGRAS}${cfg.diretrizes(S)}\n${INSTRUCOES.replace('{{MIN}}', String(C.minClientesSistemico))}${cfg.extra(C.instrucaoExtra)}`;
+    const system = `${REGRAS}${cfg.diretrizes(S)}\n${montarPrompt(C.promptBase, C.minClientesSistemico)}\n${FORMATO_TECNICO}${cfg.extra(C.instrucaoExtra)}`;
     const r = await chamarIA({ source: 'reincidencias', system, user: dados('CHAMADOS', bloco), maxTokens: 5000, temperature: cfg.temperatura(C.criatividade), timeoutMs: 170000, userEmail: usuario ? usuario.email : 'automatico@hub', meta: { tickets: tks.length, dias, servico } });
 
     // ── confere a resposta da IA contra o banco ──
