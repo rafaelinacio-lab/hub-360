@@ -127,6 +127,29 @@
         }).join('');
     }
 
+    // Ações rápidas de status: só as transições que fazem sentido a partir do status atual, com nomes claros.
+    // Cada botão escolhe o status da empresa pelo "status base" do Movidesk (nada de digitar ou escolher na lista).
+    function statusPorBase(op, base) { return ((op.status || []).find(x => x.baseStatus === base) || {}).status || null; }
+    function botoesStatus(d, op) {
+        const base = ((op.status || []).find(x => x.status === d.status) || {}).baseStatus;
+        const B = (rotulo, base2, classe, dica) => { const st = statusPorBase(op, base2); return st ? `<button type="button" class="ws-btn ${classe || ''}" data-rapida="${esc(st)}" data-base="${base2}" title="${esc(dica)}">${rotulo}</button>` : ''; };
+        if (base === 'New') return B('Iniciar atendimento', 'InAttendance', 'ws-btn-primario', 'Muda para ' + statusPorBase(op, 'InAttendance')) + B('Aguardando…', 'Stopped', '', 'Pausar o chamado (pede o motivo)') + B('Resolver', 'Resolved', '', 'Marcar como resolvido');
+        if (base === 'InAttendance' || base === 'InProgress') return B('Aguardando…', 'Stopped', '', 'Pausar o chamado (pede o motivo)') + B('Resolver', 'Resolved', 'ws-btn-primario', 'Marcar como resolvido');
+        if (base === 'Stopped') return B('Retomar atendimento', 'InAttendance', 'ws-btn-primario', 'Volta para ' + statusPorBase(op, 'InAttendance')) + B('Resolver', 'Resolved', '', 'Marcar como resolvido');
+        if (base === 'Resolved' || base === 'Closed' || base === 'Canceled') return B('Reabrir (voltar ao atendimento)', 'InAttendance', 'ws-btn-primario', 'Reabre o chamado');
+        return '';
+    }
+    function rapidaStatus(botao) {
+        const status = botao.dataset.rapida;
+        if (botao.dataset.base === 'Stopped') {           // pausar precisa do motivo: abre as opções já com o status escolhido
+            const det = $('wsMaisStatus'); det.open = true; $('wsStatus').value = status; ajustarJustificativa();
+            ($('wsJustificativaSel').style.display !== 'none' ? $('wsJustificativaSel') : $('wsJustificativa')).focus();
+            return avisar('Escolha o motivo da espera e clique em “Alterar status”.');
+        }
+        $('wsStatus').value = status;
+        alterarStatus();
+    }
+
     function renderControles(d, op) {
         if (!d.podeInteragir) {
             return '<div class="ws-somente-leitura">Seu perfil pode acompanhar o chamado, mas não interagir com ele.</div>';
@@ -167,17 +190,26 @@
                 <div id="wsIaClienteBox" class="ws-cli-box" aria-live="polite"></div>
             </div>
             <div class="ws-secao">
-                <h4>Status</h4>
-                <select id="wsStatus" aria-label="Novo status">${optsStatus}</select>
-                <select id="wsJustificativaSel" style="display:none;" aria-label="Justificativa"></select>
-                <input type="text" id="wsJustificativa" placeholder="Justificativa (opcional)" aria-label="Justificativa">
-                <button type="button" class="ws-btn" id="wsAplicarStatus">Alterar status</button>
+                <h4>Responsável</h4>
+                <div class="ws-dica">Atual: <strong>${esc(d.responsavel ? d.responsavel.nome : 'ninguém')}</strong></div>
+                <button type="button" class="ws-btn ws-btn-primario" id="wsAssumir" title="Passa o chamado para você, na sua equipe do Movidesk">Atribuir para mim</button>
+                <details class="ws-mais">
+                    <summary>Atribuir a outra pessoa</summary>
+                    <select id="wsResp" aria-label="Novo responsável">${optsAg}</select>
+                    <select id="wsEquipeResp" style="display:none;" aria-label="Equipe do chamado"></select>
+                    <button type="button" class="ws-btn" id="wsAplicarResp">Atribuir</button>
+                </details>
             </div>
             <div class="ws-secao">
-                <h4>Responsável</h4>
-                <select id="wsResp" aria-label="Novo responsável">${optsAg}</select>
-                <select id="wsEquipeResp" style="display:none;" aria-label="Equipe do chamado"></select>
-                <button type="button" class="ws-btn" id="wsAplicarResp">Atribuir</button>
+                <h4>Status: ${esc(d.status)}</h4>
+                <div class="ws-rapidas" id="wsRapidas">${botoesStatus(d, op)}</div>
+                <details class="ws-mais" id="wsMaisStatus">
+                    <summary>Escolher outro status</summary>
+                    <select id="wsStatus" aria-label="Novo status">${optsStatus}</select>
+                    <select id="wsJustificativaSel" style="display:none;" aria-label="Justificativa"></select>
+                    <input type="text" id="wsJustificativa" placeholder="Justificativa (opcional)" aria-label="Justificativa">
+                    <button type="button" class="ws-btn" id="wsAplicarStatus">Alterar status</button>
+                </details>
             </div>
             <div class="ws-secao" id="wsIncidente" style="display:none;">
                 <h4>Incidente</h4>
@@ -192,6 +224,8 @@
         $('wsIaCliente')?.addEventListener('click', iaAnalisarCliente);
         verificarIa();
         $('wsAplicarStatus')?.addEventListener('click', alterarStatus);
+        $('wsRapidas')?.addEventListener('click', (e) => { const b = e.target.closest('[data-rapida]'); if (b) rapidaStatus(b); });
+        $('wsAssumir')?.addEventListener('click', assumirChamado);
         $('wsAplicarResp')?.addEventListener('click', alterarResponsavel);
         $('wsResp')?.addEventListener('change', ajustarEquipeResponsavel);
         $('wsStatus')?.addEventListener('change', () => ajustarJustificativa());
@@ -471,6 +505,14 @@
         executar($('wsAplicarStatus'), 'Alterando…', async () => {
             await chamar(`/${_ws.id}/workspace/status`, { method: 'POST', body: JSON.stringify({ status, justificativa }) });
             avisar(`Status alterado para "${status}".`);
+        });
+    }
+
+    function assumirChamado() {
+        executar($('wsAssumir'), 'Atribuindo…', async () => {
+            const equipe = $('wsEquipeResp') && $('wsEquipeResp').style.display !== 'none' ? $('wsEquipeResp').value : '';
+            await chamar(`/${_ws.id}/workspace/responsavel`, { method: 'POST', body: JSON.stringify({ paraMim: true, equipe }) });
+            avisar('Chamado atribuído para você.');
         });
     }
 
