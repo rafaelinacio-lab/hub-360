@@ -224,3 +224,11 @@ Configurações → Assistente de IA → Reincidências.
 Painel: `GET /api/reincidencias/painel` devolve a última análise, a anterior comparável (mesmo período/serviço) e a série histórica
 (taxa de reincidência = chamados envolvidos em alguma recorrência ÷ analisados). Uma rotina interna (a cada 30 min) refaz a análise
 padrão sozinha quando a última tem mais de `autoHoras` (Configurações → Assistente de IA → Reincidências; 0 desliga; `REINCIDENCIAS_SEM_AUTO=1` desliga no ambiente).
+
+## Melhorias (sugestões para o próprio Hub)
+
+Aba `melhorias`, aberta a **qualquer usuário logado** (não depende de Configurações → Acesso). `server/routes/melhorias.js` + `pages/melhorias.html`.
+Qualquer um cadastra, apoia (voto) e comenta; só `admin` avalia (status, prioridade P1-P4, esforço P/M/G/GG, previsão, responsável, resposta ao
+autor, nota de implantação) e escreve notas internas. Fluxo: nova → em avaliação → aprovada → em desenvolvimento → implantada | recusada
+(recusar exige resposta; implantar exige nota). Autor edita/exclui só enquanto "nova". Tabelas `public.melhoria*`, criadas no primeiro uso.
+O admin tem o botão "Copiar briefing de desenvolvimento" (texto pronto para colar no Claude Code).

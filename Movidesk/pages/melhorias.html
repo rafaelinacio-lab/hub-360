@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Melhorias</title>
+<script>
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
+    });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f1ee; --surface:#ffffff; --surface-mid:#f7f6f3; --border:#e5e3de; --border-hi:#cac8c2;
+  --t1:#1a1917; --t2:#57554f; --t3:#9b9892;
+  --p1:#dc2626; --p1-bg:#fee2e2; --p2:#ea580c; --p2-bg:#ffedd5; --p3:#ca8a04; --p3-bg:#fef9c3; --p4:#2563eb; --p4-bg:#dbeafe;
+  --ok:#15803d; --ok-bg:#dcfce7; --warn:#b45309; --warn-bg:#fef3c7; --bad:#b91c1c; --bad-bg:#fee2e2;
+  --accent:#e85d04; --sh:0 16px 48px rgba(0,0,0,.14);
+}
+html.dark{
+  --bg:#0f1117; --surface:#1a1d27; --surface-mid:#1e2232; --border:#2a2d3a; --border-hi:#3a3e50;
+  --t1:#e8e8e2; --t2:#a8a8a0; --t3:#75756e;
+  --p1:#f87171; --p1-bg:#3b1515; --p2:#fb923c; --p2-bg:#3a2010; --p3:#facc15; --p3-bg:#33290a; --p4:#60a5fa; --p4-bg:#14264a;
+  --ok:#4ade80; --ok-bg:#12301c; --warn:#fbbf24; --warn-bg:#33270a; --bad:#f87171; --bad-bg:#3b1515;
+  --sh:0 16px 48px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:Inter,system-ui,sans-serif;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+.page{padding:20px 24px 40px;max-width:1400px;margin:0 auto}
+.topo{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.topo h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.topo p{margin:2px 0 0;color:var(--t3);font-size:13px;max-width:680px}
+.sp{flex:1}
+.btn{border:1px solid var(--border-hi);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.btn:hover:not(:disabled){background:var(--surface-mid)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.primario{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.peq{padding:5px 10px;font-size:12px}
+select,input,textarea{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:8px 10px;font-size:13px;max-width:100%;width:auto}
+textarea{width:100%;resize:vertical;min-height:80px}
+.kpis{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 14px;cursor:pointer;text-align:left;min-width:120px}
+.kpi[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.kpi .r{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);font-weight:600}
+.kpi .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.barra input[type=search]{min-width:220px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--t1);color:var(--surface);border-color:var(--t1)}
+.lista{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;cursor:pointer}
+.item:hover,.item:focus-visible{border-color:var(--border-hi);outline:none}
+.voto{border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:6px 0;text-align:center;cursor:pointer;font-weight:700;line-height:1.1}
+.voto small{display:block;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase}
+.voto.on{background:var(--accent);border-color:var(--accent);color:#fff} .voto.on small{color:#fff}
+.voto:disabled{opacity:.5;cursor:default}
+.item h3{margin:0;font-size:14px}
+.sub{font-size:12px;color:var(--t3)}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.s-nova{background:var(--surface-mid);color:var(--t2)} .s-avaliacao{background:var(--warn-bg);color:var(--warn)} .s-aprovada{background:var(--p4-bg);color:var(--p4)}
+.s-desenvolvimento{background:var(--p2-bg);color:var(--p2)} .s-implantada{background:var(--ok-bg);color:var(--ok)} .s-recusada{background:var(--bad-bg);color:var(--bad)}
+.tag{font-size:11px;border:1px solid var(--border);border-radius:6px;padding:1px 7px;color:var(--t2);margin-right:4px}
+.quadro{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:10px;overflow-x:auto;align-items:start}
+.col{background:var(--surface-mid);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:80px}
+.col h4{margin:2px 4px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
+.col .item{grid-template-columns:minmax(0,1fr);gap:4px}
+.vazio{padding:28px;text-align:center;color:var(--t3);background:var(--surface);border:1px dashed var(--border-hi);border-radius:12px}
+.aviso{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;word-break:break-word}
+.aviso:empty{display:none}
+.aviso.erro{background:var(--bad-bg);color:var(--bad)} .aviso.ok{background:var(--ok-bg);color:var(--ok)}
+.fundo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
+.fundo.aberto{display:block}
+.gaveta{position:fixed;top:0;right:0;bottom:0;width:min(720px,100vw);background:var(--bg);box-shadow:var(--sh);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s;z-index:51}
+.gaveta.aberta{transform:none}
+@media (prefers-reduced-motion:reduce){.gaveta{transition:none}}
+.g-topo{display:flex;align-items:flex-start;gap:12px;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.g-topo h2{margin:0;font-size:18px;line-height:1.3}
+.g-topo .x{margin-left:auto;border:none;background:none;font-size:26px;line-height:1;cursor:pointer;color:var(--t2)}
+.g-corpo{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:16px}
+.sec h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.txt{white-space:pre-wrap;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px}
+.resp{border-left:4px solid var(--accent)}
+.com{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px}
+.com.int{background:var(--warn-bg);border-color:transparent}
+.com b{font-size:12px}
+.ev{font-size:12px;color:var(--t2);padding:3px 0;border-bottom:1px solid var(--border)}
+.adm{background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.adm label,.modal label{font-size:12px;color:var(--t2);font-weight:600;display:flex;flex-direction:column;gap:4px}
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.adm select,.adm input,.modal select,.modal input{width:100%}
+.modal-fundo{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:60}
+.modal-fundo.aberto{display:flex}
+.modal{background:var(--surface);border-radius:14px;width:min(620px,100%);max-height:94vh;overflow-y:auto;box-shadow:var(--sh);padding:20px;display:flex;flex-direction:column;gap:12px}
+.modal h3{margin:0;font-size:17px}
+.acoes{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+@media (max-width:640px){.item{grid-template-columns:54px minmax(0,1fr)}.item .lado{grid-column:2}.duas{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topo">
+    <div><h1>Melhorias</h1><p>Sugira melhorias para o Hub 360, apoie as ideias dos colegas e acompanhe o que está sendo avaliado, desenvolvido e já implantado.</p></div>
+    <div class="sp"></div>
+    <button class="btn primario" id="btnNova" type="button">+ Nova sugestão</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="barra">
+    <input type="search" id="fBusca" placeholder="Buscar sugestões…" aria-label="Buscar">
+    <select id="fArea" aria-label="Área"><option value="">Todas as áreas</option></select>
+    <select id="fTipo" aria-label="Tipo"><option value="">Todos os tipos</option></select>
+    <select id="fOrdem" aria-label="Ordenar"><option value="votos">Mais apoiadas</option><option value="recentes">Mais recentes</option></select>
+    <button class="chip" id="chipMeus" aria-pressed="false" type="button">Minhas sugestões</button>
+    <span class="sp"></span>
+    <button class="chip" id="vLista" aria-pressed="true" type="button">Lista</button>
+    <button class="chip" id="vQuadro" aria-pressed="false" type="button">Quadro</button>
+  </div>
+  <div class="aviso" id="aviso" role="status"></div>
+  <div id="conteudo"></div>
+</div>
+
+<div class="fundo" id="fundo"></div>
+<aside class="gaveta" id="gaveta" aria-hidden="true" role="dialog" aria-label="Detalhe da sugestão">
+  <div class="g-topo"><div style="min-width:0"><div class="sub" id="gCodigo"></div><h2 id="gTitulo"></h2><div id="gBadges" style="margin-top:6px"></div></div><button class="x" id="gFechar" aria-label="Fechar" type="button">&times;</button></div>
+  <div class="g-corpo" id="gCorpo"></div>
+</aside>
+
+<div class="modal-fundo" id="mFundo">
+  <form class="modal" id="mForm" autocomplete="off">
+    <h3 id="mTitulo">Nova sugestão</h3>
+    <label>Título <input id="nTitulo" maxlength="140" placeholder="Ex.: Filtrar o Dashboard por cliente" required></label>
+    <div class="duas"><label>Tipo <select id="nTipo"></select></label><label>Área do Hub <select id="nArea"></select></label></div>
+    <label>O que você sugere? <textarea id="nDescricao" maxlength="4000" placeholder="Descreva o que precisa mudar ou o problema que encontrou. Quanto mais detalhe, mais fácil de avaliar."></textarea></label>
+    <label>Qual o benefício? (opcional) <textarea id="nBeneficio" maxlength="1000" style="min-height:56px" placeholder="Ex.: economiza tempo no atendimento, evita erro de..."></textarea></label>
+    <div class="aviso" id="nAviso" role="status"></div>
+    <div class="acoes"><button class="btn" type="button" id="nCancelar">Cancelar</button><button class="btn primario" type="submit" id="nSalvar">Enviar sugestão</button></div>
+  </form>
+</div>
+
+<script>
+const API=`${location.origin}/api/melhorias`;
+const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
+async function api(ep,{method='GET',body}={}){
+  const r=await fetch(API+ep,{method,headers:{Authorization:`Bearer ${tok()}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  const raw=await r.text(); let d={}; try{d=raw?JSON.parse(raw):{};}catch{d={error:raw};}
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return d;
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmt=v=>v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+const dia=v=>v?new Date(v).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—';
+function aviso(id,m,t){ const e=$(id); if(!e) return; e.textContent=m||''; e.className='aviso'+(m?' '+(t||'ok'):''); }
+let CFG=null, S={status:'',area:'',tipo:'',meus:false,q:'',ordem:'votos',vista:'lista',lista:[],cont:{},aberta:null};
+const pill=m=>`<span class="pill s-${m.status}">${esc(m.rotuloStatus)}</span>`;
+const tags=m=>`<span class="tag">${esc(CFG.tipos[m.tipo]||m.tipo)}</span><span class="tag">${esc(m.area||'Outro')}</span>${m.prioridade?`<span class="tag" title="Prioridade definida pela administração">P${m.prioridade}</span>`:''}${m.esforco?`<span class="tag" title="Esforço estimado">Esforço ${esc(m.esforco)}</span>`:''}`;
+
+function cartao(m){
+  const encerrada=['implantada','recusada'].includes(m.status);
+  return `<div class="item" tabindex="0" role="button" data-id="${m.id}">
+    ${S.vista==='lista'?`<button type="button" class="voto ${m.eu_votei?'on':''}" data-voto="${m.id}" ${encerrada?'disabled':''} aria-label="Apoiar esta sugestão" title="${encerrada?'Sugestão encerrada':(m.eu_votei?'Remover meu apoio':'Apoiar')}">${m.votos}<small>apoios</small></button>`:''}
+    <div style="min-width:0"><h3>${esc(m.titulo)}</h3><div class="sub">${m.codigo} · ${esc(m.criado_por_nome||'—')} · ${dia(m.criado_em)}${m.n_comentarios?` · ${m.n_comentarios} comentário(s)`:''}${S.vista==='quadro'?` · ${m.votos} apoios`:''}</div><div style="margin-top:4px">${tags(m)}</div></div>
+    ${S.vista==='lista'?`<div class="lado">${pill(m)}</div>`:''}</div>`;
+}
+function desenhar(){
+  const ordem=Object.keys(CFG.status);
+  $('kpis').innerHTML=`<button class="kpi" data-st="" aria-pressed="${S.status===''}"><div class="r">Todas</div><div class="n">${Object.values(S.cont).reduce((a,b)=>a+b,0)}</div></button>`+
+    ordem.map(k=>`<button class="kpi" data-st="${k}" aria-pressed="${S.status===k}"><div class="r">${esc(CFG.status[k])}</div><div class="n">${S.cont[k]||0}</div></button>`).join('');
+  if(!S.lista.length){ $('conteudo').innerHTML='<div class="vazio">Nenhuma sugestão encontrada. Seja o primeiro: clique em “+ Nova sugestão”.</div>'; return; }
+  if(S.vista==='lista') $('conteudo').innerHTML=`<div class="lista">${S.lista.map(cartao).join('')}</div>`;
+  else $('conteudo').innerHTML=`<div class="quadro">${ordem.map(k=>`<div class="col"><h4>${esc(CFG.status[k])} (${S.lista.filter(m=>m.status===k).length})</h4>${S.lista.filter(m=>m.status===k).map(cartao).join('')}</div>`).join('')}</div>`;
+}
+async function carregar(){
+  const qs=new URLSearchParams({ordem:S.ordem}); if(S.status&&S.vista==='lista')qs.set('status',S.status); if(S.area)qs.set('area',S.area); if(S.tipo)qs.set('tipo',S.tipo); if(S.meus)qs.set('meus','1'); if(S.q)qs.set('q',S.q);
+  try{ const d=await api('/?'+qs); S.lista=d.melhorias; S.cont=d.contagem; desenhar(); }catch(e){ aviso('aviso',e.message,'erro'); }
+}
+$('kpis').addEventListener('click',e=>{ const b=e.target.closest('[data-st]'); if(!b)return; S.status=b.dataset.st; if(S.vista==='quadro'&&S.status){ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); } carregar(); });
+$('conteudo').addEventListener('click',async e=>{
+  const v=e.target.closest('[data-voto]');
+  if(v){ e.stopPropagation(); try{ await api(`/${v.dataset.voto}/voto`,{method:'POST'}); carregar(); }catch(x){ aviso('aviso',x.message,'erro'); } return; }
+  const c=e.target.closest('.item'); if(c) abrir(Number(c.dataset.id));
+});
+$('conteudo').addEventListener('keydown',e=>{ if((e.key==='Enter')&&e.target.classList.contains('item')) abrir(Number(e.target.dataset.id)); });
+let tb=null; $('fBusca').addEventListener('input',()=>{ clearTimeout(tb); tb=setTimeout(()=>{ S.q=$('fBusca').value.trim(); carregar(); },250); });
+$('fArea').addEventListener('change',()=>{ S.area=$('fArea').value; carregar(); });
+$('fTipo').addEventListener('change',()=>{ S.tipo=$('fTipo').value; carregar(); });
+$('fOrdem').addEventListener('change',()=>{ S.ordem=$('fOrdem').value; carregar(); });
+$('chipMeus').addEventListener('click',()=>{ S.meus=!S.meus; $('chipMeus').setAttribute('aria-pressed',String(S.meus)); carregar(); });
+$('vLista').addEventListener('click',()=>{ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); carregar(); });
+$('vQuadro').addEventListener('click',()=>{ S.vista='quadro'; S.status=''; $('vQuadro').setAttribute('aria-pressed','true'); $('vLista').setAttribute('aria-pressed','false'); carregar(); });
+
+/* ── detalhe ── */
+function fechar(){ S.aberta=null; $('fundo').classList.remove('aberto'); $('gaveta').classList.remove('aberta'); $('gaveta').setAttribute('aria-hidden','true'); }
+async function abrir(id){
+  S.aberta=id; $('fundo').classList.add('aberto'); $('gaveta').classList.add('aberta'); $('gaveta').setAttribute('aria-hidden','false');
+  $('gCorpo').innerHTML='<div class="sub">Carregando…</div>';
+  try{ desenharGaveta(await api('/'+id)); }catch(e){ $('gCorpo').innerHTML=`<div class="aviso erro">${esc(e.message)}</div>`; }
+}
+function briefing(m,coms){
+  return `# Implementar no Hub 360: ${m.titulo}\n\nSugestão ${m.codigo} · ${CFG.tipos[m.tipo]} · Área: ${m.area||'—'} · ${m.votos} apoio(s)\nAutor: ${m.criado_por_nome}\n\n## O que foi pedido\n${m.descricao}\n\n## Benefício esperado\n${m.beneficio||'(não informado)'}\n\n${m.resposta?`## Orientação da administração\n${m.resposta}\n\n`:''}${coms.length?`## Comentários\n${coms.map(c=>`- ${c.autor_nome}${c.interno?' (interno)':''}: ${c.texto}`).join('\n')}\n\n`:''}## Pedido\nAnalise o código relacionado a "${m.area||'o Hub'}", proponha a abordagem, implemente numa branch, teste e descreva o que não foi possível testar. Ao final, escreva a nota de implantação em linguagem simples para o autor.`;
+}
+function desenharGaveta(d){
+  const m=d.melhoria, adm=CFG.eu.admin, enc=['implantada','recusada'].includes(m.status);
+  $('gCodigo').textContent=`${m.codigo} · ${CFG.tipos[m.tipo]} · ${m.area||'Outro'}`; $('gTitulo').textContent=m.titulo; $('gBadges').innerHTML=pill(m)+' '+tags(m);
+  const podeEditar=m.minha&&m.status==='nova';
+  $('gCorpo').innerHTML=`<div class="aviso" id="gAviso" role="status"></div>
+   <div class="sec"><div class="sub" style="margin-bottom:6px">Enviada por ${esc(m.criado_por_nome||'—')} em ${fmt(m.criado_em)} · ${m.votos} apoio(s)${m.previsao?` · previsão ${dia(m.previsao)}`:''}${m.responsavel?` · responsável ${esc(m.responsavel)}`:''}</div><div class="txt">${esc(m.descricao)}</div>${m.beneficio?`<div class="sub" style="margin-top:6px"><b>Benefício:</b> ${esc(m.beneficio)}</div>`:''}
+     <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn peq" id="gVoto" ${enc?'disabled':''}>${m.eu_votei?'✓ Você apoia — remover':'▲ Apoiar'}</button>${podeEditar?'<button class="btn peq" id="gEditar">Editar</button><button class="btn peq" id="gExcluir">Excluir</button>':''}</div></div>
+   ${m.resposta?`<div class="sec"><h4>Resposta da administração</h4><div class="txt resp">${esc(m.resposta)}</div></div>`:''}
+   ${m.status==='implantada'&&m.nota_implantacao?`<div class="sec"><h4>O que foi implantado${m.implantada_em?` em ${dia(m.implantada_em)}`:''}</h4><div class="txt resp">${esc(m.nota_implantacao)}</div></div>`:''}
+   ${adm?`<div class="sec"><div class="adm"><h4 style="margin:0">Administração</h4>
+      <div class="duas"><label>Status <select id="aStatus">${Object.entries(CFG.status).map(([k,v])=>`<option value="${k}" ${k===m.status?'selected':''}>${esc(v)}</option>`).join('')}</select></label>
+        <label>Prioridade <select id="aPrio"><option value="">—</option>${[1,2,3,4].map(p=>`<option value="${p}" ${m.prioridade===p?'selected':''}>P${p}${p===1?' (urgente)':p===4?' (baixa)':''}</option>`).join('')}</select></label>
+        <label>Esforço <select id="aEsf"><option value="">—</option>${CFG.esforcos.map(p=>`<option ${m.esforco===p?'selected':''}>${p}</option>`).join('')}</select></label>
+        <label>Previsão <input type="date" id="aPrev" value="${m.previsao?String(m.previsao).slice(0,10):''}"></label></div>
+      <label>Responsável pelo desenvolvimento <input id="aResp" maxlength="80" value="${esc(m.responsavel||'')}"></label>
+      <label>Resposta ao autor (aparece para quem sugeriu) <textarea id="aRes" maxlength="2000">${esc(m.resposta||'')}</textarea></label>
+      <label>Nota de implantação (obrigatória ao marcar como implantada) <textarea id="aNota" maxlength="2000" style="min-height:60px">${esc(m.nota_implantacao||'')}</textarea></label>
+      <div class="acoes"><button class="btn peq" id="aBrief" title="Copia um texto pronto para colar no Claude Code e desenvolver">Copiar briefing de desenvolvimento</button><button class="btn primario peq" id="aSalvar">Salvar avaliação</button></div></div></div>`:''}
+   <div class="sec"><h4>Comentários (${d.comentarios.length})</h4><div style="display:flex;flex-direction:column;gap:6px">${d.comentarios.map(c=>`<div class="com ${c.interno?'int':''}"><b>${esc(c.autor_nome)}${c.admin?' · administração':''}${c.interno?' · nota interna':''}</b> <span class="sub">${fmt(c.criado_em)}</span><div style="white-space:pre-wrap">${esc(c.texto)}</div></div>`).join('')||'<div class="sub">Sem comentários ainda.</div>'}</div>
+     <textarea id="cTexto" maxlength="2000" placeholder="Escreva um comentário…" style="min-height:60px;margin-top:8px"></textarea>
+     <div class="acoes" style="margin-top:6px;align-items:center">${adm?'<label style="flex-direction:row;align-items:center;gap:6px;margin-right:auto"><input type="checkbox" id="cInt" style="width:auto"> Nota interna (só administradores veem)</label>':''}<button class="btn peq" id="cEnviar">Comentar</button></div></div>
+   <div class="sec"><h4>Histórico</h4>${d.eventos.map(e=>`<div class="ev"><b>${fmt(e.criado_em)}</b> — ${esc(e.texto||e.tipo)}</div>`).join('')}</div>`;
+  const recarregar=async(msg)=>{ const dd=await api('/'+m.id); desenharGaveta(dd); aviso('gAviso',msg); carregar(); };
+  const falha=e=>aviso('gAviso',e.message,'erro');
+  $('gVoto').addEventListener('click',async()=>{ try{ await api(`/${m.id}/voto`,{method:'POST'}); await recarregar(''); }catch(e){ falha(e); } });
+  $('cEnviar').addEventListener('click',async()=>{ const t=$('cTexto').value.trim(); if(!t) return aviso('gAviso','Escreva o comentário.','erro'); try{ await api(`/${m.id}/comentarios`,{method:'POST',body:{texto:t,interno:$('cInt')?$('cInt').checked:false}}); await recarregar('Comentário enviado.'); }catch(e){ falha(e); } });
+  if($('gEditar')) $('gEditar').addEventListener('click',()=>abrirForm(m));
+  if($('gExcluir')) $('gExcluir').addEventListener('click',async()=>{ if(!confirm('Excluir esta sugestão?')) return; try{ await api('/'+m.id,{method:'DELETE'}); fechar(); carregar(); }catch(e){ falha(e); } });
+  if(adm){
+    $('aBrief').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(briefing(m,d.comentarios)); aviso('gAviso','Briefing copiado. Cole no Claude Code.'); }catch{ aviso('gAviso','Não consegui copiar automaticamente.','erro'); } });
+    $('aSalvar').addEventListener('click',async()=>{
+      const novo=$('aStatus').value;
+      if(['implantada','recusada'].includes(novo)&&novo!==m.status&&!confirm(`Marcar como “${CFG.status[novo]}”? Isso encerra a sugestão e fecha os apoios.`)) return;
+      try{ await api(`/${m.id}/avaliacao`,{method:'PATCH',body:{status:novo,prioridade:$('aPrio').value||null,esforco:$('aEsf').value||null,previsao:$('aPrev').value||null,responsavel:$('aResp').value,resposta:$('aRes').value,nota_implantacao:$('aNota').value}}); await recarregar('Avaliação salva.'); }catch(e){ falha(e); }
+    });
+  }
+}
+$('fundo').addEventListener('click',fechar); $('gFechar').addEventListener('click',fechar);
+
+/* ── nova / editar ── */
+let editando=null;
+function abrirForm(m){
+  editando=m||null; $('mTitulo').textContent=m?'Editar sugestão':'Nova sugestão'; $('nSalvar').textContent=m?'Salvar':'Enviar sugestão'; aviso('nAviso','');
+  $('nTitulo').value=m?m.titulo:''; $('nDescricao').value=m?m.descricao:''; $('nBeneficio').value=m?(m.beneficio||''):''; $('nTipo').value=m?m.tipo:'melhoria'; $('nArea').value=m?(m.area||'Outro'):'Dashboard';
+  $('mFundo').classList.add('aberto'); $('nTitulo').focus();
+}
+$('btnNova').addEventListener('click',()=>abrirForm(null));
+$('nCancelar').addEventListener('click',()=>$('mFundo').classList.remove('aberto'));
+$('mFundo').addEventListener('click',e=>{ if(e.target.id==='mFundo') $('mFundo').classList.remove('aberto'); });
+$('mForm').addEventListener('submit',async ev=>{
+  ev.preventDefault(); $('nSalvar').disabled=true; aviso('nAviso','');
+  const body={titulo:$('nTitulo').value,descricao:$('nDescricao').value,beneficio:$('nBeneficio').value,tipo:$('nTipo').value,area:$('nArea').value};
+  try{
+    if(editando){ await api('/'+editando.id,{method:'PATCH',body}); $('mFundo').classList.remove('aberto'); await carregar(); abrir(editando.id); }
+    else { const r=await api('/',{method:'POST',body}); $('mFundo').classList.remove('aberto'); S.status=''; S.meus=false; $('chipMeus').setAttribute('aria-pressed','false'); await carregar(); aviso('aviso',`Sugestão ${r.melhoria.codigo} enviada. Obrigado! Você acompanha o andamento por aqui.`); setTimeout(()=>aviso('aviso',''),6000); }
+  }catch(e){ aviso('nAviso',e.message,'erro'); }
+  $('nSalvar').disabled=false;
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('mFundo').classList.contains('aberto')) $('mFundo').classList.remove('aberto'); else fechar(); } });
+
+(async function init(){
+  try{ CFG=await api('/config'); }catch(e){ aviso('aviso',e.message,'erro'); return; }
+  $('fArea').innerHTML='<option value="">Todas as áreas</option>'+CFG.areas.map(a=>`<option>${esc(a)}</option>`).join('');
+  $('fTipo').innerHTML='<option value="">Todos os tipos</option>'+Object.entries(CFG.tipos).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+  $('nTipo').innerHTML=Object.entries(CFG.tipos).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+  $('nArea').innerHTML=CFG.areas.map(a=>`<option>${esc(a)}</option>`).join('');
+  await carregar();
+  const id=new URLSearchParams(location.search).get('id'); if(id) abrir(Number(id));
+})();
+</script>
+</body>
+</html>

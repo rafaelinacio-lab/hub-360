@@ -30,7 +30,8 @@ const EMBED_PAGE_ROUTES = {
     movidesk: 'pages/geral.html',
     satisfacao: 'pages/satisfacao.html',
     incidentes: 'pages/incidentes.html',
-    reincidencias: 'pages/reincidencias.html'
+    reincidencias: 'pages/reincidencias.html',
+    melhorias: 'pages/melhorias.html'
 };
 
 // ─── Animação de transição: ícone da aba clicada "voa" até o centro do
