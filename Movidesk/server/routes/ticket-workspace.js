@@ -250,11 +250,16 @@ router.get('/:id/workspace/arquivo', requireLeitura, async (req, res) => {
     const idArquivo = /^[0-9a-f]{16,64}$/i.test(bruto);
     const base = `${api.origin}${api.pathname.replace(/\/$/, '')}`;
     // O campo "path" do anexo costuma ser só o identificador do arquivo: a API baixa por ele.
+    const q = encodeURIComponent(bruto);
+    const rotas = ['ticketFile', 'ticketfile', 'ticket/file', 'tickets/file', 'file', 'files', 'attachment', 'attachments', 'ticketAttachment', 'tickets/attachments', 'tickets/files'];
     const candidatos = idArquivo ? [
-      `${base}/ticketFile?fileId=${bruto}`,
-      `${base}/ticketFile?id=${bruto}`,
-      `https://api.movidesk.com/public/v1/ticketFile?fileId=${bruto}`,
-      `${base}/tickets/files?fileId=${bruto}`,
+      ...rotas.flatMap(r => [`${base}/${r}?fileId=${q}`, `${base}/${r}?id=${q}`]),
+      `${base}/tickets/${id}/attachments/${q}`,
+      `${base}/tickets/${id}/files/${q}`,
+      `${HOST_ARQUIVOS}/Storage/FileDownload?id=${q}`,
+      `${HOST_ARQUIVOS}/Storage/FileDownload/${q}`,
+      `${HOST_ARQUIVOS}/Attachment/Download?id=${q}`,
+      `https://api.movidesk.com/public/v1/ticketFile?fileId=${q}`,
     ] : /^https?:\/\//i.test(bruto) ? [bruto] : [
       new URL(bruto, HOST_ARQUIVOS).toString(),
       new URL(bruto, api.origin).toString(),
@@ -267,13 +272,13 @@ router.get('/:id/workspace/arquivo', requireLeitura, async (req, res) => {
       if (url.protocol !== 'https:' || !hostPermitido(url.hostname)) { tentativas.push(`${url.hostname}: bloqueado`); continue; }
       url.searchParams.set('token', token);
       const resp = await fetchNode(url.toString(), { redirect: 'follow', timeout: 30000 }).catch((e) => ({ ok: false, status: e.message }));
-      tentativas.push(`${url.origin}${url.pathname}: ${resp.status}`);
+      tentativas.push(`${url.hostname === api.hostname ? '' : url.hostname}${url.pathname.replace(/^\/public\/v1/, '')}${url.search.startsWith('?fileId') ? '?fileId' : (url.search.startsWith('?id') ? '?id' : '')}: ${resp.status}`);
       const tipoResp = resp.headers && resp.headers.get ? (resp.headers.get('content-type') || '') : '';
       if (resp.ok && !/text\/html/i.test(tipoResp)) { r = resp; break; }   // HTML = página de login, não o arquivo
     }
     if (!r) {
       console.warn(`[workspace] anexo do chamado ${id} não encontrado. caminho="${bruto}" tentativas: ${tentativas.join(' | ')}`);
-      return res.status(502).json({ error: `O Movidesk não entregou o arquivo. Caminho informado: ${bruto.slice(0, 160)} — tentativas: ${tentativas.join('; ')}`.slice(0, 700) });
+      return res.status(502).json({ error: `O Movidesk não entregou o arquivo. Caminho informado: ${bruto.slice(0, 160)} — tentativas: ${tentativas.join('; ')}`.slice(0, 1500) });
     }
     const tipo = r.headers.get('content-type') || 'application/octet-stream';
     res.setHeader('Content-Type', tipo);
