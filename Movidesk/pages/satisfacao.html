@@ -925,7 +925,20 @@ let _charts={};
 let _rowsFull=[];
 
 // ── load ─────────────────────────────────────────────────────────────
+
+// Aviso de escopo: quem não é admin vê só a própria vertical (definida em Pessoas).
+async function avisarEscopoVertical(){
+  try{
+    const r=await fetch(`${API}/escopo-vertical`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'}); if(!r.ok) return;
+    const e=await r.json(); if(!e.filtrar) return;
+    const d=document.createElement('div'); d.id='avisoEscopo'; d.setAttribute('role','status');
+    d.style.cssText='margin:10px 16px;padding:9px 12px;border-radius:8px;font-size:13px;background:var(--surface-mid,#f1f5f9);border:1px solid var(--border,#e2e8f0);color:var(--t2,#475569)';
+    d.textContent=e.semVertical?'Seu usuário ainda não tem uma vertical definida em Pessoas, por isso nenhum dado é exibido. Peça a um administrador para definir.':`Exibindo apenas a vertical “${e.vertical}”, definida em Pessoas.`;
+    const alvo=document.querySelector('header.topbar')||document.body; alvo.insertAdjacentElement(alvo===document.body?'afterbegin':'afterend',d);
+  }catch{}
+}
 async function loadSatisfacao(){
+  avisarEscopoVertical();
   try{
     const data=await api('/satisfacao');
     _universo=data.universo||0;

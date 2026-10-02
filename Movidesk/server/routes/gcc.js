@@ -1,4 +1,5 @@
 const express = require('express');
+const { escopoVertical, pertence } = require('../utils/verticalScope');
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
@@ -115,7 +116,11 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
                t.owner_name, t.urgency, t.sla_solution_date, ac.n, ce.estado
       ORDER BY t.createddate DESC
     `);
-    res.json(result.rows || []);
+    // Escopo: quem não é admin vê só a vertical definida em Pessoas.
+    const esc = await escopoVertical(req.user.id);
+    if (!esc.filtrar) return res.json(result.rows || []);
+    if (esc.semVertical) return res.json([]);
+    return res.json((result.rows || []).filter((r) => pertence(esc.vertical, { vertical: r.vertical, servico: r.servico_gcc })));
   } catch (error) {
     // Se as tabelas silver.* ainda não existem (datalake não carregado), retorna vazio
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
@@ -128,9 +133,24 @@ router.get('/', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
 });
 
 // ===== GET /gcc/:ticketId =====
+// Impede abrir pelo número um chamado de outra vertical (404 para não revelar que existe).
+async function garantirVertical(req, res, ticketId) {
+  const esc = await escopoVertical(req.user.id);
+  if (!esc.filtrar) return true;
+  const ok = !esc.semVertical && (await db.query(`
+    SELECT COALESCE(NULLIF(TRIM(MAX(CASE WHEN cf.custom_field_id = ${CF_VERTICAL} THEN cf.valor_texto END)), ''), gi.vertical) AS vertical, t.service_full AS servico
+      FROM silver.ticket t
+      LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id
+      LEFT JOIN silver.gcc_vertical_inferida gi ON gi.ticket_id = t.ticket_id
+     WHERE t.ticket_id::text = $1 GROUP BY t.ticket_id, gi.vertical, t.service_full`, [ticketId]).then((r) => r.rows[0] && pertence(esc.vertical, { vertical: r.rows[0].vertical, servico: r.rows[0].servico })).catch(() => false));
+  if (!ok) { res.status(404).json({ error: 'Chamado não encontrado na sua vertical' }); return false; }
+  return true;
+}
+
 router.get('/:ticketId', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
   const ticketId = String(req.params.ticketId).trim();
   if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
+  if (!(await garantirVertical(req, res, ticketId))) return;
 
   try {
     const result = await db.query(`
@@ -203,6 +223,7 @@ const STATIC_CF_NAMES = {
 router.get('/:ticketId/actions', authMiddleware, requireTabAccess('gcc'), async (req, res) => {
   const ticketId = String(req.params.ticketId).trim();
   if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
+  if (!(await garantirVertical(req, res, ticketId))) return;
   try {
     const [acaoRes, cfRes] = await Promise.all([
       db.query(

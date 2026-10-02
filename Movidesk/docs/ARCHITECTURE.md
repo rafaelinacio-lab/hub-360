@@ -238,3 +238,9 @@ Qualquer um cadastra, apoia (voto) e comenta; só `admin` avalia (status, priori
 autor, nota de implantação) e escreve notas internas. Fluxo: nova → em avaliação → aprovada → em desenvolvimento → implantada | recusada
 (recusar exige resposta; implantar exige nota). Autor edita/exclui só enquanto "nova". Tabelas `public.melhoria*`, criadas no primeiro uso.
 O admin tem o botão "Copiar briefing de desenvolvimento" (texto pronto para colar no Claude Code).
+
+## Escopo por vertical (GCC e Satisfação)
+
+`server/utils/verticalScope.js`: `admin` vê tudo; os demais perfis veem só a vertical definida em Pessoas (`users.vertical`). Casa (sem acento/maiúsculas) por
+campo "vertical" (GCC, real ou inferida), 1º nível do serviço ou, na Satisfação, equipe que contém a vertical. Sem vertical definida: nada é exibido e as telas avisam
+(`GET /api/escopo-vertical`). Os detalhes do GCC (`/:ticketId`, `/actions`) também checam, para não abrir chamado de outra vertical pelo número.
