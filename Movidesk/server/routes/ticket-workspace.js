@@ -247,7 +247,15 @@ router.get('/:id/workspace/arquivo', requireLeitura, async (req, res) => {
     const token = await tokenMovidesk();
     const api = new URL(process.env.MOVIDESK_WRITE_API || 'https://apimovidesk.viasoftcloud.com.br/public/v1');
     // Não sabemos em qual servidor/rota o Movidesk serve o arquivo desse caminho: tenta os candidatos em ordem.
-    const candidatos = /^https?:\/\//i.test(bruto) ? [bruto] : [
+    const idArquivo = /^[0-9a-f]{16,64}$/i.test(bruto);
+    const base = `${api.origin}${api.pathname.replace(/\/$/, '')}`;
+    // O campo "path" do anexo costuma ser só o identificador do arquivo: a API baixa por ele.
+    const candidatos = idArquivo ? [
+      `${base}/ticketFile?fileId=${bruto}`,
+      `${base}/ticketFile?id=${bruto}`,
+      `https://api.movidesk.com/public/v1/ticketFile?fileId=${bruto}`,
+      `${base}/tickets/files?fileId=${bruto}`,
+    ] : /^https?:\/\//i.test(bruto) ? [bruto] : [
       new URL(bruto, HOST_ARQUIVOS).toString(),
       new URL(bruto, api.origin).toString(),
       `${api.origin}${api.pathname.replace(/\/$/, '')}${bruto.startsWith('/') ? '' : '/'}${bruto}`,
