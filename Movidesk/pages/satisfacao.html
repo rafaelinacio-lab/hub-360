@@ -374,6 +374,13 @@ body.modal-open{overflow:hidden}
       </button>
     </div>
     <div class="topbar-filters">
+      <div class="multi-sel" id="f-vertical">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Vertical: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
       <div class="multi-sel" id="f-equipe">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Equipe: todos</span>
@@ -1045,6 +1052,7 @@ function buildFilterOptions(){
     const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
     populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
+  fill('f-vertical','Vertical',_rows.map(r=>r.vertical));
   fill('f-equipe','Equipe',_rows.map(r=>r.equipe));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
@@ -1058,6 +1066,7 @@ function buildFilterOptions(){
 
 // ── filtro ───────────────────────────────────────────────────────────
 function getFilteredRows(){
+  const verticalFils=getMsValues('f-vertical');
   const equipeFils=getMsValues('f-equipe');
   const orgFils=getMsValues('f-org');
   const respFils=getMsValues('f-resp');
@@ -1066,6 +1075,7 @@ function getFilteredRows(){
   const monthFils=getMsValues('f-month').map(Number);
 
   return _rows.filter(r=>{
+    if(verticalFils.length&&!verticalFils.includes(r.vertical)) return false;
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
@@ -1224,6 +1234,15 @@ async function applyRolePermissions(){
 
 loadSatisfacao();
 applyRolePermissions();
+
+// Esconde as sub-abas (Satisfação, Painel TV) que o perfil não tem liberadas em Configurações → Acesso.
+(async function aplicarSubAbas(){
+  try{
+    const r=await fetch(`${location.origin}/api/config/minhas-abas`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''}`},cache:'no-store'}); if(!r.ok) return;
+    const {abas}=await r.json();
+    [['satisfacao',"mdSwitchTab('satisfacao')"],['paineltv',"abrirPainelTV()"]].forEach(([k,on])=>{ if(!abas.includes(k)) document.querySelectorAll(`.md-tab[onclick="${on}"]`).forEach(b=>b.remove()); });
+  }catch{}
+})();
 </script>
 </body>
 </html>
