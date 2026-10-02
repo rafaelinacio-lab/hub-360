@@ -271,13 +271,17 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
 
 
 // ── análise dos pares candidatos (IA lê contexto e ações) ──
-const PROMPT_PAR = `Você é um analista de suporte técnico. Para cada CHAMADO NOVO você recebe o assunto, o módulo (apenas como DICA) e o HISTÓRICO COMPLETO DE AÇÕES, mais até 2 CHAMADOS ANTERIORES do mesmo cliente que já tinham sido encerrados pouco antes, também com o histórico completo.
-Decida se o chamado novo é REINCIDÊNCIA: o MESMO PROBLEMA voltou depois de o suporte tê-lo tratado.
-Como decidir:
-- Leia o contexto e as ações: o que o cliente relatou, o sintoma, o que o suporte fez, a correção aplicada e a causa. É reincidência quando o sintoma/causa é o mesmo, ou o cliente diz que voltou ("de novo", "novamente", "como da última vez") e isso confere com o chamado anterior.
-- O módulo/rotina é só um parâmetro de contexto. Mesmo módulo NÃO basta; módulos diferentes não impedem se o problema é o mesmo. Nunca decida só pelo módulo ou pelo assunto parecido.
-- NÃO é reincidência: dúvida ou solicitação nova, outro problema no mesmo módulo, pedido de treinamento/customização, ou chamados cujo histórico não mostra relação.
-- Na dúvida, responda reincidente=false com confiança Baixa. Não invente fatos que não estejam no histórico.
+const PROMPT_PAR = `Você é um agente de análise de suporte técnico. Para cada CHAMADO NOVO você recebe cliente, assunto, o módulo (apenas como DICA) e o HISTÓRICO COMPLETO DE AÇÕES, mais até 2 CHAMADOS ANTERIORES do mesmo cliente já encerrados pouco antes, também com histórico completo.
+Tarefa (Dimensão A do método de causa-raiz): decidir se o chamado novo descreve o MESMO TIPO de problema de um dos anteriores do mesmo cliente.
+Trate o histórico completo como a fonte de verdade e leia cada chamado do início ao fim; uma mensagem no meio do histórico vale tanto quanto a última. Compare o histórico de um contra o do outro, não só o assunto.
+Use similaridade SEMÂNTICA (sintoma e causa), mesmo com palavras diferentes ou responsáveis diferentes. Conta como o mesmo problema: "SPED ICMS/IPI com erro" e "arquivo fiscal não gera corretamente"; "não consigo emitir DANFE" e "nota fiscal não abre para impressão"; "servidor caiu" e "não consigo acessar o sistema".
+NÃO conta: "erro ao emitir nota fiscal" e "dúvida sobre cadastro de cliente" (temas diferentes); pedido de melhoria/customização com bug técnico do mesmo módulo, salvo se o texto deixar claro que é o mesmo caso.
+Regras:
+1. Nunca junte chamados só por palavras em comum ("nota fiscal" aparece em quase tudo) nem só pelo módulo: a correspondência é sobre o SINTOMA/CAUSA específico. O módulo é apenas parâmetro de contexto; módulos diferentes não impedem se o problema é o mesmo.
+2. Se qualquer mensagem do chamado novo diz "já aconteceu antes", "mesmo problema do chamado X", "de novo", "novamente", "voltou" e isso confere com um anterior, é sinal FORTE: confiança Alta.
+3. Uma correção que funcionou no anterior e o sintoma voltou conta como recorrência, mesmo com o anterior encerrado.
+4. Não omita um caso plausível por falta de certeza: marque reincidente=true com confiança Baixa e explique a incerteza na explicação (o humano decide). Só responda reincidente=false quando o histórico não mostra o mesmo sintoma/causa.
+5. Não invente fatos que não estejam nos históricos.
 Responda SOMENTE JSON: {"resultados":[{"ticket_id":<número do chamado novo>,"anterior_id":<número do anterior que é o mesmo problema ou null>,"reincidente":true|false,"confianca":"Alta|Média|Baixa","explicacao":"1-2 frases citando o sintoma/ação em comum (ou por que não é o mesmo problema)"}]}. Inclua um item para cada chamado novo.`;
 
 const job = { rodando: false, total: 0, feitos: 0, reincidentes: 0, erros: 0, inicio: null, fim: null, msg: '', origem: '' };
