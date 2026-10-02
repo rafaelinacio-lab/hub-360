@@ -414,16 +414,11 @@ router.post('/:id/workspace/acao', requireLeitura, exigirEscrita, limiteEscrita,
 });
 
 // Mudança de status (somente valores que existem nos chamados).
-// Depois de mexer no chamado pelo Hub, relê o estado real no Movidesk e grava em silver.ticket na hora,
+// Depois de mexer no chamado pelo Hub, relê o estado real no Movidesk e grava no banco na hora (com o mesmo gravador da carga),
 // para o Dashboard (que lê do banco) refletir sem esperar a próxima carga da cron. Nunca derruba a resposta.
 async function sincronizarNoBanco(id) {
   try {
-    const t = await movidesk('GET', '/tickets', { query: { id, $select: 'id,status,baseStatus,ownerTeam,lastUpdate', $expand: 'owner($select=id,businessName)' } });
-    if (!t || !t.id) return;
-    await db.query(
-      `UPDATE silver.ticket SET status = $2, basestatus = $3, ownerteam = $4, owner_id = $5, owner_name = $6,
-              last_update = COALESCE($7::timestamptz, NOW()) WHERE ticket_id::bigint = $1`,
-      [id, t.status || null, t.baseStatus || null, t.ownerTeam || null, t.owner ? String(t.owner.id) : null, t.owner ? t.owner.businessName : null, t.lastUpdate || null]);
+    await require('../scripts/movidesk-loader').sincronizarTicket(id);   // mesmo gravador da carga: padrão único no banco
     require('./tickets').limparCache();
   } catch (e) { console.warn('[workspace] não consegui atualizar o banco após a alteração:', e.message); }
 }
