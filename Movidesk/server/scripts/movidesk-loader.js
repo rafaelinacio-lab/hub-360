@@ -704,8 +704,15 @@ async function ensureTables() {
 
   await db.withClient(async (client) => {
     await client.query(`SET lock_timeout = '5s'`).catch(() => {});
+    await client.query(`SET statement_timeout = '30s'`).catch(() => {});
     try {
+      // ADD COLUMN IF NOT EXISTS pede lock exclusivo mesmo quando a coluna já existe: com consultas longas rodando, ele fica
+      // na fila e trava todas as leituras da tabela (Dashboard parado). Por isso só executa se a coluna realmente falta.
+      const existentes = new Set();
+      try { (await client.query(`SELECT table_schema || '.' || table_name || '.' || column_name AS k FROM information_schema.columns WHERE table_schema IN ('silver','public')`)).rows.forEach((r) => existentes.add(r.k)); } catch { /* sem checagem: executa tudo */ }
       for (const [label, sql] of statements) {
+        const m = /^\s*ALTER TABLE\s+(\S+)\s+ADD COLUMN IF NOT EXISTS\s+(\w+)/i.exec(sql);
+        if (m && existentes.has(`${m[1]}.${m[2]}`.toLowerCase())) continue;
         try {
           await client.query(sql);
         } catch (e) {
@@ -717,6 +724,7 @@ async function ensureTables() {
       // completamente diferentes, que herdariam esse lock_timeout de 5s e
       // falhariam por timeout mesmo sem disputa real de lock.
       await client.query(`RESET lock_timeout`).catch(() => {});
+      await client.query(`RESET statement_timeout`).catch(() => {});
     }
   });
   _tablesEnsured = true;

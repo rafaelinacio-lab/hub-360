@@ -50,9 +50,8 @@ router.get('/config', requireLeitura, async (req, res) => {
   try {
     const S = await cfg.obter();
     const papel = (await db.query(`SELECT r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0]?.name;
-    const sv = await db.query(`SELECT split_part(service_full, ' > ', 1) AS s, COUNT(*)::int AS n FROM silver.ticket WHERE createddate >= NOW() - INTERVAL '120 days' AND service_full IS NOT NULL AND service_full <> '' GROUP BY 1 HAVING COUNT(*) >= 3 ORDER BY 1`);
     res.json({ ativo: S.reincidencia.ativo, diasPadrao: S.reincidencia.diasPadrao, maxTickets: S.reincidencia.maxTickets, minClientes: S.reincidencia.minClientesSistemico,
-      iaConfigurada: await iaConfigurada().catch(() => false), podeAnalisar: ROLES.includes(papel), servicos: sv.rows.map((x) => x.s) });
+      iaConfigurada: await iaConfigurada().catch(() => false), podeAnalisar: ROLES.includes(papel) });
   } catch (e) { erro(res, e); }
 });
 
@@ -187,14 +186,18 @@ WITH cf AS (
                min(valor_texto) FILTER (WHERE custom_field_id::bigint = ANY($6::bigint[])) AS modulo,
                min(valor_texto) FILTER (WHERE custom_field_id = '148916') AS causa,
                min(valor_texto) FILTER (WHERE custom_field_id = '23946') AS classif
-          FROM silver.ticket_campo_customizado WHERE custom_field_id::bigint = ANY($7::bigint[]) GROUP BY ticket_id),
+          FROM silver.ticket_campo_customizado
+         WHERE custom_field_id::bigint = ANY($7::bigint[])
+           AND ($2::int IS NULL OR ticket_id IN (SELECT ticket_id FROM silver.ticket WHERE createddate >= make_date($2::int,1,1) AND createddate < make_date($2::int+1,1,1)))
+         GROUP BY ticket_id),
       b AS (
         SELECT t.ticket_id, t.subject, t.status, t.createddate, t.reopened_in,
                COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
                COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS motivo,
                COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
           FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
-         WHERE ($5 = '' OR cf.classif = $5)),
+         WHERE ($5 = '' OR cf.classif = $5)
+           AND ($2::int IS NULL OR (t.createddate >= make_date($2::int,1,1) AND t.createddate < make_date($2::int+1,1,1)))),
       c AS (SELECT *, (cliente IS NOT NULL) AS classificado FROM b),
       f AS (
         SELECT c.*, (COALESCE(v.reincidente, false) AND v.dias_entre <= $1::int) AS rn, v.anterior_id::text AS ant_id, v.anterior_fim AS fim_ant, v.explicacao, v.confianca
@@ -205,6 +208,16 @@ WITH cf AS (
       fc AS (SELECT * FROM f WHERE classificado)
 `;
 const JANELAS = [7, 15, 30, 60];
+let listasCache = null;
+async function listasFiltro() {                                          // anos e equipes dos filtros: consulta leve, cache de 1 h
+  if (listasCache && Date.now() - listasCache.em < 3600000) return listasCache.v;
+  const [a, e] = await Promise.all([
+    consultaLimitada(`SELECT DISTINCT extract(year from createddate)::int AS ano FROM silver.ticket WHERE createddate IS NOT NULL ORDER BY 1`, [], 30),
+    consultaLimitada(`SELECT COALESCE(NULLIF(owner_team,''), NULLIF(ownerteam,''), 'Sem equipe') AS e FROM silver.ticket WHERE createddate >= NOW() - INTERVAL '3 years' GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [], 30)]);
+  const v = { anos: a.rows.map((x) => x.ano), equipesLista: e.rows.map((x) => x.e).sort() };
+  listasCache = { em: Date.now(), v }; return v;
+}
+const emAndamento = new Map();                                           // mesma combinação de filtros: reaproveita a consulta em curso
 const geralCache = new Map();                                            // chave dos filtros -> { em, dados }
 const GERAL_TTL = 10 * 60 * 1000;
 router.get('/geral', requireLeitura, async (req, res) => {
@@ -217,6 +230,9 @@ router.get('/geral', requireLeitura, async (req, res) => {
     const chave = JSON.stringify([dias, ano, equipe, busca.toLowerCase(), classif]);
     const c = geralCache.get(chave);
     if (c && Date.now() - c.em < GERAL_TTL) return res.json({ ...c.dados, cache: true });
+    if (emAndamento.has(chave)) { try { return res.json({ ...(await emAndamento.get(chave)), cache: true }); } catch (e) { return erro(res, e); } }
+    let liberar, falhar; emAndamento.set(chave, new Promise((ok, ko) => { liberar = ok; falhar = ko; }).catch((e) => { throw e; }));
+    emAndamento.get(chave).catch(() => {});
     const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
     const campos = [...new Set([...mods, 148916, 23946])];
     const r = (await consultaLimitada(`
@@ -236,15 +252,15 @@ router.get('/geral', requireLeitura, async (req, res) => {
         (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT cliente, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc, count(DISTINCT motivo) FILTER (WHERE rn)::int AS motivos,
                 mode() WITHIN GROUP (ORDER BY motivo) FILTER (WHERE rn) AS principal FROM fc GROUP BY cliente HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 15) x) AS clientes,
         (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT equipe, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc FROM fc GROUP BY equipe HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 10) x) AS equipes,
-        (SELECT COALESCE(json_agg(DISTINCT extract(year from createddate)::int ORDER BY extract(year from createddate)::int), '[]') FROM c WHERE classificado) AS anos,
-        (SELECT COALESCE(json_agg(e ORDER BY e), '[]') FROM (SELECT equipe AS e FROM c WHERE classificado GROUP BY equipe ORDER BY count(*) DESC LIMIT 40) q) AS equipesLista`,
+        '[]'::json AS anos, '[]'::json AS equipesLista`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows[0];
     const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, anual: r.anual, mensal: r.mensal, motivos: r.motivos, clientes: r.clientes, equipes: r.equipes,
-      anos: r.anos, equipesLista: r.equipeslista, geradoEm: new Date().toISOString() };
+      ...(await listasFiltro()), geradoEm: new Date().toISOString() };
     if (geralCache.size > 60) geralCache.clear();
     geralCache.set(chave, { em: Date.now(), dados });
+    liberar(dados); emAndamento.delete(chave);
     res.json({ ...dados, cache: false });
-  } catch (e) { erro(res, e); }
+  } catch (e) { if (typeof falhar === 'function') falhar(e); emAndamento.delete(chave); erro(res, e); }
 });
 
 
