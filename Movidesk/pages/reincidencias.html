@@ -181,7 +181,8 @@ function aviso(m,t){ const e=$('gAviso'); e.textContent=m||''; e.className='avis
 function ha(v){ const m=(Date.now()-new Date(v).getTime())/60000; if(m<2)return 'agora'; if(m<60)return `há ${Math.round(m)} min`; if(m<1440)return `há ${Math.round(m/60)} h`; return `há ${Math.round(m/1440)} d`; }
 let C=null;
 
-const G={f:{ano:'',dias:'15',equipe:'',classif:'suporte',cliente:''},d:null,carregado:false};
+const ANO_ATUAL=String(new Date().getFullYear());
+const G={f:{ano:ANO_ATUAL,dias:'15',equipe:'',classif:'suporte',cliente:''},d:null,carregado:false};
 const nf=n=>Number(n||0).toLocaleString('pt-BR');
 const pc=(a,b)=>b?Math.round(a/b*1000)/10:0;
 const MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -266,7 +267,7 @@ let gTimer=null;
 function gAplicar(){ G.f={ano:$('gAno').value,dias:$('gDias').value,equipe:$('gEquipe').value,classif:$('gClassif').value,cliente:$('gCliente').value.trim()}; gCarregar(); }
 ['gAno','gDias','gEquipe','gClassif'].forEach(i=>$(i).addEventListener('change',gAplicar));
 $('gCliente').addEventListener('input',()=>{ clearTimeout(gTimer); gTimer=setTimeout(gAplicar,500); });
-$('gLimpar').addEventListener('click',()=>{ $('gAno').value=''; $('gEquipe').value=''; $('gCliente').value=''; $('gClassif').value='suporte'; $('gDias').value='15'; gAplicar(); });
+$('gLimpar').addEventListener('click',()=>{ $('gAno').value=ANO_ATUAL; $('gEquipe').value=''; $('gCliente').value=''; $('gClassif').value='suporte'; $('gDias').value='15'; gAplicar(); });
 // ── detalhe: os chamados por trás de cada número ──
 const TIPO_ROTULO={kpi:'Indicador',motivo:'Motivo',cliente:'Cliente',equipe:'Equipe',ano:'Ano',mes:'Mês'};
 let gvAtual=null;
