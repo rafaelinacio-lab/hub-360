@@ -541,14 +541,20 @@ router.post('/:id/workspace/status', requireLeitura, exigirEscrita, limiteEscrit
 // Troca de responsável.
 router.post('/:id/workspace/responsavel', requireLeitura, exigirEscrita, limiteEscrita, async (req, res) => {
   const id = idValido(req.params.id);
-  const novoId = String(req.body?.responsavelId || '').trim();
+  const paraMim = req.body?.paraMim === true;
+  let novoId = String(req.body?.responsavelId || '').trim();
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
-  if (!novoId) return res.status(400).json({ error: 'Escolha o novo responsável' });
+  if (!paraMim && !novoId) return res.status(400).json({ error: 'Escolha o novo responsável' });
   try {
-    const novo = (await listaAgentes()).find(a => a.id === novoId);
-    if (!novo) return res.status(400).json({ error: 'Responsável desconhecido. Escolha um da lista.' });
-    const agente = await exigirAgente(req, res);
+    const agente = await exigirAgente(req, res);          // quem está logado (agente do Movidesk)
     if (!agente) return;
+    if (paraMim) novoId = String(agente.id);
+    const novo = (await listaAgentes()).find(a => a.id === novoId) || (paraMim ? { id: String(agente.id), nome: agente.nome, equipes: agente.teams || [] } : null);
+    if (!novo) return res.status(400).json({ error: 'Responsável desconhecido. Escolha um da lista.' });
+    if (paraMim) {
+      const atual = await movidesk('GET', '/tickets', { query: { id, $select: 'id', $expand: 'owner($select=id)' } }).catch(() => null);
+      if (atual && atual.owner && String(atual.owner.id) === String(agente.id)) return res.status(409).json({ error: 'Este chamado já está atribuído a você.' });
+    }
     // O Movidesk exige trocar responsável E equipe juntos. Mantém a equipe atual do chamado se o
     // novo responsável faz parte dela; senão usa a única equipe dele; com várias, o usuário escolhe.
     const atual = await movidesk('GET', '/tickets', { query: { id, $select: 'id,ownerTeam' } });
