@@ -53,7 +53,7 @@ router.get('/', requireLeitura, async (req, res) => {
     res.json({ analises: r.rows });
   } catch (e) { erro(res, e); }
 });
-router.get('/:id', requireLeitura, async (req, res) => {
+router.get('/:id(\\d+)', requireLeitura, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Número inválido' });
   try {
@@ -71,14 +71,16 @@ DIMENSÃO B — mesmo tipo de problema em ${'{{MIN}}'} OU MAIS clientes diferent
 REGRAS: (1) nunca junte chamados só por palavras em comum (ex.: "nota fiscal"); a correspondência é sobre o SINTOMA/CAUSA específico. (2) leia o histórico inteiro; uma mensagem do meio vale tanto quanto a última. (3) menção explícita a "já aconteceu antes", "mesmo problema do ticket X", "de novo", "novamente" em qualquer mensagem é sinal FORTE: confiança Alta. (4) Dimensão B exige o mínimo de clientes distintos informado. (5) correção que funcionou e falhou de novo no mesmo histórico conta como recorrência mesmo com o chamado marcado resolvido. (6) nunca omita um caso por falta de certeza: use confiança Baixa e explique a incerteza. (7) se não houver recorrência relevante em uma dimensão, devolva lista vazia em vez de forçar agrupamento fraco. (8) use SOMENTE os IDs de chamado fornecidos.
 Responda em JSON: {"dimensao0":[{"ticket_id":0,"ocorrencias":[{"quando":"AAAA-MM-DD ou aproximado","resumo":""}],"correcao_aplicada":"sim/não + descrição","confianca":"Alta|Média|Baixa"}],"dimensaoA":[{"problema":"1 frase neutra","ticket_ids":[0],"confianca":"Alta|Média|Baixa","justificativa":"por que é o mesmo problema"}],"dimensaoB":[{"problema":"1-2 frases","ticket_ids":[0],"modulo":"","confianca":"Alta|Média|Baixa","recomendacao":""}],"resumo":"2-3 frases com os 2 ou 3 casos mais críticos entre as três dimensões"}`;
 
-router.post('/analisar', requireLeitura, limite, async (req, res) => {
+// Roda uma análise completa (usada pelo botão e pela rotina automática). `usuario` = null quando é automática.
+let analisando = false;
+async function executar(entrada, usuario) {
+  if (analisando) throw new IaError(409, 'Já existe uma análise em andamento. Aguarde terminar.');
+  analisando = true;
   try {
-    const papel = (await db.query(`SELECT r.name, u.name AS nome FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0];
-    if (!papel || !ROLES.includes(papel.name)) return res.status(403).json({ error: 'Seu perfil pode ver as análises, mas não gerar novas.' });
     const S = await cfg.obter(), C = S.reincidencia;
-    if (!C.ativo) return res.status(403).json({ error: 'Este recurso de IA foi desativado nas Configurações.' });
-    const dias = [7, 15, 30, 60, 90].includes(Number(req.body?.dias)) ? Number(req.body.dias) : C.diasPadrao;
-    const servico = String(req.body?.servico || '').trim().slice(0, 120);
+    if (!C.ativo) throw new IaError(403, 'Este recurso de IA foi desativado nas Configurações.');
+    const dias = [7, 15, 30, 60, 90].includes(Number(entrada.dias)) ? Number(entrada.dias) : C.diasPadrao;
+    const servico = String(entrada.servico || '').trim().slice(0, 120);
     const params = [dias, C.maxTickets]; let filtro = '';
     if (servico) { params.push(servico.toLowerCase()); filtro = `AND lower(split_part(t.service_full, ' > ', 1)) = $${params.length}`; }
     const tks = (await db.query(`
@@ -87,7 +89,7 @@ router.post('/analisar', requireLeitura, limite, async (req, res) => {
         FROM silver.ticket t LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id::bigint
        WHERE t.createddate >= NOW() - make_interval(days => $1::int) ${filtro}
        ORDER BY t.createddate DESC LIMIT $2`, params)).rows;
-    if (tks.length < 3) return res.status(400).json({ error: `Só há ${tks.length} chamado(s) nesse período${servico ? ' e serviço' : ''}: amplie o período para comparar.` });
+    if (tks.length < 3) throw new IaError(400,  `Só há ${tks.length} chamado(s) nesse período${servico ? ' e serviço' : ''}: amplie o período para comparar.`);
     const ids = tks.map((t) => Number(t.id));
     const acoes = (await db.query(`SELECT ticket_id::bigint AS tid, descricao, is_public, criado_em, criado_por_nome, criado_por_profile_type
         FROM silver.ticket_acao WHERE ticket_id::bigint = ANY($1::bigint[]) ORDER BY ticket_id, criado_em`, [ids])).rows;
@@ -101,7 +103,7 @@ router.post('/analisar', requireLeitura, limite, async (req, res) => {
       return `### CHAMADO ${t.id}\nCliente: ${limitar(t.cliente, 120)} · Time: ${t.ownerteam || '—'} · Serviço: ${t.servico || '—'} · Criado em: ${dia(t.createddate)} · Status: ${t.status || '—'}\nAssunto: ${limitar(t.subject, 200)}\nHistórico:\n${hist}`;
     }).join('\n\n');
     const system = `${REGRAS}${cfg.diretrizes(S)}\n${INSTRUCOES.replace('{{MIN}}', String(C.minClientesSistemico))}${cfg.extra(C.instrucaoExtra)}`;
-    const r = await chamarIA({ source: 'reincidencias', system, user: dados('CHAMADOS', bloco), maxTokens: 5000, temperature: cfg.temperatura(C.criatividade), timeoutMs: 170000, userEmail: req.user.email, meta: { tickets: tks.length, dias, servico } });
+    const r = await chamarIA({ source: 'reincidencias', system, user: dados('CHAMADOS', bloco), maxTokens: 5000, temperature: cfg.temperatura(C.criatividade), timeoutMs: 170000, userEmail: usuario ? usuario.email : 'automatico@hub', meta: { tickets: tks.length, dias, servico } });
 
     // ── confere a resposta da IA contra o banco ──
     const info = new Map(tks.map((t) => [Number(t.id), t]));
@@ -130,11 +132,60 @@ router.post('/analisar', requireLeitura, limite, async (req, res) => {
         modulo: limitar(x.modulo, 80), confianca: conf(x.confianca), recomendacao: limitar(x.recomendacao, 300) };
     }).filter(Boolean).sort((a, b) => b.nClientes - a.nClientes);
     const resultado = { dimensao0: d0, dimensaoA: dA, dimensaoB: dB, resumo: limitar(r.resumo, 900) };
-    const parametros = { dias, servico: servico || null, maxTickets: C.maxTickets, minClientes: C.minClientesSistemico, truncado: tks.length >= C.maxTickets };
+    const parametros = { origem: usuario ? 'manual' : 'automatica', dias, servico: servico || null, maxTickets: C.maxTickets, minClientes: C.minClientesSistemico, truncado: tks.length >= C.maxTickets };
     const ins = await db.query(`INSERT INTO public.reincidencia_analise (criado_por, criado_por_nome, parametros, n_tickets, resultado) VALUES ($1,$2,$3::jsonb,$4,$5::jsonb) RETURNING id, criado_em`,
-      [req.user.id, papel.nome || req.user.email, JSON.stringify(parametros), tks.length, JSON.stringify(resultado)]);
-    res.json({ analise: { id: ins.rows[0].id, criado_em: ins.rows[0].criado_em, criado_por_nome: papel.nome, parametros, n_tickets: tks.length, resultado } });
+      [usuario ? usuario.id : null, usuario ? usuario.nome : 'Análise automática', JSON.stringify(parametros), tks.length, JSON.stringify(resultado)]);
+    return { id: ins.rows[0].id, criado_em: ins.rows[0].criado_em, criado_por_nome: usuario ? usuario.nome : 'Análise automática', parametros, n_tickets: tks.length, resultado };
+  } finally { analisando = false; }
+}
+
+router.post('/analisar', requireLeitura, limite, async (req, res) => {
+  try {
+    const papel = (await db.query(`SELECT r.name, u.name AS nome FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0];
+    if (!papel || !ROLES.includes(papel.name)) return res.status(403).json({ error: 'Seu perfil pode ver o painel, mas não gerar novas análises.' });
+    res.json({ analise: await executar(req.body || {}, { id: req.user.id, nome: papel.nome || req.user.email, email: req.user.email }) });
   } catch (e) { erro(res, e); }
 });
+
+// ── painel: última análise + anterior + série histórica ──
+const taxaDe = (r, n) => {
+  const ids = new Set();
+  (r.dimensao0 || []).forEach((x) => ids.add(x.id));
+  (r.dimensaoA || []).forEach((x) => x.tickets.forEach((t) => ids.add(t.id)));
+  (r.dimensaoB || []).forEach((x) => x.tickets.forEach((t) => ids.add(t.id)));
+  return { envolvidos: ids.size, taxa: n ? Math.round((ids.size / n) * 1000) / 10 : 0 };
+};
+router.get('/painel', requireLeitura, async (req, res) => {
+  try {
+    const rows = (await db.query(`SELECT id, criado_por_nome, criado_em, parametros, n_tickets, resultado FROM public.reincidencia_analise ORDER BY id DESC LIMIT 40`)).rows;
+    const serie = rows.map((x) => ({ id: x.id, criado_em: x.criado_em, dias: x.parametros.dias, servico: x.parametros.servico || null, n: x.n_tickets,
+      d0: (x.resultado.dimensao0 || []).length, da: (x.resultado.dimensaoA || []).length, db: (x.resultado.dimensaoB || []).length, ...taxaDe(x.resultado, x.n_tickets) })).reverse();
+    const atual = rows[0] || null;
+    // anterior comparável: mesmo período e serviço
+    const anterior = atual ? (rows.slice(1).find((x) => x.parametros.dias === atual.parametros.dias && (x.parametros.servico || null) === (atual.parametros.servico || null)) || null) : null;
+    const S = await cfg.obter();
+    res.json({ atual, anterior: anterior ? { id: anterior.id, criado_em: anterior.criado_em, d0: (anterior.resultado.dimensao0 || []).length, da: (anterior.resultado.dimensaoA || []).length,
+      db: (anterior.resultado.dimensaoB || []).length, ...taxaDe(anterior.resultado, anterior.n_tickets) } : null,
+      atualTaxa: atual ? taxaDe(atual.resultado, atual.n_tickets) : null, serie, autoHoras: S.reincidencia.autoHoras, analisando });
+  } catch (e) { erro(res, e); }
+});
+
+// ── análise automática: roda sozinha quando a última ficou velha (configurável; 0 = desligada) ──
+async function rotinaAutomatica() {
+  try {
+    const S = await cfg.obter(), C = S.reincidencia;
+    if (!C.ativo || !C.autoHoras || analisando || !(await iaConfigurada())) return;
+    await db.query(`CREATE TABLE IF NOT EXISTS public.reincidencia_analise (id SERIAL PRIMARY KEY, criado_por INTEGER, criado_por_nome TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(), parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`);
+    const ult = (await db.query(`SELECT criado_em FROM public.reincidencia_analise WHERE COALESCE(parametros->>'servico','') = '' AND (parametros->>'dias')::int = $1 ORDER BY id DESC LIMIT 1`, [C.diasPadrao])).rows[0];
+    if (ult && Date.now() - new Date(ult.criado_em).getTime() < C.autoHoras * 3600 * 1000) return;
+    console.log('[reincidencias] rodando análise automática…');
+    const a = await executar({ dias: C.diasPadrao }, null);
+    console.log(`[reincidencias] análise automática #${a.id} concluída (${a.n_tickets} chamados).`);
+  } catch (e) { console.warn('[reincidencias] análise automática falhou:', e.message); }
+}
+if (!process.env.REINCIDENCIAS_SEM_AUTO) {
+  setTimeout(rotinaAutomatica, 2 * 60 * 1000).unref();                 // 2 min depois de subir
+  setInterval(rotinaAutomatica, 30 * 60 * 1000).unref();               // e confere a cada 30 min
+}
 
 module.exports = router;

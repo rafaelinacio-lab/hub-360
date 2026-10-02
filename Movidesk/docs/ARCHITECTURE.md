@@ -220,3 +220,7 @@ A IA recebe o histórico completo (`silver.ticket_acao`) dos chamados criados na
 O servidor revalida tudo contra o banco: descarta ids inexistentes, exige o mesmo cliente real na dimensão A e o mínimo de
 clientes distintos na B. Resultados ficam em `public.reincidencia_analise` (histórico de análises). Parâmetros em
 Configurações → Assistente de IA → Reincidências.
+
+Painel: `GET /api/reincidencias/painel` devolve a última análise, a anterior comparável (mesmo período/serviço) e a série histórica
+(taxa de reincidência = chamados envolvidos em alguma recorrência ÷ analisados). Uma rotina interna (a cada 30 min) refaz a análise
+padrão sozinha quando a última tem mais de `autoHoras` (Configurações → Assistente de IA → Reincidências; 0 desliga; `REINCIDENCIAS_SEM_AUTO=1` desliga no ambiente).

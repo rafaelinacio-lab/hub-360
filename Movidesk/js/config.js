@@ -3267,6 +3267,7 @@ const AIA_SECOES = [
             { t: 'sel', k: 'diasPadrao', num: true, label: 'Período padrão', help: 'Janela de chamados criados que entra na análise.', opts: [[7, '7 dias'], [15, '15 dias'], [30, '30 dias'], [60, '60 dias'], [90, '90 dias']] },
             { t: 'num', k: 'maxTickets', label: 'Máximo de chamados por análise', help: 'Mais chamados = análise mais completa, mais lenta e mais cara.', min: 20, max: 150, step: 10, unit: 'chamados' },
             { t: 'num', k: 'minClientesSistemico', label: 'Clientes para ser sistêmico', help: 'Mínimo de clientes diferentes para tratar como problema de sistema (padrão: 3).', min: 2, max: 10, unit: 'clientes' },
+            { t: 'sel', k: 'autoHoras', num: true, label: 'Atualização automática do painel', help: 'A IA refaz a análise sozinha quando a última ficar mais velha que isso. Cada análise consome tokens; "Desligada" só atualiza pelo botão.', opts: [[0, 'Desligada'], [6, 'A cada 6 horas'], [12, 'A cada 12 horas'], [24, 'Todo dia'], [48, 'A cada 2 dias']] },
             AIA_CRIAT, AIA_EXTRA] },
     ] },
     { grupo: 'Incidentes', icone: 'crisis_alert', itens: [

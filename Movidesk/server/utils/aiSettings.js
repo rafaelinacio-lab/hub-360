@@ -21,7 +21,7 @@ const PADRAO = {
   corrigir: { ativo: true, maxCaracteres: 8000, instrucaoExtra: '' },
   cliente: { ativo: true, janelaDias: 90, mesesHistorico: 12, termosGcc: 'gcc, churn', contextoCaracteres: 9000, criatividade: 'baixa', instrucaoExtra: '' },
   incidenteResumo: { ativo: true, maxHipoteses: 3, maxPassos: 5, maxRiscos: 3, chamadosNoContexto: 60, eventosNoContexto: 40, usarMetas: true, criatividade: 'baixa', instrucaoExtra: '' },
-  reincidencia: { ativo: true, diasPadrao: 30, maxTickets: 80, minClientesSistemico: 3, criatividade: 'baixa', instrucaoExtra: '' },
+  reincidencia: { ativo: true, diasPadrao: 30, maxTickets: 80, minClientesSistemico: 3, autoHoras: 24, criatividade: 'baixa', instrucaoExtra: '' },
   incidentePosmortem: { ativo: true, maxPorques: 5, maxAcoes: 6, criatividade: 'baixa', instrucaoExtra: '' },
   incidenteComunicado: { ativo: true, publicoPadrao: 'clientes', tipoPadrao: 'atualizacao', palavrasClientes: 120, palavrasEquipe: 180, estilo: 'simples', criatividade: 'media', instrucaoExtra: '' },
 };
@@ -67,6 +67,7 @@ function normalizar(entrada) {
     reincidencia: {
       ativo: bool(rc.ativo, P.reincidencia.ativo), diasPadrao: esc(Number(rc.diasPadrao), [7, 15, 30, 60, 90], P.reincidencia.diasPadrao),
       maxTickets: num(rc.maxTickets, 20, 150, P.reincidencia.maxTickets), minClientesSistemico: num(rc.minClientesSistemico, 2, 10, P.reincidencia.minClientesSistemico),
+      autoHoras: esc(Number(rc.autoHoras), [0, 6, 12, 24, 48], P.reincidencia.autoHoras),
       criatividade: cri(rc.criatividade, P.reincidencia.criatividade), instrucaoExtra: txt(rc.instrucaoExtra, 800),
     },
     incidentePosmortem: {
