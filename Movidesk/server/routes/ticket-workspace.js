@@ -12,7 +12,8 @@
 const express = require('express');
 const db = require('../db/remote');
 const { requireTabAccess } = require('./config');
-const { MovideskError, movidesk, agenteDoUsuario, listaAgentes, escopoEquipe } = require('../utils/movideskPeople');
+const fetchNode = require('node-fetch');
+const { tokenMovidesk, MovideskError, movidesk, agenteDoUsuario, listaAgentes, escopoEquipe } = require('../utils/movideskPeople');
 const { authMiddleware } = require('./auth');
 const { rateLimit, rateLimitDinamico } = require('../utils/rateLimit');
 const cfg = require('../utils/aiSettings');
@@ -178,12 +179,24 @@ router.get('/workspace/justificativas', requireLeitura, (req, res) => {
 });
 
 // Chamado + conversa, lidos ao vivo do Movidesk (usado pela tela e pela IA).
+// Imagens coladas no texto da ação (<img src="...">). As que exigem login do Movidesk são servidas pelo proxy abaixo.
+function imagensDoHtml(html) {
+  const out = [];
+  const re = /<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi;
+  let m;
+  while ((m = re.exec(String(html || ''))) && out.length < 12) {
+    const src = m[1].replace(/&amp;/g, '&').trim();
+    if (src && !/^data:/i.test(src) && !out.includes(src)) out.push(src);
+  }
+  return out;
+}
+
 async function lerTicketAoVivo(id) {
   const t = await movidesk('GET', '/tickets', {
     query: {
       id,
       $select: 'id,subject,status,baseStatus,justification,createdDate,lastUpdate,ownerTeam,serviceFirstLevel,type',
-      $expand: 'owner($select=id,businessName,userName),clients($select=id,businessName),actions($select=id,type,origin,createdDate,description,htmlDescription;$expand=createdBy($select=id,businessName,profileType))',
+      $expand: 'owner($select=id,businessName,userName),clients($select=id,businessName),actions($select=id,type,origin,createdDate,description,htmlDescription;$expand=createdBy($select=id,businessName,profileType),attachments($select=fileName,path,createdDate))',
     },
   });
   if (!t || !t.id) return null;
@@ -196,6 +209,8 @@ async function lerTicketAoVivo(id) {
       autor: a.createdBy?.businessName || '—',
       autorPerfil: a.createdBy?.profileType ?? null,
       texto: a.description || '',
+      anexos: (Array.isArray(a.attachments) ? a.attachments : []).filter(x => x && (x.path || x.fileName)).slice(0, 30).map(x => ({ nome: x.fileName || 'arquivo', path: x.path || '' })),
+      imagens: imagensDoHtml(a.htmlDescription),
     }))
     .sort((x, y) => new Date(x.criadoEm) - new Date(y.criadoEm));
   return {
@@ -214,6 +229,34 @@ async function lerTicketAoVivo(id) {
     acoes,
   };
 }
+
+// Proxy de anexos e imagens do Movidesk (o navegador não tem o login do Movidesk, o servidor tem o token).
+// Só aceita endereços do próprio Movidesk, para não virar um proxy aberto.
+const HOST_ARQUIVOS = process.env.MOVIDESK_FILE_HOST || 'https://viasoft.movidesk.com';
+const hostPermitido = (h) => /(^|\.)movidesk\.com$/i.test(h) || h === new URL(HOST_ARQUIVOS).hostname || h === new URL(process.env.MOVIDESK_WRITE_API || 'https://apimovidesk.viasoftcloud.com.br').hostname;
+router.get('/:id/workspace/arquivo', requireLeitura, async (req, res) => {
+  const id = idValido(req.params.id);
+  const bruto = String(req.query.u || '').trim();
+  if (!id || !bruto) return res.status(400).json({ error: 'Arquivo inválido' });
+  try {
+    // só serve arquivos que realmente aparecem nesse chamado
+    const t = await lerTicketAoVivo(id);
+    if (!t) return res.status(404).json({ error: 'Chamado não encontrado' });
+    const conhecido = t.acoes.some(a => a.anexos.some(x => x.path === bruto) || a.imagens.includes(bruto));
+    if (!conhecido) return res.status(403).json({ error: 'Esse arquivo não pertence ao chamado.' });
+    const url = new URL(bruto, HOST_ARQUIVOS);
+    if (url.protocol !== 'https:' || !hostPermitido(url.hostname)) return res.status(400).json({ error: 'Endereço de arquivo não permitido' });
+    url.searchParams.set('token', await tokenMovidesk());
+    const r = await fetchNode(url.toString(), { redirect: 'follow', timeout: 30000 });
+    if (!r.ok) return res.status(502).json({ error: `O Movidesk não entregou o arquivo (${r.status}). Abra o chamado no Movidesk.` });
+    const tipo = r.headers.get('content-type') || 'application/octet-stream';
+    res.setHeader('Content-Type', tipo);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (!/^image\/(png|jpe?g|gif|webp|bmp)/i.test(tipo)) res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(String(req.query.n || 'arquivo').slice(0, 120))}`);
+    r.body.pipe(res);
+  } catch (e) { erroParaResposta(res, e); }
+});
 
 router.get('/:id/workspace', requireLeitura, async (req, res) => {
   const id = idValido(req.params.id);

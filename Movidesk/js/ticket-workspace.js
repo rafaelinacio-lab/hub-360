@@ -71,6 +71,38 @@
             `<button type="button" class="ws-filtro ws-ordem" id="wsOrdem" aria-pressed="false">${_ws.ordem === 'recentes' ? '↓ Mais recentes primeiro' : '↑ Mais antigas primeiro'}</button>`;
     }
 
+    function renderAnexos(a) {
+        const imgs = (a.imagens || []).map((u, i) => `<button type="button" class="ws-img" data-u="${esc(u)}" aria-label="Ampliar imagem ${i + 1}"><span>Carregando imagem…</span></button>`).join('');
+        const arqs = (a.anexos || []).map(x => `<a class="ws-anexo" href="#" data-u="${esc(x.path)}" data-n="${esc(x.nome)}">📎 ${esc(x.nome)}</a>`).join('');
+        return (imgs || arqs) ? `<div class="ws-anexos">${imgs}${arqs}</div>` : '';
+    }
+    async function baixarArquivo(u, nome) {
+        const resp = await fetch(`${API_BASE}/tickets/${_ws.id}/workspace/arquivo?u=${encodeURIComponent(u)}&n=${encodeURIComponent(nome || '')}`, { headers: authHeaders() });
+        if (!resp.ok) { let m = `HTTP ${resp.status}`; try { m = (await resp.json()).error || m; } catch { /* sem corpo */ } throw new Error(m); }
+        return resp.blob();
+    }
+    // Imagens vêm do servidor (com o token do Movidesk) e viram blob local; ao clicar, abrem ampliadas.
+    function carregarImagens() {
+        document.querySelectorAll('#wsConversa .ws-img[data-u]').forEach(async (b) => {
+            const u = b.dataset.u; b.removeAttribute('data-u');
+            try {
+                const url = URL.createObjectURL(await baixarArquivo(u));
+                b.innerHTML = `<img alt="Imagem do chamado" src="${url}">`; b.dataset.src = url;
+            } catch (e) { b.innerHTML = `<span title="${esc(e.message)}">Imagem indisponível — abra no Movidesk</span>`; }
+        });
+    }
+    document.addEventListener('click', async (e) => {
+        const img = e.target.closest('#wsConversa .ws-img[data-src]');
+        if (img) { window.open(img.dataset.src, '_blank', 'noopener'); return; }
+        const link = e.target.closest('#wsConversa .ws-anexo');
+        if (!link) return;
+        e.preventDefault();
+        try {
+            const blob = await baixarArquivo(link.dataset.u, link.dataset.n);
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = link.dataset.n || 'arquivo'; a.click();
+        } catch (err) { avisar(`Não consegui baixar o anexo: ${err.message}`, true); }
+    });
+
     function renderTimeline(d) {
         let itens = d.acoes.filter(a => _ws.filtro === 'todas' || classeAcao(a) === _ws.filtro);
         if (_ws.ordem === 'recentes') itens = itens.slice().reverse();
@@ -87,6 +119,7 @@
                         <span class="ws-data" title="${fmt(a.criadoEm)}">${fmt(a.criadoEm)} · ${quandoRelativo(a.criadoEm)}</span>
                     </div>
                     <div class="ws-acao-texto">${esc(a.texto).replace(/\n/g, '<br>') || '<em>(sem texto)</em>'}</div>
+                    ${renderAnexos(a)}
                 </div>
             </div>`;
         }).join('');
@@ -224,6 +257,7 @@
         const d = _ws.dados;
         $('wsToolbar').innerHTML = renderToolbar(d);
         $('wsConversa').innerHTML = renderTimeline(d);
+        carregarImagens();
         $('wsToolbar').querySelectorAll('[data-filtro]').forEach(b => b.addEventListener('click', () => { _ws.filtro = b.dataset.filtro; desenharTimeline(); }));
         $('wsOrdem')?.addEventListener('click', () => { _ws.ordem = _ws.ordem === 'recentes' ? 'antigas' : 'recentes'; desenharTimeline(); });
         const c = $('wsConversa');
