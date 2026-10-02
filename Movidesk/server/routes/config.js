@@ -1082,10 +1082,10 @@ router.get('/performance-history-latest', authMiddleware, (req, res) => {
 // "Pessoas" e "Configurações" também ficam de fora — continuam restritas
 // a admin por uma checagem própria (isCurrentUserAdmin), não por aqui.
 // ══════════════════════════════════════════════════════════════════
-const TAB_PERMISSION_TABS = ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes', 'reincidencias'];
+const TAB_PERMISSION_TABS = ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'paineltv', 'incidentes', 'reincidencias'];
 const DEFAULT_TAB_PERMISSIONS = {
-  supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'incidentes', 'reincidencias'],
-  atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'incidentes', 'reincidencias'],
+  supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'paineltv', 'incidentes', 'reincidencias'],
+  atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'paineltv', 'incidentes', 'reincidencias'],
   guest: ['dashboard'],
 };
 
@@ -1096,8 +1096,11 @@ function getTabPermissions(callback) {
       let saved = {};
       if (row) { try { saved = JSON.parse(row.value) || {}; } catch { saved = {}; } }
       const merged = {};
+      // Configurações salvas antes de existir a sub-aba "Painel TV" (sem __versao): quem já tinha o Movidesk continua com ela.
+      const legado = saved.__versao !== 2;
       rolesResult.rows.forEach(({ name: role }) => {
-        const list = Array.isArray(saved[role]) ? saved[role] : (DEFAULT_TAB_PERMISSIONS[role] || []);
+        let list = Array.isArray(saved[role]) ? saved[role] : (DEFAULT_TAB_PERMISSIONS[role] || []);
+        if (legado && Array.isArray(saved[role]) && list.includes('movidesk') && !list.includes('paineltv')) list = [...list, 'paineltv'];
         merged[role] = list.filter((t) => TAB_PERMISSION_TABS.includes(t));
       });
       callback(null, merged);
@@ -1140,6 +1143,17 @@ function requireTabAccess(tabKey) {
   };
 }
 
+// GET - abas liberadas para quem está logado (as telas usam para esconder sub-abas, ex.: Satisfação e Painel TV)
+router.get('/minhas-abas', authMiddleware, async (req, res) => {
+  try {
+    const r = await db.query(`SELECT r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id]);
+    const papel = r.rows[0]?.name;
+    if (!papel) return res.status(403).json({ error: 'Acesso negado.' });
+    if (papel === 'admin') return res.json({ papel, abas: TAB_PERMISSION_TABS });
+    getTabPermissions((err, perms) => (err ? res.status(500).json({ error: 'Erro ao consultar permissões' }) : res.json({ papel, abas: perms[papel] || [] })));
+  } catch (e) { res.status(500).json({ error: 'Erro ao consultar permissões' }); }
+});
+
 // GET - qualquer usuário logado precisa disso pra saber o que mostrar no menu
 router.get('/tab-permissions', authMiddleware, (req, res) => {
   getTabPermissions((err, perms) => {
@@ -1163,8 +1177,10 @@ router.post('/tab-permissions', authMiddleware, requireRole('admin'), async (req
     }
     cleaned[role] = Array.isArray(list) ? list.filter((t) => TAB_PERMISSION_TABS.includes(t)) : [];
   }
+  cleaned.__versao = 2;   // marca que a lista já conhece as sub-abas do Movidesk
   saveConfigValue('role_tab_permissions', JSON.stringify(cleaned), (err) => {
     if (err) return res.status(500).json({ error: 'Erro ao salvar permissões' });
+    delete cleaned.__versao;
     res.json({ success: true, permissions: cleaned });
   });
 });

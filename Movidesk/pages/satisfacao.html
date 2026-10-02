@@ -1234,6 +1234,15 @@ async function applyRolePermissions(){
 
 loadSatisfacao();
 applyRolePermissions();
+
+// Esconde as sub-abas (Satisfação, Painel TV) que o perfil não tem liberadas em Configurações → Acesso.
+(async function aplicarSubAbas(){
+  try{
+    const r=await fetch(`${location.origin}/api/config/minhas-abas`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''}`},cache:'no-store'}); if(!r.ok) return;
+    const {abas}=await r.json();
+    [['satisfacao',"mdSwitchTab('satisfacao')"],['paineltv',"abrirPainelTV()"]].forEach(([k,on])=>{ if(!abas.includes(k)) document.querySelectorAll(`.md-tab[onclick="${on}"]`).forEach(b=>b.remove()); });
+  }catch{}
+})();
 </script>
 </body>
 </html>
