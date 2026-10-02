@@ -2019,6 +2019,30 @@ async function runCustom(task, cronJobId = null) {
 // $filter, então sem o bug que corrompe clients/customFieldValues). Muito
 // mais barato que rodar uma Full inteira quando o problema é pontual (ex:
 // bug de extração corrigido, só precisa re-processar os já afetados).
+// Regrava UM chamado exatamente como a carga faz (mesmo saveBatch: silver.ticket, clientes, ações, campos
+// customizados, organização), buscando-o com a mesma chamada limpa "id=" + EXPAND_FIELDS. Usada pelo Hub logo
+// depois de uma alteração feita pela Central do chamado, para o banco ficar no mesmo padrão sem esperar a cron.
+async function sincronizarTicket(id) {
+  const token = await getMovideskToken();
+  const resp = await fetchWithRetry(`${MOVI_BASE}/tickets?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
+  const data = await resp.json();
+  const full = Array.isArray(data) ? data[0] : data;
+  if (!full || !full.id) return null;
+  // Mantém a classificação canônica (23946) que a carga por classificação grava, quando o chamado já tem uma.
+  const cl = await db.query(
+    `SELECT valor_texto FROM silver.ticket_campo_customizado WHERE ticket_id = $1::bigint AND custom_field_id = $2 LIMIT 1`, [id, CF_CLASSIFICACAO]
+  ).catch(() => ({ rows: [] }));
+  const classValue = cl.rows[0] && cl.rows[0].valor_texto;
+  await (classValue ? makeSaveComClassificacao(classValue) : saveBatch)([full]);
+  await db.query(
+    `INSERT INTO silver.ticket_organizacao (ticket_id, organizacao_id, organizacao_nome, atualizado_em)
+     SELECT DISTINCT ON (ticket_id) ticket_id, organizacao_id, organizacao_nome, NOW() FROM silver.ticket_cliente WHERE ticket_id = $1::bigint
+      ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
+     ON CONFLICT (ticket_id) DO UPDATE SET organizacao_id = EXCLUDED.organizacao_id, organizacao_nome = EXCLUDED.organizacao_nome, atualizado_em = EXCLUDED.atualizado_em`, [id]
+  ).catch(() => {});
+  return full;
+}
+
 async function runFixOrganizacao() {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
@@ -2769,4 +2793,5 @@ module.exports = {
   runFixAutoresAcoes,
   runAtualizacaoInteligente,
   reconferirAbertosPresos,
+  sincronizarTicket,
 };
