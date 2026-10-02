@@ -248,20 +248,10 @@ router.get('/:id/workspace/arquivo', requireLeitura, async (req, res) => {
     const api = new URL(process.env.MOVIDESK_WRITE_API || 'https://apimovidesk.viasoftcloud.com.br/public/v1');
     // Não sabemos em qual servidor/rota o Movidesk serve o arquivo desse caminho: tenta os candidatos em ordem.
     const idArquivo = /^[0-9a-f]{16,64}$/i.test(bruto);
-    const base = `${api.origin}${api.pathname.replace(/\/$/, '')}`;
-    // O campo "path" do anexo costuma ser só o identificador do arquivo: a API baixa por ele.
-    const q = encodeURIComponent(bruto);
-    const rotas = ['ticketFile', 'ticketfile', 'ticket/file', 'tickets/file', 'file', 'files', 'attachment', 'attachments', 'ticketAttachment', 'tickets/attachments', 'tickets/files'];
-    const candidatos = idArquivo ? [
-      ...rotas.flatMap(r => [`${base}/${r}?fileId=${q}`, `${base}/${r}?id=${q}`]),
-      `${base}/tickets/${id}/attachments/${q}`,
-      `${base}/tickets/${id}/files/${q}`,
-      `${HOST_ARQUIVOS}/Storage/FileDownload?id=${q}`,
-      `${HOST_ARQUIVOS}/Storage/FileDownload/${q}`,
-      `${HOST_ARQUIVOS}/Attachment/Download?id=${q}`,
-      `https://api.movidesk.com/public/v1/ticketFile?fileId=${q}`,
-    ] : /^https?:\/\//i.test(bruto) ? [bruto] : [
-      new URL(bruto, HOST_ARQUIVOS).toString(),
+    // O "path" do anexo é só um identificador e a API pública não tem rota de download por ele (28 rotas testadas, todas 404).
+    // Se a empresa descobrir o endereço real, basta definir MOVIDESK_FILE_URL com {id} (ex.: https://servidor/rota?fileId={id}).
+    if (idArquivo && !process.env.MOVIDESK_FILE_URL) return res.status(501).json({ error: 'Este anexo só pode ser baixado dentro do Movidesk.' });
+    const candidatos = idArquivo ? [process.env.MOVIDESK_FILE_URL.replace('{id}', encodeURIComponent(bruto))] : /^https?:\/\//i.test(bruto) ? [bruto] : [      new URL(bruto, HOST_ARQUIVOS).toString(),
       new URL(bruto, api.origin).toString(),
       `${api.origin}${api.pathname.replace(/\/$/, '')}${bruto.startsWith('/') ? '' : '/'}${bruto}`,
       new URL(bruto, 'https://api.movidesk.com').toString(),
