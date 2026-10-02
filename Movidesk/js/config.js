@@ -3280,6 +3280,7 @@ const AIA_SECOES = [
             { t: 'num', k: 'maxTickets', label: 'Máximo de chamados por análise', help: 'Mais chamados = análise mais completa, mais lenta e mais cara.', min: 20, max: 150, step: 10, unit: 'chamados' },
             { t: 'num', k: 'minClientesSistemico', label: 'Clientes para ser sistêmico', help: 'Mínimo de clientes diferentes para tratar como problema de sistema (padrão: 3).', min: 2, max: 10, unit: 'clientes' },
             { t: 'sel', k: 'autoHoras', num: true, label: 'Atualização automática do painel', help: 'A IA refaz a análise sozinha quando a última ficar mais velha que isso. Cada análise consome tokens; "Desligada" só atualiza pelo botão.', opts: [[0, 'Desligada'], [6, 'A cada 6 horas'], [12, 'A cada 12 horas'], [24, 'Todo dia'], [48, 'A cada 2 dias']] },
+            { t: 'txt', k: 'promptBase', rows: 14, label: 'Prompt da análise', help: 'O texto que a IA recebe com as três dimensões (no chamado, por cliente e entre clientes). Em branco = prompt padrão. O formato de saída (JSON) é acrescentado automaticamente.', max: 14000, padrao: true },
             AIA_CRIAT, AIA_EXTRA] },
     ] },
     { grupo: 'Incidentes', icone: 'crisis_alert', itens: [
@@ -3316,7 +3317,7 @@ function aiaCampo(sec, c, S) {
     else if (c.t === 'sel') ctl = `<select id="${id}" class="config-input aia-sel" data-sec="${sec}" data-k="${c.k}" data-num="${c.num ? 1 : ''}">${c.opts.map(([o, t]) => `<option value="${o}" ${String(v) === String(o) ? 'selected' : ''}>${aiaEsc(t)}</option>`).join('')}</select>`;
     else if (c.t === 'num') ctl = `<div class="aia-num"><button type="button" data-step="-1" data-sec="${sec}" data-k="${c.k}" aria-label="Diminuir">−</button><input type="number" id="${id}" data-sec="${sec}" data-k="${c.k}" min="${c.min}" max="${c.max}" step="${c.step || 1}" value="${v}"><button type="button" data-step="1" data-sec="${sec}" data-k="${c.k}" aria-label="Aumentar">+</button><span>${aiaEsc(c.unit || '')}</span></div>`;
     else if (c.t === 'line') ctl = `<input type="text" id="${id}" class="config-input" data-sec="${sec}" data-k="${c.k}" value="${aiaEsc(v)}" maxlength="200">`;
-    else if (c.t === 'txt') ctl = `<textarea id="${id}" class="config-input config-textarea aia-txt" data-sec="${sec}" data-k="${c.k}" maxlength="${c.max}" rows="2" placeholder="Deixe em branco para usar só o comportamento padrão">${aiaEsc(v)}</textarea><span class="aia-cont" data-cont="${id}">${String(v).length}/${c.max}</span>`;
+    else if (c.t === 'txt') ctl = `<textarea id="${id}" class="config-input config-textarea aia-txt" data-sec="${sec}" data-k="${c.k}" maxlength="${c.max}" rows="${c.rows || 2}" placeholder="Deixe em branco para usar só o comportamento padrão">${aiaEsc(v)}</textarea><span class="aia-cont" data-cont="${id}">${String(v).length}/${c.max}</span>${c.padrao ? `<button type="button" class="aia-link" data-prompt-padrao="${sec}">Carregar o prompt padrão para editar</button>` : ''}`;
     return `<div class="aia-campo ${c.t === 'txt' || c.t === 'line' ? 'aia-largo' : ''}"><div class="aia-rot">${rotulo}</div><div class="aia-ctl">${ctl}</div></div>`;
 }
 
@@ -3370,7 +3371,7 @@ async function loadAiAssistTab() {
         const r = await fetch(`${API_BASE}/config/ai-assist`, { headers: authHeaders() });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'Falha ao carregar');
-        AIA = { settings: d.settings, defaults: d.defaults, modelos: d.modelos, sujo: false };
+        AIA = { settings: d.settings, defaults: d.defaults, modelos: d.modelos, promptPadrao: d.promptReincidencia, sujo: false };
         aiaRender();
     } catch (e) { root.innerHTML = `<p class="config-status error">${aiaEsc(e.message)}</p>`; }
 }
@@ -3394,6 +3395,10 @@ function aiaInit() {
     root.dataset.pronto = '1';
     root.addEventListener('click', (e) => {
         const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.promptPadrao) {
+            if (AIA.settings[b.dataset.promptPadrao].promptBase && !confirm('Substituir o prompt atual pelo padrão?')) return;
+            AIA.settings[b.dataset.promptPadrao].promptBase = AIA.promptPadrao || ''; aiaMarcarSujo(true); aiaRender(); return;
+        }
         if (b.dataset.padrao) {
             AIA.settings[b.dataset.padrao] = JSON.parse(JSON.stringify(AIA.defaults[b.dataset.padrao]));
             aiaMarcarSujo(true); aiaRender(); return;

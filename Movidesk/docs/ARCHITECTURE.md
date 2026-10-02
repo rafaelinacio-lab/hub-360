@@ -250,3 +250,6 @@ Satisfação: cada linha traz `vertical` (1º nível do serviço), há filtro de
 Equivalência de verticais: o campo "GCC - Verticais Insatisfação" (id 98697) aceita vários valores juntos ("Agrotitan, Fisco Contábil") e usa nomes diferentes de Pessoas
 (ex.: Agrotitan = Agronegócio). `verticalScope` separa o campo pela vírgula e expande cada vertical do usuário pelas equivalências (padrão em `ALIASES_PADRAO`, editável por admin em
 Configurações → Acesso → "Equivalência de verticais", chave `vertical_aliases`).
+
+Reincidências — prompt: o texto-base (dimensões 0, A e B) está em `server/utils/reincidenciaPrompt.js` e pode ser substituído por admin em Configurações → Assistente de IA → Reincidências
+("Prompt da análise"; vazio = padrão). O servidor acrescenta o formato de saída em JSON e aplica o mínimo de clientes configurado nas frases que citam "3". Admin não precisa de vertical (vê todas).

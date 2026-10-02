@@ -34,7 +34,7 @@ function getConfigValue(key, callback) {
 // ── Assistente de IA (Central do chamado e Incidentes): parâmetros editáveis pelo admin ───────────
 router.get('/ai-assist', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
-    res.json({ settings: await aiSettings.obter(), defaults: aiSettings.normalizar({}), modelos: aiSettings.MODELOS });
+    res.json({ settings: await aiSettings.obter(), defaults: aiSettings.normalizar({}), modelos: aiSettings.MODELOS, promptReincidencia: require('../utils/reincidenciaPrompt').PROMPT_PADRAO });
   } catch (e) { res.status(500).json({ error: 'Erro ao ler as configurações da IA' }); }
 });
 router.put('/ai-assist', authMiddleware, requireRole('admin'), async (req, res) => {
