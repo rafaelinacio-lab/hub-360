@@ -49,7 +49,7 @@ function extrairJson(texto) {
   throw new IaError(502, 'A IA devolveu uma resposta fora do formato esperado. Tente de novo.');
 }
 
-async function chamarIA({ source, system, user, json = true, maxTokens = 900, temperature = 0.3, userEmail, meta }) {
+async function chamarIA({ source, system, user, json = true, maxTokens = 900, temperature = 0.3, userEmail, meta, timeoutMs = 60000 }) {
   const apiKey = await getApiKey();
   const MODELO = (await cfg.obter()).geral.modelo;   // escolhido em Configurações → Assistente de IA
   if (!apiKey) throw new IaError(503, 'A chave da API de IA não está configurada (Configurações → Inteligência Artificial).');
@@ -62,7 +62,7 @@ async function chamarIA({ source, system, user, json = true, maxTokens = 900, te
   try {
     resp = await fetch(`${BASE}/chat/completions`, {
       method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), timeout: 60000,
+      body: JSON.stringify(body), timeout: timeoutMs,
     });
   } catch (e) { throw new IaError(502, `Não consegui falar com a IA: ${e.message}`); }
   const data = await resp.json().catch(() => ({}));

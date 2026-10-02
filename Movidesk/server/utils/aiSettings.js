@@ -21,6 +21,7 @@ const PADRAO = {
   corrigir: { ativo: true, maxCaracteres: 8000, instrucaoExtra: '' },
   cliente: { ativo: true, janelaDias: 90, mesesHistorico: 12, termosGcc: 'gcc, churn', contextoCaracteres: 9000, criatividade: 'baixa', instrucaoExtra: '' },
   incidenteResumo: { ativo: true, maxHipoteses: 3, maxPassos: 5, maxRiscos: 3, chamadosNoContexto: 60, eventosNoContexto: 40, usarMetas: true, criatividade: 'baixa', instrucaoExtra: '' },
+  reincidencia: { ativo: true, diasPadrao: 30, maxTickets: 80, minClientesSistemico: 3, criatividade: 'baixa', instrucaoExtra: '' },
   incidentePosmortem: { ativo: true, maxPorques: 5, maxAcoes: 6, criatividade: 'baixa', instrucaoExtra: '' },
   incidenteComunicado: { ativo: true, publicoPadrao: 'clientes', tipoPadrao: 'atualizacao', palavrasClientes: 120, palavrasEquipe: 180, estilo: 'simples', criatividade: 'media', instrucaoExtra: '' },
 };
@@ -33,7 +34,7 @@ const bool = (v, pad) => (typeof v === 'boolean' ? v : pad);
 // Aceita um objeto parcial e devolve sempre um objeto completo e válido.
 function normalizar(entrada) {
   const e = entrada && typeof entrada === 'object' ? entrada : {};
-  const g = e.geral || {}, r = e.resposta || {}, c = e.corrigir || {}, cl = e.cliente || {}, ir = e.incidenteResumo || {}, ip = e.incidentePosmortem || {}, ic = e.incidenteComunicado || {};
+  const g = e.geral || {}, r = e.resposta || {}, c = e.corrigir || {}, cl = e.cliente || {}, ir = e.incidenteResumo || {}, ip = e.incidentePosmortem || {}, rc = e.reincidencia || {}, ic = e.incidenteComunicado || {};
   const P = PADRAO;
   const cri = (v, pad) => esc(v, Object.keys(CRIATIVIDADE), pad);
   return {
@@ -62,6 +63,11 @@ function normalizar(entrada) {
       maxPassos: num(ir.maxPassos, 1, 8, P.incidenteResumo.maxPassos), maxRiscos: num(ir.maxRiscos, 0, 5, P.incidenteResumo.maxRiscos),
       chamadosNoContexto: num(ir.chamadosNoContexto, 10, 200, P.incidenteResumo.chamadosNoContexto), eventosNoContexto: num(ir.eventosNoContexto, 10, 100, P.incidenteResumo.eventosNoContexto),
       usarMetas: bool(ir.usarMetas, P.incidenteResumo.usarMetas), criatividade: cri(ir.criatividade, P.incidenteResumo.criatividade), instrucaoExtra: txt(ir.instrucaoExtra, 800),
+    },
+    reincidencia: {
+      ativo: bool(rc.ativo, P.reincidencia.ativo), diasPadrao: esc(Number(rc.diasPadrao), [7, 15, 30, 60, 90], P.reincidencia.diasPadrao),
+      maxTickets: num(rc.maxTickets, 20, 150, P.reincidencia.maxTickets), minClientesSistemico: num(rc.minClientesSistemico, 2, 10, P.reincidencia.minClientesSistemico),
+      criatividade: cri(rc.criatividade, P.reincidencia.criatividade), instrucaoExtra: txt(rc.instrucaoExtra, 800),
     },
     incidentePosmortem: {
       ativo: bool(ip.ativo, P.incidentePosmortem.ativo), maxPorques: num(ip.maxPorques, 1, 7, P.incidentePosmortem.maxPorques),

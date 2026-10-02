@@ -29,7 +29,8 @@ const EMBED_PAGE_ROUTES = {
     jira: 'pages/jira.html',
     movidesk: 'pages/geral.html',
     satisfacao: 'pages/satisfacao.html',
-    incidentes: 'pages/incidentes.html'
+    incidentes: 'pages/incidentes.html',
+    reincidencias: 'pages/reincidencias.html'
 };
 
 // ─── Animação de transição: ícone da aba clicada "voa" até o centro do
