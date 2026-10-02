@@ -140,14 +140,9 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 <div class="page">
   <div class="topo">
     <div><h1>Painel de Reincidências</h1>
-      <p>O que se repete nos chamados: no mesmo chamado, no mesmo cliente e entre clientes (possível problema de sistema). A IA lê o histórico completo de cada chamado.</p></div>
+      <p>O mesmo problema voltando para o mesmo cliente. A IA lê o contexto e as ações dos chamados; o módulo é só um parâmetro.</p></div>
     <div class="sp"></div>
-    <div class="meta" id="frescor" style="text-align:right"></div>
-  </div>
-  <div class="modo" role="tablist">
-    <button class="chip" id="mGeral" type="button" aria-pressed="true">Visão geral · todos os anos</button>
-    <button class="chip" id="mIA" type="button" aria-pressed="false">Análise por IA</button>
-  </div>
+      </div>
   <div id="vGeral">
     <p class="vg-nota" id="vgNota"></p>
     <div class="controles">
@@ -166,19 +161,6 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
   </div>
   <div class="gv-fundo" id="gvFundo"></div>
   <aside class="gv" id="gv" aria-hidden="true" role="dialog" aria-label="Chamados"><div class="gv-topo"><div style="min-width:0"><h2 id="gvTitulo"></h2><div class="sub" id="gvSub"></div></div><button class="x" id="gvFechar" type="button" aria-label="Fechar">&times;</button></div><div class="gv-corpo" id="gvCorpo"></div></aside>
-  <div id="vIA" hidden>
-  <div class="controles">
-    <label class="meta" for="fDias">Período</label>
-    <select id="fDias"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option></select>
-    <select id="fServico" aria-label="Serviço"><option value="">Todos os serviços</option></select>
-    <button class="btn primario" id="btnAnalisar" type="button">↻ Atualizar análise</button>
-    <span class="sp"></span>
-    <label class="meta" for="fHist">Ver análise</label>
-    <select id="fHist"><option value="">—</option></select>
-  </div>
-  <div class="aviso" id="aviso" role="status"></div>
-  <div id="resultado"></div>
-  </div>
 </div>
 <script>
 const API=`${location.origin}/api/reincidencias`;
@@ -195,99 +177,10 @@ const fmt=v=>v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',
 const br=d=>d?String(d).split('-').reverse().join('/'):'—';
 const link=id=>`<a class="id" href="https://viasoft.movidesk.com/Ticket/Edit/${id}" target="_blank" rel="noopener" title="Abrir no Movidesk">#${id}</a>`;
 const conf=c=>`<span class="pill c-${esc(c)}" title="Confiança da IA">${esc(c)}</span>`;
-function aviso(m,t){ const e=$('aviso'); e.textContent=m||''; e.className='aviso'+(m?' '+(t||'info'):''); }
+function aviso(m,t){ const e=$('gAviso'); e.textContent=m||''; e.className='aviso'+(m?' '+(t||'info'):''); }
 function ha(v){ const m=(Date.now()-new Date(v).getTime())/60000; if(m<2)return 'agora'; if(m<60)return `há ${Math.round(m)} min`; if(m<1440)return `há ${Math.round(m/60)} h`; return `há ${Math.round(m/1440)} d`; }
-let C=null, P=null, A=null, S={aba:'geral',busca:'',conf:''};
+let C=null;
 
-function delta(atual,ant,menorMelhor=true){
-  if(ant==null) return '';
-  const d=Math.round((atual-ant)*10)/10; if(!d) return '<span class="d igual" title="Igual à análise anterior comparável">= 0</span>';
-  return `<span class="d ${d>0?'sobe':'desce'}" title="Em relação à análise anterior comparável">${d>0?'▲ +':'▼ '}${d}</span>`;
-}
-function tkLinha(t){ return `<div class="tk">${link(t.id)}<span class="dt sub">${br(t.data)}</span><span class="as" title="${esc(t.assunto)}">${esc(t.assunto)}</span><span class="cl sub">${esc(t.cliente)}</span></div>`; }
-
-function rankings(r){
-  const cli=new Map(), mod=new Map();
-  r.dimensao0.forEach(x=>cli.set(x.cliente,(cli.get(x.cliente)||0)+x.ocorrencias.length));
-  r.dimensaoA.forEach(x=>cli.set(x.cliente,(cli.get(x.cliente)||0)+x.tickets.length));
-  r.dimensaoB.forEach(x=>{ const m=x.modulo||'Não identificado'; mod.set(m,(mod.get(m)||0)+x.nClientes); });
-  const top=m=>[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,7);
-  return {cli:top(cli),mod:top(mod)};
-}
-function rank(titulo,lista,aba,sufixo){
-  if(!lista.length) return `<div class="painel"><h3>${titulo}</h3><div class="sub">Sem dados neste período.</div></div>`;
-  const mx=lista[0][1];
-  return `<div class="painel"><h3>${titulo}</h3><div class="rank">${lista.map(([n,v])=>`<div class="rk" data-aba="${aba}" data-q="${esc(n)}" title="Ver detalhes"><span class="nm">${esc(n)}</span><span class="bar"><i style="width:${Math.max(6,v/mx*100)}%"></i></span><span class="v">${v}</span></div>`).join('')}</div><div class="sub" style="margin-top:6px">${sufixo}</div></div>`;
-}
-function tendencia(serie){
-  const s=serie.slice(-14); if(s.length<2) return '<div class="sub">A tendência aparece quando houver pelo menos duas análises.</div>';
-  const W=600,H=120,px=26,py=14, mx=Math.max(1,...s.flatMap(x=>[x.d0,x.da,x.db])), X=i=>px+i*(W-2*px)/(s.length-1), Y=v=>H-py-(v/mx)*(H-2*py);
-  const linha=(k,cor)=>`<polyline fill="none" stroke="${cor}" stroke-width="2" points="${s.map((x,i)=>`${X(i)},${Y(x[k])}`).join(' ')}"/>`+s.map((x,i)=>`<circle cx="${X(i)}" cy="${Y(x[k])}" r="${i===s.length-1?3.5:2}" fill="${cor}"><title>${fmt(x.criado_em)} · ${x[k]}</title></circle>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução das reincidências nas últimas análises"><line x1="${px}" x2="${W-px}" y1="${H-py}" y2="${H-py}" stroke="var(--border)"/><text x="2" y="${py}" font-size="10" fill="var(--t3)">${mx}</text><text x="2" y="${H-py}" font-size="10" fill="var(--t3)">0</text>
-    ${linha('d0','#e85d04')}${linha('da','#2563eb')}${linha('db','#b91c1c')}</svg>
-    <div class="leg"><span><i style="background:#e85d04"></i>No chamado</span><span><i style="background:#2563eb"></i>Mesmo cliente</span><span><i style="background:#b91c1c"></i>Entre clientes</span><span>${s.length} análises</span></div>`;
-}
-const passa=(txt)=>!S.busca||String(txt).toLowerCase().includes(S.busca);
-const passaConf=c=>!S.conf||c===S.conf;
-
-function cardsD0(r){ const l=r.dimensao0.filter(x=>passaConf(x.confianca)&&passa(x.cliente+' '+x.assunto+' '+x.id)); return l.length?l.map(x=>`<div class="card"><div><h4><span class="qtd">${x.ocorrencias.length}×</span>${link(x.id)} ${esc(x.assunto)}</h4><div class="sub">${esc(x.cliente)}</div></div><div>${conf(x.confianca)}</div>
-  <div class="corpo">${x.ocorrencias.map(o=>`<div class="oc"><b>${esc(o.quando)}</b><span>${esc(o.resumo)}</span></div>`).join('')}${x.correcao?`<div class="sub"><span class="tag">Correção entre as ocorrências</span>${esc(x.correcao)}</div>`:''}</div></div>`).join(''):'<div class="vazio">Nenhuma recorrência dentro de um mesmo chamado com esses filtros.</div>'; }
-function cardsDA(r){ const l=r.dimensaoA.filter(x=>passaConf(x.confianca)&&passa(x.cliente+' '+x.problema)); return l.length?l.map(x=>`<div class="card"><div><h4><span class="qtd">${x.tickets.length}×</span>${esc(x.cliente)} — ${esc(x.problema)}</h4><div class="sub">${br(x.periodo[0])} → ${br(x.periodo[1])}</div></div><div>${conf(x.confianca)}</div>
-  <div class="corpo">${x.tickets.map(tkLinha).join('')}${x.justificativa?`<div class="sub">${esc(x.justificativa)}</div>`:''}</div></div>`).join(''):'<div class="vazio">Nenhum cliente com o mesmo problema repetido com esses filtros.</div>'; }
-function cardsDB(r){ const l=r.dimensaoB.filter(x=>passaConf(x.confianca)&&passa(x.problema+' '+x.modulo+' '+x.clientes.map(c=>c.cliente).join(' '))); return l.length?l.map(x=>`<div class="card"><div><h4><span class="qtd">${x.nClientes} clientes</span>${esc(x.problema)}</h4><div class="sub">Módulo provável: ${esc(x.modulo||'não identificado')}</div></div><div>${conf(x.confianca)}</div>
-  <div class="corpo">${x.tickets.map(tkLinha).join('')}${x.recomendacao?`<div class="rec">${esc(x.recomendacao)}</div>`:''}</div></div>`).join(''):'<div class="vazio">Nenhum problema sistêmico com esses filtros.</div>'; }
-
-function desenhar(){
-  const a=A, r=a.resultado, p=a.parametros||{}, tx=P&&P.atual&&P.atual.id===a.id?P.atualTaxa:null, ant=P&&P.atual&&P.atual.id===a.id?P.anterior:null;
-  const kp=(id,rot,n,sub,d)=>`<button type="button" class="kpi" data-aba="${id}" aria-pressed="${S.aba===id}"><div class="r">${rot}</div><div class="n">${n}</div><div class="s">${sub}${d||''}</div></button>`;
-  const taxa=tx?tx.taxa:0;
-  let h=`<div class="kpis">
-    ${kp('geral','Taxa de reincidência',taxa+'%',`${tx?tx.envolvidos:0} de ${a.n_tickets} chamados`,ant?delta(taxa,ant.taxa):'')}
-    ${kp('d0','No mesmo chamado',r.dimensao0.length,'o problema voltou',ant?delta(r.dimensao0.length,ant.d0):'')}
-    ${kp('da','Mesmo cliente',r.dimensaoA.length,'problemas repetidos',ant?delta(r.dimensaoA.length,ant.da):'')}
-    ${kp('db','Entre clientes',r.dimensaoB.length,`indício sistêmico (${p.minClientes||3}+)`,ant?delta(r.dimensaoB.length,ant.db):'')}</div>`;
-  const rk=rankings(r);
-  if(S.aba==='geral'){
-    h+=`<div class="grade"><div class="painel resumo"><h3>Para atenção prioritária</h3>${esc(r.resumo||'A IA não destacou casos críticos neste período.')}</div><div class="painel tend"><h3>Tendência</h3>${tendencia(P?P.serie:[])}</div></div>
-    <div class="grade">${rank('Clientes que mais se repetem',rk.cli,'da','Ocorrências somadas (no chamado + entre chamados). Clique para ver.')}${rank('Módulos com mais clientes afetados',rk.mod,'db','Clientes distintos por módulo provável.')}</div>
-    <div class="painel"><h3>Maiores casos sistêmicos</h3><div class="cards" style="margin-top:6px">${r.dimensaoB.slice(0,3).length?cardsDB({dimensaoB:r.dimensaoB.slice(0,3)}):'<div class="sub">Nenhum problema sistêmico neste período.</div>'}</div></div>`;
-  } else {
-    h+=`<div class="abas"><input type="search" id="fBusca" placeholder="Filtrar por cliente, assunto ou nº…" value="${esc(S.busca)}" aria-label="Filtrar"><select id="fConf" aria-label="Confiança"><option value="">Qualquer confiança</option>${['Alta','Média','Baixa'].map(c=>`<option ${S.conf===c?'selected':''}>${c}</option>`).join('')}</select><button class="chip" data-aba="geral" type="button">← Visão geral</button></div>`;
-    h+=S.aba==='d0'?`<div class="sub" style="margin-bottom:8px">O problema foi “resolvido” e voltou na mesma conversa.</div><div class="cards">${cardsD0(r)}</div>`:
-       S.aba==='da'?`<div class="sub" style="margin-bottom:8px">O mesmo cliente com o mesmo tipo de problema em chamados diferentes.</div><div class="cards">${cardsDA(r)}</div>`:
-       `<div class="sub" style="margin-bottom:8px">O mesmo problema em vários clientes: possível bug sistêmico ou lacuna de produto.</div><div class="cards">${cardsDB(r)}</div>`;
-  }
-  $('resultado').innerHTML=h;
-  $('frescor').innerHTML=`Análise #${a.id} · ${ha(a.criado_em)} <span title="${fmt(a.criado_em)}">(${fmt(a.criado_em)})</span><br>${a.n_tickets} chamados · últimos ${p.dias} dias${p.servico?' · '+esc(p.servico):''} · ${p.origem==='automatica'?'automática':'manual'}${p.truncado?' · <b>limitada aos '+p.maxTickets+' mais recentes</b>':''}`;
-  const b=$('fBusca'); if(b){ b.addEventListener('input',()=>{ S.busca=b.value.trim().toLowerCase(); const pos=b.selectionStart; desenhar(); const n=$('fBusca'); n.focus(); n.setSelectionRange(pos,pos); }); $('fConf').addEventListener('change',()=>{ S.conf=$('fConf').value; desenhar(); }); }
-}
-$('resultado').addEventListener('click',e=>{
-  const t=e.target.closest('[data-aba]'); if(!t||!A) return;
-  S.aba=t.dataset.aba; if(t.dataset.q){ S.busca=t.dataset.q.toLowerCase(); } else if(t.classList.contains('kpi')||t.classList.contains('chip')) S.busca='';
-  desenhar(); window.scrollTo({top:0,behavior:'smooth'});
-});
-
-async function carregarHistorico(sel){
-  try{ const d=await api('/'); $('fHist').innerHTML='<option value="">Última análise</option>'+d.analises.map(a=>`<option value="${a.id}">#${a.id} · ${fmt(a.criado_em)} · ${a.parametros.dias}d${a.parametros.servico?' · '+esc(a.parametros.servico):''}${a.parametros.origem==='automatica'?' · auto':''}</option>`).join(''); if(sel) $('fHist').value=sel; }catch(e){}
-}
-async function carregarPainel(){
-  try{ P=await api('/painel'); }catch(e){ aviso(e.message,'erro'); return; }
-  if(!P.atual){ $('resultado').innerHTML='<div class="vazio">Ainda não há análise. '+(C.podeAnalisar?'Clique em “Atualizar análise” para gerar a primeira.':'Peça a um atendente ou administrador para gerar.')+'</div>'; $('frescor').textContent=''; return; }
-  A=P.atual; desenhar();
-}
-$('fHist').addEventListener('change',async()=>{
-  const id=$('fHist').value; if(!id){ await carregarPainel(); return; }
-  try{ const d=await api('/'+id); A=d.analise; S.busca=''; S.conf=''; desenhar(); }catch(e){ aviso(e.message,'erro'); }
-});
-$('btnAnalisar').addEventListener('click',async()=>{
-  const b=$('btnAnalisar'); b.disabled=true; aviso('');
-  $('resultado').innerHTML='<div class="carregando"><span class="spin"></span>A IA está lendo o histórico dos chamados… leva de 30 segundos a 2 minutos.</div>';
-  try{ await api('/analisar',{method:'POST',body:{dias:Number($('fDias').value),servico:$('fServico').value}}); S={aba:'geral',busca:'',conf:''}; await carregarPainel(); await carregarHistorico(); }
-  catch(e){ aviso(e.message,'erro'); await carregarPainel(); }
-  b.disabled=false;
-});
-
-// ── visão geral (todos os anos, regra no banco) ──
 const G={f:{ano:'',dias:'15',equipe:'',classif:'suporte',cliente:''},d:null,carregado:false};
 const nf=n=>Number(n||0).toLocaleString('pt-BR');
 const pc=(a,b)=>b?Math.round(a/b*1000)/10:0;
@@ -403,22 +296,11 @@ $('gResultado').addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ')
 $('gvFechar').addEventListener('click',gvFechar); $('gvFundo').addEventListener('click',gvFechar);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') gvFechar(); });
 // (fim do bloco de detalhe)
-function modo(m){
-  $('vGeral').hidden=m!=='geral'; $('vIA').hidden=m!=='ia';
-  $('mGeral').setAttribute('aria-pressed',m==='geral'); $('mIA').setAttribute('aria-pressed',m==='ia');
-  try{ sessionStorage.setItem('reincModo',m); }catch{}
-}
-$('mGeral').addEventListener('click',()=>modo('geral')); $('mIA').addEventListener('click',()=>modo('ia'));
 (async function init(){
-  let m0='geral'; try{ m0=sessionStorage.getItem('reincModo')||'geral'; }catch{} modo(m0); gCarregar();
   try{ C=await api('/config'); }catch(e){ aviso(e.message,'erro'); return; }
-  $('fDias').value=String(C.diasPadrao);
-  $('fServico').innerHTML='<option value="">Todos os serviços</option>'+C.servicos.map(s=>`<option>${esc(s)}</option>`).join('');
-  if(!C.podeAnalisar) $('btnAnalisar').style.display='none';
-  else if(!C.ativo){ $('btnAnalisar').disabled=true; aviso('Este recurso de IA está desativado em Configurações → Assistente de IA.','info'); }
-  else if(!C.iaConfigurada){ $('btnAnalisar').disabled=true; aviso('A chave da IA ainda não foi configurada (Configurações → Inteligência Artificial).','info'); }
-  await Promise.all([carregarPainel(),carregarHistorico()]);
-  setInterval(()=>{ if(!document.hidden && !$('fHist').value && !$('btnAnalisar').disabled) carregarPainel(); },5*60*1000);
+  gCarregar();
+  if(C.podeAnalisar&&!C.ativo) aviso('Este recurso de IA está desativado em Configurações → Assistente de IA.','info');
+  else if(C.podeAnalisar&&!C.iaConfigurada) aviso('A chave da IA ainda não foi configurada (Configurações → Inteligência Artificial).','info');
 })();
 </script>
 </body>
