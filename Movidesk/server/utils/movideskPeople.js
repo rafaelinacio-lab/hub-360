@@ -138,4 +138,4 @@ async function escopoEquipe(user, queroTodas) {
   return { equipes: info.equipes, origem: info.origem, podeVerTodas, filtrar, role };
 }
 
-module.exports = { MovideskError, movidesk, agenteDoUsuario, listaAgentes, equipesDoUsuario, escopoEquipe, filtrarPorEquipes };
+module.exports = { tokenMovidesk, MovideskError, movidesk, agenteDoUsuario, listaAgentes, equipesDoUsuario, escopoEquipe, filtrarPorEquipes };
