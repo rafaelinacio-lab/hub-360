@@ -280,7 +280,7 @@ const job = { rodando: false, total: 0, feitos: 0, reincidentes: 0, erros: 0, in
 async function candidatosPendentes(limite) {
   const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
   const campos = [...new Set([...mods, 148916, 23946])];
-  const r = await db.query(`
+  const SQL_CAND = `
     WITH cf AS (
            SELECT ticket_id, min(valor_texto) FILTER (WHERE custom_field_id::bigint = ANY($1::bigint[])) AS modulo,
                   min(valor_texto) FILTER (WHERE custom_field_id = '148916') AS causa, min(valor_texto) FILTER (WHERE custom_field_id = '23946') AS classif
@@ -292,13 +292,22 @@ async function candidatosPendentes(limite) {
                   COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS modulo
              FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
             WHERE cf.classif = 'Suporte Técnico'),
-         pend AS (SELECT n.* FROM b n WHERE n.cliente IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.reincidencia_par v WHERE v.ticket_id = n.id)),
+         pend AS (SELECT n.* FROM b n WHERE n.cliente IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.reincidencia_par v WHERE v.ticket_id = n.id) ORDER BY n.createddate DESC LIMIT $4),
          pares AS (
            SELECT n.id AS tid, n.createddate AS cd, p.id AS pid, p.fim AS pfim, (p.modulo IS NOT NULL AND p.modulo = n.modulo) AS mesmo_modulo,
-                  row_number() OVER (PARTITION BY n.id ORDER BY p.fim DESC) AS rk
-             FROM pend n JOIN b p ON p.cliente = n.cliente AND p.id <> n.id AND p.fim IS NOT NULL AND p.fim < n.createddate AND n.createddate - p.fim <= interval '60 days'),
-         sel AS (SELECT tid FROM pares GROUP BY tid ORDER BY max(cd) DESC LIMIT $3)
-    SELECT p.tid, p.pid, p.pfim, p.mesmo_modulo, p.cd FROM pares p JOIN sel USING (tid) WHERE p.rk <= 2 ORDER BY p.cd DESC, p.rk`, [mods.length ? mods : [0], campos, limite]);
+                  row_number() OVER (PARTITION BY n.id ORDER BY p.fim DESC NULLS LAST) AS rk
+             FROM pend n LEFT JOIN b p ON p.cliente = n.cliente AND p.id <> n.id AND p.fim IS NOT NULL AND p.fim < n.createddate AND n.createddate - p.fim <= interval '60 days'),
+         sel AS (SELECT tid FROM pares WHERE pid IS NOT NULL GROUP BY tid ORDER BY max(cd) DESC LIMIT $3)
+    SELECT p.tid, p.pid, p.pfim, p.mesmo_modulo, p.cd FROM pares p WHERE p.rk <= 2 AND (p.pid IS NULL OR p.tid IN (SELECT tid FROM sel)) ORDER BY p.cd DESC, p.rk`;
+  // consulta pesada: roda numa transação com tempo limite para nunca segurar o banco do Dashboard
+  const r = await db.withClient(async (cl) => {
+    await cl.query('BEGIN'); await cl.query("SET LOCAL statement_timeout = '90s'");
+    try { const x = await cl.query(SQL_CAND, [mods.length ? mods : [0], campos, limite, limite * 12]); await cl.query('COMMIT'); return x; }
+    catch (e) { await cl.query('ROLLBACK').catch(() => {}); throw e; }
+  });
+  const semCand = r.rows.filter((x) => x.pid == null).map((x) => Number(x.tid));
+  if (semCand.length) await db.query(`INSERT INTO public.reincidencia_par (ticket_id, reincidente) SELECT unnest($1::bigint[]), FALSE ON CONFLICT (ticket_id) DO NOTHING`, [semCand]);
+  r.rows = r.rows.filter((x) => x.pid != null);
   const por = new Map();
   for (const x of r.rows) { const k = Number(x.tid); if (!por.has(k)) por.set(k, []); por.get(k).push({ pid: Number(x.pid), fim: x.pfim, mesmoModulo: x.mesmo_modulo, cd: x.cd }); }
   return por;
@@ -371,7 +380,7 @@ router.post('/geral/analisar', requireLeitura, rateLimit({ name: 'reincidencias/
 });
 router.get('/geral/progresso', requireLeitura, async (req, res) => {
   try {
-    const r = (await db.query(`SELECT count(*)::int AS analisados, count(*) FILTER (WHERE reincidente)::int AS reincidentes, max(analisado_em) AS ultimo FROM public.reincidencia_par`)).rows[0];
+    const r = (await db.query(`SELECT count(*) FILTER (WHERE anterior_id IS NOT NULL)::int AS analisados, count(*) FILTER (WHERE reincidente)::int AS reincidentes, max(analisado_em) AS ultimo FROM public.reincidencia_par`)).rows[0];
     res.json({ ...r, job });
   } catch (e) { erro(res, e); }
 });
@@ -382,7 +391,9 @@ async function rotinaAutomatica() {
     const S = await cfg.obter(), C = S.reincidencia;
     if (!C.ativo || !C.autoHoras || analisando || !(await iaConfigurada())) return;
     await db.query(`CREATE TABLE IF NOT EXISTS public.reincidencia_analise (id SERIAL PRIMARY KEY, criado_por INTEGER, criado_por_nome TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(), parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`);
-    if (!job.rodando) await rodarJob(60, null).catch((e) => console.warn('[reincidencias] veredito automático:', e.message));
+    // só alimenta sozinha depois de alguém ter rodado a primeira análise pelo botão (evita gasto de IA e carga no banco logo após o deploy)
+    const jaRodou = (await db.query(`SELECT 1 FROM public.reincidencia_par LIMIT 1`)).rows.length > 0;
+    if (jaRodou && !job.rodando) await rodarJob(60, null).catch((e) => console.warn('[reincidencias] veredito automático:', e.message));
     const ult = (await db.query(`SELECT criado_em FROM public.reincidencia_analise WHERE COALESCE(parametros->>'servico','') = '' AND (parametros->>'dias')::int = $1 ORDER BY id DESC LIMIT 1`, [C.diasPadrao])).rows[0];
     if (ult && Date.now() - new Date(ult.criado_em).getTime() < C.autoHoras * 3600 * 1000) return;
     console.log('[reincidencias] rodando análise automática…');
