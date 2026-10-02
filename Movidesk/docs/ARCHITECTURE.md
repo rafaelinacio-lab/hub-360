@@ -225,12 +225,12 @@ Painel: `GET /api/reincidencias/painel` devolve a última análise, a anterior c
 (taxa de reincidência = chamados envolvidos em alguma recorrência ÷ analisados). Uma rotina interna (a cada 30 min) refaz a análise
 padrão sozinha quando a última tem mais de `autoHoras` (Configurações → Assistente de IA → Reincidências; 0 desliga; `REINCIDENCIAS_SEM_AUTO=1` desliga no ambiente).
 
-Visão geral (todos os anos, sem IA): `GET /api/reincidencias/geral?ano=&dias=&equipe=&cliente=&classif=` calcula no banco, sobre `silver.ticket`, a reincidência
-de todo o histórico. Reincidente = o mesmo cliente abriu chamado com o mesmo motivo até `dias` (7/15/30/60, padrão 15) DEPOIS de o anterior (cliente + motivo)
-ser encerrado. Motivo = campo customizado "Módulo X Rotina" (ids achados por nome em `silver.dim_campo_customizado`) e, sem ele, "Causa" (148916, só a partir de 2024).
-Encerramento = `resolved_in`/`closed_in` ou, nos chamados antigos que não os trazem, a data da última ação de chamados fechados. Chamados sem cliente ou sem motivo
-(~1/3 do histórico) ficam fora da taxa e são contados à parte. Devolve KPIs, série anual/mensal, top motivos, top clientes e equipes; resultado em cache de 10 min por
-combinação de filtros (a consulta leva ~5 s). Padrão da aba: "Visão geral"; a "Análise por IA" (acima) continua como aprofundamento.
+Visão geral (todos os anos): `GET /api/reincidencias/geral?ano=&dias=&equipe=&cliente=&classif=`. **Quem decide é a IA, lendo contexto e ações** (histórico completo do chamado e dos anteriores do
+mesmo cliente); o módulo/rotina é só dica para a IA e filtro/agrupamento. O banco apenas escolhe candidatos (mesmo cliente, anterior encerrado até 60 dias antes, qualquer módulo; encerramento =
+`resolved_in`/`closed_in` ou, nos antigos, a última ação de chamados fechados). `POST /geral/analisar {max}` (admin/supervisor/atendente, rate limit) dispara em segundo plano um job que manda lotes de 5
+chamados + até 2 anteriores à OpenAI (`PROMPT_PAR` em `routes/reincidencias.js`) e grava o veredito em `public.reincidencia_par` (reincidente, anterior_id, confiança, explicação, dias_entre); o servidor valida
+que o anterior citado é um dos candidatos. `GET /geral/progresso` mostra cobertura e andamento. É incremental (mais recentes primeiro) e a rotina automática (a cada 30 min, se `autoHoras`) analisa 60 por vez.
+A janela da tela (7/15/30/60 dias) filtra o veredito pelo intervalo real. KPIs, séries, rankings e a gaveta (`GERAL_CTE`) leem esses vereditos; só entram na taxa chamados já analisados. Cache de 10 min (limpo a cada lote).
 ## Melhorias (sugestões para o próprio Hub)
 
 Aba `melhorias`, aberta a **qualquer usuário logado** (não depende de Configurações → Acesso). `server/routes/melhorias.js` + `pages/melhorias.html`.
@@ -261,5 +261,6 @@ Reincidências — prompt: o texto-base (dimensões 0, A e B) está em `server/u
 ("Prompt da análise"; vazio = padrão). O servidor acrescenta o formato de saída em JSON e aplica o mínimo de clientes configurado nas frases que citam "3". Admin não precisa de vertical (vê todas).
 
 Reincidências — visão geral (regra no banco, sem IA, `GET /api/reincidencias/geral`): chamado reincidente = mesmo cliente + mesmo motivo ("Módulo X Rotina", ou "Causa" 148916) abrindo outro em até N dias
-depois do encerramento do anterior. Tudo é clicável: `GET /geral/chamados?tipo=kpi|motivo|cliente|equipe|ano|mes&valor=…` (mesmos filtros e mesma CTE `GERAL_CTE`) lista os chamados por trás de cada número
-numa gaveta dentro da própria aba, com link para o Movidesk e o chamado anterior de que ele é repetição.
+Reincidências — visão geral: chamado reincidente = veredito da IA sobre contexto e ações (não o módulo) em `public.reincidencia_par`; ver o parágrafo "Visão geral" da seção de Reincidências. Tudo é clicável:
+`GET /geral/chamados?tipo=kpi|motivo|cliente|equipe|ano|mes&valor=…` (mesmos filtros e mesma CTE `GERAL_CTE`) lista os chamados por trás de cada número
+numa gaveta dentro da própria aba, com link para o Movidesk, o chamado anterior e a explicação da IA.

@@ -24,11 +24,14 @@ router.use(async (req, res, next) => {
   try {
     if (!prontas) prontas = db.query(`CREATE TABLE IF NOT EXISTS public.reincidencia_analise (
       id SERIAL PRIMARY KEY, criado_por INTEGER, criado_por_nome TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`).catch((e) => { prontas = null; throw e; });
+      parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`).then(() => db.query(TABELA_PAR)).catch((e) => { prontas = null; throw e; });
     await prontas; next();
   } catch (e) { res.status(500).json({ error: 'Erro ao preparar a tabela de reincidências: ' + e.message }); }
 });
 
+const TABELA_PAR = `CREATE TABLE IF NOT EXISTS public.reincidencia_par (
+  ticket_id BIGINT PRIMARY KEY, anterior_id BIGINT, reincidente BOOLEAN NOT NULL DEFAULT FALSE, confianca TEXT, explicacao TEXT,
+  anterior_fim TIMESTAMPTZ, dias_entre NUMERIC, mesmo_modulo BOOLEAN, analisado_em TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
 const erro = (res, e) => (e instanceof IaError ? res.status(e.status).json({ error: e.message }) : (console.error('[reincidencias]', e), res.status(500).json({ error: e.message || 'Erro inesperado' })));
 const num = (v, min, max, pad) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : pad; };
 const CONF = ['Alta', 'Média', 'Baixa'];
@@ -164,12 +167,12 @@ router.get('/painel', requireLeitura, async (req, res) => {
   } catch (e) { erro(res, e); }
 });
 
-// ── visão geral de todos os anos: regra no banco, sem IA ──
-// Chamado reincidente = o MESMO problema voltou: o mesmo cliente abriu o chamado com o MESMO motivo até N dias DEPOIS de o chamado anterior
-// (cliente + motivo) ter sido encerrado. Chamados abertos em rajada, antes do anterior encerrar, não contam. Data de encerramento: resolved_in/closed_in
-// e, nos chamados antigos (que não trazem esses campos), a data da última ação de chamados já fechados.
-// Motivo = "Módulo X Rotina" do chamado (campos por vertical) e, na falta dele, a "Causa" (campo 148916, só preenchida a partir de 2024).
-// Chamados sem nenhum dos dois ou sem cliente não entram na conta (aparecem como "sem motivo classificado").
+// ── visão geral de todos os anos: veredito da IA sobre o contexto e as ações ──
+// Chamado reincidente = a IA leu o assunto e o HISTÓRICO DE AÇÕES do chamado e do(s) chamado(s) anterior(es) do mesmo cliente (já encerrados, até 60 dias antes)
+// e concluiu que é o MESMO PROBLEMA voltando. O módulo/rotina NÃO decide: é só uma dica para a IA e um filtro/agrupamento na tela.
+// O banco só escolhe os candidatos (mesmo cliente + anterior encerrado até 60 dias antes, de qualquer módulo); o veredito fica em public.reincidencia_par.
+// A janela "Voltou em até N dias" da tela filtra o veredito pelo intervalo real entre o encerramento do anterior e a abertura do novo.
+// Data de encerramento: resolved_in/closed_in e, nos chamados antigos (que não trazem esses campos), a data da última ação de chamados já fechados.
 const GERAL_CTE = `
 WITH cf AS (
         SELECT ticket_id,
@@ -179,22 +182,18 @@ WITH cf AS (
           FROM silver.ticket_campo_customizado WHERE custom_field_id::bigint = ANY($7::bigint[]) GROUP BY ticket_id),
       b AS (
         SELECT t.ticket_id, t.subject, t.status, t.createddate, t.reopened_in,
-               COALESCE(t.resolved_in, t.closed_in, CASE WHEN t.basestatus IN ('Closed','Resolved','Canceled') THEN COALESCE(t.lastactiondate, t.lastupdate, t.last_update) END) AS fim,
                COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
                COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS motivo,
                COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
           FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
          WHERE ($5 = '' OR cf.classif = $5)),
-      c AS (SELECT *, (cliente IS NOT NULL AND motivo IS NOT NULL) AS classificado FROM b),
-      w AS (
-        SELECT c.*, lag(fim) OVER (PARTITION BY cliente, motivo ORDER BY createddate) AS fim_ant, lag(ticket_id::text) OVER (PARTITION BY cliente, motivo ORDER BY createddate) AS ant_id FROM c WHERE classificado
-        UNION ALL
-        SELECT c.*, NULL::timestamptz, NULL::text FROM c WHERE NOT classificado),
+      c AS (SELECT *, (cliente IS NOT NULL) AS classificado FROM b),
       f AS (
-        SELECT *, (classificado AND fim_ant IS NOT NULL AND createddate > fim_ant AND createddate - fim_ant <= make_interval(days => $1::int)) AS rn FROM w
-         WHERE ($2::int IS NULL OR extract(year from createddate)::int = $2)
-           AND ($3 = '' OR equipe = $3)
-           AND ($4 = '' OR cliente ILIKE '%' || $4 || '%')),
+        SELECT c.*, (COALESCE(v.reincidente, false) AND v.dias_entre <= $1::int) AS rn, v.anterior_id::text AS ant_id, v.anterior_fim AS fim_ant, v.explicacao, v.confianca
+          FROM c LEFT JOIN public.reincidencia_par v ON v.ticket_id = c.ticket_id::bigint
+         WHERE ($2::int IS NULL OR extract(year from c.createddate)::int = $2)
+           AND ($3 = '' OR c.equipe = $3)
+           AND ($4 = '' OR c.cliente ILIKE '%' || $4 || '%')),
       fc AS (SELECT * FROM f WHERE classificado)
 `;
 const JANELAS = [7, 15, 30, 60];
@@ -227,8 +226,8 @@ router.get('/geral', requireLeitura, async (req, res) => {
         (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT cliente, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc, count(DISTINCT motivo) FILTER (WHERE rn)::int AS motivos,
                 mode() WITHIN GROUP (ORDER BY motivo) FILTER (WHERE rn) AS principal FROM fc GROUP BY cliente HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 15) x) AS clientes,
         (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT equipe, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc FROM fc GROUP BY equipe HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 10) x) AS equipes,
-        (SELECT COALESCE(json_agg(DISTINCT extract(year from createddate)::int ORDER BY extract(year from createddate)::int), '[]') FROM w WHERE classificado) AS anos,
-        (SELECT COALESCE(json_agg(e ORDER BY e), '[]') FROM (SELECT equipe AS e FROM w WHERE classificado GROUP BY equipe ORDER BY count(*) DESC LIMIT 40) q) AS equipesLista`,
+        (SELECT COALESCE(json_agg(DISTINCT extract(year from createddate)::int ORDER BY extract(year from createddate)::int), '[]') FROM c WHERE classificado) AS anos,
+        (SELECT COALESCE(json_agg(e ORDER BY e), '[]') FROM (SELECT equipe AS e FROM c WHERE classificado GROUP BY equipe ORDER BY count(*) DESC LIMIT 40) q) AS equipesLista`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows[0];
     const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, anual: r.anual, mensal: r.mensal, motivos: r.motivos, clientes: r.clientes, equipes: r.equipes,
       anos: r.anos, equipesLista: r.equipeslista, geradoEm: new Date().toISOString() };
@@ -263,10 +262,122 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
       ${GERAL_CTE}
       SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.status, f.cliente, f.motivo, f.equipe, f.createddate AS criado_em, f.ant_id AS anterior, p.subject AS anterior_assunto,
              f.fim_ant AS anterior_fim, round((extract(epoch from (f.createddate - f.fim_ant)) / 86400)::numeric, 1) AS dias_entre,
-             f.rn AS reincidente, (f.reopened_in IS NOT NULL) AS reaberto, f.classificado
+             f.rn AS reincidente, f.explicacao, f.confianca, (f.reopened_in IS NOT NULL) AS reaberto, f.classificado
         FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id WHERE ${cond.replace(/\b(rn|classificado|motivo|cliente|equipe|createddate|reopened_in)\b/g, 'f.$1')} ORDER BY f.createddate DESC LIMIT 501`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...extra]);
     res.json({ total: Math.min(r.rows.length, 500), truncado: r.rows.length > 500, chamados: r.rows.slice(0, 500) });
+  } catch (e) { erro(res, e); }
+});
+
+
+// ── análise dos pares candidatos (IA lê contexto e ações) ──
+const PROMPT_PAR = `Você é um analista de suporte técnico. Para cada CHAMADO NOVO você recebe o assunto, o módulo (apenas como DICA) e o HISTÓRICO COMPLETO DE AÇÕES, mais até 2 CHAMADOS ANTERIORES do mesmo cliente que já tinham sido encerrados pouco antes, também com o histórico completo.
+Decida se o chamado novo é REINCIDÊNCIA: o MESMO PROBLEMA voltou depois de o suporte tê-lo tratado.
+Como decidir:
+- Leia o contexto e as ações: o que o cliente relatou, o sintoma, o que o suporte fez, a correção aplicada e a causa. É reincidência quando o sintoma/causa é o mesmo, ou o cliente diz que voltou ("de novo", "novamente", "como da última vez") e isso confere com o chamado anterior.
+- O módulo/rotina é só um parâmetro de contexto. Mesmo módulo NÃO basta; módulos diferentes não impedem se o problema é o mesmo. Nunca decida só pelo módulo ou pelo assunto parecido.
+- NÃO é reincidência: dúvida ou solicitação nova, outro problema no mesmo módulo, pedido de treinamento/customização, ou chamados cujo histórico não mostra relação.
+- Na dúvida, responda reincidente=false com confiança Baixa. Não invente fatos que não estejam no histórico.
+Responda SOMENTE JSON: {"resultados":[{"ticket_id":<número do chamado novo>,"anterior_id":<número do anterior que é o mesmo problema ou null>,"reincidente":true|false,"confianca":"Alta|Média|Baixa","explicacao":"1-2 frases citando o sintoma/ação em comum (ou por que não é o mesmo problema)"}]}. Inclua um item para cada chamado novo.`;
+
+const job = { rodando: false, total: 0, feitos: 0, reincidentes: 0, erros: 0, inicio: null, fim: null, msg: '', origem: '' };
+
+async function candidatosPendentes(limite) {
+  const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
+  const campos = [...new Set([...mods, 148916, 23946])];
+  const r = await db.query(`
+    WITH cf AS (
+           SELECT ticket_id, min(valor_texto) FILTER (WHERE custom_field_id::bigint = ANY($1::bigint[])) AS modulo,
+                  min(valor_texto) FILTER (WHERE custom_field_id = '148916') AS causa, min(valor_texto) FILTER (WHERE custom_field_id = '23946') AS classif
+             FROM silver.ticket_campo_customizado WHERE custom_field_id::bigint = ANY($2::bigint[]) GROUP BY ticket_id),
+         b AS (
+           SELECT t.ticket_id::bigint AS id, t.subject, t.createddate,
+                  COALESCE(t.resolved_in, t.closed_in, CASE WHEN t.basestatus IN ('Closed','Resolved','Canceled') THEN COALESCE(t.lastactiondate, t.lastupdate, t.last_update) END) AS fim,
+                  COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
+                  COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS modulo
+             FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
+            WHERE cf.classif = 'Suporte Técnico'),
+         pend AS (SELECT n.* FROM b n WHERE n.cliente IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.reincidencia_par v WHERE v.ticket_id = n.id)),
+         pares AS (
+           SELECT n.id AS tid, n.createddate AS cd, p.id AS pid, p.fim AS pfim, (p.modulo IS NOT NULL AND p.modulo = n.modulo) AS mesmo_modulo,
+                  row_number() OVER (PARTITION BY n.id ORDER BY p.fim DESC) AS rk
+             FROM pend n JOIN b p ON p.cliente = n.cliente AND p.id <> n.id AND p.fim IS NOT NULL AND p.fim < n.createddate AND n.createddate - p.fim <= interval '60 days'),
+         sel AS (SELECT tid FROM pares GROUP BY tid ORDER BY max(cd) DESC LIMIT $3)
+    SELECT p.tid, p.pid, p.pfim, p.mesmo_modulo, p.cd FROM pares p JOIN sel USING (tid) WHERE p.rk <= 2 ORDER BY p.cd DESC, p.rk`, [mods.length ? mods : [0], campos, limite]);
+  const por = new Map();
+  for (const x of r.rows) { const k = Number(x.tid); if (!por.has(k)) por.set(k, []); por.get(k).push({ pid: Number(x.pid), fim: x.pfim, mesmoModulo: x.mesmo_modulo, cd: x.cd }); }
+  return por;
+}
+
+async function processarLote(lista, S, C, userEmail) {
+  const ids = [...new Set(lista.flatMap(([t, ps]) => [t, ...ps.map((p) => p.pid)]))];
+  const tks = (await db.query(`SELECT t.ticket_id::bigint AS id, t.subject, t.createddate, COALESCE(NULLIF(o.organizacao_nome,''), t.clientorganization) AS cliente,
+      (SELECT min(valor_texto) FROM silver.ticket_campo_customizado c WHERE c.ticket_id = t.ticket_id AND c.custom_field_id::bigint IN (SELECT custom_field_id::bigint FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %')) AS modulo
+      FROM silver.ticket t LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id WHERE t.ticket_id::bigint = ANY($1::bigint[])`, [ids])).rows;
+  const info = new Map(tks.map((t) => [Number(t.id), t]));
+  const acoes = (await db.query(`SELECT ticket_id::bigint AS tid, descricao, is_public, criado_em, criado_por_nome, criado_por_profile_type
+      FROM silver.ticket_acao WHERE ticket_id::bigint = ANY($1::bigint[]) ORDER BY ticket_id, criado_em`, [ids])).rows;
+  const hist = new Map();
+  for (const a of acoes) { if (!hist.has(Number(a.tid))) hist.set(Number(a.tid), []); hist.get(Number(a.tid)).push(a); }
+  const texto = (id, orc) => conversaEmTexto((hist.get(id) || []).map((a) => ({ criadoEm: a.criado_em, autor: a.criado_por_nome, tipo: a.is_public === false ? 'interna' : 'publica',
+    autorPerfil: a.criado_por_profile_type == null ? null : Number(a.criado_por_profile_type), texto: a.descricao })), orc);
+  const cab = (id) => { const t = info.get(id) || {}; return `Cliente: ${limitar(t.cliente, 100)} · Criado em: ${dia(t.createddate)} · Módulo (dica): ${limitar(t.modulo, 100) || '—'}\nAssunto: ${limitar(t.subject, 200)}`; };
+  const bloco = lista.map(([tid, ps]) => `### CHAMADO NOVO ${tid}\n${cab(tid)}\nHistórico:\n${texto(tid, 2200)}\n` +
+    ps.map((p) => `--- CHAMADO ANTERIOR ${p.pid} (encerrado em ${dia(p.fim)})\n${cab(p.pid)}\nHistórico:\n${texto(p.pid, 1500)}`).join('\n')).join('\n\n');
+  const system = `${REGRAS}${cfg.diretrizes(S)}\n${PROMPT_PAR}${cfg.extra(C.instrucaoExtra)}`;
+  const r = await chamarIA({ source: 'reincidencias', system, user: dados('CHAMADOS', bloco), maxTokens: 2500, temperature: cfg.temperatura(C.criatividade), timeoutMs: 120000, userEmail, meta: { pares: lista.length } });
+  const res = new Map((Array.isArray(r.resultados) ? r.resultados : []).map((x) => [Number(x && x.ticket_id), x]));
+  let reinc = 0;
+  for (const [tid, ps] of lista) {
+    const x = res.get(tid); if (!x) continue;                           // sem resposta: fica pendente para a próxima rodada
+    const p = ps.find((q) => q.pid === Number(x.anterior_id));
+    const sim = x.reincidente === true && !!p;
+    if (sim) reinc++;
+    const ref = p || ps[0];
+    const dias = Math.round(((new Date(info.get(tid).createddate) - new Date(ref.fim)) / 86400000) * 10) / 10;
+    await db.query(`INSERT INTO public.reincidencia_par (ticket_id, anterior_id, reincidente, confianca, explicacao, anterior_fim, dias_entre, mesmo_modulo, analisado_em)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) ON CONFLICT (ticket_id) DO UPDATE SET anterior_id = EXCLUDED.anterior_id, reincidente = EXCLUDED.reincidente, confianca = EXCLUDED.confianca,
+        explicacao = EXCLUDED.explicacao, anterior_fim = EXCLUDED.anterior_fim, dias_entre = EXCLUDED.dias_entre, mesmo_modulo = EXCLUDED.mesmo_modulo, analisado_em = NOW()`,
+      [tid, ref.pid, sim, conf(x.confianca), limitar(x.explicacao, 400), ref.fim, dias, ref.mesmoModulo]);
+  }
+  return { n: res.size, reinc };
+}
+
+// Roda em segundo plano: pega os candidatos ainda sem veredito (mais recentes primeiro) e manda a IA decidir em lotes.
+async function rodarJob(maxChamados, usuario) {
+  if (job.rodando) throw new IaError(409, 'Já existe uma análise do histórico em andamento.');
+  const S = await cfg.obter(), C = S.reincidencia;
+  if (!C.ativo) throw new IaError(403, 'Este recurso de IA foi desativado nas Configurações.');
+  if (!(await iaConfigurada())) throw new IaError(400, 'A chave da OpenAI não está configurada.');
+  Object.assign(job, { rodando: true, total: 0, feitos: 0, reincidentes: 0, erros: 0, inicio: new Date().toISOString(), fim: null, msg: 'Buscando candidatos…', origem: usuario ? 'manual' : 'automatica' });
+  (async () => {
+    try {
+      const por = await candidatosPendentes(maxChamados);
+      const lista = [...por.entries()];
+      job.total = lista.length; job.msg = lista.length ? 'Analisando…' : 'Nada pendente: todos os candidatos já foram analisados.';
+      const email = usuario ? usuario.email : 'automatico@hub'; let seguidos = 0;
+      for (let i = 0; i < lista.length; i += 5) {
+        try { const r = await processarLote(lista.slice(i, i + 5), S, C, email); job.feitos += r.n; job.reincidentes += r.reinc; seguidos = 0; geralCache.clear(); }
+        catch (e) { job.erros++; seguidos++; job.msg = 'Erro no lote: ' + e.message; if (seguidos >= 3) { job.msg = 'Interrompido após 3 erros seguidos: ' + e.message; break; } }
+      }
+      if (job.erros === 0) job.msg = lista.length ? 'Concluído.' : job.msg;
+    } catch (e) { job.erros++; job.msg = 'Falhou: ' + e.message; console.error('[reincidencias] job', e); }
+    finally { job.rodando = false; job.fim = new Date().toISOString(); }
+  })();
+}
+
+router.post('/geral/analisar', requireLeitura, rateLimit({ name: 'reincidencias/geral-analisar', windowMs: 10 * 60 * 1000, max: 6 }), async (req, res) => {
+  try {
+    const papel = (await db.query(`SELECT r.name, u.name AS nome FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0];
+    if (!papel || !ROLES.includes(papel.name)) return res.status(403).json({ error: 'Seu perfil pode ver o painel, mas não gerar análises.' });
+    await rodarJob(num(req.body && req.body.max, 10, 400, 150), { id: req.user.id, email: req.user.email });
+    res.json({ job });
+  } catch (e) { erro(res, e); }
+});
+router.get('/geral/progresso', requireLeitura, async (req, res) => {
+  try {
+    const r = (await db.query(`SELECT count(*)::int AS analisados, count(*) FILTER (WHERE reincidente)::int AS reincidentes, max(analisado_em) AS ultimo FROM public.reincidencia_par`)).rows[0];
+    res.json({ ...r, job });
   } catch (e) { erro(res, e); }
 });
 
@@ -276,6 +387,7 @@ async function rotinaAutomatica() {
     const S = await cfg.obter(), C = S.reincidencia;
     if (!C.ativo || !C.autoHoras || analisando || !(await iaConfigurada())) return;
     await db.query(`CREATE TABLE IF NOT EXISTS public.reincidencia_analise (id SERIAL PRIMARY KEY, criado_por INTEGER, criado_por_nome TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(), parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`);
+    if (!job.rodando) await rodarJob(60, null).catch((e) => console.warn('[reincidencias] veredito automático:', e.message));
     const ult = (await db.query(`SELECT criado_em FROM public.reincidencia_analise WHERE COALESCE(parametros->>'servico','') = '' AND (parametros->>'dias')::int = $1 ORDER BY id DESC LIMIT 1`, [C.diasPadrao])).rows[0];
     if (ult && Date.now() - new Date(ult.criado_em).getTime() < C.autoHoras * 3600 * 1000) return;
     console.log('[reincidencias] rodando análise automática…');
