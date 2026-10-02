@@ -261,8 +261,10 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
     const campos = [...new Set([...mods, 148916, 23946])];
     const r = await db.query(`
       ${GERAL_CTE}
-      SELECT ticket_id::text AS ticket_id, subject AS assunto, status, cliente, motivo, equipe, createddate AS criado_em, ant_id AS anterior, fim_ant AS anterior_fim, rn AS reincidente, (reopened_in IS NOT NULL) AS reaberto, classificado
-        FROM f WHERE ${cond} ORDER BY createddate DESC LIMIT 501`,
+      SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.status, f.cliente, f.motivo, f.equipe, f.createddate AS criado_em, f.ant_id AS anterior, p.subject AS anterior_assunto,
+             f.fim_ant AS anterior_fim, round((extract(epoch from (f.createddate - f.fim_ant)) / 86400)::numeric, 1) AS dias_entre,
+             f.rn AS reincidente, (f.reopened_in IS NOT NULL) AS reaberto, f.classificado
+        FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id WHERE ${cond.replace(/\b(rn|classificado|motivo|cliente|equipe|createddate|reopened_in)\b/g, 'f.$1')} ORDER BY f.createddate DESC LIMIT 501`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...extra]);
     res.json({ total: Math.min(r.rows.length, 500), truncado: r.rows.length > 500, chamados: r.rows.slice(0, 500) });
   } catch (e) { erro(res, e); }
