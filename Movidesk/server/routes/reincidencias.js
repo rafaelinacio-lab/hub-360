@@ -25,13 +25,21 @@ router.use(async (req, res, next) => {
     if (!prontas) prontas = db.query(`CREATE TABLE IF NOT EXISTS public.reincidencia_analise (
       id SERIAL PRIMARY KEY, criado_por INTEGER, criado_por_nome TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`).then(() => db.query(TABELA_PAR)).catch((e) => { prontas = null; throw e; });
-    await prontas; next();
+    await Promise.race([prontas, new Promise((_, ko) => setTimeout(() => ko(new Error('banco ocupado')), 15000).unref())]); next();
   } catch (e) { res.status(500).json({ error: 'Erro ao preparar a tabela de reincidências: ' + e.message }); }
 });
 
 const TABELA_PAR = `CREATE TABLE IF NOT EXISTS public.reincidencia_par (
   ticket_id BIGINT PRIMARY KEY, anterior_id BIGINT, reincidente BOOLEAN NOT NULL DEFAULT FALSE, confianca TEXT, explicacao TEXT,
   anterior_fim TIMESTAMPTZ, dias_entre NUMERIC, mesmo_modulo BOOLEAN, analisado_em TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+// Consultas pesadas da visão geral: transação própria com tempo limite, para uma consulta lenta nunca prender o banco (e o Dashboard).
+async function consultaLimitada(sql, params, segundos = 45) {
+  return db.withClient(async (cl) => {
+    await cl.query('BEGIN'); await cl.query(`SET LOCAL statement_timeout = '${Number(segundos)}s'`);
+    try { const x = await cl.query(sql, params); await cl.query('COMMIT'); return x; }
+    catch (e) { await cl.query('ROLLBACK').catch(() => {}); if (e && e.code === '57014') e.message = 'A consulta demorou demais e foi cancelada para não travar o sistema. Tente filtrar por ano ou cliente.'; throw e; }
+  });
+}
 const erro = (res, e) => (e instanceof IaError ? res.status(e.status).json({ error: e.message }) : (console.error('[reincidencias]', e), res.status(500).json({ error: e.message || 'Erro inesperado' })));
 const num = (v, min, max, pad) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : pad; };
 const CONF = ['Alta', 'Média', 'Baixa'];
@@ -211,7 +219,7 @@ router.get('/geral', requireLeitura, async (req, res) => {
     if (c && Date.now() - c.em < GERAL_TTL) return res.json({ ...c.dados, cache: true });
     const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
     const campos = [...new Set([...mods, 148916, 23946])];
-    const r = (await db.query(`
+    const r = (await consultaLimitada(`
       ${GERAL_CTE}
       SELECT
         (SELECT json_build_object('total', count(*), 'classificados', count(*) FILTER (WHERE classificado), 'semMotivo', count(*) FILTER (WHERE NOT classificado),
@@ -260,7 +268,7 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
     else return res.status(400).json({ error: 'Detalhe inválido' });
     const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
     const campos = [...new Set([...mods, 148916, 23946])];
-    const r = await db.query(`
+    const r = await consultaLimitada(`
       ${GERAL_CTE}
       SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.status, f.cliente, f.motivo, f.equipe, f.createddate AS criado_em, f.ant_id AS anterior, p.subject AS anterior_assunto,
              f.fim_ant AS anterior_fim, round((extract(epoch from (f.createddate - f.fim_ant)) / 86400)::numeric, 1) AS dias_entre,
