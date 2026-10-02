@@ -231,3 +231,10 @@ ser encerrado. Motivo = campo customizado "Módulo X Rotina" (ids achados por no
 Encerramento = `resolved_in`/`closed_in` ou, nos chamados antigos que não os trazem, a data da última ação de chamados fechados. Chamados sem cliente ou sem motivo
 (~1/3 do histórico) ficam fora da taxa e são contados à parte. Devolve KPIs, série anual/mensal, top motivos, top clientes e equipes; resultado em cache de 10 min por
 combinação de filtros (a consulta leva ~5 s). Padrão da aba: "Visão geral"; a "Análise por IA" (acima) continua como aprofundamento.
+## Melhorias (sugestões para o próprio Hub)
+
+Aba `melhorias`, aberta a **qualquer usuário logado** (não depende de Configurações → Acesso). `server/routes/melhorias.js` + `pages/melhorias.html`.
+Qualquer um cadastra, apoia (voto) e comenta; só `admin` avalia (status, prioridade P1-P4, esforço P/M/G/GG, previsão, responsável, resposta ao
+autor, nota de implantação) e escreve notas internas. Fluxo: nova → em avaliação → aprovada → em desenvolvimento → implantada | recusada
+(recusar exige resposta; implantar exige nota). Autor edita/exclui só enquanto "nova". Tabelas `public.melhoria*`, criadas no primeiro uso.
+O admin tem o botão "Copiar briefing de desenvolvimento" (texto pronto para colar no Claude Code).
