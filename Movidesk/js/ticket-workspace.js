@@ -73,7 +73,7 @@
 
     function renderAnexos(a) {
         const imgs = (a.imagens || []).map((u, i) => `<button type="button" class="ws-img" data-u="${esc(u)}" aria-label="Ampliar imagem ${i + 1}"><span>Carregando imagem…</span></button>`).join('');
-        const arqs = (a.anexos || []).map(x => `<a class="ws-anexo" href="#" data-u="${esc(x.path)}" data-n="${esc(x.nome)}">📎 ${esc(x.nome)}</a>`).join('');
+        const arqs = (a.anexos || []).map(x => `<a class="ws-anexo" href="#" data-u="${esc(x.path)}" data-n="${esc(x.nome)}" title="Abre o chamado no Movidesk para ver o anexo">📎 ${esc(x.nome)} ↗</a>`).join('');
         return (imgs || arqs) ? `<div class="ws-anexos">${imgs}${arqs}</div>` : '';
     }
     async function baixarArquivo(u, nome) {
@@ -97,6 +97,8 @@
         const link = e.target.closest('#wsConversa .ws-anexo');
         if (!link) return;
         e.preventDefault();
+        // O Movidesk só entrega anexos identificados por código dentro dele: abre o chamado lá.
+        if (/^[0-9a-f]{16,64}$/i.test(link.dataset.u || '')) { window.open(MOVIDESK_TICKET_URL + _ws.id, '_blank', 'noopener'); avisar(`O anexo "${link.dataset.n}" só abre dentro do Movidesk: abri o chamado lá.`); return; }
         try {
             const blob = await baixarArquivo(link.dataset.u, link.dataset.n);
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = link.dataset.n || 'arquivo'; a.click();
