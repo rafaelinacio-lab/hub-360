@@ -224,3 +224,10 @@ Configurações → Assistente de IA → Reincidências.
 Painel: `GET /api/reincidencias/painel` devolve a última análise, a anterior comparável (mesmo período/serviço) e a série histórica
 (taxa de reincidência = chamados envolvidos em alguma recorrência ÷ analisados). Uma rotina interna (a cada 30 min) refaz a análise
 padrão sozinha quando a última tem mais de `autoHoras` (Configurações → Assistente de IA → Reincidências; 0 desliga; `REINCIDENCIAS_SEM_AUTO=1` desliga no ambiente).
+
+Visão geral (todos os anos, sem IA): `GET /api/reincidencias/geral?ano=&dias=&equipe=&cliente=&classif=` calcula no banco, sobre `silver.ticket`, a reincidência
+de todo o histórico. Reincidente = o mesmo cliente abriu chamado com o mesmo motivo até `dias` (7/15/30/60, padrão 15) DEPOIS de o anterior (cliente + motivo)
+ser encerrado. Motivo = campo customizado "Módulo X Rotina" (ids achados por nome em `silver.dim_campo_customizado`) e, sem ele, "Causa" (148916, só a partir de 2024).
+Encerramento = `resolved_in`/`closed_in` ou, nos chamados antigos que não os trazem, a data da última ação de chamados fechados. Chamados sem cliente ou sem motivo
+(~1/3 do histórico) ficam fora da taxa e são contados à parte. Devolve KPIs, série anual/mensal, top motivos, top clientes e equipes; resultado em cache de 10 min por
+combinação de filtros (a consulta leva ~5 s). Padrão da aba: "Visão geral"; a "Análise por IA" (acima) continua como aprofundamento.

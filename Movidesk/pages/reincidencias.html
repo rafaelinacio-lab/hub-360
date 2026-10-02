@@ -98,6 +98,23 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 @keyframes g{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 @media (max-width:700px){.tk{grid-template-columns:auto 1fr}.tk .cl,.tk .dt{grid-column:2}.rk{grid-template-columns:minmax(0,1fr) 70px 30px}}
+.modo{display:flex;gap:6px;margin-bottom:14px}
+.vg-nota{font-size:12px;color:var(--t3);margin:0 0 12px;max-width:900px}
+.vg-graf svg{width:100%;height:190px;display:block}
+.vg-graf .ax{font-size:10px;fill:var(--t3)}
+.vg-graf .bar-t{fill:var(--border-hi)} .vg-graf .bar-r{fill:var(--accent)}
+.vg-graf .bar-r:hover,.vg-graf .bar-t:hover{opacity:.75}
+.vg-graf .taxa{font-size:10.5px;font-weight:700;fill:var(--t2);text-anchor:middle}
+.vg-grade3{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px}
+.rk2{display:grid;grid-template-columns:minmax(0,1fr) 110px 54px;gap:8px;align-items:center;font-size:12.5px}
+.rk2.cl{cursor:pointer} .rk2.cl:hover .nm{text-decoration:underline}
+.rk2 .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk2 .bar{height:8px;border-radius:4px;background:var(--surface-mid);overflow:hidden}
+.rk2 .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.rk2 .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.rk2 .ex{grid-column:1/-1;font-size:11.5px;color:var(--t3);margin:-4px 0 2px}
+.kpi.est{cursor:default}
+@media (max-width:700px){.rk2{grid-template-columns:minmax(0,1fr) 70px 48px}}
 </style>
 </head>
 <body>
@@ -108,6 +125,26 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
     <div class="sp"></div>
     <div class="meta" id="frescor" style="text-align:right"></div>
   </div>
+  <div class="modo" role="tablist">
+    <button class="chip" id="mGeral" type="button" aria-pressed="true">Visão geral · todos os anos</button>
+    <button class="chip" id="mIA" type="button" aria-pressed="false">Análise por IA</button>
+  </div>
+  <div id="vGeral">
+    <p class="vg-nota" id="vgNota"></p>
+    <div class="controles">
+      <label class="meta" for="gAno">Ano</label><select id="gAno"><option value="">Todos os anos</option></select>
+      <label class="meta" for="gDias">Voltou em até</label>
+      <select id="gDias"><option value="7">7 dias</option><option value="15" selected>15 dias</option><option value="30">30 dias</option><option value="60">60 dias</option></select>
+      <select id="gEquipe" aria-label="Equipe"><option value="">Todas as equipes</option></select>
+      <select id="gClassif" aria-label="Classificação"><option value="suporte">Suporte Técnico</option><option value="todas">Todas as classificações</option></select>
+      <input type="search" id="gCliente" placeholder="Cliente…" aria-label="Filtrar por cliente">
+      <button class="btn" id="gLimpar" type="button">Limpar filtros</button>
+      <span class="sp"></span><span class="meta" id="gFrescor"></span>
+    </div>
+    <div class="aviso" id="gAviso" role="status"></div>
+    <div id="gResultado"><div class="carregando"><span class="spin"></span>Calculando reincidências de todos os anos…</div></div>
+  </div>
+  <div id="vIA" hidden>
   <div class="controles">
     <label class="meta" for="fDias">Período</label>
     <select id="fDias"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option></select>
@@ -119,6 +156,7 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
   </div>
   <div class="aviso" id="aviso" role="status"></div>
   <div id="resultado"></div>
+  </div>
 </div>
 <script>
 const API=`${location.origin}/api/reincidencias`;
@@ -226,7 +264,90 @@ $('btnAnalisar').addEventListener('click',async()=>{
   catch(e){ aviso(e.message,'erro'); await carregarPainel(); }
   b.disabled=false;
 });
+
+// ── visão geral (todos os anos, regra no banco) ──
+const G={f:{ano:'',dias:'15',equipe:'',classif:'suporte',cliente:''},d:null,carregado:false};
+const nf=n=>Number(n||0).toLocaleString('pt-BR');
+const pc=(a,b)=>b?Math.round(a/b*1000)/10:0;
+const MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function gBarras(lista,rotulo,mostrarTaxa,soClientes){
+  if(!lista.length) return '<div class="sub">Sem dados para estes filtros.</div>';
+  const W=640,H=190,pl=34,pb=22,pt=16,pr=6, n=lista.length, mx=Math.max(1,...lista.map(x=>x.n)), bw=(W-pl-pr)/n, Y=v=>H-pb-(v/mx)*(H-pb-pt);
+  const cols=lista.map((x,i)=>{
+    const cx=pl+i*bw, g=Math.min(bw*0.8,46), l=cx+(bw-g)/2, tt=soClientes?`${rotulo(x)}: ${nf(x.clientes)} clientes com reincidência`:`${rotulo(x)}: ${nf(x.reinc)} reincidentes de ${nf(x.n)} chamados (${pc(x.reinc,x.n)}%) · ${nf(x.clientes)} clientes`;
+    return `<g><rect class="bar-t" x="${l}" y="${Y(x.n)}" width="${g}" height="${H-pb-Y(x.n)}" rx="2"><title>${esc(tt)}</title></rect>`+
+      `<rect class="bar-r" x="${l}" y="${Y(x.reinc)}" width="${g}" height="${H-pb-Y(x.reinc)}" rx="2"><title>${esc(tt)}</title></rect>`+
+      (mostrarTaxa&&bw>34?`<text class="taxa" x="${l+g/2}" y="${Y(x.n)-4}">${pc(x.reinc,x.n)}%</text>`:'')+
+      (n<=14||i%Math.ceil(n/14)===0?`<text class="ax" x="${l+g/2}" y="${H-6}" text-anchor="middle">${esc(rotulo(x))}</text>`:'')+`</g>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Chamados e reincidentes por período"><line x1="${pl}" x2="${W-pr}" y1="${H-pb}" y2="${H-pb}" stroke="var(--border)"/>
+    <text class="ax" x="2" y="${pt+4}">${nf(mx)}</text><text class="ax" x="2" y="${H-pb}">0</text>${cols}</svg>
+    <div class="leg"><span><i style="background:var(--border-hi)"></i>Chamados com motivo classificado</span><span><i style="background:var(--accent)"></i>Reincidentes</span>${mostrarTaxa?'<span>% = taxa de reincidência</span>':''}</div>`;
+}
+function gRank(titulo,lista,{nome,sub,clique,legenda}){
+  if(!lista.length) return `<div class="painel"><h3>${titulo}</h3><div class="sub">Sem reincidência para estes filtros.</div></div>`;
+  const mx=Math.max(1,...lista.map(x=>x.reinc));
+  return `<div class="painel"><h3>${titulo}</h3><div class="rank">${lista.map(x=>`<div class="rk2${clique?' cl':''}" ${clique?`data-g="${clique}" data-q="${esc(nome(x))}" title="Filtrar por este"`:''}><span class="nm" title="${esc(nome(x))}">${esc(nome(x))}</span><span class="bar"><i style="width:${Math.max(4,x.reinc/mx*100)}%"></i></span><span class="v">${nf(x.reinc)}</span><span class="ex">${sub(x)}</span></div>`).join('')}</div>${legenda?`<div class="sub" style="margin-top:6px">${legenda}</div>`:''}</div>`;
+}
+function gDesenhar(){
+  const d=G.d, k=d.kpi, f=d.filtros;
+  const kp=(r,n,s)=>`<div class="kpi est"><div class="r">${r}</div><div class="n">${n}</div><div class="s">${s}</div></div>`;
+  const taxa=pc(k.reincidentes,k.classificados);
+  const porAno=!f.ano;
+  const serie=porAno?d.anual:d.mensal;
+  const rot=porAno?(x=>String(x.ano)):(x=>{ const [a,m]=x.mes.split('-'); return `${MES[+m-1]}/${a.slice(2)}`; });
+  const h=`<div class="kpis">
+    ${kp('Chamados reincidentes',nf(k.reincidentes),`${taxa}% dos ${nf(k.classificados)} classificados`)}
+    ${kp('Clientes afetados',nf(k.clientesAfetados),`de ${nf(k.clientes)} clientes (${pc(k.clientesAfetados,k.clientes)}%)`)}
+    ${kp('Motivos que se repetem',nf(k.motivosAfetados),'módulos/rotinas ou causas distintas')}
+    ${kp('Chamados analisados',nf(k.classificados),`${nf(k.semMotivo)} sem motivo ou cliente ficaram de fora`)}
+    ${kp('Reabertos no Movidesk',nf(k.reabertos),'o mesmo chamado foi reaberto')}</div>
+    <div class="grade" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
+      <div class="painel vg-graf"><h3>${porAno?'Reincidência por ano':'Reincidência por mês · '+esc(f.ano)}</h3>${gBarras(serie,rot,true)}</div>
+      <div class="painel vg-graf"><h3>Clientes afetados por ${porAno?'ano':'mês'}</h3>${gBarras(serie.map(x=>({...x,n:x.clientes,reinc:x.clientes})),rot,false,true).replace(/Chamados com motivo classificado/,'Clientes distintos com reincidência').replace(/<span><i style="background:var\(--accent\)"><\/i>Reincidentes<\/span>/,'')}</div>
+    </div>
+    ${porAno&&d.mensal.length>12?`<div class="painel vg-graf" style="margin-bottom:14px"><h3>Evolução mensal (todos os anos)</h3>${gBarras(d.mensal,x=>{ const [a,m]=x.mes.split('-'); return `${MES[+m-1]}/${a.slice(2)}`; },false)}</div>`:''}
+    <div class="vg-grade3">
+      ${gRank('Top motivos de reincidência',d.motivos,{nome:x=>x.motivo,sub:x=>`${nf(x.clientes)} clientes · ${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados deste motivo voltaram`,legenda:'Chamados que voltaram. Motivo = módulo × rotina (ou causa).'})}
+      ${gRank('Clientes que mais reincidem',d.clientes,{nome:x=>x.cliente,sub:x=>`${nf(x.motivos)} motivos · principal: ${esc(x.principal||'—')}`,clique:'cliente',legenda:'Clique para filtrar pelo cliente.'})}
+      ${gRank('Equipes com mais reincidência',d.equipes,{nome:x=>x.equipe,sub:x=>`${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados`,clique:'equipe',legenda:'Equipe responsável pelo chamado. Clique para filtrar.'})}
+    </div>`;
+  $('gResultado').innerHTML=h;
+  $('gFrescor').textContent=`Calculado ${ha(d.geradoEm)}${d.cache?' (em cache, até 10 min)':''}`;
+  $('vgNota').innerHTML=`Um chamado é <b>reincidente</b> quando o <b>mesmo cliente</b> abre outro com o <b>mesmo motivo</b> em até <b>${f.dias} dias depois de o anterior ser encerrado</b>. `+
+    `O motivo vem do campo “Módulo X Rotina” e, na falta dele, de “Causa” (preenchida a partir de 2024). Chamados sem motivo ou sem cliente não entram na taxa. Não usa IA.`;
+  const sa=$('gAno'); if(sa.options.length<=1||sa.dataset.n!==String(d.anos.length)){ sa.innerHTML='<option value="">Todos os anos</option>'+d.anos.map(a=>`<option>${a}</option>`).join(''); sa.dataset.n=String(d.anos.length); }
+  sa.value=f.ano?String(f.ano):'';
+  const se=$('gEquipe'); if(se.dataset.n!==String(d.equipesLista.length)){ se.innerHTML='<option value="">Todas as equipes</option>'+d.equipesLista.map(e=>`<option>${esc(e)}</option>`).join(''); se.dataset.n=String(d.equipesLista.length); }
+  se.value=f.equipe||'';
+}
+async function gCarregar(){
+  const q=new URLSearchParams({dias:G.f.dias,classif:G.f.classif==='todas'?'todas':'suporte'}); ['ano','equipe','cliente'].forEach(k=>{ if(G.f[k]) q.set(k,G.f[k]); });
+  $('gAviso').textContent=''; $('gAviso').className='aviso';
+  if(!G.d) $('gResultado').innerHTML='<div class="carregando"><span class="spin"></span>Calculando reincidências de todos os anos… (cerca de 5 segundos na primeira vez)</div>';
+  else $('gResultado').style.opacity='.55';
+  try{ G.d=await api('/geral?'+q); G.carregado=true; gDesenhar(); }
+  catch(e){ $('gAviso').textContent=e.message; $('gAviso').className='aviso erro'; }
+  $('gResultado').style.opacity='';
+}
+let gTimer=null;
+function gAplicar(){ G.f={ano:$('gAno').value,dias:$('gDias').value,equipe:$('gEquipe').value,classif:$('gClassif').value,cliente:$('gCliente').value.trim()}; gCarregar(); }
+['gAno','gDias','gEquipe','gClassif'].forEach(i=>$(i).addEventListener('change',gAplicar));
+$('gCliente').addEventListener('input',()=>{ clearTimeout(gTimer); gTimer=setTimeout(gAplicar,500); });
+$('gLimpar').addEventListener('click',()=>{ $('gAno').value=''; $('gEquipe').value=''; $('gCliente').value=''; $('gClassif').value='suporte'; $('gDias').value='15'; gAplicar(); });
+$('gResultado').addEventListener('click',e=>{
+  const t=e.target.closest('[data-g]'); if(!t) return;
+  if(t.dataset.g==='cliente'){ $('gCliente').value=t.dataset.q; } else if(t.dataset.g==='equipe'){ $('gEquipe').value=t.dataset.q; }
+  gAplicar(); window.scrollTo({top:0,behavior:'smooth'});
+});
+function modo(m){
+  $('vGeral').hidden=m!=='geral'; $('vIA').hidden=m!=='ia';
+  $('mGeral').setAttribute('aria-pressed',m==='geral'); $('mIA').setAttribute('aria-pressed',m==='ia');
+  try{ sessionStorage.setItem('reincModo',m); }catch{}
+}
+$('mGeral').addEventListener('click',()=>modo('geral')); $('mIA').addEventListener('click',()=>modo('ia'));
 (async function init(){
+  let m0='geral'; try{ m0=sessionStorage.getItem('reincModo')||'geral'; }catch{} modo(m0); gCarregar();
   try{ C=await api('/config'); }catch(e){ aviso(e.message,'erro'); return; }
   $('fDias').value=String(C.diasPadrao);
   $('fServico').innerHTML='<option value="">Todos os serviços</option>'+C.servicos.map(s=>`<option>${esc(s)}</option>`).join('');

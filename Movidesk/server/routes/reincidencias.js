@@ -170,6 +170,77 @@ router.get('/painel', requireLeitura, async (req, res) => {
   } catch (e) { erro(res, e); }
 });
 
+// ── visão geral de todos os anos: regra no banco, sem IA ──
+// Chamado reincidente = o MESMO problema voltou: o mesmo cliente abriu o chamado com o MESMO motivo até N dias DEPOIS de o chamado anterior
+// (cliente + motivo) ter sido encerrado. Chamados abertos em rajada, antes do anterior encerrar, não contam. Data de encerramento: resolved_in/closed_in
+// e, nos chamados antigos (que não trazem esses campos), a data da última ação de chamados já fechados.
+// Motivo = "Módulo X Rotina" do chamado (campos por vertical) e, na falta dele, a "Causa" (campo 148916, só preenchida a partir de 2024).
+// Chamados sem nenhum dos dois ou sem cliente não entram na conta (aparecem como "sem motivo classificado").
+const JANELAS = [7, 15, 30, 60];
+const geralCache = new Map();                                            // chave dos filtros -> { em, dados }
+const GERAL_TTL = 10 * 60 * 1000;
+router.get('/geral', requireLeitura, async (req, res) => {
+  try {
+    const dias = JANELAS.includes(Number(req.query.dias)) ? Number(req.query.dias) : 15;
+    const ano = /^\d{4}$/.test(String(req.query.ano || '')) ? Number(req.query.ano) : null;
+    const equipe = String(req.query.equipe || '').trim().slice(0, 120);
+    const busca = String(req.query.cliente || '').trim().slice(0, 120);
+    const classif = req.query.classif === 'todas' ? '' : 'Suporte Técnico';
+    const chave = JSON.stringify([dias, ano, equipe, busca.toLowerCase(), classif]);
+    const c = geralCache.get(chave);
+    if (c && Date.now() - c.em < GERAL_TTL) return res.json({ ...c.dados, cache: true });
+    const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
+    const campos = [...new Set([...mods, 148916, 23946])];
+    const r = (await db.query(`
+      WITH cf AS (
+        SELECT ticket_id,
+               min(valor_texto) FILTER (WHERE custom_field_id::bigint = ANY($6::bigint[])) AS modulo,
+               min(valor_texto) FILTER (WHERE custom_field_id = '148916') AS causa,
+               min(valor_texto) FILTER (WHERE custom_field_id = '23946') AS classif
+          FROM silver.ticket_campo_customizado WHERE custom_field_id::bigint = ANY($7::bigint[]) GROUP BY ticket_id),
+      b AS (
+        SELECT t.ticket_id, t.createddate, t.reopened_in,
+               COALESCE(t.resolved_in, t.closed_in, CASE WHEN t.basestatus IN ('Closed','Resolved','Canceled') THEN COALESCE(t.lastactiondate, t.lastupdate, t.last_update) END) AS fim,
+               COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
+               COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS motivo,
+               COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
+          FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
+         WHERE ($5 = '' OR cf.classif = $5)),
+      c AS (SELECT *, (cliente IS NOT NULL AND motivo IS NOT NULL) AS classificado FROM b),
+      w AS (
+        SELECT c.*, lag(fim) OVER (PARTITION BY cliente, motivo ORDER BY createddate) AS fim_ant FROM c WHERE classificado
+        UNION ALL
+        SELECT c.*, NULL FROM c WHERE NOT classificado),
+      f AS (
+        SELECT *, (classificado AND fim_ant IS NOT NULL AND createddate > fim_ant AND createddate - fim_ant <= make_interval(days => $1::int)) AS rn FROM w
+         WHERE ($2::int IS NULL OR extract(year from createddate)::int = $2)
+           AND ($3 = '' OR equipe = $3)
+           AND ($4 = '' OR cliente ILIKE '%' || $4 || '%')),
+      fc AS (SELECT * FROM f WHERE classificado)
+      SELECT
+        (SELECT json_build_object('total', count(*), 'classificados', count(*) FILTER (WHERE classificado), 'semMotivo', count(*) FILTER (WHERE NOT classificado),
+                'reincidentes', count(*) FILTER (WHERE rn), 'clientes', count(DISTINCT cliente) FILTER (WHERE classificado), 'clientesAfetados', count(DISTINCT cliente) FILTER (WHERE rn),
+                'motivosAfetados', count(DISTINCT motivo) FILTER (WHERE rn), 'reabertos', count(*) FILTER (WHERE reopened_in IS NOT NULL)) FROM f) AS kpi,
+        (SELECT COALESCE(json_agg(x ORDER BY x.ano), '[]') FROM (SELECT extract(year from createddate)::int AS ano, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc,
+                count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes FROM fc GROUP BY 1) x) AS anual,
+        (SELECT COALESCE(json_agg(x ORDER BY x.mes), '[]') FROM (SELECT to_char(createddate AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') AS mes, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc,
+                count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes FROM fc GROUP BY 1) x) AS mensal,
+        (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT motivo, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc, count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes
+                FROM fc GROUP BY motivo HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 15) x) AS motivos,
+        (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT cliente, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc, count(DISTINCT motivo) FILTER (WHERE rn)::int AS motivos,
+                mode() WITHIN GROUP (ORDER BY motivo) FILTER (WHERE rn) AS principal FROM fc GROUP BY cliente HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 15) x) AS clientes,
+        (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT equipe, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc FROM fc GROUP BY equipe HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 10) x) AS equipes,
+        (SELECT COALESCE(json_agg(DISTINCT extract(year from createddate)::int ORDER BY extract(year from createddate)::int), '[]') FROM w WHERE classificado) AS anos,
+        (SELECT COALESCE(json_agg(e ORDER BY e), '[]') FROM (SELECT equipe AS e FROM w WHERE classificado GROUP BY equipe ORDER BY count(*) DESC LIMIT 40) q) AS equipesLista`,
+      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows[0];
+    const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, anual: r.anual, mensal: r.mensal, motivos: r.motivos, clientes: r.clientes, equipes: r.equipes,
+      anos: r.anos, equipesLista: r.equipeslista, geradoEm: new Date().toISOString() };
+    if (geralCache.size > 60) geralCache.clear();
+    geralCache.set(chave, { em: Date.now(), dados });
+    res.json({ ...dados, cache: false });
+  } catch (e) { erro(res, e); }
+});
+
 // ── análise automática: roda sozinha quando a última ficou velha (configurável; 0 = desligada) ──
 async function rotinaAutomatica() {
   try {
