@@ -15,7 +15,7 @@
  */
 
 const express = require('express');
-const { escopoVertical, pertence } = require('../utils/verticalScope');
+const { escopoVertical, pertence, primeiroNivel } = require('../utils/verticalScope');
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
@@ -79,14 +79,18 @@ router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res)
       `).catch(() => ({ rows: [] })),
     ]);
 
-    // Escopo: quem não é admin vê só a vertical definida em Pessoas (1º nível do serviço ou equipe).
+    // Vertical do chamado = 1º nível do serviço (mesma ideia do GCC). Escopo: quem não é admin vê só as verticais definidas
+    // em Pessoas; a equipe só decide quando o chamado está sem serviço.
     const esc = await escopoVertical(req.user.id);
-    if (!esc.filtrar) return res.json({ universo: universoRes.rows?.[0]?.total || 0, rows: rowsRes.rows || [] });
+    const comVertical = (rowsRes.rows || []).map((r) => ({ ...r, vertical: primeiroNivel(r.servico).trim() || null }));
+    if (!esc.filtrar) return res.json({ universo: universoRes.rows?.[0]?.total || 0, rows: comVertical });
     if (esc.semVertical) return res.json({ universo: 0, rows: [] });
-    const rows = (rowsRes.rows || []).filter((r) => pertence(esc.verticais, { servico: r.servico, equipe: r.equipe }));
+    const rows = comVertical.filter((r) => pertence(esc.verticais, { vertical: r.vertical, equipe: r.vertical ? null : r.equipe }));
     const universo = (await db.query(
       `SELECT COUNT(*)::int AS total FROM silver.ticket t WHERE t.basestatus IN ${FINALIZADO_STATUSES}
-         AND (lower(split_part(t.service_full, ' > ', 1)) = ANY($1::text[]) OR EXISTS (SELECT 1 FROM unnest($1::text[]) v WHERE lower(COALESCE(t.ownerteam,'')) LIKE '%' || v || '%'))`, [esc.verticais.map((v) => v.toLowerCase())]
+         AND (lower(NULLIF(split_part(t.service_full, ' > ', 1), '')) = ANY($1::text[])
+              OR (NULLIF(split_part(t.service_full, ' > ', 1), '') IS NULL AND EXISTS (SELECT 1 FROM unnest($1::text[]) v WHERE lower(COALESCE(t.ownerteam,'')) LIKE '%' || v || '%')))`,
+      [esc.verticais.map((v) => v.toLowerCase())]
     ).catch(() => ({ rows: [{ total: 0 }] }))).rows[0].total;
     res.json({ universo, rows });
   } catch (error) {
