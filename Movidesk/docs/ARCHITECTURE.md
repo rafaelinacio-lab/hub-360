@@ -259,3 +259,7 @@ Configurações → Acesso → "Equivalência de verticais", chave `vertical_ali
 
 Reincidências — prompt: o texto-base (dimensões 0, A e B) está em `server/utils/reincidenciaPrompt.js` e pode ser substituído por admin em Configurações → Assistente de IA → Reincidências
 ("Prompt da análise"; vazio = padrão). O servidor acrescenta o formato de saída em JSON e aplica o mínimo de clientes configurado nas frases que citam "3". Admin não precisa de vertical (vê todas).
+
+Reincidências — visão geral (regra no banco, sem IA, `GET /api/reincidencias/geral`): chamado reincidente = mesmo cliente + mesmo motivo ("Módulo X Rotina", ou "Causa" 148916) abrindo outro em até N dias
+depois do encerramento do anterior. Tudo é clicável: `GET /geral/chamados?tipo=kpi|motivo|cliente|equipe|ano|mes&valor=…` (mesmos filtros e mesma CTE `GERAL_CTE`) lista os chamados por trás de cada número
+numa gaveta dentro da própria aba, com link para o Movidesk e o chamado anterior de que ele é repetição.

@@ -105,6 +105,24 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 .vg-graf .bar-t{fill:var(--border-hi)} .vg-graf .bar-r{fill:var(--accent)}
 .vg-graf .bar-r:hover,.vg-graf .bar-t:hover{opacity:.75}
 .vg-graf .taxa{font-size:10.5px;font-weight:700;fill:var(--t2);text-anchor:middle}
+.rk2.cl{cursor:pointer}
+[data-d]{cursor:pointer}
+[data-d]:hover{border-color:var(--accent)}
+[data-d]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar-t,.bar-r{cursor:pointer}
+.gv-fundo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
+.gv-fundo.aberto{display:block}
+.gv{position:fixed;top:0;right:0;bottom:0;width:min(860px,100vw);background:var(--bg);box-shadow:var(--sh);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s;z-index:51}
+.gv.aberta{transform:none}
+@media (prefers-reduced-motion:reduce){.gv{transition:none}}
+.gv-topo{display:flex;align-items:flex-start;gap:12px;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.gv-topo h2{margin:0;font-size:17px;line-height:1.3}
+.gv-topo .x{margin-left:auto;border:none;background:none;font-size:26px;line-height:1;cursor:pointer;color:var(--t2)}
+.gv-corpo{flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+.gv-item{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:4px 10px;align-items:baseline;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:12.5px}
+.gv-item .as{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.gv-item .sub{grid-column:2/-1}
+.gv-tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--bad-bg);color:var(--bad)}
 .vg-grade3{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px}
 .rk2{display:grid;grid-template-columns:minmax(0,1fr) 110px 54px;gap:8px;align-items:center;font-size:12.5px}
 .rk2.cl{cursor:pointer} .rk2.cl:hover .nm{text-decoration:underline}
@@ -144,6 +162,8 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
     <div class="aviso" id="gAviso" role="status"></div>
     <div id="gResultado"><div class="carregando"><span class="spin"></span>Calculando reincidências de todos os anos…</div></div>
   </div>
+  <div class="gv-fundo" id="gvFundo"></div>
+  <aside class="gv" id="gv" aria-hidden="true" role="dialog" aria-label="Chamados"><div class="gv-topo"><div style="min-width:0"><h2 id="gvTitulo"></h2><div class="sub" id="gvSub"></div></div><button class="x" id="gvFechar" type="button" aria-label="Fechar">&times;</button></div><div class="gv-corpo" id="gvCorpo"></div></aside>
   <div id="vIA" hidden>
   <div class="controles">
     <label class="meta" for="fDias">Período</label>
@@ -275,7 +295,7 @@ function gBarras(lista,rotulo,mostrarTaxa,soClientes){
   const W=640,H=190,pl=34,pb=22,pt=16,pr=6, n=lista.length, mx=Math.max(1,...lista.map(x=>x.n)), bw=(W-pl-pr)/n, Y=v=>H-pb-(v/mx)*(H-pb-pt);
   const cols=lista.map((x,i)=>{
     const cx=pl+i*bw, g=Math.min(bw*0.8,46), l=cx+(bw-g)/2, tt=soClientes?`${rotulo(x)}: ${nf(x.clientes)} clientes com reincidência`:`${rotulo(x)}: ${nf(x.reinc)} reincidentes de ${nf(x.n)} chamados (${pc(x.reinc,x.n)}%) · ${nf(x.clientes)} clientes`;
-    return `<g><rect class="bar-t" x="${l}" y="${Y(x.n)}" width="${g}" height="${H-pb-Y(x.n)}" rx="2"><title>${esc(tt)}</title></rect>`+
+    return `<g data-d="${rotulo.__tipo||'ano'}" data-v="${esc(rotulo.__chave?rotulo.__chave(x):'')}" data-t="${esc(rotulo(x))}"><rect class="bar-t" x="${l}" y="${Y(x.n)}" width="${g}" height="${H-pb-Y(x.n)}" rx="2"><title>${esc(tt)}</title></rect>`+
       `<rect class="bar-r" x="${l}" y="${Y(x.reinc)}" width="${g}" height="${H-pb-Y(x.reinc)}" rx="2"><title>${esc(tt)}</title></rect>`+
       (mostrarTaxa&&bw>34?`<text class="taxa" x="${l+g/2}" y="${Y(x.n)-4}">${pc(x.reinc,x.n)}%</text>`:'')+
       (n<=14||i%Math.ceil(n/14)===0?`<text class="ax" x="${l+g/2}" y="${H-6}" text-anchor="middle">${esc(rotulo(x))}</text>`:'')+`</g>`;
@@ -284,33 +304,35 @@ function gBarras(lista,rotulo,mostrarTaxa,soClientes){
     <text class="ax" x="2" y="${pt+4}">${nf(mx)}</text><text class="ax" x="2" y="${H-pb}">0</text>${cols}</svg>
     <div class="leg"><span><i style="background:var(--border-hi)"></i>Chamados com motivo classificado</span><span><i style="background:var(--accent)"></i>Reincidentes</span>${mostrarTaxa?'<span>% = taxa de reincidência</span>':''}</div>`;
 }
-function gRank(titulo,lista,{nome,sub,clique,legenda}){
+function gRank(titulo,lista,{nome,sub,tipo,legenda}){
   if(!lista.length) return `<div class="painel"><h3>${titulo}</h3><div class="sub">Sem reincidência para estes filtros.</div></div>`;
   const mx=Math.max(1,...lista.map(x=>x.reinc));
-  return `<div class="painel"><h3>${titulo}</h3><div class="rank">${lista.map(x=>`<div class="rk2${clique?' cl':''}" ${clique?`data-g="${clique}" data-q="${esc(nome(x))}" title="Filtrar por este"`:''}><span class="nm" title="${esc(nome(x))}">${esc(nome(x))}</span><span class="bar"><i style="width:${Math.max(4,x.reinc/mx*100)}%"></i></span><span class="v">${nf(x.reinc)}</span><span class="ex">${sub(x)}</span></div>`).join('')}</div>${legenda?`<div class="sub" style="margin-top:6px">${legenda}</div>`:''}</div>`;
+  return `<div class="painel"><h3>${titulo}</h3><div class="rank">${lista.map(x=>`<div class="rk2 cl" data-d="${tipo}" data-v="${esc(nome(x))}" data-t="${esc(nome(x))}" tabindex="0" role="button" title="Ver os chamados"><span class="nm" title="${esc(nome(x))}">${esc(nome(x))}</span><span class="bar"><i style="width:${Math.max(4,x.reinc/mx*100)}%"></i></span><span class="v">${nf(x.reinc)}</span><span class="ex">${sub(x)}</span></div>`).join('')}</div>${legenda?`<div class="sub" style="margin-top:6px">${legenda}</div>`:''}</div>`;
 }
 function gDesenhar(){
   const d=G.d, k=d.kpi, f=d.filtros;
-  const kp=(r,n,s)=>`<div class="kpi est"><div class="r">${r}</div><div class="n">${n}</div><div class="s">${s}</div></div>`;
+  const kp=(r,n,s,kpi)=>`<div class="kpi est" ${kpi?`data-d="kpi" data-v="${kpi}" data-t="${esc(r)}" tabindex="0" role="button" title="Ver os chamados"`:''}><div class="r">${r}</div><div class="n">${n}</div><div class="s">${s}</div></div>`;
   const taxa=pc(k.reincidentes,k.classificados);
   const porAno=!f.ano;
   const serie=porAno?d.anual:d.mensal;
   const rot=porAno?(x=>String(x.ano)):(x=>{ const [a,m]=x.mes.split('-'); return `${MES[+m-1]}/${a.slice(2)}`; });
+  rot.__tipo=porAno?'ano':'mes'; rot.__chave=x=>porAno?String(x.ano):x.mes;
+  const rotM=x=>{ const [a,m]=x.mes.split('-'); return `${MES[+m-1]}/${a.slice(2)}`; }; rotM.__tipo='mes'; rotM.__chave=x=>x.mes;
   const h=`<div class="kpis">
-    ${kp('Chamados reincidentes',nf(k.reincidentes),`${taxa}% dos ${nf(k.classificados)} classificados`)}
-    ${kp('Clientes afetados',nf(k.clientesAfetados),`de ${nf(k.clientes)} clientes (${pc(k.clientesAfetados,k.clientes)}%)`)}
-    ${kp('Motivos que se repetem',nf(k.motivosAfetados),'módulos/rotinas ou causas distintas')}
-    ${kp('Chamados analisados',nf(k.classificados),`${nf(k.semMotivo)} sem motivo ou cliente ficaram de fora`)}
-    ${kp('Reabertos no Movidesk',nf(k.reabertos),'o mesmo chamado foi reaberto')}</div>
+    ${kp('Chamados reincidentes',nf(k.reincidentes),`${taxa}% dos ${nf(k.classificados)} classificados`,'reincidentes')}
+    ${kp('Clientes afetados',nf(k.clientesAfetados),`de ${nf(k.clientes)} clientes (${pc(k.clientesAfetados,k.clientes)}%)`,'clientesAfetados')}
+    ${kp('Motivos que se repetem',nf(k.motivosAfetados),'módulos/rotinas ou causas distintas','motivosAfetados')}
+    ${kp('Chamados analisados',nf(k.classificados),`${nf(k.semMotivo)} sem motivo ou cliente ficaram de fora`,'classificados')}
+    ${kp('Reabertos no Movidesk',nf(k.reabertos),'o mesmo chamado foi reaberto','reabertos')}</div>
     <div class="grade" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
       <div class="painel vg-graf"><h3>${porAno?'Reincidência por ano':'Reincidência por mês · '+esc(f.ano)}</h3>${gBarras(serie,rot,true)}</div>
       <div class="painel vg-graf"><h3>Clientes afetados por ${porAno?'ano':'mês'}</h3>${gBarras(serie.map(x=>({...x,n:x.clientes,reinc:x.clientes})),rot,false,true).replace(/Chamados com motivo classificado/,'Clientes distintos com reincidência').replace(/<span><i style="background:var\(--accent\)"><\/i>Reincidentes<\/span>/,'')}</div>
     </div>
-    ${porAno&&d.mensal.length>12?`<div class="painel vg-graf" style="margin-bottom:14px"><h3>Evolução mensal (todos os anos)</h3>${gBarras(d.mensal,x=>{ const [a,m]=x.mes.split('-'); return `${MES[+m-1]}/${a.slice(2)}`; },false)}</div>`:''}
+    ${porAno&&d.mensal.length>12?`<div class="painel vg-graf" style="margin-bottom:14px"><h3>Evolução mensal (todos os anos)</h3>${gBarras(d.mensal,rotM,false)}</div>`:''}
     <div class="vg-grade3">
-      ${gRank('Top motivos de reincidência',d.motivos,{nome:x=>x.motivo,sub:x=>`${nf(x.clientes)} clientes · ${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados deste motivo voltaram`,legenda:'Chamados que voltaram. Motivo = módulo × rotina (ou causa).'})}
-      ${gRank('Clientes que mais reincidem',d.clientes,{nome:x=>x.cliente,sub:x=>`${nf(x.motivos)} motivos · principal: ${esc(x.principal||'—')}`,clique:'cliente',legenda:'Clique para filtrar pelo cliente.'})}
-      ${gRank('Equipes com mais reincidência',d.equipes,{nome:x=>x.equipe,sub:x=>`${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados`,clique:'equipe',legenda:'Equipe responsável pelo chamado. Clique para filtrar.'})}
+      ${gRank('Top motivos de reincidência',d.motivos,{tipo:'motivo',nome:x=>x.motivo,sub:x=>`${nf(x.clientes)} clientes · ${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados deste motivo voltaram`,legenda:'Chamados que voltaram. Motivo = módulo × rotina (ou causa). Clique para ver os chamados.'})}
+      ${gRank('Clientes que mais reincidem',d.clientes,{tipo:'cliente',nome:x=>x.cliente,sub:x=>`${nf(x.motivos)} motivos · principal: ${esc(x.principal||'—')}`,legenda:'Clique para ver os chamados do cliente.'})}
+      ${gRank('Equipes com mais reincidência',d.equipes,{tipo:'equipe',nome:x=>x.equipe,sub:x=>`${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados`,legenda:'Equipe responsável pelo chamado. Clique para ver os chamados.'})}
     </div>`;
   $('gResultado').innerHTML=h;
   $('gFrescor').textContent=`Calculado ${ha(d.geradoEm)}${d.cache?' (em cache, até 10 min)':''}`;
@@ -335,11 +357,35 @@ function gAplicar(){ G.f={ano:$('gAno').value,dias:$('gDias').value,equipe:$('gE
 ['gAno','gDias','gEquipe','gClassif'].forEach(i=>$(i).addEventListener('change',gAplicar));
 $('gCliente').addEventListener('input',()=>{ clearTimeout(gTimer); gTimer=setTimeout(gAplicar,500); });
 $('gLimpar').addEventListener('click',()=>{ $('gAno').value=''; $('gEquipe').value=''; $('gCliente').value=''; $('gClassif').value='suporte'; $('gDias').value='15'; gAplicar(); });
+// ── detalhe: os chamados por trás de cada número ──
+const TIPO_ROTULO={kpi:'Indicador',motivo:'Motivo',cliente:'Cliente',equipe:'Equipe',ano:'Ano',mes:'Mês'};
+let gvAtual=null;
+function gvFechar(){ $('gv').classList.remove('aberta'); $('gvFundo').classList.remove('aberto'); $('gv').setAttribute('aria-hidden','true'); }
+async function gvAbrir(tipo,valor,titulo){
+  gvAtual={tipo,valor,titulo};
+  $('gvTitulo').textContent=`${TIPO_ROTULO[tipo]||''}: ${titulo}`; $('gvSub').textContent='Carregando…';
+  $('gvCorpo').innerHTML='<div class="carregando"><span class="spin"></span>Buscando os chamados…</div>';
+  $('gvFundo').classList.add('aberto'); $('gv').classList.add('aberta'); $('gv').setAttribute('aria-hidden','false');
+  const f=G.d.filtros, q=new URLSearchParams({dias:f.dias,classif:f.classif==='todas'?'todas':'suporte',tipo,valor}); ['ano','equipe','cliente'].forEach(k=>{ if(f[k]) q.set(k,f[k]); });
+  try{
+    const r=await api('/geral/chamados?'+q);
+    if(!gvAtual||gvAtual.valor!==valor||gvAtual.tipo!==tipo) return;
+    const extra=(tipo==='cliente'||tipo==='equipe')?` <button class="btn peq" id="gvFiltrar" type="button">Filtrar a visão por este</button>`:'';
+    $('gvSub').innerHTML=`${nf(r.total)} chamado(s)${r.truncado?' (mostrando os 500 mais recentes)':''} · voltou em até ${f.dias} dias${extra}`;
+    $('gvCorpo').innerHTML=r.chamados.length?r.chamados.map(c=>`<div class="gv-item">${link(c.ticket_id)}<span class="sub" style="grid-column:auto">${br(String(c.criado_em).slice(0,10))}</span><span class="as" title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span>${c.reincidente?'<span class="gv-tag">REINCIDENTE</span>':'<span></span>'}
+      <span class="sub">${esc(c.cliente||'cliente não identificado')} · ${esc(c.motivo||'sem motivo classificado')} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}${c.anterior?` · repetição do ${link(c.anterior)}`:''}</span></div>`).join(''):'<div class="vazio">Nenhum chamado para este item nos filtros atuais.</div>';
+    const bf=$('gvFiltrar'); if(bf) bf.addEventListener('click',()=>{ if(tipo==='cliente') $('gCliente').value=valor; else $('gEquipe').value=valor; gvFechar(); gAplicar(); });
+  }catch(e){ $('gvCorpo').innerHTML=`<div class="aviso erro">${esc(e.message)}</div>`; $('gvSub').textContent=''; }
+}
 $('gResultado').addEventListener('click',e=>{
-  const t=e.target.closest('[data-g]'); if(!t) return;
-  if(t.dataset.g==='cliente'){ $('gCliente').value=t.dataset.q; } else if(t.dataset.g==='equipe'){ $('gEquipe').value=t.dataset.q; }
-  gAplicar(); window.scrollTo({top:0,behavior:'smooth'});
+  if(e.target.closest('a')) return;
+  const t=e.target.closest('[data-d]'); if(!t||!G.d) return;
+  gvAbrir(t.dataset.d,t.dataset.v,t.dataset.t||t.dataset.v);
 });
+$('gResultado').addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return; const t=e.target.closest('[data-d]'); if(t&&t.getAttribute('role')==='button'){ e.preventDefault(); t.click(); } });
+$('gvFechar').addEventListener('click',gvFechar); $('gvFundo').addEventListener('click',gvFechar);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') gvFechar(); });
+// (fim do bloco de detalhe)
 function modo(m){
   $('vGeral').hidden=m!=='geral'; $('vIA').hidden=m!=='ia';
   $('mGeral').setAttribute('aria-pressed',m==='geral'); $('mIA').setAttribute('aria-pressed',m==='ia');

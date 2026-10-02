@@ -170,6 +170,33 @@ router.get('/painel', requireLeitura, async (req, res) => {
 // e, nos chamados antigos (que não trazem esses campos), a data da última ação de chamados já fechados.
 // Motivo = "Módulo X Rotina" do chamado (campos por vertical) e, na falta dele, a "Causa" (campo 148916, só preenchida a partir de 2024).
 // Chamados sem nenhum dos dois ou sem cliente não entram na conta (aparecem como "sem motivo classificado").
+const GERAL_CTE = `
+WITH cf AS (
+        SELECT ticket_id,
+               min(valor_texto) FILTER (WHERE custom_field_id::bigint = ANY($6::bigint[])) AS modulo,
+               min(valor_texto) FILTER (WHERE custom_field_id = '148916') AS causa,
+               min(valor_texto) FILTER (WHERE custom_field_id = '23946') AS classif
+          FROM silver.ticket_campo_customizado WHERE custom_field_id::bigint = ANY($7::bigint[]) GROUP BY ticket_id),
+      b AS (
+        SELECT t.ticket_id, t.subject, t.status, t.createddate, t.reopened_in,
+               COALESCE(t.resolved_in, t.closed_in, CASE WHEN t.basestatus IN ('Closed','Resolved','Canceled') THEN COALESCE(t.lastactiondate, t.lastupdate, t.last_update) END) AS fim,
+               COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
+               COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS motivo,
+               COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
+          FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
+         WHERE ($5 = '' OR cf.classif = $5)),
+      c AS (SELECT *, (cliente IS NOT NULL AND motivo IS NOT NULL) AS classificado FROM b),
+      w AS (
+        SELECT c.*, lag(fim) OVER (PARTITION BY cliente, motivo ORDER BY createddate) AS fim_ant, lag(ticket_id::text) OVER (PARTITION BY cliente, motivo ORDER BY createddate) AS ant_id FROM c WHERE classificado
+        UNION ALL
+        SELECT c.*, NULL::timestamptz, NULL::text FROM c WHERE NOT classificado),
+      f AS (
+        SELECT *, (classificado AND fim_ant IS NOT NULL AND createddate > fim_ant AND createddate - fim_ant <= make_interval(days => $1::int)) AS rn FROM w
+         WHERE ($2::int IS NULL OR extract(year from createddate)::int = $2)
+           AND ($3 = '' OR equipe = $3)
+           AND ($4 = '' OR cliente ILIKE '%' || $4 || '%')),
+      fc AS (SELECT * FROM f WHERE classificado)
+`;
 const JANELAS = [7, 15, 30, 60];
 const geralCache = new Map();                                            // chave dos filtros -> { em, dados }
 const GERAL_TTL = 10 * 60 * 1000;
@@ -186,31 +213,7 @@ router.get('/geral', requireLeitura, async (req, res) => {
     const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
     const campos = [...new Set([...mods, 148916, 23946])];
     const r = (await db.query(`
-      WITH cf AS (
-        SELECT ticket_id,
-               min(valor_texto) FILTER (WHERE custom_field_id::bigint = ANY($6::bigint[])) AS modulo,
-               min(valor_texto) FILTER (WHERE custom_field_id = '148916') AS causa,
-               min(valor_texto) FILTER (WHERE custom_field_id = '23946') AS classif
-          FROM silver.ticket_campo_customizado WHERE custom_field_id::bigint = ANY($7::bigint[]) GROUP BY ticket_id),
-      b AS (
-        SELECT t.ticket_id, t.createddate, t.reopened_in,
-               COALESCE(t.resolved_in, t.closed_in, CASE WHEN t.basestatus IN ('Closed','Resolved','Canceled') THEN COALESCE(t.lastactiondate, t.lastupdate, t.last_update) END) AS fim,
-               COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
-               COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS motivo,
-               COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
-          FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
-         WHERE ($5 = '' OR cf.classif = $5)),
-      c AS (SELECT *, (cliente IS NOT NULL AND motivo IS NOT NULL) AS classificado FROM b),
-      w AS (
-        SELECT c.*, lag(fim) OVER (PARTITION BY cliente, motivo ORDER BY createddate) AS fim_ant FROM c WHERE classificado
-        UNION ALL
-        SELECT c.*, NULL FROM c WHERE NOT classificado),
-      f AS (
-        SELECT *, (classificado AND fim_ant IS NOT NULL AND createddate > fim_ant AND createddate - fim_ant <= make_interval(days => $1::int)) AS rn FROM w
-         WHERE ($2::int IS NULL OR extract(year from createddate)::int = $2)
-           AND ($3 = '' OR equipe = $3)
-           AND ($4 = '' OR cliente ILIKE '%' || $4 || '%')),
-      fc AS (SELECT * FROM f WHERE classificado)
+      ${GERAL_CTE}
       SELECT
         (SELECT json_build_object('total', count(*), 'classificados', count(*) FILTER (WHERE classificado), 'semMotivo', count(*) FILTER (WHERE NOT classificado),
                 'reincidentes', count(*) FILTER (WHERE rn), 'clientes', count(DISTINCT cliente) FILTER (WHERE classificado), 'clientesAfetados', count(DISTINCT cliente) FILTER (WHERE rn),
@@ -232,6 +235,36 @@ router.get('/geral', requireLeitura, async (req, res) => {
     if (geralCache.size > 60) geralCache.clear();
     geralCache.set(chave, { em: Date.now(), dados });
     res.json({ ...dados, cache: false });
+  } catch (e) { erro(res, e); }
+});
+
+
+// Chamados por trás de um número da visão geral (mesmos filtros e mesma regra). tipo: kpi | motivo | cliente | equipe | ano | mes
+const KPI_FILTRO = { reincidentes: 'rn', classificados: 'classificado', semMotivo: 'NOT classificado', reabertos: 'reopened_in IS NOT NULL', clientesAfetados: 'rn', motivosAfetados: 'rn', clientes: 'classificado', total: 'TRUE' };
+router.get('/geral/chamados', requireLeitura, async (req, res) => {
+  try {
+    const dias = JANELAS.includes(Number(req.query.dias)) ? Number(req.query.dias) : 15;
+    const ano = /^\d{4}$/.test(String(req.query.ano || '')) ? Number(req.query.ano) : null;
+    const equipe = String(req.query.equipe || '').trim().slice(0, 120);
+    const busca = String(req.query.cliente || '').trim().slice(0, 120);
+    const classif = req.query.classif === 'todas' ? '' : 'Suporte Técnico';
+    const tipo = String(req.query.tipo || ''), valor = String(req.query.valor || '').slice(0, 200);
+    let cond, extra = [];
+    if (tipo === 'kpi' && KPI_FILTRO[valor]) cond = KPI_FILTRO[valor];
+    else if (tipo === 'motivo') { cond = 'classificado AND rn AND motivo = $8'; extra = [valor]; }
+    else if (tipo === 'cliente') { cond = 'classificado AND rn AND cliente = $8'; extra = [valor]; }
+    else if (tipo === 'equipe') { cond = 'classificado AND rn AND equipe = $8'; extra = [valor]; }
+    else if (tipo === 'ano' && /^\d{4}$/.test(valor)) { cond = 'classificado AND rn AND extract(year from createddate)::int = $8::int'; extra = [valor]; }
+    else if (tipo === 'mes' && /^\d{4}-\d{2}$/.test(valor)) { cond = "classificado AND rn AND to_char(createddate AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') = $8"; extra = [valor]; }
+    else return res.status(400).json({ error: 'Detalhe inválido' });
+    const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
+    const campos = [...new Set([...mods, 148916, 23946])];
+    const r = await db.query(`
+      ${GERAL_CTE}
+      SELECT ticket_id::text AS ticket_id, subject AS assunto, status, cliente, motivo, equipe, createddate AS criado_em, ant_id AS anterior, fim_ant AS anterior_fim, rn AS reincidente, (reopened_in IS NOT NULL) AS reaberto, classificado
+        FROM f WHERE ${cond} ORDER BY createddate DESC LIMIT 501`,
+      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...extra]);
+    res.json({ total: Math.min(r.rows.length, 500), truncado: r.rows.length > 500, chamados: r.rows.slice(0, 500) });
   } catch (e) { erro(res, e); }
 });
 
