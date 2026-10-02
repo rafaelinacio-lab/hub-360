@@ -97,6 +97,11 @@ app.use('/api/satisfacao', satisfacaoRoutes);
 app.use('/api/dashboard-conferencia', dashboardConferenciaRoutes);
 app.use('/api/reincidencias', reincidenciasRoutes);
 app.use('/api/melhorias', melhoriasRoutes);
+// Para as telas de GCC/Satisfação avisarem qual vertical está em uso
+app.get('/api/escopo-vertical', require('./routes/auth').authMiddleware, async (req, res) => {
+  try { const e = await require('./utils/verticalScope').escopoVertical(req.user.id); res.json({ filtrar: e.filtrar, vertical: e.vertical, semVertical: e.semVertical }); }
+  catch { res.json({ filtrar: false, vertical: null, semVertical: false }); }
+});
 // rotas fixas (sugestões, problemas, pós-incidente...) antes das de /:id
 app.use('/api/incidentes', incidentesAvancadoRoutes);
 app.use('/api/incidentes', incidentesRoutes);
