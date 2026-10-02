@@ -403,6 +403,7 @@ router.post('/:id/workspace/acao', requireLeitura, exigirEscrita, limiteEscrita,
       body: { ...extra, actions: [{ type: ACAO_TIPO[tipo], origin: ACAO_ORIGEM, description: texto, createdBy: { id: agente.id } }] },
     });
     const naoMudou = status ? await statusNaoMudou(id, status) : null;
+    await sincronizarNoBanco(id);
     await auditar(req, id, `acao_${tipo}`, { tamanho: texto.length, agente: agente.nome, ...(status ? { status, justificativa: justificativa || null } : {}) }, naoMudou);
     if (naoMudou) return res.status(409).json({ error: naoMudou });
     res.json({ ok: true });
@@ -413,6 +414,20 @@ router.post('/:id/workspace/acao', requireLeitura, exigirEscrita, limiteEscrita,
 });
 
 // Mudança de status (somente valores que existem nos chamados).
+// Depois de mexer no chamado pelo Hub, relê o estado real no Movidesk e grava em silver.ticket na hora,
+// para o Dashboard (que lê do banco) refletir sem esperar a próxima carga da cron. Nunca derruba a resposta.
+async function sincronizarNoBanco(id) {
+  try {
+    const t = await movidesk('GET', '/tickets', { query: { id, $select: 'id,status,baseStatus,ownerTeam,lastUpdate', $expand: 'owner($select=id,businessName)' } });
+    if (!t || !t.id) return;
+    await db.query(
+      `UPDATE silver.ticket SET status = $2, basestatus = $3, ownerteam = $4, owner_id = $5, owner_name = $6,
+              last_update = COALESCE($7::timestamptz, NOW()) WHERE ticket_id::bigint = $1`,
+      [id, t.status || null, t.baseStatus || null, t.ownerTeam || null, t.owner ? String(t.owner.id) : null, t.owner ? t.owner.businessName : null, t.lastUpdate || null]);
+    require('./tickets').limparCache();
+  } catch (e) { console.warn('[workspace] não consegui atualizar o banco após a alteração:', e.message); }
+}
+
 // Valida uma mudança de status pedida pela tela (existe? exige justificativa? a justificativa é conhecida?).
 // Devolve { body } com os campos do PATCH, ou { erro } com a mensagem para o usuário.
 async function prepararStatus(id, status, justificativa) {
@@ -454,6 +469,7 @@ router.post('/:id/workspace/status', requireLeitura, exigirEscrita, limiteEscrit
     const body = { ...prep.body, actions: [notaDeRastro(agente, `Status alterado para "${status}" pelo Hub 360${justificativa ? ` — ${justificativa}` : ''}.`)] };
     await movidesk('PATCH', '/tickets', { query: { id }, body });
     const naoMudou = await statusNaoMudou(id, status);
+    await sincronizarNoBanco(id);
     await auditar(req, id, 'status', { para: status, justificativa: justificativa || null, agente: agente.nome }, naoMudou);
     if (naoMudou) return res.status(409).json({ error: naoMudou });
     res.json({ ok: true });
@@ -490,6 +506,7 @@ router.post('/:id/workspace/responsavel', requireLeitura, exigirEscrita, limiteE
     const body = { owner: { id: novo.id }, actions: [notaDeRastro(agente, `Responsável alterado para ${novo.nome}${equipe ? ` (equipe ${equipe})` : ''} pelo Hub 360.`)] };
     if (equipe) body.ownerTeam = equipe;
     await movidesk('PATCH', '/tickets', { query: { id }, body });
+    await sincronizarNoBanco(id);
     await auditar(req, id, 'responsavel', { para: novo.nome, equipe, agente: agente.nome });
     res.json({ ok: true });
   } catch (e) {

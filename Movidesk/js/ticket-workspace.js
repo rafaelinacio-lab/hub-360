@@ -398,6 +398,8 @@
         try {
             await fn();
             await carregar();
+            // o servidor já gravou a mudança no banco: recarrega o Dashboard para o chamado mudar de coluna na hora
+            if (typeof fetchOpenTickets === 'function') fetchOpenTickets().catch(() => {});
         } catch (e) {
             avisar(e.message, true);
             botao.disabled = false;
