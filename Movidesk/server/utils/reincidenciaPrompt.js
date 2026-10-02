@@ -79,6 +79,14 @@ Em vez de tabelas, responda SOMENTE em JSON, com as três dimensões (a tela mon
 {"dimensao0":[{"ticket_id":0,"ocorrencias":[{"quando":"AAAA-MM-DD ou aproximado","resumo":""}],"correcao_aplicada":"sim/não + descrição","confianca":"Alta|Média|Baixa"}],"dimensaoA":[{"problema":"1 frase neutra","ticket_ids":[0],"confianca":"Alta|Média|Baixa","justificativa":"por que é o mesmo problema"}],"dimensaoB":[{"problema":"1-2 frases","ticket_ids":[0],"modulo":"","confianca":"Alta|Média|Baixa","recomendacao":""}],"resumo":"2-3 frases com os 2 ou 3 casos mais críticos entre as três dimensões"}
 Ordene cada lista por quantidade de ocorrências (maior para menor). Lista vazia quando não houver recorrência relevante naquela dimensão.`;
 
+// Visão geral: mesmo prompt-base do admin, aplicado em pares. A tela precisa de um veredito por chamado novo, então o servidor
+// acrescenta como os dados chegam e o JSON de volta (a decisão continua sendo pelas regras do prompt-base: contexto, ações e semântica).
+const FORMATO_PARES = `## APLICAÇÃO NESTA TAREFA (técnico)
+Aqui os dados vêm em pares: cada "CHAMADO NOVO" traz até 2 "CHAMADOS ANTERIORES" do mesmo cliente, já encerrados pouco antes, todos com histórico completo. O módulo informado é só um parâmetro de contexto.
+Para cada CHAMADO NOVO aplique a DIMENSÃO A (e os sinais da DIMENSÃO 0 e as REGRAS acima) ao novo contra seus anteriores: ele descreve o MESMO TIPO de problema de algum anterior? Ignore a Dimensão B.
+Seguindo a regra 6, caso plausível porém incerto = reincidente true com confiança Baixa; reincidente false só quando os históricos não mostram o mesmo sintoma/causa. Use SOMENTE os IDs fornecidos.
+Responda SOMENTE JSON, em vez de tabelas: {"resultados":[{"ticket_id":<chamado novo>,"anterior_id":<anterior que é o mesmo problema, ou null>,"reincidente":true|false,"confianca":"Alta|Média|Baixa","explicacao":"1-2 frases: sintoma/ação em comum (ou por que não é o mesmo problema)"}]}. Um item para cada chamado novo.`;
+
 // Aplica o mínimo de clientes configurado nas frases do prompt que citam "3".
 function montarPrompt(base, minClientes) {
   const n = Number(minClientes) || 3;
@@ -86,4 +94,4 @@ function montarPrompt(base, minClientes) {
     .replace(/\b3 OU MAIS\b/g, `${n} OU MAIS`).replace(/pelo menos 3 clientes diferentes/g, `pelo menos ${n} clientes diferentes`);
 }
 
-module.exports = { PROMPT_PADRAO, FORMATO_TECNICO, montarPrompt };
+module.exports = { PROMPT_PADRAO, FORMATO_TECNICO, FORMATO_PARES, montarPrompt };

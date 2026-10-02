@@ -228,7 +228,7 @@ padrão sozinha quando a última tem mais de `autoHoras` (Configurações → As
 Visão geral (todos os anos): `GET /api/reincidencias/geral?ano=&dias=&equipe=&cliente=&classif=`. **Quem decide é a IA, lendo contexto e ações** (histórico completo do chamado e dos anteriores do
 mesmo cliente); o módulo/rotina é só dica para a IA e filtro/agrupamento. O banco apenas escolhe candidatos (mesmo cliente, anterior encerrado até 60 dias antes, qualquer módulo; encerramento =
 `resolved_in`/`closed_in` ou, nos antigos, a última ação de chamados fechados). `POST /geral/analisar {max}` (admin/supervisor/atendente, rate limit) dispara em segundo plano um job que manda lotes de 5
-chamados + até 2 anteriores à OpenAI (`PROMPT_PAR` em `routes/reincidencias.js`) e grava o veredito em `public.reincidencia_par` (reincidente, anterior_id, confiança, explicação, dias_entre); o servidor valida
+chamados + até 2 anteriores à OpenAI (mesmo prompt-base da análise por IA, `promptBase` ou o padrão, + `FORMATO_PARES` em `utils/reincidenciaPrompt.js`) e grava o veredito em `public.reincidencia_par` (reincidente, anterior_id, confiança, explicação, dias_entre); o servidor valida
 que o anterior citado é um dos candidatos. `GET /geral/progresso` mostra cobertura e andamento. É incremental (mais recentes primeiro) e a rotina automática (a cada 30 min, se `autoHoras`) analisa 60 por vez.
 A janela da tela (7/15/30/60 dias) filtra o veredito pelo intervalo real. KPIs, séries, rankings e a gaveta (`GERAL_CTE`) leem esses vereditos; só entram na taxa chamados já analisados. Cache de 10 min (limpo a cada lote).
 ## Melhorias (sugestões para o próprio Hub)

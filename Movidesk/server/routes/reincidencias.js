@@ -66,7 +66,7 @@ router.get('/:id(\\d+)', requireLeitura, async (req, res) => {
   } catch (e) { erro(res, e); }
 });
 
-const { FORMATO_TECNICO, montarPrompt } = require('../utils/reincidenciaPrompt');
+const { FORMATO_TECNICO, FORMATO_PARES, montarPrompt } = require('../utils/reincidenciaPrompt');
 
 // Roda uma análise completa (usada pelo botão e pela rotina automática). `usuario` = null quando é automática.
 let analisando = false;
@@ -271,18 +271,7 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
 
 
 // ── análise dos pares candidatos (IA lê contexto e ações) ──
-const PROMPT_PAR = `Você é um agente de análise de suporte técnico. Para cada CHAMADO NOVO você recebe cliente, assunto, o módulo (apenas como DICA) e o HISTÓRICO COMPLETO DE AÇÕES, mais até 2 CHAMADOS ANTERIORES do mesmo cliente já encerrados pouco antes, também com histórico completo.
-Tarefa (Dimensão A do método de causa-raiz): decidir se o chamado novo descreve o MESMO TIPO de problema de um dos anteriores do mesmo cliente.
-Trate o histórico completo como a fonte de verdade e leia cada chamado do início ao fim; uma mensagem no meio do histórico vale tanto quanto a última. Compare o histórico de um contra o do outro, não só o assunto.
-Use similaridade SEMÂNTICA (sintoma e causa), mesmo com palavras diferentes ou responsáveis diferentes. Conta como o mesmo problema: "SPED ICMS/IPI com erro" e "arquivo fiscal não gera corretamente"; "não consigo emitir DANFE" e "nota fiscal não abre para impressão"; "servidor caiu" e "não consigo acessar o sistema".
-NÃO conta: "erro ao emitir nota fiscal" e "dúvida sobre cadastro de cliente" (temas diferentes); pedido de melhoria/customização com bug técnico do mesmo módulo, salvo se o texto deixar claro que é o mesmo caso.
-Regras:
-1. Nunca junte chamados só por palavras em comum ("nota fiscal" aparece em quase tudo) nem só pelo módulo: a correspondência é sobre o SINTOMA/CAUSA específico. O módulo é apenas parâmetro de contexto; módulos diferentes não impedem se o problema é o mesmo.
-2. Se qualquer mensagem do chamado novo diz "já aconteceu antes", "mesmo problema do chamado X", "de novo", "novamente", "voltou" e isso confere com um anterior, é sinal FORTE: confiança Alta.
-3. Uma correção que funcionou no anterior e o sintoma voltou conta como recorrência, mesmo com o anterior encerrado.
-4. Não omita um caso plausível por falta de certeza: marque reincidente=true com confiança Baixa e explique a incerteza na explicação (o humano decide). Só responda reincidente=false quando o histórico não mostra o mesmo sintoma/causa.
-5. Não invente fatos que não estejam nos históricos.
-Responda SOMENTE JSON: {"resultados":[{"ticket_id":<número do chamado novo>,"anterior_id":<número do anterior que é o mesmo problema ou null>,"reincidente":true|false,"confianca":"Alta|Média|Baixa","explicacao":"1-2 frases citando o sintoma/ação em comum (ou por que não é o mesmo problema)"}]}. Inclua um item para cada chamado novo.`;
+// O prompt-base é o MESMO da análise por IA (padrão ou o editado em Configurações → Assistente de IA); FORMATO_PARES só adapta a entrada e a saída aos pares.
 
 const job = { rodando: false, total: 0, feitos: 0, reincidentes: 0, erros: 0, inicio: null, fim: null, msg: '', origem: '' };
 
@@ -328,7 +317,7 @@ async function processarLote(lista, S, C, userEmail) {
   const cab = (id) => { const t = info.get(id) || {}; return `Cliente: ${limitar(t.cliente, 100)} · Criado em: ${dia(t.createddate)} · Módulo (dica): ${limitar(t.modulo, 100) || '—'}\nAssunto: ${limitar(t.subject, 200)}`; };
   const bloco = lista.map(([tid, ps]) => `### CHAMADO NOVO ${tid}\n${cab(tid)}\nHistórico:\n${texto(tid, 2200)}\n` +
     ps.map((p) => `--- CHAMADO ANTERIOR ${p.pid} (encerrado em ${dia(p.fim)})\n${cab(p.pid)}\nHistórico:\n${texto(p.pid, 1500)}`).join('\n')).join('\n\n');
-  const system = `${REGRAS}${cfg.diretrizes(S)}\n${PROMPT_PAR}${cfg.extra(C.instrucaoExtra)}`;
+  const system = `${REGRAS}${cfg.diretrizes(S)}\n${montarPrompt(C.promptBase, C.minClientesSistemico)}\n${FORMATO_PARES}${cfg.extra(C.instrucaoExtra)}`;
   const r = await chamarIA({ source: 'reincidencias', system, user: dados('CHAMADOS', bloco), maxTokens: 2500, temperature: cfg.temperatura(C.criatividade), timeoutMs: 120000, userEmail, meta: { pares: lista.length } });
   const res = new Map((Array.isArray(r.resultados) ? r.resultados : []).map((x) => [Number(x && x.ticket_id), x]));
   let reinc = 0;
