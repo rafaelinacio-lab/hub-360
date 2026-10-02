@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reincidências</title>
+<script>
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
+    });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f1ee; --surface:#ffffff; --surface-mid:#f7f6f3; --border:#e5e3de; --border-hi:#cac8c2;
+  --t1:#1a1917; --t2:#57554f; --t3:#9b9892;
+  --p1:#dc2626; --p1-bg:#fee2e2; --p2:#ea580c; --p2-bg:#ffedd5; --p3:#ca8a04; --p3-bg:#fef9c3; --p4:#2563eb; --p4-bg:#dbeafe;
+  --ok:#15803d; --ok-bg:#dcfce7; --warn:#b45309; --warn-bg:#fef3c7; --bad:#b91c1c; --bad-bg:#fee2e2;
+  --accent:#e85d04; --sh:0 16px 48px rgba(0,0,0,.14);
+}
+html.dark{
+  --bg:#0f1117; --surface:#1a1d27; --surface-mid:#1e2232; --border:#2a2d3a; --border-hi:#3a3e50;
+  --t1:#e8e8e2; --t2:#a8a8a0; --t3:#75756e;
+  --p1:#f87171; --p1-bg:#3b1515; --p2:#fb923c; --p2-bg:#3a2010; --p3:#facc15; --p3-bg:#33290a; --p4:#60a5fa; --p4-bg:#14264a;
+  --ok:#4ade80; --ok-bg:#12301c; --warn:#fbbf24; --warn-bg:#33270a; --bad:#f87171; --bad-bg:#3b1515;
+  --sh:0 16px 48px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:Inter,system-ui,sans-serif;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+.page{padding:20px 24px 40px;max-width:1400px;margin:0 auto}
+.topo{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.topo h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.topo p{margin:2px 0 0;color:var(--t3);font-size:13px;max-width:640px}
+.topo .sp{flex:1}
+.btn{border:1px solid var(--border-hi);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.btn:hover:not(:disabled){background:var(--surface-mid)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.primario{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.peq{padding:5px 10px;font-size:12px}
+select{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:8px 10px;font-size:13px;max-width:100%}
+.controles{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.meta{font-size:12px;color:var(--t3)}
+.aviso{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:12px}
+.aviso:empty{display:none}
+.aviso.erro{background:var(--bad-bg);color:var(--bad)} .aviso.ok{background:var(--ok-bg);color:var(--ok)} .aviso.info{background:var(--surface);border:1px solid var(--border);color:var(--t2)}
+.resumo{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:16px;white-space:pre-wrap}
+.resumo h3{margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.kpi .r{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);font-weight:600}
+.kpi .n{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--t3)}
+.dim{margin-bottom:22px}
+.dim h2{margin:0 0 2px;font-size:16px}
+.dim > .sub{margin-bottom:10px}
+.sub{font-size:12px;color:var(--t3)}
+.cards{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}
+.card h4{margin:0;font-size:14px}
+.card .corpo{grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:13px}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.c-Alta{background:var(--bad-bg);color:var(--bad)} .c-Média{background:var(--warn-bg);color:var(--warn)} .c-Baixa{background:var(--surface-mid);color:var(--t2)}
+.qtd{background:var(--t1);color:var(--surface);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-right:6px}
+a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:tabular-nums} a.id:hover{text-decoration:underline;color:var(--t1)}
+.tk{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:8px;align-items:baseline;font-size:12.5px}
+.tk .as{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oc{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;font-size:12.5px}
+.oc b{color:var(--t3);font-weight:600}
+.rec{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:6px 10px;font-size:12.5px}
+.vazio{padding:22px;text-align:center;color:var(--t3);background:var(--surface);border:1px dashed var(--border-hi);border-radius:12px}
+.carregando{padding:34px;text-align:center;color:var(--t2)}
+.spin{display:inline-block;width:18px;height:18px;border:3px solid var(--border-hi);border-top-color:var(--accent);border-radius:50%;animation:g 1s linear infinite;vertical-align:-4px;margin-right:8px}
+@keyframes g{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+@media (max-width:700px){.tk{grid-template-columns:auto 1fr}.tk .cl,.tk .dt{grid-column:2}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topo">
+    <div><h1>Reincidências</h1>
+      <p>A IA lê o histórico completo dos chamados e mostra o que se repete: no mesmo chamado, no mesmo cliente e entre clientes (possível problema de sistema).</p></div>
+    <div class="sp"></div>
+  </div>
+  <div class="controles">
+    <label class="meta" for="fDias">Chamados criados nos últimos</label>
+    <select id="fDias"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option></select>
+    <select id="fServico" aria-label="Serviço"><option value="">Todos os serviços</option></select>
+    <button class="btn primario" id="btnAnalisar" type="button">✨ Analisar agora</button>
+    <span class="sp" style="flex:1"></span>
+    <label class="meta" for="fHist">Análises anteriores</label>
+    <select id="fHist"><option value="">—</option></select>
+  </div>
+  <div class="aviso" id="aviso" role="status"></div>
+  <div id="resultado"></div>
+</div>
+<script>
+const API=`${location.origin}/api/reincidencias`;
+const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
+async function api(ep,{method='GET',body}={}){
+  const r=await fetch(API+ep,{method,headers:{Authorization:`Bearer ${tok()}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  const raw=await r.text(); let d={}; try{d=raw?JSON.parse(raw):{};}catch{d={error:raw};}
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return d;
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmt=v=>v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+const br=d=>d?String(d).split('-').reverse().join('/'):'—';
+const url=id=>`https://viasoft.movidesk.com/Ticket/Edit/${id}`;
+const link=id=>`<a class="id" href="${url(id)}" target="_blank" rel="noopener" title="Abrir no Movidesk">#${id}</a>`;
+const conf=c=>`<span class="pill c-${esc(c)}" title="Confiança da IA">${esc(c)}</span>`;
+function aviso(m,t){ const e=$('aviso'); e.textContent=m||''; e.className='aviso'+(m?' '+(t||'info'):''); }
+let C=null;
+
+function tkLinha(t){ return `<div class="tk">${link(t.id)}<span class="dt sub">${br(t.data)}</span><span class="as" title="${esc(t.assunto)}">${esc(t.assunto)}</span><span class="cl sub">${esc(t.cliente)}</span></div>`; }
+
+function desenhar(a){
+  const r=a.resultado, p=a.parametros||{};
+  const k=(rot,n,s)=>`<div class="kpi"><div class="r">${rot}</div><div class="n">${n}</div><div class="s">${s}</div></div>`;
+  let h=`<div class="meta" style="margin-bottom:10px">Análise #${a.id} · ${fmt(a.criado_em)}${a.criado_por_nome?' · '+esc(a.criado_por_nome):''} · ${a.n_tickets} chamados dos últimos ${p.dias} dias${p.servico?` · serviço ${esc(p.servico)}`:''}${p.truncado?` · <b>limitada aos ${p.maxTickets} mais recentes</b>`:''}</div>`;
+  if(r.resumo) h+=`<div class="resumo"><h3>Para atenção prioritária</h3>${esc(r.resumo)}</div>`;
+  h+=`<div class="kpis">${k('Dentro do chamado',r.dimensao0.length,'o mesmo sintoma voltou')}${k('Mesmo cliente',r.dimensaoA.length,'problemas repetidos entre chamados')}${k('Entre clientes',r.dimensaoB.length,`indício sistêmico (${p.minClientes||3}+ clientes)`)}</div>`;
+  h+=`<section class="dim"><h2>Recorrência dentro do mesmo chamado</h2><div class="sub">O problema foi “resolvido” e voltou na mesma conversa.</div><div class="cards">${
+    r.dimensao0.length?r.dimensao0.map(x=>`<div class="card"><div><h4><span class="qtd">${x.ocorrencias.length}×</span>${link(x.id)} ${esc(x.assunto)}</h4><div class="sub">${esc(x.cliente)}</div></div><div>${conf(x.confianca)}</div>
+      <div class="corpo">${x.ocorrencias.map(o=>`<div class="oc"><b>${esc(o.quando)}</b><span>${esc(o.resumo)}</span></div>`).join('')}${x.correcao?`<div class="sub">Correção entre as ocorrências: ${esc(x.correcao)}</div>`:''}</div></div>`).join(''):'<div class="vazio">Nenhuma recorrência relevante dentro de um mesmo chamado.</div>'}</div></section>`;
+  h+=`<section class="dim"><h2>Recorrência por cliente</h2><div class="sub">O mesmo cliente com o mesmo tipo de problema em chamados diferentes.</div><div class="cards">${
+    r.dimensaoA.length?r.dimensaoA.map(x=>`<div class="card"><div><h4><span class="qtd">${x.tickets.length}×</span>${esc(x.cliente)} — ${esc(x.problema)}</h4><div class="sub">${br(x.periodo[0])} → ${br(x.periodo[1])}</div></div><div>${conf(x.confianca)}</div>
+      <div class="corpo">${x.tickets.map(tkLinha).join('')}${x.justificativa?`<div class="sub">${esc(x.justificativa)}</div>`:''}</div></div>`).join(''):'<div class="vazio">Nenhum cliente com o mesmo problema repetido.</div>'}</div></section>`;
+  h+=`<section class="dim"><h2>Recorrência entre clientes</h2><div class="sub">O mesmo problema em vários clientes: possível bug sistêmico ou lacuna de produto.</div><div class="cards">${
+    r.dimensaoB.length?r.dimensaoB.map(x=>`<div class="card"><div><h4><span class="qtd">${x.nClientes} clientes</span>${esc(x.problema)}</h4><div class="sub">Módulo provável: ${esc(x.modulo||'não identificado')}</div></div><div>${conf(x.confianca)}</div>
+      <div class="corpo">${x.tickets.map(tkLinha).join('')}${x.recomendacao?`<div class="rec">${esc(x.recomendacao)}</div>`:''}</div></div>`).join(''):'<div class="vazio">Nenhum problema sistêmico encontrado neste período.</div>'}</div></section>`;
+  $('resultado').innerHTML=h;
+}
+
+async function carregarHistorico(selecionar){
+  try{
+    const d=await api('/');
+    $('fHist').innerHTML='<option value="">—</option>'+d.analises.map(a=>`<option value="${a.id}">#${a.id} · ${fmt(a.criado_em)} · ${a.parametros.dias}d${a.parametros.servico?' · '+esc(a.parametros.servico):''} (${a.d0}/${a.da}/${a.db})</option>`).join('');
+    if(selecionar) $('fHist').value=selecionar;
+    return d.analises;
+  }catch(e){ return []; }
+}
+async function abrir(id){
+  aviso('');
+  try{ const d=await api('/'+id); desenhar(d.analise); }catch(e){ aviso(e.message,'erro'); }
+}
+$('fHist').addEventListener('change',()=>{ if($('fHist').value) abrir($('fHist').value); });
+$('btnAnalisar').addEventListener('click',async()=>{
+  const b=$('btnAnalisar'); b.disabled=true; aviso('');
+  $('resultado').innerHTML='<div class="carregando"><span class="spin"></span>A IA está lendo o histórico dos chamados… isso leva de 30 segundos a 2 minutos.</div>';
+  try{
+    const d=await api('/analisar',{method:'POST',body:{dias:Number($('fDias').value),servico:$('fServico').value}});
+    desenhar(d.analise); await carregarHistorico(d.analise.id);
+  }catch(e){ $('resultado').innerHTML=''; aviso(e.message,'erro'); }
+  b.disabled=false;
+});
+
+(async function init(){
+  try{ C=await api('/config'); }catch(e){ aviso(e.message,'erro'); return; }
+  $('fDias').value=String(C.diasPadrao);
+  $('fServico').innerHTML='<option value="">Todos os serviços</option>'+C.servicos.map(s=>`<option>${esc(s)}</option>`).join('');
+  if(!C.podeAnalisar){ $('btnAnalisar').style.display='none'; }
+  else if(!C.ativo){ $('btnAnalisar').disabled=true; aviso('Este recurso de IA está desativado em Configurações → Assistente de IA.','info'); }
+  else if(!C.iaConfigurada){ $('btnAnalisar').disabled=true; aviso('A chave da IA ainda não foi configurada (Configurações → Inteligência Artificial).','info'); }
+  const lista=await carregarHistorico();
+  if(lista.length){ $('fHist').value=lista[0].id; abrir(lista[0].id); }
+  else $('resultado').innerHTML='<div class="vazio">Nenhuma análise ainda. Escolha o período e clique em “Analisar agora”.</div>';
+})();
+</script>
+</body>
+</html>

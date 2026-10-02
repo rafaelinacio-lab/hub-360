@@ -897,8 +897,8 @@ function switchConfigTab(tab) {
 }
 
 // ─── Acesso: quais abas cada perfil vê no menu ─────────────────────────────
-const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes'], guest: ['dashboard'] };
-const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Painel Geral', satisfacao: 'Satisfação', incidentes: 'Incidentes' };
+const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes', 'reincidencias'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes', 'reincidencias'], guest: ['dashboard'] };
+const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Painel Geral', satisfacao: 'Satisfação', incidentes: 'Incidentes', reincidencias: 'Reincidências' };
 let cfgAccessPermissions = {};
 let cfgAccessRoles = [];
 
@@ -3260,6 +3260,13 @@ const AIA_SECOES = [
             { t: 'sel', k: 'mesesHistorico', num: true, label: 'Histórico longo', help: 'Período usado para reaberturas e passagens pelo GCC.', opts: [[3, '3 meses'], [6, '6 meses'], [12, '12 meses'], [24, '24 meses']] },
             { t: 'line', k: 'termosGcc', label: 'Equipes que indicam risco', help: 'Chamados cuja equipe contenha estes termos entram como sinal de churn. Separe por vírgula.' },
             { t: 'num', k: 'contextoCaracteres', label: 'Quanto da conversa ler', help: 'Tamanho máximo da conversa enviada à IA.', min: 3000, max: 30000, step: 1000, unit: 'caracteres' },
+            AIA_CRIAT, AIA_EXTRA] },
+    ] },
+    { grupo: 'Reincidências', icone: 'repeat', itens: [
+        { sec: 'reincidencia', icone: 'repeat', titulo: 'Detecção de recorrência', desc: 'Lê o histórico completo dos chamados para achar problemas que se repetem no mesmo ticket, no mesmo cliente e entre clientes.', campos: [
+            { t: 'sel', k: 'diasPadrao', num: true, label: 'Período padrão', help: 'Janela de chamados criados que entra na análise.', opts: [[7, '7 dias'], [15, '15 dias'], [30, '30 dias'], [60, '60 dias'], [90, '90 dias']] },
+            { t: 'num', k: 'maxTickets', label: 'Máximo de chamados por análise', help: 'Mais chamados = análise mais completa, mais lenta e mais cara.', min: 20, max: 150, step: 10, unit: 'chamados' },
+            { t: 'num', k: 'minClientesSistemico', label: 'Clientes para ser sistêmico', help: 'Mínimo de clientes diferentes para tratar como problema de sistema (padrão: 3).', min: 2, max: 10, unit: 'clientes' },
             AIA_CRIAT, AIA_EXTRA] },
     ] },
     { grupo: 'Incidentes', icone: 'crisis_alert', itens: [

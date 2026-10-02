@@ -211,3 +211,12 @@ orientação extra. Funções desligadas respondem 403 e os botões somem na tel
 - **Pós-incidente** (`incidente_posmortem`): resumo, impacto, causa raiz, porquês, o que funcionou/melhorar e ações; rascunho → publicado
   (exige incidente resolvido, resumo, causa raiz e ≥1 ação). Obrigatório para graves/P1/P2 (`/posmortem/pendentes` alimenta o KPI). Rascunho por IA configurável.
 - **Problemas** (`problema`, `problema_incidente`): causa raiz compartilhada; status aberto → em análise → erro conhecido (exige contorno) → resolvido (exige causa).
+
+## Reincidências
+
+Aba `reincidencias` (permissão própria em Configurações → Acesso). `server/routes/reincidencias.js` + `pages/reincidencias.html`.
+A IA recebe o histórico completo (`silver.ticket_acao`) dos chamados criados na janela escolhida e devolve três dimensões:
+0 (recorrência no mesmo chamado), A (mesmo cliente, chamados diferentes) e B (entre clientes, mín. configurável, padrão 3).
+O servidor revalida tudo contra o banco: descarta ids inexistentes, exige o mesmo cliente real na dimensão A e o mínimo de
+clientes distintos na B. Resultados ficam em `public.reincidencia_analise` (histórico de análises). Parâmetros em
+Configurações → Assistente de IA → Reincidências.
