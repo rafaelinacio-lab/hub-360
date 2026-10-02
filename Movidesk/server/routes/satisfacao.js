@@ -15,6 +15,7 @@
  */
 
 const express = require('express');
+const { escopoVertical, pertence } = require('../utils/verticalScope');
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
@@ -78,10 +79,16 @@ router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res)
       `).catch(() => ({ rows: [] })),
     ]);
 
-    res.json({
-      universo: universoRes.rows?.[0]?.total || 0,
-      rows: rowsRes.rows || [],
-    });
+    // Escopo: quem não é admin vê só a vertical definida em Pessoas (1º nível do serviço ou equipe).
+    const esc = await escopoVertical(req.user.id);
+    if (!esc.filtrar) return res.json({ universo: universoRes.rows?.[0]?.total || 0, rows: rowsRes.rows || [] });
+    if (esc.semVertical) return res.json({ universo: 0, rows: [] });
+    const rows = (rowsRes.rows || []).filter((r) => pertence(esc.vertical, { servico: r.servico, equipe: r.equipe }));
+    const universo = (await db.query(
+      `SELECT COUNT(*)::int AS total FROM silver.ticket t WHERE t.basestatus IN ${FINALIZADO_STATUSES}
+         AND (lower(split_part(t.service_full, ' > ', 1)) = lower($1) OR lower(COALESCE(t.ownerteam,'')) LIKE '%' || lower($1) || '%')`, [esc.vertical]
+    ).catch(() => ({ rows: [{ total: 0 }] }))).rows[0].total;
+    res.json({ universo, rows });
   } catch (error) {
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
       console.warn('[satisfacao] silver.ticket_satisfacao ainda não existe — retornando vazio');
