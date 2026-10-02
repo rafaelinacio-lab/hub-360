@@ -897,8 +897,8 @@ function switchConfigTab(tab) {
 }
 
 // ─── Acesso: quais abas cada perfil vê no menu ─────────────────────────────
-const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes', 'reincidencias'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'incidentes', 'reincidencias'], guest: ['dashboard'] };
-const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Painel Geral', satisfacao: 'Satisfação', incidentes: 'Incidentes', reincidencias: 'Reincidências' };
+const CFG_ACCESS_DEFAULTS = { supervisor: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'paineltv', 'incidentes', 'reincidencias'], atendente: ['dashboard', 'chamados', 'ouvidoria', 'gcc', 'jira', 'movidesk', 'satisfacao', 'paineltv', 'incidentes', 'reincidencias'], guest: ['dashboard'] };
+const CFG_TAB_LABELS = { dashboard: 'Dashboard', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', jira: 'Jira', movidesk: 'Movidesk (Painel Geral)', satisfacao: 'Satisfação', paineltv: 'Painel TV', incidentes: 'Incidentes', reincidencias: 'Reincidências' };
 let cfgAccessPermissions = {};
 let cfgAccessRoles = [];
 
@@ -912,13 +912,25 @@ function renderProfilesConfig() {
         const allowed = cfgAccessPermissions[role.name] || [];
         const locked = ['supervisor', 'atendente', 'guest'].includes(role.name);
         const canDelete = !locked && Number.isFinite(Number(role.id));
-        const checks = Object.entries(CFG_TAB_LABELS).map(([key, label]) => `<label class="config-checkbox-label"><input type="checkbox" class="cfg-access-checkbox" data-role="${cfgEsc(role.name)}" value="${key}" ${allowed.includes(key) ? 'checked' : ''}> ${label}</label>`).join('');
+        const SUB_MOVIDESK = ['satisfacao', 'paineltv'];   // sub-abas da aba Movidesk
+        const caixa = ([key, label], desab) => `<label class="config-checkbox-label"><input type="checkbox" class="cfg-access-checkbox" data-role="${cfgEsc(role.name)}" data-key="${key}" value="${key}" ${allowed.includes(key) ? 'checked' : ''} ${desab ? 'disabled' : ''}> ${label}</label>`;
+        const semMov = !allowed.includes('movidesk');
+        const checks = Object.entries(CFG_TAB_LABELS).filter(([k]) => !SUB_MOVIDESK.includes(k)).map((e) => caixa(e, false)).join('') +
+            `<div style="flex-basis:100%;margin-top:4px;padding:8px 12px;border:1px dashed #cbd5e1;border-radius:10px;"><div style="font-size:12px;opacity:.75;margin-bottom:4px;">Sub-abas dentro de “Movidesk” (só valem se “Movidesk” estiver marcado)</div><div style="display:flex;flex-wrap:wrap;gap:14px;" data-subabas="${cfgEsc(role.name)}">${SUB_MOVIDESK.map((k) => caixa([k, CFG_TAB_LABELS[k]], semMov)).join('')}</div></div>`;
         return `<div class="config-form-stack" style="margin:0 0 18px;padding-bottom:18px;border-bottom:1px solid #e5e7eb;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label class="config-form-label" style="margin:0;"><strong>${cfgEsc(cfgRoleLabel(role.name))}</strong></label>${role.description ? `<span style="font-size:12px;color:#666;">${cfgEsc(role.description)}</span>` : ''}${canDelete ? `<button type="button" class="config-btn config-btn-danger" style="margin-left:auto;" onclick="deleteProfileConfig(${Number(role.id)})">Remover</button>` : ''}</div>
             <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;">${checks}</div>
         </div>`;
     }).join('') || '<p class="config-card-help">Nenhum perfil disponível.</p>';
 }
+
+document.addEventListener('change', (e) => {
+    const cb = e.target;
+    if (!cb.classList || !cb.classList.contains('cfg-access-checkbox') || cb.dataset.key !== 'movidesk') return;
+    const grupo = document.querySelector(`[data-subabas="${CSS.escape(cb.dataset.role)}"]`);
+    if (!grupo) return;
+    grupo.querySelectorAll('input').forEach((i) => { i.disabled = !cb.checked; if (!cb.checked) i.checked = false; });
+});
 
 function applyTabPermissionsToForm(perms) {
     cfgAccessPermissions = perms || {};

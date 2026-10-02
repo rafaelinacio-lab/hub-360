@@ -154,7 +154,7 @@ const LAST_PUBLIC_ACTION_JOIN = `
   ) ap ON true
 `;
 
-router.get('/pendentes', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+router.get('/pendentes', authMiddleware, requireTabAccess('paineltv'), async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
     const result = await db.query(`
