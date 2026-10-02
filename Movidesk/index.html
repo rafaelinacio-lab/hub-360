@@ -791,6 +791,13 @@
                         </div>
                         <div id="cfgTabPermissionsStatus" class="config-status"></div>
                     </div>
+                    <div class="config-card">
+                        <h3 class="config-card-title">Equivalência de verticais</h3>
+                        <p class="config-card-help">Quando o nome de uma vertical em Pessoas é diferente do que aparece nos dados (GCC, Satisfação), escreva a equivalência. Uma por linha, no formato <code>Vertical em Pessoas = nome nos dados, outro nome</code>. Ex.: <code>Agronegócio = Agrotitan</code>. Assim o perfil com essa vertical enxerga os chamados com qualquer um desses nomes.</p>
+                        <div class="config-form-stack"><textarea id="cfgVertAliases" class="config-input config-textarea" placeholder="Agronegócio = Agrotitan" spellcheck="false"></textarea></div>
+                        <div class="config-actions"><button class="config-btn" onclick="saveVerticalAliases()">Salvar equivalências</button></div>
+                        <div id="cfgVertAliasesStatus" class="config-status"></div>
+                    </div>
                 </div>
 
                 <!-- ABA: Carga Datalake -->

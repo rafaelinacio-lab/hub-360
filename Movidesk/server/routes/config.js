@@ -1143,6 +1143,31 @@ function requireTabAccess(tabKey) {
   };
 }
 
+// ── Equivalência de verticais (Pessoas -> nomes usados nos dados, ex.: Agronegócio = Agrotitan) ──
+function parseAliases(texto) {
+  const mapa = {};
+  String(texto || '').split('\n').forEach((linha) => {
+    const i = linha.indexOf('=');
+    if (i < 1) return;
+    const chave = linha.slice(0, i).trim(), vals = linha.slice(i + 1).split(',').map((x) => x.trim()).filter(Boolean);
+    if (chave && vals.length) mapa[chave] = [...new Set(vals)].slice(0, 20);
+  });
+  return mapa;
+}
+const aliasesParaTexto = (mapa) => Object.entries(mapa || {}).map(([k, v]) => `${k} = ${v.join(', ')}`).join('\n');
+router.get('/vertical-aliases', authMiddleware, requireRole('admin'), async (req, res) => {
+  try { const V = require('../utils/verticalScope'); res.json({ texto: aliasesParaTexto(await V.lerAliases()) }); }
+  catch (e) { res.status(500).json({ error: 'Erro ao ler as equivalências' }); }
+});
+router.put('/vertical-aliases', authMiddleware, requireRole('admin'), (req, res) => {
+  const mapa = parseAliases(req.body?.texto);
+  saveConfigValue('vertical_aliases', JSON.stringify(mapa), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar as equivalências' });
+    require('../utils/verticalScope').limparAliases();
+    res.json({ success: true, texto: aliasesParaTexto(mapa) });
+  });
+});
+
 // GET - abas liberadas para quem está logado (as telas usam para esconder sub-abas, ex.: Satisfação e Painel TV)
 router.get('/minhas-abas', authMiddleware, async (req, res) => {
   try {

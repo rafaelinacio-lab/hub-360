@@ -246,3 +246,7 @@ Sub-abas do Movidesk em Configurações → Acesso: `movidesk` (Painel Geral), `
 (a tela desabilita). `GET /api/config/minhas-abas` entrega as abas liberadas ao usuário e `geral.html`/`satisfacao.html` escondem as sub-abas sem acesso;
 `/api/geral/pendentes` (Painel TV) exige `paineltv`. Configurações salvas antes (sem `__versao: 2`) ganham `paineltv` automaticamente onde já havia `movidesk`.
 Satisfação: cada linha traz `vertical` (1º nível do serviço), há filtro de Vertical e o escopo por perfil segue a mesma lógica do GCC.
+
+Equivalência de verticais: o campo "GCC - Verticais Insatisfação" (id 98697) aceita vários valores juntos ("Agrotitan, Fisco Contábil") e usa nomes diferentes de Pessoas
+(ex.: Agrotitan = Agronegócio). `verticalScope` separa o campo pela vírgula e expande cada vertical do usuário pelas equivalências (padrão em `ALIASES_PADRAO`, editável por admin em
+Configurações → Acesso → "Equivalência de verticais", chave `vertical_aliases`).
