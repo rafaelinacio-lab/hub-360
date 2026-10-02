@@ -219,6 +219,7 @@ function gDesenhar(){
     ${kp('Clientes afetados',nf(k.clientesAfetados),`de ${nf(k.clientes)} clientes (${pc(k.clientesAfetados,k.clientes)}%)`,'clientesAfetados')}
     ${kp('Motivos que se repetem',nf(k.motivosAfetados),'módulos/rotinas ou causas distintas','motivosAfetados')}
     ${kp('Chamados analisados',nf(k.classificados),`${nf(k.semMotivo)} sem motivo ou cliente ficaram de fora`,'classificados')}
+    ${kp('Retorno médio',k.retornoMedio==null?'—':nf(k.retornoMedio)+' d',k.retornoMediana==null?'sem reincidentes':`mediana ${nf(k.retornoMediana)} dias após encerrar o anterior`,'reincidentes')}
     ${kp('Reabertos no Movidesk',nf(k.reabertos),'o mesmo chamado foi reaberto','reabertos')}</div>
     <div class="grade" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
       <div class="painel vg-graf"><h3>${porAno?'Reincidência por ano':'Reincidência por mês · '+esc(f.ano)}</h3>${gBarras(serie,rot,true)}</div>

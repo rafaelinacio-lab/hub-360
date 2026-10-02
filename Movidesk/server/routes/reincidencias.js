@@ -216,7 +216,9 @@ router.get('/geral', requireLeitura, async (req, res) => {
       SELECT
         (SELECT json_build_object('total', count(*), 'classificados', count(*) FILTER (WHERE classificado), 'semMotivo', count(*) FILTER (WHERE NOT classificado),
                 'reincidentes', count(*) FILTER (WHERE rn), 'clientes', count(DISTINCT cliente) FILTER (WHERE classificado), 'clientesAfetados', count(DISTINCT cliente) FILTER (WHERE rn),
-                'motivosAfetados', count(DISTINCT motivo) FILTER (WHERE rn), 'reabertos', count(*) FILTER (WHERE reopened_in IS NOT NULL)) FROM f) AS kpi,
+                'motivosAfetados', count(DISTINCT motivo) FILTER (WHERE rn), 'reabertos', count(*) FILTER (WHERE reopened_in IS NOT NULL),
+                'retornoMedio', round((avg(extract(epoch from (createddate - fim_ant)) / 86400) FILTER (WHERE rn))::numeric, 1),
+                'retornoMediana', round((percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch from (createddate - fim_ant)) / 86400) FILTER (WHERE rn))::numeric, 1)) FROM f) AS kpi,
         (SELECT COALESCE(json_agg(x ORDER BY x.ano), '[]') FROM (SELECT extract(year from createddate)::int AS ano, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc,
                 count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes FROM fc GROUP BY 1) x) AS anual,
         (SELECT COALESCE(json_agg(x ORDER BY x.mes), '[]') FROM (SELECT to_char(createddate AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') AS mes, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc,
