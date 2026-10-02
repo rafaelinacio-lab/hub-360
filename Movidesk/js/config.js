@@ -881,7 +881,7 @@ function switchConfigTab(tab) {
     if (tab === 'ia-assist') { aiaInit(); loadAiAssistTab(); }
     if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
-    if (tab === 'acesso') loadTabPermissionsConfig();
+    if (tab === 'acesso') { loadTabPermissionsConfig(); loadVerticalAliases(); }
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba
         const btnFull   = document.getElementById('dlBtnFull');
@@ -3430,4 +3430,26 @@ function aiaInit() {
         if (!confirm('Voltar TODAS as configurações do assistente de IA ao padrão? Isso só vale depois de salvar.')) return;
         AIA.settings = JSON.parse(JSON.stringify(AIA.defaults)); aiaMarcarSujo(true); aiaRender();
     });
+}
+
+
+// ─── Equivalência de verticais (Pessoas ↔ nomes usados nos dados) ─────────────────────────
+async function loadVerticalAliases() {
+    const box = document.getElementById('cfgVertAliases');
+    if (!box) return;
+    try {
+        const r = await fetch(`${API_BASE}/config/vertical-aliases`, { headers: authHeaders() });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Erro ao carregar');
+        box.value = d.texto || '';
+    } catch (e) { setCfgStatus('cfgVertAliasesStatus', e.message, 'error'); }
+}
+async function saveVerticalAliases() {
+    try {
+        const r = await fetch(`${API_BASE}/config/vertical-aliases`, { method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: document.getElementById('cfgVertAliases').value }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Erro ao salvar');
+        document.getElementById('cfgVertAliases').value = d.texto || '';
+        setCfgStatus('cfgVertAliasesStatus', 'Equivalências salvas. Valem para o próximo carregamento do GCC e da Satisfação.', 'ok');
+    } catch (e) { setCfgStatus('cfgVertAliasesStatus', `Erro ao salvar: ${e.message}`, 'error'); }
 }
