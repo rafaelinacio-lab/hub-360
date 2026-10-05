@@ -276,3 +276,10 @@ com foco e interação nos últimos 60 s). Os lotes vão a `POST /api/telemetria
 - Só conta como reincidente o veredito de **confiança Alta** (`rn` na CTE `GERAL_CTE`); a análise por grupos (dimensões 0/A/B) também guarda só grupos de confiança Alta.
 - O **motivo** não vem só do campo Módulo/Rotina: `motivosDe()` (reincidencias.js) classifica pelo texto (assunto, 5 primeiras ações, explicação da IA e assunto do chamado anterior) com o
   dicionário de `server/data/temas-chamados.json` (o mesmo dos Temas do Painel Geral). Sem tema no texto, vale o campo (Módulo/Rotina ou Causa); sem nada, "Sem motivo identificado". Cache em memória de 6 h.
+
+## Chats (acompanhamento quase em tempo real)
+Cada atendimento de chat é um chamado do Movidesk com `chatWidget`/`chatGroup` preenchidos. `server/routes/chats.js` copia só esses chamados para `public.hub_chat` (tabela criada no primeiro uso; a carga
+principal em `silver.*` não é tocada): a cada 2 min (desligável com `CHATS_SYNC=0`) busca `chatWidget ne null and lastUpdate ge <última coleta - 10 min>` na API e faz upsert. `POST /api/chats/sincronizar {dias}`
+(admin) reprocessa os últimos N dias em segundo plano. `GET /api/chats/resumo?dias=` (permissão da aba `movidesk`) alimenta `pages/chats.html` (sub-aba "Chats" ao lado de Painel Geral/Satisfação), que se
+atualiza a cada 30 s: em andamento (abertos criados nas últimas 24 h) por grupo/status, hoje por grupo, chats por hora e por dia, últimos chats. `chatTalkTime`/`chatWaitingTime` só vêm preenchidos quando o chat
+termina e a unidade assumida é segundos (conferir com um chat conhecido). O diagnóstico em Configurações → Movidesk (`GET /api/geral/chat-diagnostico`) mostra o que a API devolve para os campos de chat.

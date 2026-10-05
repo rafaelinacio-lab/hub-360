@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chats</title>
+<script>
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
+    });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+
+/* ═══ Tokens ══════════════════════════════════════════════════════════ */
+:root {
+  --bg:          #f2f1ee;
+  --surface:     #ffffff;
+  --surface-mid: #f7f6f3;
+  --surface-low: #f2f1ee;
+  --border:      #e5e3de;
+  --border-hi:   #cac8c2;
+
+  --t1: #1a1917;
+  --t2: #57554f;
+  --t3: #9b9892;
+
+  --orange:     #e85d04;
+  --orange-bg:  #fff3ec;
+  --orange-bd:  rgba(232,93,4,0.25);
+
+  --green:      #15803d;
+  --green-bg:   #f0fdf4;
+  --green-bd:   rgba(21,128,61,0.25);
+
+  --purple:     #7c3aed;
+  --purple-bg:  #f5f3ff;
+  --purple-bd:  rgba(124,58,237,0.25);
+
+  --slate:      #64748b;
+  --slate-bg:   #f8fafc;
+  --slate-bd:   rgba(100,116,139,0.2);
+
+  --amber:      #b45309;
+  --amber-bg:   #fffbeb;
+  --amber-bd:   rgba(180,83,9,0.2);
+
+  --glass-bg:     rgba(255,255,255,.6);
+  --glass-border: rgba(255,255,255,.7);
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,.05),0 1px 4px rgba(0,0,0,.04);
+  --sh-md: 0 3px 12px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
+  --sh-xl: 0 16px 48px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.07);
+}
+
+html.dark {
+  --bg:          #0f1117;
+  --surface:     #1a1d27;
+  --surface-mid: #1e2232;
+  --surface-low: #161921;
+  --border:      #2a2d3a;
+  --border-hi:   #3c3f50;
+
+  --t1: #e8e7e3;
+  --t2: #9b9892;
+  --t3: #57554f;
+
+  --orange:     #fb923c;
+  --orange-bg:  rgba(251,146,60,.12);
+  --orange-bd:  rgba(251,146,60,.22);
+
+  --green:      #4ade80;
+  --green-bg:   rgba(74,222,128,.1);
+  --green-bd:   rgba(74,222,128,.2);
+
+  --purple:     #a78bfa;
+  --purple-bg:  rgba(167,139,250,.1);
+  --purple-bd:  rgba(167,139,250,.2);
+
+  --slate:      #94a3b8;
+  --slate-bg:   rgba(148,163,184,.08);
+  --slate-bd:   rgba(148,163,184,.15);
+
+  --amber:      #fbbf24;
+  --amber-bg:   rgba(251,191,36,.1);
+  --amber-bd:   rgba(251,191,36,.2);
+
+  --glass-bg:     rgba(26,29,39,.5);
+  --glass-border: rgba(255,255,255,.08);
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,.3);
+  --sh-md: 0 3px 12px rgba(0,0,0,.3);
+  --sh-xl: 0 16px 48px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ═══ Reset ═══════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;scrollbar-width:none;-ms-overflow-style:none}
+::-webkit-scrollbar{display:none}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit;background:none;border:none;padding:0}
+input,select{font-family:inherit}
+
+.sym{
+  font-family:'Material Symbols Outlined';
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+  line-height:1;display:inline-block;font-style:normal;user-select:none;
+  vertical-align:middle;
+}
+
+
+#chats-page{min-height:100vh;display:flex;flex-direction:column}
+/* ═══ Top bar ══════════════════════════════════════════════════════════ */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 24px;transition:transform .22s ease;
+}
+/* ao rolar pra baixo o cabeçalho (título + filtros) sai de cena; volta ao rolar pra cima */
+.topbar.oculto{transform:translateY(-100%)}
+.topbar-in{
+  display:flex;align-items:center;gap:12px;height:56px;
+  max-width:1480px;margin:0 auto;
+}
+.topbar-logo{
+  display:flex;align-items:center;gap:7px;
+  font-size:15px;font-weight:700;color:var(--t1);white-space:nowrap;flex-shrink:0;
+}
+.topbar-logo .sym{font-size:19px;color:var(--orange)}
+.topbar-sub{font-size:13px;color:var(--t2);font-weight:500;white-space:nowrap}
+.vbar{width:1px;height:22px;background:var(--border);flex-shrink:0}
+
+/* ─── Seletor Painel Geral / Satisfação (dentro da aba "Movidesk") ──────── */
+.md-tabs{display:flex;gap:3px;background:var(--surface-low);padding:3px;border-radius:9px;border:1px solid var(--border);flex-shrink:0}
+.md-tab{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:7px;border:none;cursor:pointer;
+  font-size:12.5px;font-weight:600;background:transparent;color:var(--t2);white-space:nowrap;transition:background .15s,color .15s}
+.md-tab .sym{font-size:16px}
+.md-tab:hover:not(.active){color:var(--t1)}
+.md-tab.active{background:var(--orange);color:#fff}
+
+.btn-refresh{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t2);
+  font-size:12px;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+.btn-refresh:hover{border-color:var(--border-hi);color:var(--t1)}
+.btn-refresh .sym{font-size:15px}
+
+.btn-sync{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px;border:1px solid var(--green-bd);border-radius:8px;
+  background:var(--green-bg);color:var(--green);
+  font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+.btn-sync:hover{filter:brightness(.96)}
+.btn-sync .sym{font-size:15px}
+.btn-sync:disabled{opacity:.5;cursor:default}
+
+
+.wrap{max-width:1480px;width:100%;margin:0 auto;padding:18px 24px 40px;display:flex;flex-direction:column;gap:14px}
+.sp{flex:1}
+.meta{font-size:12px;color:var(--t3)}
+.sel{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-low);color:var(--t1);font-size:12px}
+.grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative}
+.card h3{font-size:13px;color:var(--t2);font-weight:600;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);font-weight:600;display:flex;align-items:center;gap:8px}
+.kpi .v{font-size:28px;font-weight:800;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--t3);margin-top:2px}
+.kpi.vivo .v{color:var(--orange)}
+.ponto{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulsa 1.6s infinite}
+@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:1000px){.cols{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;background:var(--surface-mid);color:var(--t2);margin:1px 3px 1px 0}
+.chip.novo{background:var(--orange-bg);color:var(--orange)}
+.vazio{padding:18px 6px;color:var(--t3);font-size:13px;text-align:center}
+.aviso{font-size:12.5px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:10px;padding:8px 12px}
+.erro{color:var(--orange)}
+.chart-box{position:relative;height:230px}
+.panel-info{position:absolute;top:12px;right:12px;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--t3);background:transparent;color:var(--t3);font:800 12px/1 system-ui,sans-serif;cursor:pointer;padding:0}
+.panel-info:hover{color:var(--orange);border-color:var(--orange)}
+.modal{position:fixed;inset:0;background:rgba(10,12,18,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+.modal.show{display:flex}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:520px;width:100%;padding:18px 20px;box-shadow:var(--sh-xl)}
+.modal-box h3{font-size:16px;margin-bottom:8px}
+.modal-box h4{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin:12px 0 4px}
+.modal-box p,.modal-box li{font-size:13px;line-height:1.55;color:var(--t1)}
+.modal-box ul{padding-left:18px}
+.modal-box .fechar{float:right;font-size:22px;color:var(--t2);line-height:1}
+</style>
+</head>
+<body>
+<div id="chats-page">
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="topbar-logo"><span class="sym">forum</span>Chats</div>
+      <div class="vbar"></div>
+      <span class="topbar-sub">Atendimentos por chat — acompanhamento quase em tempo real</span>
+      <span style="margin-left:auto"></span>
+      <div class="md-tabs">
+        <button class="md-tab" onclick="irPara('movidesk')"><span class="sym">dashboard</span>Painel Geral</button>
+        <button class="md-tab" onclick="irPara('satisfacao')"><span class="sym">sentiment_satisfied</span>Satisfação</button>
+        <button class="md-tab active"><span class="sym">forum</span>Chats</button>
+      </div>
+      <button class="btn-refresh" id="btnAtualizar" onclick="carregar()"><span class="sym">refresh</span>Atualizar</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="ponto" title="Atualiza sozinho a cada 30 segundos"></span>
+      <span class="meta" id="frescor">Carregando…</span>
+      <span class="sp"></span>
+      <label class="meta" for="selDias">Histórico</label>
+      <select class="sel" id="selDias" onchange="carregar()">
+        <option value="7" selected>Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option>
+      </select>
+    </div>
+    <div class="aviso" id="aviso" hidden></div>
+
+    <div class="grid-kpi" id="kpis"></div>
+
+    <div class="cols">
+      <div class="card" id="c-vivo"><h3>Em andamento agora (últimas 24 h)</h3><button class="panel-info" data-info="vivo" aria-label="Ajuda">!</button><div id="tb-vivo"></div></div>
+      <div class="card" id="c-hoje"><h3>Hoje por grupo de chat</h3><button class="panel-info" data-info="hoje" aria-label="Ajuda">!</button><div id="tb-hoje"></div></div>
+    </div>
+
+    <div class="cols">
+      <div class="card" id="c-hora"><h3>Chats por hora do dia (média por dia)</h3><button class="panel-info" data-info="hora" aria-label="Ajuda">!</button><div class="chart-box"><canvas id="chHora"></canvas></div></div>
+      <div class="card" id="c-dia"><h3>Chats por dia e espera média</h3><button class="panel-info" data-info="dia" aria-label="Ajuda">!</button><div class="chart-box"><canvas id="chDia"></canvas></div></div>
+    </div>
+
+    <div class="card" id="c-rec"><h3>Últimos chats</h3><button class="panel-info" data-info="recentes" aria-label="Ajuda">!</button><div style="overflow-x:auto" id="tb-rec"></div></div>
+    <p class="meta" id="rodape"></p>
+  </main>
+</div>
+
+<div class="modal" id="modal"><div class="modal-box"><button class="fechar" onclick="fecharInfo()" aria-label="Fechar">&times;</button><div id="modal-corpo"></div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const API=`${location.origin}/api/chats`;
+const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||'';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf=n=>Number(n||0).toLocaleString('pt-BR');
+// A API informa os tempos em segundos (unidade presumida pelos exemplos; conferir com um chat conhecido)
+function dur(s){
+  if(s==null) return '—';
+  s=Math.round(Number(s)); if(!isFinite(s)) return '—';
+  if(s<60) return s+'s';
+  const m=Math.floor(s/60), r=s%60;
+  if(m<60) return r?`${m} min ${r}s`:`${m} min`;
+  const h=Math.floor(m/60); return `${h}h ${String(m%60).padStart(2,'0')}min`;
+}
+function idade(iso){ return iso?dur((Date.now()-new Date(iso).getTime())/1000):'—'; }
+const quando=iso=>iso?new Date(iso).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+const linkTk=id=>`<a href="https://viasoft.movidesk.com/Ticket/Edit/${esc(id)}" target="_blank" rel="noopener" style="color:var(--orange);font-weight:600">#${esc(id)}</a>`;
+function irPara(v){ try{ if(window.parent&&window.parent!==window&&typeof window.parent.navigateTo==='function'){ window.parent.navigateTo(v); return; } }catch{} location.href=v==='movidesk'?'geral.html':'satisfacao.html'; }
+
+let D=null, charts={};
+async function carregar(){
+  const dias=$('selDias').value;
+  try{
+    const r=await fetch(`${API}/resumo?dias=${dias}`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||r.statusText);
+    D=d; desenhar();
+  }catch(e){ $('aviso').hidden=false; $('aviso').textContent='Não foi possível carregar os chats: '+e.message; }
+}
+function desenhar(){
+  const d=D, h=d.hoje||{};
+  // aviso quando a coleta nunca rodou ou está atrasada
+  const av=$('aviso');
+  if(!d.meta.total){ av.hidden=false; av.textContent='Ainda não há chats guardados. A coleta roda sozinha a cada 2 minutos; um administrador pode buscar o histórico com "Reprocessar histórico" no rodapé.'; }
+  else if(d.meta.ultima_coleta&&Date.now()-new Date(d.meta.ultima_coleta).getTime()>15*60*1000){ av.hidden=false; av.textContent=`A última coleta no Movidesk foi há ${idade(d.meta.ultima_coleta)}. Os números podem estar desatualizados.`; }
+  else av.hidden=true;
+  $('frescor').textContent=`Atualizado ${quando(d.agora)} · última coleta no Movidesk ${d.meta.ultima_coleta?'há '+idade(d.meta.ultima_coleta):'—'}`;
+
+  const andamento=d.vivo.reduce((a,x)=>a+x.n,0);
+  const novos=d.vivo.filter(x=>/novo|new/i.test(x.status)).reduce((a,x)=>a+x.n,0);
+  const maisAntigo=d.vivo.map(x=>x.mais_antigo).filter(Boolean).sort()[0];
+  const kpi=(cls,l,v,s,info)=>`<div class="card kpi ${cls}"><div class="l">${l}</div><button class="panel-info" data-info="${info}" aria-label="Ajuda">!</button><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  $('kpis').innerHTML=
+    kpi('vivo','Em andamento',nf(andamento),`${nf(novos)} com status Novo · ${nf(d.abertosAntigos)} abertos há mais de 24 h`,'andamento')+
+    kpi('vivo','Mais antigo em andamento',andamento?idade(maisAntigo):'—','desde a abertura do chat','antigo')+
+    kpi('','Chats hoje',nf(h.total),`${nf(h.encerrados)} encerrados`,'hoje-total')+
+    kpi('','Espera média hoje',dur(h.espera_media),h.espera_p90!=null?`90% esperaram até ${dur(h.espera_p90)}`:'só chats encerrados têm o tempo','espera')+
+    kpi('','Conversa média hoje',dur(h.conversa_media),'duração do atendimento','conversa');
+
+  // em andamento por grupo
+  const porGrupo={};
+  d.vivo.forEach(x=>{ const g=porGrupo[x.grupo]=porGrupo[x.grupo]||{n:0,status:[],antigo:null}; g.n+=x.n; g.status.push(x); if(!g.antigo||new Date(x.mais_antigo)<new Date(g.antigo)) g.antigo=x.mais_antigo; });
+  const linhasVivo=Object.entries(porGrupo).sort((a,b)=>b[1].n-a[1].n);
+  $('tb-vivo').innerHTML=linhasVivo.length?`<table><thead><tr><th>Grupo</th><th>Status</th><th class="n">Chats</th><th class="n">Mais antigo</th></tr></thead><tbody>${linhasVivo.map(([g,v])=>`<tr><td>${esc(g)}</td><td>${v.status.map(s=>`<span class="chip ${/novo|new/i.test(s.status)?'novo':''}">${esc(s.status)} ${s.n}</span>`).join('')}</td><td class="n"><b>${nf(v.n)}</b></td><td class="n">${idade(v.antigo)}</td></tr>`).join('')}</tbody></table>`:'<div class="vazio">Nenhum chat em andamento nas últimas 24 horas.</div>';
+
+  $('tb-hoje').innerHTML=d.grupoHoje.length?`<table><thead><tr><th>Grupo</th><th class="n">Chats</th><th class="n">Encerrados</th><th class="n">Espera média</th><th class="n">Conversa média</th></tr></thead><tbody>${d.grupoHoje.map(g=>`<tr><td>${esc(g.grupo)}</td><td class="n"><b>${nf(g.total)}</b></td><td class="n">${nf(g.encerrados)}</td><td class="n">${dur(g.espera_media)}</td><td class="n">${dur(g.conversa_media)}</td></tr>`).join('')}</tbody></table>`:'<div class="vazio">Nenhum chat hoje.</div>';
+
+  $('tb-rec').innerHTML=d.recentes.length?`<table><thead><tr><th>Chamado</th><th>Aberto em</th><th>Grupo</th><th>Status</th><th class="n">Espera</th><th class="n">Conversa</th></tr></thead><tbody>${d.recentes.map(c=>`<tr><td>${linkTk(c.id)}</td><td>${quando(c.criado_em)}</td><td>${esc(c.grupo)}</td><td>${esc(c.status)}</td><td class="n">${dur(c.tempo_espera)}</td><td class="n">${dur(c.tempo_conversa)}</td></tr>`).join('')}</tbody></table>`:'<div class="vazio">Sem chats.</div>';
+
+  // gráficos
+  const cor=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  Object.values(charts).forEach(c=>c.destroy()); charts={};
+  const horas=Array.from({length:24},(_,i)=>i);
+  const mediaHora=horas.map(hh=>{ const x=d.porHora.find(y=>y.hora===hh); return x?Math.round(x.total/Math.max(1,x.dias)*10)/10:0; });
+  charts.h=new Chart($('chHora'),{type:'bar',data:{labels:horas.map(x=>x+'h'),datasets:[{label:'Chats por dia (média)',data:mediaHora,backgroundColor:cor('--orange'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:cor('--border')},ticks:{color:cor('--t3')}},x:{grid:{display:false},ticks:{color:cor('--t2')}}}}});
+  charts.d=new Chart($('chDia'),{data:{labels:d.porDia.map(x=>x.dia.slice(8)+'/'+x.dia.slice(5,7)),datasets:[
+      {type:'bar',label:'Chats',data:d.porDia.map(x=>x.total),backgroundColor:cor('--slate'),borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'Espera média (min)',data:d.porDia.map(x=>x.espera_media==null?null:Math.round(x.espera_media/60*10)/10),borderColor:cor('--orange'),backgroundColor:cor('--orange'),tension:.3,yAxisID:'y1',spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:cor('--t2'),boxWidth:10}}},scales:{y:{beginAtZero:true,grid:{color:cor('--border')},ticks:{color:cor('--t3')}},y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{color:cor('--orange')}},x:{grid:{display:false},ticks:{color:cor('--t2')}}}}});
+
+  $('rodape').innerHTML=`${nf(d.meta.total)} chats guardados${d.meta.desde?` desde ${quando(d.meta.desde)}`:''}. <a href="#" id="repro" style="color:var(--orange)">Reprocessar histórico (admin)</a>`;
+  const rp=$('repro'); if(rp) rp.onclick=async e=>{ e.preventDefault(); rp.textContent='Iniciando…';
+    try{ const r=await fetch(`${API}/sincronizar`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({dias:30})}); const j=await r.json(); rp.textContent=r.ok?'Buscando os últimos 30 dias… volte em alguns minutos':(j.error||'Sem permissão'); }catch{ rp.textContent='Falhou'; } };
+}
+
+// ── ajuda "!" ──
+const INFO={
+  andamento:['Em andamento','Chats (chamados com widget de chat) que ainda estão abertos e foram criados nas últimas 24 horas.',['Status do chamado: Novo, Em atendimento, Em andamento ou Parado.','O status "Novo" pode indicar chat ainda sem atendente — confira no Movidesk.','Chats abertos há mais de 24 h aparecem à parte: normalmente são chamados esquecidos abertos.']],
+  antigo:['Mais antigo em andamento','Há quanto tempo está aberto o chat em andamento mais antigo (últimas 24 h).',['Idade = agora − data de abertura do chamado.']],
+  'hoje-total':['Chats hoje','Quantidade de chats abertos hoje (horário de Brasília).',['Conta chamados com widget de chat criados no dia.','Encerrados = status Resolvido ou Fechado.']],
+  espera:['Espera média','Quanto os clientes esperaram até um atendente assumir o chat.',['Média do campo chatWaitingTime dos chats de hoje que já têm o tempo.','O Movidesk só preenche o tempo quando o chat termina; o p90 mostra o tempo até o qual 90% dos clientes esperaram.','Unidade presumida: segundos.']],
+  conversa:['Conversa média','Duração média dos atendimentos.',['Média do campo chatTalkTime dos chats de hoje já encerrados.','Unidade presumida: segundos.']],
+  vivo:['Em andamento por grupo','Os chats abertos nas últimas 24 h agrupados por grupo de chat e status.',['Grupo = campo chatGroup do chamado.','"Mais antigo" = há quanto tempo o chat mais antigo daquele grupo está aberto.']],
+  hoje:['Hoje por grupo','Volume e tempos de hoje em cada grupo de chat.',['Espera e conversa médias consideram só os chats que já têm o tempo preenchido.']],
+  hora:['Chats por hora do dia','Em quais horários chegam mais chats.',['Total de chats em cada hora ÷ número de dias do período com chats naquela hora (horário de Brasília).']],
+  dia:['Chats por dia e espera média','Volume diário (barras) e espera média em minutos (linha).',['Espera média diária = média de chatWaitingTime dos chats do dia.']],
+  recentes:['Últimos chats','Os 40 chats mais recentes guardados pelo Hub.',['Tempos em branco: o chat ainda não terminou ou o Movidesk não informou.']]
+};
+function abrirInfo(k){ const i=INFO[k]; if(!i) return; $('modal-corpo').innerHTML=`<h3>${esc(i[0])}</h3><h4>O que é</h4><p>${esc(i[1])}</p><h4>Como é calculado</h4><ul>${i[2].map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Origem dos dados</h4><p>Chamados do Movidesk com o campo de chat preenchido, copiados para o Hub a cada 2 minutos.</p>`; $('modal').classList.add('show'); }
+function fecharInfo(){ $('modal').classList.remove('show'); }
+document.addEventListener('click',e=>{ const b=e.target.closest('.panel-info'); if(b){ abrirInfo(b.dataset.info); } else if(e.target===$('modal')) fecharInfo(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharInfo(); });
+
+carregar();
+setInterval(carregar,30000);
+setInterval(()=>{ if(D) desenharIdades(); },1000);
+function desenharIdades(){ /* atualiza só as idades ao vivo sem refazer os gráficos */
+  if(!D) return;
+  const maisAntigo=D.vivo.map(x=>x.mais_antigo).filter(Boolean).sort()[0];
+  const k=document.querySelector('[data-info="antigo"]'); if(k&&maisAntigo){ const v=k.parentElement.querySelector('.v'); if(v) v.textContent=idade(maisAntigo); }
+}
+</script>
+<script src="/js/telemetria.js"></script>
+</body>
+</html>

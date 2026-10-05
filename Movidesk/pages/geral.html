@@ -505,6 +505,9 @@ body.modal-open{overflow:hidden}
         <button class="md-tab" onclick="mdSwitchTab('satisfacao')">
           <span class="sym">sentiment_satisfied</span>Satisfação
         </button>
+        <button class="md-tab" onclick="mdSwitchTab('chats')">
+          <span class="sym">forum</span>Chats
+        </button>
         <button class="md-tab" onclick="abrirPainelTV()">
           <span class="sym">tv</span>Painel TV
         </button>
@@ -908,7 +911,7 @@ function mdSwitchTab(view){
       return;
     }
   }catch{}
-  location.href=view==='movidesk'?'geral.html':'satisfacao.html';
+  location.href=view==='movidesk'?'geral.html':view+'.html';
 }
 // Painel TV é uma tela de kiosk (fontes grandes, sem menu lateral, pensada
 // pra rodar sozinha numa TV/monitor) — abre em aba nova em vez de navegar

@@ -29,6 +29,7 @@ const EMBED_PAGE_ROUTES = {
     jira: 'pages/jira.html',
     movidesk: 'pages/geral.html',
     satisfacao: 'pages/satisfacao.html',
+    chats: 'pages/chats.html',
     incidentes: 'pages/incidentes.html',
     reincidencias: 'pages/reincidencias.html',
     melhorias: 'pages/melhorias.html'
