@@ -207,7 +207,7 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
     <div class="topbar-in">
       <div class="topbar-logo"><span class="sym">forum</span>Chats</div>
       <div class="vbar"></div>
-      <span class="topbar-sub">Atendimentos por chat — acompanhamento quase em tempo real</span>
+      <span class="topbar-sub">Atendimentos por chat — volume, espera e duração dos chats encerrados</span>
       <span style="margin-left:auto"></span>
       <div class="md-tabs">
         <button class="md-tab" onclick="irPara('movidesk')"><span class="sym">dashboard</span>Painel Geral</button>
@@ -243,7 +243,7 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
       <div class="card" id="c-vivo"><h3>Chamados de chat ainda abertos (sem tempo de conversa)</h3><button class="panel-info" data-info="vivo" aria-label="Ajuda">!</button><div style="overflow-x:auto" id="tb-vivo"></div></div>
       <div class="card" id="c-fila"><h3>Aguardando atendimento</h3><button class="panel-info" data-info="fila" aria-label="Ajuda">!</button>
         <p class="meta" style="line-height:1.6">A <b>fila de espera</b> (conversas ainda sem atendente, com posição e tempo de espera) <b>não vira chamado</b> enquanto ninguém assume e a API pública do Movidesk não a expõe — ela só existe na tela interna <b>/ChatQueue</b>. Por isso não aparece aqui.</p>
-        <p class="meta" style="line-height:1.6;margin-top:8px">Quando alguém assume, o chat vira chamado e entra em "Conversas em atendimento" em até 1 minuto. O tempo que o cliente esperou fica registrado no chamado e aparece em "Espera média".</p>
+        <p class="meta" style="line-height:1.6;margin-top:8px">Depois que o chat termina, o chamado fica disponível para o Hub (em até 1 minuto) e entra nas métricas, inclusive no tempo que o cliente esperou, em "Espera média".</p>
       </div>
     </div>
 
@@ -367,7 +367,7 @@ const INFO={
   'hoje-total':['Chats hoje','Quantidade de chats abertos hoje (horário de Brasília).',['Conta chamados com widget de chat criados no dia.','Encerrados = status Resolvido ou Fechado.']],
   espera:['Espera média','Quanto os clientes esperaram até um atendente assumir o chat.',['Média do campo chatWaitingTime dos chats de hoje que já têm o tempo.','O Movidesk só preenche o tempo quando o chat termina; o p90 mostra o tempo até o qual 90% dos clientes esperaram.','Unidade presumida: segundos.']],
   conversa:['Conversa média','Duração média dos atendimentos.',['Média do campo chatTalkTime dos chats de hoje já encerrados.','Unidade presumida: segundos.']],
-  vivo:['Chamados de chat ainda abertos','Chamados de chat visíveis pela API, abertos e sem tempo de conversa, por grupo de chat.',['Atenção: os chats que estão em atendimento neste momento na tela /ChatQueue não são localizados pela API do Movidesk; só aparecem aqui depois de encerrados. Esta lista traz chamados que ficaram abertos sem o tempo de conversa preenchido.',['Chamado de chat (tem grupo de chat) com status Novo ou Em atendimento.','Padrão: criado nas últimas 24 h e ainda SEM tempo de conversa — o Movidesk só preenche chatTalkTime quando o chat termina, e durante a conversa o chamado quase não é atualizado.','Alternativa no seletor: atividade do chamado em 30 min, 2 h ou 24 h. Se os números destoarem da tela /ChatQueue, compare as opções.','Duração = agora − abertura do chamado (conta ao vivo).','Origem = código numérico do Movidesk (ex.: 5 e 6).']],
+  vivo:['Chamados de chat ainda abertos','Chamados de chat visíveis pela API, abertos e sem tempo de conversa, por grupo de chat.',['Atenção: os chats que estão em atendimento neste momento na tela /ChatQueue não são localizados pela API do Movidesk; só aparecem aqui depois de encerrados. Esta lista traz chamados que ficaram abertos sem o tempo de conversa preenchido.','Chamado de chat = tem grupo de chat, com status Novo ou Em atendimento, criado nas últimas 24 h e sem tempo de conversa (alternativa no seletor: atividade do chamado em 30 min, 2 h ou 24 h).','Duração = agora − abertura do chamado (conta ao vivo).','Origem = código numérico do Movidesk (ex.: 24 e 26).']],
   fila:['Aguardando atendimento','A fila de conversas sem atendente.',['Não há chamado enquanto o chat está na fila; a API pública do Movidesk não lista a fila. Ela só existe na tela interna /ChatQueue.','Para ter a fila aqui seria preciso um recurso do Movidesk/Zenvia (por exemplo, eventos do NLU enviados ao Hub).']],
   atendente:['Chats ativos por atendente','Quantos chats ativos cada atendente tem agora.',['Atendente = responsável pelo chamado.','Mesma definição de ativo da tabela de conversas.']],
   servico:['Chats ativos por serviço','Quantos chats ativos há em cada serviço do Movidesk.',['Serviço = serviço do chamado (primeiro ao último nível).']],
