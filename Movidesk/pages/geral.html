@@ -247,8 +247,6 @@ input,select{font-family:inherit}
 }
 .imp-nota b{color:var(--t1)}
 .imp-top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.imp-sel{min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-low);color:var(--t1);font:inherit;font-size:12px;cursor:pointer}
-.imp-sel:hover,.imp-sel:focus{border-color:var(--orange);outline:none}
 .imp-kpis{display:flex;flex-wrap:wrap;gap:8px}
 .imp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media (max-width:1100px){.imp-grid{grid-template-columns:1fr}}
@@ -631,14 +629,8 @@ body.modal-open{overflow:hidden}
       <p class="tv-eyebrow">Análise causal global</p>
       <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Impacto mensal de SLA por ticket</p>
       <p class="chart-sub" style="text-align:left;margin:0 0 10px">Identifique os chamados que mais puxaram a média global do mês para cima ou para baixo.</p>
-      <div class="imp-nota"><span class="sym" style="font-size:18px;color:var(--orange)">monitor_heart</span><span><b>Como ler:</b> impacto = média mensal com todos os tickets menos a média sem aquele chamado. Valor positivo elevou o SLA; negativo reduziu. O tempo é o de <b>solução líquido</b>: da abertura à resolução, só em horário útil (seg-sex, 07:45-12:00 e 13:30-18:00) e sem o tempo parado (aguardando cliente/terceiro/validação e em atendimento - desenvolvimento). Entram os tickets resolvidos no mês, respeitando os filtros do painel.</span></div>
-      <div class="imp-top">
-        <div class="imp-kpis" id="impacto-kpis"></div>
-        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-          <span class="tv-eyebrow" style="margin:0">Mês</span>
-          <select class="imp-sel" id="impacto-mes" aria-label="Mês de resolução" onchange="impactoMesMudou(this.value)"></select>
-        </div>
-      </div>
+      <div class="imp-nota"><span class="sym" style="font-size:18px;color:var(--orange)">monitor_heart</span><span><b>Como ler:</b> impacto = média mensal com todos os tickets menos a média sem aquele chamado. Valor positivo elevou o SLA; negativo reduziu. O tempo é o de <b>solução líquido</b>: da abertura à resolução, só em horário útil (seg-sex, 07:45-12:00 e 13:30-18:00) e sem o tempo parado (aguardando cliente/terceiro/validação e em atendimento - desenvolvimento). Entram os tickets resolvidos no período dos filtros do painel (Ano, Mês, equipe, cliente etc.).</span></div>
+      <div class="imp-top"><div class="imp-kpis" id="impacto-kpis"></div></div>
       <div id="impacto-corpo"></div>
     </div>
 
@@ -1787,11 +1779,9 @@ function renderFluxoChart(rows){
 // horas úteis da abertura à resolução, descontando os status de pausa.
 const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
 let _impactoMinutos={};   // ticket_id -> minutos úteis líquidos (cache)
-let _impactoMes='', _impactoRows=[], _impactoSeq=0;
+let _impactoSeq=0;
 const fmtH=h=>`${h.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}h`;
 const fmtHImp=h=>`${h>0?'+':h<0?'−':''}${Math.abs(h).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}h`;
-
-function impactoMesMudou(v){ _impactoMes=v; renderImpactoSla(_impactoRows); }
 
 async function impactoBuscarMinutos(ids){
   const faltam=ids.filter(id=>!(id in _impactoMinutos));
@@ -1809,23 +1799,13 @@ async function impactoBuscarMinutos(ids){
 }
 
 async function renderImpactoSla(rows){
-  _impactoRows=rows;
   const corpo=document.getElementById('impacto-corpo');
-  const selEl=document.getElementById('impacto-mes');
   const kpis=document.getElementById('impacto-kpis');
-  if(!corpo||!selEl) return;
-
-  const porMes={};
-  rows.forEach(r=>{ if(r.resolvido_em){ const mk=monthKeyOf(r.resolvido_em); (porMes[mk]=porMes[mk]||[]).push(r); } });
-  const meses=Object.keys(porMes).sort();
-  if(!meses.includes(_impactoMes)) _impactoMes=meses[meses.length-1]||'';
-  selEl.innerHTML=meses.slice().reverse().map(mk=>{
-    const [y,m]=mk.split('-').map(Number);
-    return `<option value="${mk}"${mk===_impactoMes?' selected':''}>${new Date(y,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</option>`;
-  }).join('');
-  if(!_impactoMes){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Nenhum ticket resolvido no período filtrado.</p>'; return; }
-
-  const doMes=porMes[_impactoMes];
+  if(!corpo||!kpis) return;
+  // Segue os filtros principais do painel: rows já vem só com os tickets
+  // resolvidos dentro do Ano/Mês filtrados (e equipe, cliente etc.).
+  const doMes=rows.filter(r=>r.resolvido_em);
+  if(!doMes.length){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Nenhum ticket resolvido no período filtrado.</p>'; return; }
   const seq=++_impactoSeq;
   const faltam=doMes.some(r=>!(r.ticket_id in _impactoMinutos));
   if(faltam){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Calculando o tempo de solução líquido…</p>'; }
@@ -1840,14 +1820,14 @@ async function renderImpactoSla(rows){
 
   const itens=doMes.filter(r=>_impactoMinutos[r.ticket_id]!=null).map(r=>({r,h:_impactoMinutos[r.ticket_id]/60}));
   const n=itens.length;
-  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste mês.</p>'; return; }
+  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste período.</p>'; return; }
   const soma=itens.reduce((a,x)=>a+x.h,0), media=soma/n;
   itens.forEach(x=>{ x.imp=n>1?media-(soma-x.h)/(n-1):0; });
   const comMeta=itens.filter(x=>META_SOLUCAO_H[x.r.urgencia]!=null);
   const dentro=comMeta.filter(x=>x.h<=META_SOLUCAO_H[x.r.urgencia]).length;
 
   kpis.innerHTML=
-    `<span class="tv-pill">Média do mês <small>${fmtH(media)}</small></span>`+
+    `<span class="tv-pill">Média do período <small>${fmtH(media)}</small></span>`+
     `<span class="tv-pill">Tickets resolvidos <small>${n.toLocaleString('pt-BR')}</small></span>`+
     `<span class="tv-pill">Dentro da meta <small>${comMeta.length?fmtPct(dentro/comMeta.length):'—'}</small></span>`;
 
@@ -1868,8 +1848,8 @@ async function renderImpactoSla(rows){
   const sobem=itens.filter(x=>x.imp>0).sort((a,b)=>b.imp-a.imp).slice(0,TOP);
   const descem=itens.filter(x=>x.imp<0).sort((a,b)=>a.imp-b.imp).slice(0,TOP);
   corpo.innerHTML=`<div class="imp-grid">
-    <div><p class="imp-sub imp-pos">▲ Puxaram a média para cima</p>${tabela(sobem,'Nenhum ticket elevou a média neste mês.')}</div>
-    <div><p class="imp-sub imp-neg">▼ Puxaram a média para baixo</p>${tabela(descem,'Nenhum ticket reduziu a média neste mês.')}</div>
+    <div><p class="imp-sub imp-pos">▲ Puxaram a média para cima</p>${tabela(sobem,'Nenhum ticket elevou a média neste período.')}</div>
+    <div><p class="imp-sub imp-neg">▼ Puxaram a média para baixo</p>${tabela(descem,'Nenhum ticket reduziu a média neste período.')}</div>
   </div>`;
 }
 
