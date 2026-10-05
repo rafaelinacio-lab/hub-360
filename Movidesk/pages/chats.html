@@ -223,6 +223,10 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
       <span class="ponto" title="Atualiza sozinho a cada 30 segundos"></span>
       <span class="meta" id="frescor">Carregando…</span>
       <span class="sp"></span>
+      <label class="meta" for="selJanela" title="Um chat é considerado ativo se está Novo ou Em atendimento e teve atividade dentro desta janela">Ativo = atividade nos últimos</label>
+      <select class="sel" id="selJanela" onchange="carregar()">
+        <option value="15">15 min</option><option value="30" selected>30 min</option><option value="60">1 hora</option><option value="120">2 horas</option><option value="1440">24 horas</option>
+      </select>
       <label class="meta" for="selDias">Histórico</label>
       <select class="sel" id="selDias" onchange="carregar()">
         <option value="7" selected>Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option>
@@ -232,8 +236,21 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
 
     <div class="grid-kpi" id="kpis"></div>
 
+    <div class="cols" style="grid-template-columns:2fr 1fr">
+      <div class="card" id="c-vivo"><h3>Conversas em atendimento</h3><button class="panel-info" data-info="vivo" aria-label="Ajuda">!</button><div style="overflow-x:auto" id="tb-vivo"></div></div>
+      <div class="card" id="c-fila"><h3>Aguardando atendimento</h3><button class="panel-info" data-info="fila" aria-label="Ajuda">!</button>
+        <p class="meta" style="line-height:1.6">A <b>fila de espera</b> (conversas ainda sem atendente, com posição e tempo de espera) <b>não vira chamado</b> enquanto ninguém assume e a API pública do Movidesk não a expõe — ela só existe na tela interna <b>/ChatQueue</b>. Por isso não aparece aqui.</p>
+        <p class="meta" style="line-height:1.6;margin-top:8px">Quando alguém assume, o chat vira chamado e entra em "Conversas em atendimento" em até 1 minuto. O tempo que o cliente esperou fica registrado no chamado e aparece em "Espera média".</p>
+      </div>
+    </div>
+
     <div class="cols">
-      <div class="card" id="c-vivo"><h3>Em andamento agora (últimas 24 h)</h3><button class="panel-info" data-info="vivo" aria-label="Ajuda">!</button><div id="tb-vivo"></div></div>
+      <div class="card" id="c-atend"><h3>Chats ativos por atendente</h3><button class="panel-info" data-info="atendente" aria-label="Ajuda">!</button><div id="tb-atend"></div></div>
+      <div class="card" id="c-serv"><h3>Chats ativos por serviço</h3><button class="panel-info" data-info="servico" aria-label="Ajuda">!</button><div id="tb-serv"></div></div>
+    </div>
+
+    <div class="cols">
+      <div class="card" id="c-snap"><h3>Chats ativos nas últimas 24 h</h3><button class="panel-info" data-info="snap" aria-label="Ajuda">!</button><div class="chart-box"><canvas id="chSnap"></canvas></div></div>
       <div class="card" id="c-hoje"><h3>Hoje por grupo de chat</h3><button class="panel-info" data-info="hoje" aria-label="Ajuda">!</button><div id="tb-hoje"></div></div>
     </div>
 
@@ -274,7 +291,7 @@ let D=null, charts={};
 async function carregar(){
   const dias=$('selDias').value;
   try{
-    const r=await fetch(`${API}/resumo?dias=${dias}`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'});
+    const r=await fetch(`${API}/resumo?dias=${dias}&janela=${$('selJanela').value}`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'});
     const d=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(d.error||r.statusText);
     D=d; desenhar();
@@ -284,27 +301,36 @@ function desenhar(){
   const d=D, h=d.hoje||{};
   // aviso quando a coleta nunca rodou ou está atrasada
   const av=$('aviso');
-  if(!d.meta.total){ av.hidden=false; av.textContent='Ainda não há chats guardados. A coleta roda sozinha a cada 2 minutos; um administrador pode buscar o histórico com "Reprocessar histórico" no rodapé.'; }
-  else if(d.meta.ultima_coleta&&Date.now()-new Date(d.meta.ultima_coleta).getTime()>15*60*1000){ av.hidden=false; av.textContent=`A última coleta no Movidesk foi há ${idade(d.meta.ultima_coleta)}. Os números podem estar desatualizados.`; }
+  if(!d.meta.total){ av.hidden=false; av.textContent='Ainda não há chats guardados. A coleta roda sozinha a cada minuto; um administrador pode buscar o histórico com "Reprocessar histórico" no rodapé.'; }
+  else if(d.meta.ultima_coleta&&Date.now()-new Date(d.meta.ultima_coleta).getTime()>5*60*1000){ av.hidden=false; av.textContent=`A última coleta no Movidesk foi há ${idade(d.meta.ultima_coleta)}. Os números podem estar desatualizados.`; }
   else av.hidden=true;
   $('frescor').textContent=`Atualizado ${quando(d.agora)} · última coleta no Movidesk ${d.meta.ultima_coleta?'há '+idade(d.meta.ultima_coleta):'—'}`;
 
-  const andamento=d.vivo.reduce((a,x)=>a+x.n,0);
-  const novos=d.vivo.filter(x=>/novo|new/i.test(x.status)).reduce((a,x)=>a+x.n,0);
-  const maisAntigo=d.vivo.map(x=>x.mais_antigo).filter(Boolean).sort()[0];
+  const ativos=d.ativos||[];
+  const nAtivos=ativos.length, novos=ativos.filter(x=>/novo|new/i.test(x.status)).length;
+  const maisAntigo=ativos.map(x=>x.criado_em).filter(Boolean).sort()[0];
+  const jn=d.janela>=1440?'24 h':(d.janela>=60?(d.janela/60)+' h':d.janela+' min');
   const kpi=(cls,l,v,s,info)=>`<div class="card kpi ${cls}"><div class="l">${l}</div><button class="panel-info" data-info="${info}" aria-label="Ajuda">!</button><div class="v">${v}</div><div class="s">${s}</div></div>`;
   $('kpis').innerHTML=
-    kpi('vivo','Em andamento',nf(andamento),`${nf(novos)} com status Novo · ${nf(d.abertosAntigos)} abertos há mais de 24 h`,'andamento')+
-    kpi('vivo','Mais antigo em andamento',andamento?idade(maisAntigo):'—','desde a abertura do chat','antigo')+
+    kpi('vivo','Ativos agora',nf(nAtivos),`${nf(novos)} com status Novo · atividade em até ${jn}`,'andamento')+
+    kpi('','Abertos (24 h)',nf(d.abertos24),`${nf(Math.max(0,d.abertos24-nAtivos))} sem atividade recente · ${nf(d.abertosAntigos)} abertos há +24 h`,'abertos')+
     kpi('','Chats hoje',nf(h.total),`${nf(h.encerrados)} encerrados`,'hoje-total')+
     kpi('','Espera média hoje',dur(h.espera_media),h.espera_p90!=null?`90% esperaram até ${dur(h.espera_p90)}`:'só chats encerrados têm o tempo','espera')+
     kpi('','Conversa média hoje',dur(h.conversa_media),'duração do atendimento','conversa');
 
-  // em andamento por grupo
+  // conversas em atendimento, agrupadas por grupo (como a tela do Movidesk)
   const porGrupo={};
-  d.vivo.forEach(x=>{ const g=porGrupo[x.grupo]=porGrupo[x.grupo]||{n:0,status:[],antigo:null}; g.n+=x.n; g.status.push(x); if(!g.antigo||new Date(x.mais_antigo)<new Date(g.antigo)) g.antigo=x.mais_antigo; });
-  const linhasVivo=Object.entries(porGrupo).sort((a,b)=>b[1].n-a[1].n);
-  $('tb-vivo').innerHTML=linhasVivo.length?`<table><thead><tr><th>Grupo</th><th>Status</th><th class="n">Chats</th><th class="n">Mais antigo</th></tr></thead><tbody>${linhasVivo.map(([g,v])=>`<tr><td>${esc(g)}</td><td>${v.status.map(s=>`<span class="chip ${/novo|new/i.test(s.status)?'novo':''}">${esc(s.status)} ${s.n}</span>`).join('')}</td><td class="n"><b>${nf(v.n)}</b></td><td class="n">${idade(v.antigo)}</td></tr>`).join('')}</tbody></table>`:'<div class="vazio">Nenhum chat em andamento nas últimas 24 horas.</div>';
+  ativos.forEach(x=>{ (porGrupo[x.grupo]=porGrupo[x.grupo]||[]).push(x); });
+  const grupos=Object.entries(porGrupo).sort((a,b)=>b[1].length-a[1].length);
+  $('tb-vivo').innerHTML=grupos.length?`<table><thead><tr><th>Ticket</th><th>Cliente</th><th>Organização</th><th>Serviço</th><th>Atendente</th><th>Aberto em</th><th class="n">Duração</th><th>Origem</th></tr></thead><tbody>`+
+    grupos.map(([g,l])=>`<tr><td colspan="8" style="background:var(--surface-low);font-weight:700;font-size:12px;color:var(--t2)">${esc(g)} · ${nf(l.length)} chat(s)</td></tr>`+
+      l.map(c=>`<tr><td>${linkTk(c.id)}</td><td>${esc(c.cliente||'—')}</td><td>${esc(c.organizacao||'—')}</td><td>${esc(c.servico||'—')}</td><td>${esc(c.atendente||'—')}</td><td>${quando(c.criado_em)}</td><td class="n" data-desde="${esc(c.criado_em)}">${idade(c.criado_em)}</td><td>${esc(c.origem??'—')}</td></tr>`).join('')).join('')+`</tbody></table>`
+    :`<div class="vazio">Nenhuma conversa ativa agora (nenhum chamado de chat Novo ou Em atendimento com atividade nos últimos ${jn}).</div>`;
+
+  const lista=(arr,vazio)=>{ if(!arr.length) return `<div class="vazio">${vazio}</div>`; const mx=Math.max(1,...arr.map(x=>x.n));
+    return `<table><tbody>${arr.map(x=>`<tr><td style="width:46%">${esc(x.nome)}</td><td><div style="height:8px;border-radius:999px;background:var(--surface-low);overflow:hidden"><div style="height:100%;width:${Math.max(3,x.n/mx*100)}%;background:var(--orange);border-radius:999px"></div></div></td><td class="n"><b>${nf(x.n)}</b></td></tr>`).join('')}</tbody></table>`; };
+  $('tb-atend').innerHTML=lista(d.porAtendente,'Nenhum chat ativo.');
+  $('tb-serv').innerHTML=lista(d.porServico,'Nenhum chat ativo.');
 
   $('tb-hoje').innerHTML=d.grupoHoje.length?`<table><thead><tr><th>Grupo</th><th class="n">Chats</th><th class="n">Encerrados</th><th class="n">Espera média</th><th class="n">Conversa média</th></tr></thead><tbody>${d.grupoHoje.map(g=>`<tr><td>${esc(g.grupo)}</td><td class="n"><b>${nf(g.total)}</b></td><td class="n">${nf(g.encerrados)}</td><td class="n">${dur(g.espera_media)}</td><td class="n">${dur(g.conversa_media)}</td></tr>`).join('')}</tbody></table>`:'<div class="vazio">Nenhum chat hoje.</div>';
 
@@ -315,6 +341,10 @@ function desenhar(){
   Object.values(charts).forEach(c=>c.destroy()); charts={};
   const horas=Array.from({length:24},(_,i)=>i);
   const mediaHora=horas.map(hh=>{ const x=d.porHora.find(y=>y.hora===hh); return x?Math.round(x.total/Math.max(1,x.dias)*10)/10:0; });
+  charts.s=new Chart($('chSnap'),{type:'line',data:{labels:d.snapshots.map(x=>new Date(x.ts).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'})),datasets:[
+      {label:'Ativos',data:d.snapshots.map(x=>x.ativos),borderColor:cor('--orange'),backgroundColor:cor('--orange'),tension:.25,pointRadius:0,borderWidth:2},
+      {label:'Abertos (24 h)',data:d.snapshots.map(x=>x.abertos),borderColor:cor('--slate'),backgroundColor:cor('--slate'),tension:.25,pointRadius:0,borderWidth:1.5,borderDash:[4,3]}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:cor('--t2'),boxWidth:10}}},scales:{y:{beginAtZero:true,grid:{color:cor('--border')},ticks:{color:cor('--t3'),precision:0}},x:{grid:{display:false},ticks:{color:cor('--t2'),maxTicksLimit:10}}}}});
   charts.h=new Chart($('chHora'),{type:'bar',data:{labels:horas.map(x=>x+'h'),datasets:[{label:'Chats por dia (média)',data:mediaHora,backgroundColor:cor('--orange'),borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:cor('--border')},ticks:{color:cor('--t3')}},x:{grid:{display:false},ticks:{color:cor('--t2')}}}}});
   charts.d=new Chart($('chDia'),{data:{labels:d.porDia.map(x=>x.dia.slice(8)+'/'+x.dia.slice(5,7)),datasets:[
@@ -329,18 +359,22 @@ function desenhar(){
 
 // ── ajuda "!" ──
 const INFO={
-  andamento:['Em andamento','Chats (chamados com widget de chat) que ainda estão abertos e foram criados nas últimas 24 horas.',['Status do chamado: Novo, Em atendimento, Em andamento ou Parado.','O status "Novo" pode indicar chat ainda sem atendente — confira no Movidesk.','Chats abertos há mais de 24 h aparecem à parte: normalmente são chamados esquecidos abertos.']],
-  antigo:['Mais antigo em andamento','Há quanto tempo está aberto o chat em andamento mais antigo (últimas 24 h).',['Idade = agora − data de abertura do chamado.']],
+  andamento:['Ativos agora','Chats que parecem estar acontecendo neste momento.',['Chamado de chat com status Novo ou Em atendimento e atividade dentro da janela escolhida.','O status "Novo" pode indicar chat ainda sem atendente — confira no Movidesk.']],
   'hoje-total':['Chats hoje','Quantidade de chats abertos hoje (horário de Brasília).',['Conta chamados com widget de chat criados no dia.','Encerrados = status Resolvido ou Fechado.']],
   espera:['Espera média','Quanto os clientes esperaram até um atendente assumir o chat.',['Média do campo chatWaitingTime dos chats de hoje que já têm o tempo.','O Movidesk só preenche o tempo quando o chat termina; o p90 mostra o tempo até o qual 90% dos clientes esperaram.','Unidade presumida: segundos.']],
   conversa:['Conversa média','Duração média dos atendimentos.',['Média do campo chatTalkTime dos chats de hoje já encerrados.','Unidade presumida: segundos.']],
-  vivo:['Em andamento por grupo','Os chats abertos nas últimas 24 h agrupados por grupo de chat e status.',['Grupo = campo chatGroup do chamado.','"Mais antigo" = há quanto tempo o chat mais antigo daquele grupo está aberto.']],
+  vivo:['Conversas em atendimento','Chats que parecem estar acontecendo agora, agrupados por grupo de chat — como na tela do Movidesk.',['Chamado de chat (tem grupo de chat) com status Novo ou Em atendimento e atividade dentro da janela escolhida (padrão 30 min).','O chamado de um chat continua aberto depois que a conversa termina; a janela de atividade evita contar esses. Se os números destoarem da tela /ChatQueue, aumente a janela.','Duração = agora − abertura do chamado (conta ao vivo).','Origem = código numérico do Movidesk (ex.: 5 e 6).']],
+  fila:['Aguardando atendimento','A fila de conversas sem atendente.',['Não há chamado enquanto o chat está na fila; a API pública do Movidesk não lista a fila. Ela só existe na tela interna /ChatQueue.','Para ter a fila aqui seria preciso um recurso do Movidesk/Zenvia (por exemplo, eventos do NLU enviados ao Hub).']],
+  atendente:['Chats ativos por atendente','Quantos chats ativos cada atendente tem agora.',['Atendente = responsável pelo chamado.','Mesma definição de ativo da tabela de conversas.']],
+  servico:['Chats ativos por serviço','Quantos chats ativos há em cada serviço do Movidesk.',['Serviço = serviço do chamado (primeiro ao último nível).']],
+  snap:['Chats ativos nas últimas 24 h','Como o número de chats ativos e abertos variou ao longo do dia.',['O Hub grava uma "foto" a cada coleta (1 min) com a quantidade de chats ativos e abertos.','Só mostra o período a partir de quando a coleta foi ligada.']],
+  abertos:['Abertos (24 h)','Chamados de chat ainda abertos que foram criados nas últimas 24 horas, ativos ou não.',['Inclui chats cuja conversa já terminou mas o chamado ainda não foi resolvido.']],
   hoje:['Hoje por grupo','Volume e tempos de hoje em cada grupo de chat.',['Espera e conversa médias consideram só os chats que já têm o tempo preenchido.']],
   hora:['Chats por hora do dia','Em quais horários chegam mais chats.',['Total de chats em cada hora ÷ número de dias do período com chats naquela hora (horário de Brasília).']],
   dia:['Chats por dia e espera média','Volume diário (barras) e espera média em minutos (linha).',['Espera média diária = média de chatWaitingTime dos chats do dia.']],
   recentes:['Últimos chats','Os 40 chats mais recentes guardados pelo Hub.',['Tempos em branco: o chat ainda não terminou ou o Movidesk não informou.']]
 };
-function abrirInfo(k){ const i=INFO[k]; if(!i) return; $('modal-corpo').innerHTML=`<h3>${esc(i[0])}</h3><h4>O que é</h4><p>${esc(i[1])}</p><h4>Como é calculado</h4><ul>${i[2].map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Origem dos dados</h4><p>Chamados do Movidesk com o campo de chat preenchido, copiados para o Hub a cada 2 minutos.</p>`; $('modal').classList.add('show'); }
+function abrirInfo(k){ const i=INFO[k]; if(!i) return; $('modal-corpo').innerHTML=`<h3>${esc(i[0])}</h3><h4>O que é</h4><p>${esc(i[1])}</p><h4>Como é calculado</h4><ul>${i[2].map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Origem dos dados</h4><p>Chamados do Movidesk com o campo de chat preenchido, copiados para o Hub a cada minuto.</p>`; $('modal').classList.add('show'); }
 function fecharInfo(){ $('modal').classList.remove('show'); }
 document.addEventListener('click',e=>{ const b=e.target.closest('.panel-info'); if(b){ abrirInfo(b.dataset.info); } else if(e.target===$('modal')) fecharInfo(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharInfo(); });
@@ -348,10 +382,8 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharInfo(); });
 carregar();
 setInterval(carregar,30000);
 setInterval(()=>{ if(D) desenharIdades(); },1000);
-function desenharIdades(){ /* atualiza só as idades ao vivo sem refazer os gráficos */
-  if(!D) return;
-  const maisAntigo=D.vivo.map(x=>x.mais_antigo).filter(Boolean).sort()[0];
-  const k=document.querySelector('[data-info="antigo"]'); if(k&&maisAntigo){ const v=k.parentElement.querySelector('.v'); if(v) v.textContent=idade(maisAntigo); }
+function desenharIdades(){ /* atualiza as durações ao vivo sem refazer a tela */
+  document.querySelectorAll('td[data-desde]').forEach(td=>{ td.textContent=idade(td.dataset.desde); });
 }
 </script>
 <script src="/js/telemetria.js"></script>

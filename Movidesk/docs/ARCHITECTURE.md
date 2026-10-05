@@ -278,8 +278,11 @@ com foco e interação nos últimos 60 s). Os lotes vão a `POST /api/telemetria
   dicionário de `server/data/temas-chamados.json` (o mesmo dos Temas do Painel Geral). Sem tema no texto, vale o campo (Módulo/Rotina ou Causa); sem nada, "Sem motivo identificado". Cache em memória de 6 h.
 
 ## Chats (acompanhamento quase em tempo real)
-Cada atendimento de chat é um chamado do Movidesk com `chatWidget`/`chatGroup` preenchidos. `server/routes/chats.js` copia só esses chamados para `public.hub_chat` (tabela criada no primeiro uso; a carga
-principal em `silver.*` não é tocada): a cada 2 min (desligável com `CHATS_SYNC=0`) busca `chatWidget ne null and lastUpdate ge <última coleta - 10 min>` na API e faz upsert. `POST /api/chats/sincronizar {dias}`
-(admin) reprocessa os últimos N dias em segundo plano. `GET /api/chats/resumo?dias=` (permissão da aba `movidesk`) alimenta `pages/chats.html` (sub-aba "Chats" ao lado de Painel Geral/Satisfação), que se
-atualiza a cada 30 s: em andamento (abertos criados nas últimas 24 h) por grupo/status, hoje por grupo, chats por hora e por dia, últimos chats. `chatTalkTime`/`chatWaitingTime` só vêm preenchidos quando o chat
-termina e a unidade assumida é segundos (conferir com um chat conhecido). O diagnóstico em Configurações → Movidesk (`GET /api/geral/chat-diagnostico`) mostra o que a API devolve para os campos de chat.
+Um chamado é de chat quando tem **`chatGroup`** (o `chatWidget` só existe nos chats do site; os do WhatsApp/NLU vêm com grupo e sem widget). `server/routes/chats.js` copia esses chamados para
+`public.hub_chat` (criada no primeiro uso; a carga principal em `silver.*` não é tocada). A cada 60 s (`CHATS_INTERVALO_S`; desligável com `CHATS_SYNC=0`) faz duas buscas na API com `$expand=owner,clients`:
+os alterados desde a última coleta (`lastUpdate ge …`, com folga de 10 min) e todos os ainda abertos dos últimos 7 dias. Depois grava uma foto em `public.hub_chat_snapshot` (ativos/abertos por grupo,
+`*` = total; 90 dias). `POST /api/chats/sincronizar {dias}` (admin) reprocessa o histórico. **Ativo** = `baseStatus` Novo ou Em atendimento **e** `lastUpdate` dentro de uma janela (padrão 30 min,
+`CHATS_JANELA_ATIVO_MIN`; seletor na tela), porque o chamado de um chat continua aberto depois da conversa. `GET /api/chats/resumo?dias=&janela=` alimenta `pages/chats.html`: conversas em atendimento
+(ticket, cliente, organização, serviço, atendente, duração, origem), por atendente e por serviço, histórico de 24 h, hoje por grupo, por hora e por dia. A **fila de espera**, a posição, o tempo na fila e os
+agentes online só existem na tela interna `/ChatQueue` e não estão na API pública. `chatTalkTime`/`chatWaitingTime` só vêm preenchidos quando o chat termina; unidade assumida: segundos.
+O diagnóstico em Configurações → Movidesk (`GET /api/geral/chat-diagnostico`) mostra o que a API devolve para os campos de chat.

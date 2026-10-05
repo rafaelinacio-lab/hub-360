@@ -205,7 +205,7 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
     try { amostra = await buscar(''); } catch (e) { erros.push(`Amostra geral: ${e.message}`); }
     // 2) chamados que têm widget de chat preenchido (os de chat de verdade)
     let chats = [];
-    try { chats = await buscar(`&$filter=${encodeURIComponent('chatWidget ne null')}`); } catch (e) { erros.push(`Filtro por chat: ${e.message}`); }
+    try { chats = await buscar(`&$filter=${encodeURIComponent('chatGroup ne null')}`); } catch (e) { erros.push(`Filtro por grupo de chat: ${e.message}`); }
     const porOrigem = {};
     amostra.forEach((t) => { const k = String(t.origin ?? 'sem origem'); porOrigem[k] = (porOrigem[k] || 0) + 1; });
     const conta = (lista, campo) => lista.filter((t) => preenchido(t[campo])).length;
@@ -220,7 +220,7 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
         origens: [...new Set(chats.map((t) => String(t.origin ?? 'sem origem')))],
         grupos: [...new Set(chats.map((t) => t.chatGroup).filter(preenchido))].slice(0, 20),
         widgets: [...new Set(chats.map((t) => t.chatWidget).filter(preenchido))].slice(0, 20),
-        comGrupo: conta(chats, 'chatGroup'), comTempoConversa: conta(chats, 'chatTalkTime'), comTempoEspera: conta(chats, 'chatWaitingTime'),
+        comWidget: conta(chats, 'chatWidget'), comGrupo: conta(chats, 'chatGroup'), comTempoConversa: conta(chats, 'chatTalkTime'), comTempoEspera: conta(chats, 'chatWaitingTime'),
         maisRecente: chats[0] ? chats[0].createdDate : null,
         exemplos: chats.slice(0, 5).map((t) => ({ id: t.id, criado: t.createdDate, status: t.baseStatus, grupo: t.chatGroup || null, widget: t.chatWidget || null,
           conversa: t.chatTalkTime ?? null, espera: t.chatWaitingTime ?? null })),
