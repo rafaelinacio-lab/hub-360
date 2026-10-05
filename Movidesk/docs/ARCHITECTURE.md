@@ -287,3 +287,7 @@ chamado quase não é atualizado, então `lastUpdate` recente NÃO serve: o prim
 (ticket, cliente, organização, serviço, atendente, duração, origem), por atendente e por serviço, histórico de 24 h, hoje por grupo, por hora e por dia. A **fila de espera**, a posição, o tempo na fila e os
 agentes online só existem na tela interna `/ChatQueue` e não estão na API pública. `chatTalkTime`/`chatWaitingTime` só vêm preenchidos quando o chat termina; unidade assumida: segundos.
 O diagnóstico em Configurações → Movidesk (`GET /api/geral/chat-diagnostico`) mostra o que a API devolve para os campos de chat.
+
+Limite conhecido (medido em 05/10/2026): a API pública não devolve os chamados dos chats AINDA EM ATENDIMENTO que aparecem em /ChatQueue (nem por `?id=` nem por `$filter=id eq N`); só os de conversas já encerradas, que chegam com
+`chatTalkTime`/`chatWaitingTime`. Por isso o painel Chats mostra volume, espera e duração dos chats encerrados, e NÃO a fila nem as conversas em andamento. Para tempo real de verdade seria preciso um recurso
+fora da API de tickets (eventos do Zenvia NLU enviados ao Hub, ou um endpoint de chat do Movidesk).
