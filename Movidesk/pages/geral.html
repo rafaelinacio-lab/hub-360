@@ -1499,6 +1499,7 @@ function render(){
   renderRespChart(rowsFull);
   renderEquipesVencidoTable(pendentesRows);
   renderSlaUrgChart(resolvidosComPrazo);
+  igualarAlturaGrid();
 }
 
 // ── cores (tokens do tema) ──────────────────────────────────────────
@@ -1534,12 +1535,28 @@ function chartClickHandler(titlePrefix,filterFn){
 // Barras lado a lado (abertos e resolvidos de cada categoria), com o valor no fim
 // de cada barra. A altura do gráfico cresce com o número de categorias pra as
 // barras não ficarem espremidas.
+// Gráficos lado a lado (grid-2) com alturas diferentes deixavam um card com
+// espaço sobrando: iguala a altura de todos os gráficos da mesma linha à do maior.
+function igualarAlturaGrid(){
+  document.querySelectorAll('.grid-2').forEach(g=>{
+    const wraps=[...g.querySelectorAll(':scope > .chart-panel > .chart-wrap')];
+    if(wraps.length<2) return;
+    const base=w=>parseFloat(w.dataset.h0||(w.dataset.h0=parseFloat(w.style.height)||0));
+    const max=Math.max(...wraps.map(base));
+    wraps.forEach(w=>{
+      w.style.height=max+'px';
+      const ch=Object.values(_charts).find(c=>c&&c.canvas&&c.canvas.parentElement===w);
+      if(ch) ch.resize();
+    });
+  });
+}
+
 function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePrefix){
   destroyChart(id);
   const col=chartColors();
   const cv=document.getElementById(id);
   const wrap=cv.parentElement;
-  if(wrap) wrap.style.height=Math.max(210,labels.length*38+56)+'px';
+  if(wrap){ const h=Math.max(210,labels.length*38+56); wrap.style.height=h+'px'; wrap.dataset.h0=h; }
   const valores={
     id:'valoresBarras',
     afterDatasetsDraw(chart){
