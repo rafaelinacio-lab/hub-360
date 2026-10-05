@@ -5760,3 +5760,27 @@ body.legacy-view-mode #embeddedPagesView {
 .aia-barra.aia-sujo #aiaBarraTxt { color: #b45309; font-weight: 600; }
 .aia-barra .config-btn:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 760px) { .aia-corpo { grid-template-columns: 1fr; } }
+
+/* ===== Telemetria (Configurações) ===== */
+.tel-filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 10px; }
+.tel-filtros label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted, #8b93a7); }
+.tel-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+.tel-kpi { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.tel-kpi span { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #8b93a7); }
+.tel-kpi b { display: block; margin-top: 4px; font-size: 24px; color: var(--text); }
+.tel-scroll { overflow-x: auto; }
+.tel-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tel-tabela th { text-align: left; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted, #8b93a7); padding: 8px; border-bottom: 1px solid var(--border); }
+.tel-tabela td { padding: 9px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+.tel-tabela small { color: var(--muted, #8b93a7); }
+.tel-tabela .n { text-align: right; font-variant-numeric: tabular-nums; }
+.tel-barra { height: 8px; border-radius: 999px; background: rgba(148, 163, 184, .18); overflow: hidden; }
+.tel-barra i { display: block; height: 100%; border-radius: 999px; background: var(--topbar-accent, #fb923c); }
+.tel-vazio { margin: 10px 0 0; color: var(--muted, #8b93a7); font-size: 13px; }
+.tel-heat { display: grid; grid-template-columns: 34px repeat(24, minmax(10px, 1fr)); gap: 3px; align-items: center; }
+.tel-heat small { font-size: 10px; text-align: center; color: var(--muted, #8b93a7); }
+.tel-heat i { display: block; aspect-ratio: 1 / 1; border-radius: 3px; background: var(--topbar-accent, #fb923c); }
+.tel-serie { display: flex; align-items: flex-end; gap: 3px; height: 150px; overflow-x: auto; padding-top: 6px; }
+.tel-serie > div { flex: 1 0 14px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.tel-serie i { display: block; width: 100%; border-radius: 3px 3px 0 0; background: var(--topbar-accent, #fb923c); }
+.tel-serie small { font-size: 9px; color: var(--muted, #8b93a7); writing-mode: vertical-rl; transform: rotate(180deg); }

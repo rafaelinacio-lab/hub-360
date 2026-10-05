@@ -265,3 +265,9 @@ Reincidências — visão geral (regra no banco, sem IA, `GET /api/reincidencias
 Reincidências — visão geral: chamado reincidente = veredito da IA sobre contexto e ações (não o módulo) em `public.reincidencia_par`; ver o parágrafo "Visão geral" da seção de Reincidências. Tudo é clicável:
 `GET /geral/chamados?tipo=kpi|motivo|cliente|equipe|ano|mes&valor=…` (mesmos filtros e mesma CTE `GERAL_CTE`) lista os chamados por trás de cada número
 numa gaveta dentro da própria aba, com link para o Movidesk, o chamado anterior e a explicação da IA.
+## Telemetria de uso
+Quem usa o Hub, o quê, quando e quantos cliques. Coleta em `js/telemetria.js` (incluído em `index.html` e em cada `pages/*.html`): clique (só o RÓTULO do botão/link/aba — nunca texto
+digitado, valores de campos nem conteúdo de linhas; números longos viram `#`), `view` (troca de aba do menu, só no shell), `pagina` (tela carregada) e `ativo` (30 s de uso: aba visível,
+com foco e interação nos últimos 60 s). Os lotes vão a `POST /api/telemetria/eventos` (rate limit 60/min) e o servidor grava o usuário SEMPRE pela sessão em `public.hub_telemetria`
+(criada no primeiro uso; retenção de 180 dias, expurgo diário). O relatório é `GET /api/telemetria/resumo?dias=&usuario=` (só admin), exibido em Configurações → Telemetria
+(usuários, abas, controles mais clicados, mapa dia × hora em horário de Brasília, dia a dia e quem não acessou).

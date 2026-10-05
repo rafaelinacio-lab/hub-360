@@ -882,6 +882,7 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') { loadTabPermissionsConfig(); loadVerticalAliases(); }
+    if (tab === 'telemetria') loadTelemetria();
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba
         const btnFull   = document.getElementById('dlBtnFull');
@@ -3457,4 +3458,94 @@ async function saveVerticalAliases() {
         document.getElementById('cfgVertAliases').value = d.texto || '';
         setCfgStatus('cfgVertAliasesStatus', 'Equivalências salvas. Valem para o próximo carregamento do GCC e da Satisfação.', 'ok');
     } catch (e) { setCfgStatus('cfgVertAliasesStatus', `Erro ao salvar: ${e.message}`, 'error'); }
+}
+
+// ── Telemetria: uso do Hub 360 (quem, o quê, quando, quantos cliques) ─────────
+const TEL_DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+function telEsc(v) { return String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function telTempo(seg) {
+    const s = Number(seg) || 0;
+    if (s < 60) return s ? `${s}s` : '—';
+    const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+    return h ? `${h}h ${String(m).padStart(2, '0')}min` : `${m}min`;
+}
+function telQuando(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+    const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (dias <= 0 && new Date().getDate() === d.getDate()) return `hoje ${hora}`;
+    return `${d.toLocaleDateString('pt-BR')} ${hora}`;
+}
+const telN = (n) => (Number(n) || 0).toLocaleString('pt-BR');
+
+async function loadTelemetria() {
+    const corpo = document.getElementById('telCorpo');
+    const status = document.getElementById('telStatus');
+    if (!corpo) return;
+    const dias = document.getElementById('telDias').value;
+    const selUser = document.getElementById('telUsuario');
+    const usuario = selUser.value;
+    status.textContent = 'Carregando…';
+    try {
+        const r = await fetch(`${API_BASE}/telemetria/resumo?dias=${encodeURIComponent(dias)}${usuario ? `&usuario=${encodeURIComponent(usuario)}` : ''}`, { headers: authHeaders() });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        status.textContent = '';
+
+        // lista de usuários do filtro (preserva a seleção)
+        if (selUser.options.length <= 1 && d.listaUsuarios) {
+            selUser.innerHTML = '<option value="">Todos</option>' + d.listaUsuarios.map((u) => `<option value="${u.id}">${telEsc(u.name)}</option>`).join('');
+            selUser.value = usuario;
+        }
+
+        const k = d.kpi || {};
+        const cards = [
+            ['Usuários ativos', telN(k.usuarios)], ['Acessos a abas', telN(k.acessos)], ['Cliques', telN(k.cliques)],
+            ['Tempo ativo total', telTempo(k.seg_ativos)], ['Sessões', telN(k.sessoes)],
+            ['Cliques por acesso', k.acessos ? (k.cliques / k.acessos).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'],
+        ];
+        const kpis = `<div class="tel-kpis">${cards.map(([l, v]) => `<div class="tel-kpi"><span>${l}</span><b>${v}</b></div>`).join('')}</div>`;
+
+        const tUsuarios = `<div class="config-card"><h3 class="config-card-title">Quem mais usa</h3>
+            ${d.usuarios.length ? `<div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>#</th><th>Usuário</th><th class="n">Acessos</th><th class="n">Cliques</th><th class="n">Tempo ativo</th><th class="n">Dias ativos</th><th>Aba mais usada</th><th>Último acesso</th></tr></thead><tbody>
+            ${d.usuarios.map((u, i) => `<tr><td>${i + 1}</td><td><b>${telEsc(u.nome)}</b><br><small>${telEsc(u.email || '')}</small></td><td class="n">${telN(u.acessos)}</td><td class="n">${telN(u.cliques)}</td><td class="n">${telTempo(u.seg_ativos)}</td><td class="n">${telN(u.dias_ativos)}</td><td>${telEsc(u.aba_top || '—')}</td><td>${telQuando(u.ultima)}</td></tr>`).join('')}
+            </tbody></table></div>` : '<p class="tel-vazio">Nenhum uso registrado neste período.</p>'}</div>`;
+
+        const maxC = Math.max(1, ...d.abas.map((a) => a.cliques));
+        const tAbas = `<div class="config-card"><h3 class="config-card-title">O que mais usam (por aba)</h3>
+            ${d.abas.length ? `<div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>Aba</th><th class="n">Acessos</th><th class="n">Cliques</th><th class="n">Usuários</th><th class="n">Tempo ativo</th><th style="width:30%"></th></tr></thead><tbody>
+            ${d.abas.map((a) => `<tr><td><b>${telEsc(a.aba)}</b></td><td class="n">${telN(a.acessos)}</td><td class="n">${telN(a.cliques)}</td><td class="n">${telN(a.usuarios)}</td><td class="n">${telTempo(a.seg_ativos)}</td><td><div class="tel-barra"><i style="width:${Math.max(2, a.cliques / maxC * 100)}%"></i></div></td></tr>`).join('')}
+            </tbody></table></div>` : '<p class="tel-vazio">Sem dados.</p>'}</div>`;
+
+        const tAlvos = `<div class="config-card"><h3 class="config-card-title">Botões e controles mais clicados</h3>
+            ${d.alvos.length ? `<div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>Controle</th><th>Aba</th><th class="n">Cliques</th><th class="n">Usuários</th></tr></thead><tbody>
+            ${d.alvos.map((a) => `<tr><td>${telEsc(a.alvo)}</td><td>${telEsc(a.aba)}</td><td class="n">${telN(a.cliques)}</td><td class="n">${telN(a.usuarios)}</td></tr>`).join('')}
+            </tbody></table></div>` : '<p class="tel-vazio">Sem cliques registrados.</p>'}</div>`;
+
+        // mapa de calor: dia da semana x hora (horário de Brasília)
+        const grade = Array.from({ length: 7 }, () => Array(24).fill(0));
+        let maxH = 1;
+        d.heat.forEach((h) => { grade[h.dow][h.hora] = h.n; maxH = Math.max(maxH, h.n); });
+        const heat = `<div class="config-card"><h3 class="config-card-title">Quando usam (dia da semana × hora)</h3>
+            <p class="config-card-help">Visitas + cliques, horário de Brasília. Mais escuro = mais uso.</p>
+            <div class="tel-heat"><div></div>${Array.from({ length: 24 }, (_, h) => `<small>${h}</small>`).join('')}
+            ${grade.map((linha, dow) => `<small>${TEL_DIAS_SEMANA[dow]}</small>${linha.map((n, h) => `<i title="${TEL_DIAS_SEMANA[dow]} ${h}h: ${telN(n)}" style="opacity:${n ? (0.15 + 0.85 * n / maxH).toFixed(2) : 0.06}"></i>`).join('')}`).join('')}
+            </div></div>`;
+
+        const maxS = Math.max(1, ...d.serie.map((x) => x.cliques + x.acessos));
+        const serie = `<div class="config-card"><h3 class="config-card-title">Dia a dia</h3>
+            ${d.serie.length ? `<div class="tel-serie">${d.serie.map((x) => `<div title="${new Date(x.dia).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}: ${telN(x.usuarios)} usuário(s), ${telN(x.acessos)} acessos, ${telN(x.cliques)} cliques"><i style="height:${Math.max(3, (x.cliques + x.acessos) / maxS * 100)}%"></i><small>${new Date(x.dia).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })}</small></div>`).join('')}</div>` : '<p class="tel-vazio">Sem dados.</p>'}</div>`;
+
+        const sem = d.semAcesso && d.semAcesso.length
+            ? `<div class="config-card"><h3 class="config-card-title">Sem nenhum acesso no período (${d.semAcesso.length})</h3>
+               <div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>Usuário</th><th>E-mail</th><th>Último login</th></tr></thead><tbody>
+               ${d.semAcesso.map((u) => `<tr><td>${telEsc(u.name)}</td><td>${telEsc(u.email)}</td><td>${telQuando(u.last_login)}</td></tr>`).join('')}
+               </tbody></table></div></div>` : '';
+
+        corpo.innerHTML = kpis + tUsuarios + tAbas + tAlvos + heat + serie + sem;
+    } catch (e) {
+        status.textContent = `Não foi possível carregar a telemetria: ${e.message}`;
+        status.className = 'config-status error';
+    }
 }

@@ -246,6 +246,9 @@
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
+                    <button class="cfg-tab-btn" data-tab="telemetria" onclick="switchConfigTab('telemetria')">
+                        <span class="material-symbols-outlined">monitoring</span> Telemetria
+                    </button>
                     <button class="cfg-tab-btn" data-tab="datalake" onclick="switchConfigTab('datalake')">
                         <span class="material-symbols-outlined">database</span> Carga Datalake
                     </button>
@@ -800,6 +803,31 @@
                         <div class="config-actions"><button class="config-btn" onclick="saveVerticalAliases()">Salvar equivalências</button></div>
                         <div id="cfgVertAliasesStatus" class="config-status"></div>
                     </div>
+                </div>
+
+                <!-- ABA: Telemetria -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-telemetria">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Uso do Hub 360</h3>
+                        <p class="config-card-help">Quem mais usa, o que abre, quando e quantos cliques dá. São registrados o nome da aba/tela e o rótulo dos botões clicados — nunca o que é digitado nem o conteúdo dos chamados. Os dados ficam 180 dias e só administradores veem esta tela.</p>
+                        <div class="tel-filtros">
+                            <label>Período
+                                <select id="telDias" class="config-input" onchange="loadTelemetria()">
+                                    <option value="1">Hoje</option>
+                                    <option value="7">Últimos 7 dias</option>
+                                    <option value="30" selected>Últimos 30 dias</option>
+                                    <option value="90">Últimos 90 dias</option>
+                                    <option value="180">Últimos 180 dias</option>
+                                </select>
+                            </label>
+                            <label>Usuário
+                                <select id="telUsuario" class="config-input" onchange="loadTelemetria()"><option value="">Todos</option></select>
+                            </label>
+                            <button class="config-btn" onclick="loadTelemetria()">Atualizar</button>
+                        </div>
+                        <div id="telStatus" class="config-status"></div>
+                    </div>
+                    <div id="telCorpo"></div>
                 </div>
 
                 <!-- ABA: Carga Datalake -->
@@ -1732,6 +1760,7 @@
             }
         })();
     </script>
+    <script src="js/telemetria.js"></script>
     <script src="js/ticket-analyzer.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/dashboard.js"></script>

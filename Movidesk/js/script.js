@@ -462,6 +462,7 @@ let _cachedTickets = [];
 function navigateTo(view) {
     // Normaliza para evitar bugs com acentos ou espaços vindos de data-view
     const normalizedView = (view || '').trim().toLowerCase();
+    if (window.Telemetria) window.Telemetria.view(normalizedView);
 
     if (EMBED_MODE) {
         if (normalizedView === 'configuracoes' && !isCurrentUserAdmin()) {
