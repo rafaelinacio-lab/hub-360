@@ -249,6 +249,7 @@ Um usuário pode participar de **várias verticais**: `users.vertical` guarda a 
 `verticalScope.listaVerticais`/`escopoVertical`, `escopoEquipe` (Dashboard) e o filtro de supervisor em `tickets.js` aceitam a lista. Valores antigos (uma só vertical) continuam válidos.
 
 Sub-abas do Movidesk em Configurações → Acesso: `movidesk` (Painel Geral), `satisfacao` e `paineltv` (Painel TV). As duas últimas só valem com `movidesk` marcado
+Painel Geral (`pages/geral.html`): filtros multi-seleção por equipe, responsável, serviço, **cliente** (com busca), classificação, status, ano e mês, todos aplicados no navegador sobre `_rows`/`_rowsPendentesAll`. Todo card e gráfico tem uma seta de expansão (`EXPANSOES`/`abrirExpansao`) que abre os chamados por trás do número, respeitando os filtros; o modal desenha no máximo 1000 linhas (o resto: filtrar ou Exportar).
 (a tela desabilita). `GET /api/config/minhas-abas` entrega as abas liberadas ao usuário e `geral.html`/`satisfacao.html` escondem as sub-abas sem acesso;
 `/api/geral/pendentes` (Painel TV) exige `paineltv`. Configurações salvas antes (sem `__versao: 2`) ganham `paineltv` automaticamente onde já havia `movidesk`.
 Satisfação: cada linha traz `vertical` (1º nível do serviço), há filtro de Vertical e o escopo por perfil segue a mesma lógica do GCC.
