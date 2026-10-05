@@ -297,12 +297,13 @@ input,select{font-family:inherit}
 .dtable .empty-row td{color:var(--t3);text-align:center;padding:22px 8px;font-size:12.5px}
 
 .data-panel.danger{border-color:var(--orange-bd)}
-/* seta de expansão nos cards: abre a lista de chamados por trás do número/gráfico */
+/* seta de expansão discreta (mesmo padrão de Ouvidoria e GCC): fica na linha do título e só ganha contorno no hover */
+.panel-title-exp{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.panel-expand{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--t3);cursor:pointer;padding:0}
+.panel-expand .sym{font-size:16px}
+.panel-expand:hover,.panel-expand:focus-visible{color:var(--t1);border-color:var(--border);background:var(--surface-mid)}
+.panel-expand.solta{position:absolute;top:8px;right:10px;z-index:2}
 .stat-card,.chart-panel,.data-panel{position:relative}
-.expand-btn{position:absolute;top:10px;right:10px;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--t3);cursor:pointer;padding:0;z-index:2}
-.expand-btn:hover,.expand-btn:focus-visible{color:var(--t1);border-color:var(--border-hi);background:var(--surface-mid)}
-.expand-btn .sym{font-size:17px}
 
 
 /* clique nas barras/segmentos dos gráficos abre um modal de detalhe */
@@ -1716,11 +1717,13 @@ function abrirExpansao(chave){
     'classChart':'classe','trendVolChart':'tendencia','agingChart':'aging','teamChart':'equipe','urgChart':'urgencia','clientChart':'topclientes','respChart':'topresp','tbl-equipes-vencido':'equipesven',
     'k-reabertura':'reabertura','k-fcr':'fcr','slaUrgChart':'slaurg'};
   Object.entries(mapa).forEach(([id,chave])=>{
-    const el=document.getElementById(id); const card=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(!card||card.querySelector('.expand-btn')) return;
-    const b=document.createElement('button'); b.type='button'; b.className='expand-btn'; b.title='Ver os chamados'; b.setAttribute('aria-label','Ver os chamados deste card');
+    const el=document.getElementById(id); const card=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(!card||card.querySelector('.panel-expand')) return;
+    const b=document.createElement('button'); b.type='button'; b.className='panel-expand'; b.title='Expandir'; b.setAttribute('aria-label','Expandir: ver os chamados deste card');
     b.innerHTML='<span class="sym">open_in_full</span>';
     b.addEventListener('click',ev=>{ ev.stopPropagation(); abrirExpansao(chave); });
-    card.appendChild(b);
+    const titulo=card.querySelector('.chart-title,.panel-title,.label');
+    if(titulo){ titulo.classList.add('panel-title-exp'); titulo.appendChild(b); }
+    else { b.classList.add('solta'); card.appendChild(b); }
   });
 })();
 
