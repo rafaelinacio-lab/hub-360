@@ -267,6 +267,20 @@ input,select{font-family:inherit}
 .sl-nota{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;padding:9px 14px;border:1px solid var(--border);border-radius:10px;font-size:11px;color:var(--t3)}
 .sl-nota i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
 
+/* botão "!" de ajuda em cada card + modal explicativo */
+.panel-acoes{display:inline-flex;align-items:center;gap:4px;flex:none}
+.panel-info{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;
+  border:1.5px solid var(--t3);background:transparent;color:var(--t3);cursor:pointer;padding:0;
+  font:800 12px/1 system-ui,sans-serif;transition:color .15s,border-color .15s,background .15s;
+}
+.panel-info:hover,.panel-info:focus-visible{color:var(--orange);border-color:var(--orange);background:var(--surface-mid);outline:none}
+.panel-info.solta{position:absolute;top:10px;right:42px;z-index:2}
+.info-box h4{margin:14px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.info-box p,.info-box li{font-size:13px;line-height:1.55;color:var(--t1);margin:0 0 6px}
+.info-box ul{margin:0;padding-left:18px}
+.info-box .info-obs{margin-top:12px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-low);font-size:12px;color:var(--t2)}
+
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -803,6 +817,19 @@ body.modal-open{overflow:hidden}
         Abrir no Movidesk
       </a>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="info-modal" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-head">
+      <div>
+        <h3 id="info-modal-title">Sobre este indicador</h3>
+        <p>O que é e como é calculado</p>
+      </div>
+      <button class="modal-close" id="info-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body info-box" id="info-modal-body"></div>
   </div>
 </div>
 
@@ -2365,6 +2392,117 @@ function abrirExpansao(chave){
   });
 })();
 
+// ── Ajuda "!" em cada card: o que é e como é calculado ────────────────
+const FILTROS_TXT='Respeita os filtros do topo (equipe, responsável, cliente, serviço, classificação, status, ano e mês).';
+const INFO_CARDS={
+  'k-abertos':{t:'Tickets abertos',
+    o:'Quantidade de tickets criados no período.',
+    c:['Conta os tickets cuja data de criação cai no Ano/Mês filtrados — estejam ainda em aberto ou já resolvidos.','Tickets cancelados ficam de fora.','Só entram tickets a partir do ano inicial da janela de dados carregada.'],
+    obs:FILTROS_TXT},
+  'k-resolvidos':{t:'Tickets resolvidos',
+    o:'Quantidade de tickets com status finalizado no período.',
+    c:['Status Resolvido ou Fechado (Resolved/Closed).','O Ano/Mês vale para a data de RESOLUÇÃO, não a de abertura: um ticket aberto em 2025 e resolvido em 2026 conta como resolvido de 2026.','Taxa de resolução (legenda) = resolvidos ÷ tickets abertos do período. Pode passar de 100% quando se resolvem tickets criados antes do período.'],
+    obs:FILTROS_TXT},
+  'k-media-acoes':{t:'Média de ações por ticket',
+    o:'Quantas trocas (ações) cada ticket teve, em média.',
+    c:['Soma de todas as ações dos tickets criados no período (públicas e notas internas) ÷ número de tickets abertos no período.']},
+  'k-clientes':{t:'Clientes únicos',
+    o:'Quantidade de organizações diferentes que abriram tickets no período.',
+    c:['Conta organizações distintas entre os tickets criados no período (pelo cadastro de organização do ticket).','Tickets sem organização não entram na contagem.']},
+  'k-pendentes':{t:'Tickets pendentes',
+    o:'Tickets que ainda estão em aberto.',
+    c:['Todo ticket que não está finalizado (Resolvido/Fechado) nem cancelado.','Sem Ano/Mês filtrado, mostra o backlog real de todos os anos. Com Ano/Mês, mostra os abertos naquele período que ainda estão pendentes.','Clique no card para ver a lista.'],
+    obs:FILTROS_TXT},
+  'k-sla-cumprido':{t:'SLA cumprido (resolvidos)',
+    o:'Percentual de tickets resolvidos dentro do prazo de solução do Movidesk.',
+    c:['Considera só tickets resolvidos no período que tinham prazo de solução definido.','Cumprido = data de resolução menor ou igual ao prazo de solução.','% = cumpridos ÷ resolvidos com prazo. Tickets sem prazo ficam de fora.']},
+  'k-backlog-vencido':{t:'Backlog já vencido',
+    o:'Tickets pendentes cujo prazo de SLA já passou.',
+    c:['Pendente com prazo de solução definido e prazo anterior ao momento atual.','A legenda mostra o % em relação ao total de pendentes.','Clique no card para ver a lista.']},
+  'k-reabertura':{t:'Taxa de reabertura',
+    o:'Quanto das resoluções voltou a ser reaberto.',
+    c:['Tickets resolvidos no período que têm data de reabertura ÷ total de resolvidos no período.']},
+  'k-fcr':{t:'Resolução no 1º contato (FCR)',
+    o:'Percentual de tickets resolvidos com uma única resposta ao cliente.',
+    c:['Resolvidos no período com exatamente 1 ação pública (visível ao cliente) ÷ total de resolvidos.','Notas internas não entram na conta.']},
+  'classChart':{t:'Classificação — ranking abertos x fechados',
+    o:'As 10 classificações com mais tickets.',
+    c:['Usa o campo customizado de classificação do ticket; sem valor aparece como "Não classificado".','Barra cinza = tickets criados no período; barra laranja = desses, quantos já estão resolvidos.','Clique numa barra para ver os tickets.']},
+  'trendVolChart':{t:'Evolução mensal: abertos vs resolvidos',
+    o:'Quantos tickets entraram e quantos foram resolvidos em cada mês.',
+    c:['Abertos = tickets criados no mês (data de criação).','Resolvidos = tickets finalizados no mês (data de resolução).','Período: o ano filtrado (de janeiro em diante) ou os últimos 12 meses com dados.','O tooltip compara cada série com o mês anterior (valor, variação em % e em tickets) e mostra o saldo do mês e a taxa de resolução (resolvidos ÷ abertos).','Clique num ponto para ver os tickets.']},
+  'fluxoChart':{t:'Fluxo global — evolução mensal de tickets',
+    o:'Entradas, encerramentos e carteira acumulada mês a mês.',
+    c:['Abertos = criados no mês; Fechados = resolvidos no mês.','Saldo acumulado = carteira: tickets criados até o fim do mês e ainda não resolvidos naquela data (inclui os abertos antes do período exibido).','Clique num ponto para ver os tickets daquela série e mês.']},
+  'urgTrendChart':{t:'Evolução mensal por urgência',
+    o:'Volume de tickets abertos em cada mês, separado por urgência.',
+    c:['Uma linha por urgência (Crítica, Alta, Média, Baixa) com os tickets criados no mês.','Tickets sem uma dessas quatro urgências não aparecem.','O tooltip compara cada urgência com o mês anterior (tickets e %).']},
+  'sla-evo-panel':{t:'Evolução mensal do atingimento do SLA',
+    o:'Percentual de tickets resolvidos dentro da meta da própria urgência, mês a mês.',
+    c:['Tempo de solução líquido = da abertura à resolução, só em horário útil (seg-sex, 07:45-12:00 e 13:30-18:00) e sem o tempo parado (aguardando cliente/terceiro/validação e em atendimento - desenvolvimento).','Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Elegíveis = tickets resolvidos no mês com urgência Crítica/Alta/Média/Baixa.','% do mês = elegíveis dentro da meta ÷ elegíveis do mês.','Cartão "Último mês" mostra a variação em pontos percentuais (pp) contra o mês anterior com dados. Clique num ponto para ver os tickets fora da meta.']},
+  'impacto-panel':{t:'Impacto mensal de SLA por ticket',
+    o:'Quais tickets mais puxaram a média de tempo de solução para cima ou para baixo.',
+    c:['Usa o tempo de solução líquido (horas úteis, sem pausas) dos tickets resolvidos no período filtrado.','Impacto = média do período com todos os tickets − média sem aquele ticket. Positivo elevou o tempo médio; negativo reduziu.','As tabelas mostram os 10 maiores impactos em cada direção, com o tempo, a meta da urgência e o impacto em horas.'],
+    obs:'Segue os filtros principais do painel; com o filtro de Mês marcado a análise é mensal.'},
+  'agingChart':{t:'Envelhecimento do backlog',
+    o:'Há quanto tempo os tickets pendentes estão abertos.',
+    c:['Só tickets pendentes.','Idade = dias desde a criação, em faixas: 1 dia, 2 dias, 3-7, 8-14 e 15+ dias.','Clique numa barra para ver os tickets da faixa.']},
+  'teamChart':{t:'Volume por equipe',
+    o:'As 10 equipes com mais tickets.',
+    c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
+  'urgChart':{t:'Tickets por urgência',
+    o:'Distribuição dos tickets criados no período por urgência.',
+    c:['Contagem de tickets criados por valor de urgência; sem urgência aparece como "Em branco".']},
+  'clientChart':{t:'Top clientes por volume',
+    o:'As 10 organizações com mais tickets.',
+    c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
+  'respChart':{t:'Top responsáveis por volume',
+    o:'Os 10 responsáveis com mais tickets.',
+    c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
+  'tbl-equipes-vencido':{t:'Equipes com maior % de backlog vencido',
+    o:'Em quais equipes o backlog pendente está mais atrasado.',
+    c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Mostra as 10 equipes com maior %; em destaque quando passa de 30%.','Clique numa equipe para ver os tickets vencidos.']},
+  'slaUrgChart':{t:'SLA por urgência',
+    o:'% de tickets resolvidos no prazo, por nível de urgência.',
+    c:['Considera os resolvidos no período com prazo de solução definido.','No prazo = resolvido até a data de prazo do Movidesk.','% = no prazo ÷ resolvidos com prazo, para cada urgência.']},
+};
+function abrirInfo(chave){
+  const i=INFO_CARDS[chave]; if(!i) return;
+  document.getElementById('info-modal-title').textContent=i.t;
+  document.getElementById('info-modal-body').innerHTML=
+    `<h4>O que é</h4><p>${i.o}</p>`+
+    `<h4>Como é calculado</h4><ul>${i.c.map(x=>`<li>${x}</li>`).join('')}</ul>`+
+    (i.obs?`<p class="info-obs">${i.obs}</p>`:'');
+  document.getElementById('info-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function fecharInfo(){
+  document.getElementById('info-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('info-modal-close').addEventListener('click',fecharInfo);
+document.getElementById('info-modal').addEventListener('click',e=>{ if(e.target.id==='info-modal') fecharInfo(); });
+(function colocarAjuda(){
+  Object.keys(INFO_CARDS).forEach(id=>{
+    const el=document.getElementById(id); const card=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(!card||card.querySelector('.panel-info')) return;
+    const b=document.createElement('button'); b.type='button'; b.className='panel-info'; b.textContent='!';
+    b.title='O que é e como é calculado'; b.setAttribute('aria-label','Ajuda: o que é e como é calculado');
+    b.addEventListener('click',ev=>{ ev.stopPropagation(); abrirInfo(id); });
+    const titulo=card.querySelector('.chart-title,.panel-title,.label');
+    if(titulo){
+      titulo.classList.add('panel-title-exp');
+      let acoes=titulo.querySelector('.panel-acoes');
+      if(!acoes){
+        acoes=document.createElement('span'); acoes.className='panel-acoes';
+        const exp=titulo.querySelector('.panel-expand');
+        titulo.appendChild(acoes);
+        if(exp) acoes.appendChild(exp);
+      }
+      acoes.prepend(b);
+    } else { b.classList.add('solta'); card.appendChild(b); }
+  });
+})();
+
 const DETALHE_MAX=1000;   // linhas desenhadas no modal (o resto fica fora para não travar a tela)
 function openDetailModal(title,sub,rows,opts){
   opts=opts||{};
@@ -2404,6 +2542,7 @@ function syncModalBodyLock(){
   const open=document.getElementById('detail-modal').classList.contains('show')
     || document.getElementById('ticket-modal').classList.contains('show')
     || document.getElementById('export-modal').classList.contains('show')
+    || document.getElementById('info-modal').classList.contains('show')
     || document.getElementById('listagem-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
@@ -2486,7 +2625,8 @@ document.getElementById('ticket-modal').addEventListener('click',e=>{ if(e.targe
 
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
+  if(document.getElementById('info-modal').classList.contains('show')) fecharInfo();
+  else if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
   else if(document.getElementById('listagem-modal').classList.contains('show')) closeListagemModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
 });
