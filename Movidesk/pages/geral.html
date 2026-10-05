@@ -211,6 +211,42 @@ input,select{font-family:inherit}
 .ms-loadyear:hover{border-color:var(--orange);color:var(--t1)}
 .ms-loadyear:disabled{opacity:.6;cursor:default}
 
+/* ─── Evolução mensal (abertos x resolvidos) ────────────────────────── */
+.tv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.tv-eyebrow{font-size:10px;letter-spacing:.14em;color:var(--t3);font-weight:700;text-transform:uppercase;margin:0 0 4px}
+.tv-desc{font-size:12px;color:var(--t3);margin:-6px 0 0;line-height:1.45;max-width:640px}
+.tv-ctl{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.tv-sel{
+  min-width:170px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-low);color:var(--t1);font:inherit;font-size:12px;cursor:pointer;
+}
+.tv-sel:hover,.tv-sel:focus{border-color:var(--orange);outline:none}
+.tv-legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.tv-pill{
+  display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface-low);font-size:12px;font-weight:600;color:var(--t1);
+}
+.tv-pill i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.tv-pill small{font-size:10.5px;color:var(--t3);font-weight:600}
+.tv-tip{
+  position:absolute;pointer-events:none;z-index:50;min-width:270px;max-width:320px;opacity:0;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh-md);
+  padding:12px 14px;font-size:12px;color:var(--t1);transition:opacity .12s;
+}
+.tv-tip-mes{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin-bottom:8px}
+.tv-tip-blk{padding:8px 0;border-top:1px solid var(--border)}
+.tv-tip-mes+.tv-tip-blk{border-top:none;padding-top:0}
+.tv-tip-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.tv-tip-nome{font-size:14px;font-weight:600}
+.tv-tip-val{font-size:15px;font-weight:700}
+.tv-tip-sub{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px;font-size:10.5px;color:var(--t3)}
+.tv-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:7px;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border:1px solid}
+.tv-badge.bom{color:var(--green);border-color:var(--green);background:rgba(74,222,128,.08)}
+.tv-badge.ruim{color:#f87171;border-color:#f87171;background:rgba(248,113,113,.1)}
+.tv-badge.neutro{color:var(--t2);border-color:var(--border);background:var(--surface-low)}
+.tv-bom{color:var(--green)}.tv-ruim{color:#f87171}
+.tv-tip-foot{font-size:10.5px;color:var(--t3);border-top:1px solid var(--border);padding-top:7px;margin-top:2px}
+
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -557,8 +593,19 @@ body.modal-open{overflow:hidden}
 
     <p class="section-label">Tendência de aberturas e resoluções</p>
     <div class="chart-panel">
-      <p class="chart-title">Tickets abertos vs resolvidos por mês</p>
-      <div class="chart-wrap" style="height:220px"><canvas id="trendVolChart"></canvas></div>
+      <div class="tv-head">
+        <div>
+          <p class="tv-eyebrow">Análise de volume</p>
+          <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 6px">Evolução mensal: abertos vs resolvidos</p>
+          <p class="tv-desc">Tickets abertos (data de criação) e resolvidos (data de resolução) por mês, respeitando os filtros do painel. Passe sobre um ponto para comparar o mês com o anterior; clique para ver os tickets.</p>
+        </div>
+        <div class="tv-ctl">
+          <span class="tv-eyebrow" style="margin:0">Mês inicial</span>
+          <select class="tv-sel" id="trend-mes-ini" aria-label="Mês inicial" onchange="trendMesIniMudou(this.value)"></select>
+        </div>
+      </div>
+      <div class="tv-legend" id="trend-legend"></div>
+      <div class="chart-wrap" style="height:340px"><canvas id="trendVolChart"></canvas><div class="tv-tip" id="trend-tip"></div></div>
     </div>
 
     <p class="section-label">Envelhecimento do backlog</p>
@@ -1438,40 +1485,161 @@ function bucketPorMes(rows){
   });
   return by;
 }
+// Evolução mensal: Mês inicial escolhido pelo usuário (vazio = padrão: ano filtrado ou últimos 12 meses).
+let _trendMesIni='', _trendCtx='', _trendRows=[];
+function trendMesIniMudou(v){ _trendMesIni=v; renderTrendChart(_trendRows); }
+function mesAnteriorKey(mk){
+  const [y,m]=mk.split('-').map(Number);
+  return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`;
+}
+function mesProximoKey(mk){
+  const [y,m]=mk.split('-').map(Number);
+  return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`;
+}
+function rotuloMesLongo(mk){
+  const [y,m]=mk.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+}
+function rotuloMesCurto(mk){ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; }
+const fmtNum1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
+
 function renderTrendChart(rows){
+  _trendRows=rows;
   destroyChart('trendVolChart');
   const col=chartColors();
   const byMes=bucketPorMes(rows);
   const yearFilsA=getMsValues('f-year');
   const yearFilVal=yearFilsA.length===1?yearFilsA[0]:null;
-  const meses=Object.keys(byMes).sort();
-  const chaves=yearFilVal
-    ? MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`)
-    : meses.slice(-12);
-  const labels=yearFilVal
-    ? MONTH_NAMES
-    : chaves.map(mk=>{ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
+
+  // meses disponíveis (contínuos, do primeiro ao último com dados)
+  const ks=Object.keys(byMes).sort();
+  let todos=[];
+  if(ks.length){
+    for(let mk=ks[0];mk<=ks[ks.length-1];mk=mesProximoKey(mk)) todos.push(mk);
+  }
+  if(yearFilVal) todos=todos.filter(mk=>mk.startsWith(yearFilVal+'-'));
+
+  // o padrão volta a valer quando o filtro de Ano muda
+  const ctx=yearFilsA.join(',');
+  if(ctx!==_trendCtx){ _trendCtx=ctx; _trendMesIni=''; }
+  if(!todos.includes(_trendMesIni)) _trendMesIni='';
+  const ini=_trendMesIni||(yearFilVal?todos[0]:todos[Math.max(0,todos.length-12)]);
+  const chaves=ini?todos.slice(todos.indexOf(ini)):[];
+
+  const sel=document.getElementById('trend-mes-ini');
+  if(sel){
+    sel.innerHTML=todos.map(mk=>`<option value="${mk}"${mk===ini?' selected':''}>${rotuloMesLongo(mk)}</option>`).join('');
+  }
+
+  const get=(mk,k)=>byMes[mk]?byMes[mk][k]:0;
+  const ab=chaves.map(mk=>get(mk,'abertos'));
+  const rs=chaves.map(mk=>get(mk,'resolvidos'));
+  const totAb=ab.reduce((a,b)=>a+b,0), totRs=rs.reduce((a,b)=>a+b,0);
+  const leg=document.getElementById('trend-legend');
+  if(leg){
+    leg.innerHTML=
+      `<span class="tv-pill"><i style="background:${col.orange}"></i>Abertos <small>${totAb.toLocaleString('pt-BR')}</small></span>`+
+      `<span class="tv-pill"><i style="background:${col.purple}"></i>Resolvidos <small>${totRs.toLocaleString('pt-BR')}</small></span>`+
+      `<span class="tv-pill">Saldo <small>${(totAb-totRs>0?'+':'')+(totAb-totRs).toLocaleString('pt-BR')}</small></span>`+
+      `<span class="tv-pill">Taxa de resolução <small>${totAb?fmtPct(totRs/totAb):'—'}</small></span>`;
+  }
+  if(!chaves.length) return;
+  const labels=chaves.map(rotuloMesCurto);
+
+  // linha com brilho (glow) na cor da série
+  const glow={
+    id:'tvGlow',
+    beforeDatasetDraw(chart,args){ const c=chart.ctx; c.save(); c.shadowColor=chart.data.datasets[args.index].borderColor; c.shadowBlur=10; },
+    afterDatasetDraw(chart){ chart.ctx.restore(); },
+  };
+  // rótulos de valor nos pontos: a série maior do mês fica em cima, a menor embaixo
+  const rotulos={
+    id:'tvLabels',
+    afterDatasetsDraw(chart){
+      const c=chart.ctx; c.save();
+      c.font='700 11px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+      chart.data.datasets.forEach((ds,di)=>{
+        const meta=chart.getDatasetMeta(di);
+        meta.data.forEach((pt,i)=>{
+          const v=ds.data[i], outro=chart.data.datasets[1-di].data[i];
+          const acima=v>outro||(v===outro&&di===0);
+          const txt=String(v), w=c.measureText(txt).width+14, h=20;
+          const x=pt.x, y=pt.y+(acima?-20:20);
+          c.beginPath();
+          if(c.roundRect) c.roundRect(x-w/2,y-h/2,w,h,7); else c.rect(x-w/2,y-h/2,w,h);
+          c.fillStyle=col.surface; c.fill();
+          c.lineWidth=1; c.strokeStyle=ds.borderColor; c.stroke();
+          c.fillStyle=col.t1; c.fillText(txt,x,y+.5);
+        });
+      });
+      c.restore();
+    },
+  };
+
+  // tooltip HTML: valor, variação vs mês anterior e leitura de saldo/taxa
+  const tipEl=document.getElementById('trend-tip');
+  const blocoSerie=(nome,cor,v,ant,altoEhBom)=>{
+    const d=v-ant;
+    const pct=ant?d/ant*100:null;
+    const dir=d>0?'↑':d<0?'↓':'→';
+    const bom=d===0?null:(d>0)===altoEhBom;
+    const cls=bom===null?'neutro':bom?'bom':'ruim';
+    const txt=d===0?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
+    const sinal=d>0?'+':d<0?'−':'';
+    const pctTxt=pct===null?(v?'novo':'—'):`${sinal}${fmtNum1(Math.abs(pct))}%`;
+    return `<div class="tv-tip-blk">
+      <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cor}">${nome}</span><span class="tv-tip-val">${v.toLocaleString('pt-BR')} · ${pctTxt}</span></div>
+      <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${ant.toLocaleString('pt-BR')}</span></div>
+      <div class="tv-tip-sub"><span>${v.toLocaleString('pt-BR')} ticket${v===1?'':'s'}</span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${dir} ${sinal}${Math.abs(d).toLocaleString('pt-BR')} ticket${Math.abs(d)===1?'':'s'} vs. mês anterior</span></div>
+    </div>`;
+  };
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const i=tooltip.dataPoints[0].dataIndex, mk=chaves[i], ant=mesAnteriorKey(mk);
+    const a=ab[i], r=rs[i];
+    const saldo=a-r, taxa=a?r/a:null;
+    tipEl.innerHTML=
+      `<div class="tv-tip-mes">${rotuloMesCurto(mk).toUpperCase()}</div>`+
+      blocoSerie('Abertos',col.orange,a,get(ant,'abertos'),false)+
+      blocoSerie('Resolvidos',col.purple,r,get(ant,'resolvidos'),true)+
+      `<div class="tv-tip-foot">Saldo do mês: <b class="${saldo>0?'tv-ruim':saldo<0?'tv-bom':''}">${saldo>0?'+':''}${saldo.toLocaleString('pt-BR')}</b> (${saldo>0?'backlog cresceu':saldo<0?'backlog reduziu':'backlog estável'}) · Taxa de resolução: <b>${taxa===null?'—':fmtPct(taxa)}</b></div>`;
+    const wrap=chart.canvas.parentElement;
+    const w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16;
+    if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    let y=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h));
+    tipEl.style.left=Math.max(0,x)+'px'; tipEl.style.top=y+'px'; tipEl.style.opacity=1;
+  };
+
+  col.surface=cssVar('--surface');
+  const mkSerie=(label,data,cor)=>({
+    label,data,borderColor:cor,backgroundColor:cor,fill:false,tension:.4,borderWidth:2.5,
+    pointRadius:4,pointHoverRadius:6,pointBackgroundColor:cor,pointBorderColor:col.surface,pointBorderWidth:2,pointHitRadius:12,
+  });
   _charts.trendVolChart=new Chart(document.getElementById('trendVolChart'),{
     type:'line',
-    data:{ labels, datasets:[
-      { label:'Abertos', data:chaves.map(mk=>byMes[mk]?byMes[mk].abertos:0), borderColor:col.orange, backgroundColor:col.orange+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 },
-      { label:'Resolvidos', data:chaves.map(mk=>byMes[mk]?byMes[mk].resolvidos:0), borderColor:col.purple, backgroundColor:col.purple+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 }
-    ]},
+    data:{ labels, datasets:[ mkSerie('Abertos',ab,col.orange), mkSerie('Resolvidos',rs,col.purple) ] },
+    plugins:[glow,rotulos],
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
-      scales:{y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}}, x:{grid:{display:false},ticks:{color:col.t2}}},
-      interaction:{mode:'nearest',intersect:true},
-      onHover:chartHoverCursor,
+      layout:{padding:{top:28,bottom:26,left:4,right:14}},
+      plugins:{legend:{display:false}, tooltip:{enabled:false, external:externo}},
+      scales:{
+        y:{beginAtZero:true,grace:'8%',grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600}}},
+      },
+      interaction:{mode:'index',intersect:false},
+      onHover:(evt,elements)=>{ evt.native.target.style.cursor=elements.length?'pointer':'default'; },
       onClick:(evt,elements,chart)=>{
-        if(!elements.length) return;
-        const {index:idx,datasetIndex:dsIdx}=elements[0];
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
+        if(!hit.length) return;
+        const {index:idx,datasetIndex:dsIdx}=hit[0];
         const mk=chaves[idx];
-        const label=chart.data.labels[idx];
         const isAbertos=dsIdx===0;
         const matched=rows.filter(r=>isAbertos
           ? (r.criado_em&&monthKeyOf(r.criado_em)===mk)
           : (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk));
-        openDetailModal(`${isAbertos?'Abertos':'Resolvidos'}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+        openDetailModal(`${isAbertos?'Abertos':'Resolvidos'}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
       },
     }
   });
