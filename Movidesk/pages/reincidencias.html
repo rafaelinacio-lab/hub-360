@@ -123,6 +123,18 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 .gv-item .as{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .gv-item .sub{grid-column:2/-1}
 .gv-pq{grid-column:1/-1 !important;background:var(--surface-mid);border-radius:8px;padding:6px 10px;color:var(--t2)}
+.trat{grid-column:1/-1;display:grid;grid-template-columns:150px 1fr 1fr;gap:6px 8px;background:var(--surface-mid);border-radius:8px;padding:8px 10px;margin-top:2px}
+.trat select,.trat input,.trat textarea{font:inherit;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--t1);padding:6px 8px;min-width:0}
+.trat textarea{grid-column:1/-1;resize:vertical;min-height:48px}
+.trat .t-rodape{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--t3);font-size:11.5px}
+.trat .t-ro{grid-column:1/-1;color:var(--t2);font-size:12px}
+.trat-st{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;background:var(--surface-mid);color:var(--t2)}
+.trat-st.s-tratada{background:rgba(74,222,128,.16);color:#16a34a}.trat-st.s-em_analise{background:rgba(251,191,36,.18);color:#b45309}.trat-st.s-descartada{opacity:.7}
+.gv-chips[hidden]{display:none}
+.gv-chips{display:flex;gap:6px;flex-wrap:wrap;padding:8px 20px 0}
+.gv-chips button{border:1px solid var(--border);background:var(--surface);color:var(--t2);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer}
+.gv-chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (max-width:640px){.trat{grid-template-columns:1fr}}
 .gv-tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--bad-bg);color:var(--bad)}
 .vg-grade3{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px}
 .rk2{display:grid;grid-template-columns:minmax(0,1fr) 110px 54px;gap:8px;align-items:center;font-size:12.5px}
@@ -140,7 +152,7 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 <div class="page">
   <div class="topo">
     <div><h1>Painel de Reincidências</h1>
-      <p>O mesmo problema voltando para o mesmo cliente. A IA lê o contexto e as ações dos chamados; o módulo é só um parâmetro.</p></div>
+      <p>O mesmo problema voltando para o mesmo cliente. A IA lê o contexto e as ações dos chamados e só entram os casos de confiança alta; o motivo vem do conteúdo, não só do campo Módulo/Rotina.</p></div>
     <div class="sp"></div>
       </div>
   <div id="vGeral">
@@ -160,7 +172,7 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
     <div id="gResultado"><div class="carregando"><span class="spin"></span>Calculando reincidências de todos os anos…</div></div>
   </div>
   <div class="gv-fundo" id="gvFundo"></div>
-  <aside class="gv" id="gv" aria-hidden="true" role="dialog" aria-label="Chamados"><div class="gv-topo"><div style="min-width:0"><h2 id="gvTitulo"></h2><div class="sub" id="gvSub"></div></div><button class="x" id="gvFechar" type="button" aria-label="Fechar">&times;</button></div><div class="gv-corpo" id="gvCorpo"></div></aside>
+  <aside class="gv" id="gv" aria-hidden="true" role="dialog" aria-label="Chamados"><div class="gv-topo"><div style="min-width:0"><h2 id="gvTitulo"></h2><div class="sub" id="gvSub"></div></div><button class="x" id="gvFechar" type="button" aria-label="Fechar">&times;</button></div><div class="gv-chips" id="gvChips" hidden></div><div class="gv-corpo" id="gvCorpo"></div></aside>
 </div>
 <script>
 const API=`${location.origin}/api/reincidencias`;
@@ -217,24 +229,26 @@ function gDesenhar(){
   const h=`<div class="kpis">
     ${kp('Chamados reincidentes',nf(k.reincidentes),`${taxa}% dos ${nf(k.classificados)} classificados`,'reincidentes')}
     ${kp('Clientes afetados',nf(k.clientesAfetados),`de ${nf(k.clientes)} clientes (${pc(k.clientesAfetados,k.clientes)}%)`,'clientesAfetados')}
-    ${kp('Motivos que se repetem',nf(k.motivosAfetados),'módulos/rotinas ou causas distintas','motivosAfetados')}
+    ${kp('Motivos que se repetem',nf(k.motivosAfetados),'temas lidos no conteúdo dos chamados','motivosAfetados')}
     ${kp('Chamados analisados',nf(k.classificados),`${nf(k.semMotivo)} sem motivo ou cliente ficaram de fora`,'classificados')}
     ${kp('Retorno médio',k.retornoMedio==null?'—':nf(k.retornoMedio)+' d',k.retornoMediana==null?'sem reincidentes':`mediana ${nf(k.retornoMediana)} dias após encerrar o anterior`,'reincidentes')}
-    ${kp('Reabertos no Movidesk',nf(k.reabertos),'o mesmo chamado foi reaberto','reabertos')}</div>
+    ${kp('Reabertos no Movidesk',nf(k.reabertos),'o mesmo chamado foi reaberto','reabertos')}
+    ${kp('A tratar',nf(k.pendentesTratamento),'reincidências novas ou em análise','pendentesTratamento')}
+    ${kp('Tratadas',nf(k.tratadas),`${pc(k.tratadas,k.reincidentes)}% das reincidências`,'tratadas')}</div>
     <div class="grade" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
       <div class="painel vg-graf"><h3>${porAno?'Reincidência por ano':'Reincidência por mês · '+esc(f.ano)}</h3>${gBarras(serie,rot,true)}</div>
       <div class="painel vg-graf"><h3>Clientes afetados por ${porAno?'ano':'mês'}</h3>${gBarras(serie.map(x=>({...x,n:x.clientes,reinc:x.clientes})),rot,false,true).replace(/Chamados com motivo classificado/,'Clientes distintos com reincidência').replace(/<span><i style="background:var\(--accent\)"><\/i>Reincidentes<\/span>/,'')}</div>
     </div>
     ${porAno&&d.mensal.length>12?`<div class="painel vg-graf" style="margin-bottom:14px"><h3>Evolução mensal (todos os anos)</h3>${gBarras(d.mensal,rotM,false)}</div>`:''}
     <div class="vg-grade3">
-      ${gRank('Top motivos de reincidência',d.motivos,{tipo:'motivo',nome:x=>x.motivo,sub:x=>`${nf(x.clientes)} clientes · ${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados deste motivo voltaram`,legenda:'Chamados que voltaram. Agrupado pelo módulo/rotina (ou causa) só para leitura. Clique para ver os chamados.'})}
+      ${gRank('Top motivos de reincidência',d.motivos,{tipo:'motivo',nome:x=>x.motivo,sub:x=>`${nf(x.clientes)} cliente(s) · ${pc(x.reinc,k.reincidentes)}% das reincidências${x.modulo?` · módulo mais comum: ${esc(x.modulo)}`:''}`,legenda:'Motivo lido no assunto, nas ações e na explicação da IA (o campo Módulo/Rotina só entra quando o texto não revela o tema). Clique para ver os chamados.'})}
       ${gRank('Clientes que mais reincidem',d.clientes,{tipo:'cliente',nome:x=>x.cliente,sub:x=>`${nf(x.motivos)} motivos · principal: ${esc(x.principal||'—')}`,legenda:'Clique para ver os chamados do cliente.'})}
       ${gRank('Equipes com mais reincidência',d.equipes,{tipo:'equipe',nome:x=>x.equipe,sub:x=>`${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados`,legenda:'Equipe responsável pelo chamado. Clique para ver os chamados.'})}
     </div>`;
   $('gResultado').innerHTML=h;
   $('gFrescor').textContent=`Calculado ${ha(d.geradoEm)}${d.cache?' (em cache, até 10 min)':''}`;
-  $('vgNota').innerHTML=`Um chamado é <b>reincidente</b> quando a <b>IA</b>, lendo o <b>contexto e as ações</b> dele e dos chamados anteriores do mesmo cliente (encerrados até ${f.dias} dias antes), conclui que é o <b>mesmo problema</b> voltando. `+
-    `O módulo/rotina é só uma dica e um filtro de agrupamento, não decide. Só entram na taxa os chamados já analisados pela IA (veja a cobertura abaixo).`;
+  $('vgNota').innerHTML=`Um chamado é <b>reincidente</b> quando a <b>IA</b>, lendo o <b>contexto e as ações</b> dele e dos chamados anteriores do mesmo cliente (encerrados até ${f.dias} dias antes), conclui com <b>confiança alta</b> que é o <b>mesmo problema</b> voltando. `+
+    `O motivo é lido no assunto, nas ações e na explicação da IA; o módulo/rotina é só apoio. Só entram na taxa os chamados já analisados pela IA (veja a cobertura abaixo). Cada reincidência pode ser acompanhada até o tratamento: clique num número para ver os chamados e registrar status, responsável e causa raiz.`;
   const sa=$('gAno'); if(sa.options.length<=1||sa.dataset.n!==String(d.anos.length)){ sa.innerHTML='<option value="">Todos os anos</option>'+d.anos.map(a=>`<option>${a}</option>`).join(''); sa.dataset.n=String(d.anos.length); }
   sa.value=f.ano?String(f.ano):'';
   const se=$('gEquipe'); if(se.dataset.n!==String(d.equipesLista.length)){ se.innerHTML='<option value="">Todas as equipes</option>'+d.equipesLista.map(e=>`<option>${esc(e)}</option>`).join(''); se.dataset.n=String(d.equipesLista.length); }
@@ -256,7 +270,7 @@ async function cobAtualizar(){
   let r; try{ r=await api('/geral/progresso'); }catch(e){ return; }
   const j=r.job||{}, box=$('gCobertura');
   const botao=C.podeAnalisar?`<button class="btn primario peq" id="gAnalisar" type="button" ${j.rodando?'disabled':''}>${j.rodando?'Analisando…':'↻ Analisar histórico com IA'}</button>`:'';
-  box.innerHTML=`<h3>Análise por IA do histórico</h3><div class="sub">${nf(r.analisados)} chamado(s) já analisados pela IA · ${nf(r.reincidentes)} reincidentes confirmados${r.ultimo?` · última análise ${ha(r.ultimo)}`:''}. `+
+  box.innerHTML=`<h3>Análise por IA do histórico</h3><div class="sub">${nf(r.analisados)} chamado(s) já analisados pela IA · ${nf(r.reincidentes)} reincidentes de confiança alta${r.ultimo?` · última análise ${ha(r.ultimo)}`:''}. `+
     `Cada rodada analisa até 150 chamados candidatos (mais recentes primeiro) e é incremental: clique de novo para cobrir os anos anteriores.</div>`+
     (j.rodando||j.fim?`<div class="sub" style="margin-top:6px">${j.rodando?`<span class="spin"></span> ${nf(j.feitos)} de ${nf(j.total)} analisados…`:esc(j.msg||'')}${j.erros?` · ${j.erros} erro(s)`:''}</div>`:'')+`<div style="margin-top:8px">${botao}</div>`;
   const b=$('gAnalisar'); if(b) b.addEventListener('click',async()=>{ b.disabled=true; try{ await api('/geral/analisar',{method:'POST',body:{max:150}}); }catch(e){ $('gAviso').textContent=e.message; $('gAviso').className='aviso erro'; } cobAtualizar(); });
@@ -271,8 +285,53 @@ $('gCliente').addEventListener('input',()=>{ clearTimeout(gTimer); gTimer=setTim
 $('gLimpar').addEventListener('click',()=>{ $('gAno').value=ANO_ATUAL; $('gEquipe').value=''; $('gCliente').value=''; $('gClassif').value='suporte'; $('gDias').value='15'; gAplicar(); });
 // ── detalhe: os chamados por trás de cada número ──
 const TIPO_ROTULO={kpi:'Indicador',motivo:'Motivo',cliente:'Cliente',equipe:'Equipe',ano:'Ano',mes:'Mês'};
+// ── tratamento das reincidências (status, responsável, causa raiz, observação) ──
+const TRAT_ROTULO={nova:'Nova',em_analise:'Em análise',tratada:'Tratada',descartada:'Descartada'};
+let gvLista=[], gvFiltro='todos', gvSujo=false;
+const tratDe=c=>c.trat_status||'nova';
+function gvItem(c){
+  const trat=c.reincidente?gvTrat(c):'';
+  const modulo=c.modulo&&c.modulo!==c.motivo?` · módulo/rotina: ${esc(c.modulo)}`:'';
+  return `<div class="gv-item" data-tid="${esc(c.ticket_id)}">${link(c.ticket_id)}<span class="sub" style="grid-column:auto">${br(String(c.criado_em).slice(0,10))}</span><span class="as" title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span>${c.reincidente?`<span class="trat-st s-${tratDe(c)}">${TRAT_ROTULO[tratDe(c)]}</span>`:''}
+      <span class="sub">${esc(c.cliente||'cliente não identificado')} · <b>${esc(c.motivo||'Sem motivo identificado')}</b>${modulo} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}</span>${c.reincidente&&c.anterior?`<span class="sub gv-pq"><b>Por que é reincidente (análise da IA${c.confianca?`, confiança ${esc(c.confianca)}`:''}):</b> ${esc(c.explicacao||'o contexto e as ações indicam o mesmo problema')} · Anterior: ${link(c.anterior)}${c.anterior_assunto?` (“${esc(String(c.anterior_assunto).slice(0,90))}”)`:''}, encerrado em ${br(String(c.anterior_fim).slice(0,10))}; este abriu ${nf(c.dias_entre)} dia(s) depois.</span>`:''}${trat}</div>`;
+}
+function gvTrat(c){
+  const info=c.trat_por?`atualizado por ${esc(c.trat_por)} ${ha(c.trat_em)}`:'ainda sem tratamento registrado';
+  if(!C.podeAnalisar) return `<div class="trat"><div class="t-ro"><b>Tratamento:</b> ${TRAT_ROTULO[tratDe(c)]}${c.trat_responsavel?` · responsável: ${esc(c.trat_responsavel)}`:''}${c.trat_causa_raiz?` · causa raiz: ${esc(c.trat_causa_raiz)}`:''}${c.trat_observacao?` · ${esc(c.trat_observacao)}`:''}</div></div>`;
+  return `<div class="trat">
+    <select class="t-status" aria-label="Status do tratamento">${Object.entries(TRAT_ROTULO).map(([v,l])=>`<option value="${v}"${v===tratDe(c)?' selected':''}>${l}</option>`).join('')}</select>
+    <input class="t-resp" placeholder="Responsável" maxlength="120" value="${esc(c.trat_responsavel||'')}">
+    <input class="t-causa" placeholder="Causa raiz (ex.: erro no cálculo do ICMS)" maxlength="200" value="${esc(c.trat_causa_raiz||'')}">
+    <textarea class="t-obs" placeholder="Observação: o que foi feito ou combinado" maxlength="1000">${esc(c.trat_observacao||'')}</textarea>
+    <div class="t-rodape"><button class="btn peq t-salvar" type="button">Salvar tratamento</button><span class="t-info">${info}</span></div></div>`;
+}
+function gvPintar(){
+  const rein=gvLista.filter(c=>c.reincidente);
+  const chips=$('gvChips');
+  if(rein.length){
+    const cont=st=>rein.filter(c=>tratDe(c)===st).length;
+    const opcoes=[['todos','Todos',rein.length],['pendentes','A tratar',cont('nova')+cont('em_analise')],['tratada','Tratadas',cont('tratada')],['descartada','Descartadas',cont('descartada')]];
+    chips.hidden=false;
+    chips.innerHTML=opcoes.map(([v,l,n])=>`<button type="button" data-f="${v}" class="${gvFiltro===v?'on':''}">${l} (${nf(n)})</button>`).join('');
+  } else { chips.hidden=true; chips.innerHTML=''; }
+  const visiveis=gvLista.filter(c=>!c.reincidente||gvFiltro==='todos'||(gvFiltro==='pendentes'?['nova','em_analise'].includes(tratDe(c)):tratDe(c)===gvFiltro));
+  $('gvCorpo').innerHTML=visiveis.length?visiveis.map(gvItem).join(''):'<div class="vazio">Nenhum chamado para este item nos filtros atuais.</div>';
+}
+$('gvChips').addEventListener('click',e=>{ const b=e.target.closest('button[data-f]'); if(!b) return; gvFiltro=b.dataset.f; gvPintar(); });
+$('gvCorpo').addEventListener('click',async e=>{
+  const b=e.target.closest('.t-salvar'); if(!b) return;
+  const box=b.closest('.gv-item'), id=box.dataset.tid, c=gvLista.find(x=>x.ticket_id===id); if(!c) return;
+  const corpo={status:box.querySelector('.t-status').value,responsavel:box.querySelector('.t-resp').value,causa_raiz:box.querySelector('.t-causa').value,observacao:box.querySelector('.t-obs').value};
+  if(!corpo.responsavel.trim()&&C.usuarioNome&&corpo.status!=='nova') corpo.responsavel=C.usuarioNome;
+  b.disabled=true; b.textContent='Salvando…';
+  try{
+    const r=await api('/tratamento/'+encodeURIComponent(id),{method:'PUT',body:corpo});
+    Object.assign(c,{trat_status:r.tratamento.status,trat_responsavel:r.tratamento.responsavel,trat_causa_raiz:r.tratamento.causa_raiz,trat_observacao:r.tratamento.observacao,trat_por:r.tratamento.atualizado_por,trat_em:r.tratamento.atualizado_em});
+    gvSujo=true; gvPintar();
+  }catch(err){ b.disabled=false; b.textContent='Salvar tratamento'; box.querySelector('.t-info').textContent='Erro: '+err.message; }
+});
 let gvAtual=null;
-function gvFechar(){ $('gv').classList.remove('aberta'); $('gvFundo').classList.remove('aberto'); $('gv').setAttribute('aria-hidden','true'); }
+function gvFechar(){ if(gvSujo){ gvSujo=false; gCarregar(); } $('gv').classList.remove('aberta'); $('gvFundo').classList.remove('aberto'); $('gv').setAttribute('aria-hidden','true'); }
 async function gvAbrir(tipo,valor,titulo){
   gvAtual={tipo,valor,titulo};
   $('gvTitulo').textContent=`${TIPO_ROTULO[tipo]||''}: ${titulo}`; $('gvSub').textContent='Carregando…';
@@ -284,8 +343,7 @@ async function gvAbrir(tipo,valor,titulo){
     if(!gvAtual||gvAtual.valor!==valor||gvAtual.tipo!==tipo) return;
     const extra=(tipo==='cliente'||tipo==='equipe')?` <button class="btn peq" id="gvFiltrar" type="button">Filtrar a visão por este</button>`:'';
     $('gvSub').innerHTML=`${nf(r.total)} chamado(s)${r.truncado?' (mostrando os 500 mais recentes)':''} · voltou em até ${f.dias} dias${extra}`;
-    $('gvCorpo').innerHTML=r.chamados.length?r.chamados.map(c=>`<div class="gv-item">${link(c.ticket_id)}<span class="sub" style="grid-column:auto">${br(String(c.criado_em).slice(0,10))}</span><span class="as" title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span>${c.reincidente?'<span class="gv-tag">REINCIDENTE</span>':'<span></span>'}
-      <span class="sub">${esc(c.cliente||'cliente não identificado')} · ${esc(c.motivo||'sem motivo classificado')} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}</span>${c.reincidente&&c.anterior?`<span class="sub gv-pq"><b>Por que é reincidente (análise da IA${c.confianca?`, confiança ${esc(c.confianca)}`:''}):</b> ${esc(c.explicacao||'o contexto e as ações indicam o mesmo problema')} · Anterior: ${link(c.anterior)}${c.anterior_assunto?` (“${esc(String(c.anterior_assunto).slice(0,90))}”)`:''}, encerrado em ${br(String(c.anterior_fim).slice(0,10))}; este abriu ${nf(c.dias_entre)} dia(s) depois.</span>`:''}</div>`).join(''):'<div class="vazio">Nenhum chamado para este item nos filtros atuais.</div>';
+    gvLista=r.chamados; gvFiltro='todos'; gvPintar();
     const bf=$('gvFiltrar'); if(bf) bf.addEventListener('click',()=>{ if(tipo==='cliente') $('gCliente').value=valor; else $('gEquipe').value=valor; gvFechar(); gAplicar(); });
   }catch(e){ $('gvCorpo').innerHTML=`<div class="aviso erro">${esc(e.message)}</div>`; $('gvSub').textContent=''; }
 }

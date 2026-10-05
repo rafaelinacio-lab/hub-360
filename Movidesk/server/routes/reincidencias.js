@@ -24,7 +24,7 @@ router.use(async (req, res, next) => {
   try {
     if (!prontas) prontas = db.query(`CREATE TABLE IF NOT EXISTS public.reincidencia_analise (
       id SERIAL PRIMARY KEY, criado_por INTEGER, criado_por_nome TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`).then(() => db.query(TABELA_PAR)).catch((e) => { prontas = null; throw e; });
+      parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`).then(() => db.query(TABELA_PAR)).then(() => db.query(TABELA_TRATAMENTO)).catch((e) => { prontas = null; throw e; });
     await Promise.race([prontas, new Promise((_, ko) => setTimeout(() => ko(new Error('banco ocupado')), 15000).unref())]); next();
   } catch (e) { res.status(500).json({ error: 'Erro ao preparar a tabela de reincidências: ' + e.message }); }
 });
@@ -32,6 +32,11 @@ router.use(async (req, res, next) => {
 const TABELA_PAR = `CREATE TABLE IF NOT EXISTS public.reincidencia_par (
   ticket_id BIGINT PRIMARY KEY, anterior_id BIGINT, reincidente BOOLEAN NOT NULL DEFAULT FALSE, confianca TEXT, explicacao TEXT,
   anterior_fim TIMESTAMPTZ, dias_entre NUMERIC, mesmo_modulo BOOLEAN, analisado_em TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+// Acompanhamento do tratamento de cada chamado reincidente (status, responsável, causa raiz e observação).
+const TRAT_STATUS = ['nova', 'em_analise', 'tratada', 'descartada'];
+const TABELA_TRATAMENTO = `CREATE TABLE IF NOT EXISTS public.reincidencia_tratamento (
+  ticket_id BIGINT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'nova', responsavel TEXT, causa_raiz TEXT, observacao TEXT,
+  atualizado_por TEXT, atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
 // Consultas pesadas da visão geral: transação própria com tempo limite, para uma consulta lenta nunca prender o banco (e o Dashboard).
 async function consultaLimitada(sql, params, segundos = 45) {
   return db.withClient(async (cl) => {
@@ -50,8 +55,9 @@ router.get('/config', requireLeitura, async (req, res) => {
   try {
     const S = await cfg.obter();
     const papel = (await db.query(`SELECT r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0]?.name;
+    const nomeUsuario = (await db.query(`SELECT name FROM users WHERE id = $1`, [req.user.id])).rows[0]?.name || req.user.email;
     res.json({ ativo: S.reincidencia.ativo, diasPadrao: S.reincidencia.diasPadrao, maxTickets: S.reincidencia.maxTickets, minClientes: S.reincidencia.minClientesSistemico,
-      iaConfigurada: await iaConfigurada().catch(() => false), podeAnalisar: ROLES.includes(papel) });
+      iaConfigurada: await iaConfigurada().catch(() => false), podeAnalisar: ROLES.includes(papel), usuarioNome: nomeUsuario });
   } catch (e) { erro(res, e); }
 });
 
@@ -135,7 +141,8 @@ async function executar(entrada, usuario) {
       return { problema: limitar(x.problema, 400), nClientes: clientes.size, clientes: [...clientes.entries()].map(([cliente, id]) => ({ cliente, ticketId: id })), tickets: lista.map(itemTicket),
         modulo: limitar(x.modulo, 80), confianca: conf(x.confianca), recomendacao: limitar(x.recomendacao, 300) };
     }).filter(Boolean).sort((a, b) => b.nClientes - a.nClientes);
-    const resultado = { dimensao0: d0, dimensaoA: dA, dimensaoB: dB, resumo: limitar(r.resumo, 900) };
+    const alta = (x) => x.confianca === 'Alta';                  // só entram os grupos de confiança ALTA
+    const resultado = { dimensao0: d0.filter(alta), dimensaoA: dA.filter(alta), dimensaoB: dB.filter(alta), resumo: limitar(r.resumo, 900) };
     const parametros = { origem: usuario ? 'manual' : 'automatica', dias, servico: servico || null, maxTickets: C.maxTickets, minClientes: C.minClientesSistemico, truncado: tks.length >= C.maxTickets };
     const ins = await db.query(`INSERT INTO public.reincidencia_analise (criado_por, criado_por_nome, parametros, n_tickets, resultado) VALUES ($1,$2,$3::jsonb,$4,$5::jsonb) RETURNING id, criado_em`,
       [usuario ? usuario.id : null, usuario ? usuario.nome : 'Análise automática', JSON.stringify(parametros), tks.length, JSON.stringify(resultado)]);
@@ -175,6 +182,7 @@ router.get('/painel', requireLeitura, async (req, res) => {
 });
 
 // ── visão geral de todos os anos: veredito da IA sobre o contexto e as ações ──
+// Só entra como reincidente o veredito de confiança ALTA da IA.
 // Chamado reincidente = a IA leu o assunto e o HISTÓRICO DE AÇÕES do chamado e do(s) chamado(s) anterior(es) do mesmo cliente (já encerrados, até 60 dias antes)
 // e concluiu que é o MESMO PROBLEMA voltando. O módulo/rotina NÃO decide: é só uma dica para a IA e um filtro/agrupamento na tela.
 // O banco só escolhe os candidatos (mesmo cliente + anterior encerrado até 60 dias antes, de qualquer módulo); o veredito fica em public.reincidencia_par.
@@ -194,19 +202,80 @@ WITH cf AS (
         SELECT t.ticket_id, t.subject, t.status, t.createddate, t.reopened_in,
                COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
                COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS motivo,
+               NULLIF(trim(cf.modulo),'') AS modulo_campo, NULLIF(trim(cf.causa),'') AS causa_campo,
                COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
           FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
          WHERE ($5 = '' OR cf.classif = $5)
            AND ($2::int IS NULL OR (t.createddate >= make_date($2::int,1,1) AND t.createddate < make_date($2::int+1,1,1)))),
       c AS (SELECT *, (cliente IS NOT NULL) AS classificado FROM b),
       f AS (
-        SELECT c.*, (COALESCE(v.reincidente, false) AND v.dias_entre <= $1::int) AS rn, v.anterior_id::text AS ant_id, v.anterior_fim AS fim_ant, v.explicacao, v.confianca
+        SELECT c.*, (COALESCE(v.reincidente, false) AND v.confianca = 'Alta' AND v.dias_entre <= $1::int) AS rn, v.anterior_id::text AS ant_id, v.anterior_fim AS fim_ant, v.explicacao, v.confianca,
+               tr.status AS trat_status
           FROM c LEFT JOIN public.reincidencia_par v ON v.ticket_id = c.ticket_id::bigint
+               LEFT JOIN public.reincidencia_tratamento tr ON tr.ticket_id = c.ticket_id::bigint
          WHERE ($2::int IS NULL OR extract(year from c.createddate)::int = $2)
            AND ($3 = '' OR c.equipe = $3)
            AND ($4 = '' OR c.cliente ILIKE '%' || $4 || '%')),
       fc AS (SELECT * FROM f WHERE classificado)
 `;
+// ── Motivo de cada reincidência ───────────────────────────────────────────
+// Não depende só do campo Módulo/Rotina: o tema sai do texto do chamado (assunto, as primeiras ações e a explicação da IA
+// sobre por que é o mesmo problema), com o dicionário de palavras-chave de server/data/temas-chamados.json.
+// Sem tema reconhecido no texto, vale o campo (Módulo/Rotina ou Causa); sem nada, "Sem motivo identificado".
+const { classificarTexto } = require('../utils/temasChamados');
+const RN_MAX = 5000;
+const _motivoCache = new Map();                       // ticket_id -> { motivo, tema, campo, ate }
+const MOTIVO_TTL = 6 * 3600 * 1000;
+async function motivosDe(rows) {
+  const agora = Date.now();
+  const faltam = [...new Set(rows.map((r) => String(r.ticket_id)))].filter((id) => { const c = _motivoCache.get(id); return !(c && c.ate > agora); });
+  const acoes = new Map();
+  for (let i = 0; i < faltam.length; i += 800) {
+    const lote = faltam.slice(i, i + 800);
+    const r = await db.query(`
+      SELECT t.ticket_id::text AS id,
+             COALESCE((SELECT string_agg(left(a.descricao, 1500), ' ' ORDER BY a.criado_em)
+                         FROM (SELECT descricao, criado_em FROM silver.ticket_acao WHERE ticket_id = t.ticket_id AND descricao IS NOT NULL ORDER BY criado_em ASC LIMIT 5) a), '') AS texto
+        FROM silver.ticket t WHERE t.ticket_id = ANY($1::bigint[])`, [lote]);
+    r.rows.forEach((x) => acoes.set(x.id, x.texto));
+  }
+  const vistos = new Set(), pendentes = new Set(faltam);
+  for (const r of rows) {
+    const id = String(r.ticket_id);
+    if (vistos.has(id) || !pendentes.has(id)) continue;
+    vistos.add(id);
+    const assunto = r.assunto || '';
+    const texto = `${assunto} ${assunto} ${r.explicacao || ''} ${r.explicacao || ''} ${r.anterior_assunto || ''} ${acoes.get(id) || ''}`;
+    const tema = classificarTexto(texto);
+    const campo = (r.modulo_campo || r.causa_campo || '').trim();
+    _motivoCache.set(id, { motivo: tema || campo || 'Sem motivo identificado', tema, campo, ate: agora + MOTIVO_TTL });
+  }
+  return (id) => _motivoCache.get(String(id)) || { motivo: 'Sem motivo identificado', tema: null, campo: '' };
+}
+async function agregarMotivos(rnRows) {
+  const dado = await motivosDe(rnRows);
+  const motivos = new Map(), clientes = new Map();
+  for (const r of rnRows) {
+    const m = dado(r.ticket_id);
+    const mo = motivos.get(m.motivo) || { motivo: m.motivo, reinc: 0, cli: new Set(), campos: new Map() };
+    mo.reinc++; mo.cli.add(r.cliente);
+    if (m.campo) mo.campos.set(m.campo, (mo.campos.get(m.campo) || 0) + 1);
+    motivos.set(m.motivo, mo);
+    const cl = clientes.get(r.cliente) || { cliente: r.cliente, reinc: 0, mot: new Map() };
+    cl.reinc++; cl.mot.set(m.motivo, (cl.mot.get(m.motivo) || 0) + 1);
+    clientes.set(r.cliente, cl);
+  }
+  const topo = (mapa) => [...mapa.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  return {
+    motivosDistintos: [...motivos.keys()].filter((k) => k !== 'Sem motivo identificado').length,
+    motivos: [...motivos.values()].sort((a, b) => b.reinc - a.reinc).slice(0, 15)
+      .map((x) => ({ motivo: x.motivo, reinc: x.reinc, clientes: x.cli.size, modulo: topo(x.campos) })),
+    clientes: [...clientes.values()].sort((a, b) => b.reinc - a.reinc).slice(0, 15)
+      .map((x) => ({ cliente: x.cliente, reinc: x.reinc, motivos: x.mot.size, principal: topo(x.mot) })),
+  };
+}
+
+
 const JANELAS = [7, 15, 30, 60];
 let listasCache = null;
 async function listasFiltro() {                                          // anos e equipes dos filtros: consulta leve, cache de 1 h
@@ -240,21 +309,28 @@ router.get('/geral', requireLeitura, async (req, res) => {
       SELECT
         (SELECT json_build_object('total', count(*), 'classificados', count(*) FILTER (WHERE classificado), 'semMotivo', count(*) FILTER (WHERE NOT classificado),
                 'reincidentes', count(*) FILTER (WHERE rn), 'clientes', count(DISTINCT cliente) FILTER (WHERE classificado), 'clientesAfetados', count(DISTINCT cliente) FILTER (WHERE rn),
-                'motivosAfetados', count(DISTINCT motivo) FILTER (WHERE rn), 'reabertos', count(*) FILTER (WHERE reopened_in IS NOT NULL),
+                'pendentesTratamento', count(*) FILTER (WHERE rn AND COALESCE(trat_status, 'nova') IN ('nova', 'em_analise')), 'tratadas', count(*) FILTER (WHERE rn AND trat_status = 'tratada'),
+                'reabertos', count(*) FILTER (WHERE reopened_in IS NOT NULL),
                 'retornoMedio', round((avg(extract(epoch from (createddate - fim_ant)) / 86400) FILTER (WHERE rn))::numeric, 1),
                 'retornoMediana', round((percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch from (createddate - fim_ant)) / 86400) FILTER (WHERE rn))::numeric, 1)) FROM f) AS kpi,
         (SELECT COALESCE(json_agg(x ORDER BY x.ano), '[]') FROM (SELECT extract(year from createddate)::int AS ano, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc,
                 count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes FROM fc GROUP BY 1) x) AS anual,
         (SELECT COALESCE(json_agg(x ORDER BY x.mes), '[]') FROM (SELECT to_char(createddate AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') AS mes, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc,
                 count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes FROM fc GROUP BY 1) x) AS mensal,
-        (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT motivo, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc, count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes
-                FROM fc GROUP BY motivo HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 15) x) AS motivos,
-        (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT cliente, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc, count(DISTINCT motivo) FILTER (WHERE rn)::int AS motivos,
-                mode() WITHIN GROUP (ORDER BY motivo) FILTER (WHERE rn) AS principal FROM fc GROUP BY cliente HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 15) x) AS clientes,
         (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT equipe, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc FROM fc GROUP BY equipe HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 10) x) AS equipes,
         '[]'::json AS anos, '[]'::json AS equipesLista`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows[0];
-    const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, anual: r.anual, mensal: r.mensal, motivos: r.motivos, clientes: r.clientes, equipes: r.equipes,
+    // Motivos e clientes: o motivo vem do CONTEÚDO (assunto, ações e explicação da IA), com o campo Módulo/Rotina só de apoio.
+    const rnRows = (await consultaLimitada(`
+      ${GERAL_CTE}
+      SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.cliente, f.equipe, f.explicacao, f.modulo_campo, f.causa_campo, p.subject AS anterior_assunto
+        FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id
+       WHERE f.classificado AND f.rn ORDER BY f.createddate DESC LIMIT ${RN_MAX + 1}`,
+      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows;
+    const truncado = rnRows.length > RN_MAX;
+    const agreg = await agregarMotivos(rnRows.slice(0, RN_MAX));
+    r.kpi.motivosAfetados = agreg.motivosDistintos;
+    const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, anual: r.anual, mensal: r.mensal, motivos: agreg.motivos, clientes: agreg.clientes, equipes: r.equipes, motivosTruncado: truncado,
       ...(await listasFiltro()), geradoEm: new Date().toISOString() };
     if (geralCache.size > 60) geralCache.clear();
     geralCache.set(chave, { em: Date.now(), dados });
@@ -265,7 +341,8 @@ router.get('/geral', requireLeitura, async (req, res) => {
 
 
 // Chamados por trás de um número da visão geral (mesmos filtros e mesma regra). tipo: kpi | motivo | cliente | equipe | ano | mes
-const KPI_FILTRO = { reincidentes: 'rn', classificados: 'classificado', semMotivo: 'NOT classificado', reabertos: 'reopened_in IS NOT NULL', clientesAfetados: 'rn', motivosAfetados: 'rn', clientes: 'classificado', total: 'TRUE' };
+const KPI_FILTRO = { reincidentes: 'rn', classificados: 'classificado', semMotivo: 'NOT classificado', reabertos: 'reopened_in IS NOT NULL', clientesAfetados: 'rn', motivosAfetados: 'rn', clientes: 'classificado', total: 'TRUE',
+  pendentesTratamento: "rn AND COALESCE(trat_status, 'nova') IN ('nova', 'em_analise')", tratadas: "rn AND trat_status = 'tratada'" };
 router.get('/geral/chamados', requireLeitura, async (req, res) => {
   try {
     const dias = JANELAS.includes(Number(req.query.dias)) ? Number(req.query.dias) : 15;
@@ -276,7 +353,7 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
     const tipo = String(req.query.tipo || ''), valor = String(req.query.valor || '').slice(0, 200);
     let cond, extra = [];
     if (tipo === 'kpi' && KPI_FILTRO[valor]) cond = KPI_FILTRO[valor];
-    else if (tipo === 'motivo') { cond = 'classificado AND rn AND motivo = $8'; extra = [valor]; }
+    else if (tipo === 'motivo') cond = 'classificado AND rn';            // o motivo é calculado em Node: filtra depois
     else if (tipo === 'cliente') { cond = 'classificado AND rn AND cliente = $8'; extra = [valor]; }
     else if (tipo === 'equipe') { cond = 'classificado AND rn AND equipe = $8'; extra = [valor]; }
     else if (tipo === 'ano' && /^\d{4}$/.test(valor)) { cond = 'classificado AND rn AND extract(year from createddate)::int = $8::int'; extra = [valor]; }
@@ -286,12 +363,51 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
     const campos = [...new Set([...mods, 148916, 23946])];
     const r = await consultaLimitada(`
       ${GERAL_CTE}
-      SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.status, f.cliente, f.motivo, f.equipe, f.createddate AS criado_em, f.ant_id AS anterior, p.subject AS anterior_assunto,
+      SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.status, f.cliente, f.equipe, f.createddate AS criado_em, f.ant_id AS anterior, p.subject AS anterior_assunto,
              f.fim_ant AS anterior_fim, round((extract(epoch from (f.createddate - f.fim_ant)) / 86400)::numeric, 1) AS dias_entre,
-             f.rn AS reincidente, f.explicacao, f.confianca, (f.reopened_in IS NOT NULL) AS reaberto, f.classificado
-        FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id WHERE ${cond.replace(/\b(rn|classificado|motivo|cliente|equipe|createddate|reopened_in)\b/g, 'f.$1')} ORDER BY f.createddate DESC LIMIT 501`,
+             f.rn AS reincidente, f.explicacao, f.confianca, (f.reopened_in IS NOT NULL) AS reaberto, f.classificado,
+             f.modulo_campo, f.causa_campo,
+             COALESCE(tr.status, 'nova') AS trat_status, tr.responsavel AS trat_responsavel, tr.causa_raiz AS trat_causa_raiz,
+             tr.observacao AS trat_observacao, tr.atualizado_por AS trat_por, tr.atualizado_em AS trat_em
+        FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id
+               LEFT JOIN public.reincidencia_tratamento tr ON tr.ticket_id = f.ticket_id::bigint
+       WHERE ${cond.replace(/\b(rn|classificado|cliente|equipe|createddate|reopened_in|trat_status)\b/g, 'f.$1')} ORDER BY f.createddate DESC LIMIT ${tipo === 'motivo' ? RN_MAX + 1 : 501}`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...extra]);
-    res.json({ total: Math.min(r.rows.length, 500), truncado: r.rows.length > 500, chamados: r.rows.slice(0, 500) });
+    // motivo pelo conteúdo do chamado (e só então o filtro por motivo)
+    const dado = await motivosDe(r.rows);
+    let linhas = r.rows.map((c) => { const m = dado(c.ticket_id); return { ...c, motivo: m.motivo, modulo: m.campo || null }; });
+    if (tipo === 'motivo') linhas = linhas.filter((c) => c.motivo === valor);
+    res.json({ total: Math.min(linhas.length, 500), truncado: linhas.length > 500, chamados: linhas.slice(0, 500) });
+  } catch (e) { erro(res, e); }
+});
+
+
+// ── acompanhamento do tratamento de uma reincidência ──
+async function exigirEscrita(req, res, next) {
+  try {
+    const papel = (await db.query(`SELECT r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0]?.name;
+    if (!ROLES.includes(papel)) return res.status(403).json({ error: 'Seu perfil não pode alterar o tratamento.' });
+    next();
+  } catch (e) { erro(res, e); }
+}
+router.put('/tratamento/:ticketId(\\d+)', requireLeitura, exigirEscrita, async (req, res) => {
+  try {
+    const tid = req.params.ticketId;
+    const status = String(req.body?.status || '');
+    if (!TRAT_STATUS.includes(status)) return res.status(400).json({ error: 'Status inválido' });
+    const existe = (await db.query(`SELECT 1 FROM public.reincidencia_par WHERE ticket_id = $1::bigint AND reincidente AND confianca = 'Alta'`, [tid])).rows.length;
+    if (!existe) return res.status(404).json({ error: 'Este chamado não é uma reincidência de confiança alta.' });
+    const txt = (v, max) => { const x = String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max); return x || null; };
+    const nome = (await db.query(`SELECT name FROM users WHERE id = $1`, [req.user.id])).rows[0]?.name || req.user.email;
+    const r = (await db.query(
+      `INSERT INTO public.reincidencia_tratamento (ticket_id, status, responsavel, causa_raiz, observacao, atualizado_por, atualizado_em)
+       VALUES ($1::bigint, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT (ticket_id) DO UPDATE SET status = EXCLUDED.status, responsavel = EXCLUDED.responsavel, causa_raiz = EXCLUDED.causa_raiz,
+         observacao = EXCLUDED.observacao, atualizado_por = EXCLUDED.atualizado_por, atualizado_em = NOW()
+       RETURNING ticket_id::text AS ticket_id, status, responsavel, causa_raiz, observacao, atualizado_por, atualizado_em`,
+      [tid, status, txt(req.body?.responsavel, 120), txt(req.body?.causa_raiz, 200), txt(req.body?.observacao, 1000), nome])).rows[0];
+    geralCache.clear();                                    // os indicadores de tratamento mudam
+    res.json({ tratamento: r });
   } catch (e) { erro(res, e); }
 });
 
@@ -385,7 +501,7 @@ async function rodarJob(maxChamados, usuario) {
       job.total = lista.length; job.msg = lista.length ? 'Analisando…' : 'Nada pendente: todos os candidatos já foram analisados.';
       const email = usuario ? usuario.email : 'automatico@hub'; let seguidos = 0;
       for (let i = 0; i < lista.length; i += 5) {
-        try { const r = await processarLote(lista.slice(i, i + 5), S, C, email); job.feitos += r.n; job.reincidentes += r.reinc; seguidos = 0; geralCache.clear(); }
+        try { const r = await processarLote(lista.slice(i, i + 5), S, C, email); job.feitos += r.n; job.reincidentes += r.reinc; seguidos = 0; geralCache.clear(); _motivoCache.clear(); }
         catch (e) { job.erros++; seguidos++; job.msg = 'Erro no lote: ' + e.message; if (seguidos >= 3) { job.msg = 'Interrompido após 3 erros seguidos: ' + e.message; break; } }
       }
       if (job.erros === 0) job.msg = lista.length ? 'Concluído.' : job.msg;
@@ -404,7 +520,7 @@ router.post('/geral/analisar', requireLeitura, rateLimit({ name: 'reincidencias/
 });
 router.get('/geral/progresso', requireLeitura, async (req, res) => {
   try {
-    const r = (await db.query(`SELECT count(*) FILTER (WHERE anterior_id IS NOT NULL)::int AS analisados, count(*) FILTER (WHERE reincidente)::int AS reincidentes, max(analisado_em) AS ultimo FROM public.reincidencia_par`)).rows[0];
+    const r = (await db.query(`SELECT count(*) FILTER (WHERE anterior_id IS NOT NULL)::int AS analisados, count(*) FILTER (WHERE reincidente AND confianca = 'Alta')::int AS reincidentes, max(analisado_em) AS ultimo FROM public.reincidencia_par`)).rows[0];
     res.json({ ...r, job });
   } catch (e) { erro(res, e); }
 });
