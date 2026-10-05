@@ -274,6 +274,10 @@
                     <div class="config-card">
                         <h3 class="config-card-title">Diagnóstico de chat</h3>
                         <p class="config-card-help">Consulta o Movidesk agora (só leitura) e mostra se os atendimentos de chat chegam com grupo, widget e tempos de espera/conversa preenchidos. Serve para saber se dá para acompanhar o chat no Hub.</p>
+                        <div class="config-form-stack">
+                            <label class="config-card-help" for="cfgChatDiagTickets" style="margin:0">Números de chamados de chat para conferir (um por vez ou separados por vírgula). Pode usar chats que aparecem na tela do Movidesk:</label>
+                            <input id="cfgChatDiagTickets" class="config-input" type="text" value="908248, 908372, 908467, 908395" autocomplete="off" spellcheck="false">
+                        </div>
                         <div class="config-actions">
                             <button id="cfgChatDiagBtn" class="config-btn" onclick="rodarDiagnosticoChat()">Verificar dados de chat</button>
                         </div>

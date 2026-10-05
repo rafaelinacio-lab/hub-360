@@ -3558,7 +3558,8 @@ async function rodarDiagnosticoChat() {
     if (!btn) return;
     btn.disabled = true; status.textContent = 'Consultando o Movidesk…'; box.innerHTML = '';
     try {
-        const r = await fetch(`${API_BASE}/geral/chat-diagnostico`, { headers: authHeaders() });
+        const tk = (document.getElementById('cfgChatDiagTickets') || {}).value || '';
+        const r = await fetch(`${API_BASE}/geral/chat-diagnostico?tickets=${encodeURIComponent(tk)}`, { headers: authHeaders() });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || r.statusText);
         status.textContent = '';
@@ -3576,6 +3577,18 @@ async function rodarDiagnosticoChat() {
         } else {
             linhas.push('<b>⚠️ Não achei chamados com widget de chat preenchido.</b> Ou o chat ainda não gera chamado com esses campos, ou a conta não os devolve.');
             linhas.push(`Na amostra dos últimos ${a.total} chamados, as origens são: ${Object.entries(a.porOrigem).map(([k, v]) => `${e(k)} (${v})`).join(', ') || '—'}.`);
+        }
+        // o que a API devolve para cada chamado informado
+        if (d.sonda && d.sonda.length) {
+            linhas.push('<br><b>Chamados conferidos:</b>');
+            d.sonda.forEach((x) => {
+                if (x.erro) { linhas.push(`#${e(x.id)}: ${e(x.erro)}`); return; }
+                linhas.push(`#${e(x.id)} — origem <b>${e(x.origin ?? 'vazia')}</b> · status ${e(x.status || '—')} · grupo <b>${e(x.grupo || 'vazio')}</b> · widget <b>${e(x.widget || 'vazio')}</b> · atendente ${e(x.atendente || '—')} · serviço ${e(x.servico || '—')} · espera ${e(x.espera ?? '—')} · conversa ${e(x.conversa ?? '—')}`);
+            });
+        }
+        // por origem, entre os últimos 100 chamados: quantos têm grupo/widget
+        if (a.porOrigemDetalhe) {
+            linhas.push('<br><b>Origens nos últimos ' + a.total + ' chamados:</b> ' + Object.entries(a.porOrigemDetalhe).map(([k, v]) => `origem ${e(k)}: ${v.total} (com grupo ${v.comGrupo}, com widget ${v.comWidget})`).join(' · '));
         }
         if (d.erros && d.erros.length) linhas.push('<b>Avisos da API:</b><br>' + d.erros.map(e).join('<br>'));
         box.innerHTML = linhas.join('<br>');

@@ -278,7 +278,7 @@ com foco e interação nos últimos 60 s). Os lotes vão a `POST /api/telemetria
   dicionário de `server/data/temas-chamados.json` (o mesmo dos Temas do Painel Geral). Sem tema no texto, vale o campo (Módulo/Rotina ou Causa); sem nada, "Sem motivo identificado". Cache em memória de 6 h.
 
 ## Chats (acompanhamento quase em tempo real)
-Um chamado é de chat quando tem **`chatGroup`** (o `chatWidget` só existe nos chats do site; os do WhatsApp/NLU vêm com grupo e sem widget). `server/routes/chats.js` copia esses chamados para
+Um chamado é de chat quando tem `chatGroup`, `chatWidget` ou uma das origens de chat (`CHATS_ORIGENS`, padrão 5 e 6 — "Chat (NLU)" e "Whatsapp (NLU)"). Os chats do WhatsApp podem vir sem widget e até sem grupo. `server/routes/chats.js` copia esses chamados para
 `public.hub_chat` (criada no primeiro uso; a carga principal em `silver.*` não é tocada). A cada 60 s (`CHATS_INTERVALO_S`; desligável com `CHATS_SYNC=0`) faz duas buscas na API com `$expand=owner,clients`:
 os alterados desde a última coleta (`lastUpdate ge …`, com folga de 10 min) e todos os ainda abertos dos últimos 7 dias. Depois grava uma foto em `public.hub_chat_snapshot` (ativos/abertos por grupo,
 `*` = total; 90 dias). `POST /api/chats/sincronizar {dias}` (admin) reprocessa o histórico. **Ativo** = `baseStatus` Novo ou Em atendimento **e** `lastUpdate` dentro de uma janela (padrão 30 min,

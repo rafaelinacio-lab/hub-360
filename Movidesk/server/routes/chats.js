@@ -97,9 +97,12 @@ async function gravar(lista) {
   );
 }
 
-// Um chamado é de chat quando tem GRUPO de chat (chatGroup). O widget só existe nos chats do site; os do
-// WhatsApp (NLU) vêm com grupo mas sem widget, por isso o filtro NÃO usa chatWidget.
-const FILTRO_CHAT = 'chatGroup ne null';
+// Como reconhecer um chamado de chat: tem grupo de chat (chatGroup), ou widget (chatWidget), ou uma das ORIGENS de chat
+// (padrão 5 e 6 = os dois códigos vistos nos chats do Movidesk; no painel aparecem como "Chat (NLU)" e "Whatsapp (NLU)").
+// Os chats do WhatsApp podem vir SEM widget e até sem grupo, por isso a origem também conta. Ajuste com CHATS_ORIGENS="5,6".
+const ORIGENS_CHAT = String(process.env.CHATS_ORIGENS == null ? '5,6' : process.env.CHATS_ORIGENS)
+  .split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n) && n >= 0);
+const FILTRO_CHAT = `(chatGroup ne null or chatWidget ne null${ORIGENS_CHAT.map((o) => ` or origin eq ${o}`).join('')})`;
 async function coletar(token, filtroOData, maxPaginas) {
   let gravados = 0;
   for (let pag = 0; pag < maxPaginas; pag++) {

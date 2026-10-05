@@ -206,12 +206,36 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
     // 2) chamados que têm widget de chat preenchido (os de chat de verdade)
     let chats = [];
     try { chats = await buscar(`&$filter=${encodeURIComponent('chatGroup ne null')}`); } catch (e) { erros.push(`Filtro por grupo de chat: ${e.message}`); }
+    // 3) sonda por número de chamado (?tickets=908248,908372): mostra exatamente o que a API devolve pra cada um
+    const ids = [...new Set(String(req.query.tickets || '').split(/[\s,;]+/).filter((x) => /^\d{1,12}$/.test(x)))].slice(0, 8);
+    const sonda = [];
+    for (const id of ids) {
+      try {
+        const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&id=${id}&$select=${encodeURIComponent(['id', 'origin', 'createdDate', 'lastUpdate', 'status', 'baseStatus', 'ownerTeam', 'serviceFull', ...CAMPOS_CHAT].join(','))}&$expand=${encodeURIComponent('owner,clients')}`;
+        const r = await fetch(url);
+        const txt = await r.text();
+        let d = null; try { d = JSON.parse(txt); } catch { /* erro em texto */ }
+        if (!r.ok) { sonda.push({ id, erro: `Movidesk respondeu ${r.status}` }); continue; }
+        const t0 = Array.isArray(d) ? d[0] : d;
+        if (!t0) { sonda.push({ id, erro: 'não encontrado' }); continue; }
+        const cl = Array.isArray(t0.clients) ? t0.clients[0] : null;
+        sonda.push({ id, origin: t0.origin ?? null, status: t0.status || null, baseStatus: t0.baseStatus || null, grupo: t0.chatGroup || null, widget: t0.chatWidget || null,
+          espera: t0.chatWaitingTime ?? null, conversa: t0.chatTalkTime ?? null, atendente: (t0.owner && t0.owner.businessName) || null, equipe: t0.ownerTeam || null,
+          servico: Array.isArray(t0.serviceFull) ? t0.serviceFull.join(' > ') : (t0.serviceFull || null), cliente: (cl && cl.businessName) || null,
+          criado: t0.createdDate || null, atualizado: t0.lastUpdate || null });
+      } catch (e) { sonda.push({ id, erro: e.message }); }
+    }
     const porOrigem = {};
     amostra.forEach((t) => { const k = String(t.origin ?? 'sem origem'); porOrigem[k] = (porOrigem[k] || 0) + 1; });
     const conta = (lista, campo) => lista.filter((t) => preenchido(t[campo])).length;
     res.json({
+      sonda,
       amostra: {
         total: amostra.length, porOrigem,
+        porOrigemDetalhe: Object.fromEntries(Object.keys(porOrigem).map((k) => {
+          const l = amostra.filter((x) => String(x.origin ?? 'sem origem') === k);
+          return [k, { total: l.length, comGrupo: conta(l, 'chatGroup'), comWidget: conta(l, 'chatWidget') }];
+        })),
         comWidget: conta(amostra, 'chatWidget'), comGrupo: conta(amostra, 'chatGroup'),
         comTempoConversa: conta(amostra, 'chatTalkTime'), comTempoEspera: conta(amostra, 'chatWaitingTime'),
       },
