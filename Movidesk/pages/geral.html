@@ -494,6 +494,9 @@ body.modal-open{overflow:hidden}
         </button>
         <div class="ms-drop"></div>
       </div>
+      <button class="btn-refresh" id="btn-limpar-filtros" type="button" onclick="limparFiltros()" title="Limpar todos os filtros">
+        <span class="sym">filter_alt_off</span>Limpar filtros
+      </button>
     </div>
     <div id="sync-toast">
       <span class="sym">sync</span>
@@ -1051,7 +1054,11 @@ function toggleMs(btn){
   const ms=btn.closest('.multi-sel');
   const wasOpen=ms.classList.contains('open');
   document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
-  if(!wasOpen) ms.classList.add('open');
+  if(!wasOpen){
+    ms.classList.add('open');
+    const busca=ms.querySelector('.ms-busca');
+    if(busca) busca.focus();
+  }
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest('.multi-sel'))
@@ -1085,6 +1092,25 @@ function msBusca(id,placeholder){
   });
   inp.addEventListener('click',e=>e.stopPropagation());
   drop.prepend(inp);
+}
+// Desmarca todos os filtros (Equipe, Responsável, Cliente, Serviço, Classificação,
+// Status, Ano e Mês), zera as buscas dos dropdowns e redesenha o painel.
+const FILTROS_MS=[
+  ['f-equipe','Equipe'],['f-resp','Responsável'],['f-cliente','Cliente'],['f-serv','Serviço'],
+  ['f-class','Classificação'],['f-status','Status'],['f-year','Ano'],['f-month','Mês'],
+];
+function limparFiltros(){
+  FILTROS_MS.forEach(([id,label])=>{
+    document.querySelectorAll(`#${id} .ms-drop input:checked`).forEach(i=>{ i.checked=false; });
+    const busca=document.querySelector(`#${id} .ms-busca`);
+    if(busca){
+      busca.value='';
+      document.querySelectorAll(`#${id} .ms-item`).forEach(it=>{ it.style.display=''; });
+    }
+    updateMsLabel(id,`${label}: todos`);
+  });
+  document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+  render();
 }
 function populateMs(id,items,allLabel,onChange){
   const drop=document.querySelector(`#${id} .ms-drop`);
@@ -1122,7 +1148,6 @@ function buildFilterOptions(){
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
   fill('f-serv','Serviço',_rows.map(r=>r.servico));
   fill('f-cliente','Cliente',[..._rows,..._rowsPendentesAll].map(r=>r.organizacao));
-  msBusca('f-cliente','Buscar cliente…');
   fill('f-class','Classificação',_rows.map(classificacaoDe));
   populateMs('f-status',[
     {v:'aberto',l:'Em aberto'},{v:'finalizado',l:'Finalizado'},
@@ -1134,6 +1159,8 @@ function buildFilterOptions(){
   aplicarAnoPadrao();
   renderYearLoadMore(years);
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
+  // Todos os filtros ganham o campo de busca no topo do dropdown.
+  FILTROS_MS.forEach(([id,label])=>msBusca(id,`Buscar ${label.toLowerCase()}…`));
 }
 
 // Enquanto os dados estiverem limitados a uma janela (ano vigente ou "desde"
