@@ -225,11 +225,38 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
           criado: t0.createdDate || null, atualizado: t0.lastUpdate || null });
       } catch (e) { sonda.push({ id, erro: e.message }); }
     }
+    // 4) procura um valor conhecido (ex.: o chatId do link /Ticket/ChatVisualize/908248?chatId=77563584) dentro do chamado COMPLETO,
+    //    pra descobrir em qual campo da API ele vem
+    let procura = null;
+    const valorProcurado = String(req.query.procurar || '').trim();
+    if (ids.length && /^[\w-]{4,40}$/.test(valorProcurado)) {
+      try {
+        const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&id=${ids[0]}&$expand=${encodeURIComponent('owner,clients,actions')}`;
+        const r = await fetch(url);
+        const d = await r.json().catch(() => null);
+        const t0 = Array.isArray(d) ? d[0] : d;
+        if (r.ok && t0) {
+          const caminhos = [];
+          const andar = (v, caminho) => {
+            if (caminhos.length >= 10) return;
+            if (v !== null && typeof v === 'object') {
+              for (const [k, x] of Object.entries(v)) andar(x, caminho ? `${caminho}.${k}` : k);
+            } else if (String(v).includes(valorProcurado)) {
+              caminhos.push(`${caminho} = ${String(v).slice(0, 120)}`);
+            }
+          };
+          andar(t0, '');
+          const camposChat = {};
+          Object.keys(t0).filter((k) => /chat|talk|waiting|conversa/i.test(k)).forEach((k) => { camposChat[k] = t0[k]; });
+          procura = { id: ids[0], valor: valorProcurado, encontrado: caminhos, camposChat, todosOsCampos: Object.keys(t0) };
+        } else procura = { id: ids[0], valor: valorProcurado, erro: `Movidesk respondeu ${r.status}` };
+      } catch (e) { procura = { id: ids[0], valor: valorProcurado, erro: e.message }; }
+    }
     const porOrigem = {};
     amostra.forEach((t) => { const k = String(t.origin ?? 'sem origem'); porOrigem[k] = (porOrigem[k] || 0) + 1; });
     const conta = (lista, campo) => lista.filter((t) => preenchido(t[campo])).length;
     res.json({
-      sonda,
+      sonda, procura,
       amostra: {
         total: amostra.length, porOrigem,
         porOrigemDetalhe: Object.fromEntries(Object.keys(porOrigem).map((k) => {

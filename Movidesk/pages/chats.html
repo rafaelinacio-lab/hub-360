@@ -322,9 +322,9 @@ function desenhar(){
   const porGrupo={};
   ativos.forEach(x=>{ (porGrupo[x.grupo]=porGrupo[x.grupo]||[]).push(x); });
   const grupos=Object.entries(porGrupo).sort((a,b)=>b[1].length-a[1].length);
-  $('tb-vivo').innerHTML=grupos.length?`<table><thead><tr><th>Ticket</th><th>Cliente</th><th>Organização</th><th>Serviço</th><th>Atendente</th><th>Aberto em</th><th class="n">Duração</th><th>Origem</th></tr></thead><tbody>`+
-    grupos.map(([g,l])=>`<tr><td colspan="8" style="background:var(--surface-low);font-weight:700;font-size:12px;color:var(--t2)">${esc(g)} · ${nf(l.length)} chat(s)</td></tr>`+
-      l.map(c=>`<tr><td>${linkTk(c.id)}</td><td>${esc(c.cliente||'—')}</td><td>${esc(c.organizacao||'—')}</td><td>${esc(c.servico||'—')}</td><td>${esc(c.atendente||'—')}</td><td>${quando(c.criado_em)}</td><td class="n" data-desde="${esc(c.criado_em)}">${idade(c.criado_em)}</td><td>${esc(c.origem??'—')}</td></tr>`).join('')).join('')+`</tbody></table>`
+  $('tb-vivo').innerHTML=grupos.length?`<table><thead><tr><th>Ticket</th><th>Cliente</th><th>Organização</th><th>Serviço</th><th>Atendente</th><th>Aberto em</th><th class="n">Duração</th><th>Origem</th><th>Chat</th></tr></thead><tbody>`+
+    grupos.map(([g,l])=>`<tr><td colspan="9" style="background:var(--surface-low);font-weight:700;font-size:12px;color:var(--t2)">${esc(g)} · ${nf(l.length)} chat(s)</td></tr>`+
+      l.map(c=>`<tr><td>${linkTk(c.id)}</td><td>${esc(c.cliente||'—')}</td><td>${esc(c.organizacao||'—')}</td><td>${esc(c.servico||'—')}</td><td>${esc(c.atendente||'—')}</td><td>${quando(c.criado_em)}</td><td class="n" data-desde="${esc(c.criado_em)}">${idade(c.criado_em)}</td><td>${esc(c.origem??'—')}</td><td><a href="https://viasoft.movidesk.com/Ticket/ChatVisualize/${esc(c.id)}" target="_blank" rel="noopener" style="color:var(--orange);font-weight:600" title="Abrir a conversa no Movidesk">Visualizar</a></td></tr>`).join('')).join('')+`</tbody></table>`
     :`<div class="vazio">Nenhuma conversa ativa agora (nenhum chamado de chat Novo ou Em atendimento com atividade nos últimos ${jn}).</div>`;
 
   const lista=(arr,vazio)=>{ if(!arr.length) return `<div class="vazio">${vazio}</div>`; const mx=Math.max(1,...arr.map(x=>x.n));

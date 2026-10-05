@@ -277,6 +277,8 @@
                         <div class="config-form-stack">
                             <label class="config-card-help" for="cfgChatDiagTickets" style="margin:0">Números de chamados de chat para conferir (um por vez ou separados por vírgula). Pode usar chats que aparecem na tela do Movidesk:</label>
                             <input id="cfgChatDiagTickets" class="config-input" type="text" value="908248, 908372, 908467, 908395" autocomplete="off" spellcheck="false">
+                            <label class="config-card-help" for="cfgChatDiagProcurar" style="margin:8px 0 0">Valor para procurar dentro do 1º chamado (ex.: o <b>chatId</b> do link <i>/Ticket/ChatVisualize/908248?chatId=77563584</i>) — mostra em qual campo da API ele vem:</label>
+                            <input id="cfgChatDiagProcurar" class="config-input" type="text" value="77563584" autocomplete="off" spellcheck="false">
                         </div>
                         <div class="config-actions">
                             <button id="cfgChatDiagBtn" class="config-btn" onclick="rodarDiagnosticoChat()">Verificar dados de chat</button>

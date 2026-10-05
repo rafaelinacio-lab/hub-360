@@ -3559,7 +3559,7 @@ async function rodarDiagnosticoChat() {
     btn.disabled = true; status.textContent = 'Consultando o Movidesk…'; box.innerHTML = '';
     try {
         const tk = (document.getElementById('cfgChatDiagTickets') || {}).value || '';
-        const r = await fetch(`${API_BASE}/geral/chat-diagnostico?tickets=${encodeURIComponent(tk)}`, { headers: authHeaders() });
+        const r = await fetch(`${API_BASE}/geral/chat-diagnostico?tickets=${encodeURIComponent(tk)}&procurar=${encodeURIComponent(((document.getElementById('cfgChatDiagProcurar') || {}).value || '').trim())}`, { headers: authHeaders() });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || r.statusText);
         status.textContent = '';
@@ -3585,6 +3585,15 @@ async function rodarDiagnosticoChat() {
                 if (x.erro) { linhas.push(`#${e(x.id)}: ${e(x.erro)}`); return; }
                 linhas.push(`#${e(x.id)} — origem <b>${e(x.origin ?? 'vazia')}</b> · status ${e(x.status || '—')} · grupo <b>${e(x.grupo || 'vazio')}</b> · widget <b>${e(x.widget || 'vazio')}</b> · atendente ${e(x.atendente || '—')} · serviço ${e(x.servico || '—')} · espera ${e(x.espera ?? '—')} · conversa ${e(x.conversa ?? '—')}`);
             });
+        }
+        if (d.procura) {
+            const pr = d.procura;
+            linhas.push(`<br><b>Procurando "${e(pr.valor)}" no chamado #${e(pr.id)}:</b> ` + (pr.erro ? e(pr.erro)
+                : (pr.encontrado.length ? pr.encontrado.map((x) => `<code>${e(x)}</code>`).join('<br>') : '<b>não encontrado em nenhum campo</b>')));
+            if (!pr.erro) {
+                linhas.push('Campos de chat do chamado: ' + (Object.keys(pr.camposChat).length ? Object.entries(pr.camposChat).map(([k, v]) => `${e(k)} = ${e(typeof v === 'object' ? JSON.stringify(v) : v)}`).join(' · ') : 'nenhum'));
+                linhas.push('Todos os campos devolvidos: ' + e(pr.todosOsCampos.join(', ')));
+            }
         }
         // por origem, entre os últimos 100 chamados: quantos têm grupo/widget
         if (a.porOrigemDetalhe) {
