@@ -28,6 +28,7 @@ const cronSchedule = require('../utils/cronSchedule');
 const pending = new Set(); // jobs na fila ou rodando agora
 const cancelRequested = new Set(); // jobs que pediram pra parar enquanto estavam na fila
 let runningJobId = null;           // job cuja carga está no loader agora
+let cadeia = Promise.resolve();    // fila FIFO: cada job só começa quando o anterior da fila terminou
 const QUEUE_POLL_MS = 20 * 1000;
 const QUEUE_MAX_WAIT_MS = 3 * 60 * 60 * 1000;
 
@@ -112,18 +113,23 @@ async function executeJob(jobId, { force = false } = {}) {
   // anterior esperava) — não empilha outra.
   if (pending.has(jobId)) return;
   pending.add(jobId);
+  // Fila FIFO: só uma carga roda por vez. Cada job entra na cadeia e espera o anterior terminar. Antes cada job só olhava
+  // `state.running`; duas crons disparadas juntas (intervalos alinhados) viam "livre" ao mesmo tempo, as duas partiam e a segunda
+  // falhava com "Já existe uma carga em andamento".
+  let liberar = () => {};
+  const minhaVez = new Promise((ok) => { liberar = ok; });
+  const anterior = cadeia; cadeia = minhaVez;
+  let anteriorOk = false; anterior.then(() => { anteriorOk = true; });
   try {
-    // Só uma carga roda por vez no loader. Antes, se outra cron (ou carga
-    // manual) estivesse em andamento, esta falhava na hora com "Já existe uma
-    // carga em andamento" — agora espera na fila até o loader liberar.
-    if (movideskLoader.state.running) {
+    if (pending.size > 1 || movideskLoader.state.running) {
       await db.query(`UPDATE silver.cron_job SET last_status = 'queued' WHERE id = $1`, [jobId]).catch(() => {});
-      const limite = Date.now() + QUEUE_MAX_WAIT_MS;
-      while (movideskLoader.state.running) {
-        if (cancelRequested.has(jobId)) throw Object.assign(new Error('Parado manualmente (estava na fila)'), { stopped: true });
-        if (Date.now() > limite) throw new Error(`Outra carga (${movideskLoader.state.mode || '?'}) ficou em andamento por mais de ${QUEUE_MAX_WAIT_MS / 3600000}h — execução pulada`);
-        await new Promise(r => setTimeout(r, QUEUE_POLL_MS));
-      }
+    }
+    const limite = Date.now() + QUEUE_MAX_WAIT_MS;
+    // espera a vez e também qualquer carga iniciada fora das crons (botão manual)
+    while (!anteriorOk || movideskLoader.state.running) {
+      if (cancelRequested.has(jobId)) throw Object.assign(new Error('Parado manualmente (estava na fila)'), { stopped: true });
+      if (Date.now() > limite) throw new Error(`Outra carga (${movideskLoader.state.mode || '?'}) ficou em andamento por mais de ${QUEUE_MAX_WAIT_MS / 3600000}h — execução pulada`);
+      await Promise.race([anterior, new Promise(r => setTimeout(r, anteriorOk ? QUEUE_POLL_MS : 2000))]);
     }
     console.log(`⏱️  [${new Date().toLocaleTimeString('pt-BR')}] Cron "${row.name}" (${taskLabel(row.task)}) iniciando...`);
     if (cancelRequested.has(jobId)) throw Object.assign(new Error('Parado manualmente'), { stopped: true });
@@ -155,6 +161,7 @@ async function executeJob(jobId, { force = false } = {}) {
     pending.delete(jobId);
     cancelRequested.delete(jobId);
     if (runningJobId === jobId) runningJobId = null;
+    liberar();                                   // passa a vez para o próximo da fila
   }
 }
 

@@ -83,7 +83,7 @@ limita tamanho de entrada e tokens de saída e registra o uso em
 `actions($expand=createdBy)`), grava em `silver.*` e registra cada execução em
 `silver.carga_log` (+ diffs por ticket em `silver.carga_log_ticket_change`).
 `cron-manager.js` agenda os jobs de `silver.cron_job`; como o loader roda uma
-carga por vez, um job que dispara com outra em andamento espera na fila.
+carga por vez, um job que dispara com outra em andamento espera na fila. A fila é FIFO (`cadeia` em `cron-manager.js`): crons disparadas no mesmo instante entram em ordem e cada uma só começa quando a anterior termina (status `queued` na tela); antes, duas crons simultâneas passavam juntas pela checagem de `state.running` e a segunda falhava com "Já existe uma carga em andamento".
 
 ## Fotos
 
