@@ -210,7 +210,7 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
     const ids = [...new Set(String(req.query.tickets || '').split(/[\s,;]+/).filter((x) => /^\d{1,12}$/.test(x)))].slice(0, 8);
     // Busca por LISTA com $filter (a busca por ?id= devolveu 404 para chamados de chat recentes, a por lista funciona).
     const porId = async (id, extra) => {
-      const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&$filter=${encodeURIComponent(`id eq '${id}'`)}&$top=1${extra || ''}`;
+      const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&$filter=${encodeURIComponent(`id eq ${id}`)}&$top=1${extra || ''}`;
       const r = await fetch(url);
       const txt = await r.text();
       let d = null; try { d = JSON.parse(txt); } catch { /* erro em texto */ }
@@ -244,7 +244,11 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
     const valorProcurado = String(req.query.procurar || '').trim();
     if (ids.length && /^[\w-]{4,40}$/.test(valorProcurado)) {
       try {
-        const t0 = await porId(ids[0], `&$expand=${encodeURIComponent('owner,clients,actions')}`);
+        const amplo = ['id', 'protocol', 'type', 'subject', 'category', 'urgency', 'status', 'baseStatus', 'origin', 'createdDate', 'lastUpdate', 'lastActionDate', 'ownerTeam',
+          'serviceFull', 'contactForm', 'tags', 'actionCount', ...CAMPOS_CHAT];
+        let t0;
+        try { t0 = await porId(ids[0], `&$select=${encodeURIComponent(amplo.join(','))}&$expand=${encodeURIComponent('owner,clients,actions')}`); }
+        catch (e1) { t0 = await porId(ids[0], `&$select=${encodeURIComponent(['id', 'origin', 'createdDate', ...CAMPOS_CHAT].join(','))}&$expand=${encodeURIComponent('actions')}`); }
         const r = { ok: true };
         if (r.ok && t0) {
           const caminhos = [];
