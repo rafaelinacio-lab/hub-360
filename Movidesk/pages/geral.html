@@ -214,13 +214,6 @@ input,select{font-family:inherit}
 /* ─── Evolução mensal (abertos x resolvidos) ────────────────────────── */
 .tv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .tv-eyebrow{font-size:10px;letter-spacing:.14em;color:var(--t3);font-weight:700;text-transform:uppercase;margin:0 0 4px}
-.tv-desc{font-size:12px;color:var(--t3);margin:-6px 0 0;line-height:1.45;max-width:640px}
-.tv-ctl{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
-.tv-sel{
-  min-width:170px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
-  background:var(--surface-low);color:var(--t1);font:inherit;font-size:12px;cursor:pointer;
-}
-.tv-sel:hover,.tv-sel:focus{border-color:var(--orange);outline:none}
 .tv-legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
 .tv-pill{
   display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--border);
@@ -597,11 +590,6 @@ body.modal-open{overflow:hidden}
         <div>
           <p class="tv-eyebrow">Análise de volume</p>
           <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 6px">Evolução mensal: abertos vs resolvidos</p>
-          <p class="tv-desc">Tickets abertos (data de criação) e resolvidos (data de resolução) por mês, respeitando os filtros do painel. Passe sobre um ponto para comparar o mês com o anterior; clique para ver os tickets.</p>
-        </div>
-        <div class="tv-ctl">
-          <span class="tv-eyebrow" style="margin:0">Mês inicial</span>
-          <select class="tv-sel" id="trend-mes-ini" aria-label="Mês inicial" onchange="trendMesIniMudou(this.value)"></select>
         </div>
       </div>
       <div class="tv-legend" id="trend-legend"></div>
@@ -1508,8 +1496,6 @@ function bucketPorMes(rows){
   return by;
 }
 // Evolução mensal: Mês inicial escolhido pelo usuário (vazio = padrão: ano filtrado ou últimos 12 meses).
-let _trendMesIni='', _trendCtx='', _trendRows=[];
-function trendMesIniMudou(v){ _trendMesIni=v; renderTrendChart(_trendRows); }
 function mesAnteriorKey(mk){
   const [y,m]=mk.split('-').map(Number);
   return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`;
@@ -1518,15 +1504,10 @@ function mesProximoKey(mk){
   const [y,m]=mk.split('-').map(Number);
   return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`;
 }
-function rotuloMesLongo(mk){
-  const [y,m]=mk.split('-').map(Number);
-  return new Date(y,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-}
 function rotuloMesCurto(mk){ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; }
 const fmtNum1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
 
 function renderTrendChart(rows){
-  _trendRows=rows;
   destroyChart('trendVolChart');
   const col=chartColors();
   const byMes=bucketPorMes(rows);
@@ -1541,17 +1522,9 @@ function renderTrendChart(rows){
   }
   if(yearFilVal) todos=todos.filter(mk=>mk.startsWith(yearFilVal+'-'));
 
-  // o padrão volta a valer quando o filtro de Ano muda
-  const ctx=yearFilsA.join(',');
-  if(ctx!==_trendCtx){ _trendCtx=ctx; _trendMesIni=''; }
-  if(!todos.includes(_trendMesIni)) _trendMesIni='';
-  const ini=_trendMesIni||(yearFilVal?todos[0]:todos[Math.max(0,todos.length-12)]);
+  // período: o ano filtrado (de janeiro em diante) ou os últimos 12 meses com dados
+  const ini=yearFilVal?todos[0]:todos[Math.max(0,todos.length-12)];
   const chaves=ini?todos.slice(todos.indexOf(ini)):[];
-
-  const sel=document.getElementById('trend-mes-ini');
-  if(sel){
-    sel.innerHTML=todos.map(mk=>`<option value="${mk}"${mk===ini?' selected':''}>${rotuloMesLongo(mk)}</option>`).join('');
-  }
 
   const get=(mk,k)=>byMes[mk]?byMes[mk][k]:0;
   const ab=chaves.map(mk=>get(mk,'abertos'));
