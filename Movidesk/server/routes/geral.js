@@ -18,8 +18,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db/remote');
-const { authMiddleware } = require('./auth');
-const { requireTabAccess } = require('./config');
+const { authMiddleware, requireRole } = require('./auth');
+const { requireTabAccess, getToken } = require('./config');
 const { calcularMinutosUteisComPausas, parseData } = require('../utils/sla');
 const { classificarTexto, listarTemas } = require('../utils/temasChamados');
 
@@ -177,6 +177,62 @@ router.get('/pendentes', authMiddleware, requireTabAccess('paineltv'), async (re
     res.status(500).json({ error: 'Erro ao carregar pendentes do painel geral: ' + error.message });
   }
 });
+
+// ===== GET /geral/chat-diagnostico (admin) =====
+// Só leitura. Pergunta ao Movidesk pelos chamados mais recentes pedindo os campos de chat e conta o que veio:
+// serve pra descobrir, sem adivinhar, se os atendimentos de chat chegam com origem/grupo/widget/tempos preenchidos.
+const MOVI_TICKETS = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
+const CAMPOS_CHAT = ['chatWidget', 'chatGroup', 'chatTalkTime', 'chatWaitingTime'];
+router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const token = await new Promise((ok, ko) => getToken((e, t) => (e ? ko(e) : ok(t))));
+    const buscar = async (extra) => {
+      const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&$select=${encodeURIComponent(['id', 'origin', 'createdDate', 'baseStatus', ...CAMPOS_CHAT].join(','))}`
+        + `&$orderby=${encodeURIComponent('createdDate desc')}&$top=100${extra || ''}`;
+      const r = await fetch(url);
+      const txt = await r.text();
+      let dados = null; try { dados = JSON.parse(txt); } catch { /* texto de erro */ }
+      if (!r.ok) {
+        // o token nunca volta na resposta
+        throw new Error(`Movidesk respondeu ${r.status}: ${(typeof dados === 'object' && dados ? JSON.stringify(dados) : txt).slice(0, 300)}`);
+      }
+      return Array.isArray(dados) ? dados : [];
+    };
+    const preenchido = (v) => v !== null && v !== undefined && String(v).trim() !== '';
+    let erros = [];
+    // 1) amostra geral: quais origens existem e se os campos de chat vêm
+    let amostra = [];
+    try { amostra = await buscar(''); } catch (e) { erros.push(`Amostra geral: ${e.message}`); }
+    // 2) chamados que têm widget de chat preenchido (os de chat de verdade)
+    let chats = [];
+    try { chats = await buscar(`&$filter=${encodeURIComponent('chatWidget ne null')}`); } catch (e) { erros.push(`Filtro por chat: ${e.message}`); }
+    const porOrigem = {};
+    amostra.forEach((t) => { const k = String(t.origin ?? 'sem origem'); porOrigem[k] = (porOrigem[k] || 0) + 1; });
+    const conta = (lista, campo) => lista.filter((t) => preenchido(t[campo])).length;
+    res.json({
+      amostra: {
+        total: amostra.length, porOrigem,
+        comWidget: conta(amostra, 'chatWidget'), comGrupo: conta(amostra, 'chatGroup'),
+        comTempoConversa: conta(amostra, 'chatTalkTime'), comTempoEspera: conta(amostra, 'chatWaitingTime'),
+      },
+      chats: {
+        total: chats.length,
+        origens: [...new Set(chats.map((t) => String(t.origin ?? 'sem origem')))],
+        grupos: [...new Set(chats.map((t) => t.chatGroup).filter(preenchido))].slice(0, 20),
+        widgets: [...new Set(chats.map((t) => t.chatWidget).filter(preenchido))].slice(0, 20),
+        comGrupo: conta(chats, 'chatGroup'), comTempoConversa: conta(chats, 'chatTalkTime'), comTempoEspera: conta(chats, 'chatWaitingTime'),
+        maisRecente: chats[0] ? chats[0].createdDate : null,
+        exemplos: chats.slice(0, 5).map((t) => ({ id: t.id, criado: t.createdDate, status: t.baseStatus, grupo: t.chatGroup || null, widget: t.chatWidget || null,
+          conversa: t.chatTalkTime ?? null, espera: t.chatWaitingTime ?? null })),
+      },
+      erros,
+    });
+  } catch (e) {
+    console.error('Erro no diagnóstico de chat:', e.message);
+    res.status(500).json({ error: 'Não foi possível consultar o Movidesk: ' + e.message });
+  }
+});
+
 
 // ===== POST /geral/sla-liquido =====
 // Tempo de SOLUÇÃO líquido de tickets já resolvidos: da abertura (createddate) até

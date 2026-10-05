@@ -3549,3 +3549,38 @@ async function loadTelemetria() {
         status.className = 'config-status error';
     }
 }
+
+// ── Diagnóstico de chat: os atendimentos de chat chegam com os campos preenchidos? ──
+async function rodarDiagnosticoChat() {
+    const btn = document.getElementById('cfgChatDiagBtn');
+    const status = document.getElementById('cfgChatDiagStatus');
+    const box = document.getElementById('cfgChatDiagResultado');
+    if (!btn) return;
+    btn.disabled = true; status.textContent = 'Consultando o Movidesk…'; box.innerHTML = '';
+    try {
+        const r = await fetch(`${API_BASE}/geral/chat-diagnostico`, { headers: authHeaders() });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        status.textContent = '';
+        const e = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const a = d.amostra, c = d.chats;
+        const linhas = [];
+        if (c.total) {
+            linhas.push(`<b>✅ Encontrei ${c.total} chamado(s) de chat recentes</b> (o mais recente em ${e(new Date(c.maisRecente).toLocaleString('pt-BR'))}).`);
+            linhas.push(`Código de origem desses chamados: <b>${e(c.origens.join(', '))}</b>.`);
+            linhas.push(`Grupos de chat: ${c.grupos.length ? e(c.grupos.join(' · ')) : '<b>nenhum preenchido</b>'}.`);
+            linhas.push(`Widgets: ${c.widgets.length ? e(c.widgets.join(' · ')) : '—'}.`);
+            linhas.push(`Com tempo de conversa: <b>${c.comTempoConversa}</b> de ${c.total} · com tempo de espera: <b>${c.comTempoEspera}</b> de ${c.total} · com grupo: <b>${c.comGrupo}</b> de ${c.total}.`);
+            if (c.exemplos.length) linhas.push('Exemplos: ' + c.exemplos.map((x) => `#${e(x.id)} (${e(x.grupo || 'sem grupo')}, espera ${e(x.espera ?? '—')}, conversa ${e(x.conversa ?? '—')})`).join(' · '));
+            linhas.push('<b>Conclusão:</b> dá para acompanhar o chat no Hub a partir dos chamados. Falta o Hub passar a guardar esses campos.');
+        } else {
+            linhas.push('<b>⚠️ Não achei chamados com widget de chat preenchido.</b> Ou o chat ainda não gera chamado com esses campos, ou a conta não os devolve.');
+            linhas.push(`Na amostra dos últimos ${a.total} chamados, as origens são: ${Object.entries(a.porOrigem).map(([k, v]) => `${e(k)} (${v})`).join(', ') || '—'}.`);
+        }
+        if (d.erros && d.erros.length) linhas.push('<b>Avisos da API:</b><br>' + d.erros.map(e).join('<br>'));
+        box.innerHTML = linhas.join('<br>');
+    } catch (err) {
+        status.textContent = `Não foi possível verificar: ${err.message}`;
+        status.className = 'config-status error';
+    } finally { btn.disabled = false; }
+}
