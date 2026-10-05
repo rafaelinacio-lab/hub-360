@@ -272,9 +272,7 @@ com foco e interação nos últimos 60 s). Os lotes vão a `POST /api/telemetria
 (criada no primeiro uso; retenção de 180 dias, expurgo diário). O relatório é `GET /api/telemetria/resumo?dias=&usuario=` (só admin), exibido em Configurações → Telemetria
 (usuários, abas, controles mais clicados, mapa dia × hora em horário de Brasília, dia a dia e quem não acessou).
 
-## Reincidências — confiança alta, motivo pelo conteúdo e tratamento
+## Reincidências — confiança alta e motivo pelo conteúdo
 - Só conta como reincidente o veredito de **confiança Alta** (`rn` na CTE `GERAL_CTE`); a análise por grupos (dimensões 0/A/B) também guarda só grupos de confiança Alta.
 - O **motivo** não vem só do campo Módulo/Rotina: `motivosDe()` (reincidencias.js) classifica pelo texto (assunto, 5 primeiras ações, explicação da IA e assunto do chamado anterior) com o
   dicionário de `server/data/temas-chamados.json` (o mesmo dos Temas do Painel Geral). Sem tema no texto, vale o campo (Módulo/Rotina ou Causa); sem nada, "Sem motivo identificado". Cache em memória de 6 h.
-- **Tratamento**: `public.reincidencia_tratamento` (status nova/em_analise/tratada/descartada, responsável, causa raiz, observação, quem e quando). `PUT /api/reincidencias/tratamento/:ticketId`
-  (admin/supervisor/atendente, só para reincidências de confiança alta). Os indicadores "A tratar" e "Tratadas" e os filtros da gaveta de chamados usam essa tabela.
