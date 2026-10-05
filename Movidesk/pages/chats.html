@@ -223,9 +223,9 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
       <span class="ponto" title="Atualiza sozinho a cada 30 segundos"></span>
       <span class="meta" id="frescor">Carregando…</span>
       <span class="sp"></span>
-      <label class="meta" for="selJanela" title="Um chat é considerado ativo se está Novo ou Em atendimento e teve atividade dentro desta janela">Ativo = atividade nos últimos</label>
+      <label class="meta" for="selJanela" title="Como decidir se um chat está acontecendo agora">Chat ativo =</label>
       <select class="sel" id="selJanela" onchange="carregar()">
-        <option value="15">15 min</option><option value="30" selected>30 min</option><option value="60">1 hora</option><option value="120">2 horas</option><option value="1440">24 horas</option>
+        <option value="0" selected>ainda sem tempo de conversa</option><option value="30">atividade em 30 min</option><option value="120">atividade em 2 h</option><option value="1440">atividade em 24 h</option>
       </select>
       <label class="meta" for="selDias">Histórico</label>
       <select class="sel" id="selDias" onchange="carregar()">
@@ -309,11 +309,11 @@ function desenhar(){
   const ativos=d.ativos||[];
   const nAtivos=ativos.length, novos=ativos.filter(x=>/novo|new/i.test(x.status)).length;
   const maisAntigo=ativos.map(x=>x.criado_em).filter(Boolean).sort()[0];
-  const jn=d.janela>=1440?'24 h':(d.janela>=60?(d.janela/60)+' h':d.janela+' min');
+  const jn=d.janela===0?'':(d.janela>=1440?'24 h':(d.janela>=60?(d.janela/60)+' h':d.janela+' min'));
   const kpi=(cls,l,v,s,info)=>`<div class="card kpi ${cls}"><div class="l">${l}</div><button class="panel-info" data-info="${info}" aria-label="Ajuda">!</button><div class="v">${v}</div><div class="s">${s}</div></div>`;
   $('kpis').innerHTML=
-    kpi('vivo','Ativos agora',nf(nAtivos),`${nf(novos)} com status Novo · atividade em até ${jn}`,'andamento')+
-    kpi('','Abertos (24 h)',nf(d.abertos24),`${nf(Math.max(0,d.abertos24-nAtivos))} sem atividade recente · ${nf(d.abertosAntigos)} abertos há +24 h`,'abertos')+
+    kpi('vivo','Ativos agora',nf(nAtivos),(d.janela===0?`${nf(novos)} com status Novo · chats ainda não encerrados`:`${nf(novos)} com status Novo · atividade em até ${jn}`),'andamento')+
+    kpi('','Abertos (24 h)',nf(d.abertos24),`${nf(Math.max(0,d.abertos24-nAtivos))} já encerrados ou parados · ${nf(d.abertosAntigos)} abertos há +24 h`,'abertos')+
     kpi('','Chats hoje',nf(h.total),`${nf(h.encerrados)} encerrados`,'hoje-total')+
     kpi('','Espera média hoje',dur(h.espera_media),h.espera_p90!=null?`90% esperaram até ${dur(h.espera_p90)}`:'só chats encerrados têm o tempo','espera')+
     kpi('','Conversa média hoje',dur(h.conversa_media),'duração do atendimento','conversa');
@@ -325,7 +325,7 @@ function desenhar(){
   $('tb-vivo').innerHTML=grupos.length?`<table><thead><tr><th>Ticket</th><th>Cliente</th><th>Organização</th><th>Serviço</th><th>Atendente</th><th>Aberto em</th><th class="n">Duração</th><th>Origem</th><th>Chat</th></tr></thead><tbody>`+
     grupos.map(([g,l])=>`<tr><td colspan="9" style="background:var(--surface-low);font-weight:700;font-size:12px;color:var(--t2)">${esc(g)} · ${nf(l.length)} chat(s)</td></tr>`+
       l.map(c=>`<tr><td>${linkTk(c.id)}</td><td>${esc(c.cliente||'—')}</td><td>${esc(c.organizacao||'—')}</td><td>${esc(c.servico||'—')}</td><td>${esc(c.atendente||'—')}</td><td>${quando(c.criado_em)}</td><td class="n" data-desde="${esc(c.criado_em)}">${idade(c.criado_em)}</td><td>${esc(c.origem??'—')}</td><td><a href="https://viasoft.movidesk.com/Ticket/ChatVisualize/${esc(c.id)}" target="_blank" rel="noopener" style="color:var(--orange);font-weight:600" title="Abrir a conversa no Movidesk">Visualizar</a></td></tr>`).join('')).join('')+`</tbody></table>`
-    :`<div class="vazio">Nenhuma conversa ativa agora (nenhum chamado de chat Novo ou Em atendimento com atividade nos últimos ${jn}).</div>`;
+    :`<div class="vazio">Nenhuma conversa ativa agora${d.janela===0?' (nenhum chamado de chat Novo ou Em atendimento ainda sem tempo de conversa).':` (nenhum chamado de chat Novo ou Em atendimento com atividade nos últimos ${jn}).`}</div>`;
 
   const lista=(arr,vazio)=>{ if(!arr.length) return `<div class="vazio">${vazio}</div>`; const mx=Math.max(1,...arr.map(x=>x.n));
     return `<table><tbody>${arr.map(x=>`<tr><td style="width:46%">${esc(x.nome)}</td><td><div style="height:8px;border-radius:999px;background:var(--surface-low);overflow:hidden"><div style="height:100%;width:${Math.max(3,x.n/mx*100)}%;background:var(--orange);border-radius:999px"></div></div></td><td class="n"><b>${nf(x.n)}</b></td></tr>`).join('')}</tbody></table>`; };
@@ -359,11 +359,11 @@ function desenhar(){
 
 // ── ajuda "!" ──
 const INFO={
-  andamento:['Ativos agora','Chats que parecem estar acontecendo neste momento.',['Chamado de chat com status Novo ou Em atendimento e atividade dentro da janela escolhida.','O status "Novo" pode indicar chat ainda sem atendente — confira no Movidesk.']],
+  andamento:['Ativos agora','Chats que parecem estar acontecendo neste momento.',['Chamado de chat Novo ou Em atendimento e ainda sem tempo de conversa (o chat não terminou), ou com atividade recente conforme o seletor.','O status "Novo" pode indicar chat ainda sem atendente — confira no Movidesk.']],
   'hoje-total':['Chats hoje','Quantidade de chats abertos hoje (horário de Brasília).',['Conta chamados com widget de chat criados no dia.','Encerrados = status Resolvido ou Fechado.']],
   espera:['Espera média','Quanto os clientes esperaram até um atendente assumir o chat.',['Média do campo chatWaitingTime dos chats de hoje que já têm o tempo.','O Movidesk só preenche o tempo quando o chat termina; o p90 mostra o tempo até o qual 90% dos clientes esperaram.','Unidade presumida: segundos.']],
   conversa:['Conversa média','Duração média dos atendimentos.',['Média do campo chatTalkTime dos chats de hoje já encerrados.','Unidade presumida: segundos.']],
-  vivo:['Conversas em atendimento','Chats que parecem estar acontecendo agora, agrupados por grupo de chat — como na tela do Movidesk.',['Chamado de chat (tem grupo de chat) com status Novo ou Em atendimento e atividade dentro da janela escolhida (padrão 30 min).','O chamado de um chat continua aberto depois que a conversa termina; a janela de atividade evita contar esses. Se os números destoarem da tela /ChatQueue, aumente a janela.','Duração = agora − abertura do chamado (conta ao vivo).','Origem = código numérico do Movidesk (ex.: 5 e 6).']],
+  vivo:['Conversas em atendimento','Chats que parecem estar acontecendo agora, agrupados por grupo de chat — como na tela do Movidesk.',['Chamado de chat (tem grupo de chat) com status Novo ou Em atendimento.','Padrão: criado nas últimas 24 h e ainda SEM tempo de conversa — o Movidesk só preenche chatTalkTime quando o chat termina, e durante a conversa o chamado quase não é atualizado.','Alternativa no seletor: atividade do chamado em 30 min, 2 h ou 24 h. Se os números destoarem da tela /ChatQueue, compare as opções.','Duração = agora − abertura do chamado (conta ao vivo).','Origem = código numérico do Movidesk (ex.: 5 e 6).']],
   fila:['Aguardando atendimento','A fila de conversas sem atendente.',['Não há chamado enquanto o chat está na fila; a API pública do Movidesk não lista a fila. Ela só existe na tela interna /ChatQueue.','Para ter a fila aqui seria preciso um recurso do Movidesk/Zenvia (por exemplo, eventos do NLU enviados ao Hub).']],
   atendente:['Chats ativos por atendente','Quantos chats ativos cada atendente tem agora.',['Atendente = responsável pelo chamado.','Mesma definição de ativo da tabela de conversas.']],
   servico:['Chats ativos por serviço','Quantos chats ativos há em cada serviço do Movidesk.',['Serviço = serviço do chamado (primeiro ao último nível).']],
