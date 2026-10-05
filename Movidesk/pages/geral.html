@@ -254,6 +254,19 @@ input,select{font-family:inherit}
 .imp-pos{color:#f87171}.imp-neg{color:var(--green)}
 .imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
 
+/* ─── Evolução mensal do atingimento do SLA ─────────────────────────── */
+.sl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.sl-ult{min-width:190px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-low);text-align:right}
+.sl-ult b{display:block;font-size:30px;line-height:1.1;color:var(--green)}
+.sl-ult small{font-size:11px}
+.sl-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+@media (max-width:900px){.sl-kpis{grid-template-columns:1fr}}
+.sl-kpi{padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-low)}
+.sl-kpi b{display:block;font-size:22px;color:var(--t1);margin:4px 0 2px}
+.sl-kpi small{font-size:11px;color:var(--t3)}
+.sl-nota{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;padding:9px 14px;border:1px solid var(--border);border-radius:10px;font-size:11px;color:var(--t3)}
+.sl-nota i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -623,6 +636,25 @@ body.modal-open{overflow:hidden}
       <p class="chart-sub" style="text-align:left;margin:0 0 10px">Tickets abertos em cada mês (data de criação), por urgência. Passe sobre um mês para comparar com o anterior.</p>
       <div class="tv-legend" id="urgtrend-legend" style="justify-content:flex-end"></div>
       <div class="chart-wrap" style="height:340px"><canvas id="urgTrendChart"></canvas><div class="tv-tip" id="urgtrend-tip"></div></div>
+    </div>
+
+    <div class="chart-panel" style="margin-top:14px" id="sla-evo-panel">
+      <div class="sl-head">
+        <div>
+          <p class="tv-eyebrow">Visão global de desempenho</p>
+          <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal do atingimento do SLA</p>
+          <p class="chart-sub" style="text-align:left;margin:0" id="sla-evo-sub">Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência.</p>
+        </div>
+        <div class="sl-ult" id="sla-evo-ult"><span class="tv-eyebrow" style="margin:0">Último mês</span><b>—</b><small></small></div>
+      </div>
+      <div class="sl-kpis" id="sla-evo-kpis"></div>
+      <div class="chart-wrap" style="height:320px"><canvas id="slaEvoChart"></canvas><div class="tv-tip" id="sla-evo-tip" style="min-width:230px"></div></div>
+      <div class="sl-nota">
+        <span><i style="background:var(--green)"></i>Alta em pontos percentuais indica evolução</span>
+        <span><i style="background:#f87171"></i>Queda indica menor proporção dentro da meta</span>
+        <span><i style="background:var(--t3)"></i>Cada mês usa somente tickets elegíveis resolvidos nele (urgência Crítica, Alta, Média ou Baixa)</span>
+      </div>
+      <p class="chart-sub" style="text-align:left;margin:8px 0 0" id="sla-evo-status"></p>
     </div>
 
     <div class="chart-panel" style="margin-top:14px" id="impacto-panel">
@@ -1431,6 +1463,7 @@ function render(){
   renderTrendChart(rowsCtx);
   renderFluxoChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
+  renderSlaEvolucao(rowsCtx);
   renderImpactoSla(rowsResolv);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
@@ -1783,6 +1816,14 @@ let _impactoSeq=0;
 const fmtH=h=>`${h.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}h`;
 const fmtHImp=h=>`${h>0?'+':h<0?'−':''}${Math.abs(h).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}h`;
 
+// Fila única: o gráfico de atingimento e a análise de impacto pedem tickets
+// parecidos ao mesmo tempo; em série, o segundo já encontra tudo no cache.
+let _impactoFila=Promise.resolve();
+function buscarMinutosLiquidos(ids){
+  const p=_impactoFila.then(()=>impactoBuscarMinutos(ids));
+  _impactoFila=p.catch(()=>{});
+  return p;
+}
 async function impactoBuscarMinutos(ids){
   const faltam=ids.filter(id=>!(id in _impactoMinutos));
   for(let i=0;i<faltam.length;i+=2000){
@@ -1810,7 +1851,7 @@ async function renderImpactoSla(rows){
   const faltam=doMes.some(r=>!(r.ticket_id in _impactoMinutos));
   if(faltam){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Calculando o tempo de solução líquido…</p>'; }
   try{
-    await impactoBuscarMinutos(doMes.map(r=>r.ticket_id));
+    await buscarMinutosLiquidos(doMes.map(r=>r.ticket_id));
   } catch(e){
     if(seq!==_impactoSeq) return;
     corpo.innerHTML=`<p class="imp-vazio">Não foi possível calcular o SLA: ${esc(e.message)}</p>`;
@@ -1851,6 +1892,125 @@ async function renderImpactoSla(rows){
     <div><p class="imp-sub imp-pos">▲ Puxaram a média para cima</p>${tabela(sobem,'Nenhum ticket elevou a média neste período.')}</div>
     <div><p class="imp-sub imp-neg">▼ Puxaram a média para baixo</p>${tabela(descem,'Nenhum ticket reduziu a média neste período.')}</div>
   </div>`;
+}
+
+// ── Evolução mensal do atingimento do SLA ──────────────────────────────
+// % de tickets resolvidos no mês cujo tempo de solução líquido ficou dentro da
+// meta da própria urgência (META_SOLUCAO_H). Só entram tickets com urgência
+// Crítica/Alta/Média/Baixa ("elegíveis"). Mesmo tempo da análise de impacto.
+let _slaEvoSeq=0;
+async function renderSlaEvolucao(rows){
+  const seq=++_slaEvoSeq;
+  const status=document.getElementById('sla-evo-status');
+  const kpis=document.getElementById('sla-evo-kpis');
+  const ult=document.getElementById('sla-evo-ult');
+  if(!kpis||!ult) return;
+  const chaves=mesesDoPeriodo(bucketPorMes(rows));
+  const noPeriodo=new Set(chaves);
+  const elegiveis=rows.filter(r=>r.resolvido_em&&isResolvido(r)&&META_SOLUCAO_H[r.urgencia]!=null&&noPeriodo.has(monthKeyOf(r.resolvido_em)));
+  if(!elegiveis.length){
+    destroyChart('slaEvoChart'); kpis.innerHTML='';
+    ult.innerHTML='<span class="tv-eyebrow" style="margin:0">Último mês</span><b>—</b><small></small>';
+    if(status) status.textContent='Nenhum ticket elegível resolvido no período filtrado.';
+    return;
+  }
+  if(elegiveis.some(r=>!(r.ticket_id in _impactoMinutos)) && status) status.textContent='Calculando o tempo de solução líquido dos tickets…';
+  try{ await buscarMinutosLiquidos(elegiveis.map(r=>r.ticket_id)); }
+  catch(e){ if(seq===_slaEvoSeq&&status) status.textContent=`Não foi possível calcular o SLA: ${e.message}`; return; }
+  if(seq!==_slaEvoSeq) return;
+  if(status) status.textContent='';
+
+  const porMes={};
+  chaves.forEach(mk=>{ porMes[mk]={dentro:0,total:0,fora:[]}; });
+  elegiveis.forEach(r=>{
+    const min=_impactoMinutos[r.ticket_id];
+    if(min==null) return;
+    const b=porMes[monthKeyOf(r.resolvido_em)];
+    b.total++;
+    if(min/60<=META_SOLUCAO_H[r.urgencia]) b.dentro++; else b.fora.push(r);
+  });
+  const pct=chaves.map(mk=>porMes[mk].total?porMes[mk].dentro/porMes[mk].total*100:null);
+  const comDado=chaves.map((mk,i)=>i).filter(i=>pct[i]!=null);
+  if(!comDado.length){ destroyChart('slaEvoChart'); kpis.innerHTML=''; if(status) status.textContent='Sem dados de resolução para calcular o SLA.'; return; }
+  const labels=chaves.map(rotuloMesCurto);
+  const iU=comDado[comDado.length-1], iA=comDado.length>1?comDado[comDado.length-2]:null;
+  const fmtP=v=>`${v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+  const dpp=iA!=null?pct[iU]-pct[iA]:null;
+  const iMelhor=comDado.reduce((m,i)=>pct[i]>pct[m]?i:m,comDado[0]);
+
+  const [y0,m0]=chaves[0].split('-').map(Number);
+  document.getElementById('sla-evo-sub').textContent=
+    `Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência (tempo de solução líquido em horas úteis), a partir de ${new Date(y0,m0-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}.`;
+  ult.innerHTML=`<span class="tv-eyebrow" style="margin:0">Último mês</span><b>${fmtP(pct[iU])}</b><small class="${dpp==null||dpp===0?'':dpp>0?'tv-bom':'tv-ruim'}">${dpp==null?'sem mês anterior':`${dpp>0?'↑ +':dpp<0?'↓ −':'→ '}${Math.abs(dpp).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp vs. mês anterior`}</small>`;
+  kpis.innerHTML=
+    `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Competências</span><b>${comDado.length}</b><small>meses com tickets elegíveis</small></div>`+
+    `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Melhor mês</span><b>${fmtP(pct[iMelhor])}</b><small>${labels[iMelhor].toUpperCase()}</small></div>`+
+    `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Base do último mês</span><b>${porMes[chaves[iU]].total.toLocaleString('pt-BR')}</b><small>${porMes[chaves[iU]].dentro.toLocaleString('pt-BR')} dentro da meta</small></div>`;
+
+  destroyChart('slaEvoChart');
+  const col=chartColors();
+  const verde=col.green, surface=cssVar('--surface');
+  const rotulos={
+    id:'slaRotulos',
+    afterDatasetsDraw(chart){
+      const c=chart.ctx; c.save();
+      c.font='700 11px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+      chart.getDatasetMeta(0).data.forEach((pt,i)=>{
+        if(pct[i]==null) return;
+        const txt=fmtP(pct[i]), w=c.measureText(txt).width+14, h=20, x=pt.x, y=pt.y-20;
+        c.beginPath(); if(c.roundRect) c.roundRect(x-w/2,y-h/2,w,h,7); else c.rect(x-w/2,y-h/2,w,h);
+        c.fillStyle=surface; c.fill(); c.lineWidth=1; c.strokeStyle=col.border; c.stroke();
+        c.fillStyle=col.t1; c.fillText(txt,x,y+.5);
+      });
+      c.restore();
+    },
+  };
+  const tipEl=document.getElementById('sla-evo-tip');
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const i=tooltip.dataPoints[0].dataIndex, b=porMes[chaves[i]];
+    const ant=comDado.filter(k=>k<i).pop();
+    const d=pct[i]!=null&&ant!=null?pct[i]-pct[ant]:null;
+    tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.14em">${labels[i].toUpperCase()}</div>`+
+      `<div class="tv-tip-row"><span style="color:${verde};font-size:13px">Atingimento</span><span class="tv-tip-val">${pct[i]==null?'—':fmtP(pct[i])}</span></div>`+
+      `<div class="tv-tip-sub"><span>${b.dentro.toLocaleString('pt-BR')} de ${b.total.toLocaleString('pt-BR')} dentro da meta</span>`+
+      `<span class="${d==null||d===0?'':d>0?'tv-bom':'tv-ruim'}">${d==null?'':`${d>0?'↑ +':d<0?'↓ −':'→ '}${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp vs. mês anterior`}</span></div>`+
+      (b.fora.length?`<div class="tv-tip-foot">${b.fora.length.toLocaleString('pt-BR')} fora da meta · clique para ver</div>`:'');
+    const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16; if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    tipEl.style.left=Math.max(0,x)+'px';
+    tipEl.style.top=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h))+'px';
+    tipEl.style.opacity=1;
+  };
+  _charts.slaEvoChart=new Chart(document.getElementById('slaEvoChart'),{
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Atingimento do SLA',data:pct,borderColor:verde,borderWidth:2.5,tension:.35,spanGaps:true,fill:true,
+      backgroundColor:ctx=>{
+        const {chartArea:a,ctx:c}=ctx.chart; if(!a) return verde+'22';
+        const g=c.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0,verde+'55'); g.addColorStop(1,verde+'05'); return g;
+      },
+      pointRadius:4,pointHoverRadius:7,pointBackgroundColor:surface,pointBorderColor:verde,pointBorderWidth:2,pointHoverBackgroundColor:verde,pointHitRadius:12,
+    }]},
+    plugins:[rotulos,pluginCruz()],
+    options:{ responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:30,right:14}},
+      plugins:{ legend:{display:false}, tooltip:{enabled:false,external:externo} },
+      scales:{
+        y:{min:0,max:100,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,stepSize:25,callback:v=>v+'%'}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},callback:(v,i)=>labels[i].toUpperCase()}},
+      },
+      interaction:{mode:'index',intersect:false},
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
+      onClick:(evt,els,chart)=>{
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
+        if(!hit.length) return;
+        const i=hit[0].index, b=porMes[chaves[i]];
+        openDetailModal(`SLA fora da meta: ${labels[i]}`,`${b.fora.length} de ${b.total} ticket${b.total===1?'':'s'} elegíve${b.total===1?'l':'is'}`,b.fora);
+      },
+    }
+  });
 }
 
 // ── Evolução mensal por urgência (volume de tickets abertos no mês) ───
