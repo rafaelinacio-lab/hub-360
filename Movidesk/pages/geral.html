@@ -596,6 +596,21 @@ body.modal-open{overflow:hidden}
       <div class="chart-wrap" style="height:340px"><canvas id="trendVolChart"></canvas><div class="tv-tip" id="trend-tip"></div></div>
     </div>
 
+    <div class="chart-panel" style="margin-top:14px">
+      <p class="tv-eyebrow">Fluxo global</p>
+      <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal de tickets</p>
+      <p class="chart-sub" style="text-align:left;margin:0 0 10px">Entradas, encerramentos e carteira acumulada (tickets ainda em aberto ao fim de cada mês).</p>
+      <div class="chart-wrap" style="height:320px"><canvas id="fluxoChart"></canvas><div class="tv-tip" id="fluxo-tip" style="min-width:220px"></div></div>
+    </div>
+
+    <div class="chart-panel" style="margin-top:14px">
+      <p class="tv-eyebrow">Análise de urgência</p>
+      <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal por urgência</p>
+      <p class="chart-sub" style="text-align:left;margin:0 0 10px">Tickets abertos em cada mês (data de criação), por urgência. Passe sobre um mês para comparar com o anterior.</p>
+      <div class="tv-legend" id="urgtrend-legend" style="justify-content:flex-end"></div>
+      <div class="chart-wrap" style="height:340px"><canvas id="urgTrendChart"></canvas><div class="tv-tip" id="urgtrend-tip"></div></div>
+    </div>
+
     <p class="section-label">Envelhecimento do backlog</p>
     <div class="chart-panel">
       <p class="chart-title">Tempo em aberto por faixa de dias (só tickets pendentes)</p>
@@ -1391,6 +1406,8 @@ function render(){
 
   renderClassChart(rowsFull);
   renderTrendChart(rowsCtx);
+  renderFluxoChart(rowsCtx);
+  renderUrgTrendChart(rowsCtx);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);
@@ -1507,24 +1524,26 @@ function mesProximoKey(mk){
 function rotuloMesCurto(mk){ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; }
 const fmtNum1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
 
-function renderTrendChart(rows){
-  destroyChart('trendVolChart');
-  const col=chartColors();
-  const byMes=bucketPorMes(rows);
+// Meses exibidos nos gráficos de evolução: o ano filtrado (de janeiro em diante)
+// ou os últimos 12 meses com dados. Meses contínuos, sem buracos.
+function mesesDoPeriodo(byMes){
   const yearFilsA=getMsValues('f-year');
   const yearFilVal=yearFilsA.length===1?yearFilsA[0]:null;
-
-  // meses disponíveis (contínuos, do primeiro ao último com dados)
   const ks=Object.keys(byMes).sort();
   let todos=[];
   if(ks.length){
     for(let mk=ks[0];mk<=ks[ks.length-1];mk=mesProximoKey(mk)) todos.push(mk);
   }
   if(yearFilVal) todos=todos.filter(mk=>mk.startsWith(yearFilVal+'-'));
-
-  // período: o ano filtrado (de janeiro em diante) ou os últimos 12 meses com dados
   const ini=yearFilVal?todos[0]:todos[Math.max(0,todos.length-12)];
-  const chaves=ini?todos.slice(todos.indexOf(ini)):[];
+  return ini?todos.slice(todos.indexOf(ini)):[];
+}
+
+function renderTrendChart(rows){
+  destroyChart('trendVolChart');
+  const col=chartColors();
+  const byMes=bucketPorMes(rows);
+  const chaves=mesesDoPeriodo(byMes);
 
   const get=(mk,k)=>byMes[mk]?byMes[mk][k]:0;
   const ab=chaves.map(mk=>get(mk,'abertos'));
@@ -1635,6 +1654,171 @@ function renderTrendChart(rows){
           ? (r.criado_em&&monthKeyOf(r.criado_em)===mk)
           : (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk));
         openDetailModal(`${isAbertos?'Abertos':'Resolvidos'}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+      },
+    }
+  });
+}
+
+// Linha vertical que acompanha o mouse nos gráficos de evolução.
+function pluginCruz(){
+  const cor=cssVar('--t3');
+  return {
+    id:'cruzTooltip',
+    afterDatasetsDraw(chart){
+      const act=chart.tooltip&&chart.tooltip.getActiveElements&&chart.tooltip.getActiveElements();
+      if(!act||!act.length) return;
+      const x=act[0].element.x, {top,bottom}=chart.chartArea, c=chart.ctx;
+      c.save(); c.beginPath(); c.moveTo(x,top); c.lineTo(x,bottom);
+      c.lineWidth=1; c.strokeStyle=cor; c.stroke(); c.restore();
+    },
+  };
+}
+
+// ── Fluxo global: abertos, fechados e saldo acumulado por mês ─────────
+// Saldo acumulado = carteira: tickets criados até o fim do mês e ainda não
+// resolvidos naquela data (inclui os abertos antes do período exibido).
+function renderFluxoChart(rows){
+  destroyChart('fluxoChart');
+  const col=chartColors();
+  const byMes=bucketPorMes(rows);
+  const chaves=mesesDoPeriodo(byMes);
+  if(!chaves.length) return;
+  const azul=document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb';
+  const verde=col.green;
+  const labels=chaves.map(rotuloMesCurto);
+  const ab=chaves.map(mk=>byMes[mk]?byMes[mk].abertos:0);
+  const fe=chaves.map(mk=>byMes[mk]?byMes[mk].resolvidos:0);
+  const pendenteEm=(r,mk)=>{
+    if(!r.criado_em||monthKeyOf(r.criado_em)>mk) return false;
+    if(isResolvido(r)) return !!r.resolvido_em&&monthKeyOf(r.resolvido_em)>mk;
+    return true;
+  };
+  const saldo=chaves.map(mk=>rows.reduce((n,r)=>n+(pendenteEm(r,mk)?1:0),0));
+
+  const cruz=pluginCruz();
+  const tipEl=document.getElementById('fluxo-tip');
+  const series=[['Abertos',col.orange,ab],['Fechados',verde,fe],['Saldo acumulado',azul,saldo]];
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const i=tooltip.dataPoints[0].dataIndex;
+    tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.14em">${labels[i].toUpperCase()}</div>`+
+      series.map(([nome,cor,d])=>`<div class="tv-tip-blk"><div class="tv-tip-row"><span style="color:${cor};font-size:13px">${nome}</span><span class="tv-tip-val" style="font-size:13px">${d[i].toLocaleString('pt-BR')} ticket${d[i]===1?'':'s'}</span></div></div>`).join('');
+    const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16;
+    if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    tipEl.style.left=Math.max(0,x)+'px';
+    tipEl.style.top=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h))+'px';
+    tipEl.style.opacity=1;
+  };
+  col.surface=cssVar('--surface');
+  const mk=([label,cor,data])=>({
+    label,data,borderColor:cor,backgroundColor:cor,fill:false,tension:.4,borderWidth:2.5,
+    pointRadius:4,pointHoverRadius:7,pointBackgroundColor:col.surface,pointBorderColor:cor,pointBorderWidth:2,
+    pointHoverBackgroundColor:cor,pointHitRadius:12,
+  });
+  _charts.fluxoChart=new Chart(document.getElementById('fluxoChart'),{
+    type:'line',
+    data:{ labels, datasets:series.map(mk) },
+    plugins:[cruz],
+    options:{ responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:6,right:12}},
+      plugins:{
+        legend:{display:true,position:'top',align:'end',labels:{color:col.t2,usePointStyle:true,pointStyle:'line',boxWidth:22,font:{size:11,weight:600}}},
+        tooltip:{enabled:false,external:externo},
+      },
+      scales:{
+        y:{beginAtZero:true,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},callback:(v,i)=>labels[i].toUpperCase()}},
+      },
+      interaction:{mode:'index',intersect:false},
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
+      onClick:(evt,els,chart)=>{
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
+        if(!hit.length) return;
+        const {index:idx,datasetIndex:di}=hit[0], m=chaves[idx];
+        const matched=rows.filter(r=>di===0
+          ? (r.criado_em&&monthKeyOf(r.criado_em)===m)
+          : di===1
+            ? (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===m)
+            : pendenteEm(r,m));
+        const nome=['Abertos','Fechados','Saldo acumulado'][di];
+        openDetailModal(`${nome}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+      },
+    }
+  });
+}
+
+// ── Evolução mensal por urgência (volume de tickets abertos no mês) ───
+const URGENCIAS_TREND=['Crítica','Alta','Média','Baixa'];
+function renderUrgTrendChart(rows){
+  destroyChart('urgTrendChart');
+  const col=chartColors();
+  const chaves=mesesDoPeriodo(bucketPorMes(rows));
+  const leg=document.getElementById('urgtrend-legend');
+  if(!chaves.length){ if(leg) leg.innerHTML=''; return; }
+  const cores={'Crítica':'#f87171','Alta':col.orange,'Média':col.green,'Baixa':document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb'};
+  const labels=chaves.map(rotuloMesCurto);
+  const conta={};  // `${mes}|${urgência}` -> tickets criados no mês
+  rows.forEach(r=>{
+    if(!r.criado_em||!URGENCIAS_TREND.includes(r.urgencia)) return;
+    const k=monthKeyOf(r.criado_em)+'|'+r.urgencia;
+    conta[k]=(conta[k]||0)+1;
+  });
+  const val=(mk,u)=>conta[mk+'|'+u]||0;
+  const dados=URGENCIAS_TREND.map(u=>chaves.map(mk=>val(mk,u)));
+  if(leg) leg.innerHTML=URGENCIAS_TREND.map((u,i)=>
+    `<span class="tv-pill"><i style="background:${cores[u]}"></i>${u} <small>${dados[i].reduce((a,b)=>a+b,0).toLocaleString('pt-BR')}</small></span>`).join('');
+
+  const tipEl=document.getElementById('urgtrend-tip');
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const i=tooltip.dataPoints[0].dataIndex, mk=chaves[i], ant=mesAnteriorKey(mk);
+    tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.14em">${labels[i].toUpperCase()}</div>`+
+      URGENCIAS_TREND.map(u=>{
+        const v=val(mk,u), a=val(ant,u), d=v-a, pct=a?d/a*100:null;
+        const sinal=d>0?'+':d<0?'−':'', dir=d>0?'↑':d<0?'↓':'→';
+        const cls=d===0?'neutro':d>0?'ruim':'bom';
+        const txt=d===0?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
+        const pctTxt=pct===null?(v?'novo':'—'):`${sinal}${fmtNum1(Math.abs(pct))}%`;
+        return `<div class="tv-tip-blk">
+          <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cores[u]}">${u}</span><span class="tv-tip-val">${v.toLocaleString('pt-BR')} · ${pctTxt}</span></div>
+          <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${a.toLocaleString('pt-BR')}</span></div>
+          <div class="tv-tip-sub"><span>${v.toLocaleString('pt-BR')} ticket${v===1?'':'s'}</span><span class="${d===0?'':d>0?'tv-ruim':'tv-bom'}">${dir} ${sinal}${Math.abs(d).toLocaleString('pt-BR')} ticket${Math.abs(d)===1?'':'s'} vs. mês anterior</span></div>
+        </div>`;
+      }).join('');
+    const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16;
+    if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    tipEl.style.left=Math.max(0,x)+'px';
+    tipEl.style.top=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h))+'px';
+    tipEl.style.opacity=1;
+  };
+  const surface=cssVar('--surface');
+  _charts.urgTrendChart=new Chart(document.getElementById('urgTrendChart'),{
+    type:'line',
+    data:{ labels, datasets:URGENCIAS_TREND.map((u,i)=>({
+      label:u,data:dados[i],borderColor:cores[u],backgroundColor:cores[u],fill:false,tension:.4,borderWidth:2.5,
+      pointRadius:4,pointHoverRadius:7,pointBackgroundColor:surface,pointBorderColor:cores[u],pointBorderWidth:2,
+      pointHoverBackgroundColor:cores[u],pointHitRadius:12,
+    })) },
+    plugins:[pluginCruz()],
+    options:{ responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:6,right:12}},
+      plugins:{ legend:{display:false}, tooltip:{enabled:false,external:externo} },
+      scales:{
+        y:{beginAtZero:true,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},callback:(v,i)=>labels[i].toUpperCase()}},
+      },
+      interaction:{mode:'index',intersect:false},
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
+      onClick:(evt,els,chart)=>{
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
+        if(!hit.length) return;
+        const {index:idx,datasetIndex:di}=hit[0], m=chaves[idx], u=URGENCIAS_TREND[di];
+        const matched=rows.filter(r=>r.urgencia===u&&r.criado_em&&monthKeyOf(r.criado_em)===m);
+        openDetailModal(`Urgência ${u}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
       },
     }
   });
