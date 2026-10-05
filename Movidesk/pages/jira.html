@@ -504,7 +504,39 @@ tr.sel td{background:var(--info-bg)!important}
       </div>
     </div>
 
-    <div id="resp-list"><p style="color:var(--text3);text-align:center;padding:20px">Carregando tarefas em aberto...</p></div>
+    <!-- Lista detalhada de Issues — Backlog -->
+    <div class="panel" style="padding:10px;margin-top:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-wrap:wrap">
+        <div style="font-size:11px;font-weight:600;color:var(--text2)">🗂️ Issues — Detalhamento</div>
+        <span id="ab-detail-count" style="font-size:11px;color:var(--text3);white-space:nowrap"></span>
+      </div>
+      <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+        <table class="ttbl" id="ab-detail-table">
+          <thead style="position:sticky;top:0;z-index:2"><tr>
+            <th onclick="sortAbDetail('chave')"          style="cursor:pointer;white-space:nowrap;user-select:none">Chave <span id="abd-sort-chave"></span></th>
+            <th onclick="sortAbDetail('summary')"        style="cursor:pointer;white-space:nowrap;user-select:none">Resumo <span id="abd-sort-summary"></span></th>
+            <th onclick="sortAbDetail('status')"         style="cursor:pointer;white-space:nowrap;user-select:none">Status <span id="abd-sort-status"></span></th>
+            <th onclick="sortAbDetail('tipo')"           style="cursor:pointer;white-space:nowrap;user-select:none">Tipo do Item <span id="abd-sort-tipo"></span></th>
+            <th onclick="sortAbDetail('class_bug')"      style="cursor:pointer;white-space:nowrap;user-select:none">Classificação de Bug <span id="abd-sort-class_bug"></span></th>
+            <th onclick="sortAbDetail('class_melhoria')" style="cursor:pointer;white-space:nowrap;user-select:none">Classificação de Melhoria <span id="abd-sort-class_melhoria"></span></th>
+            <th onclick="sortAbDetail('responsavel')"    style="cursor:pointer;white-space:nowrap;user-select:none">Responsável <span id="abd-sort-responsavel"></span></th>
+            <th onclick="sortAbDetail('gut')"            style="cursor:pointer;white-space:nowrap;user-select:none">GUT <span id="abd-sort-gut"></span></th>
+            <th onclick="sortAbDetail('modulo')"         style="cursor:pointer;white-space:nowrap;user-select:none">Módulo <span id="abd-sort-modulo"></span></th>
+            <th onclick="sortAbDetail('rotina')"         style="cursor:pointer;white-space:nowrap;user-select:none">Rotina <span id="abd-sort-rotina"></span></th>
+            <th onclick="sortAbDetail('cliente')"        style="cursor:pointer;white-space:nowrap;user-select:none">Cliente <span id="abd-sort-cliente"></span></th>
+            <th onclick="sortAbDetail('prazo')"          style="cursor:pointer;white-space:nowrap;user-select:none">Prazo <span id="abd-sort-prazo"></span></th>
+            <th onclick="sortAbDetail('dias_prazo')"     style="cursor:pointer;white-space:nowrap;user-select:none">Dias p/ Prazo <span id="abd-sort-dias_prazo"></span></th>
+            <th onclick="sortAbDetail('criado')"         style="cursor:pointer;white-space:nowrap;user-select:none">Criado em <span id="abd-sort-criado"></span></th>
+            <th onclick="sortAbDetail('dias_aberto')"    style="cursor:pointer;white-space:nowrap;user-select:none">Dias em aberto <span id="abd-sort-dias_aberto"></span></th>
+          </tr></thead>
+          <tbody id="ab-detail-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="resp-list-wrap" style="max-height:620px;overflow-y:auto;padding-right:4px;margin-top:16px">
+      <div id="resp-list"><p style="color:var(--text3);text-align:center;padding:20px">Carregando tarefas em aberto...</p></div>
+    </div>
   </div><!-- /view-aberto -->
 
   <!-- ── ANÁLISE TDC ── -->
@@ -3070,9 +3102,11 @@ function renderAberto(){
 
   try { renderChartsAberto(filtradas); } catch(e){ console.warn('Charts error:', e); }
 
+  window._AB_FILTRADAS = filtradas;
   if(!lista.length){
     document.getElementById('resp-list').innerHTML=
       `<p style="color:var(--text3);text-align:center;padding:30px">Nenhuma tarefa encontrada</p>`;
+    renderAbDetailTable();
     return;
   }
 
@@ -3128,6 +3162,81 @@ function renderAberto(){
         }).join('')}</tbody></table>
       </div>
     </div>`).join('');
+
+  renderAbDetailTable();
+}
+
+// ── Backlog: tabela detalhada de issues (todas as tarefas filtradas, sem agrupar por responsável) ──
+let ABD_SORT = {col:'dias_aberto', dir:-1};
+
+function sortAbDetail(col){
+  if(ABD_SORT.col===col) ABD_SORT.dir*=-1;
+  else { ABD_SORT.col=col; ABD_SORT.dir=-1; }
+  renderAbDetailTable();
+}
+
+function renderAbDetailTable(){
+  const tbody=document.getElementById('ab-detail-tbody');
+  if(!tbody) return;
+  const filtradas = window._AB_FILTRADAS||[];
+
+  const {col,dir}=ABD_SORT;
+  const val=(t)=>{
+    if(col==='cliente') return (t.clientes||[]).join(', ');
+    if(col==='gut') return t.gut_resultado ?? t.gut ?? '';
+    if(col==='dias_aberto') return t.criado ? Math.floor((new Date()-new Date(t.criado))/(1000*60*60*24)) : -1;
+    if(col==='dias_prazo') return t.dias_prazo ?? 99999;
+    if(col==='prazo') return t.prazo || '9999';
+    return t[col]||'';
+  };
+  const sorted=[...filtradas].sort((a,b)=>{
+    const av=val(a), bv=val(b);
+    if(typeof av==='number'&&typeof bv==='number') return (av-bv)*dir;
+    return av.toString().localeCompare(bv.toString(),'pt-BR',{numeric:true})*dir;
+  });
+
+  ['chave','summary','tipo','status','class_bug','class_melhoria','responsavel','gut','modulo','rotina','cliente','prazo','dias_prazo','criado','dias_aberto'].forEach(c=>{
+    const el=document.getElementById('abd-sort-'+c);
+    if(el) el.textContent = c===col ? (dir===1?'▲':'▼') : '';
+  });
+
+  const fmtData=d=>d?d.slice(0,10).split('-').reverse().join('/'):'—';
+  const LIMIT=500;
+  tbody.innerHTML = sorted.slice(0,LIMIT).map(t=>{
+    let diasHtml='<span class="dias-na">—</span>';
+    if(t.dias_prazo!=null){
+      if(t.prazo_vencido)      diasHtml=`<span class="dias-dn">⚠ ${Math.abs(t.dias_prazo)}d vencido</span>`;
+      else if(t.dias_prazo<=1) diasHtml=`<span class="dias-wn">${t.dias_prazo===0?'Hoje':'Amanhã'}</span>`;
+      else if(t.dias_prazo<=7) diasHtml=`<span class="dias-wn">${t.dias_prazo}d</span>`;
+      else                     diasHtml=`<span class="dias-ok">${t.dias_prazo}d</span>`;
+    }
+    let diasAberto = '—';
+    if(t.criado){
+      const diff = Math.floor((new Date()-new Date(t.criado))/(1000*60*60*24));
+      diasAberto = diff + 'd';
+    }
+    const prazoFmt = t.prazo ? t.prazo.split('-').reverse().join('/') : '—';
+    return `<tr>
+    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
+    <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${(t.summary||'').replace(/"/g,'')}">${t.summary||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.status||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.tipo||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.class_bug||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.class_melhoria||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.responsavel||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(t.gut_resultado ?? t.gut ?? '—')}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(t.modulo||'').replace(/"/g,'')}">${t.modulo||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(t.rotina||'').replace(/"/g,'')}">${t.rotina||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(t.clientes||[]).join(', ')||'—'}</td>
+    <td style="font-size:11px;color:var(--text3);white-space:nowrap">${prazoFmt}</td>
+    <td style="font-size:11px;white-space:nowrap">${diasHtml}</td>
+    <td style="font-size:11px;color:var(--text3);white-space:nowrap">${fmtData(t.criado)}</td>
+    <td style="font-size:11px;color:var(--text3);white-space:nowrap">${diasAberto}</td>
+  </tr>`;
+  }).join('') + (sorted.length>LIMIT?`<tr><td colspan="15" style="text-align:center;color:var(--text3);padding:8px;font-size:11px">... e mais ${(sorted.length-LIMIT).toLocaleString('pt-BR')} issues (refine os filtros ou a busca)</td></tr>`:'');
+
+  const countEl=document.getElementById('ab-detail-count');
+  if(countEl) countEl.textContent = sorted.length.toLocaleString('pt-BR')+' issue(s)';
 }
 
 function toggleResp(idx){
