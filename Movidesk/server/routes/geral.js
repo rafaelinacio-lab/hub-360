@@ -11,6 +11,7 @@
  * GET /geral            — lista completa de tickets + campos calculados
  * GET /geral/:ticketId  — detalhe de um ticket
  * GET /geral/:ticketId/actions — timeline de ações + campos customizados
+ * POST /geral/sla-liquido — tempo de solução líquido (horas úteis, sem pausas) por ticket
  */
 
 const express = require('express');
@@ -18,6 +19,7 @@ const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess } = require('./config');
+const { calcularMinutosUteisComPausas, parseData } = require('../utils/sla');
 
 const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
 
@@ -173,6 +175,59 @@ router.get('/pendentes', authMiddleware, requireTabAccess('paineltv'), async (re
     res.status(500).json({ error: 'Erro ao carregar pendentes do painel geral: ' + error.message });
   }
 });
+
+// ===== POST /geral/sla-liquido =====
+// Tempo de SOLUÇÃO líquido de tickets já resolvidos: da abertura (createddate) até
+// a resolução (resolved_in), só em horário útil (seg-sex 07:45-12:00 e 13:30-18:00)
+// e descontando os trechos em status de pausa (aguardando cliente/terceiro/validação,
+// em atendimento - desenvolvimento). Mesmas regras de utils/sla.js (docs/sla-calculo.md);
+// a linha do tempo de status vem das ações do ticket (silver.ticket_acao).
+// Body: { ids: ["123", ...] } (até 3000). Resposta: { minutos: { "123": 372, ... } }
+const SLA_LIQUIDO_MAX_IDS = 3000;
+router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+    .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
+  if (!ids.length) return res.json({ minutos: {} });
+  if (ids.length > SLA_LIQUIDO_MAX_IDS) {
+    return res.status(400).json({ error: `Máximo de ${SLA_LIQUIDO_MAX_IDS} tickets por chamada` });
+  }
+  try {
+    const [tRes, aRes] = await Promise.all([
+      db.query(
+        `SELECT ticket_id::varchar AS id, createddate AS criado_em, resolved_in AS resolvido_em
+         FROM silver.ticket
+         WHERE ticket_id = ANY($1::bigint[]) AND resolved_in IS NOT NULL`,
+        [ids]
+      ),
+      db.query(
+        `SELECT ticket_id::varchar AS id, criado_em, status
+         FROM silver.ticket_acao
+         WHERE ticket_id = ANY($1::bigint[]) AND status IS NOT NULL
+         ORDER BY criado_em ASC`,
+        [ids]
+      ),
+    ]);
+    const acoesPorTicket = new Map();
+    for (const a of aRes.rows) {
+      if (!acoesPorTicket.has(a.id)) acoesPorTicket.set(a.id, []);
+      acoesPorTicket.get(a.id).push({ createdDate: a.criado_em, status: a.status });
+    }
+    const minutos = {};
+    for (const t of tRes.rows) {
+      const ini = parseData(t.criado_em), fim = parseData(t.resolvido_em);
+      if (!ini || !fim) continue;
+      // Status inicial "Novo" na abertura: sem isso a função assume que o ticket já
+      // nasceu no status da primeira ação (e descontaria o início se fosse uma pausa).
+      const actions = [{ createdDate: ini, status: 'Novo' }, ...(acoesPorTicket.get(t.id) || [])];
+      minutos[t.id] = calcularMinutosUteisComPausas({ actions }, ini, fim);
+    }
+    res.json({ minutos });
+  } catch (error) {
+    console.error('Erro ao calcular SLA líquido do painel geral:', error);
+    res.status(500).json({ error: 'Erro ao calcular o tempo de solução' });
+  }
+});
+
 
 // ===== GET /geral/:ticketId =====
 router.get('/:ticketId', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {

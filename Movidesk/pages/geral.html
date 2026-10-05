@@ -240,6 +240,22 @@ input,select{font-family:inherit}
 .tv-bom{color:var(--green)}.tv-ruim{color:#f87171}
 .tv-tip-foot{font-size:10.5px;color:var(--t3);border-top:1px solid var(--border);padding-top:7px;margin-top:2px}
 
+/* ─── Impacto mensal de SLA por ticket ──────────────────────────────── */
+.imp-nota{
+  display:flex;gap:10px;align-items:flex-start;padding:11px 14px;margin:0 0 12px;border:1px solid var(--border);
+  border-radius:12px;background:var(--surface-low);font-size:12px;color:var(--t2);line-height:1.5;
+}
+.imp-nota b{color:var(--t1)}
+.imp-top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.imp-sel{min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-low);color:var(--t1);font:inherit;font-size:12px;cursor:pointer}
+.imp-sel:hover,.imp-sel:focus{border-color:var(--orange);outline:none}
+.imp-kpis{display:flex;flex-wrap:wrap;gap:8px}
+.imp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:1100px){.imp-grid{grid-template-columns:1fr}}
+.imp-sub{font-size:12px;font-weight:700;margin:0 0 6px}
+.imp-pos{color:#f87171}.imp-neg{color:var(--green)}
+.imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
+
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -609,6 +625,21 @@ body.modal-open{overflow:hidden}
       <p class="chart-sub" style="text-align:left;margin:0 0 10px">Tickets abertos em cada mês (data de criação), por urgência. Passe sobre um mês para comparar com o anterior.</p>
       <div class="tv-legend" id="urgtrend-legend" style="justify-content:flex-end"></div>
       <div class="chart-wrap" style="height:340px"><canvas id="urgTrendChart"></canvas><div class="tv-tip" id="urgtrend-tip"></div></div>
+    </div>
+
+    <div class="chart-panel" style="margin-top:14px" id="impacto-panel">
+      <p class="tv-eyebrow">Análise causal global</p>
+      <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Impacto mensal de SLA por ticket</p>
+      <p class="chart-sub" style="text-align:left;margin:0 0 10px">Identifique os chamados que mais puxaram a média global do mês para cima ou para baixo.</p>
+      <div class="imp-nota"><span class="sym" style="font-size:18px;color:var(--orange)">monitor_heart</span><span><b>Como ler:</b> impacto = média mensal com todos os tickets menos a média sem aquele chamado. Valor positivo elevou o SLA; negativo reduziu. O tempo é o de <b>solução líquido</b>: da abertura à resolução, só em horário útil (seg-sex, 07:45-12:00 e 13:30-18:00) e sem o tempo parado (aguardando cliente/terceiro/validação e em atendimento - desenvolvimento). Entram os tickets resolvidos no mês, respeitando os filtros do painel.</span></div>
+      <div class="imp-top">
+        <div class="imp-kpis" id="impacto-kpis"></div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <span class="tv-eyebrow" style="margin:0">Mês</span>
+          <select class="imp-sel" id="impacto-mes" aria-label="Mês de resolução" onchange="impactoMesMudou(this.value)"></select>
+        </div>
+      </div>
+      <div id="impacto-corpo"></div>
     </div>
 
     <p class="section-label">Envelhecimento do backlog</p>
@@ -1408,6 +1439,7 @@ function render(){
   renderTrendChart(rowsCtx);
   renderFluxoChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
+  renderImpactoSla(rowsResolv);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);
@@ -1747,6 +1779,98 @@ function renderFluxoChart(rows){
       },
     }
   });
+}
+
+// ── Impacto mensal de SLA por ticket ───────────────────────────────────
+// Para cada ticket resolvido no mês: impacto = média do mês com todos os tickets
+// − média do mês sem ele. O tempo vem do servidor (POST /geral/sla-liquido):
+// horas úteis da abertura à resolução, descontando os status de pausa.
+const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
+let _impactoMinutos={};   // ticket_id -> minutos úteis líquidos (cache)
+let _impactoMes='', _impactoRows=[], _impactoSeq=0;
+const fmtH=h=>`${h.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}h`;
+const fmtHImp=h=>`${h>0?'+':h<0?'−':''}${Math.abs(h).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}h`;
+
+function impactoMesMudou(v){ _impactoMes=v; renderImpactoSla(_impactoRows); }
+
+async function impactoBuscarMinutos(ids){
+  const faltam=ids.filter(id=>!(id in _impactoMinutos));
+  for(let i=0;i<faltam.length;i+=2000){
+    const lote=faltam.slice(i,i+2000);
+    const r=await fetch(`${API}/geral/sla-liquido`,{
+      method:'POST',
+      headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},
+      body:JSON.stringify({ids:lote}),
+    });
+    if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); }
+    const {minutos}=await r.json();
+    lote.forEach(id=>{ _impactoMinutos[id]=minutos[id]!=null?minutos[id]:null; });
+  }
+}
+
+async function renderImpactoSla(rows){
+  _impactoRows=rows;
+  const corpo=document.getElementById('impacto-corpo');
+  const selEl=document.getElementById('impacto-mes');
+  const kpis=document.getElementById('impacto-kpis');
+  if(!corpo||!selEl) return;
+
+  const porMes={};
+  rows.forEach(r=>{ if(r.resolvido_em){ const mk=monthKeyOf(r.resolvido_em); (porMes[mk]=porMes[mk]||[]).push(r); } });
+  const meses=Object.keys(porMes).sort();
+  if(!meses.includes(_impactoMes)) _impactoMes=meses[meses.length-1]||'';
+  selEl.innerHTML=meses.slice().reverse().map(mk=>{
+    const [y,m]=mk.split('-').map(Number);
+    return `<option value="${mk}"${mk===_impactoMes?' selected':''}>${new Date(y,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</option>`;
+  }).join('');
+  if(!_impactoMes){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Nenhum ticket resolvido no período filtrado.</p>'; return; }
+
+  const doMes=porMes[_impactoMes];
+  const seq=++_impactoSeq;
+  const faltam=doMes.some(r=>!(r.ticket_id in _impactoMinutos));
+  if(faltam){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Calculando o tempo de solução líquido…</p>'; }
+  try{
+    await impactoBuscarMinutos(doMes.map(r=>r.ticket_id));
+  } catch(e){
+    if(seq!==_impactoSeq) return;
+    corpo.innerHTML=`<p class="imp-vazio">Não foi possível calcular o SLA: ${esc(e.message)}</p>`;
+    return;
+  }
+  if(seq!==_impactoSeq) return; // o usuário mudou o mês/filtro enquanto calculava
+
+  const itens=doMes.filter(r=>_impactoMinutos[r.ticket_id]!=null).map(r=>({r,h:_impactoMinutos[r.ticket_id]/60}));
+  const n=itens.length;
+  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste mês.</p>'; return; }
+  const soma=itens.reduce((a,x)=>a+x.h,0), media=soma/n;
+  itens.forEach(x=>{ x.imp=n>1?media-(soma-x.h)/(n-1):0; });
+  const comMeta=itens.filter(x=>META_SOLUCAO_H[x.r.urgencia]!=null);
+  const dentro=comMeta.filter(x=>x.h<=META_SOLUCAO_H[x.r.urgencia]).length;
+
+  kpis.innerHTML=
+    `<span class="tv-pill">Média do mês <small>${fmtH(media)}</small></span>`+
+    `<span class="tv-pill">Tickets resolvidos <small>${n.toLocaleString('pt-BR')}</small></span>`+
+    `<span class="tv-pill">Dentro da meta <small>${comMeta.length?fmtPct(dentro/comMeta.length):'—'}</small></span>`;
+
+  const tabela=(lista,vazio)=>!lista.length?`<p class="imp-vazio">${vazio}</p>`:`
+    <div style="overflow-x:auto"><table class="dtable"><thead><tr>
+      <th>Ticket</th><th>Assunto</th><th>Urgência</th><th class="num">Tempo</th><th class="num">Meta</th><th class="num">Impacto</th>
+    </tr></thead><tbody>${lista.map(x=>{
+      const meta=META_SOLUCAO_H[x.r.urgencia];
+      return `<tr class="clickable" onclick="openTicketModal('${escAttr(x.r.ticket_id)}')">
+        <td><a class="ticket-link" href="${ticketUrl(x.r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(x.r.ticket_id)}</a></td>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(x.r.assunto||'')}">${esc(x.r.assunto||'—')}</td>
+        <td>${esc(x.r.urgencia||'—')}</td>
+        <td class="num">${fmtH(x.h)}</td>
+        <td class="num">${meta!=null?meta+'h':'—'}</td>
+        <td class="num ${x.imp>0?'imp-pos':'imp-neg'}" style="font-weight:700">${fmtHImp(x.imp)}</td>
+      </tr>`;}).join('')}</tbody></table></div>`;
+  const TOP=10;
+  const sobem=itens.filter(x=>x.imp>0).sort((a,b)=>b.imp-a.imp).slice(0,TOP);
+  const descem=itens.filter(x=>x.imp<0).sort((a,b)=>a.imp-b.imp).slice(0,TOP);
+  corpo.innerHTML=`<div class="imp-grid">
+    <div><p class="imp-sub imp-pos">▲ Puxaram a média para cima</p>${tabela(sobem,'Nenhum ticket elevou a média neste mês.')}</div>
+    <div><p class="imp-sub imp-neg">▼ Puxaram a média para baixo</p>${tabela(descem,'Nenhum ticket reduziu a média neste mês.')}</div>
+  </div>`;
 }
 
 // ── Evolução mensal por urgência (volume de tickets abertos no mês) ───

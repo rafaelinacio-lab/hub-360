@@ -305,6 +305,7 @@ function calcularSLAPrimeiroContato(ticket) {
 
 module.exports = {
   calcularSLAPrimeiroContato,
+  calcularMinutosUteisComPausas,
   minutosUteisEntre,
   normalizar,
   parseData,
