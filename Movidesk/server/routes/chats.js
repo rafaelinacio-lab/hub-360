@@ -97,12 +97,10 @@ async function gravar(lista) {
   );
 }
 
-// Como reconhecer um chamado de chat: tem grupo de chat (chatGroup), ou widget (chatWidget), ou uma das ORIGENS de chat.
-// Medido na conta (05/10/2026): os chats do WhatsApp/NLU de hoje vêm com chatGroup preenchido, SEM widget e com origem 24 ou 26
-// (os chats antigos de widget tinham origem 5 e 6). Ajuste as origens extras com CHATS_ORIGENS="24,26" (vazio = só grupo/widget).
-const ORIGENS_CHAT = String(process.env.CHATS_ORIGENS == null ? '24,26' : process.env.CHATS_ORIGENS)
-  .split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n) && n >= 0);
-const FILTRO_CHAT = `(chatGroup ne null or chatWidget ne null${ORIGENS_CHAT.map((o) => ` or origin eq ${o}`).join('')})`;
+// Como reconhecer um chamado de chat: tem grupo de chat (chatGroup). Medido na conta (05/10/2026): os chats do WhatsApp/NLU
+// vêm com chatGroup preenchido e SEM widget; os de widget antigos também têm grupo (100 de 100). NÃO filtrar por origem:
+// `origin` é um enum no OData do Movidesk (TicketOrigin) e `origin eq 24` dá erro de tipo. A origem só é guardada pra exibição.
+const FILTRO_CHAT = 'chatGroup ne null';
 async function coletar(token, filtroOData, maxPaginas) {
   let gravados = 0;
   for (let pag = 0; pag < maxPaginas; pag++) {
