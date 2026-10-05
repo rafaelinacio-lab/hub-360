@@ -1582,7 +1582,7 @@ function renderTrendChart(rows){
           c.beginPath();
           if(c.roundRect) c.roundRect(x-w/2,y-h/2,w,h,7); else c.rect(x-w/2,y-h/2,w,h);
           c.fillStyle=col.surface; c.fill();
-          c.lineWidth=1; c.strokeStyle=ds.borderColor; c.stroke();
+          c.lineWidth=1; c.strokeStyle=col.border; c.stroke();
           c.fillStyle=col.t1; c.fillText(txt,x,y+.5);
         });
       });
