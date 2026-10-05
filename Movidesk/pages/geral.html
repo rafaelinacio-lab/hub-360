@@ -283,6 +283,20 @@ input,select{font-family:inherit}
 .info-box ul{margin:0;padding-left:18px}
 .info-box .info-obs{margin-top:12px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-low);font-size:12px;color:var(--t2)}
 
+/* ─── Temas mais recorrentes ────────────────────────────────────────── */
+.tm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.tm-row{display:grid;grid-template-columns:30px minmax(150px,1.1fr) 2fr minmax(70px,auto);align-items:center;gap:14px;padding:11px 4px;border-radius:10px;cursor:pointer;transition:background .12s}
+.tm-row:hover{background:var(--surface-mid)}
+.tm-rank{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:1px solid var(--border);background:var(--surface-low)}
+.tm-nome{font-size:14px;font-weight:700;color:var(--t1)}
+.tm-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.tm-trilho{height:12px;border-radius:999px;background:var(--surface-low);overflow:hidden}
+.tm-barra{height:100%;border-radius:999px;transition:width .35s ease}
+.tm-val{text-align:right}
+.tm-val b{display:block;font-size:18px;font-weight:800;line-height:1.1}
+.tm-val small{font-size:11px;color:var(--t3)}
+@media (max-width:760px){.tm-row{grid-template-columns:28px 1fr auto}.tm-trilho{grid-column:1 / -1;order:5}}
+
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -713,6 +727,19 @@ body.modal-open{overflow:hidden}
         <p class="chart-sub">Cinza = abertos · laranja = resolvidos</p>
         <div class="chart-wrap" style="height:230px"><canvas id="respChart"></canvas></div>
       </div>
+    </div>
+
+    <p class="section-label">Temas</p>
+    <div class="chart-panel" id="temas-panel">
+      <div class="tm-head">
+        <div>
+          <p class="tv-eyebrow">Mapa de recorrência</p>
+          <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0">Temas mais recorrentes</p>
+        </div>
+        <span class="chart-sub" id="temas-total" style="margin:0"></span>
+      </div>
+      <div id="temas-lista"><p class="imp-vazio">Analisando os temas dos chamados…</p></div>
+      <p class="chart-sub" id="temas-status" style="text-align:left;margin:8px 0 0"></p>
     </div>
 
     <p class="section-label">Ação</p>
@@ -1493,6 +1520,7 @@ function render(){
   renderFluxoChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
+  renderTemas(rowsFull);
   renderImpactoSla(rowsResolv);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
@@ -2059,6 +2087,85 @@ async function renderSlaEvolucao(rows){
   });
 }
 
+// ── Temas mais recorrentes (palavras-chave nas ações) ──────────────────
+// O servidor (POST /geral/temas) devolve o tema de cada ticket a partir do assunto
+// e das primeiras ações; aqui só contamos, comparamos meses e desenhamos.
+let _temasCache={}, _temasCatalogo=[], _temasSeq=0;
+const TEMAS_MAX_ANALISE=20000;
+async function renderTemas(rows){
+  const lista=document.getElementById('temas-lista');
+  const status=document.getElementById('temas-status');
+  const totalEl=document.getElementById('temas-total');
+  if(!lista) return;
+  const seq=++_temasSeq;
+  let base=rows;
+  let nota='';
+  if(base.length>TEMAS_MAX_ANALISE){
+    base=base.slice().sort((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0)).slice(0,TEMAS_MAX_ANALISE);
+    nota=`Analisando os ${TEMAS_MAX_ANALISE.toLocaleString('pt-BR')} tickets mais recentes do período.`;
+  }
+  if(!base.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; totalEl.textContent=''; status.textContent=''; return; }
+
+  const faltam=base.map(r=>r.ticket_id).filter(id=>!(id in _temasCache));
+  try{
+    for(let i=0;i<faltam.length;i+=2000){
+      if(seq!==_temasSeq) return;
+      status.textContent=`Analisando os temas dos chamados… ${Math.min(i+2000,faltam.length).toLocaleString('pt-BR')} de ${faltam.length.toLocaleString('pt-BR')}`;
+      const lote=faltam.slice(i,i+2000);
+      const r=await fetch(`${API}/geral/temas`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids:lote})});
+      if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); }
+      const resp=await r.json();
+      _temasCatalogo=resp.catalogo||_temasCatalogo;
+      lote.forEach(id=>{ _temasCache[id]=resp.temas[id]??null; });
+    }
+  } catch(e){
+    if(seq===_temasSeq){ status.textContent=''; lista.innerHTML=`<p class="imp-vazio">Não foi possível analisar os temas: ${esc(e.message)}</p>`; }
+    return;
+  }
+  if(seq!==_temasSeq) return;
+  status.textContent=nota;
+
+  const cor=Object.fromEntries(_temasCatalogo.map(t=>[t.tema,t.cor]));
+  // contagem total e por mês de criação
+  const total={}, porMes={}, totMes={};
+  let comTema=0;
+  base.forEach(r=>{
+    const mk=r.criado_em?monthKeyOf(r.criado_em):null;
+    if(mk) totMes[mk]=(totMes[mk]||0)+1;
+    const t=_temasCache[r.ticket_id];
+    if(!t) return;
+    comTema++;
+    total[t]=(total[t]||0)+1;
+    if(mk){ porMes[mk]=porMes[mk]||{}; porMes[mk][t]=(porMes[mk][t]||0)+1; }
+  });
+  const meses=Object.keys(totMes).sort();
+  const mUlt=meses[meses.length-1], mAnt=meses.length>1?meses[meses.length-2]:null;
+  const part=(mk,t)=>mk&&totMes[mk]?((porMes[mk]||{})[t]||0)/totMes[mk]*100:null;
+
+  totalEl.textContent=`${base.length.toLocaleString('pt-BR')} tickets analisados · ${comTema.toLocaleString('pt-BR')} com tema identificado`;
+  const entradas=Object.entries(total).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(!entradas.length){ lista.innerHTML='<p class="imp-vazio">Nenhum tema identificado nos tickets do período.</p>'; return; }
+  const max=entradas[0][1];
+  lista.innerHTML=entradas.map(([tema,n],i)=>{
+    const c=cor[tema]||'#94a3b8';
+    const pu=part(mUlt,tema), pa=part(mAnt,tema);
+    const dpp=pu!=null&&pa!=null?pu-pa:null;
+    const nUlt=(porMes[mUlt]||{})[tema]||0;
+    const varTxt=dpp==null?'sem mês anterior':`${dpp>0?'+':dpp<0?'−':''}${Math.abs(dpp).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} pp`;
+    return `<div class="tm-row" onclick="abrirTema('${escAttr(tema)}')" title="Clique para ver os tickets">
+      <div class="tm-rank" style="color:${c}">${String(i+1).padStart(2,'0')}</div>
+      <div><div class="tm-nome">${esc(tema)}</div><div class="tm-sub">${nUlt.toLocaleString('pt-BR')} no último mês · ${varTxt}</div></div>
+      <div class="tm-trilho"><div class="tm-barra" style="width:${Math.max(2,n/max*100)}%;background:${c}"></div></div>
+      <div class="tm-val"><b style="color:${c}">${n.toLocaleString('pt-BR')}</b><small>${fmtPct(n/base.length)}</small></div>
+    </div>`;
+  }).join('');
+  window._temasBase=base;
+}
+function abrirTema(tema){
+  const rows=(window._temasBase||[]).filter(r=>_temasCache[r.ticket_id]===tema);
+  openDetailModal(`Tema: ${tema}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
+}
+
 // ── Evolução mensal por urgência (volume de tickets abertos no mês) ───
 const URGENCIAS_TREND=['Crítica','Alta','Média','Baixa'];
 function renderUrgTrendChart(rows){
@@ -2463,6 +2570,10 @@ const INFO_CARDS={
     o:'Quais tickets mais puxaram a média de tempo de solução para cima ou para baixo.',
     c:['Usa o tempo de solução líquido (horas úteis, sem pausas) dos tickets resolvidos no período filtrado.','Impacto = média do período com todos os tickets − média sem aquele ticket. Positivo elevou o tempo médio; negativo reduziu.','As tabelas mostram os 10 maiores impactos em cada direção, com o tempo, a meta da urgência e o impacto em horas.'],
     obs:'Segue os filtros principais do painel; com o filtro de Mês marcado a análise é mensal.'},
+  'temas-panel':{t:'Temas mais recorrentes',
+    o:'Os assuntos que mais aparecem nos chamados, descobertos a partir do texto do chamado e das ações.',
+    c:['Para cada ticket criado no período, lê o assunto (peso dobrado) e o texto das 5 primeiras ações (até 1.500 caracteres cada).','Procura palavras-chave de cada tema (dicionário em server/data/temas-chamados.json; ex.: Fiscal = NF-e, CFOP, SPED, ICMS…).','O tema do ticket é o que tiver mais ocorrências; em caso de empate vale a ordem do dicionário. Cada ticket conta em um tema só.','Tickets sem nenhuma palavra do dicionário ficam sem tema e aparecem apenas no total analisado.','% = tickets do tema ÷ tickets analisados. A variação em pp compara a participação do tema no último mês do período com o mês anterior.','Clique num tema para ver os tickets.'],
+    obs:'Por palavras-chave, não é leitura por IA: ajustar o dicionário melhora a precisão. '+FILTROS_TXT},
   'agingChart':{t:'Envelhecimento do backlog',
     o:'Há quanto tempo os tickets pendentes estão abertos.',
     c:['Só tickets pendentes.','Idade = dias desde a criação, em faixas: 1 dia, 2 dias, 3-7, 8-14 e 15+ dias.','Clique numa barra para ver os tickets da faixa.']},

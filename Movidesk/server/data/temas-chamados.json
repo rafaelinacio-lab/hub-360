@@ -1,0 +1,242 @@
+{
+  "_ajuda": "Dicionário de temas dos chamados (Painel Geral > Temas mais recorrentes). Cada tema tem palavras-chave SEM acento e em minúsculas. Palavras com até 4 letras casam só como palavra inteira; as maiores casam pelo início da palavra (ex.: 'cadastr' pega cadastro, cadastrar). O tema do chamado é o que mais tem ocorrências no assunto + primeiras ações.",
+  "temas": [
+    {
+      "tema": "Cadastro",
+      "cor": "#cbd5e1",
+      "palavras": [
+        "cadastr",
+        "registr",
+        "duplicidade",
+        "duplicado",
+        "inclusao de",
+        "alteracao de dados",
+        "atualizar dados",
+        "dados do cliente",
+        "dados do produto"
+      ]
+    },
+    {
+      "tema": "Fiscal",
+      "cor": "#7dc4ff",
+      "palavras": [
+        "nota fiscal",
+        "nf-e",
+        "nfe",
+        "nfce",
+        "nfc-e",
+        "danfe",
+        "sped",
+        "icms",
+        "ipi",
+        "pis",
+        "cofins",
+        "cfop",
+        "cst",
+        "ncm",
+        "cest",
+        "tributa",
+        "imposto",
+        "sefaz",
+        "cte",
+        "ct-e",
+        "mdfe",
+        "mdf-e",
+        "rejeicao",
+        "contingencia",
+        "inutiliza",
+        "ibpt",
+        "fiscal",
+        "ecf",
+        "sat",
+        "difal",
+        "st"
+      ]
+    },
+    {
+      "tema": "Acesso",
+      "cor": "#ff9f93",
+      "palavras": [
+        "login",
+        "senha",
+        "acesso",
+        "permiss",
+        "usuario",
+        "bloquead",
+        "autentic",
+        "token",
+        "perfil de",
+        "credencial",
+        "expirou",
+        "nao consigo entrar",
+        "nao consigo acessar",
+        "liberar acesso"
+      ]
+    },
+    {
+      "tema": "Financeiro",
+      "cor": "#fcd980",
+      "palavras": [
+        "financeir",
+        "boleto",
+        "pagamento",
+        "pagar",
+        "contas a",
+        "baixa de",
+        "titulo",
+        "parcela",
+        "cobranca",
+        "fatura",
+        "juros",
+        "conciliac",
+        "remessa",
+        "cnab",
+        "pix",
+        "duplicata",
+        "fluxo de caixa",
+        "caixa"
+      ]
+    },
+    {
+      "tema": "Integração",
+      "cor": "#8eead0",
+      "palavras": [
+        "integra",
+        "api",
+        "webhook",
+        "marketplace",
+        "ecommerce",
+        "e-commerce",
+        "vtex",
+        "mercado livre",
+        "sincroniz",
+        "conector",
+        "web service",
+        "webservice",
+        "ftp",
+        "edi"
+      ]
+    },
+    {
+      "tema": "Pedido",
+      "cor": "#ffb166",
+      "palavras": [
+        "pedido",
+        "orcamento",
+        "venda",
+        "vendas",
+        "compra",
+        "compras",
+        "proposta",
+        "faturar",
+        "faturamento",
+        "ordem de"
+      ]
+    },
+    {
+      "tema": "Contábil",
+      "cor": "#5eead4",
+      "palavras": [
+        "contabil",
+        "contabilidade",
+        "lancamento contabil",
+        "plano de contas",
+        "balancete",
+        "razao",
+        "dre",
+        "centro de custo",
+        "ecd",
+        "patrimonio",
+        "depreciac"
+      ]
+    },
+    {
+      "tema": "Relatórios",
+      "cor": "#d8b4fe",
+      "palavras": [
+        "relatorio",
+        "consulta",
+        "grafico",
+        "dashboard",
+        "exportar",
+        "exporta",
+        "excel",
+        "planilha",
+        "listagem",
+        "extrato"
+      ]
+    },
+    {
+      "tema": "Estoque",
+      "cor": "#a3e635",
+      "palavras": [
+        "estoque",
+        "inventario",
+        "saldo de",
+        "movimentac",
+        "almoxarif",
+        "lote",
+        "kardex",
+        "transferencia",
+        "entrada de mercadoria"
+      ]
+    },
+    {
+      "tema": "Impressão",
+      "cor": "#f9a8d4",
+      "palavras": [
+        "imprim",
+        "impressora",
+        "impressao",
+        "etiqueta",
+        "layout de",
+        "reimpress"
+      ]
+    },
+    {
+      "tema": "Instalação e atualização",
+      "cor": "#93c5fd",
+      "palavras": [
+        "atualiza",
+        "versao",
+        "instala",
+        "update",
+        "servidor",
+        "banco de dados",
+        "backup",
+        "restaur",
+        "licenca",
+        "migra"
+      ]
+    },
+    {
+      "tema": "Desempenho e indisponibilidade",
+      "cor": "#fda4af",
+      "palavras": [
+        "lent",
+        "travand",
+        "travou",
+        "trava",
+        "indisponiv",
+        "fora do ar",
+        "caiu",
+        "congel",
+        "demora",
+        "performance",
+        "desempenho"
+      ]
+    },
+    {
+      "tema": "Personalização",
+      "cor": "#fdba74",
+      "palavras": [
+        "personaliz",
+        "customiz",
+        "desenvolvimento",
+        "melhoria",
+        "ajuste especifico",
+        "sob medida"
+      ]
+    }
+  ]
+}

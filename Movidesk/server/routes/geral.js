@@ -12,6 +12,7 @@
  * GET /geral/:ticketId  — detalhe de um ticket
  * GET /geral/:ticketId/actions — timeline de ações + campos customizados
  * POST /geral/sla-liquido — tempo de solução líquido (horas úteis, sem pausas) por ticket
+ * POST /geral/temas — tema (por palavras-chave) de cada ticket, a partir do assunto e das ações
  */
 
 const express = require('express');
@@ -20,6 +21,7 @@ const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess } = require('./config');
 const { calcularMinutosUteisComPausas, parseData } = require('../utils/sla');
+const { classificarTexto, listarTemas } = require('../utils/temasChamados');
 
 const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
 
@@ -230,6 +232,60 @@ router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async 
 
 
 // ===== GET /geral/:ticketId =====
+// ===== POST /geral/temas =====
+// Tema mais citado de cada ticket: palavras-chave (server/data/temas-chamados.json)
+// contadas no assunto + texto das primeiras ações (silver.ticket_acao). Resultado
+// guardado em memória por 6h pra não reler o texto a cada abertura do painel.
+// Body: { ids: ["123", ...] } (até 2000). Resposta: { catalogo:[{tema,cor}], temas:{ "123": "Fiscal"|null } }
+const TEMAS_MAX_IDS = 2000;
+const TEMAS_ACOES_LIDAS = 5;      // primeiras ações de cada ticket
+const TEMAS_CHARS_POR_ACAO = 1500;
+const TEMAS_TTL_MS = 6 * 3600 * 1000;
+const _cacheTemas = new Map();    // ticket_id -> { tema, ate }
+router.post('/temas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+    .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
+  if (ids.length > TEMAS_MAX_IDS) {
+    return res.status(400).json({ error: `Máximo de ${TEMAS_MAX_IDS} tickets por chamada` });
+  }
+  try {
+    const agora = Date.now();
+    const temas = {};
+    const faltam = [];
+    for (const id of ids) {
+      const c = _cacheTemas.get(id);
+      if (c && c.ate > agora) temas[id] = c.tema; else faltam.push(id);
+    }
+    if (faltam.length) {
+      const r = await db.query(
+        `SELECT t.ticket_id::varchar AS id, t.subject AS assunto,
+                COALESCE((
+                  SELECT string_agg(left(a.descricao, ${TEMAS_CHARS_POR_ACAO}), ' ' ORDER BY a.criado_em)
+                  FROM (
+                    SELECT descricao, criado_em FROM silver.ticket_acao
+                    WHERE ticket_id = t.ticket_id AND descricao IS NOT NULL
+                    ORDER BY criado_em ASC LIMIT ${TEMAS_ACOES_LIDAS}
+                  ) a
+                ), '') AS texto
+         FROM silver.ticket t
+         WHERE t.ticket_id = ANY($1::bigint[])`,
+        [faltam]
+      );
+      for (const row of r.rows) {
+        // o assunto vale em dobro: é o resumo que o cliente/atendente escolheu
+        const tema = classificarTexto(`${row.assunto || ''} ${row.assunto || ''} ${row.texto || ''}`);
+        temas[row.id] = tema;
+        _cacheTemas.set(row.id, { tema, ate: agora + TEMAS_TTL_MS });
+      }
+    }
+    res.json({ catalogo: listarTemas(), temas });
+  } catch (error) {
+    console.error('Erro ao classificar temas do painel geral:', error);
+    res.status(500).json({ error: 'Erro ao analisar os temas dos chamados' });
+  }
+});
+
+
 router.get('/:ticketId', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   const ticketId = String(req.params.ticketId).trim();
   if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
