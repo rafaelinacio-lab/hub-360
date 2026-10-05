@@ -385,10 +385,38 @@ body::-webkit-scrollbar {
 .nav-badge[hidden] { display: none; }
 .nav-badge.grave { background: #f87171; color: #1a0b0b; }
 
-/* Janela estreita: só os ícones; a aba ativa mantém o nome */
-@media (max-width: 1400px) {
-    .topbar-nav .sidebar-btn { padding: 0 11px; }
-    .topbar-nav .sidebar-btn:not(.active) .sidebar-btn-label { display: none; }
+/* Menu recolhido: só os ícones; ao passar o mouse (ou focar com o teclado) a aba
+   se expande e mostra o nome. A aba atual fica marcada pelo ícone/sublinhado laranja. */
+.topbar-nav .sidebar-btn {
+    gap: 0;
+    padding: 0 13px;
+}
+.topbar-nav .sidebar-btn .sidebar-btn-label {
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: max-width 0.24s ease, margin-left 0.24s ease, opacity 0.18s ease;
+}
+.topbar-nav .sidebar-btn:hover .sidebar-btn-label,
+.topbar-nav .sidebar-btn:focus-visible .sidebar-btn-label {
+    max-width: 150px;
+    margin-left: 8px;
+    opacity: 1;
+}
+/* o contador vira uma bolinha no canto do ícone */
+.topbar-nav .sidebar-btn .nav-badge {
+    position: absolute;
+    top: 12px;
+    right: 3px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 16px;
+    border-radius: 8px;
 }
 
 /* Botão e paleta "Ir para…" (Ctrl+K) */
