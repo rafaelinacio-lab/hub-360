@@ -120,8 +120,10 @@ input,select{font-family:inherit}
 .topbar{
   position:sticky;top:0;z-index:100;
   background:var(--surface);border-bottom:1px solid var(--border);
-  padding:0 24px;
+  padding:0 24px;transition:transform .22s ease;
 }
+/* ao rolar pra baixo o cabeçalho (título + filtros) sai de cena; volta ao rolar pra cima */
+.topbar.oculto{transform:translateY(-100%)}
 .topbar-in{
   display:flex;align-items:center;gap:12px;height:56px;
   max-width:1480px;margin:0 auto;
@@ -2647,6 +2649,32 @@ document.addEventListener('keydown',e=>{
   else if(document.getElementById('listagem-modal').classList.contains('show')) closeListagemModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
 });
+
+// ── Esconde o menu ao rolar pra baixo (mais área útil) ─────────────────
+// Rolando pra baixo: some o cabeçalho desta página e avisa o shell (index.html)
+// pra recolher o menu do Hub. Rolando pra cima, no topo da página ou com o mouse
+// na borda superior: tudo volta. Não esconde com um filtro aberto ou modal aberto.
+(function autoOcultarMenu(){
+  const topo=document.querySelector('.topbar');
+  if(!topo) return;
+  let oculto=false, ultimo=0;
+  const avisarShell=v=>{ try{ if(window.parent&&window.parent!==window) window.parent.postMessage({tipo:'hub360:menu-oculto',oculto:v},location.origin); }catch{} };
+  function aplicar(v){
+    if(v===oculto) return;
+    oculto=v; topo.classList.toggle('oculto',v); avisarShell(v);
+  }
+  window.addEventListener('scroll',()=>{
+    const y=window.scrollY||document.documentElement.scrollTop||0;
+    const dy=y-ultimo;
+    if(Math.abs(dy)<8) return;
+    ultimo=y;
+    if(y<80||dy<0) aplicar(false);
+    else if(!document.querySelector('.multi-sel.open')&&!document.body.classList.contains('modal-open')) aplicar(true);
+  },{passive:true});
+  document.addEventListener('mousemove',e=>{ if(oculto&&e.clientY<6) aplicar(false); },{passive:true});
+  // abrir um filtro (clique) traz o cabeçalho de volta
+  document.addEventListener('click',e=>{ if(oculto&&e.target.closest('.multi-sel')) aplicar(false); });
+})();
 
 // ── sync ─────────────────────────────────────────────────────────────
 let _syncPoll=null;

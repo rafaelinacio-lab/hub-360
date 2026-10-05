@@ -232,9 +232,23 @@ function loadEmbeddedPage(view) {
 
     const src = EMBED_PAGE_ROUTES[normalizedView] || EMBED_PAGE_ROUTES.dashboard;
     if (frame.getAttribute('src') !== src) {
+        document.body.classList.remove('nav-oculta');
         frame.setAttribute('src', src);
     }
 }
+
+// A página embutida avisa quando rolou pra baixo (esconder o menu) ou pra cima (mostrar).
+window.addEventListener('message', (ev) => {
+    const frame = document.getElementById('embeddedPageFrame');
+    if (!frame || ev.source !== frame.contentWindow || ev.origin !== location.origin) return;
+    if (!ev.data || ev.data.tipo !== 'hub360:menu-oculto') return;
+    document.body.classList.toggle('nav-oculta', !!ev.data.oculto);
+});
+document.addEventListener('DOMContentLoaded', () => {
+    const frame = document.getElementById('embeddedPageFrame');
+    // Página nova carregada no iframe sempre começa com o menu visível
+    if (frame) frame.addEventListener('load', () => document.body.classList.remove('nav-oculta'));
+});
 
 // ─── Função auxiliar para gerar URL de foto de usuário ───────────────────────
 function getPhotoUrl(email) {
