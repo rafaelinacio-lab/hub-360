@@ -208,15 +208,19 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
     try { chats = await buscar(`&$filter=${encodeURIComponent('chatGroup ne null')}`); } catch (e) { erros.push(`Filtro por grupo de chat: ${e.message}`); }
     // 3) sonda por número de chamado (?tickets=908248,908372): mostra exatamente o que a API devolve pra cada um
     const ids = [...new Set(String(req.query.tickets || '').split(/[\s,;]+/).filter((x) => /^\d{1,12}$/.test(x)))].slice(0, 8);
+    // Busca por LISTA com $filter (a busca por ?id= devolveu 404 para chamados de chat recentes, a por lista funciona).
+    const porId = async (id, extra) => {
+      const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&$filter=${encodeURIComponent(`id eq '${id}'`)}&$top=1${extra || ''}`;
+      const r = await fetch(url);
+      const txt = await r.text();
+      let d = null; try { d = JSON.parse(txt); } catch { /* erro em texto */ }
+      if (!r.ok) throw new Error(`Movidesk respondeu ${r.status}: ${(typeof d === 'object' && d ? JSON.stringify(d) : txt).slice(0, 200)}`);
+      return Array.isArray(d) ? d[0] : d;
+    };
     const sonda = [];
     for (const id of ids) {
       try {
-        const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&id=${id}&$select=${encodeURIComponent(['id', 'origin', 'createdDate', 'lastUpdate', 'status', 'baseStatus', 'ownerTeam', 'serviceFull', ...CAMPOS_CHAT].join(','))}&$expand=${encodeURIComponent('owner,clients')}`;
-        const r = await fetch(url);
-        const txt = await r.text();
-        let d = null; try { d = JSON.parse(txt); } catch { /* erro em texto */ }
-        if (!r.ok) { sonda.push({ id, erro: `Movidesk respondeu ${r.status}` }); continue; }
-        const t0 = Array.isArray(d) ? d[0] : d;
+        const t0 = await porId(id, `&$select=${encodeURIComponent(['id', 'origin', 'createdDate', 'lastUpdate', 'status', 'baseStatus', 'ownerTeam', 'serviceFull', ...CAMPOS_CHAT].join(','))}&$expand=${encodeURIComponent('owner,clients')}`);
         if (!t0) { sonda.push({ id, erro: 'não encontrado' }); continue; }
         const cl = Array.isArray(t0.clients) ? t0.clients[0] : null;
         sonda.push({ id, origin: t0.origin ?? null, status: t0.status || null, baseStatus: t0.baseStatus || null, grupo: t0.chatGroup || null, widget: t0.chatWidget || null,
@@ -231,10 +235,8 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
     const valorProcurado = String(req.query.procurar || '').trim();
     if (ids.length && /^[\w-]{4,40}$/.test(valorProcurado)) {
       try {
-        const url = `${MOVI_TICKETS}?token=${encodeURIComponent(token)}&id=${ids[0]}&$expand=${encodeURIComponent('owner,clients,actions')}`;
-        const r = await fetch(url);
-        const d = await r.json().catch(() => null);
-        const t0 = Array.isArray(d) ? d[0] : d;
+        const t0 = await porId(ids[0], `&$expand=${encodeURIComponent('owner,clients,actions')}`);
+        const r = { ok: true };
         if (r.ok && t0) {
           const caminhos = [];
           const andar = (v, caminho) => {
@@ -249,7 +251,7 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
           const camposChat = {};
           Object.keys(t0).filter((k) => /chat|talk|waiting|conversa/i.test(k)).forEach((k) => { camposChat[k] = t0[k]; });
           procura = { id: ids[0], valor: valorProcurado, encontrado: caminhos, camposChat, todosOsCampos: Object.keys(t0) };
-        } else procura = { id: ids[0], valor: valorProcurado, erro: `Movidesk respondeu ${r.status}` };
+        } else procura = { id: ids[0], valor: valorProcurado, erro: 'chamado não encontrado' };
       } catch (e) { procura = { id: ids[0], valor: valorProcurado, erro: e.message }; }
     }
     const porOrigem = {};

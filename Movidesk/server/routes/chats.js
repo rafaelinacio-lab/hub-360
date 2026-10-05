@@ -97,10 +97,10 @@ async function gravar(lista) {
   );
 }
 
-// Como reconhecer um chamado de chat: tem grupo de chat (chatGroup), ou widget (chatWidget), ou uma das ORIGENS de chat
-// (padrão 5 e 6 = os dois códigos vistos nos chats do Movidesk; no painel aparecem como "Chat (NLU)" e "Whatsapp (NLU)").
-// Os chats do WhatsApp podem vir SEM widget e até sem grupo, por isso a origem também conta. Ajuste com CHATS_ORIGENS="5,6".
-const ORIGENS_CHAT = String(process.env.CHATS_ORIGENS == null ? '5,6' : process.env.CHATS_ORIGENS)
+// Como reconhecer um chamado de chat: tem grupo de chat (chatGroup), ou widget (chatWidget), ou uma das ORIGENS de chat.
+// Medido na conta (05/10/2026): os chats do WhatsApp/NLU de hoje vêm com chatGroup preenchido, SEM widget e com origem 24 ou 26
+// (os chats antigos de widget tinham origem 5 e 6). Ajuste as origens extras com CHATS_ORIGENS="24,26" (vazio = só grupo/widget).
+const ORIGENS_CHAT = String(process.env.CHATS_ORIGENS == null ? '24,26' : process.env.CHATS_ORIGENS)
   .split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n) && n >= 0);
 const FILTRO_CHAT = `(chatGroup ne null or chatWidget ne null${ORIGENS_CHAT.map((o) => ` or origin eq ${o}`).join('')})`;
 async function coletar(token, filtroOData, maxPaginas) {

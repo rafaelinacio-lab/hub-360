@@ -3573,7 +3573,7 @@ async function rodarDiagnosticoChat() {
             linhas.push(`Widgets: ${c.widgets.length ? e(c.widgets.join(' · ')) : '—'}.`);
             linhas.push(`Com tempo de conversa: <b>${c.comTempoConversa}</b> de ${c.total} · com tempo de espera: <b>${c.comTempoEspera}</b> de ${c.total} · com grupo: <b>${c.comGrupo}</b> de ${c.total}.`);
             if (c.exemplos.length) linhas.push('Exemplos: ' + c.exemplos.map((x) => `#${e(x.id)} (${e(x.grupo || 'sem grupo')}, espera ${e(x.espera ?? '—')}, conversa ${e(x.conversa ?? '—')})`).join(' · '));
-            linhas.push('<b>Conclusão:</b> dá para acompanhar o chat no Hub a partir dos chamados. Falta o Hub passar a guardar esses campos.');
+            linhas.push('<b>Conclusão:</b> dá para acompanhar o chat no Hub a partir dos chamados. O Hub já guarda esses chats: veja em Chamados → Chats.');
         } else {
             linhas.push('<b>⚠️ Não achei chamados com widget de chat preenchido.</b> Ou o chat ainda não gera chamado com esses campos, ou a conta não os devolve.');
             linhas.push(`Na amostra dos últimos ${a.total} chamados, as origens são: ${Object.entries(a.porOrigem).map(([k, v]) => `${e(k)} (${v})`).join(', ') || '—'}.`);
