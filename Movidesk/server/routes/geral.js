@@ -229,6 +229,15 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
           criado: t0.createdDate || null, atualizado: t0.lastUpdate || null });
       } catch (e) { sonda.push({ id, erro: e.message }); }
     }
+    // o que o Hub tem guardado (public.hub_chat) para esses chamados: se não estiver lá, a coleta não o pegou
+    if (sonda.length) {
+      try {
+        const noHub = (await db.query(
+          `SELECT ticket_id::text AS id, base_status, status, grupo, tempo_conversa, tempo_espera, atualizado_em, coletado_em FROM public.hub_chat WHERE ticket_id = ANY($1::bigint[])`,
+          [sonda.map((x) => x.id)])).rows;
+        sonda.forEach((x) => { x.noHub = noHub.find((r) => r.id === String(x.id)) || null; });
+      } catch (e) { sonda.forEach((x) => { x.noHub = undefined; }); }
+    }
     // 4) procura um valor conhecido (ex.: o chatId do link /Ticket/ChatVisualize/908248?chatId=77563584) dentro do chamado COMPLETO,
     //    pra descobrir em qual campo da API ele vem
     let procura = null;

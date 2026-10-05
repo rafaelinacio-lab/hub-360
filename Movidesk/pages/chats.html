@@ -301,7 +301,8 @@ function desenhar(){
   const d=D, h=d.hoje||{};
   // aviso quando a coleta nunca rodou ou está atrasada
   const av=$('aviso');
-  if(!d.meta.total){ av.hidden=false; av.textContent='Ainda não há chats guardados. A coleta roda sozinha a cada minuto; um administrador pode buscar o histórico com "Reprocessar histórico" no rodapé.'; }
+  if(d.job&&d.job.msg&&d.job.msg!=='ok'){ av.hidden=false; av.textContent='A última coleta no Movidesk falhou: '+d.job.msg; }
+  else if(!d.meta.total){ av.hidden=false; av.textContent='Ainda não há chats guardados. A coleta roda sozinha a cada minuto; um administrador pode buscar o histórico com "Reprocessar histórico" no rodapé.'; }
   else if(d.meta.ultima_coleta&&Date.now()-new Date(d.meta.ultima_coleta).getTime()>5*60*1000){ av.hidden=false; av.textContent=`A última coleta no Movidesk foi há ${idade(d.meta.ultima_coleta)}. Os números podem estar desatualizados.`; }
   else av.hidden=true;
   $('frescor').textContent=`Atualizado ${quando(d.agora)} · última coleta no Movidesk ${d.meta.ultima_coleta?'há '+idade(d.meta.ultima_coleta):'—'}`;

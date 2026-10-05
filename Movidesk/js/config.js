@@ -3583,7 +3583,8 @@ async function rodarDiagnosticoChat() {
             linhas.push('<br><b>Chamados conferidos:</b>');
             d.sonda.forEach((x) => {
                 if (x.erro) { linhas.push(`#${e(x.id)}: ${e(x.erro)}`); return; }
-                linhas.push(`#${e(x.id)} — origem <b>${e(x.origin ?? 'vazia')}</b> · status ${e(x.status || '—')} · grupo <b>${e(x.grupo || 'vazio')}</b> · widget <b>${e(x.widget || 'vazio')}</b> · atendente ${e(x.atendente || '—')} · serviço ${e(x.servico || '—')} · espera ${e(x.espera ?? '—')} · conversa ${e(x.conversa ?? '—')}`);
+                linhas.push(`#${e(x.id)} — origem <b>${e(x.origin ?? 'vazia')}</b> · status ${e(x.status || '—')} · grupo <b>${e(x.grupo || 'vazio')}</b> · widget <b>${e(x.widget || 'vazio')}</b> · atendente ${e(x.atendente || '—')} · serviço ${e(x.servico || '—')} · espera ${e(x.espera ?? '—')} · conversa ${e(x.conversa ?? '—')}`
+                    + (x.noHub === undefined ? '' : (x.noHub ? ` · <b>no Hub:</b> sim (status ${e(x.noHub.base_status)}, tempo de conversa ${e(x.noHub.tempo_conversa ?? 'vazio')})` : ' · <b>no Hub:</b> <b>NÃO</b> (a coleta não pegou este chamado)')));
             });
         }
         if (d.procura) {
