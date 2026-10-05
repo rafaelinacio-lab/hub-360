@@ -355,6 +355,111 @@ body::-webkit-scrollbar {
     display: inline-block;
 }
 
+/* Aba ativa: ícone também na cor de destaque */
+.sidebar-btn.active svg {
+    color: var(--topbar-accent);
+}
+
+/* Configurações: só o ícone, no fim da barra (o nome fica no tooltip) */
+#navConfiguracoes {
+    margin-left: auto;
+    padding: 0 12px;
+}
+#navConfiguracoes .sidebar-btn-label {
+    display: none;
+}
+
+/* Contador de ativos nas abas (ex.: Incidentes) */
+.nav-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #fbbf24;
+    color: #2a1c03;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 18px;
+    text-align: center;
+}
+.nav-badge[hidden] { display: none; }
+.nav-badge.grave { background: #f87171; color: #1a0b0b; }
+
+/* Janela estreita: só os ícones; a aba ativa mantém o nome */
+@media (max-width: 1400px) {
+    .topbar-nav .sidebar-btn { padding: 0 11px; }
+    .topbar-nav .sidebar-btn:not(.active) .sidebar-btn-label { display: none; }
+}
+
+/* Botão e paleta "Ir para…" (Ctrl+K) */
+.nav-busca-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--topbar-icon);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.nav-busca-btn:hover { color: var(--text); border-color: var(--topbar-accent); }
+.nav-busca-btn kbd, .nav-paleta-dica kbd {
+    font: 600 10.5px system-ui, sans-serif;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 5px;
+}
+@media (max-width: 1100px) { .nav-busca-btn { display: none; } }
+.nav-paleta {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(8, 10, 16, 0.55);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 12vh;
+}
+.nav-paleta[hidden] { display: none; }
+.nav-paleta-box {
+    width: min(560px, 92vw);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+.nav-paleta-box input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 15px 18px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+}
+#navPaletaLista { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow-y: auto; }
+#navPaletaLista li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+}
+#navPaletaLista li svg { width: 17px; height: 17px; flex: none; color: var(--topbar-icon); }
+#navPaletaLista li small { margin-left: auto; color: var(--topbar-icon); font-size: 11px; }
+#navPaletaLista li.sel { background: rgba(251, 146, 60, 0.14); }
+#navPaletaLista li.sel svg { color: var(--topbar-accent); }
+.nav-paleta-dica { margin: 0; padding: 8px 14px; border-top: 1px solid var(--border); color: var(--topbar-icon); font-size: 11px; }
+
 .topbar-actions {
     display: flex;
     align-items: center;

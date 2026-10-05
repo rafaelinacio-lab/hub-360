@@ -2787,6 +2787,14 @@ document.addEventListener('keydown',e=>{
   document.addEventListener('click',e=>{ if(oculto&&e.target.closest('.multi-sel')) aplicar(false); });
 })();
 
+// Ctrl+K dentro do iframe: pede ao shell (index.html) pra abrir o "Ir para…".
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&window.parent&&window.parent!==window){
+    e.preventDefault();
+    try{ window.parent.postMessage({tipo:'hub360:paleta'},location.origin); }catch{}
+  }
+});
+
 // ── sync ─────────────────────────────────────────────────────────────
 let _syncPoll=null;
 function showToast(txt,prog){

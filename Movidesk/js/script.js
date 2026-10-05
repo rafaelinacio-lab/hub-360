@@ -250,6 +250,104 @@ document.addEventListener('DOMContentLoaded', () => {
     if (frame) frame.addEventListener('load', () => document.body.classList.remove('nav-oculta'));
 });
 
+// ─── Contador de incidentes ativos na aba ───────────────────────────────────
+async function atualizarBadgeIncidentes() {
+    const btn = document.getElementById('navIncidentes');
+    const badge = document.getElementById('navBadgeIncidentes');
+    if (!btn || !badge || btn.style.display === 'none') return;
+    try {
+        const r = await fetch(`${API_BASE}/incidentes/metricas`, { headers: authHeaders() });
+        if (!r.ok) return;
+        const m = await r.json();
+        const n = Number(m.totalAtivos) || 0;
+        badge.textContent = n > 99 ? '99+' : String(n);
+        badge.hidden = n === 0;
+        badge.classList.toggle('grave', (Number(m.gravesAtivos) || 0) > 0);
+        badge.title = `${n} incidente${n === 1 ? '' : 's'} ativo${n === 1 ? '' : 's'}`
+            + (m.gravesAtivos ? ` (${m.gravesAtivos} grave${m.gravesAtivos === 1 ? '' : 's'})` : '');
+    } catch (_) { /* sem contador, a aba funciona igual */ }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(atualizarBadgeIncidentes, 3000);   // depois das abas liberadas pelo perfil
+    setInterval(atualizarBadgeIncidentes, 3 * 60 * 1000);
+});
+
+// ─── "Ir para…" (Ctrl+K): abas do menu e número de chamado ──────────────────
+(function paletaIrPara() {
+    let itens = [];
+    let sel = 0;
+    const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const el = (id) => document.getElementById(id);
+
+    function abasVisiveis() {
+        return [...document.querySelectorAll('.topbar-nav .sidebar-btn[data-view]')]
+            .filter((b) => b.style.display !== 'none')
+            .map((b) => ({
+                view: b.dataset.view,
+                nome: (b.querySelector('.sidebar-btn-label') || b).textContent.trim(),
+                icone: b.querySelector('svg') ? b.querySelector('svg').outerHTML : '',
+            }));
+    }
+    function montar() {
+        const q = semAcento(el('navPaletaInput').value.trim());
+        itens = abasVisiveis()
+            .filter((a) => !q || semAcento(a.nome).includes(q))
+            .map((a) => ({ tipo: 'aba', ...a }));
+        if (/^\d{4,}$/.test(q)) {
+            itens.unshift({ tipo: 'chamado', numero: q, nome: `Abrir o chamado #${q} no Movidesk`, icone: '' });
+        }
+        sel = Math.min(sel, Math.max(0, itens.length - 1));
+        el('navPaletaLista').innerHTML = itens.length
+            ? itens.map((i, n) => `<li role="option" data-n="${n}" class="${n === sel ? 'sel' : ''}">${i.icone}<span>${i.nome}</span>${i.tipo === 'chamado' ? '<small>nova aba</small>' : ''}</li>`).join('')
+            : '<li style="cursor:default">Nada encontrado</li>';
+    }
+    function abrir() {
+        const box = el('navPaleta');
+        if (!box) return;
+        box.hidden = false;
+        el('navPaletaInput').value = '';
+        sel = 0;
+        montar();
+        el('navPaletaInput').focus();
+    }
+    function fechar() { const box = el('navPaleta'); if (box) box.hidden = true; }
+    function escolher(n) {
+        const i = itens[n];
+        if (!i) return;
+        fechar();
+        if (i.tipo === 'chamado') window.open(`https://viasoft.movidesk.com/Ticket/Edit/${i.numero}`, '_blank', 'noopener');
+        else navigateTo(i.view);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = el('navBuscaBtn');
+        if (btn) btn.addEventListener('click', abrir);
+        const box = el('navPaleta');
+        if (!box) return;
+        box.addEventListener('mousedown', (e) => { if (e.target === box) fechar(); });
+        el('navPaletaInput').addEventListener('input', () => { sel = 0; montar(); });
+        el('navPaletaLista').addEventListener('click', (e) => {
+            const li = e.target.closest('li[data-n]');
+            if (li) escolher(Number(li.dataset.n));
+        });
+        el('navPaletaInput').addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, itens.length - 1); montar(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); montar(); }
+            else if (e.key === 'Enter') { e.preventDefault(); escolher(sel); }
+        });
+    });
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); abrir(); }
+        else if (e.key === 'Escape' && el('navPaleta') && !el('navPaleta').hidden) fechar();
+    });
+    // Ctrl+K dentro da página embutida (iframe) também abre a paleta
+    window.addEventListener('message', (ev) => {
+        const frame = document.getElementById('embeddedPageFrame');
+        if (!frame || ev.source !== frame.contentWindow || ev.origin !== location.origin) return;
+        if (ev.data && ev.data.tipo === 'hub360:paleta') abrir();
+    });
+})();
+
 // ─── Função auxiliar para gerar URL de foto de usuário ───────────────────────
 function getPhotoUrl(email) {
     if (!email) return null;

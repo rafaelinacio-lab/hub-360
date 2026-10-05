@@ -76,6 +76,27 @@
                     </svg>
                     <span class="sidebar-btn-label">Dashboard</span>
                 </button>
+                <button class="sidebar-btn" title="Chamados — Painel Geral, Satisfação e Painel TV" data-view="movidesk" id="navMovidesk">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Chamados</span>
+                </button>
+                <button class="sidebar-btn" title="Incidentes" data-view="incidentes" id="navIncidentes" style="display:none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Incidentes</span>
+                    <span class="nav-badge" id="navBadgeIncidentes" hidden></span>
+                </button>
+                <button class="sidebar-btn" title="Reincidências" data-view="reincidencias" id="navReincidencias" style="display:none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Reincidências</span>
+                </button>
                 <button class="sidebar-btn" title="Curadoria" data-view="chamados" id="navChamados">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="4" y="4" width="6" height="6" rx="1.5"/>
@@ -84,15 +105,6 @@
                         <rect x="14" y="14" width="6" height="6" rx="1.5"/>
                     </svg>
                     <span class="sidebar-btn-label">Curadoria</span>
-                </button>
-                <button class="sidebar-btn" title="Pessoas" data-view="pessoas" id="navPessoas">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Pessoas</span>
                 </button>
                 <button class="sidebar-btn" title="Ouvidoria" data-view="ouvidoria" id="navOuvidoria">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -107,6 +119,12 @@
                     </svg>
                     <span class="sidebar-btn-label">GCC</span>
                 </button>
+                <button class="sidebar-btn" title="Melhorias" data-view="melhorias" id="navMelhorias">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Melhorias</span>
+                </button>
                 <button class="sidebar-btn" title="Jira" data-view="jira" id="navJira">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 3h18v4H3z"/>
@@ -115,33 +133,16 @@
                     </svg>
                     <span class="sidebar-btn-label">Jira</span>
                 </button>
-                <button class="sidebar-btn" title="Incidentes" data-view="incidentes" id="navIncidentes" style="display:none;">
+                <button class="sidebar-btn" title="Pessoas" data-view="pessoas" id="navPessoas">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                     </svg>
-                    <span class="sidebar-btn-label">Incidentes</span>
+                    <span class="sidebar-btn-label">Pessoas</span>
                 </button>
-                <button class="sidebar-btn" title="Reincidências" data-view="reincidencias" id="navReincidencias" style="display:none;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Reincidências</span>
-                </button>
-                <button class="sidebar-btn" title="Melhorias" data-view="melhorias" id="navMelhorias">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Melhorias</span>
-                </button>
-                <button class="sidebar-btn" title="Movidesk" data-view="movidesk" id="navMovidesk">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Movidesk</span>
-                </button>
-                <button class="sidebar-btn" title="Configurações" data-view="configuracoes" id="navConfiguracoes" style="display:none;">
+                <button class="sidebar-btn" title="Configurações" aria-label="Configurações" data-view="configuracoes" id="navConfiguracoes" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9.9 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -150,6 +151,7 @@
                 </button>
             </div>
             <div class="topbar-actions">
+                <button type="button" class="nav-busca-btn" id="navBuscaBtn" title="Ir para… (Ctrl+K)" aria-label="Buscar aba ou chamado (Ctrl+K)">Buscar… <kbd>Ctrl K</kbd></button>
                 <label class="ui-switch" id="darkModeBtn" title="Alternar tema claro e escuro" aria-label="Alternar tema claro e escuro">
                     <input type="checkbox" id="darkModeToggle" aria-label="Alternar tema claro e escuro">
                     <div class="slider">
@@ -1739,5 +1741,13 @@
     <script src="js/pessoas.js"></script>
     <script src="js/config.js"></script>
     <script src="js/script.js"></script>
+
+<div class="nav-paleta" id="navPaleta" role="dialog" aria-modal="true" aria-label="Ir para" hidden>
+    <div class="nav-paleta-box">
+        <input type="text" id="navPaletaInput" placeholder="Ir para uma aba ou digitar o nº de um chamado…" autocomplete="off" spellcheck="false">
+        <ul id="navPaletaLista" role="listbox"></ul>
+        <p class="nav-paleta-dica">↑ ↓ navegar · Enter abrir · Esc fechar</p>
+    </div>
+</div>
 </body>
 </html>
