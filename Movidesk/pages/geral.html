@@ -2288,61 +2288,82 @@ function pendenteEmMes(r,mk){
   if(isResolvido(r)) return !!r.resolvido_em&&monthKeyOf(r.resolvido_em)>mk;
   return true;
 }
-// mês de referência do detalhe: o mês filtrado (se Ano e Mês estão marcados) ou o último mês com dados
-function refMesResp(){
-  const yf=getMsValues('f-year'), mf=getMsValues('f-month');
-  if(yf.length===1&&mf.length===1) return `${yf[0]}-${String(mf[0]).padStart(2,'0')}`;
-  const ch=mesesDoPeriodo(bucketPorMes(_rowsCtx));
-  return ch[ch.length-1]||null;
+// Período do detalhe = o MESMO da lista (filtros Ano/Mês do topo). Comparação com o período anterior equivalente:
+//  · Ano e Mês marcados (um de cada)  → mês anterior;
+//  · um só Ano (com ou sem meses)     → mesmos meses do ano anterior (se esses dados estiverem carregados);
+//  · demais casos                     → sem comparação.
+function periodoResp(){
+  const yf=getMsValues('f-year'), mf=getMsValues('f-month').map(m=>String(m).padStart(2,'0'));
+  const agora=monthKeyOf(new Date().toISOString());
+  const anosDados=[...new Set(_rowsCtx.flatMap(r=>[r.criado_em,r.resolvido_em]).filter(Boolean).map(d=>monthKeyOf(d).slice(0,4)))];
+  const todosMeses=['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const gerar=(anos,meses)=>new Set(anos.flatMap(a=>meses.map(m=>`${a}-${m}`)).filter(k=>k<=agora));   // sem meses futuros
+  const M=gerar(yf.length?yf:anosDados,mf.length?mf:todosMeses);
+  let N=null, rotAnt='';
+  if(yf.length===1){
+    if(mf.length===1){ const ant=mesAnteriorKey(`${yf[0]}-${mf[0]}`); N=new Set([ant]); rotAnt='mês anterior'; }
+    else { const ya=String(Number(yf[0])-1); N=new Set([...M].map(k=>`${ya}-${k.slice(5)}`)); rotAnt='mesmos meses de '+ya; }
+  }
+  const ks=[...M].sort();
+  const rot=M.size===1?rotuloMesCurto(ks[0]).toUpperCase()
+    :(yf.length===1&&!mf.length?yf[0]+(yf[0]===agora.slice(0,4)?' (até hoje)':'')
+    :(!yf.length&&!mf.length?'todo o período carregado':`${M.size} meses`));
+  return {M,N,rot,rotAnt,ultimaM:ks[ks.length-1]||null,ultimaN:N?[...N].sort().pop():null,parcial:M.has(agora)};
 }
-// bloco "valor + variação contra o mês anterior" (mesmo desenho do tooltip dos gráficos de evolução)
-function blocoVar({nome,cor,valor,v,ant,altoEhBom,unid,pp}){
+// bloco "valor + variação contra o período anterior" (mesmo desenho do tooltip dos gráficos de evolução)
+function blocoVar({nome,cor,valor,v,ant,altoEhBom,unid,pp,refTxt}){
   const tem=v!=null&&ant!=null;
   const d=tem?v-ant:null;
   const bom=!tem||d===0?null:(d>0)===altoEhBom;
   const cls=bom===null?'neutro':bom?'bom':'ruim';
-  const txt=!tem?'Sem comparação':d===0?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
+  const txt=!tem?'Sem comparação':d===0?'Estável':d>0?`Acima do ${refTxt.split(' ')[0]==='mesmos'?'período anterior':refTxt}`:`Abaixo do ${refTxt.split(' ')[0]==='mesmos'?'período anterior':refTxt}`;
   const sinal=d>0?'+':d<0?'−':'', dir=d>0?'↑':d<0?'↓':'→';
   const f=n=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:1});
   const varTxt=!tem?'—':pp?`${f(Math.abs(d))} pp`:`${Math.abs(d).toLocaleString('pt-BR')} ${unid}${Math.abs(d)===1?'':'s'}`;
   const pct=tem&&!pp&&ant?` · ${sinal}${f(Math.abs(d/ant*100))}%`:'';
   return `<div class="tv-tip-blk">
     <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cor}">${nome}</span><span class="tv-tip-val">${valor}${pct}</span></div>
-    <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${ant==null?'—':pp?f(ant)+'%':ant.toLocaleString('pt-BR')}</span></div>
-    <div class="tv-tip-sub"><span></span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${tem?`${dir} ${sinal}${varTxt} vs. mês anterior`:''}</span></div>
+    <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>${tem||ant!=null?`Anterior: ${ant==null?'—':pp?f(ant)+'%':ant.toLocaleString('pt-BR')}`:''}</span></div>
+    <div class="tv-tip-sub"><span></span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${tem?`${dir} ${sinal}${varTxt} vs. ${refTxt}`:''}</span></div>
   </div>`;
 }
 function respDetalheHtml(nome){
   const rows=_rowsCtx.filter(r=>(r.responsavel||'Não informado')===nome);
-  const ref=refMesResp();
-  if(!ref) return '<div class="vazio">Sem dados para este colaborador.</div>';
-  const ant=mesAnteriorKey(ref);
-  const doMes=(mk)=>({ criados:rows.filter(r=>r.criado_em&&monthKeyOf(r.criado_em)===mk),
-                       resolv:rows.filter(r=>r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk) });
-  const A=doMes(ref), B=doMes(ant);
+  const P=periodoResp();
+  if(!P.M.size) return '<div class="vazio">Sem dados para este colaborador.</div>';
+  const inSet=(set,d)=>!!d&&set.has(monthKeyOf(d));
+  const calc=set=>({ ab:rows.filter(r=>inSet(set,r.criado_em)), rs:rows.filter(r=>isResolvido(r)&&inSet(set,r.resolvido_em)) });
+  const A=calc(P.M);
+  let B=P.N?calc(P.N):null, semAnt=false;
+  if(B&&!B.ab.length&&!B.rs.length){ B=null; semAnt=true; }        // período anterior sem dados (ex.: histórico não carregado)
+  const refTxt=P.rotAnt||'período anterior';
   const slaDe=l=>{ const c=l.filter(temPrazo); return {ok:c.filter(isNoPrazo).length,total:c.length}; };
-  const sA=slaDe(A.resolv), sB=slaDe(B.resolv);
-  const pA=sA.total?sA.ok/sA.total*100:null, pB=sB.total?sB.ok/sB.total*100:null;
-  const cartA=rows.filter(r=>pendenteEmMes(r,ref)).length, cartB=rows.filter(r=>pendenteEmMes(r,ant)).length;
+  const sA=slaDe(A.rs), sB=B?slaDe(B.rs):null;
+  const pA=sA.total?sA.ok/sA.total*100:null, pB=sB&&sB.total?sB.ok/sB.total*100:null;
+  const cartA=rows.filter(r=>pendenteEmMes(r,P.ultimaM)).length;
+  const cartB=B&&P.ultimaN?rows.filter(r=>pendenteEmMes(r,P.ultimaN)).length:null;
   const pend=rows.filter(isAberto), venc=pend.filter(isVencido).length;
-  const urg=[['Crítica','#f87171'],['Alta',cssVar('--orange')],['Média',cssVar('--green')],['Baixa',document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb']];
-  const porUrg=urg.map(([u,cor])=>blocoVar({nome:u,cor,valor:`${A.criados.filter(r=>r.urgencia===u).length.toLocaleString('pt-BR')} tickets`,
-    v:A.criados.filter(r=>r.urgencia===u).length,ant:B.criados.filter(r=>r.urgencia===u).length,altoEhBom:false,unid:'ticket'})).join('');
+  const azul=document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb';
+  const urg=[['Crítica','#f87171'],['Alta',cssVar('--orange')],['Média',cssVar('--green')],['Baixa',azul]];
+  const porUrg=urg.map(([u,cor])=>{ const a=A.ab.filter(r=>r.urgencia===u).length;
+    return blocoVar({nome:u,cor,valor:`${a.toLocaleString('pt-BR')} tickets`,v:a,ant:B?B.ab.filter(r=>r.urgencia===u).length:null,altoEhBom:false,unid:'ticket',refTxt}); }).join('');
   const fixado=_respFixo===nome;
-  return `<div class="topo"><div><h4>${esc(nome)}</h4><div class="ref">${rotuloMesCurto(ref).toUpperCase()} · comparado com ${rotuloMesCurto(ant).toUpperCase()}${ref===monthKeyOf(new Date().toISOString())?' · <b style="color:var(--orange)" title="O mês ainda não terminou: as variações contra o mês anterior ficam subestimadas">mês em andamento</b>':''}</div></div>
+  const comp=B?`comparado com ${esc(P.rotAnt==='mês anterior'?rotuloMesCurto(P.ultimaN).toUpperCase():P.rotAnt)}`
+    :(semAnt?'sem comparação: dados do período anterior não carregados':'sem comparação');
+  return `<div class="topo"><div><h4>${esc(nome)}</h4><div class="ref">${esc(P.rot)} · ${comp}${P.parcial?' · <b style="color:var(--orange)" title="O período ainda não terminou: as variações ficam subestimadas">em andamento</b>':''}</div></div>
       <span class="fixar ${fixado?'on':''}">${fixado?'📌 fixado · clique de novo para soltar':'clique para fixar'}</span></div>
-    <div class="sec">Resumo do mês</div>`+
-    blocoVar({nome:'Criados',cor:cssVar('--orange'),valor:`${A.criados.length.toLocaleString('pt-BR')} tickets`,v:A.criados.length,ant:B.criados.length,altoEhBom:false,unid:'ticket'})+
-    blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.resolv.length.toLocaleString('pt-BR')} tickets`,v:A.resolv.length,ant:B.resolv.length,altoEhBom:true,unid:'ticket'})+
-    blocoVar({nome:'SLA cumprido',cor:cssVar('--green'),valor:pA==null?'—':`${pA.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${sA.ok}/${sA.total}`,v:pA,ant:pB,altoEhBom:true,pp:true})+
-    blocoVar({nome:'Carteira (abertos no fim do mês)',cor:document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb',valor:`${cartA.toLocaleString('pt-BR')} tickets`,v:cartA,ant:cartB,altoEhBom:false,unid:'ticket'})+
-    `<div class="sec">Criados por urgência</div>${porUrg}
+    <div class="sec">Resumo do período</div>`+
+    blocoVar({nome:'Abertos',cor:cssVar('--orange'),valor:`${A.ab.length.toLocaleString('pt-BR')} tickets`,v:A.ab.length,ant:B?B.ab.length:null,altoEhBom:false,unid:'ticket',refTxt})+
+    blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.rs.length.toLocaleString('pt-BR')} tickets`,v:A.rs.length,ant:B?B.rs.length:null,altoEhBom:true,unid:'ticket',refTxt})+
+    blocoVar({nome:'SLA cumprido',cor:cssVar('--green'),valor:pA==null?'—':`${pA.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${sA.ok}/${sA.total}`,v:pA,ant:pB,altoEhBom:true,pp:true,refTxt})+
+    blocoVar({nome:'Carteira (abertos no fim do período)',cor:azul,valor:`${cartA.toLocaleString('pt-BR')} tickets`,v:cartA,ant:cartB,altoEhBom:false,unid:'ticket',refTxt})+
+    `<div class="sec">Abertos por urgência</div>${porUrg}
     <div class="tv-tip-foot" style="margin-top:6px">Hoje: <b>${pend.length.toLocaleString('pt-BR')}</b> pendentes, <b class="${venc?'tv-ruim':''}">${venc.toLocaleString('pt-BR')}</b> com prazo de SLA vencido.</div>
     <div class="acoes"><button class="btn-refresh" type="button" data-ver="${escAttr(nome)}"><span class="sym">list_alt</span>Ver os tickets do período</button></div>`;
 }
 function respMostrar(nome){
   const box=document.getElementById('resp-detalhe'); if(!box) return;
-  box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, mês a mês, o que ele criou, resolveu, o SLA cumprido e a carteira, comparado com o mês anterior.<br>Clique para fixar o detalhe.</div>';
+  box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, no período dos filtros, o que ele abriu e resolveu, o SLA cumprido e a carteira, comparado com o período anterior.<br>Clique para fixar o detalhe.</div>';
 }
 function renderRespChart(rows){
   const box=document.getElementById('respChart'); if(!box) return;
@@ -2359,7 +2380,7 @@ function renderRespChart(rows){
   const mx=Math.max(1,..._respLista.map(([,v])=>v.criados));
   const nfm=n=>Number(n||0).toLocaleString('pt-BR');
   const corSla=v=>v>=90?cssVar('--green'):v>=70?'#fbbf24':cssVar('--orange');
-  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n">Criados</th><th class="n">Resolvidos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
+  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n">Abertos</th><th class="n">Resolvidos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
     _respLista.map(([n,v],i)=>{
       const pct=v.comPrazo?(v.noPrazo||0)/v.comPrazo*100:null;
       return `<tr tabindex="0" role="button" data-n="${escAttr(n)}" class="${_respFixo===n?'fixo':''}" aria-label="Detalhe de ${escAttr(n)}">
@@ -2388,7 +2409,7 @@ function renderRespChart(rows){
     const b=e.target.closest('[data-ver]'); if(!b) return;
     const nome=b.dataset.ver;
     const l=_rowsFull.filter(r=>(r.responsavel||'Não informado')===nome);
-    openDetailModal(`Responsável: ${nome}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'} criados no período`,l);
+    openDetailModal(`Responsável: ${nome}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'} abertos no período`,l);
   });
 })();
 
@@ -2643,8 +2664,8 @@ const INFO_CARDS={
     o:'As 10 organizações com mais tickets.',
     c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
   'respChart':{t:'Responsáveis por volume',
-    o:'Os 15 responsáveis com mais tickets criados no período, com o detalhe do mês de cada um.',
-    c:['Criados = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe no painel ao lado; clique para fixar e clique de novo para soltar.','O detalhe compara o mês de referência com o mês anterior: criados, resolvidos, SLA cumprido (em pontos percentuais), carteira (abertos no fim do mês) e criados por urgência. O mês de referência é o mês filtrado (Ano e Mês marcados) ou o último mês com dados.']},
+    o:'Os 15 responsáveis com mais tickets abertos no período, com o detalhe de cada um.',
+    c:['Respeita os filtros do topo (equipe, cliente, serviço, classificação, status, ano e mês).','Abertos = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe ao lado; clique para fixar e clique de novo para soltar.','O detalhe usa o MESMO período da lista e compara com o anterior: com Ano e Mês marcados, o mês anterior; só com um Ano, os mesmos meses do ano anterior (se estiverem carregados); nos demais casos não há comparação. Mostra abertos, resolvidos, SLA cumprido (em pontos percentuais), carteira (abertos no fim do período) e abertos por urgência.']},
   'tbl-equipes-vencido':{t:'Equipes com maior % de backlog vencido',
     o:'Em quais equipes o backlog pendente está mais atrasado.',
     c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Mostra as 10 equipes com maior %; em destaque quando passa de 30%.','Clique numa equipe para ver os tickets vencidos.']},
