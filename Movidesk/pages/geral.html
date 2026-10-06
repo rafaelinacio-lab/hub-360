@@ -657,13 +657,6 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="chart-panel" style="margin-top:14px">
-      <p class="tv-eyebrow">Fluxo global</p>
-      <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal de tickets</p>
-      <p class="chart-sub" style="text-align:left;margin:0 0 10px">Entradas, encerramentos e carteira acumulada (tickets ainda em aberto ao fim de cada mês).</p>
-      <div class="chart-wrap" style="height:320px"><canvas id="fluxoChart"></canvas><div class="tv-tip" id="fluxo-tip" style="min-width:220px"></div></div>
-    </div>
-
-    <div class="chart-panel" style="margin-top:14px">
       <p class="tv-eyebrow">Análise de urgência</p>
       <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal por urgência</p>
       <p class="chart-sub" style="text-align:left;margin:0 0 10px">Tickets abertos em cada mês (data de criação), por urgência. Passe sobre um mês para comparar com o anterior.</p>
@@ -1520,7 +1513,6 @@ function render(){
 
   renderClassChart(rowsFull);
   renderTrendChart(rowsCtx);
-  renderFluxoChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
   renderTemas(rowsFull);
@@ -1683,12 +1675,23 @@ function renderTrendChart(rows){
   const ab=chaves.map(mk=>get(mk,'abertos'));
   const rs=chaves.map(mk=>get(mk,'resolvidos'));
   const totAb=ab.reduce((a,b)=>a+b,0), totRs=rs.reduce((a,b)=>a+b,0);
+  // Saldo acumulado = carteira: criados até o fim do mês e ainda não resolvidos naquela data
+  const azul=document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb';
+  const pendenteEm=(r,mk)=>{
+    if(!r.criado_em||monthKeyOf(r.criado_em)>mk) return false;
+    if(isResolvido(r)) return !!r.resolvido_em&&monthKeyOf(r.resolvido_em)>mk;
+    return true;
+  };
+  const _saldoCache={};
+  const saldoEm=mk=>(mk in _saldoCache)?_saldoCache[mk]:(_saldoCache[mk]=rows.reduce((n,r)=>n+(pendenteEm(r,mk)?1:0),0));
+  const sd=chaves.map(saldoEm);
   const leg=document.getElementById('trend-legend');
   if(leg){
     leg.innerHTML=
       `<span class="tv-pill"><i style="background:${col.orange}"></i>Abertos <small>${totAb.toLocaleString('pt-BR')}</small></span>`+
       `<span class="tv-pill"><i style="background:${col.purple}"></i>Resolvidos <small>${totRs.toLocaleString('pt-BR')}</small></span>`+
-      `<span class="tv-pill">Saldo <small>${(totAb-totRs>0?'+':'')+(totAb-totRs).toLocaleString('pt-BR')}</small></span>`+
+      `<span class="tv-pill"><i style="background:${azul}"></i>Saldo acumulado <small>${sd.length?sd[sd.length-1].toLocaleString('pt-BR'):'—'}</small></span>`+
+      `<span class="tv-pill">Saldo do período <small>${(totAb-totRs>0?'+':'')+(totAb-totRs).toLocaleString('pt-BR')}</small></span>`+
       `<span class="tv-pill">Taxa de resolução <small>${totAb?fmtPct(totRs/totAb):'—'}</small></span>`;
   }
   if(!chaves.length) return;
@@ -1707,6 +1710,7 @@ function renderTrendChart(rows){
       const c=chart.ctx; c.save();
       c.font='700 11px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle';
       chart.data.datasets.forEach((ds,di)=>{
+        if(di>1) return;                         // o saldo acumulado não leva etiqueta de valor
         const meta=chart.getDatasetMeta(di);
         meta.data.forEach((pt,i)=>{
           const v=ds.data[i], outro=chart.data.datasets[1-di].data[i];
@@ -1751,6 +1755,7 @@ function renderTrendChart(rows){
       `<div class="tv-tip-mes">${rotuloMesCurto(mk).toUpperCase()}</div>`+
       blocoSerie('Abertos',col.orange,a,get(ant,'abertos'),false)+
       blocoSerie('Resolvidos',col.purple,r,get(ant,'resolvidos'),true)+
+      blocoSerie('Saldo acumulado',azul,sd[i],saldoEm(ant),false)+
       `<div class="tv-tip-foot">Saldo do mês: <b class="${saldo>0?'tv-ruim':saldo<0?'tv-bom':''}">${saldo>0?'+':''}${saldo.toLocaleString('pt-BR')}</b> (${saldo>0?'backlog cresceu':saldo<0?'backlog reduziu':'backlog estável'}) · Taxa de resolução: <b>${taxa===null?'—':fmtPct(taxa)}</b></div>`;
     const wrap=chart.canvas.parentElement;
     const w=tipEl.offsetWidth, h=tipEl.offsetHeight;
@@ -1767,7 +1772,7 @@ function renderTrendChart(rows){
   });
   _charts.trendVolChart=new Chart(document.getElementById('trendVolChart'),{
     type:'line',
-    data:{ labels, datasets:[ mkSerie('Abertos',ab,col.orange), mkSerie('Resolvidos',rs,col.purple) ] },
+    data:{ labels, datasets:[ mkSerie('Abertos',ab,col.orange), mkSerie('Resolvidos',rs,col.purple), mkSerie('Saldo acumulado',sd,azul) ] },
     plugins:[glow,rotulos],
     options:{ responsive:true, maintainAspectRatio:false,
       layout:{padding:{top:28,bottom:26,left:4,right:14}},
@@ -1783,11 +1788,12 @@ function renderTrendChart(rows){
         if(!hit.length) return;
         const {index:idx,datasetIndex:dsIdx}=hit[0];
         const mk=chaves[idx];
-        const isAbertos=dsIdx===0;
-        const matched=rows.filter(r=>isAbertos
+        const matched=rows.filter(r=>dsIdx===0
           ? (r.criado_em&&monthKeyOf(r.criado_em)===mk)
-          : (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk));
-        openDetailModal(`${isAbertos?'Abertos':'Resolvidos'}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+          : dsIdx===1
+            ? (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk)
+            : pendenteEm(r,mk));
+        openDetailModal(`${['Abertos','Resolvidos','Saldo acumulado'][dsIdx]}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
       },
     }
   });
@@ -1806,81 +1812,6 @@ function pluginCruz(){
       c.lineWidth=1; c.strokeStyle=cor; c.stroke(); c.restore();
     },
   };
-}
-
-// ── Fluxo global: abertos, fechados e saldo acumulado por mês ─────────
-// Saldo acumulado = carteira: tickets criados até o fim do mês e ainda não
-// resolvidos naquela data (inclui os abertos antes do período exibido).
-function renderFluxoChart(rows){
-  destroyChart('fluxoChart');
-  const col=chartColors();
-  const byMes=bucketPorMes(rows);
-  const chaves=mesesDoPeriodo(byMes);
-  if(!chaves.length) return;
-  const azul=document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb';
-  const verde=col.green;
-  const labels=chaves.map(rotuloMesCurto);
-  const ab=chaves.map(mk=>byMes[mk]?byMes[mk].abertos:0);
-  const fe=chaves.map(mk=>byMes[mk]?byMes[mk].resolvidos:0);
-  const pendenteEm=(r,mk)=>{
-    if(!r.criado_em||monthKeyOf(r.criado_em)>mk) return false;
-    if(isResolvido(r)) return !!r.resolvido_em&&monthKeyOf(r.resolvido_em)>mk;
-    return true;
-  };
-  const saldo=chaves.map(mk=>rows.reduce((n,r)=>n+(pendenteEm(r,mk)?1:0),0));
-
-  const cruz=pluginCruz();
-  const tipEl=document.getElementById('fluxo-tip');
-  const series=[['Abertos',col.orange,ab],['Fechados',verde,fe],['Saldo acumulado',azul,saldo]];
-  const externo=({chart,tooltip})=>{
-    if(!tipEl) return;
-    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
-    const i=tooltip.dataPoints[0].dataIndex;
-    tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.14em">${labels[i].toUpperCase()}</div>`+
-      series.map(([nome,cor,d])=>`<div class="tv-tip-blk"><div class="tv-tip-row"><span style="color:${cor};font-size:13px">${nome}</span><span class="tv-tip-val" style="font-size:13px">${d[i].toLocaleString('pt-BR')} ticket${d[i]===1?'':'s'}</span></div></div>`).join('');
-    const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
-    let x=tooltip.caretX+16;
-    if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
-    tipEl.style.left=Math.max(0,x)+'px';
-    tipEl.style.top=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h))+'px';
-    tipEl.style.opacity=1;
-  };
-  col.surface=cssVar('--surface');
-  const mk=([label,cor,data])=>({
-    label,data,borderColor:cor,backgroundColor:cor,fill:false,tension:.4,borderWidth:2.5,
-    pointRadius:4,pointHoverRadius:7,pointBackgroundColor:col.surface,pointBorderColor:cor,pointBorderWidth:2,
-    pointHoverBackgroundColor:cor,pointHitRadius:12,
-  });
-  _charts.fluxoChart=new Chart(document.getElementById('fluxoChart'),{
-    type:'line',
-    data:{ labels, datasets:series.map(mk) },
-    plugins:[cruz],
-    options:{ responsive:true, maintainAspectRatio:false,
-      layout:{padding:{top:6,right:12}},
-      plugins:{
-        legend:{display:true,position:'top',align:'end',labels:{color:col.t2,usePointStyle:true,pointStyle:'line',boxWidth:22,font:{size:11,weight:600}}},
-        tooltip:{enabled:false,external:externo},
-      },
-      scales:{
-        y:{beginAtZero:true,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
-        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},callback:(v,i)=>labels[i].toUpperCase()}},
-      },
-      interaction:{mode:'index',intersect:false},
-      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
-      onClick:(evt,els,chart)=>{
-        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
-        if(!hit.length) return;
-        const {index:idx,datasetIndex:di}=hit[0], m=chaves[idx];
-        const matched=rows.filter(r=>di===0
-          ? (r.criado_em&&monthKeyOf(r.criado_em)===m)
-          : di===1
-            ? (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===m)
-            : pendenteEm(r,m));
-        const nome=['Abertos','Fechados','Saldo acumulado'][di];
-        openDetailModal(`${nome}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
-      },
-    }
-  });
 }
 
 // ── Impacto mensal de SLA por ticket ───────────────────────────────────
@@ -2558,11 +2489,8 @@ const INFO_CARDS={
     o:'As 10 classificações com mais tickets.',
     c:['Usa o campo customizado de classificação do ticket; sem valor aparece como "Não classificado".','Barra cinza = tickets criados no período; barra laranja = desses, quantos já estão resolvidos.','Clique numa barra para ver os tickets.']},
   'trendVolChart':{t:'Evolução mensal: abertos vs resolvidos',
-    o:'Quantos tickets entraram e quantos foram resolvidos em cada mês.',
-    c:['Abertos = tickets criados no mês (data de criação).','Resolvidos = tickets finalizados no mês (data de resolução).','Período: o ano filtrado (de janeiro em diante) ou os últimos 12 meses com dados.','O tooltip compara cada série com o mês anterior (valor, variação em % e em tickets) e mostra o saldo do mês e a taxa de resolução (resolvidos ÷ abertos).','Clique num ponto para ver os tickets.']},
-  'fluxoChart':{t:'Fluxo global — evolução mensal de tickets',
-    o:'Entradas, encerramentos e carteira acumulada mês a mês.',
-    c:['Abertos = criados no mês; Fechados = resolvidos no mês.','Saldo acumulado = carteira: tickets criados até o fim do mês e ainda não resolvidos naquela data (inclui os abertos antes do período exibido).','Clique num ponto para ver os tickets daquela série e mês.']},
+    o:'Quantos tickets entraram e quantos foram resolvidos em cada mês, e como a carteira de tickets em aberto evoluiu.',
+    c:['Abertos = tickets criados no mês (data de criação).','Resolvidos = tickets finalizados no mês (data de resolução).','Saldo acumulado = carteira: tickets criados até o fim do mês e ainda não resolvidos naquela data (inclui os abertos antes do período exibido).','Período: o ano filtrado (de janeiro em diante) ou os últimos 12 meses com dados.','O tooltip compara cada série com o mês anterior (valor, variação em % e em tickets) e mostra o saldo do mês e a taxa de resolução (resolvidos ÷ abertos).','Clique num ponto para ver os tickets daquela série e mês.']},
   'urgTrendChart':{t:'Evolução mensal por urgência',
     o:'Volume de tickets abertos em cada mês, separado por urgência.',
     c:['Uma linha por urgência (Crítica, Alta, Média, Baixa) com os tickets criados no mês.','Tickets sem uma dessas quatro urgências não aparecem.','O tooltip compara cada urgência com o mês anterior (tickets e %).']},
