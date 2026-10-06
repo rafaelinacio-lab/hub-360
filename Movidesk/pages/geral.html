@@ -757,18 +757,40 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-2">
+    <div class="hrow c-3">
+      <div class="chart-panel">
+        <p class="chart-title">Clientes com mais chamados</p>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div></div>
+      </div>
       <div class="chart-panel">
         <p class="chart-title">Por classificação</p>
         <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div></div>
       </div>
+      <div class="chart-panel">
+        <p class="chart-title">Volume por equipe</p>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
       <div data-tone="red" class="stat-card danger bk-hero">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog já vencido</p>
         <div class="kpi-main"><p class="value bad" id="k-backlog-vencido">0</p><span class="kpi-spark" id="sp-vencido"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-vencido"></span><p class="legend" id="k-backlog-vencido-legend">Prazo de SLA já passado. Clique pra ver.</p></div>
         <div class="bk-lista" id="bk-lista"></div>
         <div class="bk-acoes"><button type="button" class="sla-btn prim" onclick="openVencidosModal()">Ver vencidos</button><button type="button" class="sla-btn" onclick="document.getElementById('tbl-equipes-vencido').scrollIntoView({behavior:'smooth',block:'center'})">Ver por equipe</button></div>
+      </div>
+      <div class="data-panel danger">
+        <p class="panel-title">Equipes com maior % de backlog vencido</p>
+        <div class="dtable-wrap rolagem">
+          <table class="dtable">
+            <thead><tr><th>Equipe</th><th class="num">Pendentes</th><th class="num">Vencidos</th><th class="num">% vencido</th></tr></thead>
+            <tbody id="tbl-equipes-vencido"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -814,7 +836,7 @@ body.modal-open{overflow:hidden}
     </div>
     </div>
 
-    <div class="hrow c-3">
+    <div class="hrow c-2">
       <div class="chart-panel">
         <p class="chart-title">Tickets por urgência</p>
         <p class="chart-sub" style="text-align:left">Distribuição dos tickets abertos no período.</p>
@@ -824,11 +846,6 @@ body.modal-open{overflow:hidden}
         <p class="chart-title">Envelhecimento do backlog</p>
         <p class="chart-sub" style="text-align:left">Tempo em aberto por faixa de dias (só pendentes).</p>
         <div class="chart-wrap" style="height:220px"><canvas id="agingChart"></canvas></div>
-      </div>
-      <div class="chart-panel">
-        <p class="chart-title">Volume por equipe</p>
-        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
-        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
       </div>
     </div>
 
@@ -855,22 +872,6 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-2">
-      <div class="chart-panel">
-        <p class="chart-title">Clientes com mais chamados</p>
-        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
-        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div></div>
-      </div>
-      <div class="data-panel danger">
-      <p class="panel-title">Equipes com maior % de backlog vencido</p>
-      <div class="dtable-wrap rolagem">
-        <table class="dtable">
-          <thead><tr><th>Equipe</th><th class="num">Pendentes</th><th class="num">Vencidos</th><th class="num">% vencido</th></tr></thead>
-          <tbody id="tbl-equipes-vencido"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-    </div>
   </div>
 </div>
 
