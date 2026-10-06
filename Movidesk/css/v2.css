@@ -351,3 +351,24 @@ html[data-ui="v2"] .stat-card, html[data-ui="v2"] .chart-panel, html[data-ui="v2
 @media (prefers-reduced-motion: reduce) {
   html[data-ui="v2"] * { transition: none !important; }
 }
+
+/* ─── Satisfação: comentários recentes e nota por analista ─── */
+html[data-ui="v2"] .cm-lista { display: flex; flex-direction: column; gap: 10px; max-height: 560px; padding-right: 6px; }
+html[data-ui="v2"] .cm-item { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; background: transparent; color: inherit; text-align: left; cursor: pointer; flex: none; }
+html[data-ui="v2"] .cm-item:hover { background: var(--surface-low); }
+html[data-ui="v2"] .cm-av { flex: none; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 14px; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+html[data-ui="v2"] .cm-tx { min-width: 0; flex: 1; }
+html[data-ui="v2"] .cm-tx b { display: block; font-size: 14px; font-weight: 800; color: var(--t1); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html[data-ui="v2"] .cm-tx small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-ui="v2"] .cm-nota { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--surface-low); color: var(--t2); font-weight: 800; font-size: 13px; }
+html[data-ui="v2"] .cm-nota.bom { background: var(--brand-soft); color: var(--brand-text); }
+html[data-ui="v2"] .cm-nota.ruim { background: var(--danger-soft); color: var(--danger); }
+html[data-ui="v2"] .an-lista { display: flex; flex-direction: column; gap: 6px; max-height: 560px; padding-right: 6px; }
+html[data-ui="v2"] .an-item { display: flex; align-items: center; gap: 14px; width: 100%; padding: 8px 10px; border: 0; border-radius: 14px; background: transparent; color: inherit; text-align: left; cursor: pointer; flex: none; }
+html[data-ui="v2"] .an-item:hover { background: var(--surface-low); }
+html[data-ui="v2"] .an-item .cm-av { width: 44px; height: 44px; font-size: 13px; }
+html[data-ui="v2"] .an-tx { flex: 1; min-width: 0; }
+html[data-ui="v2"] .an-tx b { display: block; font-size: 14px; font-weight: 800; color: var(--t1); margin-bottom: 6px; }
+html[data-ui="v2"] .an-trilho { display: block; height: 8px; border-radius: 999px; background: var(--surface-low); overflow: hidden; }
+html[data-ui="v2"] .an-trilho i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand), #d8a88a); }
+html[data-ui="v2"] .an-val { flex: none; min-width: 34px; text-align: right; font-size: 15px; font-weight: 800; color: var(--t1); font-variant-numeric: tabular-nums; }

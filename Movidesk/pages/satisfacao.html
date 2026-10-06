@@ -482,6 +482,19 @@ body.modal-open{overflow:hidden}
 
     <div class="hrow c-2">
       <div class="chart-panel">
+        <p class="chart-title">Comentários recentes</p>
+        <p class="chart-sub">O que os clientes estão dizendo. Clique para abrir o chamado.</p>
+        <div class="cm-lista rolagem" id="coment-lista"></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Nota por analista</p>
+        <p class="chart-sub">Nota média individual (1 a 5). Clique para ver as avaliações.</p>
+        <div class="an-lista rolagem" id="analista-lista"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel">
         <p class="chart-title">Avaliações por equipe</p>
         <p class="chart-sub">Quantidade de avaliações recebidas. Clique para ver os chamados.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
@@ -1263,6 +1276,37 @@ function renderSatTrend(){
 }
 const COR_NOTA={5:'#2fbf8a',4:'#7fd8b0',3:'#a6adbf',2:'#f2a65a',1:'#ee6f82'};
 
+
+// ── Comentários recentes e nota por analista ─────────────────────────
+function corAvatar(nome){ let h=0; for(const c of String(nome||'?')) h=(h*31+c.charCodeAt(0))%360; return `linear-gradient(135deg,hsl(${h} 70% 52%),hsl(${(h+40)%360} 70% 42%))`; }
+function iniciais(nome){ return (String(nome||'?').replace(/[^A-Za-zÀ-ú0-9 ]/g,'').split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase())||'?'; }
+const ESTRELA='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>';
+function renderComentarios(rows){
+  const box=document.getElementById('coment-lista'); if(!box) return;
+  const l=rows.filter(r=>(r.comentario||'').trim()).sort((a,b)=>String(b.respondido_em||'').localeCompare(String(a.respondido_em||''))).slice(0,30);
+  if(!l.length){ box.innerHTML='<p class="cloud-empty">Nenhum comentário no filtro atual.</p>'; return; }
+  box.innerHTML=l.map(r=>{
+    const n=Number(r.nota), cls=n>=4?'bom':n<=2?'ruim':'';
+    const quem=[r.respondido_por,r.organizacao].filter(Boolean).join(' · ');
+    return `<button type="button" class="cm-item" onclick="window.open('${ticketUrl(r.ticket_id)}','_blank','noopener')" title="Abrir o chamado #${escAttr(r.ticket_id)}">
+      <span class="cm-av" style="background:${corAvatar(r.responsavel)}">${esc(iniciais(r.responsavel))}</span>
+      <span class="cm-tx"><b>“${esc(r.comentario.trim())}”</b><small>${esc(quem||'—')}${r.responsavel?` · atendido por ${esc(String(r.responsavel).split(' ')[0])}`:''}</small></span>
+      <span class="cm-nota ${cls}" title="${esc(NOTA_LABELS[n]||'')}">${n}${ESTRELA}</span></button>`;
+  }).join('');
+}
+function renderAnalistas(rows){
+  const box=document.getElementById('analista-lista'); if(!box) return;
+  const por={};
+  rows.forEach(r=>{ if(!r.responsavel) return; const o=por[r.responsavel]=por[r.responsavel]||{soma:0,n:0}; o.soma+=Number(r.nota); o.n++; });
+  const l=Object.entries(por).map(([nome,o])=>({nome,media:o.soma/o.n,n:o.n})).sort((a,b)=>b.media-a.media||b.n-a.n);
+  if(!l.length){ box.innerHTML='<p class="cloud-empty">Sem avaliações no filtro atual.</p>'; return; }
+  box.innerHTML=l.map(a=>`<button type="button" class="an-item" data-n="${escAttr(a.nome)}" title="${a.n.toLocaleString('pt-BR')} avaliação(ões)">
+      <span class="cm-av" style="background:${corAvatar(a.nome)}">${esc(iniciais(a.nome))}</span>
+      <span class="an-tx"><b>${esc(a.nome)}</b><span class="an-trilho"><i style="width:${(a.media/5*100).toFixed(1)}%"></i></span></span>
+      <span class="an-val">${a.media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}</span></button>`).join('');
+  box.querySelectorAll('.an-item').forEach(b=>b.addEventListener('click',()=>{ const nome=b.dataset.n; openChamadoListagemModal(rows.filter(r=>r.responsavel===nome),`Responsável: ${nome}`); }));
+}
+
 // ── render ───────────────────────────────────────────────────────────
 function render(){
   if(document.getElementById('sat-dash').dataset.err) return;
@@ -1287,6 +1331,8 @@ function render(){
   { const arc=document.getElementById('sat-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,satisfacao))).toFixed(1)} ${C.toFixed(1)}`; } }
   renderKpiExtras();
   renderSatTrend();
+  renderComentarios(rows);
+  renderAnalistas(rows);
   donutNovo('notasChart',{itens:[5,4,3,2,1].map(n=>({label:NOTA_LABELS[n],valor:rows.filter(r=>Number(r.nota)===n).length,cor:COR_NOTA[n]})),rotulo:'avaliações',onClick:l=>{ const n=Object.keys(NOTA_LABELS).find(k=>NOTA_LABELS[k]===l); openChamadoListagemModal(rows.filter(r=>String(r.nota)===String(n)),`Nota: ${l}`); }});
   document.getElementById('neg-panel-title').textContent=
     `Ruim e péssimo (${negativas.toLocaleString('pt-BR')} caso${negativas!==1?'s':''} — ${fmtPct(insatisfacao)} do total avaliado)`;
