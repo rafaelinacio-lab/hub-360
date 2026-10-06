@@ -865,7 +865,7 @@ body.modal-open{overflow:hidden}
 
     <p class="section-label">Qualidade da resolução</p>
     <p class="section-note">FCR considera só tickets resolvidos com exatamente 1 ação pública (sem contar notas internas).</p>
-    <div class="hrow c-3" style="margin-top:0">
+    <div class="hrow c-2" style="margin-top:0">
       <div class="stat-card danger">
         <p class="label">Taxa de reabertura</p>
         <p class="value bad" id="k-reabertura">0%</p>
@@ -875,11 +875,6 @@ body.modal-open{overflow:hidden}
         <p class="label">Resolução no 1º contato (FCR)</p>
         <p class="value good" id="k-fcr">0%</p>
         <p class="legend">1 ação pública, sem contar notas internas.</p>
-      </div>
-      <div class="chart-panel">
-        <p class="chart-title">SLA por urgência</p>
-        <p class="chart-sub" style="text-align:left">% cumprido no prazo, por nível de urgência.</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="slaUrgChart"></canvas></div>
       </div>
     </div>
   </div>
@@ -1643,7 +1638,6 @@ function render(){
   renderClientChart(rowsFull);
   renderRespChart(rowsFull);
   renderEquipesVencidoTable(pendentesRows);
-  renderSlaUrgChart(resolvidosComPrazo);
   igualarAlturaGrid();
 }
 
