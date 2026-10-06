@@ -19,6 +19,7 @@
 const fetch   = require('node-fetch');
 const db      = require('../db/remote');
 const { getToken } = require('../routes/config');
+const cacheResposta = require('../utils/cacheResposta');
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const MOVI_BASE   = 'https://apimovidesk.viasoftcloud.com.br/public/v1';
@@ -1137,6 +1138,7 @@ async function saveBatch(tickets) {
     });
   }
 
+  cacheResposta.marcarAlterado();   // listas em cache do Painel Geral passam a ser refeitas
   return tickets;
 }
 

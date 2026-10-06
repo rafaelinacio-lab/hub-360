@@ -303,3 +303,8 @@ ainda usa o padrão antigo (expediente lido em UTC, defasado em 3 h) até ser va
 - O Visual 2.0 é o padrão e único (sem botão de alternância). `js/ui-version.js` só marca `data-ui="v2"` no `<html>`; o visual clássico fica disponível apenas pela branch `main` anterior.
 - Regra de cor: `--brand` (#ff8a2b) para preenchimento; `--brand-text` para laranja em texto. Nas páginas, `--orange` passa a ser o laranja seguro para texto.
 - Fase 1: shell (`index.html`) e Painel Geral (`pages/geral.html`). As demais abas ainda usam o visual clássico (basta incluir `v2.css` e `ui-version.js` e mapear as classes).
+
+## Cache das listas do Painel Geral
+- `server/utils/cacheResposta.js`: `GET /api/geral` e `GET /api/geral/pendentes` (iguais para todos os usuários) são consultados uma vez, serializados e comprimidos em gzip; os pedidos seguintes recebem os bytes prontos. Pedidos simultâneos dividem a mesma consulta.
+- Validade: 2 minutos ou até `saveBatch` (movidesk-loader.js, usado pelas cargas, pela cron e pela Central do chamado) gravar tickets — o que vier primeiro. Até 6 chaves em memória (processo do servidor); reiniciar o contêiner limpa.
+- Só usar em rotas cujo resultado não dependa do usuário (a autenticação continua na rota).

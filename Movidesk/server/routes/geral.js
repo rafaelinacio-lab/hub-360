@@ -22,6 +22,10 @@ const { authMiddleware, requireRole } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
 const { calcularMinutosUteisComPausas, parseData, FUSO_BRASILIA_MIN } = require('../utils/sla');
 const { classificarTexto, listarTemas } = require('../utils/temasChamados');
+const cacheResposta = require('../utils/cacheResposta');
+
+// Cache das listas pesadas do painel (compartilhadas por todos os usuários): vale por 2 min ou até a carga gravar tickets.
+const CACHE_PAINEL_MS = 2 * 60 * 1000;
 
 const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
 
@@ -105,13 +109,12 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
       }
     }
 
-    const result = await db.query(
-      `${LIST_SELECT} ${whereClause} ORDER BY t.createddate DESC`,
-      params
-    );
-    res.json({
-      rows: result.rows || [],
-      janela: todos ? null : (desde || 'ano-vigente'),
+    await cacheResposta.responder(req, res, `geral:${todos ? 'todos' : (desde || 'ano')}`, CACHE_PAINEL_MS, async () => {
+      const result = await db.query(
+        `${LIST_SELECT} ${whereClause} ORDER BY t.createddate DESC`,
+        params
+      );
+      return { rows: result.rows || [], janela: todos ? null : (desde || 'ano-vigente') };
     });
   } catch (error) {
     // 42P01 = undefined_table (silver.* ainda não existe, primeira carga) —
@@ -161,13 +164,15 @@ const LAST_PUBLIC_ACTION_JOIN = `
 router.get('/pendentes', authMiddleware, requireTabAccess('paineltv'), async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
-    const result = await db.query(`
-      SELECT p.*, ap.ultima_publica_agente, ap.ultima_publica_cliente
-      FROM (${LIST_SELECT} WHERE t.basestatus NOT IN (${closedList})) p
-      ${LAST_PUBLIC_ACTION_JOIN}
-      ORDER BY p.criado_em DESC
-    `);
-    res.json({ rows: result.rows || [] });
+    await cacheResposta.responder(req, res, 'pendentes', CACHE_PAINEL_MS, async () => {
+      const result = await db.query(`
+        SELECT p.*, ap.ultima_publica_agente, ap.ultima_publica_cliente
+        FROM (${LIST_SELECT} WHERE t.basestatus NOT IN (${closedList})) p
+        ${LAST_PUBLIC_ACTION_JOIN}
+        ORDER BY p.criado_em DESC
+      `);
+      return { rows: result.rows || [] };
+    });
   } catch (error) {
     if (error.code === '42P01') {
       console.warn('[geral] silver.* ainda não existe — retornando vazio (pendentes)');
