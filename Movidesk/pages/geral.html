@@ -363,6 +363,7 @@ input,select{font-family:inherit}
 /* KPIs do Visual 2.0: ícone, sparkline e variação (escondidos no visual clássico) */
 .kpi-ico,.kpi-spark,.kpi-delta{display:none}
 .kpi-main,.kpi-foot{display:block}
+.sla-ring svg,.sla-ring small,.sla-acoes{display:none}
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -665,10 +666,19 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="grid-2" style="margin-top:14px">
-      <div data-tone="green" class="stat-card danger">
+      <div data-tone="green" class="stat-card danger sla-hero">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA cumprido (resolvidos)</p>
-        <div class="kpi-main"><p class="value bad" id="k-sla-cumprido">0%</p><span class="kpi-spark" id="sp-sla"></span></div>
-        <div class="kpi-foot"><span class="kpi-delta" id="dl-sla"></span><p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p></div>
+        <div class="kpi-main">
+          <div class="sla-ring">
+            <svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sla-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg>
+            <div class="sla-ring-c"><p class="value bad" id="k-sla-cumprido">0%</p><small>dentro do prazo</small></div>
+          </div>
+          <span class="kpi-spark" id="sp-sla"></span>
+        </div>
+        <div class="sla-info">
+          <div class="kpi-foot"><span class="kpi-delta" id="dl-sla"></span><p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p></div>
+          <div class="sla-acoes"><button type="button" class="sla-btn prim" onclick="openStatusModal('aberto')">Ver pendentes</button><button type="button" class="sla-btn" onclick="openVencidosModal()">Ver vencidos</button></div>
+        </div>
       </div>
       <div data-tone="red" class="stat-card danger clickable" onclick="openVencidosModal()">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog já vencido</p>
@@ -1528,6 +1538,7 @@ function render(){
   const vencidosRows=pendentesRows.filter(isVencido);
   const pctVencido=pendentesRows.length?vencidosRows.length/pendentesRows.length:0;
   document.getElementById('k-sla-cumprido').textContent=fmtPct(slaCumprido);
+  { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent=
     resolvidosComPrazo.length?`${resolvidosComPrazo.length.toLocaleString('pt-BR')} resolvidos com prazo definido.`:'Nenhum resolvido com prazo definido no período.';
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');

@@ -211,6 +211,50 @@ html[data-ui="v2"] .kpi-delta:empty { display: none; }
 html[data-ui="v2"] .kpi-delta.bom   { background: var(--success-soft); color: var(--success); }
 html[data-ui="v2"] .kpi-delta.ruim  { background: var(--danger-soft);  color: var(--danger); }
 
+
+/* ─── Card de destaque: SLA cumprido (anel) ─── */
+html[data-ui="v2"] .stat-card.sla-hero {
+  --tone-ink: var(--brand-on-inverse);
+  position: relative; overflow: hidden; color: var(--on-inverse);
+  background: linear-gradient(155deg, #1d1713 0%, #3d2412 100%);
+  display: grid; grid-template-columns: auto 1fr; grid-template-areas: "label label" "ring info"; column-gap: 28px; align-items: center;
+}
+html[data-ui="v2"][data-theme="dark"] .stat-card.sla-hero, html[data-ui="v2"].dark .stat-card.sla-hero { background: linear-gradient(155deg, #2b1a0d 0%, #4a2a12 100%); }
+html[data-ui="v2"] .sla-hero::before, html[data-ui="v2"] .sla-hero::after {
+  content: ""; position: absolute; border-radius: 50%; pointer-events: none; border: 1px solid rgba(255,159,79,.22);
+}
+html[data-ui="v2"] .sla-hero::before { width: 150px; height: 150px; right: -40px; bottom: -60px; }
+html[data-ui="v2"] .sla-hero::after { width: 230px; height: 230px; right: -80px; bottom: -100px; border-color: rgba(255,159,79,.14); }
+html[data-ui="v2"] .sla-hero .label { grid-area: label; color: var(--on-inverse); }
+html[data-ui="v2"] .sla-hero .kpi-ico { background: var(--brand); color: var(--on-brand); }
+html[data-ui="v2"] .sla-hero .panel-expand, html[data-ui="v2"] .sla-hero .panel-info { color: var(--on-inverse-muted); border-color: var(--on-inverse-muted); }
+html[data-ui="v2"] .sla-hero .panel-expand { border-color: transparent; }
+html[data-ui="v2"] .sla-hero .panel-expand:hover, html[data-ui="v2"] .sla-hero .panel-info:hover { background: rgba(255,255,255,.1); color: var(--on-inverse); }
+html[data-ui="v2"] .sla-hero .kpi-main { grid-area: ring; display: block; }
+html[data-ui="v2"] .sla-hero .kpi-spark { display: none; }
+html[data-ui="v2"] .sla-ring { position: relative; width: 170px; height: 170px; }
+html[data-ui="v2"] .sla-ring svg { display: block; width: 100%; height: 100%; }
+html[data-ui="v2"] .sla-ring .trk { fill: none; stroke: rgba(255,255,255,.12); stroke-width: 11; }
+html[data-ui="v2"] .sla-ring .arc { fill: none; stroke: var(--brand-on-inverse); stroke-width: 11; stroke-linecap: round; stroke-dasharray: 0 340; transition: stroke-dasharray .5s ease; }
+html[data-ui="v2"] .sla-ring-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+html[data-ui="v2"] .sla-ring-c .value, html[data-ui="v2"] .sla-ring-c .value.bad { font-size: 30px; line-height: 34px; color: var(--on-inverse); }
+html[data-ui="v2"] .sla-ring small { display: block; font-size: 11.5px; font-weight: 700; color: var(--on-inverse-muted); margin-top: 2px; }
+html[data-ui="v2"] .sla-info { grid-area: info; position: relative; z-index: 1; }
+html[data-ui="v2"] .sla-hero .kpi-foot { margin-top: 0; }
+html[data-ui="v2"] .sla-hero .kpi-foot .legend { color: var(--on-inverse-muted); font-size: 13px; line-height: 20px; }
+html[data-ui="v2"] .sla-hero .kpi-delta { background: rgba(255,255,255,.1); color: var(--on-inverse); }
+html[data-ui="v2"] .sla-hero .kpi-delta.bom { background: rgba(61,220,159,.18); color: #3ddc9f; }
+html[data-ui="v2"] .sla-hero .kpi-delta.ruim { background: rgba(255,123,138,.2); color: #ff9aa6; }
+html[data-ui="v2"] .sla-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+html[data-ui="v2"] .sla-btn {
+  padding: 10px 18px; border-radius: 999px; border: 1px solid var(--on-inverse-muted); background: transparent;
+  color: var(--on-inverse); font-weight: 800; font-size: 13px; cursor: pointer; transition: background .12s, color .12s;
+}
+html[data-ui="v2"] .sla-btn:hover { background: rgba(255,255,255,.1); }
+html[data-ui="v2"] .sla-btn.prim { background: var(--brand); border-color: var(--brand); color: var(--on-brand); box-shadow: 0 6px 18px rgba(255,138,43,.35); }
+html[data-ui="v2"] .sla-btn.prim:hover { background: var(--brand-hover); }
+@media (max-width: 700px) { html[data-ui="v2"] .stat-card.sla-hero { grid-template-columns: 1fr; grid-template-areas: "label" "ring" "info"; justify-items: start; row-gap: 14px; } }
+
 /* tabelas */
 html[data-ui="v2"] .dtable th { background: var(--surface-mid); color: var(--t3); font-weight: 800; border-bottom: none; padding: 9px 10px; }
 html[data-ui="v2"] .dtable th:first-child { border-radius: 12px 0 0 12px; }
