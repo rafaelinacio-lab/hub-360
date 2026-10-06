@@ -291,3 +291,9 @@ O diagnóstico em Configurações → Movidesk (`GET /api/geral/chat-diagnostico
 Limite conhecido (medido em 05/10/2026): a API pública não devolve os chamados dos chats AINDA EM ATENDIMENTO que aparecem em /ChatQueue (nem por `?id=` nem por `$filter=id eq N`); só os de conversas já encerradas, que chegam com
 `chatTalkTime`/`chatWaitingTime`. Por isso o painel Chats mostra volume, espera e duração dos chats encerrados, e NÃO a fila nem as conversas em andamento. Para tempo real de verdade seria preciso um recurso
 fora da API de tickets (eventos do Zenvia NLU enviados ao Hub, ou um endpoint de chat do Movidesk).
+
+## Fuso horário
+O banco guarda os instantes em `timestamptz` (UTC, a API do Movidesk devolve datas em UTC) e o contêiner roda em UTC (sem `TZ`). Consultas que agrupam por dia/mês/hora convertem com `AT TIME ZONE 'America/Sao_Paulo'`
+(Chats, Telemetria, Reincidências); as telas agrupam por mês no fuso do navegador (`monthKeyOf`). O expediente do SLA (07:45-12:00 e 13:30-18:00, seg-sex) é horário de BRASÍLIA: `minutosUteisEntre(inicio, fim, fusoMin)` em
+`server/utils/sla.js` desloca os extremos por `FUSO_BRASILIA_MIN` (-180) antes de aplicar o expediente. O SLA de solução líquido (`POST /geral/sla-liquido`) já usa isso; o SLA de PRIMEIRO CONTATO (`calcularSLAPrimeiroContato`)
+ainda usa o padrão antigo (expediente lido em UTC, defasado em 3 h) até ser validado contra o Movidesk.

@@ -20,7 +20,7 @@ const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
-const { calcularMinutosUteisComPausas, parseData } = require('../utils/sla');
+const { calcularMinutosUteisComPausas, parseData, FUSO_BRASILIA_MIN } = require('../utils/sla');
 const { classificarTexto, listarTemas } = require('../utils/temasChamados');
 
 const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
@@ -343,7 +343,7 @@ router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async 
       // Status inicial "Novo" na abertura: sem isso a função assume que o ticket já
       // nasceu no status da primeira ação (e descontaria o início se fosse uma pausa).
       const actions = [{ createdDate: ini, status: 'Novo' }, ...(acoesPorTicket.get(t.id) || [])];
-      minutos[t.id] = calcularMinutosUteisComPausas({ actions }, ini, fim);
+      minutos[t.id] = calcularMinutosUteisComPausas({ actions }, ini, fim, FUSO_BRASILIA_MIN);
     }
     res.json({ minutos });
   } catch (error) {

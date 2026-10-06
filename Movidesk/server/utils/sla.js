@@ -58,7 +58,10 @@ function ehDiaUtil(data) {
   return dia !== 0 && dia !== 6; // Não domingo (0) nem sábado (6)
 }
 
-function minutosUteisEntre(inicio, fim) {
+// Fuso de Brasília (America/Sao_Paulo): UTC-3, sem horário de verão desde 2019.
+const FUSO_BRASILIA_MIN = -180;
+
+function minutosUteisEntre(inicio, fim, fusoMin = 0) {
   /**
    * Calcula minutos úteis entre duas datas,
    * considerando segunda a sexta e os horários:
@@ -68,6 +71,14 @@ function minutosUteisEntre(inicio, fim) {
    */
 
   if (!inicio || !fim || fim <= inicio) return 0;
+
+  // fusoMin: os instantes vêm do banco em UTC; o expediente (07:45-12:00 / 13:30-18:00) é horário de Brasília.
+  // Deslocar os dois extremos pelo fuso faz os getters UTC abaixo enxergarem o relógio de parede de Brasília
+  // (a diferença entre eles, em minutos, não muda). Padrão 0 = comportamento antigo (expediente lido em UTC).
+  if (fusoMin) {
+    inicio = new Date(inicio.getTime() + fusoMin * 60000);
+    fim = new Date(fim.getTime() + fusoMin * 60000);
+  }
 
   let total = 0;
   let diaAtual = new Date(inicio);
@@ -205,7 +216,7 @@ function montarLinhaDoTempoStatus(ticket) {
   return eventos;
 }
 
-function calcularMinutosUteisComPausas(ticket, inicio, fim) {
+function calcularMinutosUteisComPausas(ticket, inicio, fim, fusoMin = 0) {
   /**
    * Calcula minutos úteis entre abertura e primeiro contato,
    * descontando períodos em status de pausa.
@@ -214,7 +225,7 @@ function calcularMinutosUteisComPausas(ticket, inicio, fim) {
   const eventos = montarLinhaDoTempoStatus(ticket);
 
   if (eventos.length === 0) {
-    return minutosUteisEntre(inicio, fim);
+    return minutosUteisEntre(inicio, fim, fusoMin);
   }
 
   let total = 0;
@@ -234,7 +245,7 @@ function calcularMinutosUteisComPausas(ticket, inicio, fim) {
     }
 
     if (!ehStatusPausado(statusAtual)) {
-      total += minutosUteisEntre(cursor, dataEvento);
+      total += minutosUteisEntre(cursor, dataEvento, fusoMin);
     }
 
     cursor = dataEvento;
@@ -243,7 +254,7 @@ function calcularMinutosUteisComPausas(ticket, inicio, fim) {
 
   // Último trecho até o primeiro contato
   if (cursor < fim && !ehStatusPausado(statusAtual)) {
-    total += minutosUteisEntre(cursor, fim);
+    total += minutosUteisEntre(cursor, fim, fusoMin);
   }
 
   return total;
@@ -307,6 +318,7 @@ module.exports = {
   calcularSLAPrimeiroContato,
   calcularMinutosUteisComPausas,
   minutosUteisEntre,
+  FUSO_BRASILIA_MIN,
   normalizar,
   parseData,
 };
