@@ -302,6 +302,34 @@ input,select{font-family:inherit}
 .seg button{padding:5px 14px;border-radius:7px;font-size:12px;font-weight:600;color:var(--t2);background:transparent}
 .seg button:hover:not(.on){color:var(--t1)}
 .seg button.on{background:var(--orange);color:#fff}
+/* Responsáveis por volume: lista + painel de detalhe */
+.rsp-wrap{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:18px;align-items:start}
+@media (max-width:1000px){.rsp-wrap{grid-template-columns:1fr}}
+.rsp-lista table{width:100%;border-collapse:collapse;font-size:13px}
+.rsp-lista th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+.rsp-lista th.n,.rsp-lista td.n{text-align:right;font-variant-numeric:tabular-nums}
+.rsp-lista td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.rsp-lista tbody tr{cursor:pointer;transition:background .1s}
+.rsp-lista tbody tr:hover,.rsp-lista tbody tr:focus-visible{background:var(--surface-mid);outline:none}
+.rsp-lista tbody tr.fixo{background:var(--orange-bg);box-shadow:inset 3px 0 0 var(--orange)}
+.rsp-rank{display:inline-flex;width:22px;height:22px;border-radius:7px;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:var(--surface-low);color:var(--t2)}
+.rsp-nome{font-weight:600;color:var(--t1)}
+.rsp-barra{height:5px;border-radius:999px;background:var(--surface-low);margin-top:5px;overflow:hidden}
+.rsp-barra i{display:block;height:100%;border-radius:999px;background:var(--slate)}
+.rsp-sla{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.rsp-sla .trilho{width:70px;height:6px;border-radius:999px;background:var(--surface-low);overflow:hidden}
+.rsp-sla .trilho i{display:block;height:100%;border-radius:999px}
+.rsp-det{position:sticky;top:76px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;min-height:260px}
+.rsp-det .vazio{color:var(--t3);font-size:12.5px;line-height:1.6;padding:30px 6px;text-align:center}
+.rsp-det h4{font-size:15px;font-weight:700;color:var(--t1);margin:0}
+.rsp-det .ref{font-size:11px;color:var(--t3);margin:2px 0 10px;letter-spacing:.04em;text-transform:uppercase}
+.rsp-det .sec{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);font-weight:700;margin:12px 0 2px}
+.rsp-det .topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.rsp-det .fixar{font-size:11px;color:var(--t3);border:1px solid var(--border);border-radius:999px;padding:2px 9px;background:var(--surface-low)}
+.rsp-det .fixar.on{color:var(--orange);border-color:var(--orange)}
+.rsp-det .tv-tip-blk{border-top:1px solid var(--border);padding:9px 0}
+.rsp-det .sec+.tv-tip-blk{border-top:none}
+.rsp-det .acoes{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -718,30 +746,19 @@ body.modal-open{overflow:hidden}
 
     <p class="section-label">Ranking</p>
     <div class="grid-2">
-      <div class="chart-panel">
+      <div class="chart-panel" style="grid-column:1/-1">
         <p class="chart-title">Top clientes por volume</p>
         <p class="chart-sub">Cinza = abertos · laranja = resolvidos</p>
         <div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div>
       </div>
-      <div class="chart-panel">
-        <p class="chart-title">Top responsáveis por volume</p>
-        <div class="seg" id="resp-modo" role="group" aria-label="Visão do ranking"><button type="button" class="on" data-m="qtd">Quantidade</button><button type="button" data-m="sla">SLA cumprido</button></div>
-        <p class="chart-sub" id="resp-sub">Cinza = abertos · laranja = resolvidos</p>
-        <div class="chart-wrap" style="height:230px"><canvas id="respChart"></canvas></div>
-      </div>
-    </div>
-
-    <p class="section-label">Temas</p>
-    <div class="chart-panel" id="temas-panel">
-      <div class="tm-head">
-        <div>
-          <p class="tv-eyebrow">Mapa de recorrência</p>
-          <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0">Temas mais recorrentes</p>
+      <div class="chart-panel" id="resp-panel" style="grid-column:1/-1">
+        <p class="chart-title">Responsáveis por volume</p>
+        <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Passe o mouse sobre um colaborador para ver o detalhe do mês; clique para fixar.</p>
+        <div class="rsp-wrap">
+          <div id="respChart" class="rsp-lista"></div>
+          <aside id="resp-detalhe" class="rsp-det" aria-live="polite"></aside>
         </div>
-        <span class="chart-sub" id="temas-total" style="margin:0"></span>
       </div>
-      <div id="temas-lista"><p class="imp-vazio">Analisando os temas dos chamados…</p></div>
-      <p class="chart-sub" id="temas-status" style="text-align:left;margin:8px 0 0"></p>
     </div>
 
     <p class="section-label">Ação</p>
@@ -1140,6 +1157,7 @@ function downloadBlob(blob,filename){
 let _rows=[];
 let _charts={};
 let _rowsFull=[];
+let _rowsCtx=[];
 let _rowsResolv=[];
 let _rowsById={};
 let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-vigente"
@@ -1467,6 +1485,7 @@ function render(){
   renderJanelaBanner();
   const {rowsCtx,rowsFull,rowsResolv}=getFilteredRows();
   _rowsFull=rowsFull;
+  _rowsCtx=rowsCtx;
   _rowsResolv=rowsResolv;
   _rowsById={};
   rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
@@ -2260,75 +2279,118 @@ function renderClientChart(rows){
   layeredBars('clientChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
     (r,label)=>(r.organizacao||'Não informado')===label,'Cliente');
 }
-// Top responsáveis: visão "Quantidade" (abertos x resolvidos) ou "SLA cumprido" (% de resolvidos no prazo).
-let _respModo='qtd';
-function setRespModo(m){
-  _respModo=m;
-  document.querySelectorAll('#resp-modo button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
-  renderRespChart(_rowsFull);
-  igualarAlturaGrid();
+// ── Responsáveis por volume: lista + detalhe do mês (hover mostra, clique fixa) ──
+let _respFixo=null;        // colaborador fixado pelo clique
+let _respLista=[];         // linhas da lista atual
+// carteira ao fim do mês: criado até o mês e ainda não resolvido naquela data
+function pendenteEmMes(r,mk){
+  if(!r.criado_em||monthKeyOf(r.criado_em)>mk) return false;
+  if(isResolvido(r)) return !!r.resolvido_em&&monthKeyOf(r.resolvido_em)>mk;
+  return true;
 }
-document.getElementById('resp-modo').addEventListener('click',e=>{ const b=e.target.closest('button[data-m]'); if(b) setRespModo(b.dataset.m); });
-
+// mês de referência do detalhe: o mês filtrado (se Ano e Mês estão marcados) ou o último mês com dados
+function refMesResp(){
+  const yf=getMsValues('f-year'), mf=getMsValues('f-month');
+  if(yf.length===1&&mf.length===1) return `${yf[0]}-${String(mf[0]).padStart(2,'0')}`;
+  const ch=mesesDoPeriodo(bucketPorMes(_rowsCtx));
+  return ch[ch.length-1]||null;
+}
+// bloco "valor + variação contra o mês anterior" (mesmo desenho do tooltip dos gráficos de evolução)
+function blocoVar({nome,cor,valor,v,ant,altoEhBom,unid,pp}){
+  const tem=v!=null&&ant!=null;
+  const d=tem?v-ant:null;
+  const bom=!tem||d===0?null:(d>0)===altoEhBom;
+  const cls=bom===null?'neutro':bom?'bom':'ruim';
+  const txt=!tem?'Sem comparação':d===0?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
+  const sinal=d>0?'+':d<0?'−':'', dir=d>0?'↑':d<0?'↓':'→';
+  const f=n=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:1});
+  const varTxt=!tem?'—':pp?`${f(Math.abs(d))} pp`:`${Math.abs(d).toLocaleString('pt-BR')} ${unid}${Math.abs(d)===1?'':'s'}`;
+  const pct=tem&&!pp&&ant?` · ${sinal}${f(Math.abs(d/ant*100))}%`:'';
+  return `<div class="tv-tip-blk">
+    <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cor}">${nome}</span><span class="tv-tip-val">${valor}${pct}</span></div>
+    <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${ant==null?'—':pp?f(ant)+'%':ant.toLocaleString('pt-BR')}</span></div>
+    <div class="tv-tip-sub"><span></span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${tem?`${dir} ${sinal}${varTxt} vs. mês anterior`:''}</span></div>
+  </div>`;
+}
+function respDetalheHtml(nome){
+  const rows=_rowsCtx.filter(r=>(r.responsavel||'Não informado')===nome);
+  const ref=refMesResp();
+  if(!ref) return '<div class="vazio">Sem dados para este colaborador.</div>';
+  const ant=mesAnteriorKey(ref);
+  const doMes=(mk)=>({ criados:rows.filter(r=>r.criado_em&&monthKeyOf(r.criado_em)===mk),
+                       resolv:rows.filter(r=>r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk) });
+  const A=doMes(ref), B=doMes(ant);
+  const slaDe=l=>{ const c=l.filter(temPrazo); return {ok:c.filter(isNoPrazo).length,total:c.length}; };
+  const sA=slaDe(A.resolv), sB=slaDe(B.resolv);
+  const pA=sA.total?sA.ok/sA.total*100:null, pB=sB.total?sB.ok/sB.total*100:null;
+  const cartA=rows.filter(r=>pendenteEmMes(r,ref)).length, cartB=rows.filter(r=>pendenteEmMes(r,ant)).length;
+  const pend=rows.filter(isAberto), venc=pend.filter(isVencido).length;
+  const urg=[['Crítica','#f87171'],['Alta',cssVar('--orange')],['Média',cssVar('--green')],['Baixa',document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb']];
+  const porUrg=urg.map(([u,cor])=>blocoVar({nome:u,cor,valor:`${A.criados.filter(r=>r.urgencia===u).length.toLocaleString('pt-BR')} tickets`,
+    v:A.criados.filter(r=>r.urgencia===u).length,ant:B.criados.filter(r=>r.urgencia===u).length,altoEhBom:false,unid:'ticket'})).join('');
+  const fixado=_respFixo===nome;
+  return `<div class="topo"><div><h4>${esc(nome)}</h4><div class="ref">${rotuloMesCurto(ref).toUpperCase()} · comparado com ${rotuloMesCurto(ant).toUpperCase()}${ref===monthKeyOf(new Date().toISOString())?' · <b style="color:var(--orange)" title="O mês ainda não terminou: as variações contra o mês anterior ficam subestimadas">mês em andamento</b>':''}</div></div>
+      <span class="fixar ${fixado?'on':''}">${fixado?'📌 fixado · clique de novo para soltar':'clique para fixar'}</span></div>
+    <div class="sec">Resumo do mês</div>`+
+    blocoVar({nome:'Criados',cor:cssVar('--orange'),valor:`${A.criados.length.toLocaleString('pt-BR')} tickets`,v:A.criados.length,ant:B.criados.length,altoEhBom:false,unid:'ticket'})+
+    blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.resolv.length.toLocaleString('pt-BR')} tickets`,v:A.resolv.length,ant:B.resolv.length,altoEhBom:true,unid:'ticket'})+
+    blocoVar({nome:'SLA cumprido',cor:cssVar('--green'),valor:pA==null?'—':`${pA.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${sA.ok}/${sA.total}`,v:pA,ant:pB,altoEhBom:true,pp:true})+
+    blocoVar({nome:'Carteira (abertos no fim do mês)',cor:document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb',valor:`${cartA.toLocaleString('pt-BR')} tickets`,v:cartA,ant:cartB,altoEhBom:false,unid:'ticket'})+
+    `<div class="sec">Criados por urgência</div>${porUrg}
+    <div class="tv-tip-foot" style="margin-top:6px">Hoje: <b>${pend.length.toLocaleString('pt-BR')}</b> pendentes, <b class="${venc?'tv-ruim':''}">${venc.toLocaleString('pt-BR')}</b> com prazo de SLA vencido.</div>
+    <div class="acoes"><button class="btn-refresh" type="button" data-ver="${escAttr(nome)}"><span class="sym">list_alt</span>Ver os tickets do período</button></div>`;
+}
+function respMostrar(nome){
+  const box=document.getElementById('resp-detalhe'); if(!box) return;
+  box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, mês a mês, o que ele criou, resolveu, o SLA cumprido e a carteira, comparado com o mês anterior.<br>Clique para fixar o detalhe.</div>';
+}
 function renderRespChart(rows){
-  if(_respModo==='sla') return renderRespSla();
-  const sub=document.getElementById('resp-sub'); if(sub) sub.textContent='Cinza = abertos · laranja = resolvidos';
-  const porResp={};
-  rows.forEach(r=>{
-    const p=r.responsavel||'Não informado';
-    porResp[p]=porResp[p]||{abertos:0,resolvidos:0};
-    porResp[p].abertos++;
-    if(isResolvido(r)) porResp[p].resolvidos++;
-  });
-  const entries=Object.entries(porResp).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
-  layeredBars('respChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>(r.responsavel||'Não informado')===label,'Responsável');
-}
-
-// SLA cumprido por responsável: entre os resolvidos do período que tinham prazo de solução definido, quantos foram
-// resolvidos até o prazo (mesma regra do card "SLA cumprido"). Ranking pelos 10 que mais resolveram tickets com prazo.
-function renderRespSla(){
-  destroyChart('respChart');
-  const sub=document.getElementById('resp-sub');
-  if(sub) sub.textContent='% de resolvidos no prazo (só tickets com prazo definido) · verde ≥ 90% · amarelo ≥ 70%';
-  const base=_rowsResolv.filter(temPrazo);
+  const box=document.getElementById('respChart'); if(!box) return;
   const por={};
-  base.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]=por[p]||{total:0,ok:0}; o.total++; if(isNoPrazo(r)) o.ok++; });
-  const entries=Object.entries(por).sort((a,b)=>b[1].total-a[1].total).slice(0,10);
-  const cv=document.getElementById('respChart'), wrap=cv.parentElement, col=chartColors();
-  if(wrap){ const h=Math.max(210,entries.length*38+56); wrap.style.height=h+'px'; wrap.dataset.h0=h; }
-  if(!entries.length){ return; }
-  const pct=entries.map(([,v])=>v.total?v.ok/v.total*100:0);
-  const corDe=v=>v>=90?col.green:v>=70?'#fbbf24':col.orange;
-  const fmt1=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
-  const rotulos={
-    id:'slaRespRotulos',
-    afterDatasetsDraw(chart){
-      const c=chart.ctx; c.save(); c.font='600 10.5px system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=col.t2;
-      chart.getDatasetMeta(0).data.forEach((bar,i)=>{ const [,v]=entries[i]; c.fillText(`${fmt1(pct[i])}% · ${v.ok.toLocaleString('pt-BR')}/${v.total.toLocaleString('pt-BR')}`,bar.x+6,bar.y); });
-      c.restore();
-    },
-  };
-  _charts.respChart=new Chart(cv,{
-    type:'bar',
-    data:{ labels:entries.map(e=>e[0]), datasets:[{ label:'SLA cumprido (%)', data:pct, backgroundColor:pct.map(corDe), borderRadius:3, barPercentage:.7 }] },
-    plugins:[rotulos],
-    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{padding:{right:124}},
-      plugins:{ legend:{display:false},
-        tooltip:{ callbacks:{ label:(ctx)=>{ const [,v]=entries[ctx.dataIndex]; return `${fmt1(ctx.parsed.x)}% no prazo (${v.ok} de ${v.total} resolvidos com prazo)`; } } } },
-      scales:{ x:{ display:false, min:0, max:100 }, y:{ grid:{display:false}, ticks:{color:col.t2,font:{size:10.5}} } },
-      onHover:chartHoverCursor,
-      onClick:(evt,els)=>{
-        if(!els.length) return;
-        const [nome,v]=entries[els[0].index];
-        const lista=base.filter(r=>(r.responsavel||'Não informado')===nome);
-        openDetailModal(`SLA — ${nome}`,`${v.ok} de ${v.total} no prazo (${fmt1(pct[els[0].index])}%) · fora do prazo primeiro`,lista,
-          {ordenar:(a,b)=>(isNoPrazo(a)?1:0)-(isNoPrazo(b)?1:0)||new Date(b.resolvido_em||0)-new Date(a.resolvido_em||0)});
-      },
-    }
-  });
+  rows.forEach(r=>{ const p=r.responsavel||'Não informado'; (por[p]=por[p]||{criados:0}).criados++; });
+  // resolvidos e SLA do período: pela data de RESOLUÇÃO, como os cards do topo
+  _rowsResolv.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return;
+    o.resolvidos=(o.resolvidos||0)+1; if(temPrazo(r)){ o.comPrazo=(o.comPrazo||0)+1; if(isNoPrazo(r)) o.noPrazo=(o.noPrazo||0)+1; } });
+  const pendG=getPendentesGlobalRows();
+  pendG.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return; o.pend=(o.pend||0)+1; if(isVencido(r)) o.venc=(o.venc||0)+1; });
+  _respLista=Object.entries(por).sort((a,b)=>b[1].criados-a[1].criados).slice(0,15);
+  if(!_respLista.length){ box.innerHTML='<div class="vazio" style="color:var(--t3);padding:20px">Nenhum ticket no período filtrado.</div>'; respMostrar(null); return; }
+  if(_respFixo&&!_respLista.some(([n])=>n===_respFixo)) _respFixo=null;
+  const mx=Math.max(1,..._respLista.map(([,v])=>v.criados));
+  const nfm=n=>Number(n||0).toLocaleString('pt-BR');
+  const corSla=v=>v>=90?cssVar('--green'):v>=70?'#fbbf24':cssVar('--orange');
+  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n">Criados</th><th class="n">Resolvidos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
+    _respLista.map(([n,v],i)=>{
+      const pct=v.comPrazo?(v.noPrazo||0)/v.comPrazo*100:null;
+      return `<tr tabindex="0" role="button" data-n="${escAttr(n)}" class="${_respFixo===n?'fixo':''}" aria-label="Detalhe de ${escAttr(n)}">
+        <td><span class="rsp-rank">${i+1}</span></td>
+        <td><div class="rsp-nome">${esc(n)}</div><div class="rsp-barra"><i style="width:${Math.max(3,v.criados/mx*100)}%"></i></div></td>
+        <td class="n"><b>${nfm(v.criados)}</b></td><td class="n">${nfm(v.resolvidos)}</td>
+        <td class="n">${pct==null?'<span style="color:var(--t3)">—</span>':`<div class="rsp-sla"><span>${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span><span class="trilho"><i style="width:${pct}%;background:${corSla(pct)}"></i></span></div>`}</td>
+        <td class="n">${nfm(v.pend)}</td><td class="n" style="${v.venc?'color:var(--orange);font-weight:700':''}">${nfm(v.venc)}</td></tr>`;
+    }).join('')+`</tbody></table>`;
+  respMostrar(_respFixo);
 }
+(function ligarResponsaveis(){
+  const lista=document.getElementById('respChart'), det=document.getElementById('resp-detalhe');
+  if(!lista||!det) return;
+  const marcar=()=>lista.querySelectorAll('tbody tr').forEach(tr=>tr.classList.toggle('fixo',tr.dataset.n===_respFixo));
+  lista.addEventListener('mouseover',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr&&!_respFixo) respMostrar(tr.dataset.n); });
+  lista.addEventListener('mouseleave',()=>{ if(!_respFixo) respMostrar(null); });
+  lista.addEventListener('focusin',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr&&!_respFixo) respMostrar(tr.dataset.n); });
+  lista.addEventListener('click',e=>{
+    const tr=e.target.closest('tr[data-n]'); if(!tr) return;
+    _respFixo=_respFixo===tr.dataset.n?null:tr.dataset.n;      // clicar de novo solta
+    marcar(); respMostrar(_respFixo||tr.dataset.n);
+  });
+  lista.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.closest('tr[data-n]')){ e.preventDefault(); e.target.closest('tr[data-n]').click(); } });
+  det.addEventListener('click',e=>{
+    const b=e.target.closest('[data-ver]'); if(!b) return;
+    const nome=b.dataset.ver;
+    const l=_rowsFull.filter(r=>(r.responsavel||'Não informado')===nome);
+    openDetailModal(`Responsável: ${nome}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'} criados no período`,l);
+  });
+})();
 
 // ── ação: equipes com maior % de backlog vencido ────────────────────
 function renderEquipesVencidoTable(pendentesRows){
@@ -2580,9 +2642,9 @@ const INFO_CARDS={
   'clientChart':{t:'Top clientes por volume',
     o:'As 10 organizações com mais tickets.',
     c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
-  'respChart':{t:'Top responsáveis por volume',
-    o:'Os 10 responsáveis com mais tickets, em duas visões: Quantidade e SLA cumprido.',
-    c:['Quantidade: barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.','SLA cumprido: entre os tickets resolvidos no período que tinham prazo de solução definido, a % resolvida até o prazo (mesma regra do card "SLA cumprido"). O rótulo mostra % · no prazo/total.','Na visão de SLA o ranking é pelos 10 responsáveis com mais tickets resolvidos com prazo; verde ≥ 90%, amarelo ≥ 70%, laranja abaixo disso.','Clique numa barra para ver os tickets (na visão de SLA, os fora do prazo vêm primeiro).']},
+  'respChart':{t:'Responsáveis por volume',
+    o:'Os 15 responsáveis com mais tickets criados no período, com o detalhe do mês de cada um.',
+    c:['Criados = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe no painel ao lado; clique para fixar e clique de novo para soltar.','O detalhe compara o mês de referência com o mês anterior: criados, resolvidos, SLA cumprido (em pontos percentuais), carteira (abertos no fim do mês) e criados por urgência. O mês de referência é o mês filtrado (Ano e Mês marcados) ou o último mês com dados.']},
   'tbl-equipes-vencido':{t:'Equipes com maior % de backlog vencido',
     o:'Em quais equipes o backlog pendente está mais atrasado.',
     c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Mostra as 10 equipes com maior %; em destaque quando passa de 30%.','Clique numa equipe para ver os tickets vencidos.']},
