@@ -849,18 +849,6 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-8-4">
-      <div class="chart-panel" id="pico-panel">
-        <p class="chart-title">Horários de pico</p>
-        <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador). Clique numa célula para ver os chamados.</p>
-        <div class="pico" id="pico-grid"></div>
-      </div>
-      <div class="chart-panel" id="recentes-panel">
-        <div class="rec-head"><p class="chart-title" style="margin:0">Chamados recentes</p><button type="button" class="btn-refresh" onclick="openChamadoListagemModal()">Ver todos</button></div>
-        <div class="rec-lista" id="rec-lista"></div>
-      </div>
-    </div>
-
     <div class="hrow c-1">
       <div class="chart-panel" id="resp-panel">
         <p class="chart-title">Responsáveis por volume</p>
@@ -872,6 +860,13 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
+    <div class="hrow c-1">
+      <div class="chart-panel" id="pico-panel">
+        <p class="chart-title">Horários de pico</p>
+        <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador). Clique numa célula para ver os chamados.</p>
+        <div class="pico" id="pico-grid"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1620,7 +1615,6 @@ function render(){
   renderKpiExtras();
   renderBacklogLista(vencidosRows);
   renderPico(rowsFull);
-  renderRecentes(rowsFull);
   renderTrendChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
