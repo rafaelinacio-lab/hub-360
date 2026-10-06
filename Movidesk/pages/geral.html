@@ -712,10 +712,14 @@ body.modal-open{overflow:hidden}
         <div class="kpi-main"><p class="value" id="k-resolvidos">0</p><span class="kpi-spark" id="sp-resolvidos"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p></div>
       </div>
-      <div data-tone="blue" class="stat-card">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a2 2 0 0 1 2-2h16"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a2 2 0 0 1-2 2H3"/></svg></span>Média de ações/ticket</p>
-        <div class="kpi-main"><p class="value" id="k-media-acoes">0</p><span class="kpi-spark" id="sp-media"></span></div>
-        <div class="kpi-foot"><span class="kpi-delta" id="dl-media"></span><p class="legend">Trocas até o fechamento.</p></div>
+      <div data-tone="green" class="stat-card danger sla-hero">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA cumprido (resolvidos)</p>
+        <div class="kpi-main">
+          <p class="value bad" id="k-sla-cumprido">0%</p>
+          <div class="sla-ring"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sla-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg></div>
+          <span class="kpi-spark" id="sp-sla"></span>
+        </div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-sla"></span><p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p></div>
       </div>
       <div data-tone="yellow" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>Clientes únicos</p>
@@ -729,21 +733,7 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-4-8">
-      <div data-tone="green" class="stat-card danger sla-hero">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA cumprido (resolvidos)</p>
-        <div class="kpi-main">
-          <div class="sla-ring">
-            <svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sla-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg>
-            <div class="sla-ring-c"><p class="value bad" id="k-sla-cumprido">0%</p><small>dentro do prazo</small></div>
-          </div>
-          <span class="kpi-spark" id="sp-sla"></span>
-        </div>
-        <div class="sla-info">
-          <div class="kpi-foot"><span class="kpi-delta" id="dl-sla"></span><p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p></div>
-          <div class="sla-acoes"><button type="button" class="sla-btn prim" onclick="openStatusModal('aberto')">Ver pendentes</button><button type="button" class="sla-btn" onclick="openVencidosModal()">Ver vencidos</button></div>
-        </div>
-      </div>
+    <div class="hrow c-1">
       <div class="chart-panel">
         <div class="tv-head">
           <div>
@@ -1607,7 +1597,6 @@ function render(){
   document.getElementById('k-abertos').textContent=abertos.toLocaleString('pt-BR');
   document.getElementById('k-resolvidos').textContent=resolvidos.toLocaleString('pt-BR');
   document.getElementById('k-taxa-resolucao-legend').textContent=`Taxa de resolução: ${fmtPct(taxaResolucao)}`;
-  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:1});
   document.getElementById('k-clientes').textContent=clientesUnicos.toLocaleString('pt-BR');
   document.getElementById('k-pendentes').textContent=pendentesRows.length.toLocaleString('pt-BR');
   {
@@ -1729,6 +1718,7 @@ function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePre
       c.restore();
     },
   };
+  const clk=titlePrefix?chartClickHandler(titlePrefix,onClickFilter):undefined;
   _charts[id]=new Chart(cv,{
     type:'bar',
     data:{ labels, datasets:[
@@ -1742,9 +1732,24 @@ function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePre
       plugins:{ legend:{ display:true, position:'top', labels:{color:col.t2, boxWidth:10, font:{size:11}} } },
       scales:{ x:{ display:false, beginAtZero:true }, y:{ grid:{display:false}, ticks:{color:col.t2, font:{size:10.5}} } },
       onHover:chartHoverCursor,
-      onClick: titlePrefix?chartClickHandler(titlePrefix,onClickFilter):undefined,
+      onClick: clk,
     }
   });
+  // clicar no NOME da categoria (eixo à esquerda, fora da área do gráfico) abre a lista igual ao clique na barra.
+  // O Chart.js só dispara onClick dentro da área do gráfico, então os rótulos usam eventos do próprio canvas.
+  if(clk){
+    const ch=_charts[id];
+    const pos=e=>{ const r=cv.getBoundingClientRect(); return rotuloEm(ch,{x:e.clientX-r.left,y:e.clientY-r.top}); };
+    cv.onmousemove=e=>{ if(pos(e)>=0) cv.style.cursor='pointer'; };
+    cv.onclick=e=>{ const i=pos(e); if(i>=0) clk(e,[{index:i}],ch); };
+  }
+}
+// índice da categoria cujo rótulo (à esquerda da área do gráfico) está sob o mouse; -1 se não for rótulo
+function rotuloEm(ch,evt){
+  const a=ch.chartArea, x=evt.x, y=evt.y;
+  if(!a||x==null||x>=a.left||y<a.top||y>a.bottom) return -1;
+  const i=Math.round(ch.scales.y.getValueForPixel(y));
+  return i>=0&&i<ch.data.labels.length?i:-1;
 }
 
 // ── Classificação — ranking abertos x fechados ──────────────────────
