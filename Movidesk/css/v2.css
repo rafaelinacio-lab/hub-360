@@ -122,16 +122,6 @@ html[data-ui="v2"] .main-content { padding-top: 12px; }
 html[data-ui="v2"] .embedded-pages-view { height: calc(100vh - 64px - 24px - 16px); background: transparent; }
 html[data-ui="v2"] body.nav-oculta .embedded-pages-view { height: 100vh; }
 
-/* botão "Visual 2.0 / clássico" no topo */
-.ui-toggle {
-  display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 12px; margin-right: 6px;
-  border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted, #64748b);
-  font: 700 11px/1 system-ui, sans-serif; letter-spacing: .04em; cursor: pointer; white-space: nowrap;
-}
-.ui-toggle::before { content: "Visual 2.0"; }
-html[data-ui="v1"] .ui-toggle::before { content: "Experimentar 2.0"; }
-.ui-toggle:hover { color: var(--text, #1e293b); }
-
 /* ═══ Páginas (iframes): Painel Geral e afins ══════════════════════════ */
 html[data-ui="v2"] body { background: var(--bg); color: var(--t1); }
 

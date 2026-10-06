@@ -300,6 +300,6 @@ ainda usa o padrão antigo (expediente lido em UTC, defasado em 3 h) até ser va
 
 ## Visual 2.0
 - `css/v2.css` + `js/ui-version.js`: camada de estilo inspirada no sistema de design do Hub 360 2.0 (fundo quente, navbar flutuante, cards de cantos grandes, controles em pílula, laranja de marca). Só vale com `<html data-ui="v2">`.
-- Padrão: v2. Para voltar ao clássico: `?ui=v1` na URL ou o botão "Visual 2.0 / Experimentar 2.0" no topo (grava `hubUI` no localStorage; as abas em iframe acompanham pelo evento `storage`).
+- O Visual 2.0 é o padrão e único (sem botão de alternância). `js/ui-version.js` só marca `data-ui="v2"` no `<html>`; o visual clássico fica disponível apenas pela branch `main` anterior.
 - Regra de cor: `--brand` (#ff8a2b) para preenchimento; `--brand-text` para laranja em texto. Nas páginas, `--orange` passa a ser o laranja seguro para texto.
 - Fase 1: shell (`index.html`) e Painel Geral (`pages/geral.html`). As demais abas ainda usam o visual clássico (basta incluir `v2.css` e `ui-version.js` e mapear as classes).
