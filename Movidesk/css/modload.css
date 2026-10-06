@@ -1,0 +1,72 @@
+/* Hub 360 — transição entre abas: persiana editorial (fonte: hub360-modload).
+   As variáveis --ink* são ligadas aos tokens do shell (--text, --muted, --hint).
+   Seis colunas descem cobrindo a tela; a porcentagem gigante, o nome do módulo e a lista de etapas
+   aparecem sobre elas; ao terminar as colunas sobem em cascata.
+   Estados no #modload: (nenhum) oculto · .on aberto · .done fechando.
+   --ml-acc é a cor do módulo e data-stage (0–3) a etapa; ambos vêm de modload.js. */
+#modload{--ink:var(--text);--ink-muted:var(--muted);--ink-subtle:var(--hint);--ml-acc:var(--brand);--ml-ease:cubic-bezier(.76,0,.24,1);--ml-gap:clamp(24px,6vw,88px);position:fixed;inset:0;z-index:90;pointer-events:none}
+
+/* persiana */
+.ml-shutter{position:absolute;inset:0;display:grid;grid-template-columns:repeat(6,1fr)}
+.ml-shutter i{background:
+    linear-gradient(180deg,transparent 55%,color-mix(in srgb,var(--ml-acc) 16%,transparent)),
+    color-mix(in srgb,var(--bg) 94%,var(--ml-acc));
+  box-shadow:inset -1px 0 0 color-mix(in srgb,var(--ink) 6%,transparent);
+  transform:scaleY(0);transform-origin:top;
+  transition:transform .55s var(--ml-ease) calc(var(--k)*55ms)}
+#modload.on .ml-shutter i{transform:scaleY(1)}
+#modload.done .ml-shutter i{transform-origin:bottom;transform:scaleY(0);transition-duration:.55s;transition-delay:calc(.2s + var(--k)*45ms)}
+
+/* bloco principal, ancorado no canto inferior esquerdo */
+.ml-body{position:absolute;left:var(--ml-gap);bottom:clamp(56px,13vh,128px);display:grid;gap:10px;color:var(--ink);
+  opacity:0;transform:translateY(18px);transition:opacity .3s ease,transform .3s ease}
+#modload.on .ml-body{opacity:1;transform:none;transition:opacity .5s ease .4s,transform .6s cubic-bezier(.2,.8,.2,1) .4s}
+#modload.done .ml-body{opacity:0;transform:translateY(-14px);transition:opacity .25s ease .05s,transform .3s ease .05s}
+.ml-meta{display:flex;align-items:center;gap:10px;color:var(--ml-acc)}
+.ml-ico{display:grid;place-items:center;width:22px;height:22px}
+.ml-ico svg{width:20px;height:20px;stroke-width:1.6}
+.ml-meta small{font-size:11px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-subtle)}
+.ml-meta small::after{content:"";display:inline-block;width:14px;text-align:left;overflow:hidden;vertical-align:bottom;animation:mlEll 1.2s steps(4,end) infinite}
+@keyframes mlEll{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+
+/* porcentagem gigante e fina */
+.ml-big{font-size:clamp(84px,17vw,230px);font-weight:200;line-height:.82;letter-spacing:-.055em;color:var(--ink);font-variant-numeric:tabular-nums;margin:2px 0 4px -.04em}
+.ml-big sup{font-size:.2em;font-weight:500;letter-spacing:0;vertical-align:top;margin-left:.2em;color:var(--ml-acc)}
+.ml-body b{font-size:clamp(24px,3vw,38px);font-weight:600;letter-spacing:-.025em;line-height:1.05;font-variant-ligatures:none}
+.ml-tag{margin:0;font-size:13px;font-weight:500;color:var(--ink-muted)}
+
+/* lista de etapas à direita: concluída · atual · pendente */
+.ml-list{position:absolute;right:var(--ml-gap);bottom:clamp(56px,13vh,128px);margin:0;padding:0;list-style:none;display:grid;gap:16px;
+  opacity:0;transform:translateX(16px);transition:opacity .3s ease,transform .3s ease}
+#modload.on .ml-list{opacity:1;transform:none;transition:opacity .5s ease .55s,transform .6s cubic-bezier(.2,.8,.2,1) .55s}
+#modload.done .ml-list{opacity:0;transition:opacity .2s ease}
+.ml-list li{display:flex;align-items:center;justify-content:flex-end;gap:12px;font-size:13px;font-weight:500;color:var(--ink-subtle);transition:color .3s}
+.ml-list li::after{content:"";position:relative;width:9px;height:9px;border-radius:50%;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ink) 22%,transparent);transition:background .3s,box-shadow .3s}
+#modload[data-stage="0"] .ml-list li:nth-child(1),
+#modload[data-stage="1"] .ml-list li:nth-child(2),
+#modload[data-stage="2"] .ml-list li:nth-child(3){color:var(--ink);font-weight:700}
+#modload[data-stage="0"] .ml-list li:nth-child(1)::after,
+#modload[data-stage="1"] .ml-list li:nth-child(2)::after,
+#modload[data-stage="2"] .ml-list li:nth-child(3)::after{box-shadow:inset 0 0 0 2px var(--ml-acc),0 0 0 4px color-mix(in srgb,var(--ml-acc) 20%,transparent);animation:mlBeat 1.2s ease-in-out infinite}
+#modload[data-stage="1"] .ml-list li:nth-child(-n+1),
+#modload[data-stage="2"] .ml-list li:nth-child(-n+2),
+#modload[data-stage="3"] .ml-list li{color:var(--ink-muted)}
+#modload[data-stage="1"] .ml-list li:nth-child(-n+1)::after,
+#modload[data-stage="2"] .ml-list li:nth-child(-n+2)::after,
+#modload[data-stage="3"] .ml-list li::after{background:var(--ml-acc);box-shadow:none}
+@keyframes mlBeat{50%{box-shadow:inset 0 0 0 2px var(--ml-acc),0 0 0 7px color-mix(in srgb,var(--ml-acc) 0%,transparent)}}
+
+/* linha de progresso no rodapé */
+.ml-line{position:absolute;inset:auto 0 0;height:3px;background:color-mix(in srgb,var(--ink) 8%,transparent);opacity:0;transition:opacity .3s}
+#modload.on .ml-line{opacity:1;transition-delay:.3s}
+#modload.done .ml-line{opacity:0;transition-delay:.25s}
+.ml-line i{display:block;height:100%;width:0;background:linear-gradient(90deg,color-mix(in srgb,var(--ml-acc) 40%,transparent),var(--ml-acc));box-shadow:0 0 12px color-mix(in srgb,var(--ml-acc) 55%,transparent)}
+
+@media (max-width:720px){
+  .ml-list{display:none}
+  .ml-shutter{grid-template-columns:repeat(3,1fr)}.ml-shutter i:nth-child(n+4){display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .ml-shutter i,.ml-body,.ml-list{transition-duration:.01s!important;transition-delay:0s!important}
+  .ml-meta small::after,.ml-list li::after{animation:none!important}
+}

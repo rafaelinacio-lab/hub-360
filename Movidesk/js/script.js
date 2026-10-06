@@ -48,6 +48,12 @@ function playTabIconTransition(view) {
     if (!main) return;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+    // Visual 2.0: persiana com porcentagem e nome da aba (js/modload.js). O conteúdo da aba já carrega por baixo.
+    if (window.HubModload && window.HubModload.show(view, 760)) {
+        setTimeout(() => window.HubModload.hide(), 1050);
+        return;
+    }
+
     const mainRect = main.getBoundingClientRect();
     const overlay = document.createElement('div');
     overlay.className = 'tab-fx-overlay';
