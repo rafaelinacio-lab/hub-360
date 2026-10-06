@@ -701,7 +701,7 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="geral-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-5">
+    <div class="kpi-grid">
       <div data-tone="orange" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg></span>Tickets abertos</p>
         <div class="kpi-main"><p class="value" id="k-abertos">0</p><span class="kpi-spark" id="sp-abertos"></span></div>
@@ -731,6 +731,16 @@ body.modal-open{overflow:hidden}
         <div class="kpi-main"><p class="value bad" id="k-pendentes">0</p><span class="kpi-spark" id="sp-pendentes"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p></div>
       </div>
+      <div data-tone="yellow" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span>Taxa de reabertura</p>
+        <div class="kpi-main"><p class="value bad" id="k-reabertura">0%</p><span class="kpi-spark" id="sp-reabertura"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-reabertura"></span><p class="legend">Reabertos ÷ resolvidos no período.</p></div>
+      </div>
+      <div data-tone="green" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".6"/></svg></span>Resolução no 1º contato (FCR)</p>
+        <div class="kpi-main"><p class="value good" id="k-fcr">0%</p><span class="kpi-spark" id="sp-fcr"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-fcr"></span><p class="legend">1 ação pública, sem notas internas.</p></div>
+      </div>
     </div>
 
     <div class="hrow c-1">
@@ -746,16 +756,11 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-3">
+    <div class="hrow c-2">
       <div class="chart-panel">
         <p class="chart-title">Por classificação</p>
         <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div></div>
-      </div>
-      <div class="chart-panel">
-        <p class="chart-title">Status dos chamados</p>
-        <p class="chart-sub" style="text-align:left">Distribuição dos tickets do período.</p>
-        <div class="donut-row"><div class="chart-wrap"><canvas id="statusChart"></canvas></div><ul class="donut-leg" id="statusChart-leg"></ul></div>
       </div>
       <div data-tone="red" class="stat-card danger bk-hero">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog já vencido</p>
@@ -861,21 +866,6 @@ body.modal-open{overflow:hidden}
         </table>
       </div>
     </div>
-    </div>
-
-    <p class="section-label">Qualidade da resolução</p>
-    <p class="section-note">FCR considera só tickets resolvidos com exatamente 1 ação pública (sem contar notas internas).</p>
-    <div class="hrow c-2" style="margin-top:0">
-      <div class="stat-card danger">
-        <p class="label">Taxa de reabertura</p>
-        <p class="value bad" id="k-reabertura">0%</p>
-        <p class="legend">Tickets reabertos ÷ resolvidos no período.</p>
-      </div>
-      <div class="stat-card success">
-        <p class="label">Resolução no 1º contato (FCR)</p>
-        <p class="value good" id="k-fcr">0%</p>
-        <p class="legend">1 ação pública, sem contar notas internas.</p>
-      </div>
     </div>
   </div>
 </div>
@@ -1623,7 +1613,6 @@ function render(){
 
   renderClassChart(rowsFull);
   renderKpiExtras();
-  renderStatusChart(rowsFull);
   renderBacklogLista(vencidosRows);
   renderPico(rowsFull);
   renderRecentes(rowsFull);
@@ -2535,11 +2524,13 @@ function renderKpiExtras(){
     media:    meses.map(mk=>{ const l=por('criado_em',mk); return l.length?l.reduce((a,r)=>a+Number(r.acoes_count||0),0)/l.length:0; }),
     clientes: meses.map(mk=>new Set(por('criado_em',mk).map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size),
     pendentes:meses.map(mk=>rows.filter(r=>pendenteEmMes(r,mk)).length),
+    reabertura:meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isReaberto).length/l.length*100:null; }),
+    fcr:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isFCR).length/l.length*100:null; }),
     sla:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido).filter(temPrazo); return l.length?l.filter(isNoPrazo).length/l.length*100:null; }),
   };
   // tom da variação: 'bom' | 'ruim' | 'neutro' conforme o que a mudança significa para o negócio
-  const sentido={abertos:0,resolvidos:1,media:-1,clientes:0,pendentes:-1,sla:1};
-  const cor={abertos:'#ff8a2b',resolvidos:'#2fbf8a',media:'#4f9cf0',clientes:'#e9b730',pendentes:'#ee6f82',sla:'#2fbf8a'};
+  const sentido={abertos:0,resolvidos:1,media:-1,clientes:0,pendentes:-1,sla:1,reabertura:-1,fcr:1};
+  const cor={abertos:'#ff8a2b',resolvidos:'#2fbf8a',media:'#4f9cf0',clientes:'#e9b730',pendentes:'#ee6f82',sla:'#2fbf8a',reabertura:'#e9b730',fcr:'#2fbf8a'};
   const f1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
   Object.keys(serie).forEach(k=>{
     const sp=document.getElementById('sp-'+k), dl=document.getElementById('dl-'+k); if(!sp||!dl) return;
@@ -2555,7 +2546,7 @@ function renderKpiExtras(){
     const a=v[v.length-1], b=v[v.length-2];
     if(a==null||b==null){ dl.innerHTML=''; return; }
     const d=a-b;
-    let txt; if(k==='sla') txt=`${f1(Math.abs(d))} pp`; else if(k==='media') txt=f1(Math.abs(d)); else txt=b?`${f1(Math.abs(d/b*100))}%`:`${Math.abs(d).toLocaleString('pt-BR')}`;
+    let txt; if(k==='sla'||k==='reabertura'||k==='fcr') txt=`${f1(Math.abs(d))} pp`; else if(k==='media') txt=f1(Math.abs(d)); else txt=b?`${f1(Math.abs(d/b*100))}%`:`${Math.abs(d).toLocaleString('pt-BR')}`;
     const seta=d>0?'▲':d<0?'▼':'=';
     const tom=d===0||!sentido[k]?'neutro':((d>0)===(sentido[k]>0)?'bom':'ruim');
     dl.className='kpi-delta '+tom;

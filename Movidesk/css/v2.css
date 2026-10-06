@@ -203,6 +203,16 @@ html[data-ui="v2"] .donut-leg .n { flex: 1; min-width: 0; white-space: nowrap; o
 html[data-ui="v2"] .donut-leg .v { flex: none; color: var(--t2); font-variant-numeric: tabular-nums; }
 html[data-ui="v2"] .kpi-spark:empty { display: none; }
 
+/* grade dos KPIs: 7 numa linha em telas largas, 4 + 3 em médias, 2 em estreitas */
+html[data-ui="v2"] .kpi-grid { display: grid; gap: 16px; grid-template-columns: repeat(7, minmax(0,1fr)); }
+@media (max-width:1400px){ html[data-ui="v2"] .kpi-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+@media (max-width:760px){ html[data-ui="v2"] .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+html[data-ui="v2"] .kpi-grid .stat-card { padding: 16px 16px 14px; }
+html[data-ui="v2"] .kpi-grid .stat-card .value { font-size: 30px; line-height: 34px; }
+html[data-ui="v2"] .kpi-grid .kpi-spark svg { width: 64px; height: 30px; }
+html[data-ui="v2"] .kpi-grid .kpi-ico { width: 34px; height: 34px; border-radius: 12px; }
+html[data-ui="v2"] .kpi-grid .sla-ring { width: 46px; height: 46px; }
+
 /* ─── KPIs (cards de totais): ícone em tile, número grande, sparkline e variação ─── */
 html[data-ui="v2"] .stat-card { --tone: #ff8a2b; --tone-ink: #a84300; padding: 18px 20px 16px; }
 html[data-ui="v2"] .stat-card[data-tone="green"]  { --tone: #2fbf8a; --tone-ink: #0b7a55; }
