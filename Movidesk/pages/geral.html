@@ -360,6 +360,9 @@ input,select{font-family:inherit}
 #janela-banner button:hover{background:var(--surface3,var(--hover,rgba(128,128,128,.1)))}
 #janela-banner button:disabled{opacity:.6;cursor:default}
 
+/* KPIs do Visual 2.0: ícone, sparkline e variação (escondidos no visual clássico) */
+.kpi-ico,.kpi-spark,.kpi-delta{display:none}
+.kpi-main,.kpi-foot{display:block}
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -634,43 +637,43 @@ body.modal-open{overflow:hidden}
   <div class="dash-wrap" id="geral-dash">
     <p class="section-label">Totais do período</p>
     <div class="grid-5">
-      <div class="stat-card">
-        <p class="label">Tickets abertos</p>
-        <p class="value" id="k-abertos">0</p>
-        <p class="legend">Total criados no período.</p>
+      <div data-tone="orange" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg></span>Tickets abertos</p>
+        <div class="kpi-main"><p class="value" id="k-abertos">0</p><span class="kpi-spark" id="sp-abertos"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-abertos"></span><p class="legend">Total criados no período.</p></div>
       </div>
-      <div class="stat-card">
-        <p class="label">Tickets resolvidos</p>
-        <p class="value" id="k-resolvidos">0</p>
-        <p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p>
+      <div data-tone="green" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span>Tickets resolvidos</p>
+        <div class="kpi-main"><p class="value" id="k-resolvidos">0</p><span class="kpi-spark" id="sp-resolvidos"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p></div>
       </div>
-      <div class="stat-card">
-        <p class="label">Média de ações/ticket</p>
-        <p class="value" id="k-media-acoes">0</p>
-        <p class="legend">Trocas até o fechamento.</p>
+      <div data-tone="blue" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a2 2 0 0 1 2-2h16"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a2 2 0 0 1-2 2H3"/></svg></span>Média de ações/ticket</p>
+        <div class="kpi-main"><p class="value" id="k-media-acoes">0</p><span class="kpi-spark" id="sp-media"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-media"></span><p class="legend">Trocas até o fechamento.</p></div>
       </div>
-      <div class="stat-card">
-        <p class="label">Clientes únicos</p>
-        <p class="value" id="k-clientes">0</p>
-        <p class="legend">Base ativa de solicitantes.</p>
+      <div data-tone="yellow" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>Clientes únicos</p>
+        <div class="kpi-main"><p class="value" id="k-clientes">0</p><span class="kpi-spark" id="sp-clientes"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-clientes"></span><p class="legend">Base ativa de solicitantes.</p></div>
       </div>
-      <div class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
-        <p class="label">Tickets pendentes</p>
-        <p class="value bad" id="k-pendentes">0</p>
-        <p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p>
+      <div data-tone="red" class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tickets pendentes</p>
+        <div class="kpi-main"><p class="value bad" id="k-pendentes">0</p><span class="kpi-spark" id="sp-pendentes"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p></div>
       </div>
     </div>
 
     <div class="grid-2" style="margin-top:14px">
-      <div class="stat-card danger">
-        <p class="label">SLA cumprido (resolvidos)</p>
-        <p class="value bad" id="k-sla-cumprido">0%</p>
-        <p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p>
+      <div data-tone="green" class="stat-card danger">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA cumprido (resolvidos)</p>
+        <div class="kpi-main"><p class="value bad" id="k-sla-cumprido">0%</p><span class="kpi-spark" id="sp-sla"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-sla"></span><p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p></div>
       </div>
-      <div class="stat-card danger clickable" onclick="openVencidosModal()">
-        <p class="label">Backlog já vencido</p>
-        <p class="value bad" id="k-backlog-vencido">0</p>
-        <p class="legend" id="k-backlog-vencido-legend">Prazo de SLA já passado. Clique pra ver.</p>
+      <div data-tone="red" class="stat-card danger clickable" onclick="openVencidosModal()">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog já vencido</p>
+        <div class="kpi-main"><p class="value bad" id="k-backlog-vencido">0</p><span class="kpi-spark" id="sp-vencido"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-vencido"></span><p class="legend" id="k-backlog-vencido-legend">Prazo de SLA já passado. Clique pra ver.</p></div>
       </div>
     </div>
 
@@ -1540,6 +1543,7 @@ function render(){
   document.getElementById('k-fcr').textContent=fmtPct(taxaFcr);
 
   renderClassChart(rowsFull);
+  renderKpiExtras();
   renderTrendChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
@@ -2329,6 +2333,48 @@ function blocoVar({nome,cor,valor,v,ant,altoEhBom,unid,pp,refTxt}){
     <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>${tem||ant!=null?`Anterior: ${ant==null?'—':pp?f(ant)+'%':ant.toLocaleString('pt-BR')}`:''}</span></div>
     <div class="tv-tip-sub"><span></span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${tem?`${dir} ${sinal}${varTxt} vs. ${refTxt}`:''}</span></div>
   </div>`;
+}
+// ── KPIs: série mensal (sparkline) e variação do último mês fechado vs. o anterior ──
+function renderKpiExtras(){
+  const rows=_rowsCtx||[]; if(!rows.length) return;
+  const agora=monthKeyOf(new Date());
+  const ks=new Set(); rows.forEach(r=>{ if(r.criado_em) ks.add(monthKeyOf(r.criado_em)); });
+  const todos=[...ks].filter(k=>k<agora).sort();               // só meses fechados
+  const meses=todos.slice(-8);
+  const por=(campo,mk)=>rows.filter(r=>r[campo]&&monthKeyOf(r[campo])===mk);
+  const serie={
+    abertos:  meses.map(mk=>por('criado_em',mk).length),
+    resolvidos:meses.map(mk=>por('resolvido_em',mk).filter(isResolvido).length),
+    media:    meses.map(mk=>{ const l=por('criado_em',mk); return l.length?l.reduce((a,r)=>a+Number(r.acoes_count||0),0)/l.length:0; }),
+    clientes: meses.map(mk=>new Set(por('criado_em',mk).map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size),
+    pendentes:meses.map(mk=>rows.filter(r=>pendenteEmMes(r,mk)).length),
+    sla:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido).filter(temPrazo); return l.length?l.filter(isNoPrazo).length/l.length*100:null; }),
+  };
+  // tom da variação: 'bom' | 'ruim' | 'neutro' conforme o que a mudança significa para o negócio
+  const sentido={abertos:0,resolvidos:1,media:-1,clientes:0,pendentes:-1,sla:1};
+  const cor={abertos:'#ff8a2b',resolvidos:'#2fbf8a',media:'#4f9cf0',clientes:'#e9b730',pendentes:'#ee6f82',sla:'#2fbf8a'};
+  const f1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
+  Object.keys(serie).forEach(k=>{
+    const sp=document.getElementById('sp-'+k), dl=document.getElementById('dl-'+k); if(!sp||!dl) return;
+    const v=serie[k].map(x=>x==null?null:x), ok=v.filter(x=>x!=null);
+    if(ok.length<2){ sp.innerHTML=''; dl.innerHTML=''; return; }
+    // sparkline
+    const W=110,H=34,mn=Math.min(...ok),mx=Math.max(...ok),span=(mx-mn)||1;
+    const pts=v.map((x,i)=>x==null?null:[i/(v.length-1)*W,H-3-((x-mn)/span)*(H-8)]).filter(Boolean);
+    const linha=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    const gid='spg-'+k;
+    sp.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cor[k]}" stop-opacity=".28"/><stop offset="1" stop-color="${cor[k]}" stop-opacity="0"/></linearGradient></defs><path d="${linha} L${W} ${H} L0 ${H} Z" fill="url(#${gid})"/><path d="${linha}" fill="none" stroke="${cor[k]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    // variação: último mês fechado x anterior
+    const a=v[v.length-1], b=v[v.length-2];
+    if(a==null||b==null){ dl.innerHTML=''; return; }
+    const d=a-b;
+    let txt; if(k==='sla') txt=`${f1(Math.abs(d))} pp`; else if(k==='media') txt=f1(Math.abs(d)); else txt=b?`${f1(Math.abs(d/b*100))}%`:`${Math.abs(d).toLocaleString('pt-BR')}`;
+    const seta=d>0?'▲':d<0?'▼':'=';
+    const tom=d===0||!sentido[k]?'neutro':((d>0)===(sentido[k]>0)?'bom':'ruim');
+    dl.className='kpi-delta '+tom;
+    dl.title=`${rotuloMesCurto(meses[meses.length-1]).toUpperCase()} contra ${rotuloMesCurto(meses[meses.length-2]).toUpperCase()} (último mês fechado)`;
+    dl.textContent=d===0?'= estável':`${seta} ${txt}`;
+  });
 }
 function respDetalheHtml(nome){
   const rows=_rowsCtx.filter(r=>(r.responsavel||'Não informado')===nome);
