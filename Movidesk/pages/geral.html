@@ -616,19 +616,20 @@ body.modal-open{overflow:hidden}
           <span class="sym">tv</span>Painel TV
         </button>
       </div>
-      <div class="vbar"></div>
-      <button class="btn-refresh" id="btn-atualizar" onclick="loadGeral()">
+      <div class="topbar-acoes">
+      <button class="btn-refresh" title="Atualizar os dados" aria-label="Atualizar os dados" id="btn-atualizar" onclick="loadGeral()">
         <span class="sym">refresh</span>Atualizar
       </button>
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar tickets
       </button>
-      <button class="btn-refresh" onclick="openChamadoListagemModal()">
+      <button class="btn-refresh" title="Chamado Listagem" aria-label="Chamado Listagem" onclick="openChamadoListagemModal()">
         <span class="sym">list_alt</span>Chamado Listagem
       </button>
-      <button class="btn-refresh" onclick="openExportModal()">
+      <button class="btn-refresh" title="Exportar" aria-label="Exportar" onclick="openExportModal()">
         <span class="sym">download</span>Exportar
       </button>
+      </div>
     </div>
     <div class="topbar-filters">
       <div class="multi-sel" id="f-equipe">

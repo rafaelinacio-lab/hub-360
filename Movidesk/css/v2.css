@@ -126,9 +126,31 @@ html[data-ui="v2"] body.nav-oculta .embedded-pages-view { height: 100vh; }
 html[data-ui="v2"] body { background: var(--bg); color: var(--t1); }
 
 /* cabeçalho da página flutua como cartão, sem faixa de borda */
-html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-in { gap: 10px 12px; height: auto; min-height: 56px; flex-wrap: wrap; padding: 4px 0; }
-html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-in .btn-refresh, html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-in .btn-sync { flex-shrink: 0; }
-html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-sub { flex: 0 1 auto; min-width: 0; white-space: normal; max-width: 280px; line-height: 1.25; }
+/* cabeçalho das páginas: título à esquerda; abas e ações à direita; quebra de linha limpa em telas menores */
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; height: auto; min-height: 52px; padding: 4px 0; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-logo { flex: 0 0 auto; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-sub { flex: 1 1 160px; min-width: 0; white-space: normal; line-height: 1.25; max-width: 300px; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .md-tabs { flex: 0 0 auto; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-acoes { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-acoes .btn-refresh { font-size: 0; gap: 0; padding: 0; width: 40px; height: 40px; justify-content: center; align-items: center; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-acoes .btn-refresh .sym { font-size: 19px; width: 19px; overflow: hidden; white-space: nowrap; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-acoes .btn-sync { height: 40px; padding: 0 16px; white-space: nowrap; }
+html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-in > span[style*="margin-left:auto"] { flex: 1 1 0; min-width: 0; }
+@media (max-width: 1500px) { html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-sub { display: none; } }
+@media (max-width: 1100px) {
+  html[data-ui="v2"] :is(#geral-page,#sat-page) .md-tab { font-size: 0; gap: 0; padding: 8px 12px; }
+  html[data-ui="v2"] :is(#geral-page,#sat-page) .md-tab .sym { font-size: 18px; width: 18px; overflow: hidden; white-space: nowrap; }
+  html[data-ui="v2"] :is(#geral-page,#sat-page) .md-tab.active { font-size: 12.5px; gap: 6px; }
+  html[data-ui="v2"] :is(#geral-page,#sat-page) .md-tab.active .sym { font-size: 16px; width: 16px; }
+}
+@media (max-width: 640px) {
+  html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-acoes .btn-sync { font-size: 0; gap: 0; width: 40px; padding: 0; justify-content: center; }
+  html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-acoes .btn-sync .sym { font-size: 19px; }
+}
+/* filtros compactos */
+html[data-ui="v2"] .topbar-filters { gap: 8px; }
+html[data-ui="v2"] .ms-btn { padding: 7px 12px; font-size: 12px; min-width: 0; }
+html[data-ui="v2"] .topbar-filters .btn-refresh { padding: 7px 12px; font-size: 12px; }
 html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar { background: var(--bg); border-bottom: none; padding: 14px 24px 8px; z-index: 150; box-shadow: 0 10px 14px -12px rgba(0,0,0,.18); }
 html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-logo { font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: var(--t1); }
 html[data-ui="v2"] :is(#geral-page,#sat-page) .topbar-logo .sym { color: var(--brand-text); }
