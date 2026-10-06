@@ -2340,8 +2340,6 @@ function respDetalheHtml(nome){
   const slaDe=l=>{ const c=l.filter(temPrazo); return {ok:c.filter(isNoPrazo).length,total:c.length}; };
   const sA=slaDe(A.rs), sB=B?slaDe(B.rs):null;
   const pA=sA.total?sA.ok/sA.total*100:null, pB=sB&&sB.total?sB.ok/sB.total*100:null;
-  const cartA=rows.filter(r=>pendenteEmMes(r,P.ultimaM)).length;
-  const cartB=B&&P.ultimaN?rows.filter(r=>pendenteEmMes(r,P.ultimaN)).length:null;
   const pend=rows.filter(isAberto), venc=pend.filter(isVencido).length;
   const azul=document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb';
   const urg=[['Crítica','#f87171'],['Alta',cssVar('--orange')],['Média',cssVar('--green')],['Baixa',azul]];
@@ -2356,14 +2354,13 @@ function respDetalheHtml(nome){
     blocoVar({nome:'Abertos',cor:cssVar('--orange'),valor:`${A.ab.length.toLocaleString('pt-BR')} tickets`,v:A.ab.length,ant:B?B.ab.length:null,altoEhBom:false,unid:'ticket',refTxt})+
     blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.rs.length.toLocaleString('pt-BR')} tickets`,v:A.rs.length,ant:B?B.rs.length:null,altoEhBom:true,unid:'ticket',refTxt})+
     blocoVar({nome:'SLA cumprido',cor:cssVar('--green'),valor:pA==null?'—':`${pA.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${sA.ok}/${sA.total}`,v:pA,ant:pB,altoEhBom:true,pp:true,refTxt})+
-    blocoVar({nome:'Carteira (abertos no fim do período)',cor:azul,valor:`${cartA.toLocaleString('pt-BR')} tickets`,v:cartA,ant:cartB,altoEhBom:false,unid:'ticket',refTxt})+
     `<div class="sec">Abertos por urgência</div>${porUrg}
     <div class="tv-tip-foot" style="margin-top:6px">Hoje: <b>${pend.length.toLocaleString('pt-BR')}</b> pendentes, <b class="${venc?'tv-ruim':''}">${venc.toLocaleString('pt-BR')}</b> com prazo de SLA vencido.</div>
     <div class="acoes"><button class="btn-refresh" type="button" data-ver="${escAttr(nome)}"><span class="sym">list_alt</span>Ver os tickets do período</button></div>`;
 }
 function respMostrar(nome){
   const box=document.getElementById('resp-detalhe'); if(!box) return;
-  box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, no período dos filtros, o que ele abriu e resolveu, o SLA cumprido e a carteira, comparado com o período anterior.<br>Clique para fixar o detalhe.</div>';
+  box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, no período dos filtros, o que ele abriu e resolveu, o SLA cumprido, comparado com o período anterior.<br>Clique para fixar o detalhe.</div>';
 }
 function renderRespChart(rows){
   const box=document.getElementById('respChart'); if(!box) return;
@@ -2665,7 +2662,7 @@ const INFO_CARDS={
     c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
   'respChart':{t:'Responsáveis por volume',
     o:'Os 15 responsáveis com mais tickets abertos no período, com o detalhe de cada um.',
-    c:['Respeita os filtros do topo (equipe, cliente, serviço, classificação, status, ano e mês).','Abertos = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe ao lado; clique para fixar e clique de novo para soltar.','O detalhe usa o MESMO período da lista e compara com o anterior: com Ano e Mês marcados, o mês anterior; só com um Ano, os mesmos meses do ano anterior (se estiverem carregados); nos demais casos não há comparação. Mostra abertos, resolvidos, SLA cumprido (em pontos percentuais), carteira (abertos no fim do período) e abertos por urgência.']},
+    c:['Respeita os filtros do topo (equipe, cliente, serviço, classificação, status, ano e mês).','Abertos = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe ao lado; clique para fixar e clique de novo para soltar.','O detalhe usa o MESMO período da lista e compara com o anterior: com Ano e Mês marcados, o mês anterior; só com um Ano, os mesmos meses do ano anterior (se estiverem carregados); nos demais casos não há comparação. Mostra abertos, resolvidos, SLA cumprido (em pontos percentuais) e abertos por urgência.']},
   'tbl-equipes-vencido':{t:'Equipes com maior % de backlog vencido',
     o:'Em quais equipes o backlog pendente está mais atrasado.',
     c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Mostra as 10 equipes com maior %; em destaque quando passa de 30%.','Clique numa equipe para ver os tickets vencidos.']},
