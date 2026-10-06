@@ -364,6 +364,44 @@ input,select{font-family:inherit}
 .kpi-ico,.kpi-spark,.kpi-delta{display:none}
 .kpi-main,.kpi-foot{display:block}
 .sla-ring svg,.sla-ring small,.sla-acoes{display:none}
+/* linhas do painel (composição do Hub 360 2.0) */
+.hrow{display:grid;gap:14px;margin-top:14px;align-items:stretch}
+.hrow.c-1{grid-template-columns:minmax(0,1fr)}
+.hrow.c-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hrow.c-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hrow.c-4-8{grid-template-columns:minmax(0,4fr) minmax(0,8fr)}
+.hrow.c-8-4{grid-template-columns:minmax(0,8fr) minmax(0,4fr)}
+@media (max-width:1180px){.hrow.c-3,.hrow.c-4-8,.hrow.c-8-4{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.hrow.c-2{grid-template-columns:minmax(0,1fr)}}
+.hrow>.chart-panel,.hrow>.data-panel,.hrow>.stat-card{margin:0}
+/* horários de pico */
+.pico{display:grid;grid-template-columns:34px repeat(13,minmax(0,1fr));gap:4px;align-items:center;font-size:11px;color:var(--t3);font-weight:700}
+.pico .h{text-align:center}
+.pico .d{padding-right:4px}
+.pico .c{height:30px;border-radius:8px;border:0;padding:0;cursor:pointer;background:var(--surface-low)}
+.pico .c:hover{outline:2px solid var(--brand,var(--orange));outline-offset:1px}
+/* chamados recentes */
+.rec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.rec-lista{display:flex;flex-direction:column;gap:8px}
+.rec-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:transparent;text-align:left;width:100%;cursor:pointer;color:inherit}
+.rec-item:hover{background:var(--surface-low)}
+.rec-av{flex:none;width:34px;height:34px;border-radius:12px;background:var(--surface-low);color:var(--t2);display:grid;place-items:center;font-size:11.5px;font-weight:800}
+.rec-tx{min-width:0;flex:1}
+.rec-tx b{display:block;font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-tx small{display:block;font-size:11.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-tx small i{font-style:normal;font-weight:800;color:var(--orange)}
+.st-badge{flex:none;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:var(--surface-low);color:var(--t2);white-space:nowrap}
+.st-badge.info{background:var(--info-soft,#dcebfb);color:var(--info,#0b5fb8)}
+.st-badge.warn{background:var(--warning-soft,#fbf0cc);color:var(--warning,#7a5a00)}
+.st-badge.ok{background:var(--success-soft,#dcf4ea);color:var(--success,#0b7a55)}
+.rec-vazio,.bk-vazio{color:var(--t3);font-size:12.5px;padding:18px 4px;text-align:center}
+/* backlog vencido: lista dos mais atrasados */
+.bk-lista{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.bk-item{display:flex;align-items:center;gap:10px;background:transparent;border:0;padding:5px 0;text-align:left;color:inherit;cursor:pointer;width:100%;font-size:13px;font-weight:700}
+.bk-item i{flex:none;width:8px;height:8px;border-radius:50%;background:#ee6f82}
+.bk-item .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-item .r{flex:none;opacity:.75;font-weight:600}
+.bk-acoes{display:none}
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -665,7 +703,7 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="grid-2" style="margin-top:14px">
+    <div class="hrow c-4-8">
       <div data-tone="green" class="stat-card danger sla-hero">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA cumprido (resolvidos)</p>
         <div class="kpi-main">
@@ -680,40 +718,47 @@ body.modal-open{overflow:hidden}
           <div class="sla-acoes"><button type="button" class="sla-btn prim" onclick="openStatusModal('aberto')">Ver pendentes</button><button type="button" class="sla-btn" onclick="openVencidosModal()">Ver vencidos</button></div>
         </div>
       </div>
-      <div data-tone="red" class="stat-card danger clickable" onclick="openVencidosModal()">
+      <div class="chart-panel">
+        <div class="tv-head">
+          <div>
+            <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 2px">Evolução mensal: abertos vs resolvidos</p>
+            <p class="chart-sub" style="text-align:left;margin:0">Abertura (data de criação) e resolução (data de resolução) por mês, com o saldo acumulado.</p>
+          </div>
+        </div>
+        <div class="tv-legend" id="trend-legend"></div>
+        <div class="chart-wrap" style="height:340px"><canvas id="trendVolChart"></canvas><div class="tv-tip" id="trend-tip"></div></div>
+      </div>
+    </div>
+
+    <div class="hrow c-3">
+      <div class="chart-panel">
+        <p class="chart-title">Por classificação</p>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
+        <div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Tickets por urgência</p>
+        <p class="chart-sub" style="text-align:left">Distribuição dos tickets abertos no período.</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="urgChart"></canvas></div>
+      </div>
+      <div data-tone="red" class="stat-card danger bk-hero">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog já vencido</p>
         <div class="kpi-main"><p class="value bad" id="k-backlog-vencido">0</p><span class="kpi-spark" id="sp-vencido"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-vencido"></span><p class="legend" id="k-backlog-vencido-legend">Prazo de SLA já passado. Clique pra ver.</p></div>
+        <div class="bk-lista" id="bk-lista"></div>
+        <div class="bk-acoes"><button type="button" class="sla-btn prim" onclick="openVencidosModal()">Ver vencidos</button><button type="button" class="sla-btn" onclick="document.getElementById('tbl-equipes-vencido').scrollIntoView({behavior:'smooth',block:'center'})">Ver por equipe</button></div>
       </div>
     </div>
 
-    <p class="section-label">Classificação — ranking abertos x fechados</p>
-    <p class="chart-sub">Cinza = abertos · laranja = fechados</p>
-    <div class="chart-panel">
-      <div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div>
-    </div>
-
-    <p class="section-label">Tendência de aberturas e resoluções</p>
-    <div class="chart-panel">
-      <div class="tv-head">
-        <div>
-          <p class="tv-eyebrow">Análise de volume</p>
-          <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 6px">Evolução mensal: abertos vs resolvidos</p>
-        </div>
-      </div>
-      <div class="tv-legend" id="trend-legend"></div>
-      <div class="chart-wrap" style="height:340px"><canvas id="trendVolChart"></canvas><div class="tv-tip" id="trend-tip"></div></div>
-    </div>
-
-    <div class="chart-panel" style="margin-top:14px">
+    <div class="hrow c-2">
+      <div class="chart-panel">
       <p class="tv-eyebrow">Análise de urgência</p>
       <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal por urgência</p>
       <p class="chart-sub" style="text-align:left;margin:0 0 10px">Tickets abertos em cada mês (data de criação), por urgência. Passe sobre um mês para comparar com o anterior.</p>
       <div class="tv-legend" id="urgtrend-legend" style="justify-content:flex-end"></div>
       <div class="chart-wrap" style="height:340px"><canvas id="urgTrendChart"></canvas><div class="tv-tip" id="urgtrend-tip"></div></div>
     </div>
-
-    <div class="chart-panel" style="margin-top:14px" id="sla-evo-panel">
+      <div class="chart-panel" id="sla-evo-panel">
       <div class="sl-head">
         <div>
           <p class="tv-eyebrow">Visão global de desempenho</p>
@@ -731,8 +776,10 @@ body.modal-open{overflow:hidden}
       </div>
       <p class="chart-sub" style="text-align:left;margin:8px 0 0" id="sla-evo-status"></p>
     </div>
+    </div>
 
-    <div class="chart-panel" style="margin-top:14px" id="impacto-panel">
+    <div class="hrow c-1">
+      <div class="chart-panel" id="impacto-panel">
       <p class="tv-eyebrow">Análise causal global</p>
       <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Impacto mensal de SLA por ticket</p>
       <p class="chart-sub" style="text-align:left;margin:0 0 10px">Identifique os chamados que mais puxaram a média global do mês para cima ou para baixo.</p>
@@ -740,34 +787,40 @@ body.modal-open{overflow:hidden}
       <div class="imp-top"><div class="imp-kpis" id="impacto-kpis"></div></div>
       <div id="impacto-corpo"></div>
     </div>
-
-    <p class="section-label">Envelhecimento do backlog</p>
-    <div class="chart-panel">
-      <p class="chart-title">Tempo em aberto por faixa de dias (só tickets pendentes)</p>
-      <div class="chart-wrap" style="height:190px"><canvas id="agingChart"></canvas></div>
     </div>
 
-    <p class="section-label">Composição</p>
-    <div class="grid-2">
+    <div class="hrow c-3">
+      <div class="chart-panel">
+        <p class="chart-title">Envelhecimento do backlog</p>
+        <p class="chart-sub" style="text-align:left">Tempo em aberto por faixa de dias (só pendentes).</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="agingChart"></canvas></div>
+      </div>
       <div class="chart-panel">
         <p class="chart-title">Volume por equipe</p>
-        <p class="chart-sub">Cinza = abertos · laranja = resolvidos</p>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
         <div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Tickets por urgência</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="urgChart"></canvas></div>
+        <p class="chart-title">SLA por urgência</p>
+        <p class="chart-sub" style="text-align:left">% cumprido no prazo, por nível de urgência.</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="slaUrgChart"></canvas></div>
       </div>
     </div>
 
-    <p class="section-label">Ranking</p>
-    <div class="grid-2">
-      <div class="chart-panel" style="grid-column:1/-1">
-        <p class="chart-title">Top clientes por volume</p>
-        <p class="chart-sub">Cinza = abertos · laranja = resolvidos</p>
-        <div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div>
+    <div class="hrow c-8-4">
+      <div class="chart-panel" id="pico-panel">
+        <p class="chart-title">Horários de pico</p>
+        <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador). Clique numa célula para ver os chamados.</p>
+        <div class="pico" id="pico-grid"></div>
       </div>
-      <div class="chart-panel" id="resp-panel" style="grid-column:1/-1">
+      <div class="chart-panel" id="recentes-panel">
+        <div class="rec-head"><p class="chart-title" style="margin:0">Chamados recentes</p><button type="button" class="btn-refresh" onclick="openChamadoListagemModal()">Ver todos</button></div>
+        <div class="rec-lista" id="rec-lista"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel" id="resp-panel">
         <p class="chart-title">Responsáveis por volume</p>
         <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Passe o mouse sobre um colaborador para ver o detalhe do mês; clique para fixar.</p>
         <div class="rsp-wrap">
@@ -777,8 +830,13 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <p class="section-label">Ação</p>
-    <div class="data-panel danger">
+    <div class="hrow c-2">
+      <div class="chart-panel">
+        <p class="chart-title">Clientes com mais chamados</p>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
+        <div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div>
+      </div>
+      <div class="data-panel danger">
       <p class="panel-title">Equipes com maior % de backlog vencido</p>
       <div class="dtable-wrap">
         <table class="dtable">
@@ -787,10 +845,11 @@ body.modal-open{overflow:hidden}
         </table>
       </div>
     </div>
+    </div>
 
     <p class="section-label">Qualidade da resolução</p>
     <p class="section-note">FCR considera só tickets resolvidos com exatamente 1 ação pública (sem contar notas internas).</p>
-    <div class="grid-2">
+    <div class="hrow c-2" style="margin-top:0">
       <div class="stat-card danger">
         <p class="label">Taxa de reabertura</p>
         <p class="value bad" id="k-reabertura">0%</p>
@@ -801,12 +860,6 @@ body.modal-open{overflow:hidden}
         <p class="value good" id="k-fcr">0%</p>
         <p class="legend">1 ação pública, sem contar notas internas.</p>
       </div>
-    </div>
-
-    <p class="section-label">SLA por urgência</p>
-    <div class="chart-panel">
-      <p class="chart-title">% cumprido no prazo, por nível de urgência</p>
-      <div class="chart-wrap" style="height:190px"><canvas id="slaUrgChart"></canvas></div>
     </div>
   </div>
 </div>
@@ -1555,6 +1608,9 @@ function render(){
 
   renderClassChart(rowsFull);
   renderKpiExtras();
+  renderBacklogLista(vencidosRows);
+  renderPico(rowsFull);
+  renderRecentes(rowsFull);
   renderTrendChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
@@ -1575,7 +1631,7 @@ function cssVar(name){ return getComputedStyle(document.documentElement).getProp
 function chartColors(){
   return {
     t1:cssVar('--t1'), t2:cssVar('--t2'), t3:cssVar('--t3'), border:cssVar('--border'),
-    orange:cssVar('--orange'), green:cssVar('--green'), purple:cssVar('--purple'), slate:cssVar('--slate'),
+    orange:(cssVar('--orange-fill')||cssVar('--orange')), green:cssVar('--green'), purple:cssVar('--purple'), slate:cssVar('--slate'),
   };
 }
 function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
@@ -2345,6 +2401,62 @@ function blocoVar({nome,cor,valor,v,ant,altoEhBom,unid,pp,refTxt}){
     <div class="tv-tip-sub"><span></span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${tem?`${dir} ${sinal}${varTxt} vs. ${refTxt}`:''}</span></div>
   </div>`;
 }
+// ── Backlog vencido: os 3 mais atrasados ───────────────────────────────
+function renderBacklogLista(vencidos){
+  const el=document.getElementById('bk-lista'); if(!el) return;
+  if(!vencidos.length){ el.innerHTML='<p class="bk-vazio">Nenhum chamado com prazo vencido.</p>'; return; }
+  const top=vencidos.slice().sort((a,b)=>new Date(a.sla_solucao)-new Date(b.sla_solucao)).slice(0,3);
+  top.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+  el.innerHTML=top.map(r=>`<button type="button" class="bk-item" title="${escAttr(r.assunto||'')} · vencido há ${diasVencido(r)} dia(s)" onclick="openTicketModal('${escAttr(r.ticket_id)}')"><i></i><span class="t">${esc(r.assunto||'Sem assunto')}</span><span class="r">${esc((r.responsavel||'—').split(' ')[0])}</span></button>`).join('');
+}
+
+// ── Horários de pico: aberturas por dia da semana x hora ───────────────
+const PICO_H0=7, PICO_H1=19, PICO_DIAS=[[1,'Seg'],[2,'Ter'],[3,'Qua'],[4,'Qui'],[5,'Sex'],[6,'Sáb'],[0,'Dom']];
+function renderPico(rows){
+  const box=document.getElementById('pico-grid'); if(!box) return;
+  const n=PICO_H1-PICO_H0+1;
+  const m={}; PICO_DIAS.forEach(([d])=>{ m[d]=Array(n).fill(0); });
+  let max=0;
+  rows.forEach(r=>{ if(!r.criado_em) return; const d=new Date(r.criado_em), h=d.getHours(); if(h<PICO_H0||h>PICO_H1) return; const v=++m[d.getDay()][h-PICO_H0]; if(v>max) max=v; });
+  if(!max){ box.style.display='block'; box.innerHTML='<p class="rec-vazio">Sem aberturas no período.</p>'; return; }
+  box.style.display='';
+  let h='<span></span>'+Array.from({length:n},(_,i)=>`<span class="h">${PICO_H0+i}h</span>`).join('');
+  PICO_DIAS.forEach(([d,nome])=>{
+    h+=`<span class="d">${nome}</span>`+m[d].map((v,i)=>{
+      const pct=Math.round(v/max*100);
+      return `<button type="button" class="c" title="${nome} ${PICO_H0+i}h: ${v.toLocaleString('pt-BR')} abertura${v===1?'':'s'}" style="background:${v?`color-mix(in srgb,var(--brand,var(--orange)) ${Math.max(14,pct)}%,var(--surface-low))`:'var(--surface-low)'}" onclick="picoAbrir(${d},${PICO_H0+i})"></button>`;
+    }).join('');
+  });
+  box.innerHTML=h;
+}
+function picoAbrir(dia,hora){
+  const nome=(PICO_DIAS.find(x=>x[0]===dia)||[0,''])[1];
+  const l=_rowsFull.filter(r=>{ if(!r.criado_em) return false; const d=new Date(r.criado_em); return d.getDay()===dia&&d.getHours()===hora; });
+  openDetailModal(`Aberturas: ${nome} às ${hora}h`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l);
+}
+
+// ── Chamados recentes ────────────────────────────────────────────────────
+const ST_BADGE={New:['Novo',''],InAttendance:['Em atendimento','info'],InProgress:['Em andamento','info'],Stopped:['Parado','warn'],Resolved:['Resolvido','ok'],Closed:['Fechado','ok'],Canceled:['Cancelado','']};
+function fmtRecente(v){
+  const d=new Date(v); if(isNaN(d)) return '';
+  const hoje=new Date(), ontem=new Date(Date.now()-864e5);
+  const hm=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===hoje.toDateString()) return `Hoje ${hm}`;
+  if(d.toDateString()===ontem.toDateString()) return `Ontem ${hm}`;
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+hm;
+}
+function renderRecentes(rows){
+  const box=document.getElementById('rec-lista'); if(!box) return;
+  const top=rows.filter(r=>r.criado_em).sort((a,b)=>new Date(b.criado_em)-new Date(a.criado_em)).slice(0,6);
+  if(!top.length){ box.innerHTML='<p class="rec-vazio">Nenhum chamado no período.</p>'; return; }
+  top.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+  box.innerHTML=top.map(r=>{
+    const [rot,cls]=ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—',''];
+    const ini=(r.organizacao||'?').replace(/[^A-Za-zÀ-ú0-9 ]/g,'').split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
+    return `<button type="button" class="rec-item" onclick="openTicketModal('${escAttr(r.ticket_id)}')"><span class="rec-av">${esc(ini)}</span><span class="rec-tx"><b>${esc(r.assunto||'Sem assunto')}</b><small><i>#${esc(r.ticket_id)}</i> · ${esc(r.organizacao||'—')} · ${esc(fmtRecente(r.criado_em))}</small></span><span class="st-badge ${cls}">${esc(rot)}</span></button>`;
+  }).join('');
+}
+
 // ── KPIs: série mensal (sparkline) e variação do último mês fechado vs. o anterior ──
 function renderKpiExtras(){
   const rows=_rowsCtx||[]; if(!rows.length) return;
