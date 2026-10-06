@@ -1,0 +1,9 @@
+/* Visual 2.0: a única animação do sistema é a persiana de transição entre abas (css/modload.css, #modload).
+   Todo o resto — transições de hover, pulsos, giros, deslizes, desenhos de ícone — fica desligado. */
+html[data-ui="v2"] { scroll-behavior: auto !important; }
+html[data-ui="v2"] *:not(#modload):not(#modload *),
+html[data-ui="v2"] *:not(#modload):not(#modload *)::before,
+html[data-ui="v2"] *:not(#modload):not(#modload *)::after {
+  transition: none !important;
+  animation: none !important;
+}

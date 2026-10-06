@@ -593,6 +593,7 @@ body.modal-open{overflow:hidden}
 </style>
 <link rel="stylesheet" href="../css/v2.css">
 <script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 <div id="geral-page">
@@ -776,12 +777,16 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div data-tone="red" class="stat-card danger bk-hero">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog já vencido</p>
-        <div class="kpi-main"><p class="value bad" id="k-backlog-vencido">0</p><span class="kpi-spark" id="sp-vencido"></span></div>
-        <div class="kpi-foot"><span class="kpi-delta" id="dl-vencido"></span><p class="legend" id="k-backlog-vencido-legend">Prazo de SLA já passado. Clique pra ver.</p></div>
-        <div class="bk-lista" id="bk-lista"></div>
-        <div class="bk-acoes"><button type="button" class="sla-btn prim" onclick="openVencidosModal()">Ver vencidos</button><button type="button" class="sla-btn" onclick="document.getElementById('tbl-equipes-vencido').scrollIntoView({behavior:'smooth',block:'center'})">Ver por equipe</button></div>
+      <div data-tone="red" class="stat-card bk-sit">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog por situação de prazo</p>
+        <span id="k-backlog-vencido" hidden>0</span>
+        <p class="bk-total"><b class="num" id="bk-total">0</b><span>chamados pendentes</span></p>
+        <div class="bk-barra" id="bk-barra"></div>
+        <div class="bk-leg" id="bk-leg"></div>
+        <div class="bk-nota" id="bk-nota"></div>
+        <details class="bk-det"><summary>Como é calculado</summary>
+          <p>Pendentes = chamados em aberto (todos os anos). Sem prazo = sem data de solução de SLA. Vencido = prazo anterior a agora. Com prazo, sem vencer = o restante, incluindo os que vencem hoje ou amanhã.</p>
+        </details>
       </div>
       <div class="data-panel danger">
         <p class="panel-title">Equipes com maior % de backlog vencido</p>
@@ -1600,8 +1605,7 @@ function render(){
   document.getElementById('k-sla-cumprido-legend').textContent=
     resolvidosComPrazo.length?`${resolvidosComPrazo.length.toLocaleString('pt-BR')} resolvidos com prazo definido.`:'Nenhum resolvido com prazo definido no período.';
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
-  document.getElementById('k-backlog-vencido-legend').textContent=
-    `${fmtPct(pctVencido)} do pendente. Clique pra ver.`;
+  renderBacklogSituacao(pendentesRows);
 
   // ── Qualidade da resolução ──
   const reabertosNoPeriodo=resolvidosRows.filter(isReaberto).length;
@@ -1613,7 +1617,6 @@ function render(){
 
   renderClassChart(rowsFull);
   renderKpiExtras();
-  renderBacklogLista(vencidosRows);
   renderPico(rowsFull);
   renderTrendChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
@@ -2453,7 +2456,32 @@ function blocoVar({nome,cor,valor,v,ant,altoEhBom,unid,pp,refTxt}){
     <div class="tv-tip-sub"><span></span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${tem?`${dir} ${sinal}${varTxt} vs. ${refTxt}`:''}</span></div>
   </div>`;
 }
-// ── Backlog vencido: os 3 mais atrasados ───────────────────────────────
+// ── Backlog por situação de prazo (barra empilhada, como na Visão Diretoria) ──
+function renderBacklogSituacao(pend){
+  const barra=document.getElementById('bk-barra'); if(!barra) return;
+  const fim=new Date(); fim.setDate(fim.getDate()+1); fim.setHours(23,59,59,999);
+  const sem=pend.filter(r=>!temPrazo(r)), venc=pend.filter(isVencido), em=pend.filter(r=>temPrazo(r)&&!isVencido(r));
+  const logo=em.filter(r=>new Date(r.sla_solucao)<=fim).length;
+  const total=pend.length, p=n=>total?n/total*100:0;
+  const f1=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const seg=[
+    {k:'sem',  cor:'#a6adbf', rot:'Sem prazo definido', rows:sem},
+    {k:'em',   cor:'#4f9cf0', rot:`Com prazo, sem vencer${logo?` (inclui ${logo.toLocaleString('pt-BR')} que vencem hoje ou amanhã)`:''}`, rows:em},
+    {k:'venc', cor:'#ee6f82', rot:'Prazo vencido', rows:venc},
+  ];
+  document.getElementById('bk-total').textContent=total.toLocaleString('pt-BR');
+  barra.innerHTML=seg.map(x=>`<i style="width:${p(x.rows.length).toFixed(2)}%;background:${x.cor}" title="${escAttr(x.rot)}: ${x.rows.length.toLocaleString('pt-BR')}"></i>`).join('');
+  document.getElementById('bk-leg').innerHTML=seg.map(x=>`<button type="button" class="bk-row" data-k="${x.k}"><span class="bk-nome"><i style="background:${x.cor}"></i>${esc(x.rot)}</span><span class="bk-val"><b class="num">${x.rows.length.toLocaleString('pt-BR')}</b> <small>· ${f1(p(x.rows.length))}%</small></span></button>`).join('');
+  document.querySelectorAll('#bk-leg .bk-row').forEach(b=>b.addEventListener('click',()=>{
+    const x=seg.find(y=>y.k===b.dataset.k);
+    const ordenar=x.k==='venc'?(a,b2)=>new Date(a.sla_solucao)-new Date(b2.sla_solucao):undefined;
+    openDetailModal(`Backlog: ${x.k==='sem'?'sem prazo definido':x.k==='em'?'com prazo, sem vencer':'prazo vencido'}`,`${x.rows.length.toLocaleString('pt-BR')} ticket${x.rows.length===1?'':'s'}`,x.rows,{ordenar});
+  }));
+  document.getElementById('bk-nota').textContent=total
+    ? `Sem prazo definido não há como medir atraso. Hoje ${f1(p(sem.length))}% do backlog está nessa condição.`
+    : 'Nenhum chamado pendente no filtro atual.';
+}
+// ── (substituído) lista dos mais atrasados — sem uso no layout atual ───────────────────────────────
 function renderBacklogLista(vencidos){
   const el=document.getElementById('bk-lista'); if(!el) return;
   if(!vencidos.length){ el.innerHTML='<p class="bk-vazio">Nenhum chamado com prazo vencido.</p>'; return; }
