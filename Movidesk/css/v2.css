@@ -173,7 +173,9 @@ html[data-ui="v2"] .stat-card .value { font-size: 32px; font-weight: 800; letter
 html[data-ui="v2"] .stat-card .value.bad { color: var(--brand-text); }
 html[data-ui="v2"] .stat-card .legend { font-size: 12px; color: var(--t3); }
 html[data-ui="v2"] .chart-title, html[data-ui="v2"] .panel-title { font-size: 15px; font-weight: 800; color: var(--t1); letter-spacing: -.01em; }
-html[data-ui="v2"] .chart-sub { color: var(--t3); }
+html[data-ui="v2"] .chart-sub { color: var(--t3); text-align: left !important; margin: 0 0 14px; font-size: 12.5px; }
+html[data-ui="v2"] .chart-title.small { font-size: 13px; margin: 0 0 8px; }
+html[data-ui="v2"] .chart-panel > .chart-title, html[data-ui="v2"] .data-panel > .chart-title { font-size: 17px; font-weight: 800; letter-spacing: -.01em; margin: 0 0 2px; }
 html[data-ui="v2"] .grid-3, html[data-ui="v2"] .grid-4, html[data-ui="v2"] .grid-5, html[data-ui="v2"] .grid-2 { gap: 16px; }
 
 
@@ -206,6 +208,8 @@ html[data-ui="v2"] .kpi-spark:empty { display: none; }
 /* grade dos KPIs: 7 numa linha em telas largas, 4 + 3 em médias, 2 em estreitas */
 html[data-ui="v2"] .kpi-grid { display: grid; gap: 16px; grid-template-columns: repeat(7, minmax(0,1fr)); }
 @media (max-width:1400px){ html[data-ui="v2"] .kpi-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+html[data-ui="v2"] .kpi-grid.k4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+@media (max-width:1000px){ html[data-ui="v2"] .kpi-grid.k4 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media (max-width:760px){ html[data-ui="v2"] .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 html[data-ui="v2"] .kpi-grid .stat-card { padding: 16px 16px 14px; }
 html[data-ui="v2"] .kpi-grid .stat-card .value { font-size: 30px; line-height: 34px; }
