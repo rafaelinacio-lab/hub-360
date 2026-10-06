@@ -139,7 +139,7 @@ html[data-ui="v2"] body { background: var(--bg); color: var(--t1); }
 html[data-ui="v2"] #geral-page .topbar-in { gap: 10px 12px; height: auto; min-height: 56px; flex-wrap: wrap; padding: 4px 0; }
 html[data-ui="v2"] #geral-page .topbar-in .btn-refresh, html[data-ui="v2"] #geral-page .topbar-in .btn-sync { flex-shrink: 0; }
 html[data-ui="v2"] #geral-page .topbar-sub { flex: 0 1 auto; min-width: 0; white-space: normal; max-width: 280px; line-height: 1.25; }
-html[data-ui="v2"] #geral-page .topbar { background: transparent; border-bottom: none; padding: 14px 24px 0; }
+html[data-ui="v2"] #geral-page .topbar { background: var(--bg); border-bottom: none; padding: 14px 24px 8px; z-index: 150; box-shadow: 0 10px 14px -12px rgba(0,0,0,.18); }
 html[data-ui="v2"] #geral-page .topbar-logo { font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: var(--t1); }
 html[data-ui="v2"] #geral-page .topbar-logo .sym { color: var(--brand-text); }
 html[data-ui="v2"] #geral-page .vbar { display: none; }
