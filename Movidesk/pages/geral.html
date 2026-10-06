@@ -402,6 +402,16 @@ input,select{font-family:inherit}
 .bk-item .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bk-item .r{flex:none;opacity:.75;font-weight:600}
 .bk-acoes{display:none}
+/* roscas (Hub 360 2.0): anel grosso, total no centro e legenda ao lado */
+.donut-row{display:flex;align-items:center;gap:22px;flex:1;min-height:0}
+.donut-row .chart-wrap{flex:none;width:172px;height:172px}
+.donut-leg{list-style:none;margin:0;padding:0;flex:1;min-width:0}
+.donut-leg li{display:flex;align-items:center;gap:10px;padding:6px 4px;border-radius:10px;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer}
+.donut-leg li:hover{background:var(--surface-low)}
+.donut-leg i{flex:none;width:10px;height:10px;border-radius:50%}
+.donut-leg .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.donut-leg .v{flex:none;color:var(--t2);font-weight:700;font-variant-numeric:tabular-nums}
+@media (max-width:520px){.donut-row{flex-direction:column;align-items:stretch}.donut-row .chart-wrap{align-self:center}}
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -737,9 +747,9 @@ body.modal-open{overflow:hidden}
         <div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Tickets por urgência</p>
-        <p class="chart-sub" style="text-align:left">Distribuição dos tickets abertos no período.</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="urgChart"></canvas></div>
+        <p class="chart-title">Status dos chamados</p>
+        <p class="chart-sub" style="text-align:left">Distribuição dos tickets do período.</p>
+        <div class="donut-row"><div class="chart-wrap"><canvas id="statusChart"></canvas></div><ul class="donut-leg" id="statusChart-leg"></ul></div>
       </div>
       <div data-tone="red" class="stat-card danger bk-hero">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog já vencido</p>
@@ -791,6 +801,11 @@ body.modal-open{overflow:hidden}
 
     <div class="hrow c-3">
       <div class="chart-panel">
+        <p class="chart-title">Tickets por urgência</p>
+        <p class="chart-sub" style="text-align:left">Distribuição dos tickets abertos no período.</p>
+        <div class="donut-row"><div class="chart-wrap"><canvas id="urgChart"></canvas></div><ul class="donut-leg" id="urgChart-leg"></ul></div>
+      </div>
+      <div class="chart-panel">
         <p class="chart-title">Envelhecimento do backlog</p>
         <p class="chart-sub" style="text-align:left">Tempo em aberto por faixa de dias (só pendentes).</p>
         <div class="chart-wrap" style="height:220px"><canvas id="agingChart"></canvas></div>
@@ -799,11 +814,6 @@ body.modal-open{overflow:hidden}
         <p class="chart-title">Volume por equipe</p>
         <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
         <div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div>
-      </div>
-      <div class="chart-panel">
-        <p class="chart-title">SLA por urgência</p>
-        <p class="chart-sub" style="text-align:left">% cumprido no prazo, por nível de urgência.</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="slaUrgChart"></canvas></div>
       </div>
     </div>
 
@@ -849,7 +859,7 @@ body.modal-open{overflow:hidden}
 
     <p class="section-label">Qualidade da resolução</p>
     <p class="section-note">FCR considera só tickets resolvidos com exatamente 1 ação pública (sem contar notas internas).</p>
-    <div class="hrow c-2" style="margin-top:0">
+    <div class="hrow c-3" style="margin-top:0">
       <div class="stat-card danger">
         <p class="label">Taxa de reabertura</p>
         <p class="value bad" id="k-reabertura">0%</p>
@@ -859,6 +869,11 @@ body.modal-open{overflow:hidden}
         <p class="label">Resolução no 1º contato (FCR)</p>
         <p class="value good" id="k-fcr">0%</p>
         <p class="legend">1 ação pública, sem contar notas internas.</p>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">SLA por urgência</p>
+        <p class="chart-sub" style="text-align:left">% cumprido no prazo, por nível de urgência.</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="slaUrgChart"></canvas></div>
       </div>
     </div>
   </div>
@@ -1608,6 +1623,7 @@ function render(){
 
   renderClassChart(rowsFull);
   renderKpiExtras();
+  renderStatusChart(rowsFull);
   renderBacklogLista(vencidosRows);
   renderPico(rowsFull);
   renderRecentes(rowsFull);
@@ -2323,21 +2339,51 @@ function renderTeamChart(rows){
   layeredBars('teamChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
     (r,label)=>(r.equipe||'Não informado')===label,'Equipe');
 }
-function renderUrgChart(rows){
-  destroyChart('urgChart');
-  const col=chartColors();
-  const porUrg=contarPor(rows,r=>r.urgencia||'Em branco');
-  const entries=Object.entries(porUrg).sort((a,b)=>b[1]-a[1]);
-  _charts.urgChart=new Chart(document.getElementById('urgChart'),{
+// Rosca no estilo 2.0: anel fino-grosso com pontas arredondadas, total no centro, legenda clicável ao lado.
+const COR_URG={'Crítica':'#ee6f82','Alta':'#ff8a2b','Média':'#2fbf8a','Baixa':'#4f9cf0','Em branco':'#a6adbf'};
+function donutNovo(id,{itens,rotulo,filtro,titulo}){
+  destroyChart(id);
+  const cv=document.getElementById(id), leg=document.getElementById(id+'-leg'); if(!cv) return;
+  const col=chartColors(), lista=itens.filter(i=>i.valor>0), total=lista.reduce((a,i)=>a+i.valor,0);
+  const abrir=label=>{ const l=_rowsFull.filter(r=>filtro(r,label)); openDetailModal(`${titulo}: ${label}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l); };
+  if(leg) leg.innerHTML=itens.map(i=>`<li data-l="${escAttr(i.label)}"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+  if(leg) leg.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>abrir(li.dataset.l)));
+  if(!total) return;
+  const centro={ id:'centroRosca', afterDraw(ch){
+    const {ctx,chartArea:a}=ch; const x=(a.left+a.right)/2, y=(a.top+a.bottom)/2;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=col.t1; ctx.font='800 26px Manrope,system-ui,sans-serif'; ctx.fillText(total.toLocaleString('pt-BR'),x,y-6);
+    ctx.fillStyle=col.t3; ctx.font='600 11.5px Manrope,system-ui,sans-serif'; ctx.fillText(rotulo||'total',x,y+16); ctx.restore(); } };
+  _charts[id]=new Chart(cv,{
     type:'doughnut',
-    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple,col.green,col.t3],borderWidth:0}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,cutout:'62%',
-      plugins:{legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
+    data:{labels:lista.map(i=>i.label),datasets:[{data:lista.map(i=>i.valor),backgroundColor:lista.map(i=>i.cor),borderWidth:0,borderRadius:10,spacing:3,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'76%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.toLocaleString('pt-BR')} (${(c.parsed/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%)`}}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Urgência',(r,label)=>(r.urgencia||'Em branco')===label),
-    }
+      onClick:(evt,els,ch)=>{ if(els.length) abrir(ch.data.labels[els[0].index]); }},
+    plugins:[centro]
   });
+}
+function renderUrgChart(rows){
+  const porUrg=contarPor(rows,r=>r.urgencia||'Em branco');
+  const extra=['#7c6cf0','#e9b730','#8a92a8'];
+  const itens=Object.entries(porUrg).sort((a,b)=>b[1]-a[1]).map(([label,valor],i)=>({label,valor,cor:COR_URG[label]||extra[i%extra.length]}));
+  donutNovo('urgChart',{itens,rotulo:'total',filtro:(r,l)=>(r.urgencia||'Em branco')===l,titulo:'Urgência'});
+}
+// Status dos chamados: partes que não se sobrepõem (vencido tem prioridade sobre o status do Movidesk)
+function statusDe(r){
+  if(isResolvido(r)) return 'Resolvidos';
+  if(CANCELADO_STATUSES.includes(r.base_status)) return 'Cancelados';
+  if(isVencido(r)) return 'Vencidos';
+  if(r.base_status==='Stopped') return 'Aguardando';
+  if(r.base_status==='New') return 'Novos';
+  return 'Em andamento';
+}
+function renderStatusChart(rows){
+  const ordem=[['Resolvidos','#2fbf8a'],['Em andamento','#4f9cf0'],['Aguardando','#f2c14e'],['Novos','#a6adbf'],['Vencidos','#ee6f82'],['Cancelados','#8a92a8']];
+  const por=contarPor(rows,statusDe);
+  const itens=ordem.filter(([n])=>n!=='Cancelados'||por[n]).map(([label,cor])=>({label,valor:por[label]||0,cor}));
+  donutNovo('statusChart',{itens,rotulo:'total',filtro:(r,l)=>statusDe(r)===l,titulo:'Status'});
 }
 
 // ── ranking ──────────────────────────────────────────────────────────
