@@ -297,6 +297,11 @@ input,select{font-family:inherit}
 .tm-val small{font-size:11px;color:var(--t3)}
 @media (max-width:760px){.tm-row{grid-template-columns:28px 1fr auto}.tm-trilho{grid-column:1 / -1;order:5}}
 
+/* seletor de visão dentro de um card (ex.: Top responsáveis: Quantidade | SLA cumprido) */
+.seg{display:flex;justify-content:center;gap:3px;background:var(--surface-low);padding:3px;border-radius:9px;border:1px solid var(--border);width:max-content;margin:0 auto 10px}
+.seg button{padding:5px 14px;border-radius:7px;font-size:12px;font-weight:600;color:var(--t2);background:transparent}
+.seg button:hover:not(.on){color:var(--t1)}
+.seg button.on{background:var(--orange);color:#fff}
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -720,7 +725,8 @@ body.modal-open{overflow:hidden}
       </div>
       <div class="chart-panel">
         <p class="chart-title">Top responsáveis por volume</p>
-        <p class="chart-sub">Cinza = abertos · laranja = resolvidos</p>
+        <div class="seg" id="resp-modo" role="group" aria-label="Visão do ranking"><button type="button" class="on" data-m="qtd">Quantidade</button><button type="button" data-m="sla">SLA cumprido</button></div>
+        <p class="chart-sub" id="resp-sub">Cinza = abertos · laranja = resolvidos</p>
         <div class="chart-wrap" style="height:230px"><canvas id="respChart"></canvas></div>
       </div>
     </div>
@@ -2254,7 +2260,19 @@ function renderClientChart(rows){
   layeredBars('clientChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
     (r,label)=>(r.organizacao||'Não informado')===label,'Cliente');
 }
+// Top responsáveis: visão "Quantidade" (abertos x resolvidos) ou "SLA cumprido" (% de resolvidos no prazo).
+let _respModo='qtd';
+function setRespModo(m){
+  _respModo=m;
+  document.querySelectorAll('#resp-modo button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  renderRespChart(_rowsFull);
+  igualarAlturaGrid();
+}
+document.getElementById('resp-modo').addEventListener('click',e=>{ const b=e.target.closest('button[data-m]'); if(b) setRespModo(b.dataset.m); });
+
 function renderRespChart(rows){
+  if(_respModo==='sla') return renderRespSla();
+  const sub=document.getElementById('resp-sub'); if(sub) sub.textContent='Cinza = abertos · laranja = resolvidos';
   const porResp={};
   rows.forEach(r=>{
     const p=r.responsavel||'Não informado';
@@ -2265,6 +2283,51 @@ function renderRespChart(rows){
   const entries=Object.entries(porResp).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
   layeredBars('respChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
     (r,label)=>(r.responsavel||'Não informado')===label,'Responsável');
+}
+
+// SLA cumprido por responsável: entre os resolvidos do período que tinham prazo de solução definido, quantos foram
+// resolvidos até o prazo (mesma regra do card "SLA cumprido"). Ranking pelos 10 que mais resolveram tickets com prazo.
+function renderRespSla(){
+  destroyChart('respChart');
+  const sub=document.getElementById('resp-sub');
+  if(sub) sub.textContent='% de resolvidos no prazo (só tickets com prazo definido) · verde ≥ 90% · amarelo ≥ 70%';
+  const base=_rowsResolv.filter(temPrazo);
+  const por={};
+  base.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]=por[p]||{total:0,ok:0}; o.total++; if(isNoPrazo(r)) o.ok++; });
+  const entries=Object.entries(por).sort((a,b)=>b[1].total-a[1].total).slice(0,10);
+  const cv=document.getElementById('respChart'), wrap=cv.parentElement, col=chartColors();
+  if(wrap){ const h=Math.max(210,entries.length*38+56); wrap.style.height=h+'px'; wrap.dataset.h0=h; }
+  if(!entries.length){ return; }
+  const pct=entries.map(([,v])=>v.total?v.ok/v.total*100:0);
+  const corDe=v=>v>=90?col.green:v>=70?'#fbbf24':col.orange;
+  const fmt1=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const rotulos={
+    id:'slaRespRotulos',
+    afterDatasetsDraw(chart){
+      const c=chart.ctx; c.save(); c.font='600 10.5px system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=col.t2;
+      chart.getDatasetMeta(0).data.forEach((bar,i)=>{ const [,v]=entries[i]; c.fillText(`${fmt1(pct[i])}% · ${v.ok.toLocaleString('pt-BR')}/${v.total.toLocaleString('pt-BR')}`,bar.x+6,bar.y); });
+      c.restore();
+    },
+  };
+  _charts.respChart=new Chart(cv,{
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{ label:'SLA cumprido (%)', data:pct, backgroundColor:pct.map(corDe), borderRadius:3, barPercentage:.7 }] },
+    plugins:[rotulos],
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      layout:{padding:{right:124}},
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label:(ctx)=>{ const [,v]=entries[ctx.dataIndex]; return `${fmt1(ctx.parsed.x)}% no prazo (${v.ok} de ${v.total} resolvidos com prazo)`; } } } },
+      scales:{ x:{ display:false, min:0, max:100 }, y:{ grid:{display:false}, ticks:{color:col.t2,font:{size:10.5}} } },
+      onHover:chartHoverCursor,
+      onClick:(evt,els)=>{
+        if(!els.length) return;
+        const [nome,v]=entries[els[0].index];
+        const lista=base.filter(r=>(r.responsavel||'Não informado')===nome);
+        openDetailModal(`SLA — ${nome}`,`${v.ok} de ${v.total} no prazo (${fmt1(pct[els[0].index])}%) · fora do prazo primeiro`,lista,
+          {ordenar:(a,b)=>(isNoPrazo(a)?1:0)-(isNoPrazo(b)?1:0)||new Date(b.resolvido_em||0)-new Date(a.resolvido_em||0)});
+      },
+    }
+  });
 }
 
 // ── ação: equipes com maior % de backlog vencido ────────────────────
@@ -2518,8 +2581,8 @@ const INFO_CARDS={
     o:'As 10 organizações com mais tickets.',
     c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
   'respChart':{t:'Top responsáveis por volume',
-    o:'Os 10 responsáveis com mais tickets.',
-    c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
+    o:'Os 10 responsáveis com mais tickets, em duas visões: Quantidade e SLA cumprido.',
+    c:['Quantidade: barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.','SLA cumprido: entre os tickets resolvidos no período que tinham prazo de solução definido, a % resolvida até o prazo (mesma regra do card "SLA cumprido"). O rótulo mostra % · no prazo/total.','Na visão de SLA o ranking é pelos 10 responsáveis com mais tickets resolvidos com prazo; verde ≥ 90%, amarelo ≥ 70%, laranja abaixo disso.','Clique numa barra para ver os tickets (na visão de SLA, os fora do prazo vêm primeiro).']},
   'tbl-equipes-vencido':{t:'Equipes com maior % de backlog vencido',
     o:'Em quais equipes o backlog pendente está mais atrasado.',
     c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Mostra as 10 equipes com maior %; em destaque quando passa de 30%.','Clique numa equipe para ver os tickets vencidos.']},
