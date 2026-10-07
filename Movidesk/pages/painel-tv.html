@@ -39,6 +39,28 @@
   .tv-page .kpi-ico svg { width: 22px; height: 22px; }
   .tv-page .kpi-foot .legend { font-size: 13px; }
   .tv-page .bk-hero .value { font-size: 56px; line-height: 60px; }
+  /* KPIs compactos e clicáveis: duas faixas separadas, com título e espaço entre elas */
+  .kpi-titulo { margin: 18px 2px 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); }
+  .kpi-titulo:first-child { margin-top: 0; }
+  .kpi-grid.compacto { gap: 14px; }
+  html body.tv-page .kpi-grid.compacto .stat-card { padding: 12px 16px; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "lab lab" "val leg"; align-items: end; gap: 6px 14px; min-height: 0; height: auto; margin: 0; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  html body.tv-page .kpi-grid.compacto .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+  html body.tv-page .kpi-grid.compacto .stat-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  html body.tv-page .kpi-grid.compacto .stat-card.sel { outline: 2px solid var(--brand-text, #6ea8fe); outline-offset: 0; }
+  html body.tv-page .kpi-grid.compacto .stat-card .label { grid-area: lab; margin: 0; font-size: 13.5px; gap: 8px; }
+  html body.tv-page .kpi-grid.compacto .kpi-main { grid-area: val; margin: 0; }
+  html body.tv-page .kpi-grid.compacto .kpi-foot { grid-area: leg; margin: 0 0 4px; }
+  html body.tv-page .kpi-grid.compacto .stat-card .value, html body.tv-page .kpi-grid.compacto .stat-card .value.bad { font-size: 36px; line-height: 38px; margin: 0; }
+  html body.tv-page .kpi-grid.compacto .legend { margin: 0; text-align: left; }
+  html body.tv-page .kpi-grid.compacto .kpi-ico { width: 32px; height: 32px; border-radius: 11px; }
+  html body.tv-page .kpi-grid.compacto .kpi-ico svg { width: 17px; height: 17px; }
+  html body.tv-page .kpi-grid.compacto .kpi-foot .legend { font-size: 12px; line-height: 1.3; }
+  html body.tv-page .kpi-grid.compacto [data-tone="blue"] .value { color: var(--brand-text, #6ea8fe); }
+  html body.tv-page .kpi-grid.compacto [data-tone="green"] .value { color: var(--success); }
+  html body.tv-page .kpi-grid.compacto .stat-card.zero .value { color: var(--t3); }
+  .slr-tab tr[data-urg]:hover td { background: var(--surface-low, rgba(255,255,255,.04)); }
+  .slr-tab tr.sel-linha td { background: var(--surface-mid, rgba(255,255,255,.08)); }
+  .filtro-card { display: none; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 14px; color: var(--t2); }
   /* painéis */
   .chart-wrap { position: relative; width: 100%; }
   .tv-page .chart-panel .chart-title, .tv-page .data-panel .chart-title { font-size: 19px; font-weight: 800; margin: 0 0 2px; }
@@ -129,47 +151,49 @@
   <div class="link-tv" id="link-tv-box"><span>Abra esta URL na TV (não precisa de login; quem tiver o link vê o painel):</span><input id="link-tv-url" readonly><button type="button" class="btn-limpar" id="link-copiar">Copiar</button><button type="button" class="btn-limpar" id="link-nova">Gerar novo link</button></div>
 
   <div id="tv-content" style="display:none">
-    <div class="kpi-grid k4">
-      <div data-tone="blue" class="stat-card">
+    <p class="kpi-titulo">Backlog agora</p>
+    <div class="kpi-grid k4 compacto">
+      <div data-tone="blue" class="stat-card" data-card="todos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
         <div class="kpi-main"><p class="value" id="k-pendentes">0</p></div>
         <div class="kpi-foot"><p class="legend">Tickets em aberto agora.</p></div>
       </div>
-      <div data-tone="red" class="stat-card danger bk-hero">
+      <div data-tone="red" class="stat-card danger bk-hero" data-card="vencidos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Vencidos</p>
         <div class="kpi-main"><p class="value" id="k-vencidos">0</p></div>
         <div class="kpi-foot"><p class="legend">Prazo de SLA já passado.</p></div>
       </div>
-      <div data-tone="red" class="stat-card danger">
+      <div data-tone="red" class="stat-card danger" data-card="vencidos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/></svg></span>% do backlog vencido</p>
         <div class="kpi-main"><p class="value bad" id="k-pct-vencido">0%</p></div>
         <div class="kpi-foot"><p class="legend">Vencidos ÷ pendentes.</p></div>
       </div>
-      <div data-tone="yellow" class="stat-card">
+      <div data-tone="yellow" class="stat-card" data-card="acoes">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a2 2 0 0 1 2-2h16"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a2 2 0 0 1-2 2H3"/></svg></span>Média ações/ticket</p>
         <div class="kpi-main"><p class="value" id="k-media-acoes">0</p></div>
         <div class="kpi-foot"><p class="legend">Trocas por chamado pendente.</p></div>
       </div>
     </div>
 
-    <div class="kpi-grid k4">
-      <div data-tone="blue" class="stat-card">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Abertos hoje</p>
+    <p class="kpi-titulo">Movimento do dia e críticos</p>
+    <div class="kpi-grid k4 compacto kpi-dia">
+      <div data-tone="blue" class="stat-card" data-card="abertos-hoje">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>Abertos hoje</p>
         <div class="kpi-main"><p class="value" id="k-abertos-hoje">0</p></div>
         <div class="kpi-foot"><p class="legend" id="k-abertos-hoje-l">Chamados criados hoje.</p></div>
       </div>
-      <div data-tone="green" class="stat-card">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Fechados hoje</p>
+      <div data-tone="green" class="stat-card" data-card="fechados-hoje">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Fechados hoje</p>
         <div class="kpi-main"><p class="value" id="k-fechados-hoje">0</p></div>
         <div class="kpi-foot"><p class="legend" id="k-fechados-hoje-l">Resolvidos/fechados hoje.</p></div>
       </div>
-      <div data-tone="red" class="stat-card danger">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Críticos pendentes</p>
+      <div data-tone="red" class="stat-card danger" data-card="criticos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Críticos pendentes</p>
         <div class="kpi-main"><p class="value" id="k-criticos">0</p></div>
         <div class="kpi-foot"><p class="legend" id="k-criticos-l">Urgência crítica em aberto.</p></div>
       </div>
-      <div data-tone="red" class="stat-card danger">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Críticos vencidos</p>
+      <div data-tone="red" class="stat-card danger" data-card="criticos-venc">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Críticos vencidos</p>
         <div class="kpi-main"><p class="value" id="k-criticos-venc">0</p></div>
         <div class="kpi-foot"><p class="legend" id="k-criticos-venc-l">Críticos com prazo de SLA passado.</p></div>
       </div>
@@ -204,6 +228,7 @@
     <div class="hrow c-1">
       <div class="data-panel danger">
         <p class="table-title">Chamados pendentes — do mais antigo ao mais novo <span id="tv-table-count" style="color:var(--t3);font-weight:700;font-size:15px"></span></p>
+        <div class="filtro-card" id="filtro-card"><span id="filtro-card-txt"></span><button type="button" class="btn-limpar" id="filtro-card-x">Mostrar todos</button></div>
         <p class="chart-sub">Todos os pendentes do filtro, ordenados por dias em aberto (desc); role a tabela para ver o restante. "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
         <div class="table-wrap">
           <table>
@@ -474,7 +499,7 @@ function renderHoje(vencidosRows){
   const hoje=hojeBR();
   const mov=_hojeAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r));
   const abertos=mov.filter(r=>diaBR(r.criado_em)===hoje).length, fechados=mov.filter(r=>diaBR(r.fechado_em)===hoje).length;
-  const set=(id,v,l)=>{ document.getElementById(id).textContent=v.toLocaleString('pt-BR'); if(l!=null) document.getElementById(id+'-l').textContent=l; };
+  const set=(id,v,l)=>{ const el=document.getElementById(id); el.textContent=v.toLocaleString('pt-BR'); el.closest('.stat-card').classList.toggle('zero',v===0); if(l!=null) document.getElementById(id+'-l').textContent=l; };
   set('k-abertos-hoje',abertos);
   set('k-fechados-hoje',fechados,fechados>=abertos?`Saldo do dia: ${(fechados-abertos).toLocaleString('pt-BR')} a menos no backlog.`:`Saldo do dia: ${(abertos-fechados).toLocaleString('pt-BR')} a mais no backlog.`);
   const crit=_rows.filter(ehCritico);
@@ -507,18 +532,60 @@ function renderUrgencia(){
   const fmt=n=>n.toLocaleString('pt-BR');
   el.innerHTML='<table class="slr-tab"><thead><tr><th>Urgência</th><th>Pendentes</th><th>Vencidos</th><th>% vencido</th><th>Situação do prazo</th></tr></thead><tbody>'+lista.map(u=>{
     const o=por[u], pct=o.t?o.v/o.t*100:0, cor=pct>=40?'var(--danger)':pct>=20?'var(--warning)':'var(--success)';
-    return `<tr><td><b>${esc(u)}</b>${o.crit?' <span class="slr-chip r">crítico</span>':''}</td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
+    return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" class="${_urgSel===u?'sel-linha':''}"><td><b>${esc(u)}</b>${o.crit?' <span class="slr-chip r">crítico</span>':''}</td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
       <td style="color:${cor};font-weight:800">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
       <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} sem prazo · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
   }).join('')+'</tbody></table>';
 }
 
+const ROTULO_CARD={vencidos:'vencidos',acoes:'com mais ações (trocas)',criticos:'críticos','criticos-venc':'críticos vencidos','abertos-hoje':'abertos hoje','fechados-hoje':'fechados hoje'};
+let _cardSel='', _urgSel='';
+function linhasDoCard(){
+  if(_cardSel==='abertos-hoje'||_cardSel==='fechados-hoje'){
+    const hoje=hojeBR(), ab=_cardSel==='abertos-hoje';
+    return _hojeAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&diaBR(ab?r.criado_em:r.fechado_em)===hoje).map(r=>({...r,_hoje:ab?'aberto':'fechado'}));
+  }
+  let l=_rows;
+  if(_urgSel) l=l.filter(r=>urgenciaDe(r)===_urgSel);
+  if(_cardSel==='vencidos') l=l.filter(isVencido);
+  else if(_cardSel==='criticos') l=l.filter(ehCritico);
+  else if(_cardSel==='criticos-venc') l=l.filter(r=>ehCritico(r)&&isVencido(r));
+  return l;
+}
+function escolherCard(c){
+  _cardSel=(c==='todos'||c===_cardSel)?'':c; _urgSel='';
+  atualizarCards(); renderTable();
+  if(_cardSel||c==='todos') document.querySelector('.data-panel.danger')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function atualizarCards(){
+  document.querySelectorAll('[data-card]').forEach(el=>el.classList.toggle('sel',el.dataset.card===_cardSel&&_cardSel!==''));
+  const f=document.getElementById('filtro-card'), t=document.getElementById('filtro-card-txt');
+  const txt=[_cardSel&&`Mostrando só chamados ${ROTULO_CARD[_cardSel]}`,_urgSel&&`urgência "${_urgSel}"`].filter(Boolean).join(' · ');
+  f.style.display=txt?'flex':'none'; t.textContent=txt;
+}
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-card]'); if(c){ escolherCard(c.dataset.card); return; }
+  const u=e.target.closest('[data-urg]'); if(u){ _urgSel=_urgSel===u.dataset.urg?'':u.dataset.urg; _cardSel=''; atualizarCards(); renderTable(); document.querySelector('.data-panel.danger')?.scrollIntoView({behavior:'smooth',block:'start'}); }
+});
+document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-card]')){ e.preventDefault(); escolherCard(e.target.dataset.card); } });
+document.getElementById('filtro-card-x').addEventListener('click',()=>{ _cardSel=''; _urgSel=''; atualizarCards(); renderTable(); });
+document.querySelectorAll('[data-card]').forEach(el=>{ el.setAttribute('role','button'); el.setAttribute('tabindex','0'); });
+
 function renderTable(){
   const tbody=document.getElementById('tv-table-body');
-  const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  let top=[...linhasDoCard()];
+  top.sort(_cardSel==='acoes'?((a,b)=>Number(b.acoes_count||0)-Number(a.acoes_count||0)):((a,b)=>diasEmAberto(b)-diasEmAberto(a)));
   const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=`(${top.length.toLocaleString('pt-BR')} chamados)`;
-  if(!top.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`; return; }
+  atualizarCards();
+  if(!top.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty-state">Nenhum chamado neste recorte.</td></tr>`; return; }
   tbody.innerHTML=top.map(r=>{
+    if(r._hoje){
+      const st=r.status_movidesk||r.base_status||'—';
+      return `<tr><td><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a></td>
+      <td class="ellipsis" title="${escAttr(r.organizacao||'')}">${esc(r.organizacao||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td>
+      <td class="ellipsis">${esc(r.responsavel||'Não atribuído')}</td><td class="num">${diasEmAberto(r)}</td><td class="num">—</td><td class="num">—</td>
+      <td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
+    }
     const sp=statusPrazoDe(r);
     const badgeClass=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
     const dsrAgente=diasSemRetornoDe(r.ultima_publica_agente);

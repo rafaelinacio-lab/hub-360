@@ -225,8 +225,10 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
         const h = await db.query(`
           SELECT t.ticket_id::varchar AS ticket_id, t.service_full AS servico, t.ownerteam AS equipe, t.owner_name AS responsavel,
                  t.urgency AS urgencia, cf.valor_texto AS classificacao, t.createddate AS criado_em,
-                 COALESCE(t.resolved_in, t.closed_in) AS fechado_em
+                 COALESCE(t.resolved_in, t.closed_in) AS fechado_em, t.subject AS assunto, t.status AS status_movidesk, t.basestatus AS base_status,
+                 tc.organizacao_nome AS organizacao
             FROM silver.ticket t
+            LEFT JOIN silver.ticket_organizacao tc ON tc.ticket_id = t.ticket_id
             LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
            WHERE (t.createddate >= now() - interval '2 days' OR t.resolved_in >= now() - interval '2 days' OR t.closed_in >= now() - interval '2 days')
              AND ((t.createddate AT TIME ZONE 'America/Sao_Paulo')::date = (now() AT TIME ZONE 'America/Sao_Paulo')::date
