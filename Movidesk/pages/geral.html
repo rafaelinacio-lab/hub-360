@@ -2669,11 +2669,20 @@ function renderRespChart(rows){
 })();
 
 // ── ação: equipes com maior % de backlog vencido ────────────────────
+// Nome da equipe para exibição: tira espaços sobrando, "LTDA" no fim e GRITARIA (AGROTITAN → Agrotitan),
+// e separa a marca/vertical (parte antes do primeiro " - ") do restante. O nome completo vai no tooltip.
+function limpaEquipe(n){ return String(n||'').replace(/\s+/g,' ').trim()||'Não informado'; }
+function nomeEquipeExibicao(n){
+  const completo=limpaEquipe(n);
+  const bonito=t=>t.replace(/\s+LTDA$/i,'').replace(/[A-ZÀ-Ú]{4,}/g,m=>m.charAt(0)+m.slice(1).toLowerCase());
+  const i=completo.indexOf(' - ');
+  return i>0 ? {completo,marca:bonito(completo.slice(0,i)),resto:bonito(completo.slice(i+3))} : {completo,marca:'',resto:bonito(completo)};
+}
 function renderEquipesVencidoTable(pendentesRows){
   const tbody=document.getElementById('tbl-equipes-vencido');
   const porEquipe={};
   pendentesRows.forEach(r=>{
-    const e=r.equipe||'Não informado';
+    const e=limpaEquipe(r.equipe);     // equipes que só diferem por espaços viram uma só
     porEquipe[e]=porEquipe[e]||{pendentes:0,vencidos:0};
     porEquipe[e].pendentes++;
     if(isVencido(r)) porEquipe[e].vencidos++;
@@ -2683,17 +2692,20 @@ function renderEquipesVencidoTable(pendentesRows){
     .sort((a,b)=>b[2]-a[2])
     .slice(0,RANK_MAX);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum ticket pendente no período filtrado.</td></tr>`; return; }
-  tbody.innerHTML=entries.map(([e,v,pct])=>`
+  tbody.innerHTML=entries.map(([e,v,pct])=>{
+    const n=nomeEquipeExibicao(e);
+    return `
     <tr class="clickable" onclick="openEquipeVencidoModal('${escAttr(e)}')">
-      <td>${esc(e)}</td>
+      <td title="${escAttr(n.completo)}">${n.marca?`<span class="eq-marca">${esc(n.marca)}</span>`:''}${esc(n.resto)}</td>
       <td class="num">${v.pendentes}</td>
       <td class="num${v.vencidos?' bad':''}">${v.vencidos}</td>
       <td class="num${pct>=0.3?' bad':''}">${fmtPct(pct)}</td>
-    </tr>`).join('');
+    </tr>`; }).join('');
 }
 function openEquipeVencidoModal(equipe){
-  const matched=_pendentesGlobal.filter(r=>isVencido(r)&&(r.equipe||'Não informado')===equipe);
-  openDetailModal(`Vencidos: ${equipe}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  const matched=_pendentesGlobal.filter(r=>isVencido(r)&&limpaEquipe(r.equipe)===equipe);
+  const n=nomeEquipeExibicao(equipe);
+  openDetailModal(`Vencidos: ${n.completo}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 function openVencidosModal(){
   const matched=_pendentesGlobal.filter(isVencido);

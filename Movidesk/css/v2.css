@@ -420,3 +420,6 @@ html[data-ui="v2"] .bk-nota { margin-top: 12px; padding: 12px 14px; border-radiu
 html[data-ui="v2"] .bk-det { margin-top: 12px; font-size: 12px; color: var(--t3); }
 html[data-ui="v2"] .bk-det summary { cursor: pointer; color: var(--info); font-weight: 700; }
 html[data-ui="v2"] .bk-det p { margin: 6px 0 0; }
+
+/* nome de equipe: marca em etiqueta + restante */
+html[data-ui="v2"] .eq-marca { display: inline-block; margin-right: 8px; padding: 2px 9px; border-radius: 999px; background: var(--surface-low); color: var(--t2); font-size: 11px; font-weight: 800; letter-spacing: .02em; vertical-align: 1px; }
