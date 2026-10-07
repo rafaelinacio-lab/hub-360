@@ -22,7 +22,35 @@ document.documentElement.setAttribute('data-ui', 'v2');
 // desenhada, com `pronto`. O shell usa isso na persiana de transição.
 (function () {
     if (window.parent === window || !window.fetch || window.__hubSemMedidor) return;
-    var QUIETO_MS = 250, LIMITE_MS = 9000, JANELA_MS = 700;   // só entram na espera as chamadas feitas logo que a página abre
+    var QUIETO_MS = 250, LIMITE_MS = 25000, JANELA_MS = 700;   // só entram na espera as chamadas feitas logo que a página abre
+    // Enquanto os dados da abertura não chegam, cada card mostra "Carregando dados…" (css/v2.css: .hub-load).
+    var CARDS = '.chart-panel,.stat-card,.card,.panel,.box,.kpi-tile,.summary-card,.dashboard-sidebar,.sla-hero,.bk-hero,.bk-sit,.kb-col,.tl-chart,.mel-card,.kpi,.tile';
+    var raiz = document.documentElement, obs = null, marcando = 0;
+    raiz.classList.add('hub-carregando');
+    function marcarCards() {
+        marcando = 0;
+        if (!document.body) return;
+        document.querySelectorAll(CARDS).forEach(function (el) {
+            if (el.closest('.hub-load') || el.querySelector(':scope > .hub-load')) return;
+            if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') return;       // escondido
+            if (el.offsetHeight < 56 || el.offsetWidth < 90) return;                          // pequeno demais para a mensagem
+            if (getComputedStyle(el).position === 'static') el.classList.add('hub-rel');
+            var d = document.createElement('div'); d.className = 'hub-load'; d.textContent = 'Carregando dados…'; d.setAttribute('role', 'status');
+            el.appendChild(d);
+        });
+    }
+    function agendarMarca() { if (!marcando) marcando = requestAnimationFrame(marcarCards); }
+    function limparCards() {
+        if (obs) { obs.disconnect(); obs = null; }
+        cancelAnimationFrame(marcando); marcando = 0;
+        raiz.classList.remove('hub-carregando');
+        document.querySelectorAll('.hub-load').forEach(function (n) { n.remove(); });
+        document.querySelectorAll('.hub-rel').forEach(function (n) { n.classList.remove('hub-rel'); });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        marcarCards();
+        try { obs = new MutationObserver(agendarMarca); obs.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    });
     var reqs = [], docPct = 0, ultimo = 0, pronto = false, carregou = false, quietoTimer = 0, t0 = Date.now(), tLoad = 0;
 
     function post(pct, fim) { try { window.parent.postMessage({ tipo: 'hub360:carga', pct: Math.round(pct), pronto: !!fim }, location.origin); } catch (e) {} }
@@ -44,11 +72,11 @@ document.documentElement.setAttribute('data-ui', 'v2');
             // dois quadros: dá tempo de a tela ser desenhada com os dados
             requestAnimationFrame(function () { requestAnimationFrame(function () {
                 if (pronto || pendentes()) return;
-                pronto = true; post(100, true);
+                pronto = true; post(100, true); limparCards();
             }); });
         }, QUIETO_MS);
     }
-    setTimeout(function () { if (!pronto) { pronto = true; post(100, true); } }, LIMITE_MS);
+    setTimeout(function () { if (!pronto) { pronto = true; post(100, true); limparCards(); } }, LIMITE_MS);
 
     document.addEventListener('DOMContentLoaded', function () { docPct = Math.max(docPct, 10); atualizar(); });
     window.addEventListener('load', function () { carregou = true; tLoad = Date.now(); docPct = 20; atualizar(); });

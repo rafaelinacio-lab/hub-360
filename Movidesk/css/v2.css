@@ -454,3 +454,13 @@ html[data-ui="v2"] .imp-g { display: grid; grid-template-columns: 24px minmax(12
 html[data-ui="v2"] .imp-g:hover { background: var(--surface-low); }
 html[data-ui="v2"] .imp-gi { color: var(--t3); font-weight: 800; font-size: 12px; }
 html[data-ui="v2"] .imp-gn { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+
+/* ── Carregando dados dentro dos cards (js/ui-version.js põe/tira o .hub-load; sem animação, só aviso) ── */
+html[data-ui="v2"] .hub-rel { position: relative; }
+html[data-ui="v2"] .hub-load {
+  position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; text-align: center; padding: 8px;
+  border-radius: inherit; pointer-events: none;
+  background: color-mix(in srgb, var(--surface, #fff) 95%, transparent);
+  color: var(--muted, #675e54); font: 700 13px/1.3 var(--v2-font, inherit); letter-spacing: .01em;
+}

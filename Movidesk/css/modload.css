@@ -70,3 +70,6 @@
   .ml-shutter i,.ml-body,.ml-list{transition-duration:.01s!important;transition-delay:0s!important}
   .ml-meta small::after,.ml-list li::after{animation:none!important}
 }
+
+/* A persiana não mostra mais porcentagem nem etapas: só o nome da aba (os dados carregam dentro dos cards). */
+.ml-big,.ml-list,.ml-line{display:none!important}
