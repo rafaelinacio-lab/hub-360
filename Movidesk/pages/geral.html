@@ -2369,14 +2369,14 @@ async function renderCausas(rows){
   lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
   try{
     const r=await fetch(`${API}/geral/causas`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids,limite:10})});
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const resp=await r.json();
+    const resp=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(resp.error||`HTTP ${r.status}`);
     if(seq!==_causasSeq) return;
     const n=x=>x.toLocaleString('pt-BR');
     const cob=resp.analisados?resp.comCausa/resp.analisados:0;
     sub.textContent=`${n(resp.comCausa)} de ${n(resp.analisados)} tickets do período têm causa diagnosticada (${fmtPct(cob)}) — os demais ainda não passaram pela Curadoria. Clique numa causa para ver os tickets.`;
     _causasGrupos=resp.causas||[];
-    if(!_causasGrupos.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket do período foi diagnosticado pela Curadoria ainda.</p>'; return; }
+    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(resp.aviso||'Nenhum ticket do período foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
     const max=_causasGrupos[0].qtd;
     lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
       <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
@@ -2384,7 +2384,7 @@ async function renderCausas(rows){
       <div class="tm-trilho"><div class="tm-barra" style="width:${Math.max(2,g.qtd/max*100)}%;background:var(--brand)"></div></div>
       <div class="tm-val"><b>${n(g.qtd)}</b><small>${fmtPct(g.qtd/resp.comCausa)}</small></div>
     </div>`).join('');
-  }catch(e){ if(seq===_causasSeq) lista.innerHTML=`<p class="imp-vazio">Não foi possível analisar as causas: ${esc(e.message)}</p>`; }
+  }catch(e){ if(seq===_causasSeq) lista.innerHTML=`<p class="imp-vazio">${esc(/^Não foi possível/.test(e.message)?e.message:'Não foi possível analisar as causas: '+e.message)}</p>`; }
 }
 function abrirCausa(i){
   const g=_causasGrupos[i]; if(!g) return;

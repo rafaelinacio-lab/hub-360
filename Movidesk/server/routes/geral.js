@@ -431,12 +431,18 @@ router.post('/causas', authMiddleware, requireTabAccess('movidesk'), async (req,
   const limite = Math.min(Math.max(parseInt(req.body?.limite, 10) || 10, 1), 50);
   try {
     if (!ids.length) return res.json({ analisados: 0, comCausa: 0, causas: [] });
+    // Confere quais colunas existem neste banco (a Curadoria cria colunas aos poucos), em vez de assumir.
+    const cols = new Set(((await db.queryDatabase('movidesk_curadoria',
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'curadoria_chamados'`)).rows || []).map((x) => x.column_name));
+    const partes = ['causa_normalizada', 'causa'].filter((c) => cols.has(c)).map((c) => `NULLIF(btrim(${c}::text), '')`);
+    if (!cols.has('ticket_id') || !partes.length) {
+      return res.json({ analisados: ids.length, comCausa: 0, causas: [], aviso: 'A Curadoria ainda não tem diagnósticos de causa neste banco.' });
+    }
     const r = await db.queryDatabase(
       'movidesk_curadoria',
-      `SELECT ticket_id::text AS id,
-              NULLIF(btrim(COALESCE(NULLIF(btrim(causa_normalizada), ''), NULLIF(btrim(causa), ''))), '') AS causa
+      `SELECT ticket_id::text AS id, COALESCE(${partes.join(', ')}) AS causa
        FROM public.curadoria_chamados
-       WHERE processado = 1 AND ticket_id::text = ANY($1::text[])`,
+       WHERE ${cols.has('processado') ? 'processado::text IN (\'1\', \'true\', \'t\') AND ' : ''}ticket_id::text = ANY($1::text[])`,
       [ids]
     );
     const grupos = new Map(); // chave normalizada -> { variantes:Map, ids:[] }
@@ -461,8 +467,12 @@ router.post('/causas', authMiddleware, requireTabAccess('movidesk'), async (req,
       .slice(0, limite);
     res.json({ analisados: ids.length, comCausa, causas });
   } catch (error) {
-    console.error('Erro ao agrupar as causas dos chamados:', error);
-    res.status(500).json({ error: 'Erro ao analisar as causas dos chamados' });
+    console.error('Erro ao agrupar as causas dos chamados:', error.message);
+    const m = String(error.message || '');
+    const motivo = /does not exist|não existe/i.test(m) ? 'a tabela da Curadoria não existe neste banco'
+      : /ECONN|ETIMEDOUT|EAI_AGAIN|timeout|terminat|password|authentication|database .* does not/i.test(m) ? 'o banco da Curadoria não está acessível'
+      : 'erro ao consultar a Curadoria';
+    res.status(502).json({ error: `Não foi possível analisar as causas: ${motivo}.` });
   }
 });
 
