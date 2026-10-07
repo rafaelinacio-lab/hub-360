@@ -18,11 +18,13 @@ const {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   runBackfillCamposBasicos, runFixDadosRelacionados, runFixAutoresAcoes, runAtualizacaoInteligente,
+  enriquecimentoPendentes,
 } = require('../scripts/movidesk-loader');
 const loader  = {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   runBackfillCamposBasicos, runFixDadosRelacionados, runFixAutoresAcoes, runAtualizacaoInteligente,
+  enriquecimentoPendentes,
 };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
@@ -236,10 +238,23 @@ router.get('/status', authMiddleware, async (req, res) => {
         .catch(() => {});
     } catch (_) {}
 
+    // Fila de detalhes em segundo plano da carga rápida de pendentes (ações/campos preenchidos depois do básico)
+    let detalhes = null;
+    try {
+      const q = await db.query(
+        `SELECT COUNT(*) FILTER (WHERE detalhes_em IS NULL OR detalhes_em < last_update)::int AS faltam,
+                COUNT(*)::int AS abertos
+           FROM silver.ticket WHERE basestatus = ANY($1::text[])`, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
+      const e = loader.enriquecimentoPendentes || {};
+      detalhes = { faltam: q.rows[0].faltam, abertos: q.rows[0].abertos, rodando: !!e.rodando, fila: e.fila || 0, feitos: e.feitos || 0, falhas: e.falhas || 0,
+                   iniciadoEm: e.iniciadoEm || null, terminadoEm: e.terminadoEm || null, ultimoErro: e.ultimoErro || null };
+    } catch (_) { /* coluna ainda não existe: segue sem o bloco */ }
+
     res.json({
       current: sanitizeState(loader.state),
       history: log.rows || [],
       tokenSuffix,
+      detalhes,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

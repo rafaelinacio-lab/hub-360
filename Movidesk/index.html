@@ -211,6 +211,9 @@
                     <button class="cfg-tab-btn" data-tab="telemetria" onclick="switchConfigTab('telemetria')">
                         <span class="material-symbols-outlined">monitoring</span> Telemetria
                     </button>
+                    <button class="cfg-tab-btn" data-tab="rapida" onclick="switchConfigTab('rapida')">
+                        <span class="material-symbols-outlined">bolt</span> Carga rápida
+                    </button>
                     <button class="cfg-tab-btn" data-tab="datalake" onclick="switchConfigTab('datalake')">
                         <span class="material-symbols-outlined">database</span> Carga Datalake
                     </button>
@@ -715,6 +718,11 @@
                     </div>
                 </div>
 
+                <!-- ABA: Carga rápida (pendentes quase ao vivo) -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-rapida">
+                    <div id="rpRoot"><p class="config-card-help">Carregando…</p></div>
+                </div>
+
                 <!-- ABA: Avisos automáticos -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-avisos">
                     <div id="avRoot"><p class="config-card-help">Carregando…</p></div>
@@ -879,6 +887,13 @@
                                 <span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso
                             </span>
                             <span id="dlMeta" style="font-size:13px;color:var(--muted,#71717a);">–</span>
+                        </div>
+
+                        <!-- Detalhes em segundo plano (carga rápida de pendentes) -->
+                        <div id="dlDetalhes" style="display:none;margin-top:10px;padding:12px 16px;border-radius:10px;background:var(--bg,#18181b);border:1px solid var(--border,#27272a);font-size:13px;">
+                            <strong>Detalhes dos pendentes em segundo plano</strong>
+                            <span id="dlDetalhesTxt" style="margin-left:8px;color:var(--muted,#71717a);"></span>
+                            <div style="margin-top:8px;height:6px;border-radius:999px;background:var(--border,#27272a);overflow:hidden;"><div id="dlDetalhesBar" style="height:100%;width:0;background:#10b981;"></div></div>
                         </div>
 
                         <!-- Progresso live (visível só durante carga) -->
@@ -1799,6 +1814,7 @@
     <script src="js/curadoria.js"></script>
     <script src="js/pessoas.js"></script>
     <script src="js/avisos.js"></script>
+    <script src="js/rapida.js"></script>
     <script src="js/config.js"></script>
     <script src="js/script.js"></script>
 

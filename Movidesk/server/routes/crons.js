@@ -7,6 +7,7 @@
  * job aqui já reagenda o timer dele em cron-manager.js na hora, sem precisar
  * reiniciar o servidor.
  *
+ * GET/PUT /api/crons/rapida — carga rápida de pendentes (tarefa + cron numa tela só)
  * GET    /api/crons        — lista todos os jobs
  * POST   /api/crons        — cria um job novo
  * PATCH  /api/crons/:id    — edita (nome, tarefa, intervalo, params, enabled)
@@ -175,6 +176,62 @@ const CRON_LIST_SQL = `
     ORDER BY started_at DESC LIMIT 1
   ) cur ON true
   ORDER BY j.id`;
+
+// ── Carga rápida de pendentes (tela própria em Configurações) ─────────────
+// Uma única tarefa "rápida" (silver.cron_task.rapido) + a cron que a roda. GET devolve tudo para a tela; PUT cria/atualiza os dois.
+const NOME_TAREFA_RAPIDA = 'Pendentes — carga rápida';
+const NOME_CRON_RAPIDA = 'Pendentes rápidos (Painel TV)';
+async function lerRapida() {
+  const t = (await db.query(`SELECT * FROM silver.cron_task WHERE rapido = TRUE ORDER BY id LIMIT 1`).catch(() => ({ rows: [] }))).rows[0] || null;
+  const job = t ? (await db.query(`SELECT * FROM silver.cron_job WHERE task = $1 ORDER BY id LIMIT 1`, [`custom:${t.id}`])).rows[0] || null : null;
+  const historico = (await db.query(
+    `SELECT id, started_at, finished_at, status, error_msg, tickets_loaded FROM silver.carga_log WHERE mode LIKE 'rapido:%' ORDER BY started_at DESC LIMIT 20`
+  ).catch(() => ({ rows: [] }))).rows;
+  let detalhes = null;
+  try {
+    const q = (await db.query(
+      `SELECT COUNT(*) FILTER (WHERE detalhes_em IS NULL OR detalhes_em < last_update)::int AS faltam, COUNT(*)::int AS abertos
+         FROM silver.ticket WHERE basestatus = ANY($1::text[])`, [['New', 'InAttendance', 'Stopped', 'InProgress']])).rows[0];
+    const e = movideskLoader.enriquecimentoPendentes || {};
+    detalhes = { ...q, rodando: !!e.rodando, fila: e.fila || 0, feitos: e.feitos || 0, falhas: e.falhas || 0, terminadoEm: e.terminadoEm || null, ultimoErro: e.ultimoErro || null };
+  } catch (_) { /* coluna detalhes_em ainda não existe */ }
+  return { tarefa: t, job, historico, detalhes, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
+}
+router.get('/rapida', async (req, res) => {
+  try { res.json(await lerRapida()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/rapida', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const owner_team = (b.owner_team && String(b.owner_team).trim()) || null;
+    const classification = (b.classification && String(b.classification).trim()) || null;
+    if (!owner_team && !classification) return res.status(400).json({ error: 'Escolha a equipe (recomendado) ou a classificação dos chamados.' });
+    let minutes;
+    try { minutes = cronSchedule.validarIntervalo(b.interval_minutes || 1); } catch (e) { return res.status(400).json({ error: e.message }); }
+    const enabled = b.enabled !== false;
+    const atual = (await db.query(`SELECT id FROM silver.cron_task WHERE rapido = TRUE ORDER BY id LIMIT 1`)).rows[0];
+    let tarefaId;
+    if (atual) {
+      tarefaId = atual.id;
+      await db.query(`UPDATE silver.cron_task SET owner_team=$1, classification=$2, only_open=TRUE, rapido=TRUE, updated_at=NOW() WHERE id=$3`, [owner_team, classification, tarefaId]);
+    } else {
+      tarefaId = (await db.query(
+        `INSERT INTO silver.cron_task (name, owner_team, classification, only_open, rapido) VALUES ($1,$2,$3,TRUE,TRUE) RETURNING id`,
+        [NOME_TAREFA_RAPIDA, owner_team, classification])).rows[0].id;
+    }
+    const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = $1 ORDER BY id LIMIT 1`, [`custom:${tarefaId}`])).rows[0];
+    if (job) {
+      await db.query(`UPDATE silver.cron_job SET interval_minutes=$1, enabled=$2, updated_at=NOW() WHERE id=$3`, [minutes, enabled, job.id]);
+      await cronManager.reloadJob(job.id);
+    } else {
+      const novo = (await db.query(
+        `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params) VALUES ($1,$2,$3,$4,'{}'::jsonb) RETURNING id`,
+        [NOME_CRON_RAPIDA, `custom:${tarefaId}`, minutes, enabled])).rows[0];
+      await cronManager.reloadJob(novo.id);
+    }
+    res.json(await lerRapida());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 router.get('/', async (req, res) => {
   try {
