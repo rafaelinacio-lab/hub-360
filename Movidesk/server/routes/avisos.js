@@ -184,8 +184,8 @@ router.get('/gatilho/config', async (req, res) => {
   catch (e) { res.status(500).json({ error: 'Erro ao ler o acesso' }); }
 });
 router.put('/gatilho/config', async (req, res) => {
-  try { await mui.salvarAcesso({ usuario: req.body?.usuario, senha: req.body?.senha, base: req.body?.base }); res.json({ ...(await mui.statusAcesso()), chromium: !!mui.achaChromium() }); }
-  catch (e) { res.status(500).json({ error: 'Erro ao salvar o acesso' }); }
+  try { await mui.salvarAcesso({ usuario: req.body?.usuario, senha: req.body?.senha, base: req.body?.base, totp: req.body?.totp }); res.json({ ...(await mui.statusAcesso()), chromium: !!mui.achaChromium() }); }
+  catch (e) { res.status(/inválida/.test(e.message) ? 400 : 500).json({ error: /inválida/.test(e.message) ? e.message : 'Erro ao salvar o acesso' }); }
 });
 router.post('/gatilho/mapear', async (req, res) => {
   if (mui.execucao.rodando) return res.status(409).json({ error: 'Já existe um mapeamento em andamento.' });
