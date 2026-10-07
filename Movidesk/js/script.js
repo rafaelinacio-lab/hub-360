@@ -22,7 +22,6 @@ const EMBED_MODE = !LEGACY_VIEW;
 const EMBED_PAGE_ROUTES = {
     dashboard: 'pages/dashboard.html',
     chamados: 'pages/curadoria.html',
-    pessoas: 'pages/pessoas.html',
     configuracoes: 'pages/configuracoes.html',
     ouvidoria: 'pages/ouvidoria.html',
     gcc: 'pages/gcc.html',
@@ -353,7 +352,6 @@ function navigateTo(view) {
     const views = {
         dashboard: document.getElementById('dashboardView'),
         chamados: document.getElementById('curadoriaView'),
-        pessoas:   document.getElementById('pessoasView'),
         configuracoes: document.getElementById('configuracoesView'),
         movidesk: document.getElementById('movideskView'),
     };
@@ -382,7 +380,6 @@ function navigateTo(view) {
     } else {
         stopDashboardRefreshLoop();
     }
-    if (normalizedView === 'pessoas') pessoasLoad();
     if (normalizedView === 'chamados') loadCuradoria();
     if (normalizedView === 'configuracoes') {
         loadMovideskTokenStatus();
@@ -745,7 +742,7 @@ async function initializeApp() {
             logoutBtn.dataset.bound = '1';
         }
 
-        const view = LEGACY_VIEW && ['dashboard','chamados','pessoas','configuracoes','movidesk'].includes(LEGACY_VIEW) ? LEGACY_VIEW : 'dashboard';
+        const view = LEGACY_VIEW && ['dashboard','chamados','configuracoes','movidesk'].includes(LEGACY_VIEW) ? LEGACY_VIEW : 'dashboard';
         navigateTo(view);
         return;
     }

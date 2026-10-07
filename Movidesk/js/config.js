@@ -881,7 +881,7 @@ function switchConfigTab(tab) {
     if (tab === 'ia-assist') { aiaInit(); loadAiAssistTab(); }
     if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
-    if (tab === 'acesso') { loadTabPermissionsConfig(); loadVerticalAliases(); }
+    if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
     if (tab === 'telemetria') loadTelemetria();
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba

@@ -107,14 +107,12 @@ const TAB_PERMISSION_BTN_BY_KEY = {
 
 async function applyRoleBasedNavigation() {
     const cfgBtn = document.getElementById('navConfiguracoes');
-    const pessoasBtn = document.getElementById('navPessoas');
     if (!cfgBtn) return;
 
     const admin = isCurrentUserAdmin();
 
     // Pessoas e Configurações: sempre admin-only, não editável na tela de Acesso.
     cfgBtn.style.display = admin ? 'flex' : 'none';
-    if (pessoasBtn) pessoasBtn.style.display = admin ? 'flex' : 'none';
 
     // Botão "Sincronizar" da aba Movidesk: também admin-only, mesmo critério.
     const mdSyncBtn = document.getElementById('mdSyncDbBtn');

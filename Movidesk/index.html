@@ -140,15 +140,7 @@
                     </svg>
                     <span class="sidebar-btn-label">Jira</span>
                 </button>
-                <button class="sidebar-btn" title="Pessoas" data-view="pessoas" id="navPessoas">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Pessoas</span>
-                </button>
+                
                 <button class="sidebar-btn" title="Configurações" aria-label="Configurações" data-view="configuracoes" id="navConfiguracoes" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -181,47 +173,6 @@
 
             <div id="embeddedPagesView" class="embedded-pages-view" style="display:none;">
                 <iframe id="embeddedPageFrame" class="embedded-page-frame" title="Conteudo da aba" loading="lazy"></iframe>
-            </div>
-
-            <!-- ===== VIEW: PESSOAS ===== -->
-            <div id="pessoasView" class="app-view" style="display:none;">
-                <div class="pessoas-header">
-                    <div>
-                        <h1 class="pessoas-title">Pessoas</h1>
-                        <p class="pessoas-subtitle">Gerencie quem acessa a plataforma</p>
-                    </div>
-                    <button class="pessoas-btn-novo" id="btnNovaPessoa">+ Novo Usuário</button>
-                </div>
-
-                <!-- Filtros -->
-                <div class="pessoas-filters">
-                    <input type="text" id="pessoasSearch" class="pessoas-filter-input" placeholder="Buscar por nome ou e-mail…" oninput="pessoasApplyFilters()">
-                    <select id="pessoasFilterEquipe" class="pessoas-filter-select" onchange="pessoasApplyFilters()">
-                        <option value="">Todas as equipes</option>
-                    </select>
-                    <button class="pessoas-filter-clear" onclick="pessoasClearFilters()" title="Limpar filtros">✕ Limpar</button>
-                </div>
-
-                <!-- Tabela de usuários -->
-                <div class="pessoas-table-wrap">
-                    <table class="pessoas-table" id="pessoasTable">
-                        <thead>
-                            <tr>
-                                <th>Foto</th>
-                                <th>Nome</th>
-                                <th>E-mail</th>
-                                <th>Perfil</th>
-                                <th>Vertical</th>
-                                <th>Status</th>
-                                <th>Último acesso</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pessoasTbody">
-                            <tr><td colspan="8" class="pessoas-loading">Carregando…</td></tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
 
             <!-- ===== VIEW: CONFIGURAÇÕES ===== -->
@@ -755,13 +706,41 @@
 
                 <!-- ABA: Acesso -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-acesso">
+                    <!-- Pessoas (usuários da plataforma): fica dentro de Acesso -->
+                    <div class="config-card" id="pessoasView">
+                        <div class="pessoas-header">
+                            <div>
+                                <h3 class="config-card-title">Pessoas</h3>
+                                <p class="config-card-help">Gerencie quem acessa a plataforma</p>
+                            </div>
+                            <button class="pessoas-btn-novo" id="btnNovaPessoa">+ Novo Usuário</button>
+                        </div>
+                        <div class="pessoas-filters">
+                            <input type="text" id="pessoasSearch" class="pessoas-filter-input" placeholder="Buscar por nome ou e-mail…" oninput="pessoasApplyFilters()">
+                            <select id="pessoasFilterEquipe" class="pessoas-filter-select" onchange="pessoasApplyFilters()">
+                                <option value="">Todas as equipes</option>
+                            </select>
+                            <button class="pessoas-filter-clear" onclick="pessoasClearFilters()" title="Limpar filtros">✕ Limpar</button>
+                        </div>
+                        <div class="pessoas-table-wrap">
+                            <table class="pessoas-table" id="pessoasTable">
+                                <thead>
+                                    <tr><th>Foto</th><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Vertical</th><th>Status</th><th>Último acesso</th><th>Ações</th></tr>
+                                </thead>
+                                <tbody id="pessoasTbody">
+                                    <tr><td colspan="8" class="pessoas-loading">Carregando…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="config-card">
                         <h3 class="config-card-title">Abas por Perfil</h3>
                         <p class="config-card-help">
                             Escolha quais abas cada perfil vê no menu. <strong>Admin</strong> sempre tem acesso a
                             tudo (não aparece aqui, pra evitar que alguém se tranque fora da própria conta por
-                            engano). <strong>Pessoas</strong> e <strong>Configurações</strong> também ficam de
-                            fora — continuam restritas a admin sempre, independente desta tela.
+                            engano). <strong>Configurações</strong> (que inclui Pessoas) também fica de
+                            fora — continua restrita a admin sempre, independente desta tela.
                         </p>
 
                         <div id="cfgProfilesList"></div>
