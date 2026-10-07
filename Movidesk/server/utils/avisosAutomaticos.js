@@ -118,10 +118,11 @@ async function enviarAcao(regra, t, texto) {
   });
 }
 
-async function processarChamado(regras, t) {
-  if (!ABERTOS.includes(t.baseStatus)) return 0;
+async function processarChamado(regras, t, resumo) {
+  if (!ABERTOS.includes(t.baseStatus)) { resumo.fechados++; return 0; }
   const regra = regras.find((r) => servicoCasa(t.servico, r.servicos));
-  if (!regra) return 0;
+  if (!regra) { resumo.semRegra++; if (resumo.servicosSemRegra.length < 5 && !resumo.servicosSemRegra.includes(t.servico)) resumo.servicosSemRegra.push(t.servico); return 0; }
+  resumo.casaram++;
   const texto = montarMensagem(regra.mensagem, t);
   const simulando = regra.modo !== 'ativo' || !regra.agente_id;
   const ins = await db.query(
@@ -129,7 +130,8 @@ async function processarChamado(regras, t) {
      VALUES ($1,$2,$3,$4,$5,'processando',$6,$7) ON CONFLICT (regra_id, ticket_id) DO NOTHING RETURNING id`,
     [regra.id, regra.nome, t.id, String(t.subject || '').slice(0, 300), t.servico, simulando ? 'simulacao' : 'ativo', texto]
   );
-  if (!ins.rows.length) return 0;   // já tratado antes
+  if (!ins.rows.length) { resumo.jaTratados++; return 0; }   // já tratado antes
+  resumo.registrados++;
   const id = ins.rows[0].id;
   if (simulando) {
     await db.query(`UPDATE public.aviso_envio SET status = 'simulado', atualizado_em = NOW() WHERE id = $1`, [id]);
@@ -172,7 +174,7 @@ async function ciclo() {
     if (!estado.ligado) return;
     const regras = await regrasAtivas();
     // sem regra ativa: a vigia acompanha o relógio, para uma regra ligada depois não disparar para chamados de horas atrás
-    if (!regras.length) { const agora = new Date().toISOString(); await gravarEstado({ vigia: agora, ultimoCiclo: agora, ultimoErro: null }); return; }
+    if (!regras.length) { const agora = new Date().toISOString(); await gravarEstado({ vigia: agora, ultimoCiclo: agora, ultimoErro: null, resumoCiclo: { regrasAtivas: 0, consultados: 0 } }); return; }
     // Sem vigia (primeira vez): começa de agora — nunca dispara retroativamente para chamados antigos.
     const vigia = estado.vigia || new Date().toISOString();
     const desde = new Date(vigia).toISOString().replace(/\.\d+Z$/, 'Z');
@@ -181,13 +183,14 @@ async function ciclo() {
     });
     const tickets = (Array.isArray(lista) ? lista : []).map((t) => ({ ...t, id: String(t.id), servico: Array.isArray(t.serviceFull) ? t.serviceFull.join(' > ') : (t.serviceFull || '') }));
     let maior = vigia;
+    const resumo = { regrasAtivas: regras.length, consultados: tickets.length, fechados: 0, semRegra: 0, casaram: 0, jaTratados: 0, registrados: 0, servicosSemRegra: [] };
     for (const t of tickets) {
-      await processarChamado(regras, t);
+      await processarChamado(regras, t, resumo);
       if (t.createdDate && new Date(t.createdDate) > new Date(maior)) maior = new Date(t.createdDate).toISOString();
     }
     // lote cheio de chamados com a mesma data: avança só se a vigia mudou, senão o próximo ciclo repete (dedup protege)
     await reenviarFalhas(regras);
-    await gravarEstado({ vigia: maior, ultimoCiclo: new Date().toISOString(), ultimoErro: null });
+    await gravarEstado({ vigia: maior, ultimoCiclo: new Date().toISOString(), ultimoErro: null, resumoCiclo: resumo });
   } catch (e) {
     console.warn('[avisos] ciclo falhou:', e.message);
     await gravarEstado({ ultimoErro: String(e.message).slice(0, 300), ultimoCiclo: new Date().toISOString() }).catch(() => {});

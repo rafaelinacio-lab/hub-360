@@ -58,6 +58,12 @@ router.put('/geral', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Erro ao salvar' }); }
 });
 
+// Roda uma verificação agora (para testar sem esperar o intervalo). Só funciona com o módulo ligado.
+router.post('/verificar', async (req, res) => {
+  try { await av.ciclo(); res.json({ estado: await av.lerEstado() }); }
+  catch (e) { res.status(500).json({ error: 'Erro ao verificar' }); }
+});
+
 router.post('/regras', async (req, res) => {
   const { regra, erro } = lerRegra(req.body || {});
   if (erro) return res.status(400).json({ error: erro });

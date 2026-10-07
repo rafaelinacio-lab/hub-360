@@ -36,6 +36,8 @@ function avRender() {
           <label style="display:flex;gap:10px;align-items:center">Verificar chamados novos a cada
             <input type="number" id="avIntervalo" class="config-input" style="width:90px" min="30" max="600" value="${estado.intervaloSeg}"> segundos</label>
           <div><button class="config-btn" type="button" onclick="avSalvarGeral()">Salvar</button> <span id="avGeralStatus" class="config-status"></span></div>
+          <div><button class="config-btn config-btn-muted" type="button" onclick="avVerificarAgora()">Verificar agora</button></div>
+          <p class="config-card-help" style="margin:0">${avDiagnostico(estado)}</p>
           <p class="config-card-help" style="margin:0">Última verificação: ${avFmt(estado.ultimoCiclo)}${estado.ultimoErro ? ` · <span style="color:#c0392b">erro: ${avEsc(estado.ultimoErro)}</span>` : ''}
             · Últimos 7 dias: ${r7('enviado')} enviados, ${r7('simulado')} simulados, ${r7('erro')} com erro</p>
         </div>
@@ -136,4 +138,16 @@ async function avSalvarGeral() {
     if (ligado && !AV.dados.estado.ligado && !confirm('Ligar os avisos automáticos? Só chamados criados a partir de agora serão considerados; regras em simulação não escrevem no Movidesk.')) return;
     try { await avApi('/geral', 'PUT', { ligado, intervaloSeg: Number(document.getElementById('avIntervalo').value) }); await avisosCarregar(); }
     catch (e) { st.className = 'config-status error'; st.textContent = e.message; }
+}
+
+function avDiagnostico(e) {
+    const r = e.resumoCiclo;
+    if (!e.ligado) return '<strong>Módulo desligado</strong> — marque "Módulo ligado" e salve.';
+    if (!r) return 'Aguardando a primeira verificação…';
+    if (!r.regrasAtivas) return '<strong>Nenhuma regra ativa.</strong> Edite a regra e marque "Regra ativa" — regra desligada não dispara.';
+    const sem = r.servicosSemRegra?.length ? ` Serviços sem regra: ${r.servicosSemRegra.map(avEsc).join('; ')}.` : '';
+    return `Na última verificação: ${r.regrasAtivas} regra(s) ativa(s) · ${r.consultados} chamado(s) novo(s) consultado(s) · ${r.casaram} do(s) serviço(s) configurado(s) · ${r.registrados} aviso(s) registrado(s)${r.jaTratados ? ` · ${r.jaTratados} já tratado(s)` : ''}${r.fechados ? ` · ${r.fechados} já fechado(s)` : ''}.${sem}`;
+}
+async function avVerificarAgora() {
+    try { await avApi('/verificar', 'POST', {}); await avisosCarregar(); } catch (e) { alert(e.message); }
 }
