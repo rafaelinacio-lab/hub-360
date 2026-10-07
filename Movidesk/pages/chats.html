@@ -201,6 +201,9 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
 .modal-box ul{padding-left:18px}
 .modal-box .fechar{float:right;font-size:22px;color:var(--t2);line-height:1}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/v2.css">
+
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
@@ -217,7 +220,9 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
         <button class="md-tab" onclick="irPara('satisfacao')"><span class="sym">sentiment_satisfied</span>Satisfação</button>
         <button class="md-tab active"><span class="sym">forum</span>Chats</button>
       </div>
-      <button class="btn-refresh" id="btnAtualizar" onclick="carregar()"><span class="sym">refresh</span>Atualizar</button>
+      <div class="topbar-acoes">
+      <button class="btn-refresh" title="Atualizar os dados" aria-label="Atualizar os dados" id="btnAtualizar" onclick="carregar()"><span class="sym">refresh</span>Atualizar</button>
+      </div>
     </div>
   </header>
 
