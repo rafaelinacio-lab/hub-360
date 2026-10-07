@@ -27,6 +27,7 @@ function lerRegra(b) {
     mensagem: txt(b.mensagem, 5000),
     agente_id: txt(String(b.agente_id ?? ''), 40) || null,
     agente_nome: txt(b.agente_nome, 200) || null,
+    classificacoes: [...new Set((Array.isArray(b.classificacoes) ? b.classificacoes : []).map((c) => txt(c, 200)).filter(Boolean))].slice(0, 30),
     vigencia_inicio: dataOuNull(b.vigencia_inicio),
     vigencia_fim: dataOuNull(b.vigencia_fim),
   };
@@ -74,9 +75,9 @@ router.post('/regras', async (req, res) => {
   try {
     await av.garantirTabelas();
     const r = await db.query(
-      `INSERT INTO public.aviso_regra (nome, ativo, modo, servicos, tipo_acao, mensagem, agente_id, agente_nome, criado_por, vigencia_inicio, vigencia_fim)
-       VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome, req.user.email || null, regra.vigencia_inicio, regra.vigencia_fim]);
+      `INSERT INTO public.aviso_regra (nome, ativo, modo, servicos, tipo_acao, mensagem, agente_id, agente_nome, criado_por, vigencia_inicio, vigencia_fim, classificacoes)
+       VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11,$12::jsonb) RETURNING *`,
+      [regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome, req.user.email || null, regra.vigencia_inicio, regra.vigencia_fim, JSON.stringify(regra.classificacoes)]);
     res.json({ regra: r.rows[0] });
   } catch (e) { res.status(500).json({ error: 'Erro ao criar a regra' }); }
 });
@@ -86,9 +87,9 @@ router.put('/regras/:id(\\d+)', async (req, res) => {
   if (erro) return res.status(400).json({ error: erro });
   try {
     const r = await db.query(
-      `UPDATE public.aviso_regra SET nome=$2, ativo=$3, modo=$4, servicos=$5::jsonb, tipo_acao=$6, mensagem=$7, agente_id=$8, agente_nome=$9, vigencia_inicio=$10, vigencia_fim=$11, atualizado_em=NOW()
+      `UPDATE public.aviso_regra SET nome=$2, ativo=$3, modo=$4, servicos=$5::jsonb, tipo_acao=$6, mensagem=$7, agente_id=$8, agente_nome=$9, vigencia_inicio=$10, vigencia_fim=$11, classificacoes=$12::jsonb, atualizado_em=NOW()
        WHERE id=$1 RETURNING *`,
-      [req.params.id, regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome, regra.vigencia_inicio, regra.vigencia_fim]);
+      [req.params.id, regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome, regra.vigencia_inicio, regra.vigencia_fim, JSON.stringify(regra.classificacoes)]);
     if (!r.rows.length) return res.status(404).json({ error: 'Regra não encontrada' });
     res.json({ regra: r.rows[0] });
   } catch (e) { res.status(500).json({ error: 'Erro ao salvar a regra' }); }
@@ -122,6 +123,14 @@ router.get('/servicos', async (req, res) => {
     }
     res.json({ servicos: [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([servico, n]) => ({ servico, n })) });
   } catch (e) { res.status(500).json({ error: 'Erro ao listar os serviços' }); }
+});
+
+router.get('/classificacoes', async (req, res) => {
+  try {
+    const r = await db.query(`SELECT valor_texto AS v, COUNT(*)::int AS n FROM silver.ticket_campo_customizado
+      WHERE custom_field_id = 23946 AND NULLIF(TRIM(valor_texto), '') IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 200`);
+    res.json({ classificacoes: r.rows.map((x) => x.v) });
+  } catch (e) { res.status(500).json({ error: 'Erro ao listar as classificações' }); }
 });
 
 router.get('/agentes', async (req, res) => {

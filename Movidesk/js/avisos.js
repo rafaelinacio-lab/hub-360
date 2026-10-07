@@ -1,6 +1,6 @@
 // Configurações → Avisos automáticos: mensagens disparadas quando chega chamado novo de um serviço configurado.
 // Servidor: server/routes/avisos.js e server/utils/avisosAutomaticos.js (nasce desligado; regras novas nascem em simulação).
-const AV = { dados: null, servicos: null, agentes: null, editando: null, historico: [] };
+const AV = { dados: null, classes: null, servicos: null, agentes: null, editando: null, historico: [] };
 const avEsc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const avLocal = (iso) => { if (!iso) return ''; const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 const avFmt = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
@@ -73,7 +73,7 @@ function avLinhaRegra(r) {
     return `<div class="config-card" style="margin:12px 0 0;padding:14px">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
         <div><strong>${avEsc(r.nome)}</strong> ${r.ativo ? '' : '<span class="config-card-help">(desligada)</span>'}
-          <p class="config-card-help" style="margin:4px 0">${r.servicos.map(avEsc).join(' · ')}</p>
+          <p class="config-card-help" style="margin:4px 0">${r.servicos.map(avEsc).join(' · ')}${(r.classificacoes || []).length ? ` · <b>Classificação:</b> ${r.classificacoes.map(avEsc).join(', ')}` : ''}</p>
           <p class="config-card-help" style="margin:0">${r.tipo_acao === 'publica' ? 'Resposta pública' : 'Nota interna'} · remetente: ${avEsc(r.agente_nome || 'não definido')} · ${modo}</p>
           <p class="config-card-help" style="margin:0">Prazo: ${avVigenciaTxt(r)}</p></div>
         <div style="display:flex;gap:8px"><button class="config-btn config-btn-muted" onclick="avEditar(${r.id})">Editar</button>
@@ -83,11 +83,12 @@ function avLinhaRegra(r) {
 }
 
 async function avGarantirListas() {
+    if (!AV.classes) { try { AV.classes = (await avApi('/classificacoes')).classificacoes; } catch { AV.classes = []; } }
     if (!AV.servicos) { try { AV.servicos = (await avApi('/servicos')).servicos; } catch { AV.servicos = []; } }
     if (!AV.agentes) { try { AV.agentes = (await avApi('/agentes')).agentes; } catch (e) { AV.agentes = []; AV.erroAgentes = e.message; } }
 }
 
-async function avNovaRegra() { AV.editando = { id: null, nome: '', ativo: false, modo: 'simulacao', servicos: [], tipo_acao: 'publica', mensagem: '{{saudacao}}! Recebemos o seu chamado #{{ticket}} e ele já está na fila de atendimento.', agente_id: '', agente_nome: '' }; await avFormulario(); }
+async function avNovaRegra() { AV.editando = { id: null, nome: '', ativo: false, modo: 'simulacao', servicos: [], classificacoes: [], tipo_acao: 'publica', mensagem: '{{saudacao}}! Recebemos o seu chamado #{{ticket}} e ele já está na fila de atendimento.', agente_id: '', agente_nome: '' }; await avFormulario(); }
 async function avEditar(id) { AV.editando = JSON.parse(JSON.stringify(AV.dados.regras.find((r) => r.id === id))); await avFormulario(); }
 
 async function avFormulario() {
@@ -101,6 +102,10 @@ async function avFormulario() {
           <div id="avChips" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0"></div>
           <input id="avServicoIn" class="config-input" list="avServicosLista" placeholder="Digite para buscar um serviço e tecle Enter">
           <datalist id="avServicosLista">${AV.servicos.map((s) => `<option value="${avEsc(s.servico)}">`).join('')}</datalist></div>
+        <div><strong>Classificação do ticket</strong> <span class="config-card-help">— opcional; sem nenhuma escolhida vale para qualquer classificação</span>
+          <div id="avChipsC" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0"></div>
+          <input id="avClasseIn" class="config-input" list="avClassesLista" placeholder="Digite para buscar uma classificação e tecle Enter">
+          <datalist id="avClassesLista">${AV.classes.map((c) => `<option value="${avEsc(c)}">`).join('')}</datalist></div>
         <select id="avTipo" class="config-input"><option value="publica" ${r.tipo_acao === 'publica' ? 'selected' : ''}>Resposta pública (o cliente vê)</option><option value="interna" ${r.tipo_acao === 'interna' ? 'selected' : ''}>Nota interna (só a equipe vê)</option></select>
         <select id="avAgente" class="config-input"><option value="">— Agente remetente (obrigatório para enviar de verdade) —</option>
           ${AV.agentes.map((a) => `<option value="${avEsc(a.id)}" ${a.id === r.agente_id ? 'selected' : ''}>${avEsc(a.nome)}</option>`).join('')}</select>
@@ -116,7 +121,12 @@ async function avFormulario() {
         <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="avAtivo" ${r.ativo ? 'checked' : ''}> Regra ativa</label>
         <div><button class="config-btn" type="button" onclick="avSalvarRegra()">Salvar regra</button> <button class="config-btn config-btn-muted" type="button" onclick="document.getElementById('avForm').innerHTML=''">Cancelar</button> <span id="avFormStatus" class="config-status"></span></div>
       </div></div>`;
-    avChips();
+    avChips(); avChipsC();
+    document.getElementById('avClasseIn').addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return; e.preventDefault();
+        const v = e.target.value.trim(); if (v && !AV.editando.classificacoes.includes(v)) AV.editando.classificacoes.push(v);
+        e.target.value = ''; avChipsC();
+    });
     document.getElementById('avServicoIn').addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return; e.preventDefault();
         const v = e.target.value.trim(); if (v && !AV.editando.servicos.includes(v)) AV.editando.servicos.push(v);
@@ -127,6 +137,9 @@ async function avFormulario() {
 function avChips() {
     document.getElementById('avChips').innerHTML = AV.editando.servicos.map((s, i) => `<span style="background:var(--surface-mid,#eee);border-radius:999px;padding:4px 10px;font-size:12px">${avEsc(s)} <a href="#" onclick="AV.editando.servicos.splice(${i},1);avChips();return false" title="Remover">✕</a></span>`).join('') || '<span class="config-card-help">Nenhum serviço escolhido.</span>';
 }
+function avChipsC() {
+    document.getElementById('avChipsC').innerHTML = AV.editando.classificacoes.map((s, i) => `<span style="background:var(--surface-mid,#eee);border-radius:999px;padding:4px 10px;font-size:12px">${avEsc(s)} <a href="#" onclick="AV.editando.classificacoes.splice(${i},1);avChipsC();return false" title="Remover">✕</a></span>`).join('') || '<span class="config-card-help">Qualquer classificação.</span>';
+}
 async function avPrevia() {
     try { const d = await avApi('/previa', 'POST', { mensagem: document.getElementById('avMsg').value, servico: AV.editando.servicos[0] }); document.getElementById('avPreviaTxt').textContent = d.texto; }
     catch (e) { document.getElementById('avPreviaTxt').textContent = e.message; }
@@ -134,7 +147,7 @@ async function avPrevia() {
 async function avSalvarRegra() {
     const r = AV.editando, st = document.getElementById('avFormStatus');
     const sel = document.getElementById('avAgente');
-    const corpo = { nome: document.getElementById('avNome').value, servicos: r.servicos, tipo_acao: document.getElementById('avTipo').value, mensagem: document.getElementById('avMsg').value,
+    const corpo = { nome: document.getElementById('avNome').value, servicos: r.servicos, classificacoes: r.classificacoes || [], tipo_acao: document.getElementById('avTipo').value, mensagem: document.getElementById('avMsg').value,
         agente_id: sel.value, agente_nome: sel.value ? sel.options[sel.selectedIndex].text : '', modo: document.getElementById('avModo').value,
         vigencia_inicio: document.getElementById('avIni').value ? new Date(document.getElementById('avIni').value).toISOString() : null,
         vigencia_fim: document.getElementById('avFim').value ? new Date(document.getElementById('avFim').value).toISOString() : null, ativo: document.getElementById('avAtivo').checked };
@@ -159,8 +172,9 @@ function avDiagnostico(e) {
     if (!e.ligado) return '<strong>Módulo desligado</strong> — marque "Módulo ligado" e salve.';
     if (!r) return 'Aguardando a primeira verificação…';
     if (!r.regrasAtivas) return '<strong>Nenhuma regra ativa.</strong> Edite a regra e marque "Regra ativa" — regra desligada não dispara.';
+    const cl = r.outraClassificacao ? ` ${r.outraClassificacao} chamado(s) do serviço com outra classificação (${(r.classificacoesVistas || []).map(avEsc).join('; ')}).` : '';
     const sem = r.servicosSemRegra?.length ? ` Serviços sem regra: ${r.servicosSemRegra.map(avEsc).join('; ')}.` : '';
-    return `Na última verificação: ${r.regrasAtivas} regra(s) ativa(s) · ${r.consultados} chamado(s) novo(s) consultado(s) · ${r.casaram} do(s) serviço(s) configurado(s) · ${r.registrados} aviso(s) registrado(s)${r.jaTratados ? ` · ${r.jaTratados} já tratado(s)` : ''}${r.fechados ? ` · ${r.fechados} já fechado(s)` : ''}.${sem}`;
+    return `Na última verificação: ${r.regrasAtivas} regra(s) ativa(s) · ${r.consultados} chamado(s) novo(s) consultado(s) · ${r.casaram} do(s) serviço(s) configurado(s) · ${r.registrados} aviso(s) registrado(s)${r.jaTratados ? ` · ${r.jaTratados} já tratado(s)` : ''}${r.fechados ? ` · ${r.fechados} já fechado(s)` : ''}.${sem}${cl}`;
 }
 async function avVerificarAgora() {
     try { await avApi('/verificar', 'POST', {}); await avisosCarregar(); } catch (e) { alert(e.message); }

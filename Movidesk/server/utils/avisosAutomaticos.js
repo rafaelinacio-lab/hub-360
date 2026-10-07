@@ -43,6 +43,7 @@ function garantirTabelas() {
     )`);
     await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS vigencia_inicio timestamptz`);
     await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS vigencia_fim timestamptz`);
+    await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS classificacoes jsonb NOT NULL DEFAULT '[]'::jsonb`);
     await db.query(`CREATE TABLE IF NOT EXISTS public.aviso_envio (
       id bigserial PRIMARY KEY,
       regra_id int NOT NULL,
@@ -90,6 +91,22 @@ function servicoCasa(servicoDoChamado, servicosDaRegra) {
   });
 }
 
+// ── Classificação do chamado (campo "Classificação de Ticket") ──────────────
+// A listagem do Movidesk não traz os campos customizados de forma confiável (bug documentado no loader),
+// então, só quando alguma regra pede classificação, o chamado candidato é relido por id.
+const RULE_ID_CLASSIFICACAO = 11397;
+const CF_CLASSIFICACAO = 23946;
+async function classificacaoDoChamado(id) {
+  const lista = await movidesk('GET', '/tickets', { query: { id, $select: 'id', $expand: 'customFieldValues' } });
+  const t = Array.isArray(lista) ? lista[0] : lista;
+  const cfs = Array.isArray(t?.customFieldValues) ? t.customFieldValues : [];
+  const cf = cfs.find((c) => Number(c.customFieldRuleId) === RULE_ID_CLASSIFICACAO) || cfs.find((c) => Number(c.customFieldId) === CF_CLASSIFICACAO);
+  if (!cf) return '';
+  const item = Array.isArray(cf.items) && cf.items[0] ? cf.items[0].customFieldItem : null;
+  return String(item || cf.value || '').trim();
+}
+const classificacaoCasa = (valor, lista) => !(lista || []).length || (lista || []).some((c) => norm(c) === norm(valor));
+
 // ── Mensagem ───────────────────────────────────────────────────────────
 function saudacao(data = new Date()) {
   const h = (data.getUTCHours() + 24 - 3) % 24;   // Brasília
@@ -125,7 +142,17 @@ async function processarChamado(regras, t, resumo) {
   const criado = t.createdDate ? new Date(t.createdDate) : new Date();
   // vigência: a regra só vale para chamados criados dentro da janela (início/fim opcionais)
   const naJanela = (r) => (!r.vigencia_inicio || criado >= new Date(r.vigencia_inicio)) && (!r.vigencia_fim || criado <= new Date(r.vigencia_fim));
-  const regra = regras.find((r) => naJanela(r) && servicoCasa(t.servico, r.servicos));
+  const candidatas = regras.filter((r) => naJanela(r) && servicoCasa(t.servico, r.servicos));
+  let regra = null;
+  if (candidatas.length) {
+    let classe = null;   // só busca se alguma candidata exigir classificação
+    for (const r of candidatas) {
+      if (!(r.classificacoes || []).length) { regra = r; break; }
+      if (classe === null) classe = await classificacaoDoChamado(t.id);
+      if (classificacaoCasa(classe, r.classificacoes)) { regra = r; break; }
+    }
+    if (!regra && classe !== null) { resumo.outraClassificacao++; if (resumo.classificacoesVistas.length < 5 && !resumo.classificacoesVistas.includes(classe || '(vazia)')) resumo.classificacoesVistas.push(classe || '(vazia)'); return 0; }
+  }
   if (!regra) { resumo.semRegra++; if (resumo.servicosSemRegra.length < 5 && !resumo.servicosSemRegra.includes(t.servico)) resumo.servicosSemRegra.push(t.servico); return 0; }
   resumo.casaram++;
   const texto = montarMensagem(regra.mensagem, t);
@@ -188,7 +215,7 @@ async function ciclo() {
     });
     const tickets = (Array.isArray(lista) ? lista : []).map((t) => ({ ...t, id: String(t.id), servico: Array.isArray(t.serviceFull) ? t.serviceFull.join(' > ') : (t.serviceFull || '') }));
     let maior = vigia;
-    const resumo = { regrasAtivas: regras.length, consultados: tickets.length, fechados: 0, semRegra: 0, casaram: 0, jaTratados: 0, registrados: 0, servicosSemRegra: [] };
+    const resumo = { regrasAtivas: regras.length, consultados: tickets.length, fechados: 0, semRegra: 0, casaram: 0, jaTratados: 0, registrados: 0, servicosSemRegra: [], outraClassificacao: 0, classificacoesVistas: [] };
     for (const t of tickets) {
       await processarChamado(regras, t, resumo);
       if (t.createdDate && new Date(t.createdDate) > new Date(maior)) maior = new Date(t.createdDate).toISOString();
