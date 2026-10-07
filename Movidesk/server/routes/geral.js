@@ -122,8 +122,9 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
     // 42P01 = undefined_table (silver.* ainda não existe, primeira carga) —
     // ESPECÍFICO pra não mascarar outros erros reais (ex: 42703 coluna
     // errada numa query nova), que precisam aparecer como 500 de verdade.
-    if (error.code === '42P01') {
-      console.warn('[geral] silver.* ainda não existe — retornando vazio');
+    // Só a ausência da própria silver.ticket (primeira carga) vira "vazio"; falta de qualquer outra tabela é erro de verdade e precisa aparecer.
+    if (error.code === '42P01' && /relation "silver\.ticket"/.test(error.message)) {
+      console.warn('[geral] silver.ticket ainda não existe — retornando vazio');
       return res.json({ rows: [], janela: null });
     }
     console.error('Erro ao buscar painel geral:', error.message);
@@ -194,12 +195,31 @@ router.post('/tv-chave', authMiddleware, requireRole('admin'), async (req, res) 
   try { res.json({ chave: await lerChaveTv(true) }); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Diagnóstico do Painel Geral (admin): o que existe no banco e quanto a consulta principal leva — para achar por que a tela vem vazia.
+router.get('/diagnostico', authMiddleware, requireRole('admin'), async (req, res) => {
+  const out = { geradoEm: new Date().toISOString() };
+  try {
+    const rel = await db.query(`SELECT 'silver.ticket' AS t, to_regclass('silver.ticket') IS NOT NULL AS ok UNION ALL SELECT 'silver.ticket_campo_customizado', to_regclass('silver.ticket_campo_customizado') IS NOT NULL
+      UNION ALL SELECT 'silver.ticket_organizacao', to_regclass('silver.ticket_organizacao') IS NOT NULL UNION ALL SELECT 'silver.ticket_acao', to_regclass('silver.ticket_acao') IS NOT NULL`);
+    out.tabelas = Object.fromEntries(rel.rows.map((r) => [r.t, r.ok]));
+    const closed = OPEN_EXCLUDED_STATUSES.map((x) => `'${x}'`).join(',');
+    const c = (await db.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE createddate IS NULL)::int AS sem_criacao,
+        COUNT(*) FILTER (WHERE createddate >= date_trunc('year', NOW()))::int AS criados_no_ano, COUNT(*) FILTER (WHERE resolved_in >= date_trunc('year', NOW()))::int AS resolvidos_no_ano,
+        COUNT(*) FILTER (WHERE basestatus NOT IN (${closed}))::int AS abertos, MAX(createddate) AS ultimo_criado, MAX(last_update) AS ultima_alteracao FROM silver.ticket`)).rows[0];
+    Object.assign(out, c);
+    const t0 = Date.now();
+    const q = await db.query(`SELECT COUNT(*)::int AS n FROM (${LIST_SELECT} WHERE t.createddate >= date_trunc('year', NOW()) OR t.resolved_in >= date_trunc('year', NOW())) x`);
+    out.consultaPrincipal = { linhas: q.rows[0].n, ms: Date.now() - t0 };
+  } catch (e) { out.erro = e.message; out.codigo = e.code; }
+  res.json(out);
+});
+
 // Saldo de horas técnicas (crédito da Política de SLA) por organização, para o Painel Geral mostrar ao lado do cliente.
 router.get('/horas-tecnicas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const saldos = await require('../utils/slaHorasCore').saldosPorCliente();
     const out = {};
-    for (const [id, s] of Object.entries(saldos)) if (s.disponivel > 0 || s.concedido > 0) out[id] = { h: s.disponivel, v: s.aVencer ? s.aVencer.validade : null, vh: s.aVencer ? s.aVencer.horas : 0 };
+    for (const [id, s] of Object.entries(saldos)) if (s.disponivel > 0 || s.concedido > 0) out[id] = { h: s.disponivel, c: s.concedido, u: s.usado, e: s.expirado, v: s.aVencer ? s.aVencer.validade : null, vh: s.aVencer ? s.aVencer.horas : 0, l: s.creditos || [] };
     res.json({ saldos: out });
   } catch (e) {
     if (e.code === '42P01') return res.json({ saldos: {} });
@@ -283,8 +303,8 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
       return { rows, hoje };
     });
   } catch (error) {
-    if (error.code === '42P01') {
-      console.warn('[geral] silver.* ainda não existe — retornando vazio (pendentes)');
+    if (error.code === '42P01' && /relation "silver\.ticket"/.test(error.message)) {
+      console.warn('[geral] silver.ticket ainda não existe — retornando vazio (pendentes)');
       return res.json({ rows: [] });
     }
     console.error('Erro ao buscar pendentes do painel geral:', error.message);

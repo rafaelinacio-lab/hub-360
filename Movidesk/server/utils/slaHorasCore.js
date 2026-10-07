@@ -216,11 +216,16 @@ let _saldosCache = { em: 0, valor: null };
 async function saldosPorCliente() {
   if (_saldosCache.valor && Date.now() - _saldosCache.em < 60 * 1000) return _saldosCache.valor;
   await prepararTabelas();
-  const rows = (await db.query(`SELECT organizacao_id, tipo, horas::float AS horas, criado_em, validade FROM public.sla_credito ORDER BY criado_em`)).rows;
+  const rows = (await db.query(`SELECT organizacao_id, competencia, tipo, horas::float AS horas, criado_em, validade FROM public.sla_credito ORDER BY criado_em`)).rows;
   const por = new Map();
   for (const l of rows) { if (!por.has(l.organizacao_id)) por.set(l.organizacao_id, []); por.get(l.organizacao_id).push(l); }
   const out = {};
-  for (const [id, l] of por) out[id] = P.saldoExtrato(l);
+  for (const [id, l] of por) {
+    // últimos créditos concedidos (com horas), do mais novo para o mais antigo — para mostrar de onde veio o saldo
+    const creditos = l.filter((x) => x.tipo === 'credito' && Number(x.horas) > 0).sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em)).slice(0, 4)
+      .map((x) => ({ competencia: x.competencia || null, horas: Number(x.horas), validade: x.validade ? new Date(x.validade).toISOString().slice(0, 10) : null }));
+    out[id] = { ...P.saldoExtrato(l), creditos };
+  }
   _saldosCache = { em: Date.now(), valor: out };
   return out;
 }

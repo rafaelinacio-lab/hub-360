@@ -255,6 +255,8 @@ input,select{font-family:inherit}
 .imp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media (max-width:1100px){.imp-grid{grid-template-columns:1fr}}
 .imp-sub{font-size:12px;font-weight:700;margin:0 0 6px}
+.td-ht{margin:0 0 14px;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,#10b981 10%,transparent)}
+.td-ht .lbl{margin:0 0 2px}
 .ht-badge{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;background:color-mix(in srgb,#10b981 16%,transparent);color:#10b981;white-space:nowrap;cursor:help}
 .imp-pos{color:#f87171}.imp-neg{color:var(--green)}
 .imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
@@ -1328,11 +1330,30 @@ async function loadHistoricoCompleto(){
     _janela=resp.janela??null;
     renderJanelaBanner();
     buildFilterOptions();
-    render();
+    try{ render(); }
+    catch(re){ console.error('[painel geral] falha ao desenhar:',re); avisoGeral(`<b>Os dados chegaram (${_rows.length.toLocaleString('pt-BR')} chamados), mas o painel falhou ao desenhar:</b> ${esc(re.message)}`); return; }
+    avisoGeral(_rows.length?'':'<b>O servidor devolveu 0 chamados para o Painel Geral.</b> Se isso não é esperado, clique em “Diagnosticar” para ver o que há no banco. <button class="btn-refresh" style="width:auto;padding:4px 12px" onclick="diagnosticarGeral()">Diagnosticar</button><pre id="diag-geral" style="white-space:pre-wrap;margin:8px 0 0;font-size:12px"></pre>');
   } catch(e){
     alert('Não foi possível carregar o histórico completo: '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='Carregar histórico completo'; }
   }
+}
+function avisoGeral(html){
+  let el=document.getElementById('aviso-geral');
+  if(!html){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement('div'); el.id='aviso-geral'; el.style.cssText='margin:0 0 14px;padding:12px 16px;border-radius:14px;background:var(--danger-soft,#3a1d22);color:var(--t1);font-size:14px'; document.getElementById('geral-dash').prepend(el); }
+  el.innerHTML=html;
+}
+async function diagnosticarGeral(){
+  const pre=document.getElementById('diag-geral'); if(!pre) return; pre.textContent='Consultando o banco…';
+  try{
+    const d=await api('/geral/diagnostico',120000);
+    pre.textContent=d.erro?`Erro: ${d.erro} (${d.codigo||''})`:[
+      `Tabelas: ${Object.entries(d.tabelas||{}).map(([k,v])=>`${k}=${v?'ok':'FALTA'}`).join(' · ')}`,
+      `Chamados na base: ${d.total} · criados em ${new Date().getFullYear()}: ${d.criados_no_ano} · resolvidos no ano: ${d.resolvidos_no_ano} · abertos: ${d.abertos} · sem data de criação: ${d.sem_criacao}`,
+      `Último criado: ${d.ultimo_criado||'—'} · última alteração: ${d.ultima_alteracao||'—'}`,
+      `Consulta principal do painel: ${d.consultaPrincipal?`${d.consultaPrincipal.linhas} linhas em ${d.consultaPrincipal.ms} ms`:'não executou'}`].join('\n');
+  }catch(e){ pre.textContent='Não foi possível diagnosticar: '+e.message; }
 }
 async function loadGeral(){
   try{
@@ -2030,9 +2051,14 @@ function pluginCruz(){
 // horas úteis da abertura à resolução, descontando os status de pausa.
 // Saldo de horas técnicas (crédito da Política de SLA) por organização — GET /geral/horas-tecnicas; calculado sozinho pelo servidor.
 let _saldosHT={};
-const htDe=r=>{ const x=r&&r.organizacao_id!=null?_saldosHT[r.organizacao_id]:null; return x&&x.h>0?x:null; };
-const htTexto=r=>{ const x=htDe(r); return x?`${x.h.toLocaleString('pt-BR',{maximumFractionDigits:2})} h técnicas`:''; };
-const htBadge=r=>{ const x=htDe(r); return x?` <span class="ht-badge" title="Saldo de horas técnicas de crédito${x.v?` — ${x.vh.toLocaleString('pt-BR',{maximumFractionDigits:2})} h vencem em ${new Date(x.v+'T12:00:00').toLocaleDateString('pt-BR')}`:''}">⏱ ${esc(htTexto(r))}</span>`:''; };
+const fmtHT=n=>Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:2});
+const htDe=r=>{ const x=r&&r.organizacao_id!=null?_saldosHT[r.organizacao_id]:null; return x&&(x.c>0||x.h>0)?x:null; };
+// Texto curto: créditos concedidos no geral do cliente e o que ainda está disponível.
+const htTexto=r=>{ const x=htDe(r); return x?`${fmtHT(x.c)} h concedidas · ${fmtHT(x.h)} h disponíveis`:''; };
+const htBadge=r=>{ const x=htDe(r); return x?` <span class="ht-badge" title="Horas técnicas de crédito (Política de SLA). Concedidas no total: ${fmtHT(x.c)} h · usadas: ${fmtHT(x.u)} h · disponíveis: ${fmtHT(x.h)} h${x.e?` · expiradas: ${fmtHT(x.e)} h`:''}${x.v?` · ${fmtHT(x.vh)} h vencem em ${new Date(x.v+'T12:00:00').toLocaleDateString('pt-BR')}`:''}">⏱ ${esc(htTexto(r))}</span>`:''; };
+// Bloco do modal do chamado: o histórico de créditos concedidos ao cliente.
+const htBloco=r=>{ const x=htDe(r); if(!x) return ''; const creditos=(x.l||[]).map(c=>`<li>${esc(c.competencia||'—')}: <b>+${fmtHT(c.horas)} h</b>${c.validade?` <span style=\"color:var(--t3)\">(vence em ${new Date(c.validade+'T12:00:00').toLocaleDateString('pt-BR')})</span>`:''}</li>`).join('');
+  return `<div class="td-ht"><p class="lbl">Horas técnicas do cliente</p><p class="val"><b>${fmtHT(x.c)} h</b> concedidas no total · ${fmtHT(x.u)} h usadas · <b>${fmtHT(x.h)} h disponíveis</b>${x.e?` · ${fmtHT(x.e)} h expiradas`:''}</p>${creditos?`<ul style="margin:6px 0 0 18px;padding:0;font-size:13px">${creditos}</ul>`:''}</div>`; };
 async function carregarSaldosHT(){ try{ _saldosHT=(await api('/geral/horas-tecnicas',30000)).saldos||{}; }catch(_){ _saldosHT={}; } }
 const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
 // A meta por urgência (documento de SLA) vale SÓ para a classificação Suporte Técnico; os demais seguem a previsão de solução do chamado.
@@ -3254,7 +3280,7 @@ function openTicketModal(ticketId){
   document.getElementById('ticket-modal-title').textContent=`Ticket #${ticketId}`;
   document.getElementById('ticket-modal-sub').innerHTML=`${esc(r.organizacao||'')}${htBadge(r)}`;
   document.getElementById('ticket-modal-link').href=ticketUrl(ticketId);
-  document.getElementById('ticket-modal-body').innerHTML=`
+  document.getElementById('ticket-modal-body').innerHTML=`${htBloco(r)}
     <div class="td-info-grid">
       <div><p class="lbl">Assunto</p><p class="val">${esc(r.assunto||'—')}</p></div>
       <div><p class="lbl">Classificação</p><p class="val">${esc(classificacaoDe(r))}</p></div>
