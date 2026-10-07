@@ -219,6 +219,20 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
           rows.forEach(r => { if (!r.organizacao) { const o = porId.get(String(r.ticket_id)); if (o) { r.organizacao = o.organizacao_nome; r.organizacao_id = o.organizacao_id; } } });
         } catch (e) { console.warn('[geral] fallback de organização dos pendentes falhou:', e.message); }
       }
+      // Ainda sem organização (o Movidesk não liga uma organização ao contato): mostra o nome do contato externo
+      // (ou, se só houver agente interno, o nome dele) para a coluna Cliente nunca ficar em branco havendo cliente no chamado.
+      const semNome = rows.filter(r => !r.organizacao).map(r => r.ticket_id).filter(id => /^\d{1,18}$/.test(String(id)));
+      if (semNome.length) {
+        try {
+          const fc = await db.query(`
+            SELECT DISTINCT ON (ticket_id) ticket_id::text AS id, nome
+              FROM silver.ticket_cliente
+             WHERE ticket_id = ANY($1::bigint[]) AND NULLIF(btrim(nome), '') IS NOT NULL
+             ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false)`, [semNome]);
+          const porId = new Map((fc.rows || []).map(x => [x.id, x.nome]));
+          rows.forEach(r => { if (!r.organizacao) { const n = porId.get(String(r.ticket_id)); if (n) r.cliente_nome = n; } });
+        } catch (e) { console.warn('[geral] fallback de nome do cliente dos pendentes falhou:', e.message); }
+      }
       // Movimento do dia (fuso de Brasília): chamados abertos hoje e resolvidos/fechados hoje, com os campos dos filtros.
       let hoje = [];
       try {
