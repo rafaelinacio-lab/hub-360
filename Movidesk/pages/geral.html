@@ -2359,30 +2359,36 @@ function abrirTema(tema){
 }
 
 // ── Top 10 causas (diagnóstico da Curadoria sobre o histórico inteiro do chamado) ──
-let _causasSeq=0, _causasGrupos=[];
+let _causasSeq=0, _causasGrupos=[], _causasBase=null;
 async function renderCausas(rows){
   const lista=document.getElementById('causas-lista'), sub=document.getElementById('causas-sub');
   if(!lista) return;
   const seq=++_causasSeq;
-  const ids=[...new Set(rows.map(r=>String(r.ticket_id)))];
-  if(!ids.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; return; }
-  lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
+  if(!rows.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; return; }
   try{
-    const r=await fetch(`${API}/geral/causas`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids,limite:10})});
-    const resp=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(resp.error||`HTTP ${r.status}`);
+    if(!_causasBase){
+      lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
+      const r=await fetch(`${API}/geral/causas`,{headers:{Authorization:`Bearer ${tok()}`}});
+      const resp=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(resp.error||`HTTP ${r.status}`);
+      _causasBase=resp;
+    }
     if(seq!==_causasSeq) return;
+    // cruza a base da Curadoria com os chamados que o painel está mostrando agora (respeita todos os filtros)
+    const ids=new Set(rows.map(r=>String(r.ticket_id)));
+    const porCausa=new Map(); let comCausa=0;
+    for(const [id,i] of _causasBase.itens){ if(!ids.has(id)) continue; comCausa++; (porCausa.get(i)||porCausa.set(i,[]).get(i)).push(id); }
     const n=x=>x.toLocaleString('pt-BR');
-    const cob=resp.analisados?resp.comCausa/resp.analisados:0;
-    sub.textContent=`${n(resp.comCausa)} de ${n(resp.analisados)} tickets do período têm causa diagnosticada (${fmtPct(cob)}) — os demais ainda não passaram pela Curadoria. Clique numa causa para ver os tickets.`;
-    _causasGrupos=resp.causas||[];
-    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(resp.aviso||'Nenhum ticket do período foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
+    const cob=ids.size?comCausa/ids.size:0;
+    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets do período têm causa diagnosticada (${fmtPct(cob)}) — os demais ainda não passaram pela Curadoria. Clique numa causa para ver os tickets.`;
+    _causasGrupos=[...porCausa.entries()].map(([i,lst])=>({causa:_causasBase.causas[i],qtd:lst.length,ids:lst})).sort((a,b)=>b.qtd-a.qtd).slice(0,10);
+    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do período foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
     const max=_causasGrupos[0].qtd;
     lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
       <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
       <div><div class="tm-nome">${esc(g.causa)}</div></div>
       <div class="tm-trilho"><div class="tm-barra" style="width:${Math.max(2,g.qtd/max*100)}%;background:var(--brand)"></div></div>
-      <div class="tm-val"><b>${n(g.qtd)}</b><small>${fmtPct(g.qtd/resp.comCausa)}</small></div>
+      <div class="tm-val"><b>${n(g.qtd)}</b><small>${fmtPct(g.qtd/comCausa)}</small></div>
     </div>`).join('');
   }catch(e){ if(seq===_causasSeq) lista.innerHTML=`<p class="imp-vazio">${esc(/^Não foi possível/.test(e.message)?e.message:'Não foi possível analisar as causas: '+e.message)}</p>`; }
 }

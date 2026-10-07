@@ -73,9 +73,6 @@ app.use(cors({
     : [`http://localhost:${PORT}`],
   credentials: true
 }));
-// O card "Top 10 causas" envia os números dos chamados do período (dezenas de milhares): precisa de limite maior que o padrão (100 kb).
-// Vem ANTES do parser global, que pula o que já foi lido.
-app.use('/api/geral/causas', express.json({ limit: '3mb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

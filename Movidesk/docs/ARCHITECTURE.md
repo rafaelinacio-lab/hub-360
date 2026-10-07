@@ -308,7 +308,7 @@ ainda usa o padrão antigo (expediente lido em UTC, defasado em 3 h) até ser va
 - `server/utils/cacheResposta.js`: `GET /api/geral` e `GET /api/geral/pendentes` (iguais para todos os usuários) são consultados uma vez, serializados e comprimidos em gzip; os pedidos seguintes recebem os bytes prontos. Pedidos simultâneos dividem a mesma consulta.
 - Validade: 2 minutos ou até `saveBatch` (movidesk-loader.js, usado pelas cargas, pela cron e pela Central do chamado) gravar tickets — o que vier primeiro. Até 6 chaves em memória (processo do servidor); reiniciar o contêiner limpa.
 - Só usar em rotas cujo resultado não dependa do usuário (a autenticação continua na rota).
-- Painel Geral → card "Top 10 causas dos chamados": `POST /api/geral/causas` agrupa `causa_normalizada` de `curadoria_chamados` (banco movidesk_curadoria; a Curadoria lê o histórico inteiro do chamado) para os tickets filtrados; só entram chamados já processados pela Curadoria.
+- Painel Geral → card "Top 10 causas dos chamados": `GET /api/geral/causas` devolve a base da Curadoria (`causa_normalizada` de `curadoria_chamados`, banco movidesk_curadoria; a Curadoria lê o histórico inteiro do chamado) compactada em `{causas, itens:[[ticket_id, causa]]}`, em memória por 10 min; o painel cruza com os chamados filtrados. Só entram chamados já processados pela Curadoria.
 
 ## Avisos automáticos
 Configurações → Avisos automáticos (só admin). Mensagens disparadas quando chega chamado **novo** no Movidesk de um serviço configurado.
