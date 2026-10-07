@@ -108,7 +108,7 @@ textarea{width:100%;resize:vertical;min-height:80px}
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/v2.css">
 <style id="v2-melhorias">
-/* ═══ Melhorias no Visual 2.0 ═══ */
+/* ═══ Melhorias no Visual 2.0 (layout "Ideias" do Hub 360 2.0) ═══ */
 html[data-ui="v2"]{
   --accent:var(--brand);
   --p1:var(--danger); --p1-bg:var(--danger-soft); --p2:var(--brand-text); --p2-bg:var(--brand-soft); --p3:var(--warning); --p3-bg:var(--warning-soft); --p4:var(--info); --p4-bg:var(--info-soft);
@@ -117,62 +117,87 @@ html[data-ui="v2"]{
 }
 html[data-ui="v2"] body{font-family:"Manrope",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 html[data-ui="v2"] .page{max-width:1480px;padding:24px 24px 56px}
-/* cabeçalho */
-html[data-ui="v2"] .topo{align-items:center;gap:14px 18px;margin-bottom:18px}
-html[data-ui="v2"] .topo h1{font-size:32px;font-weight:800;letter-spacing:-.02em}
-html[data-ui="v2"] .topo p{color:var(--t2);font-size:14px;font-weight:500;line-height:1.5;max-width:720px;margin-top:4px}
-html[data-ui="v2"] .btn{border:1px solid var(--border-hi);background:var(--surface);color:var(--t1);border-radius:999px;padding:10px 18px;font-weight:700;font-size:13px}
+html[data-ui="v2"] .topo{align-items:center;gap:14px 18px;margin-bottom:22px}
+html[data-ui="v2"] .topo h1{font-size:34px;font-weight:800;letter-spacing:-.02em}
+html[data-ui="v2"] .topo p{color:var(--t2);font-size:14px;font-weight:600;line-height:1.5;max-width:720px;margin-top:4px}
+html[data-ui="v2"] .btn{border:1px solid var(--border-hi);background:var(--surface);color:var(--t1);border-radius:999px;padding:10px 18px;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:8px}
 html[data-ui="v2"] .btn:hover:not(:disabled){background:var(--surface-low)}
-html[data-ui="v2"] .btn.primario{background:var(--brand);border-color:var(--brand);color:var(--on-brand);box-shadow:0 6px 18px rgba(255,138,43,.30);padding:12px 22px}
+html[data-ui="v2"] .btn.primario{background:var(--brand);border-color:var(--brand);color:var(--on-brand);box-shadow:0 6px 18px rgba(255,138,43,.30);padding:13px 24px;font-weight:800}
 html[data-ui="v2"] .btn.primario:hover:not(:disabled){background:var(--brand-hover)}
 html[data-ui="v2"] .btn.peq{padding:7px 14px;font-size:12px}
-/* KPIs por status */
-html[data-ui="v2"] .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px}
-html[data-ui="v2"] .kpi{--tone:#ff8a2b;--tone-ink:#a84300;position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-areas:"ico n" "r r";align-items:center;gap:8px 12px;border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-card);padding:16px 18px;min-width:0;color:var(--t1)}
-html[data-ui="v2"][data-theme="dark"] .kpi,html[data-ui="v2"].dark .kpi{--tone-ink:var(--tone)}
-html[data-ui="v2"] .kpi[data-tone="gray"]{--tone:#a6adbf;--tone-ink:#564d44}
-html[data-ui="v2"] .kpi[data-tone="yellow"]{--tone:#e9b730;--tone-ink:#7a5a00}
-html[data-ui="v2"] .kpi[data-tone="blue"]{--tone:#4f9cf0;--tone-ink:#0b5fb8}
-html[data-ui="v2"] .kpi[data-tone="green"]{--tone:#2fbf8a;--tone-ink:#0b7a55}
-html[data-ui="v2"] .kpi[data-tone="red"]{--tone:#ee6f82;--tone-ink:#b3263a}
-html[data-ui="v2"] .kpi .ico{grid-area:ico;display:grid;place-items:center;width:40px;height:40px;border-radius:14px;background:color-mix(in srgb,var(--tone) 18%,transparent);color:var(--tone-ink)}
-html[data-ui="v2"] .kpi .ico svg{width:20px;height:20px}
-html[data-ui="v2"] .kpi .n{grid-area:n;font-size:32px;line-height:1;font-weight:800;letter-spacing:-.02em;text-align:right}
-html[data-ui="v2"] .kpi .r{grid-area:r;font-size:13px;font-weight:700;color:var(--t2);text-transform:none;letter-spacing:0}
-html[data-ui="v2"] .kpi:hover{box-shadow:var(--shadow-pop)}
-html[data-ui="v2"] .kpi[aria-pressed="true"]{box-shadow:var(--shadow-card),inset 0 0 0 2px var(--brand)}
-/* filtros em pílula */
-html[data-ui="v2"] .barra{gap:10px;margin-bottom:16px}
-html[data-ui="v2"] .barra input[type=search],html[data-ui="v2"] .barra select{border:1px solid var(--border-hi);background:var(--surface);border-radius:999px;padding:9px 16px;font-size:12.5px;font-weight:700;color:var(--t2)}
-html[data-ui="v2"] .barra input[type=search]{min-width:260px;font-weight:600}
-html[data-ui="v2"] .barra input:focus,html[data-ui="v2"] .barra select:focus{outline:2px solid var(--focus-ring);outline-offset:2px}
-html[data-ui="v2"] .chip{border:1px solid var(--border-hi);background:var(--surface);border-radius:999px;padding:9px 16px;font-size:12.5px;font-weight:700;color:var(--t2)}
+html[data-ui="v2"] .btn svg{width:18px;height:18px}
+/* duas colunas: lista + roadmap */
+html[data-ui="v2"] .mel-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:22px;align-items:start}
+html[data-ui="v2"] .mel-grid.quadro-on{grid-template-columns:minmax(0,1fr)}
+html[data-ui="v2"] .mel-grid.quadro-on .mel-side{display:none}
+@media (max-width:1100px){html[data-ui="v2"] .mel-grid{grid-template-columns:minmax(0,1fr)}}
+html[data-ui="v2"] .mel-main{min-width:0}
+html[data-ui="v2"] .vistas{display:inline-flex;gap:6px;padding:4px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-card)}
+html[data-ui="v2"] .vistas .chip{border-color:transparent;background:transparent}
+html[data-ui="v2"] .vistas .chip[aria-pressed="true"]{background:var(--brand-soft);border-color:transparent}
+html[data-ui="v2"] .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+html[data-ui="v2"] .toolbar .dir{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+html[data-ui="v2"] .chip{border:1px solid var(--border-hi);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--t2);cursor:pointer}
+html[data-ui="v2"] .chip:hover{background:var(--surface-low);color:var(--t1)}
 html[data-ui="v2"] .chip[aria-pressed="true"]{background:var(--brand-soft);border-color:var(--brand-text);color:var(--brand-text)}
-/* lista */
-html[data-ui="v2"] .lista{gap:12px}
-html[data-ui="v2"] .item{border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-card);padding:14px 20px;gap:16px}
+html[data-ui="v2"] .barra{gap:10px;margin-bottom:16px}
+html[data-ui="v2"] .barra input[type=search],html[data-ui="v2"] .barra select{border:1px solid var(--border-hi);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--t2)}
+html[data-ui="v2"] .barra input[type=search]{min-width:170px;width:190px;font-weight:600}
+html[data-ui="v2"] .barra input:focus,html[data-ui="v2"] .barra select:focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+/* cartão de sugestão */
+html[data-ui="v2"] .lista{gap:16px}
+html[data-ui="v2"] .item{display:flex;align-items:flex-start;gap:20px;border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-card);padding:20px 22px}
 html[data-ui="v2"] .item:hover,html[data-ui="v2"] .item:focus-visible{box-shadow:var(--shadow-pop);outline:none}
 html[data-ui="v2"] .item:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-html[data-ui="v2"] .item h3{font-size:15px;font-weight:800;letter-spacing:-.01em}
+html[data-ui="v2"] .item .corpo{flex:1;min-width:0}
+html[data-ui="v2"] .item h3{margin:0;font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
+html[data-ui="v2"] .item .desc{margin:4px 0 12px;color:var(--t2);font-size:13.5px;font-weight:500;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+html[data-ui="v2"] .item .meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 html[data-ui="v2"] .sub{font-size:12.5px;color:var(--t3);font-weight:600}
-html[data-ui="v2"] .voto{border:0;border-radius:16px;background:var(--surface-low);padding:9px 0;font-size:20px;font-weight:800;color:var(--t1)}
-html[data-ui="v2"] .voto small{font-size:10px;letter-spacing:.04em;color:var(--t3);margin-top:2px}
-html[data-ui="v2"] .voto:hover:not(:disabled){background:var(--brand-soft)}
-html[data-ui="v2"] .voto.on{background:var(--brand);color:var(--on-brand)} html[data-ui="v2"] .voto.on small{color:var(--on-brand)}
-html[data-ui="v2"] .pill{padding:5px 13px;font-size:12px;font-weight:800}
+html[data-ui="v2"] .autor{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--t2);font-weight:600}
+html[data-ui="v2"] .av{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:9.5px;font-weight:800;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+html[data-ui="v2"] .voto{flex:none;width:62px;border:1.5px solid var(--border-hi);border-radius:16px;background:transparent;padding:9px 0 8px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:18px;font-weight:800;color:var(--t2);line-height:1.1;cursor:pointer}
+html[data-ui="v2"] .voto svg{width:18px;height:18px}
+html[data-ui="v2"] .voto:hover:not(:disabled){background:var(--brand-soft);border-color:var(--brand-text);color:var(--brand-text)}
+html[data-ui="v2"] .voto.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-text)}
+html[data-ui="v2"] .voto:disabled{opacity:.5;cursor:default}
+html[data-ui="v2"] .pill{display:inline-flex;align-items:center;gap:7px;padding:5px 13px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+html[data-ui="v2"] .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 html[data-ui="v2"] .s-nova{background:var(--surface-low);color:var(--t2)} html[data-ui="v2"] .s-avaliacao{background:var(--warning-soft);color:var(--warning)}
 html[data-ui="v2"] .s-aprovada{background:var(--info-soft);color:var(--info)} html[data-ui="v2"] .s-desenvolvimento{background:var(--brand-soft);color:var(--brand-text)}
 html[data-ui="v2"] .s-implantada{background:var(--success-soft);color:var(--success)} html[data-ui="v2"] .s-recusada{background:var(--danger-soft);color:var(--danger)}
-html[data-ui="v2"] .tag{border:0;border-radius:999px;background:var(--surface-low);padding:3px 10px;font-size:11.5px;font-weight:700;color:var(--t2);margin:0 6px 0 0}
+html[data-ui="v2"] .tag{border:0;border-radius:999px;background:var(--surface-low);padding:3px 10px;font-size:11.5px;font-weight:700;color:var(--t2);margin:0}
+/* barra lateral */
+html[data-ui="v2"] .mel-side{display:flex;flex-direction:column;gap:20px;position:sticky;top:20px}
+html[data-ui="v2"] .card{background:var(--surface);border-radius:20px;box-shadow:var(--shadow-card);padding:22px 24px}
+html[data-ui="v2"] .card h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em}
+html[data-ui="v2"] .card .sub2{margin:2px 0 16px;color:var(--t3);font-size:12.5px;font-weight:600}
+html[data-ui="v2"] .road{display:grid;grid-template-columns:132px minmax(0,1fr) 28px;align-items:center;gap:12px;width:100%;padding:8px 4px;border:0;border-radius:10px;background:transparent;color:var(--t1);text-align:left;cursor:pointer;font-size:13px;font-weight:700}
+html[data-ui="v2"] .road:hover{background:var(--surface-low)}
+html[data-ui="v2"] .road .tr{height:9px;border-radius:999px;background:var(--surface-low);overflow:hidden}
+html[data-ui="v2"] .road .tr i{display:block;height:100%;border-radius:999px;background:var(--brand)}
+html[data-ui="v2"] .road .v{text-align:right;color:var(--t2);font-variant-numeric:tabular-nums}
+html[data-ui="v2"] .road[aria-pressed="true"] .n{color:var(--brand-text)}
+html[data-ui="v2"] .inv{position:relative;overflow:hidden;color:var(--on-inverse);background:linear-gradient(155deg,#1d1713 0%,#3d2412 100%)}
+html[data-ui="v2"].dark .inv,html[data-ui="v2"][data-theme="dark"] .inv{background:linear-gradient(155deg,#2b1a0d 0%,#4a2a12 100%)}
+html[data-ui="v2"] .inv::before,html[data-ui="v2"] .inv::after{content:"";position:absolute;border-radius:50%;pointer-events:none;border:1px solid rgba(255,159,79,.2)}
+html[data-ui="v2"] .inv::before{width:150px;height:150px;right:-40px;bottom:-60px}
+html[data-ui="v2"] .inv::after{width:230px;height:230px;right:-80px;bottom:-100px;border-color:rgba(255,159,79,.12)}
+html[data-ui="v2"] .inv>*{position:relative;z-index:1}
+html[data-ui="v2"] .inv .topoi{display:flex;align-items:center;gap:12px;margin-bottom:14px;font-weight:800;font-size:14px;color:var(--on-inverse-muted)}
+html[data-ui="v2"] .inv .ico{display:grid;place-items:center;width:40px;height:40px;border-radius:14px;background:var(--brand);color:var(--on-brand)}
+html[data-ui="v2"] .inv .ico svg{width:20px;height:20px}
+html[data-ui="v2"] .inv .big{font-size:56px;line-height:1;font-weight:800;letter-spacing:-.02em;color:var(--on-inverse)}
+html[data-ui="v2"] .inv .big small{font-size:20px;font-weight:700;opacity:.6}
+html[data-ui="v2"] .inv p{margin:8px 0 0;color:var(--on-inverse-muted);font-size:13px;font-weight:500}
 /* quadro */
 html[data-ui="v2"] .quadro{gap:14px;grid-template-columns:repeat(6,minmax(240px,1fr));padding-bottom:6px}
 html[data-ui="v2"] .col{background:var(--surface-low);border-radius:24px;padding:12px;gap:10px;min-height:120px}
 html[data-ui="v2"] .col h4{display:flex;align-items:center;gap:8px;margin:2px 6px 4px;font-size:13px;font-weight:800;letter-spacing:0;text-transform:none;color:var(--t1)}
 html[data-ui="v2"] .col h4::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--cor,var(--t3))}
-html[data-ui="v2"] .col .item{padding:12px 14px;box-shadow:var(--shadow-card);min-width:0}
-html[data-ui="v2"] .col .item>div{min-width:0}
-html[data-ui="v2"] .col .tag{display:inline-block;white-space:nowrap;margin:0 4px 4px 0}
-html[data-ui="v2"] .col .item h3{overflow-wrap:anywhere}
+html[data-ui="v2"] .col .item{display:block;padding:12px 14px;min-width:0}
+html[data-ui="v2"] .col .item h3{font-size:14px;overflow-wrap:anywhere}
+html[data-ui="v2"] .col .tag{display:inline-block;white-space:nowrap;margin:4px 4px 0 0}
 html[data-ui="v2"] .vazio{border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-card);padding:40px;color:var(--t2);font-weight:600}
 html[data-ui="v2"] .aviso{border-radius:14px;font-weight:600}
 /* gaveta e modal */
@@ -201,23 +226,27 @@ html[data-ui="v2"] select:focus,html[data-ui="v2"] input:focus,html[data-ui="v2"
 <body>
 <div class="page">
   <div class="topo">
-    <div><h1>Melhorias</h1><p>Sugira melhorias para o Hub 360, apoie as ideias dos colegas e acompanhe o que está sendo avaliado, desenvolvido e já implantado.</p></div>
+    <div><h1>Melhorias</h1><p>Vote nas melhorias que mais importam para a operação, sugira novas ideias e acompanhe o que está sendo avaliado, desenvolvido e já implantado.</p></div>
     <div class="sp"></div>
-    <button class="btn primario" id="btnNova" type="button">+ Nova sugestão</button>
+    <span class="vistas"><button class="chip" id="vLista" aria-pressed="true" type="button">Lista</button><button class="chip" id="vQuadro" aria-pressed="false" type="button">Quadro</button></span>
+    <button class="btn primario" id="btnNova" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nova sugestão</button>
   </div>
-  <div class="kpis" id="kpis"></div>
-  <div class="barra">
-    <input type="search" id="fBusca" placeholder="Buscar sugestões…" aria-label="Buscar">
-    <select id="fArea" aria-label="Área"><option value="">Todas as áreas</option></select>
-    <select id="fTipo" aria-label="Tipo"><option value="">Todos os tipos</option></select>
-    <select id="fOrdem" aria-label="Ordenar"><option value="votos">Mais apoiadas</option><option value="recentes">Mais recentes</option></select>
-    <button class="chip" id="chipMeus" aria-pressed="false" type="button">Minhas sugestões</button>
-    <span class="sp"></span>
-    <button class="chip" id="vLista" aria-pressed="true" type="button">Lista</button>
-    <button class="chip" id="vQuadro" aria-pressed="false" type="button">Quadro</button>
+  <div class="mel-grid" id="melGrid">
+    <div class="mel-main">
+      <div class="toolbar"><span id="chipsStatus" style="display:contents"></span></div>
+      <div class="barra">
+        <input type="search" id="fBusca" placeholder="Buscar sugestões…" aria-label="Buscar">
+        <select id="fArea" aria-label="Área"><option value="">Todas as áreas</option></select>
+        <select id="fTipo" aria-label="Tipo"><option value="">Todos os tipos</option></select>
+        <button class="chip" id="chipMeus" aria-pressed="false" type="button">Minhas</button>
+        <span class="sp"></span>
+        <button class="chip" id="oVotos" data-ordem="votos" aria-pressed="true" type="button">Mais apoiadas</button><button class="chip" id="oRecentes" data-ordem="recentes" aria-pressed="false" type="button">Recentes</button>
+      </div>
+      <div class="aviso" id="aviso" role="status"></div>
+      <div id="conteudo"></div>
+    </div>
+    <aside class="mel-side" id="melSide"></aside>
   </div>
-  <div class="aviso" id="aviso" role="status"></div>
-  <div id="conteudo"></div>
 </div>
 
 <div class="fundo" id="fundo"></div>
@@ -256,27 +285,30 @@ let CFG=null, S={status:'',area:'',tipo:'',meus:false,q:'',ordem:'votos',vista:'
 const pill=m=>`<span class="pill s-${m.status}">${esc(m.rotuloStatus)}</span>`;
 const tags=m=>`<span class="tag">${esc(CFG.tipos[m.tipo]||m.tipo)}</span><span class="tag">${esc(m.area||'Outro')}</span>${m.prioridade?`<span class="tag" title="Prioridade definida pela administração">P${m.prioridade}</span>`:''}${m.esforco?`<span class="tag" title="Esforço estimado">Esforço ${esc(m.esforco)}</span>`:''}`;
 
+const SETA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const iniciais=n=>(String(n||'?').replace(/[^A-Za-zÀ-ú0-9 ]/g,'').split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase())||'?';
+const corAv=n=>{ let h=0; for(const c of String(n||'?')) h=(h*31+c.charCodeAt(0))%360; return `linear-gradient(135deg,hsl(${h} 70% 52%),hsl(${(h+40)%360} 70% 42%))`; };
 function cartao(m){
   const encerrada=['implantada','recusada'].includes(m.status);
-  return `<div class="item" tabindex="0" role="button" data-id="${m.id}">
-    ${S.vista==='lista'?`<button type="button" class="voto ${m.eu_votei?'on':''}" data-voto="${m.id}" ${encerrada?'disabled':''} aria-label="Apoiar esta sugestão" title="${encerrada?'Sugestão encerrada':(m.eu_votei?'Remover meu apoio':'Apoiar')}">${m.votos}<small>apoios</small></button>`:''}
-    <div style="min-width:0"><h3>${esc(m.titulo)}</h3><div class="sub">${m.codigo} · ${esc(m.criado_por_nome||'—')} · ${dia(m.criado_em)}${m.n_comentarios?` · ${m.n_comentarios} comentário(s)`:''}${S.vista==='quadro'?` · ${m.votos} apoios`:''}</div><div style="margin-top:4px">${tags(m)}</div></div>
-    ${S.vista==='lista'?`<div class="lado">${pill(m)}</div>`:''}</div>`;
+  const autor=`<span class="autor"><span class="av" style="background:${corAv(m.criado_por_nome)}">${esc(iniciais(m.criado_por_nome))}</span>${esc(m.criado_por_nome||'—')}</span>`;
+  if(S.vista==='lista') return `<article class="item" tabindex="0" role="button" data-id="${m.id}">
+    <button type="button" class="voto ${m.eu_votei?'on':''}" data-voto="${m.id}" ${encerrada?'disabled':''} aria-pressed="${!!m.eu_votei}" aria-label="Apoiar esta sugestão" title="${encerrada?'Sugestão encerrada':(m.eu_votei?'Remover meu apoio':'Apoiar')}">${SETA}${m.votos}</button>
+    <div class="corpo"><h3>${esc(m.titulo)}</h3>${m.descricao?`<p class="desc">${esc(m.descricao)}</p>`:'<div style="height:8px"></div>'}
+      <div class="meta">${pill(m)}${autor}<span class="sub">${m.codigo} · ${dia(m.criado_em)}${m.n_comentarios?` · ${m.n_comentarios} comentário(s)`:''}</span>${tags(m)}</div></div></article>`;
+  return `<div class="item" tabindex="0" role="button" data-id="${m.id}"><div style="min-width:0"><h3>${esc(m.titulo)}</h3><div class="sub">${m.codigo} · ${esc(m.criado_por_nome||'—')} · ${dia(m.criado_em)}${m.n_comentarios?` · ${m.n_comentarios} comentário(s)`:''} · ${m.votos} apoios</div><div style="margin-top:4px">${tags(m)}</div></div></div>`;
 }
 const COR_ST={nova:'#a6adbf',avaliacao:'#e9b730',aprovada:'#4f9cf0',desenvolvimento:'#ff8a2b',implantada:'#2fbf8a',recusada:'#ee6f82'};
 function desenhar(){
   const ordem=Object.keys(CFG.status);
-  const SV=p=>`<span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${p}</svg></span>`;
-  const KP={'':['orange','<path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6v.01M4 12v.01M4 18v.01"/>'],
-    nova:['gray','<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>'],
-    avaliacao:['yellow','<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>'],
-    aprovada:['blue','<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>'],
-    desenvolvimento:['orange','<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12"/>'],
-    implantada:['green','<path d="M5 13l4 4L19 7"/>'],
-    recusada:['red','<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>']};
-  const kp=(st,rot,n)=>{ const [tom,ic]=KP[st]||['gray',KP.nova[1]]; return `<button class="kpi" data-st="${st}" data-tone="${tom}" aria-pressed="${S.status===st}">${SV(ic)}<div class="n">${n}</div><div class="r">${esc(rot)}</div></button>`; };
-  $('kpis').innerHTML=kp('','Todas',Object.values(S.cont).reduce((a,b)=>a+b,0))+ordem.map(k=>kp(k,CFG.status[k],S.cont[k]||0)).join('');
-  if(!S.lista.length){ $('conteudo').innerHTML='<div class="vazio">Nenhuma sugestão encontrada. Seja o primeiro: clique em “+ Nova sugestão”.</div>'; return; }
+  $('melGrid').classList.toggle('quadro-on',S.vista==='quadro');
+  $('chipsStatus').innerHTML=['',...ordem].map(k=>`<button class="chip" data-st="${k}" aria-pressed="${S.status===k}" type="button">${k===''?'Todas':esc(CFG.status[k])}</button>`).join('');
+  $('oVotos').setAttribute('aria-pressed',String(S.ordem==='votos')); $('oRecentes').setAttribute('aria-pressed',String(S.ordem==='recentes'));
+  // barra lateral: roadmap por status + quantos apoios o usuário deu
+  const total=Object.values(S.cont).reduce((a,b)=>a+b,0)||1, maxN=Math.max(1,...ordem.map(k=>S.cont[k]||0));
+  const meus=S.lista.filter(m=>m.eu_votei).length;
+  $('melSide').innerHTML=`<section class="card"><h3>Roadmap</h3><p class="sub2">Sugestões por etapa · ${total===1&&!Object.keys(S.cont).length?0:total} no total</p>${ordem.map(k=>`<button type="button" class="road" data-st="${k}" aria-pressed="${S.status===k}"><span class="n">${esc(CFG.status[k])}</span><div class="tr"><i style="width:${((S.cont[k]||0)/maxN*100).toFixed(1)}%;background:${COR_ST[k]||'var(--brand)'}"></i></div><span class="v">${S.cont[k]||0}</span></button>`).join('')}</section>
+    <section class="card inv"><div class="topoi"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></span>Seus apoios</div><div class="big">${meus}<small> sugestões</small></div><p>${S.status||S.area||S.tipo||S.q||S.meus?'Entre as sugestões da lista atual que você apoiou.':'Sugestões que você apoiou. Clique no número de cada cartão para apoiar ou remover.'}</p></section>`;
+  if(!S.lista.length){ $('conteudo').innerHTML='<div class="vazio">Nenhuma sugestão encontrada. Seja o primeiro: clique em “Nova sugestão”.</div>'; return; }
   if(S.vista==='lista') $('conteudo').innerHTML=`<div class="lista">${S.lista.map(cartao).join('')}</div>`;
   else $('conteudo').innerHTML=`<div class="quadro">${ordem.map(k=>`<div class="col" style="--cor:${COR_ST[k]||'var(--t3)'}"><h4>${esc(CFG.status[k])} (${S.lista.filter(m=>m.status===k).length})</h4>${S.lista.filter(m=>m.status===k).map(cartao).join('')}</div>`).join('')}</div>`;
 }
@@ -284,7 +316,9 @@ async function carregar(){
   const qs=new URLSearchParams({ordem:S.ordem}); if(S.status&&S.vista==='lista')qs.set('status',S.status); if(S.area)qs.set('area',S.area); if(S.tipo)qs.set('tipo',S.tipo); if(S.meus)qs.set('meus','1'); if(S.q)qs.set('q',S.q);
   try{ const d=await api('/?'+qs); S.lista=d.melhorias; S.cont=d.contagem; desenhar(); }catch(e){ aviso('aviso',e.message,'erro'); }
 }
-$('kpis').addEventListener('click',e=>{ const b=e.target.closest('[data-st]'); if(!b)return; S.status=b.dataset.st; if(S.vista==='quadro'&&S.status){ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); } carregar(); });
+document.addEventListener('click',e=>{ const o=e.target.closest('[data-ordem]'); if(o){ S.ordem=o.dataset.ordem; carregar(); } });
+function aoFiltrarStatus(e){ const b=e.target.closest('[data-st]'); if(!b)return; S.status=b.dataset.st; if(S.vista==='quadro'&&S.status){ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); } carregar(); }
+$('chipsStatus').addEventListener('click',aoFiltrarStatus); $('melSide').addEventListener('click',aoFiltrarStatus);
 $('conteudo').addEventListener('click',async e=>{
   const v=e.target.closest('[data-voto]');
   if(v){ e.stopPropagation(); try{ await api(`/${v.dataset.voto}/voto`,{method:'POST'}); carregar(); }catch(x){ aviso('aviso',x.message,'erro'); } return; }
@@ -294,7 +328,6 @@ $('conteudo').addEventListener('keydown',e=>{ if((e.key==='Enter')&&e.target.cla
 let tb=null; $('fBusca').addEventListener('input',()=>{ clearTimeout(tb); tb=setTimeout(()=>{ S.q=$('fBusca').value.trim(); carregar(); },250); });
 $('fArea').addEventListener('change',()=>{ S.area=$('fArea').value; carregar(); });
 $('fTipo').addEventListener('change',()=>{ S.tipo=$('fTipo').value; carregar(); });
-$('fOrdem').addEventListener('change',()=>{ S.ordem=$('fOrdem').value; carregar(); });
 $('chipMeus').addEventListener('click',()=>{ S.meus=!S.meus; $('chipMeus').setAttribute('aria-pressed',String(S.meus)); carregar(); });
 $('vLista').addEventListener('click',()=>{ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); carregar(); });
 $('vQuadro').addEventListener('click',()=>{ S.vista='quadro'; S.status=''; $('vQuadro').setAttribute('aria-pressed','true'); $('vLista').setAttribute('aria-pressed','false'); carregar(); });
