@@ -11,8 +11,45 @@ const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const av = require('../utils/avisosAutomaticos');
 
+const crypto = require('crypto');
 const router = express.Router();
+// Rota PÚBLICA (sem login) que entrega as imagens dos avisos: o cliente do Movidesk precisa abrir a imagem.
+// O endereço leva um código aleatório longo (não dá para adivinhar) e só serve imagens reais (PNG/JPG/GIF/WEBP).
+const publico = express.Router();
+publico.get('/:token([a-f0-9]{32})', async (req, res) => {
+  try {
+    const r = await db.query(`SELECT tipo, dados FROM public.aviso_imagem WHERE token = $1`, [req.params.token]);
+    if (!r.rows.length) return res.status(404).end();
+    res.set({ 'Content-Type': r.rows[0].tipo, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'public, max-age=31536000, immutable', 'Content-Security-Policy': "default-src 'none'; sandbox" });
+    res.send(r.rows[0].dados);
+  } catch (e) { res.status(500).end(); }
+});
+
 router.use(authMiddleware, requireRole('admin'));
+
+// Envio de imagem pelo editor (arrastar, colar ou escolher arquivo). Corpo = bytes da imagem; nome em ?nome=.
+const tipoPorAssinatura = (b) => {
+  if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.length > 6 && b.slice(0, 3).toString() === 'GIF') return 'image/gif';
+  if (b.length > 12 && b.slice(0, 4).toString() === 'RIFF' && b.slice(8, 12).toString() === 'WEBP') return 'image/webp';
+  return null;
+};
+router.post('/imagem', express.raw({ type: () => true, limit: '3mb' }), async (req, res) => {
+  const corpo = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!corpo || !corpo.length) return res.status(400).json({ error: 'Nenhuma imagem recebida.' });
+  const tipo = tipoPorAssinatura(corpo);
+  if (!tipo) return res.status(400).json({ error: 'Use uma imagem PNG, JPG, GIF ou WEBP (até 3 MB).' });
+  try {
+    await av.garantirTabelas();
+    const token = crypto.randomBytes(16).toString('hex');
+    await db.query(`INSERT INTO public.aviso_imagem (token, tipo, nome, dados, criado_por) VALUES ($1,$2,$3,$4,$5)`,
+      [token, tipo, txt(String(req.query.nome || ''), 120) || null, corpo, req.user.email || null]);
+    const estado = await av.lerEstado();
+    const base = String(estado.urlPublica || '').replace(/\/+$/, '') || `${req.protocol}://${req.get('host')}`;
+    res.json({ url: `${base}/api/avisos-img/${token}`, publicaConfigurada: !!estado.urlPublica });
+  } catch (e) { console.error('[avisos] imagem:', e.message); res.status(500).json({ error: 'Erro ao guardar a imagem' }); }
+});
 
 const txt = (v, max) => (typeof v === 'string' ? v.replace(/\r/g, '').trim().slice(0, max) : '');
 const dataOuNull = (v) => { if (!v) return null; const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d.toISOString(); };
@@ -58,6 +95,7 @@ router.put('/geral', async (req, res) => {
       parcial.ligado = req.body.ligado;
       if (req.body.ligado) parcial.vigia = new Date().toISOString();   // ao ligar, só vale para chamados criados daqui para frente
     }
+    if (typeof req.body?.urlPublica === 'string') { const u = req.body.urlPublica.trim().replace(/\/+$/, ''); if (u && !/^https?:\/\/[^\s]+$/i.test(u)) return res.status(400).json({ error: 'Endereço público inválido (use https://...).' }); parcial.urlPublica = u; }
     if (req.body?.intervaloSeg != null) parcial.intervaloSeg = Math.min(600, Math.max(30, Math.round(Number(req.body.intervaloSeg)) || 120));
     res.json({ estado: await av.gravarEstado(parcial) });
   } catch (e) { res.status(500).json({ error: 'Erro ao salvar' }); }
@@ -145,3 +183,4 @@ router.post('/previa', (req, res) => {
 });
 
 module.exports = router;
+module.exports.publico = publico;

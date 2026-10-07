@@ -36,6 +36,8 @@ function avRender() {
           <label style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="checkbox" id="avLigado" ${estado.ligado ? 'checked' : ''}> Módulo ligado</label>
           <label style="display:flex;gap:10px;align-items:center">Verificar chamados novos a cada
             <input type="number" id="avIntervalo" class="config-input" style="width:90px" min="30" max="600" value="${estado.intervaloSeg}"> segundos</label>
+          <label style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Endereço público do Hub (para as imagens abrirem para o cliente)
+            <input type="text" id="avUrlPublica" class="config-input" style="min-width:280px;flex:1" placeholder="https://hub.suaempresa.com.br" value="${avEsc(estado.urlPublica || '')}"></label>
           <div><button class="config-btn" type="button" onclick="avSalvarGeral()">Salvar</button> <span id="avGeralStatus" class="config-status"></span></div>
           <div><button class="config-btn config-btn-muted" type="button" onclick="avVerificarAgora()">Verificar agora</button></div>
           <p class="config-card-help" style="margin:0">${avDiagnostico(estado)}</p>
@@ -113,9 +115,11 @@ async function avFormulario() {
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button type="button" class="config-btn config-btn-muted" onclick="avInserir('negrito')" title="Negrito"><b>N</b></button>
           <button type="button" class="config-btn config-btn-muted" onclick="avInserir('link')" title="Inserir link">🔗 Link</button>
-          <button type="button" class="config-btn config-btn-muted" onclick="avInserir('imagem')" title="Inserir imagem por endereço (URL)">🖼️ Imagem</button></div>
+          <button type="button" class="config-btn config-btn-muted" onclick="document.getElementById('avArq').click()" title="Enviar uma imagem do seu computador (também dá para colar ou arrastar na caixa)">🖼️ Enviar imagem</button>
+          <button type="button" class="config-btn config-btn-muted" onclick="avInserir('imagem')" title="Usar uma imagem que já está na internet">🔗 Imagem por endereço</button>
+          <input type="file" id="avArq" accept="image/png,image/jpeg,image/gif,image/webp" hidden onchange="avEnviarArquivo(this.files[0]);this.value=''"> <span id="avImgStatus" class="config-card-help"></span></div>
         <textarea id="avMsg" class="config-input" rows="6" maxlength="5000" placeholder="Mensagem">${avEsc(r.mensagem)}</textarea>
-        <p class="config-card-help" style="margin:0">Variáveis: ${AV.dados.variaveis.map((v) => `<code>{{${v}}}</code>`).join(' ')}<br>Formatação: <code>**negrito**</code> · <code>[texto](https://link)</code> · <code>![descrição](https://endereço-da-imagem.png)</code> — a imagem precisa estar num endereço público (o cliente precisa conseguir abrir).</p>
+        <p class="config-card-help" style="margin:0">Variáveis: ${AV.dados.variaveis.map((v) => `<code>{{${v}}}</code>`).join(' ')}<br>Formatação: <code>**negrito**</code> · <code>[texto](https://link)</code> · <code>![descrição](https://endereço-da-imagem.png)</code>.<br>Imagem: use <b>Enviar imagem</b>, ou cole (Ctrl+V) / arraste uma imagem na caixa. O cliente precisa conseguir abrir o endereço do Hub (veja "Endereço público do Hub" no topo).</p>
         <div><button class="config-btn config-btn-muted" type="button" onclick="avPrevia()">Ver prévia</button> <div id="avPreviaTxt" class="config-card-help" style="margin-top:8px"></div></div>
         <select id="avModo" class="config-input"><option value="simulacao" ${r.modo !== 'ativo' ? 'selected' : ''}>Simulação — só registra no histórico, não escreve no Movidesk</option><option value="ativo" ${r.modo === 'ativo' ? 'selected' : ''}>Enviar de verdade para o Movidesk</option></select>
         <div><strong>Por quanto tempo o aviso fica no ar</strong> <span class="config-card-help">— vale para chamados criados dentro do período; deixe em branco para não ter prazo</span>
@@ -126,6 +130,10 @@ async function avFormulario() {
         <div><button class="config-btn" type="button" onclick="avSalvarRegra()">Salvar regra</button> <button class="config-btn config-btn-muted" type="button" onclick="document.getElementById('avForm').innerHTML=''">Cancelar</button> <span id="avFormStatus" class="config-status"></span></div>
       </div></div>`;
     avChips(); avChipsC();
+    const ta = document.getElementById('avMsg');
+    ta.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/')); if (f) { e.preventDefault(); avEnviarArquivo(f); } });
+    ta.addEventListener('dragover', (e) => { if ([...(e.dataTransfer?.items || [])].some((i) => i.type.startsWith('image/'))) e.preventDefault(); });
+    ta.addEventListener('drop', (e) => { const f = [...(e.dataTransfer?.files || [])].find((x) => x.type.startsWith('image/')); if (f) { e.preventDefault(); avEnviarArquivo(f); } });
     document.getElementById('avClasseIn').addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return; e.preventDefault();
         const v = e.target.value.trim(); if (v && !AV.editando.classificacoes.includes(v)) AV.editando.classificacoes.push(v);
@@ -172,7 +180,7 @@ async function avSalvarGeral() {
     const st = document.getElementById('avGeralStatus');
     const ligado = document.getElementById('avLigado').checked;
     if (ligado && !AV.dados.estado.ligado && !confirm('Ligar os avisos automáticos? Só chamados criados a partir de agora serão considerados; regras em simulação não escrevem no Movidesk.')) return;
-    try { await avApi('/geral', 'PUT', { ligado, intervaloSeg: Number(document.getElementById('avIntervalo').value) }); await avisosCarregar(); }
+    try { await avApi('/geral', 'PUT', { ligado, intervaloSeg: Number(document.getElementById('avIntervalo').value), urlPublica: document.getElementById('avUrlPublica').value }); await avisosCarregar(); }
     catch (e) { st.className = 'config-status error'; st.textContent = e.message; }
 }
 
@@ -205,4 +213,20 @@ function avInserir(tipo) {
         ins = `![${sel || 'imagem'}](${url.trim()})`;
     }
     ta.setRangeText(ins, ini, fim, 'end'); ta.focus();
+}
+
+async function avEnviarArquivo(arq) {
+    if (!arq) return;
+    const st = document.getElementById('avImgStatus');
+    if (arq.size > 3 * 1024 * 1024) { st.textContent = 'Imagem maior que 3 MB.'; return; }
+    st.textContent = 'Enviando imagem…';
+    try {
+        const r = await fetch(`${API_BASE}/avisos/imagem?nome=${encodeURIComponent(arq.name || 'imagem')}`, { method: 'POST', headers: { ...authHeaders(), 'Content-Type': arq.type || 'application/octet-stream' }, body: arq });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || `Falha (${r.status})`);
+        const ta = document.getElementById('avMsg');
+        const nome = (arq.name || 'imagem').replace(/\.[^.]+$/, '').replace(/[\[\]()]/g, '');
+        ta.setRangeText(`\n\n![${nome}](${d.url})\n\n`, ta.selectionStart, ta.selectionEnd, 'end'); ta.focus();
+        st.textContent = d.publicaConfigurada ? 'Imagem inserida.' : 'Imagem inserida. Atenção: sem "Endereço público do Hub" configurado, o endereço usado é o desta tela — só abre para o cliente se o Hub for acessível pela internet.';
+    } catch (e) { st.textContent = e.message; }
 }

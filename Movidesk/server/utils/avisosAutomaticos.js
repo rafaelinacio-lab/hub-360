@@ -19,7 +19,7 @@ const MAX_TENTATIVAS = 3;
 const POR_CICLO = 50;
 const JANELA_RETRY_MIN = 60;
 
-const PADRAO_ESTADO = { ligado: false, intervaloSeg: 120, vigia: null, ultimoCiclo: null, ultimoErro: null };
+const PADRAO_ESTADO = { urlPublica: '', ligado: false, intervaloSeg: 120, vigia: null, ultimoCiclo: null, ultimoErro: null };
 
 let pronto = null;
 function garantirTabelas() {
@@ -44,6 +44,9 @@ function garantirTabelas() {
     await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS vigencia_inicio timestamptz`);
     await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS vigencia_fim timestamptz`);
     await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS classificacoes jsonb NOT NULL DEFAULT '[]'::jsonb`);
+    await db.query(`CREATE TABLE IF NOT EXISTS public.aviso_imagem (
+      token text PRIMARY KEY, tipo text NOT NULL, nome text, dados bytea NOT NULL, criado_por text, criado_em timestamptz NOT NULL DEFAULT NOW()
+    )`);
     await db.query(`CREATE TABLE IF NOT EXISTS public.aviso_envio (
       id bigserial PRIMARY KEY,
       regra_id int NOT NULL,
