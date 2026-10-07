@@ -22,6 +22,10 @@ const STATUS_PAUSA_SLA = new Set([
   "aguardando validacao do cliente",
   "em atendimento - desenvolvimento",
   "em atendimento desenvolvimento",
+  // Chamado já encerrado: o tempo parado em Resolvido/Fechado/Cancelado não conta (Política de SLA, item 19.3:
+  // na reabertura o período de inatividade permanece excluído). Sem isso, um chamado reaberto anos depois
+  // somava milhares de horas ao tempo de solução.
+  "resolvido", "resolved", "fechado", "closed", "cancelado", "canceled",
 ]);
 
 // =========================
