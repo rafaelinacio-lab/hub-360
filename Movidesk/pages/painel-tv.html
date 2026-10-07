@@ -199,7 +199,6 @@
           <div class="vs-lado fe" data-card="fechados-hoje" role="button" tabindex="0" title="Ver os chamados fechados hoje"><b id="k-fechados-hoje">0</b><span>fechados</span></div>
         </div>
         <div class="vs-barra" aria-hidden="true"><i id="vs-ab"></i><i id="vs-fe"></i></div>
-        <p class="legend" id="k-vs-l">—</p>
       </div>
       <div data-tone="red" class="stat-card danger" data-card="criticos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Críticos pendentes</p>
@@ -534,8 +533,6 @@ function renderHoje(vencidosRows){
   const tot=abertos+fechados;
   document.getElementById('vs-ab').style.width=(tot?abertos/tot*100:50)+'%';
   document.getElementById('vs-fe').style.width=(tot?fechados/tot*100:50)+'%';
-  const dif=Math.abs(fechados-abertos).toLocaleString('pt-BR');
-  document.getElementById('k-vs-l').textContent=abertos===fechados?'Empate: o backlog não mudou hoje.':fechados>abertos?`Fechando mais do que abre: backlog ${dif} menor hoje.`:`Abrindo mais do que fecha: backlog ${dif} maior hoje.`;
   document.getElementById('card-versus').classList.toggle('bom',fechados>=abertos);
   const crit=_rows.filter(ehCritico);
   set('k-criticos',crit.length,crit.length?`${(crit.length/Math.max(_rows.length,1)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes.`:'Nenhum chamado crítico em aberto.');
@@ -609,8 +606,13 @@ function linhaHtml(r){
   const st=r.status_movidesk||r.base_status||'—';
   if(r._hoje) return `<tr>${base}<td class="num">—</td><td class="num">—</td><td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
   const sp=statusPrazoDe(r), bc=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
-  const dA=diasSemRetornoDe(r.ultima_publica_agente), dC=diasSemRetornoDe(r.ultima_publica_cliente);
-  return `<tr>${base}<td class="num danger-num">${dA!=null?dA:'—'}</td><td class="num danger-num">${dC!=null?dC:'—'}</td><td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp)}</span></td></tr>`;
+  // Sem retorno: "…" = as ações do chamado ainda não chegaram ao banco (a fila de detalhes está carregando);
+  // agente nunca respondeu publicamente = conta desde a abertura; cliente que nunca escreveu = "—".
+  const semAcoes=Number(r.acoes_count||0)===0;
+  let dA=diasSemRetornoDe(r.ultima_publica_agente), dC=diasSemRetornoDe(r.ultima_publica_cliente), nuncaA=false;
+  if(!semAcoes&&dA==null){ dA=diasSemRetornoDe(r.criado_em); nuncaA=true; }
+  const celula=(v,dica)=>semAcoes?`<td class="num" style="color:var(--t3)" title="Ações do chamado ainda sendo carregadas">…</td>`:`<td class="num danger-num" ${dica?`title="${escAttr(dica)}"`:''}>${v!=null?v:'—'}</td>`;
+  return `<tr>${base}${celula(dA,nuncaA?'A equipe ainda não respondeu publicamente: contado desde a abertura':'')}${celula(dC,dC==null?'O cliente não enviou mensagem pública':'')}<td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp)}</span></td></tr>`;
 }
 const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th><th class="num">Tempo aberto</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th><th class="center">Status real</th><th class="center">Status prazo</th></tr></thead>';
 const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:22%"><col style="width:14%"><col style="width:7%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';

@@ -2069,7 +2069,7 @@ async function iniciarEnriquecimentoPendentes() {
       const { rows } = await db.query(`
         SELECT t.ticket_id::bigint AS id FROM silver.ticket t
          WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) AND (t.detalhes_em IS NULL OR t.detalhes_em < t.last_update)
-         ORDER BY (t.detalhes_em IS NULL) DESC, t.last_update DESC NULLS LAST LIMIT ${ENRIQ_MAX_POR_RODADA}`, [CLOSED_STATUSES]);
+         ORDER BY (t.detalhes_em IS NULL) DESC, t.createddate ASC NULLS LAST LIMIT ${ENRIQ_MAX_POR_RODADA}`, [CLOSED_STATUSES]);
       const ids = rows.map(r => String(r.id));
       enriquecimentoPendentes.fila = ids.length;
       let i = 0;
