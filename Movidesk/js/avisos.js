@@ -2,6 +2,7 @@
 // Servidor: server/routes/avisos.js e server/utils/avisosAutomaticos.js (nasce desligado; regras novas nascem em simulação).
 const AV = { dados: null, servicos: null, agentes: null, editando: null, historico: [] };
 const avEsc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const avLocal = (iso) => { if (!iso) return ''; const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 const avFmt = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
 
 async function avApi(caminho, metodo = 'GET', corpo) {
@@ -61,13 +62,20 @@ function avRender() {
     root.dataset.vars = variaveis.join(',');
 }
 
+function avVigenciaTxt(r) {
+    if (!r.vigencia_inicio && !r.vigencia_fim) return 'sem prazo (vale sempre)';
+    const agora = Date.now();
+    const estado = r.vigencia_fim && agora > new Date(r.vigencia_fim) ? ' — <b style="color:#c0392b">encerrada</b>' : r.vigencia_inicio && agora < new Date(r.vigencia_inicio) ? ' — <b style="color:#b7791f">ainda não começou</b>' : ' — <b style="color:#1a7f37">vigente</b>';
+    return `${r.vigencia_inicio ? 'de ' + avFmt(r.vigencia_inicio) : 'desde já'} ${r.vigencia_fim ? 'até ' + avFmt(r.vigencia_fim) : 'sem data final'}${estado}`;
+}
 function avLinhaRegra(r) {
     const modo = r.modo === 'ativo' ? '<b style="color:#1a7f37">envia de verdade</b>' : '<b style="color:#b7791f">simulação</b>';
     return `<div class="config-card" style="margin:12px 0 0;padding:14px">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
         <div><strong>${avEsc(r.nome)}</strong> ${r.ativo ? '' : '<span class="config-card-help">(desligada)</span>'}
           <p class="config-card-help" style="margin:4px 0">${r.servicos.map(avEsc).join(' · ')}</p>
-          <p class="config-card-help" style="margin:0">${r.tipo_acao === 'publica' ? 'Resposta pública' : 'Nota interna'} · remetente: ${avEsc(r.agente_nome || 'não definido')} · ${modo}</p></div>
+          <p class="config-card-help" style="margin:0">${r.tipo_acao === 'publica' ? 'Resposta pública' : 'Nota interna'} · remetente: ${avEsc(r.agente_nome || 'não definido')} · ${modo}</p>
+          <p class="config-card-help" style="margin:0">Prazo: ${avVigenciaTxt(r)}</p></div>
         <div style="display:flex;gap:8px"><button class="config-btn config-btn-muted" onclick="avEditar(${r.id})">Editar</button>
           <button class="config-btn config-btn-muted" onclick="avExcluir(${r.id})">Excluir</button></div>
       </div>
@@ -101,6 +109,10 @@ async function avFormulario() {
         <p class="config-card-help" style="margin:0">Variáveis: ${AV.dados.variaveis.map((v) => `<code>{{${v}}}</code>`).join(' ')}</p>
         <div><button class="config-btn config-btn-muted" type="button" onclick="avPrevia()">Ver prévia</button> <span id="avPreviaTxt" class="config-card-help"></span></div>
         <select id="avModo" class="config-input"><option value="simulacao" ${r.modo !== 'ativo' ? 'selected' : ''}>Simulação — só registra no histórico, não escreve no Movidesk</option><option value="ativo" ${r.modo === 'ativo' ? 'selected' : ''}>Enviar de verdade para o Movidesk</option></select>
+        <div><strong>Por quanto tempo o aviso fica no ar</strong> <span class="config-card-help">— vale para chamados criados dentro do período; deixe em branco para não ter prazo</span>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
+            <label>Início <input type="datetime-local" id="avIni" class="config-input" value="${avLocal(r.vigencia_inicio)}"></label>
+            <label>Fim <input type="datetime-local" id="avFim" class="config-input" value="${avLocal(r.vigencia_fim)}"></label></div></div>
         <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="avAtivo" ${r.ativo ? 'checked' : ''}> Regra ativa</label>
         <div><button class="config-btn" type="button" onclick="avSalvarRegra()">Salvar regra</button> <button class="config-btn config-btn-muted" type="button" onclick="document.getElementById('avForm').innerHTML=''">Cancelar</button> <span id="avFormStatus" class="config-status"></span></div>
       </div></div>`;
@@ -123,7 +135,9 @@ async function avSalvarRegra() {
     const r = AV.editando, st = document.getElementById('avFormStatus');
     const sel = document.getElementById('avAgente');
     const corpo = { nome: document.getElementById('avNome').value, servicos: r.servicos, tipo_acao: document.getElementById('avTipo').value, mensagem: document.getElementById('avMsg').value,
-        agente_id: sel.value, agente_nome: sel.value ? sel.options[sel.selectedIndex].text : '', modo: document.getElementById('avModo').value, ativo: document.getElementById('avAtivo').checked };
+        agente_id: sel.value, agente_nome: sel.value ? sel.options[sel.selectedIndex].text : '', modo: document.getElementById('avModo').value,
+        vigencia_inicio: document.getElementById('avIni').value ? new Date(document.getElementById('avIni').value).toISOString() : null,
+        vigencia_fim: document.getElementById('avFim').value ? new Date(document.getElementById('avFim').value).toISOString() : null, ativo: document.getElementById('avAtivo').checked };
     if (corpo.modo === 'ativo' && corpo.ativo && !confirm('Esta regra vai escrever de verdade nos chamados novos do Movidesk (visível ao cliente se for resposta pública). Confirmar?')) return;
     try { await avApi(r.id ? `/regras/${r.id}` : '/regras', r.id ? 'PUT' : 'POST', corpo); await avisosCarregar(); }
     catch (e) { st.className = 'config-status error'; st.textContent = e.message; }

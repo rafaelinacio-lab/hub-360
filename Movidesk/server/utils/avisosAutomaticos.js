@@ -41,6 +41,8 @@ function garantirTabelas() {
       criado_em timestamptz NOT NULL DEFAULT NOW(),
       atualizado_em timestamptz NOT NULL DEFAULT NOW()
     )`);
+    await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS vigencia_inicio timestamptz`);
+    await db.query(`ALTER TABLE public.aviso_regra ADD COLUMN IF NOT EXISTS vigencia_fim timestamptz`);
     await db.query(`CREATE TABLE IF NOT EXISTS public.aviso_envio (
       id bigserial PRIMARY KEY,
       regra_id int NOT NULL,
@@ -120,7 +122,10 @@ async function enviarAcao(regra, t, texto) {
 
 async function processarChamado(regras, t, resumo) {
   if (!ABERTOS.includes(t.baseStatus)) { resumo.fechados++; return 0; }
-  const regra = regras.find((r) => servicoCasa(t.servico, r.servicos));
+  const criado = t.createdDate ? new Date(t.createdDate) : new Date();
+  // vigência: a regra só vale para chamados criados dentro da janela (início/fim opcionais)
+  const naJanela = (r) => (!r.vigencia_inicio || criado >= new Date(r.vigencia_inicio)) && (!r.vigencia_fim || criado <= new Date(r.vigencia_fim));
+  const regra = regras.find((r) => naJanela(r) && servicoCasa(t.servico, r.servicos));
   if (!regra) { resumo.semRegra++; if (resumo.servicosSemRegra.length < 5 && !resumo.servicosSemRegra.includes(t.servico)) resumo.servicosSemRegra.push(t.servico); return 0; }
   resumo.casaram++;
   const texto = montarMensagem(regra.mensagem, t);

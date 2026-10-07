@@ -15,6 +15,7 @@ const router = express.Router();
 router.use(authMiddleware, requireRole('admin'));
 
 const txt = (v, max) => (typeof v === 'string' ? v.replace(/\r/g, '').trim().slice(0, max) : '');
+const dataOuNull = (v) => { if (!v) return null; const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d.toISOString(); };
 function lerRegra(b) {
   const servicos = [...new Set((Array.isArray(b.servicos) ? b.servicos : []).map((s) => txt(s, 300)).filter(Boolean))].slice(0, 50);
   const regra = {
@@ -26,10 +27,13 @@ function lerRegra(b) {
     mensagem: txt(b.mensagem, 5000),
     agente_id: txt(String(b.agente_id ?? ''), 40) || null,
     agente_nome: txt(b.agente_nome, 200) || null,
+    vigencia_inicio: dataOuNull(b.vigencia_inicio),
+    vigencia_fim: dataOuNull(b.vigencia_fim),
   };
   if (!regra.nome) return { erro: 'Dê um nome à regra.' };
   if (!regra.servicos.length) return { erro: 'Escolha ao menos um serviço.' };
   if (!regra.mensagem) return { erro: 'Escreva a mensagem.' };
+  if (regra.vigencia_inicio && regra.vigencia_fim && new Date(regra.vigencia_fim) <= new Date(regra.vigencia_inicio)) return { erro: 'O fim da vigência precisa ser depois do início.' };
   if (regra.modo === 'ativo' && !regra.agente_id) return { erro: 'Para enviar de verdade, escolha o agente remetente do Movidesk.' };
   return { regra };
 }
@@ -70,9 +74,9 @@ router.post('/regras', async (req, res) => {
   try {
     await av.garantirTabelas();
     const r = await db.query(
-      `INSERT INTO public.aviso_regra (nome, ativo, modo, servicos, tipo_acao, mensagem, agente_id, agente_nome, criado_por)
-       VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9) RETURNING *`,
-      [regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome, req.user.email || null]);
+      `INSERT INTO public.aviso_regra (nome, ativo, modo, servicos, tipo_acao, mensagem, agente_id, agente_nome, criado_por, vigencia_inicio, vigencia_fim)
+       VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome, req.user.email || null, regra.vigencia_inicio, regra.vigencia_fim]);
     res.json({ regra: r.rows[0] });
   } catch (e) { res.status(500).json({ error: 'Erro ao criar a regra' }); }
 });
@@ -82,9 +86,9 @@ router.put('/regras/:id(\\d+)', async (req, res) => {
   if (erro) return res.status(400).json({ error: erro });
   try {
     const r = await db.query(
-      `UPDATE public.aviso_regra SET nome=$2, ativo=$3, modo=$4, servicos=$5::jsonb, tipo_acao=$6, mensagem=$7, agente_id=$8, agente_nome=$9, atualizado_em=NOW()
+      `UPDATE public.aviso_regra SET nome=$2, ativo=$3, modo=$4, servicos=$5::jsonb, tipo_acao=$6, mensagem=$7, agente_id=$8, agente_nome=$9, vigencia_inicio=$10, vigencia_fim=$11, atualizado_em=NOW()
        WHERE id=$1 RETURNING *`,
-      [req.params.id, regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome]);
+      [req.params.id, regra.nome, regra.ativo, regra.modo, JSON.stringify(regra.servicos), regra.tipo_acao, regra.mensagem, regra.agente_id, regra.agente_nome, regra.vigencia_inicio, regra.vigencia_fim]);
     if (!r.rows.length) return res.status(404).json({ error: 'Regra não encontrada' });
     res.json({ regra: r.rows[0] });
   } catch (e) { res.status(500).json({ error: 'Erro ao salvar a regra' }); }

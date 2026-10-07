@@ -317,3 +317,4 @@ Configurações → Avisos automáticos (só admin). Mensagens disparadas quando
 - Seguro por padrão: chave geral desligada; ao ligar, a "vigia" começa agora (nada retroativo); regra nova nasce em **simulação** (só registra no histórico). Modo "ativo" exige agente remetente; envia `PATCH /tickets?id=` com `actions[{type:1|2, origin:9, description, createdBy:{id}}]`.
 - Tabelas (criadas sozinhas): `public.aviso_estado`, `public.aviso_regra`, `public.aviso_envio`. Rotas: `/api/avisos/*` (admin). Front: `js/avisos.js`.
 - Variáveis na mensagem: `{{saudacao}} {{ticket}} {{assunto}} {{servico}} {{urgencia}} {{equipe}}`.
+- Cada regra tem vigência opcional (início/fim, `vigencia_inicio/fim`): vale só para chamados criados dentro do período; depois do fim o aviso para sozinho.
