@@ -64,6 +64,7 @@ async function ensureTable() {
     )
   `).catch(() => {});
   await db.query(`ALTER TABLE silver.cron_task ADD COLUMN IF NOT EXISTS rapido boolean NOT NULL DEFAULT false`).catch(() => {});
+  await db.query(`ALTER TABLE silver.cron_task ADD COLUMN IF NOT EXISTS service_first text`).catch(() => {});
 }
 
 function customTaskId(task) {
