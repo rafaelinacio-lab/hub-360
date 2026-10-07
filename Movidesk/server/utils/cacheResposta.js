@@ -37,7 +37,7 @@ function obter(chave, ttlMs, produzir) {
 
 async function responder(req, res, chave, ttlMs, produzir) {
   const { json, gz } = await obter(chave, ttlMs, produzir);
-  res.set({ 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding', 'Cache-Control': 'no-cache' });
+  res.set({ 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding', 'Cache-Control': 'no-cache', 'X-Hub-Tamanho': String(json.length) });
   if (/\bgzip\b/i.test(req.headers['accept-encoding'] || '')) {
     res.set('Content-Encoding', 'gzip');
     return res.send(gz);

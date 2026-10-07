@@ -32,6 +32,7 @@
 
     // progresso: sobe com ease-out até 94% e espera o hide() para completar
     var running = false, raf = 0, last = 0, elapsed = 0, duration = 760, finishing = false, shown = 0, lastPct = -1, lastStage = -1;
+    var externo = false, ext = 0;   // externo: a porcentagem vem do carregamento real da aba (HubModload.progresso)
     function paint() {
         el.fill.style.width = (shown * 100).toFixed(1) + '%';
         var pct = Math.round(shown * 100);
@@ -42,7 +43,7 @@
     function frame(now) {
         if (!running) return;
         var dt = Math.min(40, now - last || 16); last = now; elapsed += dt;
-        var target = finishing ? 1 : Math.min(.94, 1 - Math.pow(1 - Math.min(1, elapsed / duration), 2.4));
+        var target = finishing ? 1 : (externo ? Math.min(.97, ext) : Math.min(.94, 1 - Math.pow(1 - Math.min(1, elapsed / duration), 2.4)));
         shown += (target - shown) * Math.min(1, dt / (finishing ? 60 : 110));
         if (finishing && shown > .999) { shown = 1; paint(); running = false; return; }
         paint(); raf = requestAnimationFrame(frame);
@@ -59,7 +60,9 @@
     var hideTimer = 0, safeTimer = 0;
     window.HubModload = {
         NAMES: NAMES,
-        show: function (key, ms) {
+        // porcentagem real: 0–100, só sobe; hide() completa quando os dados já estão na tela
+        progresso: function (p) { if (externo) ext = Math.max(ext, Math.min(100, p) / 100); },
+        show: function (key, ms, modoExterno) {
             if (!root && !iniciar()) return false;
             clearTimeout(hideTimer); clearTimeout(safeTimer);
             root.style.setProperty('--ml-acc', ACC[key] || '#ff8a2b');
@@ -68,9 +71,10 @@
             el.ico.innerHTML = icone(key);
             root.classList.remove('on', 'done');
             elapsed = 0; duration = reduced ? 120 : (ms || 760); finishing = false; shown = 0; lastPct = lastStage = -1;
+            externo = !!modoExterno; ext = 0;
             paint(); run();
             void root.offsetWidth; root.classList.add('on');
-            safeTimer = setTimeout(function () { window.HubModload.hide(); }, 6000);   // nunca deixa a tela presa
+            safeTimer = setTimeout(function () { window.HubModload.hide(); }, externo ? 30000 : 6000);   // nunca deixa a tela presa
             return true;
         },
         hide: function (cb) {

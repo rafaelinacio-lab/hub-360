@@ -35,12 +35,26 @@ const EMBED_PAGE_ROUTES = {
     melhorias: 'pages/melhorias.html'
 };
 
-// ─── Transição entre abas: só a persiana do Visual 2.0 (js/modload.js). A animação antiga do ícone foi removida.
+// ─── Transição entre abas: só a persiana do Visual 2.0 (js/modload.js).
+// A porcentagem é o carregamento REAL da aba: cada página (iframe) informa o progresso das suas chamadas à API
+// (js/ui-version.js → mensagem 'hub360:carga') e a persiana só abre quando os dados já estão na tela.
+let _persianaAtiva = false, _persianaVigia = 0;
+function persianaAbrir() { _persianaAtiva = false; clearTimeout(_persianaVigia); if (window.HubModload) window.HubModload.hide(); }
 function playTabIconTransition(view) {
-    if (window.HubModload && window.HubModload.show(view, 760)) {
-        setTimeout(() => window.HubModload.hide(), 1050);
-    }
+    if (!window.HubModload || !window.HubModload.show(view, 760, true)) return;
+    _persianaAtiva = true;
+    clearTimeout(_persianaVigia);
+    _persianaVigia = setTimeout(persianaAbrir, 8000);   // vigia: se a página não avisar nada, não prende a tela
 }
+window.addEventListener('message', (ev) => {
+    const frame = document.getElementById('embeddedPageFrame');
+    if (!frame || ev.source !== frame.contentWindow || ev.origin !== location.origin) return;
+    if (!ev.data || ev.data.tipo !== 'hub360:carga' || !_persianaAtiva) return;
+    window.HubModload.progresso(Number(ev.data.pct) || 0);
+    clearTimeout(_persianaVigia);
+    if (ev.data.pronto) { window.HubModload.progresso(100); setTimeout(persianaAbrir, 120); }
+    else _persianaVigia = setTimeout(persianaAbrir, 30000);
+});
 
 // ─── Bolha de hover que acompanha o mouse entre as abas do menu superior ───
 function initTopbarHoverPill() {
@@ -87,6 +101,8 @@ function loadEmbeddedPage(view) {
     if (frame.getAttribute('src') !== src) {
         document.body.classList.remove('nav-oculta');
         frame.setAttribute('src', src);
+    } else if (typeof persianaAbrir === 'function') {
+        setTimeout(persianaAbrir, 500);   // a página já estava carregada: nada a esperar
     }
 }
 
