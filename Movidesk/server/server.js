@@ -105,6 +105,7 @@ app.use('/api/avisos-img', require('./routes/avisos').publico);   // imagens dos
 app.use('/api/avisos', require('./routes/avisos'));
 app.use('/api/extrator', require('./routes/tokens').extrator);   // sem login: só o extrator do Jira, com chave própria
 app.use('/api/tokens', require('./routes/tokens'));
+app.use('/api/sla-horas', require('./routes/slaHoras'));
 // Para as telas de GCC/Satisfação avisarem qual vertical está em uso
 app.get('/api/escopo-vertical', require('./routes/auth').authMiddleware, async (req, res) => {
   try { const e = await require('./utils/verticalScope').escopoVertical(req.user.id); res.json({ filtrar: e.filtrar, vertical: e.vertical, semVertical: e.semVertical }); }
