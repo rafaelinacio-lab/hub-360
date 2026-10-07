@@ -576,7 +576,7 @@ const tituloDe=sp=>{
 };
 function linhaHtml(r){
   const link=`<a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a>`;
-  const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||'')}">${esc(r.organizacao||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num">${diasEmAberto(r)}</td>`;
+  const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||r.cliente_nome||'')}">${esc(r.organizacao||r.cliente_nome||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num">${diasEmAberto(r)}</td>`;
   const st=r.status_movidesk||r.base_status||'—';
   if(r._hoje) return `<tr>${base}<td class="num">—</td><td class="num">—</td><td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
   const sp=statusPrazoDe(r), bc=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
