@@ -883,6 +883,7 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
+    if (tab === 'tokens' && typeof tokensCarregar === 'function') tokensCarregar();
     if (typeof rapidaParar === 'function') rapidaParar();
     if (tab === 'rapida' && typeof rapidaCarregar === 'function') rapidaCarregar();
     if (tab === 'telemetria') loadTelemetria();

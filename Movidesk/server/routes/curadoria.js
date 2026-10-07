@@ -1603,14 +1603,10 @@ async function runEnriquecimentoLoop(anos = []) {
 
   try {
     // Resolver token
-    let token;
-    if (process.env.MOVIDESK_TOKEN) {
-      token = process.env.MOVIDESK_TOKEN;
-    } else {
-      token = await new Promise((resolve, reject) =>
-        getToken((err, t) => err ? reject(err) : resolve(t))
-      );
-    }
+    // banco (Configurações → Tokens) primeiro; sem nada lá, o getToken cai no .env
+    const token = await new Promise((resolve, reject) =>
+      getToken((err, t) => err ? reject(err) : resolve(t))
+    );
 
     // Carregar IDs pendentes num Set para lookup O(1)
     const pendingResult = await db.queryDatabase('movidesk_curadoria',

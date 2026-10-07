@@ -227,6 +227,8 @@ function getToken(callback) {
       return;
     }
     if (!row) {
+      // sem token no banco: vale o .env (Configurações → Tokens tem prioridade quando preenchido)
+      if (process.env.MOVIDESK_TOKEN) return callback(null, process.env.MOVIDESK_TOKEN);
       callback(new Error('Token nao configurado'), null);
       return;
     }
