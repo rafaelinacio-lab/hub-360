@@ -851,6 +851,20 @@ body.modal-open{overflow:hidden}
         <div class="imp-chips" id="impacto-chips"></div>
         <div class="imp-kpis4" id="impacto-kpis"></div>
         <div id="impacto-corpo"></div>
+        <div class="imp-nota2" id="impacto-nota" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel" id="impacto-cima-panel">
+        <p class="chart-title"><span class="imp-pos">▲</span> Puxaram a média para cima</p>
+        <p class="chart-sub">Chamados que mais elevaram o tempo médio de solução. O traço marca a meta da urgência.</p>
+        <div class="rolagem imp-lista" id="impacto-cima"></div>
+      </div>
+      <div class="chart-panel" id="impacto-baixo-panel">
+        <p class="chart-title"><span class="imp-neg">▼</span> Puxaram a média para baixo</p>
+        <p class="chart-sub">Chamados que mais reduziram o tempo médio de solução.</p>
+        <div class="rolagem imp-lista" id="impacto-baixo"></div>
       </div>
     </div>
 
@@ -2059,7 +2073,7 @@ async function renderImpactoSla(rows){
 
   const itens=doMes.filter(r=>_impactoMinutos[r.ticket_id]!=null).map(r=>({r,h:_impactoMinutos[r.ticket_id]/60}));
   const n=itens.length;
-  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste período.</p>'; _impItens=[]; renderImpactoGrupos(); renderImpactoDispersao(); return; }
+  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste período.</p>'; ['impacto-cima','impacto-baixo'].forEach(i=>{ const e=document.getElementById(i); if(e) e.innerHTML=''; }); _impItens=[]; renderImpactoGrupos(); renderImpactoDispersao(); return; }
   const soma=itens.reduce((a,x)=>a+x.h,0), media=soma/n;
   itens.forEach(x=>{ x.imp=n>1?media-(soma-x.h)/(n-1):0; });
   _impItens=itens; _impMedia=media;
@@ -2113,11 +2127,11 @@ function renderImpactoTickets(){
   const sobem=vis.filter(x=>x.imp>0.005).sort((a,b)=>b.imp-a.imp).slice(0,RANK_MAX);
   const descem=vis.filter(x=>x.imp<-0.0005).sort((a,b)=>a.imp-b.imp).slice(0,RANK_MAX);
   const semEfeito=vis.length-vis.filter(x=>x.imp>0.005).length-vis.filter(x=>x.imp<-0.0005).length;
-  corpo.innerHTML=`<div class="imp-grid">
-    <div><p class="imp-sub imp-pos">▲ Puxaram a média para cima</p><div class="rolagem imp-lista">${sobem.length?sobem.map(linha).join(''):'<p class="imp-vazio">Nenhum ticket elevou a média neste período.</p>'}</div></div>
-    <div><p class="imp-sub imp-neg">▼ Puxaram a média para baixo</p><div class="rolagem imp-lista">${descem.length?descem.map(linha).join(''):'<p class="imp-vazio">Nenhum ticket reduziu a média neste período.</p>'}</div></div>
-  </div>
-  ${semEfeito>0?`<div class="imp-nota2">${semEfeito.toLocaleString('pt-BR')} ticket${semEfeito===1?'':'s'} ficaram perto da média e não aparecem aqui (impacto menor que 0,01h).</div>`:''}`;
+  corpo.innerHTML='';
+  const cima=document.getElementById('impacto-cima'), baixo=document.getElementById('impacto-baixo'), nota=document.getElementById('impacto-nota');
+  if(cima) cima.innerHTML=sobem.length?sobem.map(linha).join(''):'<p class="imp-vazio">Nenhum ticket elevou a média neste período.</p>';
+  if(baixo) baixo.innerHTML=descem.length?descem.map(linha).join(''):'<p class="imp-vazio">Nenhum ticket reduziu a média neste período.</p>';
+  if(nota){ nota.style.display=semEfeito>0?'':'none'; nota.textContent=`${semEfeito.toLocaleString('pt-BR')} ticket${semEfeito===1?'':'s'} ficaram perto da média e não aparecem nas listas abaixo (impacto menor que 0,01h).`; }
 }
 const IMP_GRUPOS={cliente:['Cliente',r=>r.organizacao||'Não informado'],equipe:['Equipe',r=>limpaEquipe(r.equipe)],responsavel:['Responsável',r=>r.responsavel||'Não atribuído'],urgencia:['Urgência',r=>r.urgencia||'Sem urgência']};
 function renderImpactoGrupos(){
