@@ -13,6 +13,7 @@
  * GET /geral/:ticketId/actions — timeline de ações + campos customizados
  * POST /geral/sla-liquido — tempo de solução líquido (horas úteis, sem pausas) por ticket
  * POST /geral/temas — tema (por palavras-chave) de cada ticket, a partir do assunto e das ações
+ * POST /geral/causas — top causas dos chamados (diagnóstico da Curadoria, que lê o histórico inteiro de cada chamado)
  */
 
 const express = require('express');
@@ -412,6 +413,58 @@ router.post('/temas', authMiddleware, requireTabAccess('movidesk'), async (req, 
   }
 });
 
+
+// ── Top causas dos chamados ──────────────────────────────────────────────
+// A Curadoria (IA) lê o histórico inteiro de cada chamado (todas as ações) e grava a causa
+// em public.curadoria_chamados (banco movidesk_curadoria). Aqui só agrupamos essas causas
+// para os tickets que o painel está mostrando; chamados ainda não processados pela Curadoria
+// ficam de fora e entram na conta de "sem diagnóstico".
+// Body: { ids: ["123", ...], limite?: 10 }. Resposta: { analisados, comCausa, causas:[{causa,qtd,ids:[...]}] }
+const CAUSAS_MAX_IDS = 50000;
+const CAUSAS_IDS_POR_CAUSA = 3000;
+router.post('/causas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+    .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
+  if (ids.length > CAUSAS_MAX_IDS) {
+    return res.status(400).json({ error: `Máximo de ${CAUSAS_MAX_IDS} tickets por chamada` });
+  }
+  const limite = Math.min(Math.max(parseInt(req.body?.limite, 10) || 10, 1), 50);
+  try {
+    if (!ids.length) return res.json({ analisados: 0, comCausa: 0, causas: [] });
+    const r = await db.queryDatabase(
+      'movidesk_curadoria',
+      `SELECT ticket_id::text AS id,
+              NULLIF(btrim(COALESCE(NULLIF(btrim(causa_normalizada), ''), NULLIF(btrim(causa), ''))), '') AS causa
+       FROM public.curadoria_chamados
+       WHERE processado = 1 AND ticket_id::text = ANY($1::text[])`,
+      [ids]
+    );
+    const grupos = new Map(); // chave normalizada -> { variantes:Map, ids:[] }
+    let comCausa = 0;
+    for (const row of r.rows || []) {
+      if (!row.causa) continue;
+      const texto = row.causa.replace(/\s+/g, ' ').slice(0, 300);
+      const chave = texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.;:\s]+$/, '');
+      let g = grupos.get(chave);
+      if (!g) { g = { variantes: new Map(), ids: [] }; grupos.set(chave, g); }
+      g.variantes.set(texto, (g.variantes.get(texto) || 0) + 1);
+      g.ids.push(row.id);
+      comCausa++;
+    }
+    const causas = [...grupos.values()]
+      .map(g => ({
+        causa: [...g.variantes.entries()].sort((a, b) => b[1] - a[1])[0][0],
+        qtd: g.ids.length,
+        ids: g.ids.slice(0, CAUSAS_IDS_POR_CAUSA),
+      }))
+      .sort((a, b) => b.qtd - a.qtd)
+      .slice(0, limite);
+    res.json({ analisados: ids.length, comCausa, causas });
+  } catch (error) {
+    console.error('Erro ao agrupar as causas dos chamados:', error);
+    res.status(500).json({ error: 'Erro ao analisar as causas dos chamados' });
+  }
+});
 
 router.get('/:ticketId', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   const ticketId = String(req.params.ticketId).trim();

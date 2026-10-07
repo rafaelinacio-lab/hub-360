@@ -902,6 +902,14 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
+      <div class="chart-panel" id="causas-panel">
+        <p class="chart-title">Top 10 causas dos chamados</p>
+        <p class="chart-sub" id="causas-sub" style="text-align:left">Causa identificada pela Curadoria lendo o histórico inteiro de cada chamado. Clique numa causa para ver os tickets.</p>
+        <div id="causas-lista" class="rolagem"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
       <div class="chart-panel" id="pico-panel">
         <p class="chart-title">Horários de pico</p>
         <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador). Clique numa célula para ver os chamados.</p>
@@ -1697,6 +1705,8 @@ function render(){
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
   renderTemas(rowsFull);
+  window._rowsFullAtual=rowsFull;
+  renderCausas(rowsFull);
   renderImpactoSla(rowsResolv);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
@@ -2346,6 +2356,41 @@ async function renderTemas(rows){
 function abrirTema(tema){
   const rows=(window._temasBase||[]).filter(r=>_temasCache[r.ticket_id]===tema);
   openDetailModal(`Tema: ${tema}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
+}
+
+// ── Top 10 causas (diagnóstico da Curadoria sobre o histórico inteiro do chamado) ──
+let _causasSeq=0, _causasGrupos=[];
+async function renderCausas(rows){
+  const lista=document.getElementById('causas-lista'), sub=document.getElementById('causas-sub');
+  if(!lista) return;
+  const seq=++_causasSeq;
+  const ids=[...new Set(rows.map(r=>String(r.ticket_id)))];
+  if(!ids.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; return; }
+  lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
+  try{
+    const r=await fetch(`${API}/geral/causas`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids,limite:10})});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const resp=await r.json();
+    if(seq!==_causasSeq) return;
+    const n=x=>x.toLocaleString('pt-BR');
+    const cob=resp.analisados?resp.comCausa/resp.analisados:0;
+    sub.textContent=`${n(resp.comCausa)} de ${n(resp.analisados)} tickets do período têm causa diagnosticada (${fmtPct(cob)}) — os demais ainda não passaram pela Curadoria. Clique numa causa para ver os tickets.`;
+    _causasGrupos=resp.causas||[];
+    if(!_causasGrupos.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket do período foi diagnosticado pela Curadoria ainda.</p>'; return; }
+    const max=_causasGrupos[0].qtd;
+    lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
+      <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
+      <div><div class="tm-nome">${esc(g.causa)}</div></div>
+      <div class="tm-trilho"><div class="tm-barra" style="width:${Math.max(2,g.qtd/max*100)}%;background:var(--brand)"></div></div>
+      <div class="tm-val"><b>${n(g.qtd)}</b><small>${fmtPct(g.qtd/resp.comCausa)}</small></div>
+    </div>`).join('');
+  }catch(e){ if(seq===_causasSeq) lista.innerHTML=`<p class="imp-vazio">Não foi possível analisar as causas: ${esc(e.message)}</p>`; }
+}
+function abrirCausa(i){
+  const g=_causasGrupos[i]; if(!g) return;
+  const set=new Set(g.ids);
+  const rows=(window._rowsFullAtual||[]).filter(r=>set.has(String(r.ticket_id)));
+  openDetailModal(`Causa: ${g.causa}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
 }
 
 // ── Evolução mensal por urgência (volume de tickets abertos no mês) ───
@@ -3041,6 +3086,10 @@ const INFO_CARDS={
   'impacto-cli-panel':{t:'Quem concentra o atraso',
     o:'O impacto no tempo médio de solução somado por cliente, equipe, responsável ou urgência.',
     c:['Usa o mesmo impacto de cada ticket do card "Impacto mensal de SLA por ticket" e soma por grupo.','Valor positivo = o grupo elevou a média de tempo de solução; negativo = reduziu.','Os 8 primeiros respondem por X% do desvio para cima (soma só dos grupos positivos).','Clique numa linha para ver os tickets do grupo.']},
+  'causas-panel':{t:'Top 10 causas dos chamados',
+    o:'As causas que mais aparecem nos chamados do período, segundo a análise da Curadoria.',
+    c:['A Curadoria (IA) lê o histórico inteiro de cada chamado — todas as ações do cliente e do atendente — e registra a causa (versão normalizada).','O painel agrupa os tickets filtrados pela mesma causa (ignorando maiúsculas, acentos e pontuação final) e mostra as 10 maiores.','% = tickets da causa ÷ tickets que já têm causa diagnosticada.','Chamados que ainda não passaram pela Curadoria não entram na conta; a cobertura aparece abaixo do título.','Clique numa causa para ver os tickets.'],
+    obs:'A qualidade depende do diagnóstico da Curadoria. '+FILTROS_TXT},
   'temas-panel':{t:'Temas mais recorrentes',
     o:'Os assuntos que mais aparecem nos chamados, descobertos a partir do texto do chamado e das ações.',
     c:['Para cada ticket criado no período, lê o assunto (peso dobrado) e o texto das 5 primeiras ações (até 1.500 caracteres cada).','Procura palavras-chave de cada tema (dicionário em server/data/temas-chamados.json; ex.: Fiscal = NF-e, CFOP, SPED, ICMS…).','O tema do ticket é o que tiver mais ocorrências; em caso de empate vale a ordem do dicionário. Cada ticket conta em um tema só.','Tickets sem nenhuma palavra do dicionário ficam sem tema e aparecem apenas no total analisado.','% = tickets do tema ÷ tickets analisados. A variação em pp compara a participação do tema no último mês do período com o mês anterior.','Clique num tema para ver os tickets.'],
