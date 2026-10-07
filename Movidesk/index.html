@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;500;600;700;800&display=swap">
     <link rel="stylesheet" href="css/v2.css">
+    <link rel="stylesheet" href="css/dashboard-v3.css">
     <link rel="stylesheet" href="css/modload.css">
     <script src="js/ui-version.js"></script>
     <script src="js/ordenar-tabelas.js" defer></script>
@@ -1307,19 +1308,35 @@
                 <!-- Coluna principal -->
                 <div class="dashboard-main">
 
+                    <!-- Cabeçalho do Dashboard (Visual 2.0): título com os números e os controles principais -->
+                    <header class="dsh-head">
+                        <div class="dsh-ttl">
+                            <span class="dsh-eyebrow" id="dshEyebrow">&nbsp;</span>
+                            <h1 id="dshTitulo">Chamados em aberto</h1>
+                        </div>
+                        <div class="tk-head-right">
+                                <input type="search" id="filterBusca" class="tk-busca" placeholder="Buscar por nº, assunto ou cliente…" aria-label="Buscar chamados" autocomplete="off">
+                                <button type="button" id="btnConferir" class="tk-conferir" title="Compara estes chamados com o status real no Movidesk e mostra o que está diferente">Conferir com o Movidesk</button>
+                                <div class="tk-seg" role="group" aria-label="Modo de visualização">
+                                    <button type="button" id="viewLista" aria-pressed="true">Lista</button>
+                                    <button type="button" id="viewCards" aria-pressed="false">Kanban</button>
+                                </div>
+                            </div>
+                    </header>
+
                     <!-- Faixa de KPIs (números reais dos chamados em tela) -->
                     <div class="kpi-strip" id="kpiStrip">
                         <button type="button" class="kpi-tile" onclick="openKpiModal('Total', 'Todos os Chamados')" title="Ver chamados">
-                            <span class="kpi-label">Abertos</span><span class="kpi-num" id="countTotal">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Abertos</span><span class="kpi-num" id="countTotal">—</span><span class="kpi-sub">toda a fila</span>
                         </button>
                         <button type="button" class="kpi-tile" onclick="openKpiModal('New', 'Chamados Novos')" title="Ver chamados">
-                            <span class="kpi-label">Novos</span><span class="kpi-num" id="countNew">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Novos</span><span class="kpi-num" id="countNew">—</span><span class="kpi-sub"><span id="pctNew">—%</span> do total</span>
                         </button>
                         <button type="button" class="kpi-tile" onclick="openKpiModal('InAttendance', 'Chamados em Atendimento')" title="Ver chamados">
-                            <span class="kpi-label">Em atendimento</span><span class="kpi-num" id="countInAttendance">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Em atendimento</span><span class="kpi-num" id="countInAttendance">—</span><span class="kpi-sub"><span id="pctInAtt">—%</span> do total</span>
                         </button>
                         <button type="button" class="kpi-tile" onclick="openKpiModal('Stopped', 'Chamados Aguardando')" title="Ver chamados">
-                            <span class="kpi-label">Aguardando</span><span class="kpi-num" id="countStopped">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Aguardando</span><span class="kpi-num" id="countStopped">—</span><span class="kpi-sub"><span id="pctStopped">—%</span> do total</span>
                         </button>
                         <button type="button" class="kpi-tile kpi-late" onclick="openKpiModal('overdue', 'Chamados Fora do Prazo')" title="Ver chamados">
                             <span class="kpi-label">Fora do prazo</span><span class="kpi-num" id="countOverdue">—</span><span class="kpi-sub"><span id="pctOverdue">—%</span> do total <span class="overdue-insight" id="overdueInsight"></span></span>
@@ -1329,8 +1346,8 @@
                         </button>
                     </div>
                     <div class="sla-bar-wrap">
-                        <div class="sla-bar" id="slaBar" role="img" aria-label="Saúde do SLA"><span class="sla-bar-ok" id="slaBarOk" style="width:0"></span><span class="sla-bar-other" id="slaBarOther" style="width:0"></span><span class="sla-bar-late" id="slaBarLate" style="width:0"></span></div>
-                        <div class="sla-bar-legend"><span><i style="background:var(--grn-mid)"></i>No prazo</span><span><i style="background:var(--hint)"></i>Pausado ou sem prazo</span><span><i style="background:var(--red-mid)"></i>Atrasado</span></div>
+                        <div class="sla-bar" id="slaBar" role="img" aria-label="Saúde do SLA"><span class="sla-bar-late" id="slaBarLate" style="width:0"></span><span class="sla-bar-other" id="slaBarOther" style="width:0"></span><span class="sla-bar-ok" id="slaBarOk" style="width:0"></span></div>
+                        <div class="sla-bar-legend" id="slaBarLegend"></div>
                     </div>
 
                     <!-- Chamados em Aberto (colapsável) -->
@@ -1338,14 +1355,6 @@
                         <div class="section-header tk-head">
                             <button id="toggleBtn" class="toggle-section-btn">▼ Chamados em Aberto</button>
                             <span class="filter-count" id="filterCount"></span>
-                            <div class="tk-head-right">
-                                <input type="search" id="filterBusca" class="tk-busca" placeholder="Buscar por nº, assunto ou cliente…" aria-label="Buscar chamados" autocomplete="off">
-                                <button type="button" id="btnConferir" class="tk-conferir" title="Compara estes chamados com o status real no Movidesk e mostra o que está diferente">Conferir com o Movidesk</button>
-                                <div class="tk-seg" role="group" aria-label="Modo de visualização">
-                                    <button type="button" id="viewLista" aria-pressed="true">Lista</button>
-                                    <button type="button" id="viewCards" aria-pressed="false">Kanban</button>
-                                </div>
-                            </div>
                         </div>
                         <div class="tk-chips" id="quickChips" role="group" aria-label="Filtros rápidos">
                             <button type="button" class="tk-chip" data-chip="todos" aria-pressed="true">Todos</button>
@@ -1407,6 +1416,7 @@
                 <!-- Sidebar de atendentes -->
                 <aside class="dashboard-sidebar">
                     <p class="sidebar-title">Carga por atendente</p>
+                    <div class="crew-resumo" id="crewResumo"></div>
                     <div class="attendants-container" id="attendantsContainer">
                         <p style="color: #999;">Carregando...</p>
                     </div>
