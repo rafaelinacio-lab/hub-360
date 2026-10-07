@@ -2059,7 +2059,7 @@ async function iniciarConferenciaLista(ids) {
 // Fila de detalhes: chamados ABERTOS sem detalhes ou com alteração mais nova que os detalhes gravados. Roda sozinha em
 // segundo plano (não segura o "uma carga por vez"), poucas chamadas em paralelo, e para quando a fila acaba.
 const enriquecimentoPendentes = { rodando: false, fila: 0, feitos: 0, falhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null };
-const ENRIQ_PARALELO = 3, ENRIQ_MAX_POR_RODADA = 600;
+const ENRIQ_PARALELO = 5, ENRIQ_MAX_POR_RODADA = 1200;
 async function iniciarEnriquecimentoPendentes() {
   if (enriquecimentoPendentes.rodando) return enriquecimentoPendentes;
   Object.assign(enriquecimentoPendentes, { rodando: true, fila: 0, feitos: 0, falhas: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null });
@@ -2107,6 +2107,10 @@ async function iniciarEnriquecimentoPendentes() {
       console.warn('[loader] enriquecimento de pendentes falhou:', e.message);
     } finally {
       enriquecimentoPendentes.rodando = false; enriquecimentoPendentes.terminadoEm = new Date().toISOString();
+      // Ainda sobrou fila (a rodada tem teto) e a maioria deu certo: emenda a próxima rodada sem esperar a carga seguinte.
+      if (enriquecimentoPendentes.fila >= ENRIQ_MAX_POR_RODADA && enriquecimentoPendentes.feitos > 0 && enriquecimentoPendentes.falhas * 2 < enriquecimentoPendentes.feitos) {
+        setTimeout(() => iniciarEnriquecimentoPendentes().catch(() => {}), 2000);
+      }
     }
   })();
   return enriquecimentoPendentes;

@@ -66,6 +66,10 @@ function rpListaHtml() {
       ${c.amostraSobrando?.length ? `<p class="config-card-help">Exemplos que sobram: ${c.amostraSobrando.map(rpEsc).join(', ')}</p>` : ''}
       ${c.amostraFaltando?.length ? `<p class="config-card-help">Exemplos que faltam: ${c.amostraFaltando.map(rpEsc).join(', ')}</p>` : ''}`;
 }
+async function rapidaDetalhesAgora() {
+    const m = document.getElementById('rpDetMsg');
+    try { await rpApi('/crons/rapida/detalhes', 'POST', {}); m.textContent = 'Iniciado — acompanhe acima.'; rapidaCarregar(true); } catch (e) { m.textContent = e.message; }
+}
 async function rapidaConferirLista() {
     const f = document.getElementById('rpLista')?.files?.[0], m = document.getElementById('rpListaMsg');
     if (!f) { m.textContent = 'Escolha o arquivo.'; return; }
@@ -116,6 +120,7 @@ function rpRender() {
         <h3 class="config-card-title">Detalhes em segundo plano</h3>
         <p class="config-card-help">O que a carga rápida deixou para depois: ações, campos personalizados e demais dados dos chamados abertos.</p>
         <div id="rpDetalhes">${rpDetalhesHtml()}</div>
+        <div style="margin-top:10px"><button class="config-btn config-btn-muted" type="button" onclick="rapidaDetalhesAgora()">Buscar detalhes agora</button> <span id="rpDetMsg" class="config-status"></span></div>
       </div>
       <div class="config-card">
         <h3 class="config-card-title">Conferir com uma lista do Movidesk</h3>

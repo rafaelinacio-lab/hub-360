@@ -219,6 +219,9 @@ router.post('/rapida/conferir-lista', express.raw({ type: '*/*', limit: '20mb' }
     res.json(await movideskLoader.iniciarConferenciaLista(ids));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+router.post('/rapida/detalhes', async (req, res) => {
+  try { res.json(await movideskLoader.iniciarEnriquecimentoPendentes()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
 router.get('/rapida', async (req, res) => {
   try { res.json(await lerRapida()); } catch (e) { res.status(500).json({ error: e.message }); }
 });
