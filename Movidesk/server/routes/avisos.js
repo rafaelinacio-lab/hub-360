@@ -10,6 +10,7 @@ const express = require('express');
 const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const av = require('../utils/avisosAutomaticos');
+const mui = require('../utils/movideskUi');
 
 const crypto = require('crypto');
 const router = express.Router();
@@ -176,6 +177,24 @@ router.get('/agentes', async (req, res) => {
   try { res.json({ agentes: (await av.listaAgentes()).map((a) => ({ id: a.id, nome: a.nome })) }); }
   catch (e) { res.status(502).json({ error: 'Não consegui listar os agentes do Movidesk: ' + e.message }); }
 });
+
+// ── Gatilhos no Movidesk (automação da tela) — fase 0: acesso e mapeamento ──────────
+router.get('/gatilho/config', async (req, res) => {
+  try { res.json({ ...(await mui.statusAcesso()), chromium: !!mui.achaChromium() }); }
+  catch (e) { res.status(500).json({ error: 'Erro ao ler o acesso' }); }
+});
+router.put('/gatilho/config', async (req, res) => {
+  try { await mui.salvarAcesso({ usuario: req.body?.usuario, senha: req.body?.senha, base: req.body?.base }); res.json({ ...(await mui.statusAcesso()), chromium: !!mui.achaChromium() }); }
+  catch (e) { res.status(500).json({ error: 'Erro ao salvar o acesso' }); }
+});
+router.post('/gatilho/mapear', async (req, res) => {
+  if (mui.execucao.rodando) return res.status(409).json({ error: 'Já existe um mapeamento em andamento.' });
+  mui.mapear().catch((e) => { mui.execucao.erro = e.message; mui.execucao.rodando = false; });
+  // erros de pré-requisito (sem senha, sem Chromium, sem biblioteca) aparecem logo em execucao.erro
+  await new Promise((r) => setTimeout(r, 400));
+  res.json({ iniciado: true, erro: mui.execucao.erro });
+});
+router.get('/gatilho/execucao', (req, res) => res.json(mui.execucao));
 
 router.post('/previa', (req, res) => {
   const t = { id: '123456', subject: 'Erro ao emitir nota fiscal', servico: txt(req.body?.servico, 300) || 'Agronegócio > Agrotitan', urgency: 'Alta', ownerTeam: 'Agrotitan - Suporte Técnico' };

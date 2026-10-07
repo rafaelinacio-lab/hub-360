@@ -53,6 +53,19 @@ function avRender() {
         <div id="avForm"></div>
         <div id="avRegras">${regras.length ? regras.map(avLinhaRegra).join('') : '<p class="config-card-help">Nenhuma regra criada ainda.</p>'}</div>
       </div>
+      <div class="config-card" id="avGat">
+        <h3 class="config-card-title">Gatilhos no Movidesk <span class="config-card-help">(em construção)</span></h3>
+        <p class="config-card-help">O Hub vai abrir o Movidesk num navegador sem janela e criar/desabilitar gatilhos por você. Nesta primeira fase ele só <strong>entra e mapeia as telas</strong> (tira fotos e lista os campos) — <strong>não cria nem altera nada</strong>.
+          Use um usuário do Movidesk só para isso. A senha fica criptografada no servidor e nunca é mostrada de volta.</p>
+        <div class="config-form-stack">
+          <input id="avGUser" class="config-input" placeholder="Usuário do Movidesk" autocomplete="off">
+          <input id="avGPass" class="config-input" type="password" placeholder="Senha (deixe em branco para manter a atual)" autocomplete="new-password">
+          <input id="avGBase" class="config-input" placeholder="https://viasoft.movidesk.com">
+          <div><button class="config-btn" type="button" onclick="avGatSalvar()">Salvar acesso</button>
+            <button class="config-btn config-btn-muted" type="button" onclick="avGatMapear()">Mapear telas do Movidesk</button> <span id="avGStatus" class="config-status"></span></div>
+          <div id="avGResultado"></div>
+        </div>
+      </div>
       <div class="config-card">
         <h3 class="config-card-title">Histórico recente</h3>
         <div class="rolagem" style="max-height:420px;overflow:auto">
@@ -62,6 +75,7 @@ function avRender() {
         </div>
       </div>`;
     root.dataset.vars = variaveis.join(',');
+    avGatCarregar();
 }
 
 function avVigenciaTxt(r) {
@@ -230,4 +244,51 @@ async function avEnviarArquivo(arq) {
         st.textContent = !d.https ? '⚠️ Imagem inserida, mas o endereço NÃO é HTTPS: o Movidesk só exibe imagem por HTTPS, acessível sem login nem VPN. Preencha o "Endereço público do Hub" (https://...) no topo da tela.'
             : d.publicaConfigurada ? 'Imagem inserida.' : '⚠️ Imagem inserida com o endereço desta tela. Confirme que ele abre sem login nem VPN, ou preencha o "Endereço público do Hub" no topo.';
     } catch (e) { st.textContent = e.message; }
+}
+
+// ── Gatilhos no Movidesk: acesso e mapeamento (fase 0) ──
+async function avGatCarregar() {
+    try {
+        const c = await avApi('/gatilho/config');
+        document.getElementById('avGUser').value = c.usuario || '';
+        document.getElementById('avGPass').placeholder = c.temSenha ? 'Senha já salva — deixe em branco para manter' : 'Senha';
+        document.getElementById('avGBase').value = c.base || '';
+        if (!c.chromium) document.getElementById('avGStatus').textContent = '⚠️ O Chromium não está instalado na imagem do Hub — o mapeamento não vai rodar até ele ser instalado.';
+        const e = await avApi('/gatilho/execucao'); if (e.passos?.length || e.erro) avGatMostrar(e);
+    } catch { /* aba sem permissão ou servidor antigo */ }
+}
+async function avGatSalvar() {
+    const st = document.getElementById('avGStatus');
+    try {
+        await avApi('/gatilho/config', 'PUT', { usuario: document.getElementById('avGUser').value, senha: document.getElementById('avGPass').value, base: document.getElementById('avGBase').value });
+        document.getElementById('avGPass').value = ''; st.className = 'config-status ok'; st.textContent = 'Acesso salvo.'; avGatCarregar();
+    } catch (e) { st.className = 'config-status error'; st.textContent = e.message; }
+}
+async function avGatMapear() {
+    const st = document.getElementById('avGStatus');
+    try {
+        st.className = 'config-status'; st.textContent = 'Mapeando… (pode levar 1–2 minutos)';
+        const r = await avApi('/gatilho/mapear', 'POST', {});
+        if (r.erro) { st.className = 'config-status error'; st.textContent = r.erro; return; }
+        for (let i = 0; i < 90; i++) {
+            await new Promise((ok) => setTimeout(ok, 2000));
+            const e = await avApi('/gatilho/execucao'); avGatMostrar(e);
+            if (!e.rodando) { st.className = e.erro ? 'config-status error' : 'config-status ok'; st.textContent = e.erro ? e.erro : 'Mapeamento concluído — nada foi alterado no Movidesk.'; return; }
+        }
+        st.textContent = 'Demorando mais que o normal; atualize a tela daqui a pouco.';
+    } catch (e) { st.className = 'config-status error'; st.textContent = e.message; }
+}
+let AV_MAPA = null;
+function avGatMostrar(e) {
+    AV_MAPA = e.mapa;
+    document.getElementById('avGResultado').innerHTML = `
+      ${Object.keys(e.mapa || {}).length ? '<button class="config-btn config-btn-muted" type="button" onclick="avGatCopiar()">Copiar mapeamento (para me enviar)</button>' : ''}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:10px">
+        ${(e.passos || []).map((p) => `<figure style="margin:0"><figcaption class="config-card-help">${avEsc(p.titulo)}</figcaption><a href="${p.imagem}" target="_blank"><img src="${p.imagem}" style="width:100%;border:1px solid var(--border,#ccc);border-radius:10px"></a></figure>`).join('')}
+      </div>`;
+}
+async function avGatCopiar() {
+    const st = document.getElementById('avGStatus');
+    try { await navigator.clipboard.writeText(JSON.stringify(AV_MAPA)); st.className = 'config-status ok'; st.textContent = 'Mapeamento copiado — cole na conversa.'; }
+    catch { st.className = 'config-status error'; st.textContent = 'Não consegui copiar automaticamente.'; }
 }
