@@ -205,6 +205,9 @@
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
+                    <button class="cfg-tab-btn" data-tab="tokens" onclick="switchConfigTab('tokens')">
+                        <span class="material-symbols-outlined">key</span> Tokens
+                    </button>
                     <button class="cfg-tab-btn" data-tab="avisos" onclick="switchConfigTab('avisos')">
                         <span class="material-symbols-outlined">campaign</span> Avisos automáticos
                     </button>
@@ -721,6 +724,11 @@
                 <!-- ABA: Carga rápida (pendentes quase ao vivo) -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-rapida">
                     <div id="rpRoot"><p class="config-card-help">Carregando…</p></div>
+                </div>
+
+                <!-- ABA: Tokens -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-tokens">
+                    <div id="tkRoot"><p class="config-card-help">Carregando…</p></div>
                 </div>
 
                 <!-- ABA: Avisos automáticos -->
@@ -1815,6 +1823,7 @@
     <script src="js/pessoas.js"></script>
     <script src="js/avisos.js"></script>
     <script src="js/rapida.js"></script>
+    <script src="js/tokens.js"></script>
     <script src="js/config.js"></script>
     <script src="js/script.js"></script>
 
