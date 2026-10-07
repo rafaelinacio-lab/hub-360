@@ -20,6 +20,14 @@ const REGISTRO = [
     ajuda: 'Senha do usuário acima.' },
   { chave: 'movidesk_ui_totp', grupo: 'Automação da tela do Movidesk', rotulo: 'Chave do autenticador (MFA)', secreto: true,
     ajuda: 'Chave secreta do app autenticador do usuário acima (aceita também o link otpauth://). Gera o código de 6 dígitos sozinho.' },
+  { chave: 'jira_base_url', grupo: 'Jira', rotulo: 'Endereço do Jira', secreto: false, env: 'JIRA_BASE_URL',
+    ajuda: 'Ex.: https://suaempresa.atlassian.net (sem barra no final). Lido pelo extrator do Jira (jira_extractor.py).' },
+  { chave: 'jira_email', grupo: 'Jira', rotulo: 'E-mail do usuário do Jira', secreto: false, env: 'JIRA_EMAIL',
+    ajuda: 'Usuário dono do token abaixo.' },
+  { chave: 'jira_api_token', grupo: 'Jira', rotulo: 'Token de API do Jira', secreto: true, env: 'JIRA_API_TOKEN', teste: 'jira',
+    ajuda: 'Gerado em id.atlassian.com → Segurança → Tokens de API.' },
+  { chave: 'jira_extrator_chave', grupo: 'Jira', rotulo: 'Chave do extrator do Jira', secreto: true, gerar: true, rota: '/tokens/jira-extrator/chave', tipoGerar: 'extrator',
+    ajuda: 'Permite que o jira_extractor.py busque as credenciais acima aqui no Hub. Coloque HUB_URL e HUB_EXTRATOR_KEY no Jira/.env uma única vez; depois é só trocar nesta tela.' },
   { chave: 'painel_tv_chave', grupo: 'Painel TV', rotulo: 'Chave do link da TV', secreto: false, mascarar: true, gerar: true,
     ajuda: 'Faz parte do link do Painel TV (?k=...). Gerar nova chave invalida o link antigo; abra o Painel TV como admin para copiar o novo link.' },
 ];
@@ -74,9 +82,18 @@ async function status() {
   const out = [];
   for (const r of REGISTRO) {
     const { valor, fonte } = await resolver(r.chave);
-    out.push({ chave: r.chave, grupo: r.grupo, rotulo: r.rotulo, ajuda: r.ajuda, secreto: r.secreto, testavel: !!r.teste, gerar: !!r.gerar,
+    out.push({ chave: r.chave, grupo: r.grupo, rotulo: r.rotulo, ajuda: r.ajuda, secreto: r.secreto, testavel: !!r.teste, gerar: !!r.gerar, rota: r.rota || (r.chave === 'painel_tv_chave' ? '/geral/tv-chave' : null), tipoGerar: r.tipoGerar || 'tv',
       fonte, configurado: !!valor, previa: valor ? (r.secreto || r.mascarar ? mascara(valor) : valor) : '' });
   }
   return out;
 }
-module.exports = { REGISTRO, porChave, obter, resolver, definir, remover, status, invalidar };
+// Chave do extrator do Jira (gerada pelo sistema, guardada criptografada).
+async function chaveExtrator(criar = false) {
+  const reg = porChave.jira_extrator_chave;
+  if (!criar) { const v = await obter(reg.chave); if (v) return v; }
+  const nova = require('crypto').randomBytes(24).toString('hex');
+  await db.query(`INSERT INTO config (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [reg.chave, encryptToken(nova)]);
+  invalidar();
+  return nova;
+}
+module.exports = { chaveExtrator, REGISTRO, porChave, obter, resolver, definir, remover, status, invalidar };

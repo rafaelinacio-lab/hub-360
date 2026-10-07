@@ -47,6 +47,7 @@ async function carregarEscopoEquipe() {
 }
 
 async function fetchOpenTickets() {
+    carregarSlaTime();   // impacto no SLA exibido nos cards (cache de 5 min no servidor)
     const container = document.getElementById('cardsContainer');
     if (!container) return;
     
@@ -1129,6 +1130,30 @@ const KB_COLUNAS = [
     { key: 'Stopped', titulo: 'Aguardando' },
 ];
 
+// ── Impacto de cada chamado no SLA do time (mês atual, Suporte Técnico) ──
+// SLA = dentro ÷ (dentro + fora). Atrasado: ao fechar fora do prazo, o SLA cai de D/T para D/(T+1).
+// No prazo: ao fechar dentro, sobe de D/T para (D+1)/(T+1). Valores em pontos percentuais (pp).
+let DSH_SLA = null, _dshUltimaLista = null;
+async function carregarSlaTime() {
+    try {
+        const r = await fetch(`${API_BASE}/tickets/sla-time`, { headers: authHeaders() });
+        if (!r.ok) return;
+        DSH_SLA = await r.json();
+        if (_dshUltimaLista) renderTickets(_dshUltimaLista.tickets, _dshUltimaLista.container);
+    } catch (_) { /* sem o impacto, o card segue normal */ }
+}
+function dshPp(v) { const a = Math.abs(v); return a.toLocaleString('pt-BR', { minimumFractionDigits: a < 0.1 ? 3 : 2, maximumFractionDigits: a < 0.1 ? 3 : 2 }); }
+function dshImpactoSla(sla) {
+    if (!DSH_SLA) return null;
+    const D = Number(DSH_SLA.dentro) || 0, T = D + (Number(DSH_SLA.fora) || 0);
+    if (T < 1 || !['late', 'soon', 'ok'].includes(sla.kind)) return null;
+    const perda = (D / T - D / (T + 1)) * 100, ganho = ((D + 1) / (T + 1) - D / T) * 100;
+    const time = `SLA do time no mês: ${(D / T * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% (${D} dentro · ${T - D} fora)`;
+    if (sla.kind === 'late') return { cls: 'late', txt: `SLA −${dshPp(perda)} pp`, tip: `Este chamado já estourou o prazo: ao ser resolvido, o SLA do time cai ${dshPp(perda)} pp. ${time}` };
+    if (sla.kind === 'soon') return { cls: 'soon', txt: `Risco −${dshPp(perda)} pp`, tip: `Vence em breve: se estourar, o SLA do time cai ${dshPp(perda)} pp; se fechar no prazo, sobe ${dshPp(ganho)} pp. ${time}` };
+    return { cls: 'ok', txt: `+${dshPp(ganho)} pp no prazo`, tip: `Resolvido dentro do prazo, o SLA do time sobe ${dshPp(ganho)} pp (se estourar, cai ${dshPp(perda)} pp). ${time}` };
+}
+
 function renderKanbanCard(t) {
     const sla = tkSlaInfo(t);
     const urg = getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', ''));
@@ -1138,6 +1163,7 @@ function renderKanbanCard(t) {
     const upd = getTicketValue(t, 'lastUpdate', 'lastupdate', '') || getTicketValue(t, 'lastActionDate', 'lastactiondate', '');
     const primeiroNome = String(dono).split(' ')[0];
     const cor = DSH_URG_COR[urg.label] || 'var(--muted)';
+    const imp = dshImpactoSla(sla);
     const pill = sla.kind === 'late' ? `<span class="pill late"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6v7M12 18v.01"/></svg>${escapeHtml(sla.label)}</span>`
         : sla.kind === 'paused' ? '<span class="pill pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Pausado</span>'
         : `<span class="pill ${sla.kind === 'none' ? 'pause' : 'okp'}">${escapeHtml(sla.label)}</span>`;
@@ -1147,6 +1173,7 @@ function renderKanbanCard(t) {
         <div class="kb-topo"><span class="tag">${escapeHtml(urg.label)}</span><span class="kb-id">#${escapeHtml(t.id)}</span>${pill}</div>
         <h4 class="kb-titulo" title="${escapeHtml(t.subject)}">${escapeHtml(t.subject)}</h4>
         <div class="kb-cliente" title="${escapeHtml(cliente)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5l8-2v18M12 9h8v12M8 9h.01M8 13h.01M8 17h.01M16 13h.01M16 17h.01"/></svg>${escapeHtml(cliente || 'Cliente não informado')}</div>
+        ${imp ? `<div class="kb-sla-imp ${imp.cls}" title="${escapeHtml(imp.tip)}">${escapeHtml(imp.txt)}</div>` : ''}
         <div class="kb-rodape">
             ${dshAvatar(dono)}<b title="${escapeHtml(dono)}">${escapeHtml(primeiroNome)}</b>
             ${origem === 'Customer' ? '<span class="kb-espera" title="A última ação foi do cliente — ele aguarda retorno">Cliente aguarda</span>' : ''}
@@ -1176,6 +1203,7 @@ function renderKanban(tickets) {
 
 // Função para renderizar os chamados (lista densa ou kanban)
 function renderTickets(tickets, container) {
+    _dshUltimaLista = { tickets, container };
     const seg = { lista: document.getElementById('viewLista'), cards: document.getElementById('viewCards') };
     if (seg.lista) seg.lista.setAttribute('aria-pressed', String(_dashView === 'lista'));
     if (seg.cards) seg.cards.setAttribute('aria-pressed', String(_dashView === 'cards'));
