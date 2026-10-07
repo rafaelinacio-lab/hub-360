@@ -163,7 +163,38 @@ const LAST_PUBLIC_ACTION_JOIN = `
   ) ap ON true
 `;
 
-router.get('/pendentes', authMiddleware, requireTabAccess('paineltv'), async (req, res) => {
+// ── Acesso do Painel TV por link (sem login): a TV abre painel-tv.html?k=CHAVE. A chave fica na tabela config e só libera
+// as duas rotas do painel (lista de pendentes e SLA por analista). Admin vê/renova a chave em /tv-chave.
+const crypto = require('crypto');
+let _chaveTv = null;
+async function lerChaveTv(criar = false) {
+  if (_chaveTv && !criar) return _chaveTv;
+  if (!criar) {
+    const r = await db.query(`SELECT value FROM config WHERE key = 'painel_tv_chave'`).catch(() => ({ rows: [] }));
+    if (r.rows[0]?.value) return (_chaveTv = r.rows[0].value);
+  }
+  _chaveTv = crypto.randomBytes(24).toString('hex');
+  await db.query(`INSERT INTO config (key, value) VALUES ('painel_tv_chave', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [_chaveTv]);
+  return _chaveTv;
+}
+const iguais = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
+// Libera com a chave da TV; sem ela, cai no login normal + permissão da aba.
+const acessoPainelTv = async (req, res, next) => {
+  const k = String(req.query.k || '');
+  if (k) {
+    try { if (iguais(k, await lerChaveTv())) return next(); } catch (_) { /* cai para o login */ }
+    return res.status(401).json({ error: 'Link da TV inválido ou renovado' });
+  }
+  authMiddleware(req, res, (err) => err ? next(err) : requireTabAccess('paineltv')(req, res, next));
+};
+router.get('/tv-chave', authMiddleware, requireRole('admin'), async (req, res) => {
+  try { res.json({ chave: await lerChaveTv() }); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/tv-chave', authMiddleware, requireRole('admin'), async (req, res) => {
+  try { res.json({ chave: await lerChaveTv(true) }); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
     await cacheResposta.responder(req, res, 'pendentes', CACHE_PAINEL_MS, async () => {
@@ -485,7 +516,7 @@ router.get('/causas', authMiddleware, requireTabAccess('movidesk'), async (req, 
 // ?desde=YYYY-MM-DD (padrão: 1º dia do mês atual) define o início do período dos resolvidos.
 const FECHADOS_SQL = "'Resolved','Closed','Resolvido','Fechado'";
 const CLASSIFICACAO_SLA = 'suporte tecnico';
-router.get('/sla-responsaveis', authMiddleware, requireTabAccess('paineltv'), async (req, res) => {
+router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
   try {
     const hoje = new Date();
     const padrao = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1)).toISOString().slice(0, 10);

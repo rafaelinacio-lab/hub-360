@@ -26,6 +26,10 @@
   .filtro-bar label { font-size: 13px; font-weight: 700; color: var(--t2); }
   .filtro-bar select { background: var(--surface); color: var(--t1); border: 1px solid var(--border-hi); border-radius: 999px; padding: 9px 16px; font: 700 13px/1 "Manrope", system-ui, sans-serif; min-width: 240px; max-width: 520px; }
   .filtro-bar select:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .btn-limpar { background: var(--surface); color: var(--t1); border: 1px solid var(--border-hi); border-radius: 999px; padding: 9px 16px; font: 800 13px/1 "Manrope", system-ui, sans-serif; cursor: pointer; }
+  .btn-limpar:hover { background: var(--surface-mid); }
+  .link-tv { display:none; flex-basis:100%; gap:8px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--t2); }
+  .link-tv input { flex:1; min-width:320px; background:var(--surface); color:var(--t1); border:1px solid var(--border-hi); border-radius:999px; padding:9px 16px; font:600 13px/1 "Manrope", system-ui, sans-serif; }
   .filtro-chip { background: var(--success-soft); color: var(--success); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 800; }
   /* KPIs grandes (leitura à distância) */
   .tv-page .stat-card { padding: 22px 24px 20px; }
@@ -114,8 +118,15 @@
     <select id="f-equipe" aria-label="Filtrar por equipe">
       <option value="">Todas as equipes</option>
     </select>
-    <span class="filtro-chip" id="f-chip" style="display:none"></span>
+    <label for="f-classe">Classificação</label>
+    <select id="f-classe" aria-label="Filtrar por classificação">
+      <option value="">Todas as classificações</option>
+    </select>
+    <button type="button" class="btn-limpar" id="f-limpar" style="display:none">Limpar filtros</button>
+    <button type="button" class="btn-limpar" id="f-link" style="display:none">Link da TV</button>
   </div>
+
+  <div class="link-tv" id="link-tv-box"><span>Abra esta URL na TV (não precisa de login; quem tiver o link vê o painel):</span><input id="link-tv-url" readonly><button type="button" class="btn-limpar" id="link-copiar">Copiar</button><button type="button" class="btn-limpar" id="link-nova">Gerar novo link</button></div>
 
   <div id="tv-content" style="display:none">
     <div class="kpi-grid k4">
@@ -203,12 +214,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 const API = `${location.origin}/api`;
+// Link da TV (sem login): painel-tv.html?k=CHAVE — a chave é gerada em "Link da TV" (só admin).
+const CHAVE_TV=new URLSearchParams(location.search).get('k')||'';
 function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
 async function api(ep,timeoutMs=60000){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
-    const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal,cache:'no-store'});
+    const k=CHAVE_TV?`${ep.includes('?')?'&':'?'}k=${encodeURIComponent(CHAVE_TV)}`:'';
+    const r=await fetch(`${API}${ep}${k}`,{headers:tok()?{Authorization:`Bearer ${tok()}`}:{},signal:ctrl.signal,cache:'no-store'});
     if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
     return r.json();
   } catch(e){
@@ -246,85 +260,73 @@ let _rowsAll=[]; // todos os pendentes
 let _rows=[];    // pendentes depois do filtro de serviço
 let _teamChart=null, _prazoChart=null;
 
-// Ao escolher um serviço, o painel mostra só os chamados daquele serviço com esta
-// classificação. Sem serviço escolhido, mostra todos os pendentes.
-const CLASSIFICACAO_DO_SERVICO='Suporte Técnico';
 const semAcentoMin=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-const ehClassificacaoAlvo=r=>semAcentoMin(r.classificacao)===semAcentoMin(CLASSIFICACAO_DO_SERVICO);
 
-// O painel roda sem ninguém mexendo: a escolha fica salva no navegador (e a URL
-// pode fixar um serviço: painel-tv.html?servico=Nome do serviço).
-const CHAVE_SERVICO='painelTvServico';
-function lerServicoSalvo(){
+// O painel roda sem ninguém mexendo: as escolhas ficam salvas no navegador (e a URL pode fixar:
+// painel-tv.html?servico=Nome&equipe=Nome&classificacao=Nome). Sem escolha = tudo.
+const CHAVES={servico:'painelTvServico',equipe:'painelTvEquipe',classe:'painelTvClasse'};
+const PARAM_URL={servico:'servico',equipe:'equipe',classe:'classificacao'};
+function lerSalvo(c){
   try{
-    const u=new URLSearchParams(location.search).get('servico');
+    const u=new URLSearchParams(location.search).get(PARAM_URL[c]);
     if(u!==null) return u;
-    return localStorage.getItem(CHAVE_SERVICO)||'';
+    return localStorage.getItem(CHAVES[c])||'';
   }catch(_){ return ''; }
 }
-let _servicoSel=lerServicoSalvo();
-// Filtro por equipe (combina com o de serviço): ?equipe=Nome na URL ou a última escolha salva no navegador.
-const CHAVE_EQUIPE='painelTvEquipe';
-function lerEquipeSalva(){
-  try{
-    const u=new URLSearchParams(location.search).get('equipe');
-    if(u!==null) return u;
-    return localStorage.getItem(CHAVE_EQUIPE)||'';
-  }catch(_){ return ''; }
-}
-let _equipeSel=lerEquipeSalva();
+function salvar(c,v){ try{ localStorage.setItem(CHAVES[c],v); }catch(_){} }
+let _servicoSel=lerSalvo('servico'), _equipeSel=lerSalvo('equipe'), _classeSel=lerSalvo('classe');
 const equipeDe=r=>(r.equipe||'').trim()||'Não informado';
-// base do serviço+classificação, ainda sem o filtro de equipe (de onde saem as opções de equipe e as contagens)
-function baseSemEquipe(){
-  return _servicoSel ? _rowsAll.filter(r=>(r.servico||'').trim()===_servicoSel && ehClassificacaoAlvo(r)) : _rowsAll.slice();
+const classeDe=r=>(r.classificacao||'').trim()||'Sem classificação';
+const norm=semAcentoMin;
+const casaServico=r=>!_servicoSel||(r.servico||'').trim()===_servicoSel;
+const casaClasse=r=>!_classeSel||norm(classeDe(r))===norm(_classeSel);
+const casaEquipe=r=>!_equipeSel||equipeDe(r)===_equipeSel;
+function contar(rows,fn){ const c={}; rows.forEach(r=>{ const k=fn(r); if(k) c[k]=(c[k]||0)+1; }); return c; }
+function preencher(id,todos,cont,sel){
+  const el=document.getElementById(id);
+  if(sel && !(sel in cont)) cont[sel]=0;   // não perde a escolha se zerou
+  el.innerHTML=`<option value="">${todos}</option>`+Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt')).map(v=>`<option value="${escAttr(v)}">${esc(v)} (${cont[v]})</option>`).join('');
+  el.value=sel;
 }
-function montarOpcoesEquipe(){
-  const sel=document.getElementById('f-equipe');
-  const cont={};
-  baseSemEquipe().forEach(r=>{ const e=equipeDe(r); cont[e]=(cont[e]||0)+1; });
-  if(_equipeSel && !(_equipeSel in cont)) cont[_equipeSel]=0;   // não perde a escolha se a equipe zerou
-  const equipes=Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt'));
-  sel.innerHTML='<option value="">Todas as equipes</option>'+equipes.map(e=>`<option value="${escAttr(e)}">${esc(e)} (${cont[e]})</option>`).join('');
-  sel.value=_equipeSel;
-}
-
-function montarOpcoesServico(){
-  const sel=document.getElementById('f-servico');
-  // conta, por serviço, só os que têm a classificação alvo (é o que vai aparecer)
-  const cont={};
-  _rowsAll.forEach(r=>{
-    const sv=(r.servico||'').trim();
-    if(!sv) return;
-    cont[sv]=cont[sv]||0;
-    if(ehClassificacaoAlvo(r)) cont[sv]++;
-  });
-  if(_servicoSel && !(_servicoSel in cont)) cont[_servicoSel]=0; // não perde a escolha se o serviço zerou
-  const servicos=Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt'));
-  sel.innerHTML='<option value="">Todos os serviços</option>'+servicos.map(sv=>
-    `<option value="${escAttr(sv)}">${esc(sv)} (${cont[sv]})</option>`).join('');
-  sel.value=_servicoSel;
+// Cada filtro mostra as contagens considerando os outros dois.
+function montarOpcoes(){
+  preencher('f-servico','Todos os serviços',contar(_rowsAll.filter(r=>casaClasse(r)&&casaEquipe(r)),r=>(r.servico||'').trim()),_servicoSel);
+  preencher('f-classe','Todas as classificações',contar(_rowsAll.filter(r=>casaServico(r)&&casaEquipe(r)),classeDe),_classeSel);
+  preencher('f-equipe','Todas as equipes',contar(_rowsAll.filter(r=>casaServico(r)&&casaClasse(r)),equipeDe),_equipeSel);
 }
 function aplicarFiltro(){
-  montarOpcoesEquipe();
-  _rows=baseSemEquipe().filter(r=>!_equipeSel||equipeDe(r)===_equipeSel);
-  const chip=document.getElementById('f-chip');
-  chip.style.display=_servicoSel?'':'none';
-  chip.textContent=`Classificação: ${CLASSIFICACAO_DO_SERVICO}`;
+  montarOpcoes();
+  _rows=_rowsAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r));
+  document.getElementById('f-limpar').style.display=(_servicoSel||_equipeSel||_classeSel)?'':'none';
 }
 function atualizarNota(){
-  const filtro=(_servicoSel?` — serviço "${_servicoSel}", classificação ${CLASSIFICACAO_DO_SERVICO}`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'');
+  const filtro=(_servicoSel?` — serviço "${_servicoSel}"`:'')+(_classeSel?` — classificação "${_classeSel}"`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'');
   document.getElementById('tv-updated').textContent=`Atualizado às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
 }
-document.getElementById('f-equipe').addEventListener('change',e=>{
-  _equipeSel=e.target.value;
-  try{ localStorage.setItem(CHAVE_EQUIPE,_equipeSel); }catch(_){}
-  aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis();
+function refiltrar(){ aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis(); }
+document.getElementById('f-servico').addEventListener('change',e=>{ _servicoSel=e.target.value; salvar('servico',_servicoSel); refiltrar(); });
+document.getElementById('f-classe').addEventListener('change',e=>{ _classeSel=e.target.value; salvar('classe',_classeSel); refiltrar(); });
+document.getElementById('f-equipe').addEventListener('change',e=>{ _equipeSel=e.target.value; salvar('equipe',_equipeSel); refiltrar(); });
+document.getElementById('f-limpar').addEventListener('click',()=>{
+  _servicoSel=_equipeSel=_classeSel='';
+  ['servico','equipe','classe'].forEach(c=>salvar(c,''));
+  if(location.search.match(/(servico|equipe|classificacao)=/)){ const u=new URL(location.href); ['servico','equipe','classificacao'].forEach(x=>u.searchParams.delete(x)); history.replaceState(null,'',u); }
+  refiltrar();
 });
-document.getElementById('f-servico').addEventListener('change',e=>{
-  _servicoSel=e.target.value;
-  try{ localStorage.setItem(CHAVE_SERVICO,_servicoSel); }catch(_){}
-  aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis();
-});
+// "Link da TV": só aparece para quem está logado como admin (a chave só é entregue ao admin).
+(async function(){
+  if(CHAVE_TV||!tok()) return;
+  let chave; try{ chave=(await api('/geral/tv-chave',15000)).chave; }catch(_){ return; }
+  const btn=document.getElementById('f-link'), box=document.getElementById('link-tv-box'), inp=document.getElementById('link-tv-url');
+  const url=c=>`${location.origin}${location.pathname}?k=${c}`;
+  btn.style.display='';
+  btn.addEventListener('click',()=>{ inp.value=url(chave); box.style.display=box.style.display==='flex'?'none':'flex'; });
+  document.getElementById('link-copiar').addEventListener('click',async e=>{ inp.select(); try{ await navigator.clipboard.writeText(inp.value); e.target.textContent='Copiado!'; setTimeout(()=>e.target.textContent='Copiar',1500); }catch(_){ document.execCommand('copy'); } });
+  document.getElementById('link-nova').addEventListener('click',async()=>{
+    if(!confirm('Gerar um novo link? O link antigo (usado nas TVs) deixa de funcionar.')) return;
+    try{ const r=await fetch(`${API}/geral/tv-chave`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`}}); chave=(await r.json()).chave; inp.value=url(chave); }catch(e){ alert('Não foi possível gerar: '+e.message); }
+  });
+})();
 
 function updateClock(){
   const el=document.getElementById('tv-clock');
@@ -335,7 +337,6 @@ async function loadPainelTV(){
   try{
     const resp=await api('/geral/pendentes',60000);
     _rowsAll=(resp.rows||[]).filter(isAberto);
-    montarOpcoesServico();
     aplicarFiltro();
     render();
     document.getElementById('tv-content').style.display='block';

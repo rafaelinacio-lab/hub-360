@@ -349,3 +349,7 @@ Tarefa personalizada com **"Só chamados em aberto"** + **"Modo rápido"** (`sil
 
 ### Conferência por lista de ids (Carga rápida)
 `POST /api/crons/rapida/conferir-lista` (corpo bruto: .xlsx com coluna "Número" ou texto/CSV; leitor em `server/utils/xlsxMini.js`). `iniciarConferenciaLista` (movidesk-loader) compara os abertos do banco com a lista, busca no Movidesk (básico + clientes, 8 em paralelo) os que sobram e os que faltam e regrava com `salvarBasico`. Progresso em `GET /rapida` → `conferenciaLista`.
+
+### Painel TV: filtros e link sem login
+- Filtros Serviço, Equipe e **Classificação** (independentes, contagens cruzadas; sem padrão "Suporte Técnico") + botão "Limpar filtros". URL aceita `?servico=&equipe=&classificacao=`. O card "SLA individual" continua só Suporte Técnico (regra do SLA).
+- **Link da TV**: `painel-tv.html?k=CHAVE`. `acessoPainelTv` (routes/geral.js) libera `/geral/pendentes` e `/geral/sla-responsaveis` com a chave (config `painel_tv_chave`, comparação em tempo constante); sem `k`, vale o login + aba `paineltv`. Admin vê/renova a chave pelo botão "Link da TV" (`GET/POST /api/geral/tv-chave`); renovar invalida o link antigo.
