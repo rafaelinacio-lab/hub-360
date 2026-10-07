@@ -221,6 +221,7 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
         <button class="md-tab active"><span class="sym">forum</span>Chats</button>
       </div>
       <div class="topbar-acoes">
+      <button class="btn-refresh" id="btnColeta" hidden onclick="alternarColeta()" title="Pausar ou retomar a busca de chats no Movidesk"><span class="sym">pause_circle</span><span id="btnColetaTxt">Coleta</span></button>
       <button class="btn-refresh" title="Atualizar os dados" aria-label="Atualizar os dados" id="btnAtualizar" onclick="carregar()"><span class="sym">refresh</span>Atualizar</button>
       </div>
     </div>
@@ -391,6 +392,29 @@ function fecharInfo(){ $('modal').classList.remove('show'); }
 document.addEventListener('click',e=>{ const b=e.target.closest('.panel-info'); if(b){ abrirInfo(b.dataset.info); } else if(e.target===$('modal')) fecharInfo(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharInfo(); });
 
+// Pausa/retoma a coleta de chats no Movidesk (só admin altera; os demais só veem o estado)
+let COLETA=null;
+async function carregarColeta(){
+  try{
+    const r=await fetch(`${API}/coleta`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'}); if(!r.ok) return;
+    COLETA=await r.json();
+    const b=$('btnColeta'); b.hidden=false; b.disabled=!COLETA.podeAlterar;
+    b.querySelector('.sym').textContent=COLETA.ligada?'pause_circle':'play_circle';
+    $('btnColetaTxt').textContent=COLETA.ligada?'Pausar coleta':'Coleta pausada — retomar';
+    if(!COLETA.podeAlterar) $('btnColetaTxt').textContent=COLETA.ligada?'Coleta ativa':'Coleta pausada';
+  }catch{}
+}
+async function alternarColeta(){
+  if(!COLETA||!COLETA.podeAlterar) return;
+  const ligar=!COLETA.ligada;
+  if(!ligar&&!confirm('Pausar a busca de chats no Movidesk? A tela continua abrindo, mas com os dados parados no último momento coletado.')) return;
+  try{
+    const r=await fetch(`${API}/coleta`,{method:'PUT',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ligada:ligar})});
+    if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error||r.statusText);
+  }catch(e){ alert('Não foi possível alterar: '+e.message); }
+  carregarColeta();
+}
+carregarColeta();
 carregar();
 setInterval(carregar,30000);
 setInterval(()=>{ if(D) desenharIdades(); },1000);

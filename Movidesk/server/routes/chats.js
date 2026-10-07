@@ -165,9 +165,16 @@ async function expurgarSnapshots() {
   try { await garantirTabela(); await db.query(`DELETE FROM public.hub_chat_snapshot WHERE ts < NOW() - INTERVAL '90 days'`); } catch (e) { console.warn('[chats] expurgo falhou:', e.message); }
 }
 
+// Chave "pausar a coleta": guardada na tabela config (chats_coleta = '0' pausa). Vale já no próximo ciclo e sobrevive a reinício.
+async function coletaLigada() {
+  try { const r = await db.query(`SELECT value FROM config WHERE key = 'chats_coleta'`); return r.rows[0]?.value !== '0'; }
+  catch { return true; }
+}
+
 // Rotina automática: a cada minuto traz o que mudou desde a última coleta (com folga de 10 min).
 async function rotina() {
   try {
+    if (!(await coletaLigada())) return;   // pausada pelo admin: não consulta o Movidesk
     await garantirTabela();
     const ult = (await db.query(`SELECT max(coletado_em) AS u FROM public.hub_chat`)).rows[0].u;
     const desde = ult ? new Date(new Date(ult).getTime() - 10 * 60 * 1000) : new Date(Date.now() - 2 * 24 * 3600 * 1000);
@@ -183,6 +190,20 @@ if (process.env.CHATS_SYNC !== '0') {
 
 // ── rotas ─────────────────────────────────────────────────────────────────
 router.use(authMiddleware);
+
+router.get('/coleta', requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const papel = (await db.query(`SELECT r.name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1`, [req.user.id])).rows[0]?.name;
+    res.json({ ligada: await coletaLigada(), podeAlterar: papel === 'admin', ultimaOk: job.ultimaOk || null });
+  } catch (e) { res.status(500).json({ error: 'Erro ao ler o estado da coleta' }); }
+});
+router.put('/coleta', requireRole('admin'), async (req, res) => {
+  const ligada = req.body?.ligada === true;
+  try {
+    await db.query(`INSERT INTO config (key, value) VALUES ('chats_coleta', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [ligada ? '1' : '0']);
+    res.json({ ligada });
+  } catch (e) { res.status(500).json({ error: 'Erro ao salvar' }); }
+});
 
 router.get('/resumo', requireTabAccess('movidesk'), async (req, res) => {
   const dias = Math.min(90, Math.max(1, parseInt(req.query.dias, 10) || 7));
