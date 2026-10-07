@@ -22,8 +22,8 @@ document.documentElement.setAttribute('data-ui', 'v2');
 // desenhada, com `pronto`. O shell usa isso na persiana de transição.
 (function () {
     if (window.parent === window || !window.fetch) return;
-    var QUIETO_MS = 600, LIMITE_MS = 25000;
-    var reqs = [], docPct = 0, ultimo = 0, pronto = false, carregou = false, quietoTimer = 0, t0 = Date.now();
+    var QUIETO_MS = 250, LIMITE_MS = 9000, JANELA_MS = 700;   // só entram na espera as chamadas feitas logo que a página abre
+    var reqs = [], docPct = 0, ultimo = 0, pronto = false, carregou = false, quietoTimer = 0, t0 = Date.now(), tLoad = 0;
 
     function post(pct, fim) { try { window.parent.postMessage({ tipo: 'hub360:carga', pct: Math.round(pct), pronto: !!fim }, location.origin); } catch (e) {} }
     function pctAtual() {
@@ -51,7 +51,7 @@ document.documentElement.setAttribute('data-ui', 'v2');
     setTimeout(function () { if (!pronto) { pronto = true; post(100, true); } }, LIMITE_MS);
 
     document.addEventListener('DOMContentLoaded', function () { docPct = Math.max(docPct, 10); atualizar(); });
-    window.addEventListener('load', function () { carregou = true; docPct = 20; atualizar(); });
+    window.addEventListener('load', function () { carregou = true; tLoad = Date.now(); docPct = 20; atualizar(); });
     post(0, false);
 
     var original = window.fetch;
@@ -59,6 +59,7 @@ document.documentElement.setAttribute('data-ui', 'v2');
         var url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
         var promessa = original.apply(this, arguments);
         if (pronto || url.indexOf('/api/') < 0) return promessa;
+        if (carregou && Date.now() - tLoad > JANELA_MS) return promessa;   // chamada tardia (cálculos extras): não segura a abertura
         var r = { fim: false, lido: 0, total: 0 };
         reqs.push(r); atualizar();
         var terminar = function () { if (!r.fim) { r.fim = true; atualizar(); } };

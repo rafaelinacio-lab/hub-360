@@ -74,14 +74,14 @@
             externo = !!modoExterno; ext = 0;
             paint(); run();
             void root.offsetWidth; root.classList.add('on');
-            safeTimer = setTimeout(function () { window.HubModload.hide(); }, externo ? 30000 : 6000);   // nunca deixa a tela presa
+            safeTimer = setTimeout(function () { window.HubModload.hide(); }, externo ? 12000 : 6000);   // nunca deixa a tela presa
             return true;
         },
         hide: function (cb) {
             if (!root) { if (cb) cb(); return; }
             clearTimeout(safeTimer);
             finishing = true; run(); root.classList.add('done');
-            hideTimer = setTimeout(function () { root.classList.remove('on', 'done'); stop(); if (cb) cb(); }, reduced ? 60 : 700);
+            hideTimer = setTimeout(function () { root.classList.remove('on', 'done'); stop(); if (cb) cb(); }, reduced ? 60 : 480);
         }
     };
 })();

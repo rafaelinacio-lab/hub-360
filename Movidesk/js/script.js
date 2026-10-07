@@ -52,8 +52,8 @@ window.addEventListener('message', (ev) => {
     if (!ev.data || ev.data.tipo !== 'hub360:carga' || !_persianaAtiva) return;
     window.HubModload.progresso(Number(ev.data.pct) || 0);
     clearTimeout(_persianaVigia);
-    if (ev.data.pronto) { window.HubModload.progresso(100); setTimeout(persianaAbrir, 120); }
-    else _persianaVigia = setTimeout(persianaAbrir, 30000);
+    if (ev.data.pronto) { window.HubModload.progresso(100); setTimeout(persianaAbrir, 60); }
+    else _persianaVigia = setTimeout(persianaAbrir, 12000);
 });
 
 // ─── Bolha de hover que acompanha o mouse entre as abas do menu superior ───
