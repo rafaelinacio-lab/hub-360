@@ -219,3 +219,9 @@ html[data-ui="v2"] #dashboardView .st.g { background: color-mix(in srgb, var(--d
 html[data-ui="v2"] #dashboardView .kb-col-topo h3 { text-transform: none; font-size: 14px; color: var(--text); letter-spacing: .02em; }
 html[data-ui="v2"] #dashboardView .kb-col-topo h3::before { display: none; }
 html[data-ui="v2"] #dashboardView .kb-col-n { border: 0; }
+
+/* impacto do chamado no SLA do time */
+html[data-ui="v2"] #dashboardView .kb-sla-imp { align-self: flex-start; font: 800 11.5px var(--mono, monospace); padding: 2px 9px; border-radius: 999px; margin: 2px 0 8px; cursor: help; }
+html[data-ui="v2"] #dashboardView .kb-sla-imp.late { color: var(--d-on-late); background: var(--d-late-pill); }
+html[data-ui="v2"] #dashboardView .kb-sla-imp.soon { color: #b7791f; background: color-mix(in srgb, #f2b24a 18%, transparent); }
+html[data-ui="v2"] #dashboardView .kb-sla-imp.ok { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }

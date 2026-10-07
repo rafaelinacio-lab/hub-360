@@ -25,8 +25,8 @@ function tkLinha(t) {
     const [rotFonte, cor] = TK_FONTE[t.fonte] || TK_FONTE.nenhuma;
     const id = `tk_${t.chave}`;
     const acoes = t.gerar
-        ? `<button class="config-btn" type="button" onclick="tokensLinkTv()">Ver link da TV</button>
-           <button class="config-btn config-btn-muted" type="button" onclick="tokensGerarTv()">Gerar nova chave</button>`
+        ? `<button class="config-btn" type="button" onclick="tokensVerChave('${t.chave}')">${t.tipoGerar === 'tv' ? 'Ver link da TV' : 'Ver chave'}</button>
+           <button class="config-btn config-btn-muted" type="button" onclick="tokensGerarChave('${t.chave}')">Gerar nova chave</button>`
         : `<button class="config-btn" type="button" onclick="tokensSalvar('${t.chave}')">Salvar</button>
            ${t.testavel ? `<button class="config-btn config-btn-muted" type="button" onclick="tokensTestar('${t.chave}')">Testar</button>` : ''}
            ${t.fonte === 'banco' ? `<button class="config-btn config-btn-muted" type="button" onclick="tokensRemover('${t.chave}')" title="Apaga o valor salvo; volta a valer o .env, se houver">Remover</button>` : ''}`;
@@ -74,16 +74,21 @@ async function tokensTestar(chave) {
     try { const r = await tkApi(`/tokens/${chave}/testar`, 'POST', {}); tkMsg(chave, (r.ok ? '✓ ' : '✗ ') + (r.mensagem || r.error || ''), !r.ok); }
     catch (e) { tkMsg(chave, e.message, true); }
 }
-function tkMostrarLink(chaveTv) {
-    const url = `${location.origin}/pages/painel-tv.html?k=${chaveTv}`;
-    document.getElementById('tk_painel_tv_chave_link').innerHTML = `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><input class="config-input" readonly style="max-width:640px" value="${tkEsc(url)}" onclick="this.select()">
-        <button class="config-btn config-btn-muted" type="button" onclick="navigator.clipboard.writeText('${tkEsc(url)}').then(()=>tkMsg('painel_tv_chave','Link copiado.'))">Copiar</button></div>`;
+function tkMostrarChave(t, chave) {
+    const el = document.getElementById(`tk_${t.chave}_link`);
+    const valor = t.tipoGerar === 'tv' ? `${location.origin}/pages/painel-tv.html?k=${chave}` : chave;
+    const dica = t.tipoGerar === 'extrator' ? `<p class="config-card-help">No <code>Jira/.env</code> do servidor: <code>HUB_URL=${tkEsc(location.origin)}</code> e <code>HUB_EXTRATOR_KEY=${tkEsc(chave)}</code>. O extrator passa a buscar o endereço, e-mail e token do Jira daqui.</p>` : '';
+    el.innerHTML = `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><input class="config-input" readonly style="max-width:640px" value="${tkEsc(valor)}" onclick="this.select()">
+        <button class="config-btn config-btn-muted" type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.value).then(()=>tkMsg('${t.chave}','Copiado.'))">Copiar</button></div>${dica}`;
 }
-async function tokensLinkTv() {
-    try { tkMostrarLink((await tkApi('/geral/tv-chave')).chave); } catch (e) { tkMsg('painel_tv_chave', e.message, true); }
+const tkItem = (chave) => TK.dados.tokens.find((x) => x.chave === chave);
+async function tokensVerChave(chave) {
+    const t = tkItem(chave);
+    try { tkMostrarChave(t, (await tkApi(t.rota)).chave); } catch (e) { tkMsg(chave, e.message, true); }
 }
-async function tokensGerarTv() {
-    if (!confirm('Gerar uma nova chave? O link atual das TVs deixa de funcionar e as TVs precisam abrir o novo link.')) return;
-    try { const c = (await tkApi('/geral/tv-chave', 'POST', {})).chave; await tokensCarregar(); tkMostrarLink(c); tkMsg('painel_tv_chave', 'Nova chave gerada. Atualize o link nas TVs.'); }
-    catch (e) { tkMsg('painel_tv_chave', e.message, true); }
+async function tokensGerarChave(chave) {
+    const t = tkItem(chave);
+    if (!confirm(t.tipoGerar === 'tv' ? 'Gerar uma nova chave? O link atual das TVs deixa de funcionar e as TVs precisam abrir o novo link.' : 'Gerar uma nova chave? O extrator do Jira deixa de funcionar até você atualizar o HUB_EXTRATOR_KEY no Jira/.env.')) return;
+    try { const c = (await tkApi(t.rota, 'POST', {})).chave; await tokensCarregar(); tkMostrarChave(t, c); tkMsg(chave, 'Nova chave gerada.'); }
+    catch (e) { tkMsg(chave, e.message, true); }
 }
