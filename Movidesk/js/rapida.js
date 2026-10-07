@@ -28,12 +28,13 @@ function rpStatusHtml() {
     const { job, tarefa, carregando, historico } = RP.dados;
     if (!tarefa || !job) return '<span class="config-token-status config-token-status-off">Ainda não configurada</span> Escolha a equipe abaixo e clique em <b>Salvar e ligar</b>.';
     const ult = historico[0];
+    const esc = RP.dados.escopoAbertos;
     const proxima = job.enabled && job.last_run_at ? new Date(new Date(job.last_run_at).getTime() + job.interval_minutes * 60000) : null;
     const badge = carregando || job.last_status === 'running' ? '<span class="config-token-status config-token-status-on">Rodando agora</span>'
         : job.last_status === 'queued' ? '<span class="config-token-status config-token-status-off">Na fila</span>'
         : job.enabled ? '<span class="config-token-status config-token-status-on">Ligada</span>' : '<span class="config-token-status config-token-status-off">Desligada</span>';
     return `${badge} a cada <b>${job.interval_minutes} min</b> · última execução: <b>${rpHora(job.last_run_at)}</b>${job.last_status === 'error' ? ` · <span style="color:#c0392b">erro: ${rpEsc(job.last_error || '')}</span>` : ''}
-        ${proxima ? ` · próxima: <b>${rpHora(proxima.toISOString())}</b>` : ''}${ult ? ` · ${ult.tickets_loaded ?? 0} chamados na última` : ''}`;
+        ${proxima ? ` · próxima: <b>${rpHora(proxima.toISOString())}</b>` : ''}${ult ? ` · ${ult.tickets_loaded ?? 0} chamados na última` : ''}${esc != null ? `<br>Abertos no banco dentro deste filtro: <b>${esc}</b> — compare com a contagem do Movidesk (a diferença são chamados que o banco ainda não atualizou).` : ''}`;
 }
 
 function rpDetalhesHtml() {
@@ -69,9 +70,11 @@ function rpRender() {
           status, responsável, prazo de SLA, serviço, urgência e clientes/organização — e deixa as <strong>ações e demais campos</strong> sendo preenchidos em segundo plano, sem atrasar a lista.</p>
         <div id="rpStatus" style="margin:10px 0 14px;font-size:14px">${rpStatusHtml()}</div>
         <div class="config-form-stack">
-          <label>Equipe (recomendado — a busca por equipe é a mais rápida)
+          <label>Serviço (BU) — ex.: Agronegócio: pega os chamados do serviço, de qualquer equipe (use o mesmo serviço que você escolhe no Painel TV)
+            <select id="rpServico" class="config-input">${opc(op.services || [], tarefa?.service_first || '')}</select></label>
+          <label>Equipe (opcional; combinada com o serviço, restringe mais)
             <select id="rpEquipe" class="config-input">${opc(op.teams || [], tarefa?.owner_team || '')}</select></label>
-          <label>Classificação (opcional; use só se não escolher equipe)
+          <label>Classificação (só vale sozinha, sem equipe nem serviço; a classificação de chamados novos chega com os detalhes)
             <select id="rpClasse" class="config-input">${opc(op.classifications || [], tarefa?.classification || '')}</select></label>
           <label>Rodar a cada (minutos, mínimo 1)
             <input id="rpIntervalo" class="config-input" type="number" min="1" max="60" style="width:110px" value="${job?.interval_minutes || 1}"></label>
@@ -98,7 +101,7 @@ function rpRender() {
 async function rapidaSalvar() {
     const msg = document.getElementById('rpMsg');
     try {
-        RP.dados = await rpApi('/crons/rapida', 'PUT', { owner_team: document.getElementById('rpEquipe').value, classification: document.getElementById('rpClasse').value,
+        RP.dados = await rpApi('/crons/rapida', 'PUT', { service_first: document.getElementById('rpServico').value, owner_team: document.getElementById('rpEquipe').value, classification: document.getElementById('rpClasse').value,
             interval_minutes: Number(document.getElementById('rpIntervalo').value), enabled: document.getElementById('rpAtiva').checked });
         rpRender(); document.getElementById('rpMsg').className = 'config-status ok'; document.getElementById('rpMsg').textContent = 'Salvo.';
     } catch (e) { msg.className = 'config-status error'; msg.textContent = e.message; }

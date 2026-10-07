@@ -1970,34 +1970,49 @@ async function salvarBasico(tickets) {
 }
 
 // Chamados abertos no banco que não vieram na lista de abertos do Movidesk: foram encerrados/mudaram — grava só o básico.
-async function reconferirRapido(token, seen, { ownerTeamVal, classValue }) {
-  const params = [['New', 'InAttendance', 'Stopped', 'InProgress']];
-  const where = ['t.basestatus = ANY($1::text[])'];
+let _ultimaReconferenciaRapida = 0;
+const RECONFERENCIA_RAPIDA_A_CADA_MS = 5 * 60 * 1000;
+// Cláusula SQL do escopo (equipe/serviço/classificação) sobre silver.ticket t; devolve { where:[...], params }.
+function escopoSql({ ownerTeamVal, servicoVal, classValue }, params = []) {
+  const where = [];
   if (ownerTeamVal) { params.push(ownerTeamVal.toLowerCase()); where.push(`lower(t.ownerteam) = $${params.length}`); }
+  if (servicoVal) { params.push(servicoVal.toLowerCase()); where.push(`(lower(t.service_full) = $${params.length} OR lower(t.service_full) LIKE $${params.length} || ' > %')`); }
   if (classValue) {
     params.push(String(CF_CLASSIFICACAO), classValue.trim().toLowerCase());
     where.push(`EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = $${params.length - 1}
                           AND translate(lower(trim(cf.valor_texto)), 'áàâãéêíóôõúç', 'aaaaeeiooouc') = translate($${params.length}, 'áàâãéêíóôõúç', 'aaaaeeiooouc'))`);
   }
-  const { rows } = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE ${where.join(' AND ')} ORDER BY t.last_update ASC NULLS FIRST LIMIT 400`, params);
+  return { where, params };
+}
+
+// Chamados abertos no banco que não vieram na lista de abertos do Movidesk: foram encerrados/mudaram — grava só o básico.
+// Roda no máximo a cada 5 min (não a cada execução) e com 5 consultas em paralelo, para não pesar na carga rápida.
+async function reconferirRapido(token, seen, escopo, { forcar = false } = {}) {
+  if (!forcar && Date.now() - _ultimaReconferenciaRapida < RECONFERENCIA_RAPIDA_A_CADA_MS) return null;
+  _ultimaReconferenciaRapida = Date.now();
+  const { where, params } = escopoSql(escopo, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
+  const { rows } = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE t.basestatus = ANY($1::text[]) ${where.length ? 'AND ' + where.join(' AND ') : ''} ORDER BY t.last_update ASC NULLS FIRST LIMIT 1000`, params);
   const agora = Date.now();
-  const alvo = rows.map(r => String(r.id)).filter(id => !seen.has(id) && !(_reconferidoEm.get(id) > agora - 5 * 60 * 1000)).slice(0, 80);
-  let atualizados = 0;
-  for (const id of alvo) {
-    if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
-    try {
-      let full = null;
-      for (const ep of ['/tickets', '/tickets/past']) {
-        const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': 'owner,clients' })}`);
-        const data = await resp.json();
-        const t = Array.isArray(data) ? data[0] : data;
-        if (t && t.id) { full = t; break; }
-      }
-      _reconferidoEm.set(id, Date.now());
-      if (full) { await salvarBasico([full]); atualizados++; }
-    } catch (e) { console.warn(`[loader] reconferência rápida do ticket ${id} falhou: ${e.message}`); }
-    await sleep(80);
-  }
+  const alvo = rows.map(r => String(r.id)).filter(id => !seen.has(id) && !(_reconferidoEm.get(id) > agora - 5 * 60 * 1000)).slice(0, 150);
+  let atualizados = 0, i = 0;
+  const trabalhador = async () => {
+    while (i < alvo.length) {
+      if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+      const id = alvo[i++];
+      try {
+        let full = null;
+        for (const ep of ['/tickets', '/tickets/past']) {
+          const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': 'owner,clients' })}`);
+          const data = await resp.json();
+          const t = Array.isArray(data) ? data[0] : data;
+          if (t && t.id) { full = t; break; }
+        }
+        _reconferidoEm.set(id, Date.now());
+        if (full) { await salvarBasico([full]); atualizados++; }
+      } catch (e) { console.warn(`[loader] reconferência rápida do ticket ${id} falhou: ${e.message}`); }
+    }
+  };
+  await Promise.all(Array.from({ length: 5 }, trabalhador));
   if (alvo.length) console.log(`[loader]   reconferência rápida: ${alvo.length} chamado(s) abertos no banco e fora da lista → ${atualizados} atualizado(s)`);
   return { reconferidos: alvo.length, atualizados };
 }
@@ -2061,12 +2076,15 @@ async function iniciarEnriquecimentoPendentes() {
 async function runPendentesRapido(task, cronJobId = null) {
   const mode         = `rapido:${task.id}`.slice(0, 20);
   const ownerTeamVal = String(task.owner_team || '').trim();
+  const servicoVal   = String(task.service_first || '').trim();   // serviço de 1º nível (BU), ex.: "Agronegócio"
   const classValue   = String(task.classification || '').trim();
-  const classFilter  = ownerTeamVal
-    ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
-    : (classValue ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO} and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))` : null);
+  const q = (v) => v.replace(/'/g, "''");
+  // Equipe e serviço são campos "planos" (baratos para a API); a classificação (campo customizado) só entra sozinha.
+  const classFilter  = (ownerTeamVal || servicoVal)
+    ? [ownerTeamVal && `ownerTeam eq '${q(ownerTeamVal)}'`, servicoVal && `serviceFirstLevel eq '${q(servicoVal)}'`].filter(Boolean).join(' and ')
+    : (classValue ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO} and cf/items/any(item: item/customFieldItem eq '${q(classValue)}'))` : null);
   const EXPAND_RAPIDO = 'owner,clients';   // campos básicos + clientes (organização) já na carga rápida
-  const pageSize = ownerTeamVal || !classValue ? 300 : CLASS_FILTER_PAGE_SIZE;   // com clientes a página é menor que só o básico
+  const pageSize = ownerTeamVal || servicoVal || !classValue ? 300 : CLASS_FILTER_PAGE_SIZE;   // com clientes a página é menor que só o básico
   const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
 
   state.running = true; state.cancelRequested = false; state.mode = mode; state.startedAt = new Date().toISOString();
@@ -2080,12 +2098,15 @@ async function runPendentesRapido(task, cronJobId = null) {
     const token = await getMovideskToken();
     const seen = new Set();
     const save = async (batch) => { batch.forEach(t => seen.add(String(t.id))); return salvarBasico(batch); };
+    const t0 = Date.now();
     await fetchEndpoint(token, '/tickets', [classFilter, closedExclusion].filter(Boolean).join(' and '), save, pageSize, EXPAND_RAPIDO);
+    const tLista = Date.now() - t0;
     let rec = null;
-    if (ownerTeamVal || classValue) {
+    if (ownerTeamVal || servicoVal || classValue) {
       state.phase = 'reconferindo';
-      rec = await reconferirRapido(token, seen, { ownerTeamVal, classValue }).catch(e => { if (e.cancelled) throw e; console.warn('[loader] reconferência rápida ignorada:', e.message); return null; });
+      rec = await reconferirRapido(token, seen, { ownerTeamVal, servicoVal, classValue }).catch(e => { if (e.cancelled) throw e; console.warn('[loader] reconferência rápida ignorada:', e.message); return null; });
     }
+    console.log(`[loader]   tempos: listagem ${(tLista / 1000).toFixed(1)}s · reconferência ${((Date.now() - t0 - tLista) / 1000).toFixed(1)}s`);
     state.phase = 'idle'; state.running = false; state.lastFinish = new Date().toISOString();
     state.lastResult = { mode, tickets: state.ticketsDone, ...(rec ? { reconferidos: rec.reconferidos } : {}) };
     if (logId) await db.query(`UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`, [state.ticketsDone, logId]).catch(() => {});
@@ -3006,5 +3027,5 @@ module.exports = {
   runAtualizacaoInteligente,
   reconferirAbertosPresos,
   sincronizarTicket,
-  iniciarEnriquecimentoPendentes, enriquecimentoPendentes,
+  iniciarEnriquecimentoPendentes, enriquecimentoPendentes, escopoSql,
 };

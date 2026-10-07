@@ -491,11 +491,13 @@ router.get('/sla-responsaveis', authMiddleware, requireTabAccess('paineltv'), as
     const padrao = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1)).toISOString().slice(0, 10);
     const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.desde || '')) ? String(req.query.desde) : padrao;
     const servico = String(req.query.servico || '').trim().slice(0, 300);
-    const chave = `sla-resp:${desde}:${servico}`;
+    const equipe = String(req.query.equipe || '').trim().slice(0, 300);
+    const chave = `sla-resp:${desde}:${servico}:${equipe}`;
     await cacheResposta.responder(req, res, chave, CACHE_PAINEL_MS, async () => {
       const params = [desde];
       let filtroServico = '';
       if (servico) { params.push(servico); filtroServico = ` AND t.service_full = $${params.length}`; }
+      if (equipe) { params.push(equipe === 'Não informado' ? '' : equipe); filtroServico += ` AND COALESCE(NULLIF(btrim(t.ownerteam), ''), '') = $${params.length}`; }
       const r = await db.query(`
         WITH b AS (
           SELECT COALESCE(NULLIF(btrim(t.owner_name), ''), 'Não atribuído') AS responsavel,
@@ -517,7 +519,7 @@ router.get('/sla-responsaveis', authMiddleware, requireTabAccess('paineltv'), as
                COUNT(*) FILTER (WHERE pendente AND prazo IS NULL AND base = 'Stopped')::int AS pausados,
                COUNT(*) FILTER (WHERE pendente AND prazo IS NULL AND base IS DISTINCT FROM 'Stopped')::int AS sem_prazo
           FROM b GROUP BY 1 ORDER BY 1`, params);
-      return { desde, servico: servico || null, classificacao: 'Suporte Técnico', rows: r.rows || [] };
+      return { desde, servico: servico || null, equipe: equipe || null, classificacao: 'Suporte Técnico', rows: r.rows || [] };
     });
   } catch (error) {
     if (error.code === '42P01') return res.json({ rows: [] });

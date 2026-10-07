@@ -73,15 +73,17 @@ let _taskOptionsAt = 0;
 router.get('/task-options', async (req, res) => {
   try {
     if (!_taskOptionsCache || Date.now() - _taskOptionsAt > 10 * 60 * 1000) {
-      const [equipes, classes, anos] = await Promise.all([
+      const [equipes, classes, anos, servicos] = await Promise.all([
         db.query(`SELECT DISTINCT ownerteam AS v FROM silver.ticket WHERE NULLIF(TRIM(ownerteam), '') IS NOT NULL ORDER BY 1`),
         db.query(`SELECT DISTINCT valor_texto AS v FROM silver.ticket_campo_customizado WHERE custom_field_id = $1 AND NULLIF(TRIM(valor_texto), '') IS NOT NULL ORDER BY 1`, [CF_CLASSIFICACAO]),
         db.query(`SELECT DISTINCT EXTRACT(YEAR FROM createddate)::int AS v FROM silver.ticket WHERE createddate IS NOT NULL ORDER BY 1 DESC`),
+        db.query(`SELECT split_part(service_full, ' > ', 1) AS v, COUNT(*) AS n FROM silver.ticket WHERE service_full IS NOT NULL AND service_full <> '' AND createddate >= NOW() - INTERVAL '18 months' GROUP BY 1 ORDER BY 2 DESC LIMIT 300`),
       ]);
       _taskOptionsCache = {
         teams: equipes.rows.map(r => r.v),
         classifications: classes.rows.map(r => r.v),
         years: anos.rows.map(r => r.v),
+        services: servicos.rows.map(r => r.v).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt')),
       };
       _taskOptionsAt = Date.now();
     }
@@ -195,7 +197,15 @@ async function lerRapida() {
     const e = movideskLoader.enriquecimentoPendentes || {};
     detalhes = { ...q, rodando: !!e.rodando, fila: e.fila || 0, feitos: e.feitos || 0, falhas: e.falhas || 0, terminadoEm: e.terminadoEm || null, ultimoErro: e.ultimoErro || null };
   } catch (_) { /* coluna detalhes_em ainda não existe */ }
-  return { tarefa: t, job, historico, detalhes, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
+  // quantos chamados o banco tem ABERTOS dentro do escopo da tarefa (para comparar com a contagem do Movidesk)
+  let escopoAbertos = null;
+  if (t) {
+    try {
+      const { where, params } = movideskLoader.escopoSql({ ownerTeamVal: t.owner_team || '', servicoVal: t.service_first || '', classValue: t.classification || '' }, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
+      escopoAbertos = (await db.query(`SELECT COUNT(*)::int AS n FROM silver.ticket t WHERE t.basestatus = ANY($1::text[]) ${where.length ? 'AND ' + where.join(' AND ') : ''}`, params)).rows[0].n;
+    } catch (_) { /* sem contagem */ }
+  }
+  return { tarefa: t, job, historico, detalhes, escopoAbertos, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
 }
 router.get('/rapida', async (req, res) => {
   try { res.json(await lerRapida()); } catch (e) { res.status(500).json({ error: e.message }); }
@@ -205,7 +215,8 @@ router.put('/rapida', async (req, res) => {
     const b = req.body || {};
     const owner_team = (b.owner_team && String(b.owner_team).trim()) || null;
     const classification = (b.classification && String(b.classification).trim()) || null;
-    if (!owner_team && !classification) return res.status(400).json({ error: 'Escolha a equipe (recomendado) ou a classificação dos chamados.' });
+    const service_first = (b.service_first && String(b.service_first).trim()) || null;
+    if (!owner_team && !classification && !service_first) return res.status(400).json({ error: 'Escolha a equipe, o serviço (BU) ou a classificação dos chamados.' });
     let minutes;
     try { minutes = cronSchedule.validarIntervalo(b.interval_minutes || 1); } catch (e) { return res.status(400).json({ error: e.message }); }
     const enabled = b.enabled !== false;
@@ -213,11 +224,11 @@ router.put('/rapida', async (req, res) => {
     let tarefaId;
     if (atual) {
       tarefaId = atual.id;
-      await db.query(`UPDATE silver.cron_task SET owner_team=$1, classification=$2, only_open=TRUE, rapido=TRUE, updated_at=NOW() WHERE id=$3`, [owner_team, classification, tarefaId]);
+      await db.query(`UPDATE silver.cron_task SET owner_team=$1, classification=$2, service_first=$3, only_open=TRUE, rapido=TRUE, updated_at=NOW() WHERE id=$4`, [owner_team, classification, service_first, tarefaId]);
     } else {
       tarefaId = (await db.query(
-        `INSERT INTO silver.cron_task (name, owner_team, classification, only_open, rapido) VALUES ($1,$2,$3,TRUE,TRUE) RETURNING id`,
-        [NOME_TAREFA_RAPIDA, owner_team, classification])).rows[0].id;
+        `INSERT INTO silver.cron_task (name, owner_team, classification, service_first, only_open, rapido) VALUES ($1,$2,$3,$4,TRUE,TRUE) RETURNING id`,
+        [NOME_TAREFA_RAPIDA, owner_team, classification, service_first])).rows[0].id;
     }
     const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = $1 ORDER BY id LIMIT 1`, [`custom:${tarefaId}`])).rows[0];
     if (job) {
