@@ -219,19 +219,36 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
           rows.forEach(r => { if (!r.organizacao) { const o = porId.get(String(r.ticket_id)); if (o) { r.organizacao = o.organizacao_nome; r.organizacao_id = o.organizacao_id; } } });
         } catch (e) { console.warn('[geral] fallback de organização dos pendentes falhou:', e.message); }
       }
-      // Ainda sem organização (o Movidesk não liga uma organização ao contato): mostra o nome do contato externo
-      // (ou, se só houver agente interno, o nome dele) para a coluna Cliente nunca ficar em branco havendo cliente no chamado.
+      // Ainda sem organização: o chamado veio sem organização no Movidesk (comum nos recém-abertos da carga rápida).
+      // 1) descobre a organização pelo CONTATO: a mais recente que esse mesmo contato (cliente_id) teve em outros chamados;
+      // 2) sem isso, mostra o nome do contato externo (ou do agente interno, se só houver ele).
       const semNome = rows.filter(r => !r.organizacao).map(r => r.ticket_id).filter(id => /^\d{1,18}$/.test(String(id)));
       if (semNome.length) {
         try {
           const fc = await db.query(`
-            SELECT DISTINCT ON (ticket_id) ticket_id::text AS id, nome
+            SELECT DISTINCT ON (ticket_id) ticket_id::text AS id, cliente_id, nome
               FROM silver.ticket_cliente
-             WHERE ticket_id = ANY($1::bigint[]) AND NULLIF(btrim(nome), '') IS NOT NULL
-             ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false)`, [semNome]);
-          const porId = new Map((fc.rows || []).map(x => [x.id, x.nome]));
-          rows.forEach(r => { if (!r.organizacao) { const n = porId.get(String(r.ticket_id)); if (n) r.cliente_nome = n; } });
-        } catch (e) { console.warn('[geral] fallback de nome do cliente dos pendentes falhou:', e.message); }
+             WHERE ticket_id = ANY($1::bigint[])
+             ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), (NULLIF(btrim(nome), '') IS NULL)`, [semNome]);
+          const porId = new Map((fc.rows || []).map(x => [x.id, x]));
+          const contatos = [...new Set((fc.rows || []).map(x => x.cliente_id).filter(c => c && !/^sem[-_]?id/i.test(String(c))))];
+          let orgDoContato = new Map();
+          if (contatos.length) {
+            const oc = await db.query(`
+              SELECT DISTINCT ON (cliente_id) cliente_id, organizacao_id, organizacao_nome
+                FROM silver.ticket_cliente
+               WHERE cliente_id = ANY($1::text[]) AND NULLIF(btrim(organizacao_nome), '') IS NOT NULL
+               ORDER BY cliente_id, extracted_at DESC NULLS LAST`, [contatos]);
+            orgDoContato = new Map((oc.rows || []).map(x => [String(x.cliente_id), x]));
+          }
+          rows.forEach(r => {
+            if (r.organizacao) return;
+            const c = porId.get(String(r.ticket_id)); if (!c) return;
+            const o = orgDoContato.get(String(c.cliente_id));
+            if (o) { r.organizacao = o.organizacao_nome; r.organizacao_id = o.organizacao_id; r.organizacao_inferida = true; }
+            else if (c.nome && String(c.nome).trim()) r.cliente_nome = c.nome;
+          });
+        } catch (e) { console.warn('[geral] fallback de cliente dos pendentes falhou:', e.message); }
       }
       // Movimento do dia (fuso de Brasília): chamados abertos hoje e resolvidos/fechados hoje, com os campos dos filtros.
       let hoje = [];

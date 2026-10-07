@@ -608,6 +608,7 @@ async function ensureTables() {
     // em ~720 mil tickets, é o motivo real do Painel Geral travar/nunca
     // responder. Índice composto cobre também o join de "quem respondeu"
     // em satisfacao.js (ticket_id + cliente_id).
+    ['silver.ticket_cliente idx cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_cliente_id ON silver.ticket_cliente(cliente_id)`],
     ['silver.ticket_cliente idx ticket_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_id ON silver.ticket_cliente(ticket_id)`],
     ['silver.ticket_cliente idx ticket_id+cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_cliente ON silver.ticket_cliente(ticket_id, cliente_id)`],
     // Mesmo com o índice acima, a heurística de organização (ORG_LATERAL) continua
@@ -2058,7 +2059,7 @@ async function iniciarConferenciaLista(ids) {
 // Fila de detalhes: chamados ABERTOS sem detalhes ou com alteração mais nova que os detalhes gravados. Roda sozinha em
 // segundo plano (não segura o "uma carga por vez"), poucas chamadas em paralelo, e para quando a fila acaba.
 const enriquecimentoPendentes = { rodando: false, fila: 0, feitos: 0, falhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null };
-const ENRIQ_PARALELO = 3, ENRIQ_MAX_POR_RODADA = 600;
+const ENRIQ_PARALELO = 5, ENRIQ_MAX_POR_RODADA = 1200;
 async function iniciarEnriquecimentoPendentes() {
   if (enriquecimentoPendentes.rodando) return enriquecimentoPendentes;
   Object.assign(enriquecimentoPendentes, { rodando: true, fila: 0, feitos: 0, falhas: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null });
@@ -2106,6 +2107,10 @@ async function iniciarEnriquecimentoPendentes() {
       console.warn('[loader] enriquecimento de pendentes falhou:', e.message);
     } finally {
       enriquecimentoPendentes.rodando = false; enriquecimentoPendentes.terminadoEm = new Date().toISOString();
+      // Ainda sobrou fila (a rodada tem teto) e a maioria deu certo: emenda a próxima rodada sem esperar a carga seguinte.
+      if (enriquecimentoPendentes.fila >= ENRIQ_MAX_POR_RODADA && enriquecimentoPendentes.feitos > 0 && enriquecimentoPendentes.falhas * 2 < enriquecimentoPendentes.feitos) {
+        setTimeout(() => iniciarEnriquecimentoPendentes().catch(() => {}), 2000);
+      }
     }
   })();
   return enriquecimentoPendentes;
