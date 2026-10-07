@@ -2102,7 +2102,7 @@ async function runPendentesRapido(task, cronJobId = null) {
     await fetchEndpoint(token, '/tickets', [classFilter, closedExclusion].filter(Boolean).join(' and '), save, pageSize, EXPAND_RAPIDO);
     const tLista = Date.now() - t0;
     let rec = null;
-    if (ownerTeamVal || servicoVal || classValue) {
+    {   // sem filtro (todos os pendentes) também reconfere: o escopo vazio = todos os abertos do banco
       state.phase = 'reconferindo';
       rec = await reconferirRapido(token, seen, { ownerTeamVal, servicoVal, classValue }).catch(e => { if (e.cancelled) throw e; console.warn('[loader] reconferência rápida ignorada:', e.message); return null; });
     }

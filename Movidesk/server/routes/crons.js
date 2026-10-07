@@ -216,7 +216,7 @@ router.put('/rapida', async (req, res) => {
     const owner_team = (b.owner_team && String(b.owner_team).trim()) || null;
     const classification = (b.classification && String(b.classification).trim()) || null;
     const service_first = (b.service_first && String(b.service_first).trim()) || null;
-    if (!owner_team && !classification && !service_first) return res.status(400).json({ error: 'Escolha a equipe, o serviço (BU) ou a classificação dos chamados.' });
+    // sem nenhum filtro = TODOS os chamados pendentes (qualquer serviço, equipe ou classificação)
     let minutes;
     try { minutes = cronSchedule.validarIntervalo(b.interval_minutes || 1); } catch (e) { return res.status(400).json({ error: e.message }); }
     const enabled = b.enabled !== false;

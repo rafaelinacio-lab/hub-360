@@ -19,8 +19,6 @@
   .tv-head .sub { color: var(--t2); font-size: 14px; font-weight: 600; }
   .tv-head .esp { flex: 1; }
   .chip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; font-weight: 800; font-size: 13px; background: var(--surface); color: var(--t2); box-shadow: var(--shadow-card); }
-  .chip.ao-vivo { background: var(--success-soft); color: var(--success); box-shadow: none; }
-  .chip.ao-vivo::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulsa 1.6s ease-in-out infinite; }
   @keyframes pulsa { 50% { opacity: .35; } }
   .clock { font-size: 20px; font-weight: 800; color: var(--t1); font-variant-numeric: tabular-nums; }
   .note { font-size: 12.5px; color: var(--t3); margin: 0 0 14px; }
@@ -103,7 +101,6 @@
     <h1>Painel TV</h1>
     <span class="sub">Tickets pendentes — visão geral</span>
     <span class="esp"></span>
-    <span class="chip ao-vivo">Ao vivo</span>
     <span class="clock" id="tv-clock"></span>
   </div>
   <p class="note" id="tv-updated">Carregando…</p>

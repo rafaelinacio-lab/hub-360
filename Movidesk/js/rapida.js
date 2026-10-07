@@ -26,7 +26,7 @@ async function rapidaCarregar(silencioso = false) {
 
 function rpStatusHtml() {
     const { job, tarefa, carregando, historico } = RP.dados;
-    if (!tarefa || !job) return '<span class="config-token-status config-token-status-off">Ainda não configurada</span> Escolha a equipe abaixo e clique em <b>Salvar e ligar</b>.';
+    if (!tarefa || !job) return '<span class="config-token-status config-token-status-off">Ainda não configurada</span> Clique em <b>Salvar e ligar</b> (sem filtros = todos os pendentes).';
     const ult = historico[0];
     const esc = RP.dados.escopoAbertos;
     const proxima = job.enabled && job.last_run_at ? new Date(new Date(job.last_run_at).getTime() + job.interval_minutes * 60000) : null;
@@ -34,7 +34,7 @@ function rpStatusHtml() {
         : job.last_status === 'queued' ? '<span class="config-token-status config-token-status-off">Na fila</span>'
         : job.enabled ? '<span class="config-token-status config-token-status-on">Ligada</span>' : '<span class="config-token-status config-token-status-off">Desligada</span>';
     return `${badge} a cada <b>${job.interval_minutes} min</b> · última execução: <b>${rpHora(job.last_run_at)}</b>${job.last_status === 'error' ? ` · <span style="color:#c0392b">erro: ${rpEsc(job.last_error || '')}</span>` : ''}
-        ${proxima ? ` · próxima: <b>${rpHora(proxima.toISOString())}</b>` : ''}${ult ? ` · ${ult.tickets_loaded ?? 0} chamados na última` : ''}${esc != null ? `<br>Abertos no banco dentro deste filtro: <b>${esc}</b> — compare com a contagem do Movidesk (a diferença são chamados que o banco ainda não atualizou).` : ''}`;
+        ${proxima ? ` · próxima: <b>${rpHora(proxima.toISOString())}</b>` : ''}${ult ? ` · ${ult.tickets_loaded ?? 0} chamados na última` : ''}${esc != null ? `<br>Abertos no banco (dentro do filtro escolhido; sem filtro = todos): <b>${esc}</b> — compare com a contagem do Movidesk (a diferença são chamados que o banco ainda não atualizou).` : ''}`;
 }
 
 function rpDetalhesHtml() {
@@ -61,7 +61,7 @@ function rpAtualizarStatus() {
 
 function rpRender() {
     const { tarefa, job } = RP.dados, op = RP.opcoes || { teams: [], classifications: [] };
-    const opc = (lista, atual) => ['<option value="">— nenhuma —</option>', ...lista.map((v) => `<option value="${rpEsc(v)}" ${v === atual ? 'selected' : ''}>${rpEsc(v)}</option>`),
+    const opc = (lista, atual) => ['<option value="">— todos —</option>', ...lista.map((v) => `<option value="${rpEsc(v)}" ${v === atual ? 'selected' : ''}>${rpEsc(v)}</option>`),
         ...(atual && !lista.includes(atual) ? [`<option value="${rpEsc(atual)}" selected>${rpEsc(atual)}</option>`] : [])].join('');
     document.getElementById('rpRoot').innerHTML = `
       <div class="config-card">
@@ -70,7 +70,8 @@ function rpRender() {
           status, responsável, prazo de SLA, serviço, urgência e clientes/organização — e deixa as <strong>ações e demais campos</strong> sendo preenchidos em segundo plano, sem atrasar a lista.</p>
         <div id="rpStatus" style="margin:10px 0 14px;font-size:14px">${rpStatusHtml()}</div>
         <div class="config-form-stack">
-          <label>Serviço (BU) — ex.: Agronegócio: pega os chamados do serviço, de qualquer equipe (use o mesmo serviço que você escolhe no Painel TV)
+          <p class="config-card-help" style="margin:0"><b>Quer todos os pendentes?</b> Deixe serviço, equipe e classificação em "— todos —": o Hub puxa todos os chamados abertos, de qualquer serviço, equipe ou classificação. Escolha algo só se quiser restringir.</p>
+          <label>Serviço (BU) — ex.: Agronegócio: pega os chamados do serviço, de qualquer equipe
             <select id="rpServico" class="config-input">${opc(op.services || [], tarefa?.service_first || '')}</select></label>
           <label>Equipe (opcional; combinada com o serviço, restringe mais)
             <select id="rpEquipe" class="config-input">${opc(op.teams || [], tarefa?.owner_team || '')}</select></label>
