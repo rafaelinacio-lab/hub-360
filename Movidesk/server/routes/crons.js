@@ -193,19 +193,21 @@ async function lerRapida() {
   try {
     const q = (await db.query(
       `SELECT COUNT(*) FILTER (WHERE detalhes_em IS NULL OR detalhes_em < last_update)::int AS faltam, COUNT(*)::int AS abertos
-         FROM silver.ticket WHERE basestatus = ANY($1::text[])`, [['New', 'InAttendance', 'Stopped', 'InProgress']])).rows[0];
+         FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[]))`, [movideskLoader.CLOSED_STATUSES])).rows[0];
     const e = movideskLoader.enriquecimentoPendentes || {};
     detalhes = { ...q, rodando: !!e.rodando, fila: e.fila || 0, feitos: e.feitos || 0, falhas: e.falhas || 0, terminadoEm: e.terminadoEm || null, ultimoErro: e.ultimoErro || null };
   } catch (_) { /* coluna detalhes_em ainda não existe */ }
   // quantos chamados o banco tem ABERTOS dentro do escopo da tarefa (para comparar com a contagem do Movidesk)
-  let escopoAbertos = null;
+  let escopoAbertos = null, porStatus = null;
   if (t) {
     try {
-      const { where, params } = movideskLoader.escopoSql({ ownerTeamVal: t.owner_team || '', servicoVal: t.service_first || '', classValue: t.classification || '' }, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
-      escopoAbertos = (await db.query(`SELECT COUNT(*)::int AS n FROM silver.ticket t WHERE t.basestatus = ANY($1::text[]) ${where.length ? 'AND ' + where.join(' AND ') : ''}`, params)).rows[0].n;
+      const { where, params } = movideskLoader.escopoSql({ ownerTeamVal: t.owner_team || '', servicoVal: t.service_first || '', classValue: t.classification || '' }, [movideskLoader.CLOSED_STATUSES]);
+      escopoAbertos = (await db.query(`SELECT COUNT(*)::int AS n FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) ${where.length ? 'AND ' + where.join(' AND ') : ''}`, params)).rows[0].n;
+      // por status, para comparar linha a linha com o Movidesk
+      porStatus = (await db.query(`SELECT t.basestatus AS base, COUNT(*)::int AS n FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) ${where.length ? 'AND ' + where.join(' AND ') : ''} GROUP BY 1 ORDER BY 2 DESC`, params)).rows;
     } catch (_) { /* sem contagem */ }
   }
-  return { tarefa: t, job, historico, detalhes, escopoAbertos, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
+  return { tarefa: t, job, historico, detalhes, escopoAbertos, porStatus, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
 }
 router.get('/rapida', async (req, res) => {
   try { res.json(await lerRapida()); } catch (e) { res.status(500).json({ error: e.message }); }

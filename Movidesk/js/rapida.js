@@ -29,12 +29,15 @@ function rpStatusHtml() {
     if (!tarefa || !job) return '<span class="config-token-status config-token-status-off">Ainda não configurada</span> Clique em <b>Salvar e ligar</b> (sem filtros = todos os pendentes).';
     const ult = historico[0];
     const esc = RP.dados.escopoAbertos;
+    const ROT = { New: 'Novo', InAttendance: 'Em atendimento', Stopped: 'Aguardando', InProgress: 'Em andamento' };
+    const porSt = (RP.dados.porStatus || []).map((x) => `${ROT[x.base] || x.base}: <b>${x.n}</b>`).join(' · ');
+    const dif = (esc != null && ult && ult.tickets_loaded != null && ult.status === 'done') ? esc - ult.tickets_loaded : null;
     const proxima = job.enabled && job.last_run_at ? new Date(new Date(job.last_run_at).getTime() + job.interval_minutes * 60000) : null;
     const badge = carregando || job.last_status === 'running' ? '<span class="config-token-status config-token-status-on">Rodando agora</span>'
         : job.last_status === 'queued' ? '<span class="config-token-status config-token-status-off">Na fila</span>'
         : job.enabled ? '<span class="config-token-status config-token-status-on">Ligada</span>' : '<span class="config-token-status config-token-status-off">Desligada</span>';
     return `${badge} a cada <b>${job.interval_minutes} min</b> · última execução: <b>${rpHora(job.last_run_at)}</b>${job.last_status === 'error' ? ` · <span style="color:#c0392b">erro: ${rpEsc(job.last_error || '')}</span>` : ''}
-        ${proxima ? ` · próxima: <b>${rpHora(proxima.toISOString())}</b>` : ''}${ult ? ` · ${ult.tickets_loaded ?? 0} chamados na última` : ''}${esc != null ? `<br>Abertos no banco (dentro do filtro escolhido; sem filtro = todos): <b>${esc}</b> — compare com a contagem do Movidesk (a diferença são chamados que o banco ainda não atualizou).` : ''}`;
+        ${proxima ? ` · próxima: <b>${rpHora(proxima.toISOString())}</b>` : ''}${ult ? ` · ${ult.tickets_loaded ?? 0} chamados na última` : ''}${esc != null ? `<br>Abertos no banco (filtro escolhido; sem filtro = todos): <b>${esc}</b>${porSt ? ` (${porSt})` : ''}${dif != null ? ` · o Movidesk devolveu <b>${ult.tickets_loaded}</b> na última carga → <b>${dif > 0 ? dif + ' a mais no banco (chamados já fechados que estão sendo reconferidos, até 500 a cada 3 min)' : dif < 0 ? Math.abs(dif) + ' a menos no banco' : 'bate'}</b>` : ''}` : ''}`;
 }
 
 function rpDetalhesHtml() {

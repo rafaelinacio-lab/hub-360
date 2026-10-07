@@ -1971,7 +1971,7 @@ async function salvarBasico(tickets) {
 
 // Chamados abertos no banco que não vieram na lista de abertos do Movidesk: foram encerrados/mudaram — grava só o básico.
 let _ultimaReconferenciaRapida = 0;
-const RECONFERENCIA_RAPIDA_A_CADA_MS = 5 * 60 * 1000;
+const RECONFERENCIA_RAPIDA_A_CADA_MS = 3 * 60 * 1000;
 // Cláusula SQL do escopo (equipe/serviço/classificação) sobre silver.ticket t; devolve { where:[...], params }.
 function escopoSql({ ownerTeamVal, servicoVal, classValue }, params = []) {
   const where = [];
@@ -1986,14 +1986,14 @@ function escopoSql({ ownerTeamVal, servicoVal, classValue }, params = []) {
 }
 
 // Chamados abertos no banco que não vieram na lista de abertos do Movidesk: foram encerrados/mudaram — grava só o básico.
-// Roda no máximo a cada 5 min (não a cada execução) e com 5 consultas em paralelo, para não pesar na carga rápida.
+// Aberto = qualquer status que não seja resolvido/fechado/cancelado (mesma definição do Painel TV). Roda no máximo a cada 3 min e com 8 consultas em paralelo, para não pesar na carga rápida.
 async function reconferirRapido(token, seen, escopo, { forcar = false } = {}) {
   if (!forcar && Date.now() - _ultimaReconferenciaRapida < RECONFERENCIA_RAPIDA_A_CADA_MS) return null;
   _ultimaReconferenciaRapida = Date.now();
-  const { where, params } = escopoSql(escopo, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
-  const { rows } = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE t.basestatus = ANY($1::text[]) ${where.length ? 'AND ' + where.join(' AND ') : ''} ORDER BY t.last_update ASC NULLS FIRST LIMIT 1000`, params);
+  const { where, params } = escopoSql(escopo, [CLOSED_STATUSES]);
+  const { rows } = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) ${where.length ? 'AND ' + where.join(' AND ') : ''} ORDER BY t.last_update ASC NULLS FIRST LIMIT 3000`, params);
   const agora = Date.now();
-  const alvo = rows.map(r => String(r.id)).filter(id => !seen.has(id) && !(_reconferidoEm.get(id) > agora - 5 * 60 * 1000)).slice(0, 150);
+  const alvo = rows.map(r => String(r.id)).filter(id => !seen.has(id) && !(_reconferidoEm.get(id) > agora - 5 * 60 * 1000)).slice(0, 500);
   let atualizados = 0, i = 0;
   const trabalhador = async () => {
     while (i < alvo.length) {
@@ -2012,7 +2012,7 @@ async function reconferirRapido(token, seen, escopo, { forcar = false } = {}) {
       } catch (e) { console.warn(`[loader] reconferência rápida do ticket ${id} falhou: ${e.message}`); }
     }
   };
-  await Promise.all(Array.from({ length: 5 }, trabalhador));
+  await Promise.all(Array.from({ length: 8 }, trabalhador));
   if (alvo.length) console.log(`[loader]   reconferência rápida: ${alvo.length} chamado(s) abertos no banco e fora da lista → ${atualizados} atualizado(s)`);
   return { reconferidos: alvo.length, atualizados };
 }
@@ -2029,8 +2029,8 @@ async function iniciarEnriquecimentoPendentes() {
       const token = await getMovideskToken();
       const { rows } = await db.query(`
         SELECT t.ticket_id::bigint AS id FROM silver.ticket t
-         WHERE t.basestatus = ANY($1::text[]) AND (t.detalhes_em IS NULL OR t.detalhes_em < t.last_update)
-         ORDER BY (t.detalhes_em IS NULL) DESC, t.last_update DESC NULLS LAST LIMIT ${ENRIQ_MAX_POR_RODADA}`, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
+         WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) AND (t.detalhes_em IS NULL OR t.detalhes_em < t.last_update)
+         ORDER BY (t.detalhes_em IS NULL) DESC, t.last_update DESC NULLS LAST LIMIT ${ENRIQ_MAX_POR_RODADA}`, [CLOSED_STATUSES]);
       const ids = rows.map(r => String(r.id));
       enriquecimentoPendentes.fila = ids.length;
       let i = 0;
@@ -3027,5 +3027,5 @@ module.exports = {
   runAtualizacaoInteligente,
   reconferirAbertosPresos,
   sincronizarTicket,
-  iniciarEnriquecimentoPendentes, enriquecimentoPendentes, escopoSql,
+  iniciarEnriquecimentoPendentes, enriquecimentoPendentes, escopoSql, CLOSED_STATUSES,
 };
