@@ -43,6 +43,7 @@
   .kpi-titulo { margin: 18px 2px 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); }
   .kpi-titulo:first-child { margin-top: 0; }
   .kpi-grid.compacto { gap: 14px; }
+  html[data-ui] .kpi-grid.k3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
   html body.tv-page .kpi-grid.compacto .stat-card { padding: 12px 16px; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "lab lab" "val leg"; align-items: end; gap: 6px 14px; min-height: 0; height: auto; margin: 0; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
   html body.tv-page .kpi-grid.compacto .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.28); }
   html body.tv-page .kpi-grid.compacto .stat-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
@@ -60,6 +61,10 @@
   html body.tv-page .kpi-grid.compacto .stat-card.zero .value { color: var(--t3); }
   .slr-tab tr[data-urg]:hover td { background: var(--surface-low, rgba(255,255,255,.04)); }
   .slr-tab tr.sel-linha td { background: var(--surface-mid, rgba(255,255,255,.08)); }
+  .tv-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.62); align-items: center; justify-content: center; padding: 3vh 3vw; }
+  .tv-modal-box { background: var(--surface); border: 1px solid var(--border-hi); border-radius: 22px; width: min(1500px,100%); max-height: 94vh; display: flex; flex-direction: column; padding: 22px 24px; box-shadow: 0 24px 80px rgba(0,0,0,.5); }
+  .tv-modal th { white-space: normal; line-height: 1.2; }
+  .tv-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 10px; }
   .filtro-card { display: none; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 14px; color: var(--t2); }
   /* painéis */
   .chart-wrap { position: relative; width: 100%; }
@@ -152,7 +157,7 @@
 
   <div id="tv-content" style="display:none">
     <p class="kpi-titulo">Backlog agora</p>
-    <div class="kpi-grid k4 compacto">
+    <div class="kpi-grid k4 compacto k3">
       <div data-tone="blue" class="stat-card" data-card="todos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
         <div class="kpi-main"><p class="value" id="k-pendentes">0</p></div>
@@ -167,11 +172,6 @@
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/></svg></span>% do backlog vencido</p>
         <div class="kpi-main"><p class="value bad" id="k-pct-vencido">0%</p></div>
         <div class="kpi-foot"><p class="legend">Vencidos ÷ pendentes.</p></div>
-      </div>
-      <div data-tone="yellow" class="stat-card" data-card="acoes">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a2 2 0 0 1 2-2h16"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a2 2 0 0 1-2 2H3"/></svg></span>Média ações/ticket</p>
-        <div class="kpi-main"><p class="value" id="k-media-acoes">0</p></div>
-        <div class="kpi-foot"><p class="legend">Trocas por chamado pendente.</p></div>
       </div>
     </div>
 
@@ -228,7 +228,6 @@
     <div class="hrow c-1">
       <div class="data-panel danger">
         <p class="table-title">Chamados pendentes — do mais antigo ao mais novo <span id="tv-table-count" style="color:var(--t3);font-weight:700;font-size:15px"></span></p>
-        <div class="filtro-card" id="filtro-card"><span id="filtro-card-txt"></span><button type="button" class="btn-limpar" id="filtro-card-x">Mostrar todos</button></div>
         <p class="chart-sub">Todos os pendentes do filtro, ordenados por dias em aberto (desc); role a tabela para ver o restante. "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
         <div class="table-wrap">
           <table>
@@ -269,6 +268,13 @@
         <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo.</p>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="tv-modal" class="tv-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="tv-modal-titulo">
+  <div class="tv-modal-box">
+    <div class="tv-modal-head"><div><p class="table-title" id="tv-modal-titulo"></p><p class="chart-sub" id="tv-modal-sub"></p></div><button type="button" class="btn-limpar" id="tv-modal-x">Fechar ✕</button></div>
+    <div class="table-wrap" id="tv-modal-corpo" style="max-height:none;flex:1"></div>
   </div>
 </div>
 
@@ -417,13 +423,10 @@ function render(){
   const vencidosRows=_rows.filter(isVencido);
   const vencidos=vencidosRows.length;
   const pctVencido=pendentes?vencidos/pendentes*100:0;
-  const somaAcoes=_rows.reduce((s,r)=>s+Number(r.acoes_count||0),0);
-  const mediaAcoes=pendentes?somaAcoes/pendentes:0;
 
   document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
   document.getElementById('k-vencidos').textContent=vencidos.toLocaleString('pt-BR');
   document.getElementById('k-pct-vencido').textContent=`${pctVencido.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
-  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:2});
 
   renderHoje(vencidosRows);
   renderTeamChart();
@@ -532,77 +535,65 @@ function renderUrgencia(){
   const fmt=n=>n.toLocaleString('pt-BR');
   el.innerHTML='<table class="slr-tab"><thead><tr><th>Urgência</th><th>Pendentes</th><th>Vencidos</th><th>% vencido</th><th>Situação do prazo</th></tr></thead><tbody>'+lista.map(u=>{
     const o=por[u], pct=o.t?o.v/o.t*100:0, cor=pct>=40?'var(--danger)':pct>=20?'var(--warning)':'var(--success)';
-    return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" class="${_urgSel===u?'sel-linha':''}"><td><b>${esc(u)}</b>${o.crit?' <span class="slr-chip r">crítico</span>':''}</td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
+    return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" ><td><b>${esc(u)}</b>${o.crit?' <span class="slr-chip r">crítico</span>':''}</td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
       <td style="color:${cor};font-weight:800">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
       <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} sem prazo · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
   }).join('')+'</tbody></table>';
 }
 
-const ROTULO_CARD={vencidos:'vencidos',acoes:'com mais ações (trocas)',criticos:'críticos','criticos-venc':'críticos vencidos','abertos-hoje':'abertos hoje','fechados-hoje':'fechados hoje'};
-let _cardSel='', _urgSel='';
-function linhasDoCard(){
-  if(_cardSel==='abertos-hoje'||_cardSel==='fechados-hoje'){
-    const hoje=hojeBR(), ab=_cardSel==='abertos-hoje';
+const ROTULO_CARD={todos:'Chamados pendentes',vencidos:'Chamados vencidos',criticos:'Chamados críticos pendentes','criticos-venc':'Chamados críticos vencidos','abertos-hoje':'Chamados abertos hoje','fechados-hoje':'Chamados fechados hoje'};
+function linhasDe(card,urg){
+  if(card==='abertos-hoje'||card==='fechados-hoje'){
+    const hoje=hojeBR(), ab=card==='abertos-hoje';
     return _hojeAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&diaBR(ab?r.criado_em:r.fechado_em)===hoje).map(r=>({...r,_hoje:ab?'aberto':'fechado'}));
   }
   let l=_rows;
-  if(_urgSel) l=l.filter(r=>urgenciaDe(r)===_urgSel);
-  if(_cardSel==='vencidos') l=l.filter(isVencido);
-  else if(_cardSel==='criticos') l=l.filter(ehCritico);
-  else if(_cardSel==='criticos-venc') l=l.filter(r=>ehCritico(r)&&isVencido(r));
+  if(urg) l=l.filter(r=>urgenciaDe(r)===urg);
+  if(card==='vencidos') l=l.filter(isVencido);
+  else if(card==='criticos') l=l.filter(ehCritico);
+  else if(card==='criticos-venc') l=l.filter(r=>ehCritico(r)&&isVencido(r));
   return l;
 }
-function escolherCard(c){
-  _cardSel=(c==='todos'||c===_cardSel)?'':c; _urgSel='';
-  atualizarCards(); renderTable();
-  if(_cardSel||c==='todos') document.querySelector('.data-panel.danger')?.scrollIntoView({behavior:'smooth',block:'start'});
+function linhaHtml(r){
+  const link=`<a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a>`;
+  const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||'')}">${esc(r.organizacao||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num">${diasEmAberto(r)}</td>`;
+  const st=r.status_movidesk||r.base_status||'—';
+  if(r._hoje) return `<tr>${base}<td class="num">—</td><td class="num">—</td><td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
+  const sp=statusPrazoDe(r), bc=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
+  const dA=diasSemRetornoDe(r.ultima_publica_agente), dC=diasSemRetornoDe(r.ultima_publica_cliente);
+  return `<tr>${base}<td class="num danger-num">${dA!=null?dA:'—'}</td><td class="num danger-num">${dC!=null?dC:'—'}</td><td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp)}</span></td></tr>`;
 }
-function atualizarCards(){
-  document.querySelectorAll('[data-card]').forEach(el=>el.classList.toggle('sel',el.dataset.card===_cardSel&&_cardSel!==''));
-  const f=document.getElementById('filtro-card'), t=document.getElementById('filtro-card-txt');
-  const txt=[_cardSel&&`Mostrando só chamados ${ROTULO_CARD[_cardSel]}`,_urgSel&&`urgência "${_urgSel}"`].filter(Boolean).join(' · ');
-  f.style.display=txt?'flex':'none'; t.textContent=txt;
+const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th><th class="num">Dias aberto</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th><th class="center">Status real</th><th class="center">Status prazo</th></tr></thead>';
+const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:22%"><col style="width:14%"><col style="width:7%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';
+// Modal com a lista de chamados do card/urgência clicado.
+let _modalSel=null;
+function abrirModal(card,urg){
+  _modalSel={card,urg};
+  const lista=[...linhasDe(card,urg)].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  document.getElementById('tv-modal-titulo').textContent=urg?`Urgência "${urg}" — pendentes`:ROTULO_CARD[card]||'Chamados';
+  document.getElementById('tv-modal-sub').textContent=`${lista.length.toLocaleString('pt-BR')} chamado(s)${lista.length?' — do mais antigo ao mais novo':''}. Clique no número para abrir no Movidesk.`;
+  document.getElementById('tv-modal-corpo').innerHTML=lista.length?`<table>${COLGROUP_TAB}${CABECALHO_TAB}<tbody>${lista.map(linhaHtml).join('')}</tbody></table>`:'<p class="empty-state">Nenhum chamado neste recorte.</p>';
+  document.getElementById('tv-modal').style.display='flex';
+  document.getElementById('tv-modal-corpo').scrollTop=0;
 }
+function fecharModal(){ _modalSel=null; document.getElementById('tv-modal').style.display='none'; }
 document.addEventListener('click',e=>{
-  const c=e.target.closest('[data-card]'); if(c){ escolherCard(c.dataset.card); return; }
-  const u=e.target.closest('[data-urg]'); if(u){ _urgSel=_urgSel===u.dataset.urg?'':u.dataset.urg; _cardSel=''; atualizarCards(); renderTable(); document.querySelector('.data-panel.danger')?.scrollIntoView({behavior:'smooth',block:'start'}); }
+  if(e.target.id==='tv-modal'||e.target.closest('#tv-modal-x')){ fecharModal(); return; }
+  const c=e.target.closest('[data-card]'); if(c){ abrirModal(c.dataset.card); return; }
+  const u=e.target.closest('[data-urg]'); if(u) abrirModal('todos',u.dataset.urg);
 });
-document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-card]')){ e.preventDefault(); escolherCard(e.target.dataset.card); } });
-document.getElementById('filtro-card-x').addEventListener('click',()=>{ _cardSel=''; _urgSel=''; atualizarCards(); renderTable(); });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') fecharModal();
+  else if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-card]')){ e.preventDefault(); abrirModal(e.target.dataset.card); }
+});
 document.querySelectorAll('[data-card]').forEach(el=>{ el.setAttribute('role','button'); el.setAttribute('tabindex','0'); });
 
 function renderTable(){
   const tbody=document.getElementById('tv-table-body');
-  let top=[...linhasDoCard()];
-  top.sort(_cardSel==='acoes'?((a,b)=>Number(b.acoes_count||0)-Number(a.acoes_count||0)):((a,b)=>diasEmAberto(b)-diasEmAberto(a)));
+  const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
   const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=`(${top.length.toLocaleString('pt-BR')} chamados)`;
-  atualizarCards();
-  if(!top.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty-state">Nenhum chamado neste recorte.</td></tr>`; return; }
-  tbody.innerHTML=top.map(r=>{
-    if(r._hoje){
-      const st=r.status_movidesk||r.base_status||'—';
-      return `<tr><td><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a></td>
-      <td class="ellipsis" title="${escAttr(r.organizacao||'')}">${esc(r.organizacao||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td>
-      <td class="ellipsis">${esc(r.responsavel||'Não atribuído')}</td><td class="num">${diasEmAberto(r)}</td><td class="num">—</td><td class="num">—</td>
-      <td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
-    }
-    const sp=statusPrazoDe(r);
-    const badgeClass=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
-    const dsrAgente=diasSemRetornoDe(r.ultima_publica_agente);
-    const dsrCliente=diasSemRetornoDe(r.ultima_publica_cliente);
-    return `
-    <tr>
-      <td><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a></td>
-      <td class="ellipsis" title="${escAttr(r.organizacao||'')}">${esc(r.organizacao||'—')}</td>
-      <td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td>
-      <td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td>
-      <td class="num">${diasEmAberto(r)}</td>
-      <td class="num danger-num">${dsrAgente!=null?dsrAgente:'—'}</td>
-      <td class="num danger-num">${dsrCliente!=null?dsrCliente:'—'}</td>
-      <td class="center" title="${escAttr(r.status_movidesk||r.base_status||'')}"><span class="badge neutral">${esc(r.status_movidesk||r.base_status||'—')}</span></td>
-      <td class="center"><span class="badge ${badgeClass}">${esc(sp)}</span></td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML=top.length?top.map(linhaHtml).join(''):`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`;
+  if(_modalSel) abrirModal(_modalSel.card,_modalSel.urg);   // atualização automática: mantém o modal aberto com dados novos
 }
 
 
