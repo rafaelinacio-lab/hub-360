@@ -13,6 +13,7 @@
  * GET /geral/:ticketId/actions — timeline de ações + campos customizados
  * POST /geral/sla-liquido — tempo de solução líquido (horas úteis, sem pausas) por ticket
  * POST /geral/temas — tema (por palavras-chave) de cada ticket, a partir do assunto e das ações
+ * GET  /geral/sla-responsaveis — SLA individual (dentro/fora, pendentes, vencidos) por responsável, Suporte Técnico (Painel TV)
  * GET  /geral/causas — causas dos chamados diagnosticados pela Curadoria (que lê o histórico inteiro de cada chamado), compactadas
  */
 
@@ -459,6 +460,53 @@ router.get('/causas', authMiddleware, requireTabAccess('movidesk'), async (req, 
       : /ECONN|ETIMEDOUT|EAI_AGAIN|timeout|terminat|password|authentication/i.test(m) ? 'o banco da Curadoria não está acessível'
       : 'erro ao consultar a Curadoria';
     res.status(502).json({ error: `Não foi possível analisar as causas: ${motivo}.` });
+  }
+});
+
+// ── SLA por responsável (Painel TV) ───────────────────────────────────────
+// Para cada responsável: resolvidos no período dentro/fora do prazo (resolvido_em <= sla_solucao, a mesma regra do Painel Geral),
+// pendentes agora (total, vencidos, no prazo, sem prazo). O impacto no SLA do time é calculado no painel a partir destes números.
+// A política de SLA vale só para Suporte Técnico (campo 23946), então é a classificação usada aqui; ?servico= restringe a um serviço.
+// ?desde=YYYY-MM-DD (padrão: 1º dia do mês atual) define o início do período dos resolvidos.
+const FECHADOS_SQL = "'Resolved','Closed','Resolvido','Fechado'";
+const CLASSIFICACAO_SLA = 'suporte tecnico';
+router.get('/sla-responsaveis', authMiddleware, requireTabAccess('paineltv'), async (req, res) => {
+  try {
+    const hoje = new Date();
+    const padrao = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1)).toISOString().slice(0, 10);
+    const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.desde || '')) ? String(req.query.desde) : padrao;
+    const servico = String(req.query.servico || '').trim().slice(0, 300);
+    const chave = `sla-resp:${desde}:${servico}`;
+    await cacheResposta.responder(req, res, chave, CACHE_PAINEL_MS, async () => {
+      const params = [desde];
+      let filtroServico = '';
+      if (servico) { params.push(servico); filtroServico = ` AND t.service_full = $${params.length}`; }
+      const r = await db.query(`
+        WITH b AS (
+          SELECT COALESCE(NULLIF(btrim(t.owner_name), ''), 'Não atribuído') AS responsavel,
+                 (t.basestatus IN (${FECHADOS_SQL})) AS resolvido,
+                 (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado')) AS pendente,
+                 t.resolved_in, t.sla_solution_date AS prazo
+            FROM silver.ticket t
+            JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
+           WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = '${CLASSIFICACAO_SLA}'${filtroServico}
+             AND (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado') OR (t.basestatus IN (${FECHADOS_SQL}) AND t.resolved_in >= $1::date))
+        )
+        SELECT responsavel,
+               COUNT(*) FILTER (WHERE resolvido AND prazo IS NOT NULL AND resolved_in <= prazo)::int AS dentro,
+               COUNT(*) FILTER (WHERE resolvido AND prazo IS NOT NULL AND resolved_in >  prazo)::int AS fora,
+               COUNT(*) FILTER (WHERE resolvido AND prazo IS NULL)::int AS resolvidos_sem_prazo,
+               COUNT(*) FILTER (WHERE pendente)::int AS pendentes,
+               COUNT(*) FILTER (WHERE pendente AND prazo IS NOT NULL AND prazo <  NOW())::int AS vencidos,
+               COUNT(*) FILTER (WHERE pendente AND prazo IS NOT NULL AND prazo >= NOW())::int AS no_prazo,
+               COUNT(*) FILTER (WHERE pendente AND prazo IS NULL)::int AS sem_prazo
+          FROM b GROUP BY 1 ORDER BY 1`, params);
+      return { desde, servico: servico || null, classificacao: 'Suporte Técnico', rows: r.rows || [] };
+    });
+  } catch (error) {
+    if (error.code === '42P01') return res.json({ rows: [] });
+    console.error('Erro ao calcular o SLA por responsável:', error.message);
+    res.status(500).json({ error: 'Erro ao calcular o SLA por responsável' });
   }
 });
 
