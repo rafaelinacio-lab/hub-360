@@ -868,17 +868,12 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-2">
+    <div class="hrow c-1">
       <div class="chart-panel" id="impacto-cli-panel">
         <p class="chart-title">Quem concentra o atraso</p>
         <p class="chart-sub">Impacto somado no SLA do período, por grupo. Clique numa linha para ver os tickets.</p>
         <div class="imp-chips" id="impacto-grupo-chips"></div>
         <div class="rolagem imp-grupos" id="impacto-grupos"></div>
-      </div>
-      <div class="chart-panel" id="impacto-disp-panel">
-        <p class="chart-title">Tempo de solução contra a meta</p>
-        <p class="chart-sub" id="impacto-disp-sub">Cada ponto é um ticket; acima da linha tracejada estourou a meta. Escala logarítmica.</p>
-        <div class="chart-wrap" style="height:360px"><canvas id="impactoScatter"></canvas></div>
       </div>
     </div>
 
@@ -2073,13 +2068,12 @@ async function renderImpactoSla(rows){
 
   const itens=doMes.filter(r=>_impactoMinutos[r.ticket_id]!=null).map(r=>({r,h:_impactoMinutos[r.ticket_id]/60}));
   const n=itens.length;
-  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste período.</p>'; ['impacto-cima','impacto-baixo'].forEach(i=>{ const e=document.getElementById(i); if(e) e.innerHTML=''; }); _impItens=[]; renderImpactoGrupos(); renderImpactoDispersao(); return; }
+  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste período.</p>'; ['impacto-cima','impacto-baixo'].forEach(i=>{ const e=document.getElementById(i); if(e) e.innerHTML=''; }); _impItens=[]; renderImpactoGrupos(); return; }
   const soma=itens.reduce((a,x)=>a+x.h,0), media=soma/n;
   itens.forEach(x=>{ x.imp=n>1?media-(soma-x.h)/(n-1):0; });
   _impItens=itens; _impMedia=media;
   renderImpactoTickets();
   renderImpactoGrupos();
-  renderImpactoDispersao();
 }
 
 // ── Impacto: estado e três visões (por ticket, por grupo, dispersão) ──
@@ -2154,33 +2148,6 @@ function renderImpactoGrupos(){
     const rows=o.itens.slice().sort((a,b)=>b.imp-a.imp).map(x=>x.r); rows.forEach(r=>{ _rowsById[r.ticket_id]=r; });
     openDetailModal(`${IMP_GRUPOS[_impGrupo][0]}: ${o.k}`,`${o.n.toLocaleString('pt-BR')} tickets · impacto ${fmtHImp(o.soma)}`,rows,{ordenar:(a,b)=>0});
   }));
-}
-function renderImpactoDispersao(){
-  destroyChart('impactoScatter');
-  const cv=document.getElementById('impactoScatter'); if(!cv) return;
-  const com=_impItens.filter(x=>META_SOLUCAO_H[x.r.urgencia]!=null&&x.h>0);
-  if(!com.length) return;
-  // até 1.000 pontos: os 500 que mais estouraram a meta + 500 do restante (amostra fixa, sempre a mesma)
-  const razao=x=>x.h/META_SOLUCAO_H[x.r.urgencia];
-  const ord=com.slice().sort((a,b)=>razao(b)-razao(a));
-  const topo=ord.slice(0,500), resto=ord.slice(500), passo=Math.max(1,Math.ceil(resto.length/500));
-  const pontos=topo.concat(resto.filter((_,i)=>i%passo===0));
-  const sub=document.getElementById('impacto-disp-sub');
-  if(sub) sub.textContent=`Cada ponto é um ticket; acima da linha tracejada estourou a meta. Escala logarítmica. ${com.length>pontos.length?`Mostrando ${pontos.length.toLocaleString('pt-BR')} de ${com.length.toLocaleString('pt-BR')}: os 500 que mais estouraram a meta e uma amostra do resto.`:''}`;
-  const jit=id=>{ let h=0; for(const c of String(id)) h=(h*31+c.charCodeAt(0))%1000; return h/1000-.5; };
-  const dsets=Object.keys(IMP_COR_URG).map(u=>({label:u,backgroundColor:IMP_COR_URG[u]+'cc',pointRadius:3.5,pointHoverRadius:6,
-    data:pontos.filter(x=>x.r.urgencia===u).map(x=>({x:META_SOLUCAO_H[u]*(1+jit(x.r.ticket_id)*.5),y:Math.max(.2,x.h),id:x.r.ticket_id,ass:x.r.assunto,h:x.h,meta:META_SOLUCAO_H[u],u}))}));
-  dsets.push({type:'line',label:'Meta',data:[{x:3,y:3},{x:34,y:34}],borderColor:cssVar('--t3'),borderDash:[6,5],pointRadius:0,borderWidth:1.5});
-  const t2=cssVar('--t2'), grade=cssVar('--border');
-  _charts.impactoScatter=new Chart(cv,{type:'scatter',data:{datasets:dsets},options:{
-    responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{position:'top',align:'end',labels:{color:t2,usePointStyle:true,boxWidth:8,font:{weight:'600'}}},
-      tooltip:{filter:i=>i.raw&&i.raw.id,callbacks:{title:i=>`#${i[0].raw.id} · ${i[0].raw.u}`,label:c=>[` ${(c.raw.ass||'').slice(0,60)}`,` ${fmtH(c.raw.h)} de ${c.raw.meta}h (${Math.round(c.raw.h/c.raw.meta).toLocaleString('pt-BR')}× a meta)`]}}},
-    scales:{
-      x:{type:'logarithmic',min:3,max:34,title:{display:true,text:'Meta da urgência',color:cssVar('--t3')},grid:{color:grade},afterBuildTicks:ax=>{ ax.ticks=[4,8,16,24].map(v=>({value:v})); },ticks:{color:t2,callback:v=>v+'h'}},
-      y:{type:'logarithmic',min:.2,max:Math.pow(10,Math.ceil(Math.log10(Math.max(10,...pontos.map(p=>p.h))*1.3))),title:{display:true,text:'Tempo líquido',color:cssVar('--t3')},grid:{color:grade},ticks:{color:t2,callback:v=>[1,10,100,1000,10000].includes(v)?v.toLocaleString('pt-BR')+'h':''}}},
-    onClick:(e,els,ch)=>{ if(els.length){ const p=ch.data.datasets[els[0].datasetIndex].data[els[0].index]; if(p&&p.id) openTicketModal(String(p.id)); } },
-    onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }}});
 }
 
 // ── Evolução mensal do atingimento do SLA ──────────────────────────────
@@ -3074,9 +3041,6 @@ const INFO_CARDS={
   'impacto-cli-panel':{t:'Quem concentra o atraso',
     o:'O impacto no tempo médio de solução somado por cliente, equipe, responsável ou urgência.',
     c:['Usa o mesmo impacto de cada ticket do card "Impacto mensal de SLA por ticket" e soma por grupo.','Valor positivo = o grupo elevou a média de tempo de solução; negativo = reduziu.','Os 8 primeiros respondem por X% do desvio para cima (soma só dos grupos positivos).','Clique numa linha para ver os tickets do grupo.']},
-  'impacto-disp-panel':{t:'Tempo de solução contra a meta',
-    o:'Cada ticket resolvido como um ponto: meta da urgência (eixo X) contra o tempo líquido (eixo Y).',
-    c:['Tempo líquido = horas úteis de Brasília, sem o tempo parado.','Acima da linha tracejada o ticket estourou a meta da urgência (4h, 8h, 16h e 24h).','Escala logarítmica nos dois eixos; mostra até 1.000 pontos (os 500 que mais estouraram a meta e uma amostra do restante).','Clique num ponto para abrir o ticket.']},
   'temas-panel':{t:'Temas mais recorrentes',
     o:'Os assuntos que mais aparecem nos chamados, descobertos a partir do texto do chamado e das ações.',
     c:['Para cada ticket criado no período, lê o assunto (peso dobrado) e o texto das 5 primeiras ações (até 1.500 caracteres cada).','Procura palavras-chave de cada tema (dicionário em server/data/temas-chamados.json; ex.: Fiscal = NF-e, CFOP, SPED, ICMS…).','O tema do ticket é o que tiver mais ocorrências; em caso de empate vale a ordem do dicionário. Cada ticket conta em um tema só.','Tickets sem nenhuma palavra do dicionário ficam sem tema e aparecem apenas no total analisado.','% = tickets do tema ÷ tickets analisados. A variação em pp compara a participação do tema no último mês do período com o mês anterior.','Clique num tema para ver os tickets.'],
