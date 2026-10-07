@@ -244,7 +244,7 @@ router.get('/status', authMiddleware, async (req, res) => {
       const q = await db.query(
         `SELECT COUNT(*) FILTER (WHERE detalhes_em IS NULL OR detalhes_em < last_update)::int AS faltam,
                 COUNT(*)::int AS abertos
-           FROM silver.ticket WHERE basestatus = ANY($1::text[])`, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
+           FROM silver.ticket WHERE basestatus IS NOT NULL AND NOT (basestatus = ANY($1::text[]))`, [require('../scripts/movidesk-loader').CLOSED_STATUSES]);
       const e = loader.enriquecimentoPendentes || {};
       detalhes = { faltam: q.rows[0].faltam, abertos: q.rows[0].abertos, rodando: !!e.rodando, fila: e.fila || 0, feitos: e.feitos || 0, falhas: e.falhas || 0,
                    iniciadoEm: e.iniciadoEm || null, terminadoEm: e.terminadoEm || null, ultimoErro: e.ultimoErro || null };
