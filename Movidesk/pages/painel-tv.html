@@ -152,6 +152,29 @@
       </div>
     </div>
 
+    <div class="kpi-grid k4">
+      <div data-tone="blue" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Abertos hoje</p>
+        <div class="kpi-main"><p class="value" id="k-abertos-hoje">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-abertos-hoje-l">Chamados criados hoje.</p></div>
+      </div>
+      <div data-tone="green" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Fechados hoje</p>
+        <div class="kpi-main"><p class="value" id="k-fechados-hoje">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-fechados-hoje-l">Resolvidos/fechados hoje.</p></div>
+      </div>
+      <div data-tone="red" class="stat-card danger">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Críticos pendentes</p>
+        <div class="kpi-main"><p class="value" id="k-criticos">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-criticos-l">Urgência crítica em aberto.</p></div>
+      </div>
+      <div data-tone="red" class="stat-card danger">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg></span>Críticos vencidos</p>
+        <div class="kpi-main"><p class="value" id="k-criticos-venc">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-criticos-venc-l">Críticos com prazo de SLA passado.</p></div>
+      </div>
+    </div>
+
     <div class="hrow c-2">
       <div class="chart-panel">
         <p class="chart-title">Pendentes por equipe</p>
@@ -165,10 +188,23 @@
       </div>
     </div>
 
+    <div class="hrow c-2">
+      <div class="chart-panel">
+        <p class="chart-title">Pendentes por pessoa</p>
+        <p class="chart-sub">Chamados em aberto por responsável, separados por situação do prazo.</p>
+        <div class="rolagem rank-scroll" style="max-height:520px"><div class="chart-wrap" id="pessoaWrap" style="height:240px;"><canvas id="pessoaChart"></canvas></div></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">SLA por urgência</p>
+        <p class="chart-sub">Pendentes de cada urgência e quantos já estão com o prazo vencido.</p>
+        <div class="rolagem" id="urg-lista" style="max-height:520px"></div>
+      </div>
+    </div>
+
     <div class="hrow c-1">
       <div class="data-panel danger">
-        <p class="table-title">Tickets mais antigos em aberto — ação imediata</p>
-        <p class="chart-sub">Ordenado por dias em aberto (desc). "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
+        <p class="table-title">Chamados pendentes — do mais antigo ao mais novo <span id="tv-table-count" style="color:var(--t3);font-weight:700;font-size:15px"></span></p>
+        <p class="chart-sub">Todos os pendentes do filtro, ordenados por dias em aberto (desc); role a tabela para ver o restante. "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
         <div class="table-wrap">
           <table>
             <colgroup>
@@ -257,6 +293,8 @@ function statusPrazoDe(r){
 }
 
 let _rowsAll=[]; // todos os pendentes
+let _hojeAll=[]; // movimento do dia (abertos/fechados hoje)
+let _pessoaChart=null;
 let _rows=[];    // pendentes depois do filtro de serviço
 let _teamChart=null, _prazoChart=null;
 
@@ -337,6 +375,7 @@ async function loadPainelTV(){
   try{
     const resp=await api('/geral/pendentes',60000);
     _rowsAll=(resp.rows||[]).filter(isAberto);
+    _hojeAll=resp.hoje||[];
     aplicarFiltro();
     render();
     document.getElementById('tv-content').style.display='block';
@@ -361,8 +400,11 @@ function render(){
   document.getElementById('k-pct-vencido').textContent=`${pctVencido.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
   document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:2});
 
+  renderHoje(vencidosRows);
   renderTeamChart();
   renderPrazoChart();
+  renderPessoaChart();
+  renderUrgencia();
   renderTable();
 }
 
@@ -421,9 +463,60 @@ function renderPrazoChart(){
   donutTv('prazoChart',[{label:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',valor:pausado,cor:'#f2b24a'},{label:'Sem prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',valor:noPrazo,cor:'#2fbf8a'}]);
 }
 
+
+// ── Movimento do dia, críticos, pessoa e urgência ───────────────────────
+// Crítico = urgência com "crítica/crítico", "urgente" ou "emergência" no nome (a lista completa aparece em "SLA por urgência").
+const ehCritico=r=>/^(critic|urgent|emerg)/.test(semAcentoMin(r.urgencia));
+const urgenciaDe=r=>(r.urgencia||'').trim()||'Não informada';
+const hojeBR=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+const diaBR=v=>v?new Date(v).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}):'';
+function renderHoje(vencidosRows){
+  const hoje=hojeBR();
+  const mov=_hojeAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r));
+  const abertos=mov.filter(r=>diaBR(r.criado_em)===hoje).length, fechados=mov.filter(r=>diaBR(r.fechado_em)===hoje).length;
+  const set=(id,v,l)=>{ document.getElementById(id).textContent=v.toLocaleString('pt-BR'); if(l!=null) document.getElementById(id+'-l').textContent=l; };
+  set('k-abertos-hoje',abertos);
+  set('k-fechados-hoje',fechados,fechados>=abertos?`Saldo do dia: ${(fechados-abertos).toLocaleString('pt-BR')} a menos no backlog.`:`Saldo do dia: ${(abertos-fechados).toLocaleString('pt-BR')} a mais no backlog.`);
+  const crit=_rows.filter(ehCritico);
+  set('k-criticos',crit.length,crit.length?`${(crit.length/Math.max(_rows.length,1)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes.`:'Nenhum chamado crítico em aberto.');
+  set('k-criticos-venc',crit.filter(isVencido).length);
+}
+function renderPessoaChart(){
+  const por={};
+  _rows.forEach(r=>{ const n=(r.responsavel||'').trim()||'Não atribuído'; const o=por[n]||(por[n]={Vencido:0,'No Prazo':0,Pausado:0,'Sem Prazo':0,t:0}); o[statusPrazoDe(r)]++; o.t++; });
+  const nomes=Object.keys(por).sort((a,b)=>por[b].t-por[a].t);
+  const cv=document.getElementById('pessoaChart'), wrap=document.getElementById('pessoaWrap');
+  wrap.style.height=Math.max(220,nomes.length*34+30)+'px';
+  const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2'), t1=cs('--t1');
+  const defs=[['Vencido','#ee6f82'],['Pausado','#f2b24a'],['Sem Prazo','#a6adbf'],['No Prazo','#2fbf8a']];
+  const total={id:'totalPessoa',afterDatasetsDraw(ch){ const c=ch.ctx; c.save(); c.font='800 14px Manrope,system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=t1;
+    const last=ch.getDatasetMeta(ch.data.datasets.length-1).data; last.forEach((b,i)=>c.fillText(por[nomes[i]].t.toLocaleString('pt-BR'),b.x+8,b.y)); c.restore(); }};
+  if(_pessoaChart) _pessoaChart.destroy();
+  _pessoaChart=new Chart(cv,{type:'bar',
+    data:{labels:nomes,datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9}))},
+    plugins:[total],
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48}},plugins:{legend:{display:true,position:'top',labels:{color:t2,usePointStyle:true,font:{size:12,weight:'700'}}}},
+      scales:{x:{display:false,stacked:true,beginAtZero:true},y:{stacked:true,grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:13,weight:'700'}}}}}});
+}
+function renderUrgencia(){
+  const por={};
+  _rows.forEach(r=>{ const u=urgenciaDe(r); const o=por[u]||(por[u]={t:0,v:0,n:0,p:0,s:0,crit:ehCritico(r)}); o.t++; const sp=statusPrazoDe(r); if(sp==='Vencido')o.v++; else if(sp==='No Prazo')o.n++; else if(sp==='Pausado')o.p++; else o.s++; });
+  const lista=Object.keys(por).sort((a,b)=>(por[b].crit-por[a].crit)||por[b].v-por[a].v||por[b].t-por[a].t);
+  const el=document.getElementById('urg-lista');
+  if(!lista.length){ el.innerHTML='<p class="imp-vazio">Nenhum chamado pendente.</p>'; return; }
+  const fmt=n=>n.toLocaleString('pt-BR');
+  el.innerHTML='<table class="slr-tab"><thead><tr><th>Urgência</th><th>Pendentes</th><th>Vencidos</th><th>% vencido</th><th>Situação do prazo</th></tr></thead><tbody>'+lista.map(u=>{
+    const o=por[u], pct=o.t?o.v/o.t*100:0, cor=pct>=40?'var(--danger)':pct>=20?'var(--warning)':'var(--success)';
+    return `<tr><td><b>${esc(u)}</b>${o.crit?' <span class="slr-chip r">crítico</span>':''}</td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
+      <td style="color:${cor};font-weight:800">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
+      <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} sem prazo · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
+  }).join('')+'</tbody></table>';
+}
+
 function renderTable(){
   const tbody=document.getElementById('tv-table-body');
-  const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a)).slice(0,20);
+  const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=`(${top.length.toLocaleString('pt-BR')} chamados)`;
   if(!top.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`; return; }
   tbody.innerHTML=top.map(r=>{
     const sp=statusPrazoDe(r);
