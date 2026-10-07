@@ -985,7 +985,7 @@ function exportAllOwnersPdf() {
 }
 
 /* ── Visão Geral da Equipe ────────────────────────────────────── */
-// SLA oficial de resolução (em horas úteis) por severidade — "SLA SUPORTE MOVIDESK.pdf" v2.0.
+// SLA de resolução (em horas úteis) por severidade — "SLA SUPORTE MOVIDESK.pdf" v2.0. Vale SÓ para a classificação Suporte Técnico.
 // Chaves normalizadas (sem acento/minúsculo) porque a IA às vezes grava "Critica" sem acento.
 // Editável em Configurações → Curadoria Avançado; loadPerfCategories() sobrescreve os valores
 // abaixo (que continuam servindo de fallback caso a config ainda não tenha sido salva).
@@ -993,12 +993,20 @@ const SLA_RESOLUTION_HOURS = { critica: 4, alta: 8, media: 16, baixa: 24 };
 function normalizeUrgencia(u) {
     return String(u || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
-// null = não dá pra avaliar (urgência ou tempo de resolução ausente); true/false = dentro/fora do SLA
+// Regra por classificação: a do documento (horas úteis por severidade) vale SÓ para "Suporte Técnico";
+// os demais seguem o SLA do próprio chamado — resolvido até a "previsão de solução" preenchida no Movidesk.
+// null = não dá pra avaliar (sem urgência/tempo no Suporte Técnico, ou sem previsão de solução nos demais).
+function ehSuporteTecnicoRow(row) { return normalizeUrgencia(row.classificacao) === 'suporte tecnico'; }
 function ticketSlaCompliant(row) {
-    const target = SLA_RESOLUTION_HOURS[normalizeUrgencia(row.urgencia)];
-    const actual = Number(row.tempo_resol_h_uteis);
-    if (target === undefined || !Number.isFinite(actual)) return null;
-    return actual <= target;
+    if (ehSuporteTecnicoRow(row)) {
+        const target = SLA_RESOLUTION_HOURS[normalizeUrgencia(row.urgencia)];
+        const actual = Number(row.tempo_resol_h_uteis);
+        if (target === undefined || !Number.isFinite(actual)) return null;
+        return actual <= target;
+    }
+    if (!row.classificacao || !row.sla_previsao || !row.resolvido_em) return null;
+    const prazo = new Date(row.sla_previsao).getTime(), fim = new Date(row.resolvido_em).getTime();
+    return Number.isFinite(prazo) && Number.isFinite(fim) ? fim <= prazo : null;
 }
 
 // sla_estouro é preenchido pela IA (mesma análise comportamental do chamado) só quando o
@@ -1044,7 +1052,9 @@ function showSlaModal(dentro, ownerName) {
         ? matching.map(r => {
             const resolvidoEm = r.resolvido_em ? new Date(r.resolvido_em).toLocaleDateString('pt-BR') : '';
             const tempo = Number(r.tempo_resol_h_uteis);
-            const detalhe = `${escapeHtml(String(r.urgencia || '-'))} · ${Number.isFinite(tempo) ? tempo.toFixed(1) : '?'}h (limite ${target(r) ?? '?'}h)`;
+            const detalhe = ehSuporteTecnicoRow(r)
+                ? `${escapeHtml(String(r.urgencia || '-'))} · ${Number.isFinite(tempo) ? tempo.toFixed(1) : '?'}h (limite ${target(r) ?? '?'}h)`
+                : `${escapeHtml(String(r.classificacao || 'sem classificação'))} · previsão de solução ${r.sla_previsao ? new Date(r.sla_previsao).toLocaleString('pt-BR') : '—'}`;
             const estouro = !dentro ? slaEstouroInfo(r) : null;
             const isClienteFault = estouro?.responsavel === 'cliente';
             const badge = isClienteFault
