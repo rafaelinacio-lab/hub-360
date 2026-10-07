@@ -35,24 +35,23 @@ const EMBED_PAGE_ROUTES = {
 };
 
 // ─── Transição entre abas: só a persiana do Visual 2.0 (js/modload.js).
-// A porcentagem é o carregamento REAL da aba: cada página (iframe) informa o progresso das suas chamadas à API
-// (js/ui-version.js → mensagem 'hub360:carga') e a persiana só abre quando os dados já estão na tela.
-let _persianaAtiva = false, _persianaVigia = 0;
+// Sem porcentagem: ela cobre a tela, a aba carrega por baixo e a persiana abre assim que a página (iframe) termina de carregar,
+// depois de um tempo mínimo para não piscar. Os dados chegam depois e cada card mostra "Carregando dados…" (css/v2.css .hub-load).
+const PERSIANA_MIN_MS = 450;
+let _persianaAtiva = false, _persianaVigia = 0, _persianaT0 = 0;
 function persianaAbrir() { _persianaAtiva = false; clearTimeout(_persianaVigia); if (window.HubModload) window.HubModload.hide(); }
 function playTabIconTransition(view) {
-    if (!window.HubModload || !window.HubModload.show(view, 760, true)) return;
-    _persianaAtiva = true;
+    if (!window.HubModload || !window.HubModload.show(view, PERSIANA_MIN_MS)) return;
+    _persianaAtiva = true; _persianaT0 = Date.now();
     clearTimeout(_persianaVigia);
-    _persianaVigia = setTimeout(persianaAbrir, 8000);   // vigia: se a página não avisar nada, não prende a tela
+    _persianaVigia = setTimeout(persianaAbrir, 4000);   // vigia: nunca prende a tela
 }
-window.addEventListener('message', (ev) => {
+document.addEventListener('DOMContentLoaded', () => {
     const frame = document.getElementById('embeddedPageFrame');
-    if (!frame || ev.source !== frame.contentWindow || ev.origin !== location.origin) return;
-    if (!ev.data || ev.data.tipo !== 'hub360:carga' || !_persianaAtiva) return;
-    window.HubModload.progresso(Number(ev.data.pct) || 0);
-    clearTimeout(_persianaVigia);
-    if (ev.data.pronto) { window.HubModload.progresso(100); setTimeout(persianaAbrir, 60); }
-    else _persianaVigia = setTimeout(persianaAbrir, 12000);
+    if (frame) frame.addEventListener('load', () => {
+        if (!_persianaAtiva) return;
+        setTimeout(persianaAbrir, Math.max(60, PERSIANA_MIN_MS - (Date.now() - _persianaT0)));
+    });
 });
 
 // ─── Bolha de hover que acompanha o mouse entre as abas do menu superior ───

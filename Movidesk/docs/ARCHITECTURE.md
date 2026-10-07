@@ -334,3 +334,6 @@ Objetivo: o Hub criar/desabilitar, na tela do Movidesk, o gatilho de um aviso (a
 
 ### Curadoria: processar por ano
 Configurações → Curadoria → "Pipeline de Análise": campos **Processar só o ano** (padrão 2026) e **Limite por rodada**. `POST /api/curadoria/full-load` e `/process-pending` aceitam `{ano, limite}`: a IA só analisa pendentes (`processado = 0`) cujo `aberto_em` começa com o ano, no máximo `limite` chamados; pede confirmação antes (gasta créditos da OpenAI). `GET /api/curadoria/pending-count?ano=` mostra quantos faltam. Fluxo por ano: 1) Importar IDs do ano, 2) "Buscar detalhes" com o ano em "Filtrar por ano", 3) Pipeline com o mesmo ano. Não existe execução automática da Curadoria neste código.
+
+### Transição de abas e "Carregando dados…" (atual)
+A persiana (`js/modload.js`, `css/modload.css`) não mostra mais porcentagem: cobre a tela, e abre assim que o iframe da aba termina de carregar (mínimo 450 ms; vigia de 4 s). Os dados chegam depois: enquanto as chamadas `/api/` da abertura não terminam, `js/ui-version.js` põe `html.hub-carregando` e cada card (`CARDS` no arquivo) recebe um `.hub-load` "Carregando dados…" (estilo em `css/v2.css`, sem animação). Some quando as chamadas acabam (ou em 25 s). As páginas-embrulho (dashboard/configurações/movidesk) não medem; quem mede é a tela interna.
