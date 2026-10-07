@@ -541,14 +541,22 @@ function renderHoje(vencidosRows){
   set('k-criticos',crit.length,crit.length?`${(crit.length/Math.max(_rows.length,1)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes.`:'Nenhum chamado crítico em aberto.');
   set('k-criticos-venc',crit.filter(isVencido).length);
 }
+// Quem aparece na barra: o responsável; sem responsável mas com equipe, "Não atribuído · <equipe>"; sem nenhum dos dois, só "Não atribuído".
+const SEM_DONO='Não atribuído';
+function pessoaDe(r){
+  const n=(r.responsavel||'').trim(); if(n) return n;
+  const eq=String(r.equipe||'').replace(/\s+/g,' ').trim();
+  return eq?`${SEM_DONO} · ${eq}`:SEM_DONO;
+}
+const semDono=n=>n===SEM_DONO||n.startsWith(SEM_DONO+' · ');
 function renderPessoaChart(){
   const por={};
-  _rows.forEach(r=>{ const n=(r.responsavel||'').trim()||'Não atribuído'; const o=por[n]||(por[n]={Vencido:0,'No Prazo':0,Pausado:0,'Sem Prazo':0,t:0}); o[statusPrazoDe(r)]++; o.t++; });
-  // "Não atribuído" fica fixo no topo e NÃO define a escala: um backlog sem dono muito maior que o de qualquer pessoa achatava todas as barras.
-  const SEM_DONO='Não atribuído';
-  const nomes=Object.keys(por).sort((a,b)=>(b===SEM_DONO)-(a===SEM_DONO)||por[b].t-por[a].t);
-  const maxPessoas=Math.max(1,...nomes.filter(n=>n!==SEM_DONO).map(n=>por[n].t));
-  const escalaMax=por[SEM_DONO]&&por[SEM_DONO].t>maxPessoas*1.25?Math.ceil(maxPessoas*1.2):undefined;   // só corta se for realmente discrepante
+  _rows.forEach(r=>{ const n=pessoaDe(r); const o=por[n]||(por[n]={Vencido:0,'No Prazo':0,Pausado:0,'Sem Prazo':0,t:0}); o[statusPrazoDe(r)]++; o.t++; });
+  // Os "Não atribuído" ficam fixos no topo e NÃO definem a escala: um backlog sem dono muito maior que o de qualquer pessoa achatava todas as barras.
+  const nomes=Object.keys(por).sort((a,b)=>(semDono(b)-semDono(a))||por[b].t-por[a].t);
+  const maxPessoas=Math.max(1,...nomes.filter(n=>!semDono(n)).map(n=>por[n].t));
+  const maxSemDono=Math.max(0,...nomes.filter(semDono).map(n=>por[n].t));
+  const escalaMax=maxSemDono>maxPessoas*1.25?Math.ceil(maxPessoas*1.2):undefined;   // só corta se for realmente discrepante
   const cv=document.getElementById('pessoaChart'), wrap=document.getElementById('pessoaWrap');
   wrap.style.height=Math.max(220,nomes.length*34+30)+'px';
   const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2'), t1=cs('--t1');
@@ -592,7 +600,7 @@ function linhasDe(sp){
   let l=_rows;
   if(urg) l=l.filter(r=>urgenciaDe(r)===urg);
   if(equipe) l=l.filter(r=>(r.equipe||'Não informado')===equipe);
-  if(pessoa) l=l.filter(r=>((r.responsavel||'').trim()||'Não atribuído')===pessoa);
+  if(pessoa) l=l.filter(r=>pessoaDe(r)===pessoa);
   if(prazo) l=l.filter(r=>statusPrazoDe(r)===prazo);
   if(card==='vencidos') l=l.filter(isVencido);
   else if(card==='criticos') l=l.filter(ehCritico);
