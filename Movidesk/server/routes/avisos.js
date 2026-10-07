@@ -47,7 +47,8 @@ router.post('/imagem', express.raw({ type: () => true, limit: '3mb' }), async (r
       [token, tipo, txt(String(req.query.nome || ''), 120) || null, corpo, req.user.email || null]);
     const estado = await av.lerEstado();
     const base = String(estado.urlPublica || '').replace(/\/+$/, '') || `${req.protocol}://${req.get('host')}`;
-    res.json({ url: `${base}/api/avisos-img/${token}`, publicaConfigurada: !!estado.urlPublica });
+    const url = `${base}/api/avisos-img/${token}`;
+    res.json({ url, publicaConfigurada: !!estado.urlPublica, https: url.startsWith('https://') });
   } catch (e) { console.error('[avisos] imagem:', e.message); res.status(500).json({ error: 'Erro ao guardar a imagem' }); }
 });
 
@@ -95,7 +96,7 @@ router.put('/geral', async (req, res) => {
       parcial.ligado = req.body.ligado;
       if (req.body.ligado) parcial.vigia = new Date().toISOString();   // ao ligar, só vale para chamados criados daqui para frente
     }
-    if (typeof req.body?.urlPublica === 'string') { const u = req.body.urlPublica.trim().replace(/\/+$/, ''); if (u && !/^https?:\/\/[^\s]+$/i.test(u)) return res.status(400).json({ error: 'Endereço público inválido (use https://...).' }); parcial.urlPublica = u; }
+    if (typeof req.body?.urlPublica === 'string') { const u = req.body.urlPublica.trim().replace(/\/+$/, ''); if (u && !/^https:\/\/[^\s]+$/i.test(u)) return res.status(400).json({ error: 'O endereço público precisa começar com https:// (o Movidesk só exibe imagens por HTTPS).' }); parcial.urlPublica = u; }
     if (req.body?.intervaloSeg != null) parcial.intervaloSeg = Math.min(600, Math.max(30, Math.round(Number(req.body.intervaloSeg)) || 120));
     res.json({ estado: await av.gravarEstado(parcial) });
   } catch (e) { res.status(500).json({ error: 'Erro ao salvar' }); }

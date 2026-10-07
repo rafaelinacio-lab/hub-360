@@ -37,7 +37,7 @@ function avRender() {
           <label style="display:flex;gap:10px;align-items:center">Verificar chamados novos a cada
             <input type="number" id="avIntervalo" class="config-input" style="width:90px" min="30" max="600" value="${estado.intervaloSeg}"> segundos</label>
           <label style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Endereço público do Hub (para as imagens abrirem para o cliente)
-            <input type="text" id="avUrlPublica" class="config-input" style="min-width:280px;flex:1" placeholder="https://hub.suaempresa.com.br" value="${avEsc(estado.urlPublica || '')}"></label>
+            <input type="text" id="avUrlPublica" class="config-input" style="min-width:280px;flex:1" placeholder="https://hub.suaempresa.com.br (HTTPS, acessível sem VPN)" value="${avEsc(estado.urlPublica || '')}"></label>
           <div><button class="config-btn" type="button" onclick="avSalvarGeral()">Salvar</button> <span id="avGeralStatus" class="config-status"></span></div>
           <div><button class="config-btn config-btn-muted" type="button" onclick="avVerificarAgora()">Verificar agora</button></div>
           <p class="config-card-help" style="margin:0">${avDiagnostico(estado)}</p>
@@ -119,7 +119,7 @@ async function avFormulario() {
           <button type="button" class="config-btn config-btn-muted" onclick="avInserir('imagem')" title="Usar uma imagem que já está na internet">🔗 Imagem por endereço</button>
           <input type="file" id="avArq" accept="image/png,image/jpeg,image/gif,image/webp" hidden onchange="avEnviarArquivo(this.files[0]);this.value=''"> <span id="avImgStatus" class="config-card-help"></span></div>
         <textarea id="avMsg" class="config-input" rows="6" maxlength="5000" placeholder="Mensagem">${avEsc(r.mensagem)}</textarea>
-        <p class="config-card-help" style="margin:0">Variáveis: ${AV.dados.variaveis.map((v) => `<code>{{${v}}}</code>`).join(' ')}<br>Formatação: <code>**negrito**</code> · <code>[texto](https://link)</code> · <code>![descrição](https://endereço-da-imagem.png)</code>.<br>Imagem: use <b>Enviar imagem</b>, ou cole (Ctrl+V) / arraste uma imagem na caixa. O cliente precisa conseguir abrir o endereço do Hub (veja "Endereço público do Hub" no topo).</p>
+        <p class="config-card-help" style="margin:0">Variáveis: ${AV.dados.variaveis.map((v) => `<code>{{${v}}}</code>`).join(' ')}<br>Formatação: <code>**negrito**</code> · <code>[texto](https://link)</code> · <code>![descrição](https://endereço-da-imagem.png)</code>.<br>Imagem: use <b>Enviar imagem</b>, ou cole (Ctrl+V) / arraste uma imagem na caixa. O cliente precisa conseguir abrir o endereço do Hub (HTTPS, sem login nem VPN — veja "Endereço público do Hub" no topo).</p>
         <div><button class="config-btn config-btn-muted" type="button" onclick="avPrevia()">Ver prévia</button> <div id="avPreviaTxt" class="config-card-help" style="margin-top:8px"></div></div>
         <select id="avModo" class="config-input"><option value="simulacao" ${r.modo !== 'ativo' ? 'selected' : ''}>Simulação — só registra no histórico, não escreve no Movidesk</option><option value="ativo" ${r.modo === 'ativo' ? 'selected' : ''}>Enviar de verdade para o Movidesk</option></select>
         <div><strong>Por quanto tempo o aviso fica no ar</strong> <span class="config-card-help">— vale para chamados criados dentro do período; deixe em branco para não ter prazo</span>
@@ -227,6 +227,7 @@ async function avEnviarArquivo(arq) {
         const ta = document.getElementById('avMsg');
         const nome = (arq.name || 'imagem').replace(/\.[^.]+$/, '').replace(/[\[\]()]/g, '');
         ta.setRangeText(`\n\n![${nome}](${d.url})\n\n`, ta.selectionStart, ta.selectionEnd, 'end'); ta.focus();
-        st.textContent = d.publicaConfigurada ? 'Imagem inserida.' : 'Imagem inserida. Atenção: sem "Endereço público do Hub" configurado, o endereço usado é o desta tela — só abre para o cliente se o Hub for acessível pela internet.';
+        st.textContent = !d.https ? '⚠️ Imagem inserida, mas o endereço NÃO é HTTPS: o Movidesk só exibe imagem por HTTPS, acessível sem login nem VPN. Preencha o "Endereço público do Hub" (https://...) no topo da tela.'
+            : d.publicaConfigurada ? 'Imagem inserida.' : '⚠️ Imagem inserida com o endereço desta tela. Confirme que ele abre sem login nem VPN, ou preencha o "Endereço público do Hub" no topo.';
     } catch (e) { st.textContent = e.message; }
 }
