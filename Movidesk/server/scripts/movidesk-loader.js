@@ -538,6 +538,7 @@ async function ensureTables() {
       'stopped_time_wt float', 'sla_response_date timestamptz', 'extracted_at timestamptz',
       'sla_solution_date timestamptz',
       'reopened_in timestamptz',
+      'detalhes_em timestamptz',   // quando as ações/clientes/campos do chamado foram gravados (fila de detalhes em segundo plano)
     ].map(col => {
       const [name] = col.split(' ');
       return [`silver.ticket.${name}`, `ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`];
@@ -920,6 +921,7 @@ async function saveBatch(tickets) {
       urgencies, categories, services,
       resolvedIns, closedIns, stoppedTs, stoppedCs,
       slaRespDs, clientOrgs, slaSolDs, reopenedIns]));
+  await db.query(`UPDATE silver.ticket SET detalhes_em = NOW() WHERE ticket_id = ANY($1::bigint[])`, [ids]).catch(() => {});   // fila de detalhes em segundo plano
 
   // ── 2. silver.ticket_acao ──
   // Dedup por (ticket_id, acao_id) — mesmo motivo do dedup de tickets acima:
@@ -1901,9 +1903,182 @@ async function reconferirAbertosPresos(token, seen, { classValue, ownerTeamVal, 
   return { reconferidos: alvo.length, atualizados };
 }
 
+
+// ═══ Pendentes rápidos: campos básicos agora, detalhes depois ═══════════════════════════════════════════════
+// A carga completa de pendentes relê CADA chamado por id (ações, clientes, campos customizados) — com equipe grande
+// demora muito e o Painel TV fica defasado. No modo rápido a lista de abertos vem em páginas grandes só com os campos
+// básicos (status, responsável, prazo, serviço, urgência, datas) e é gravada na hora; o que falta (ações, clientes,
+// campos customizados) vai para uma fila que roda em segundo plano (enriquecimento) e só preenche o banco.
+async function salvarBasico(tickets) {
+  if (!tickets.length) return [];
+  const porId = new Map();
+  for (const t of tickets) porId.set(String(t.id), t);
+  tickets = [...porId.values()];
+  const col = (fn) => tickets.map(fn);
+  const A = {
+    ids: col(t => String(t.id)), subj: col(t => t.subject || null), st: col(t => t.status || null), base: col(t => t.baseStatus || null),
+    cr: col(t => t.createdDate || null), up: col(t => t.lastUpdate || null), team: col(t => t.ownerTeam || null),
+    oid: col(t => (t.owner && t.owner.id) ? String(t.owner.id) : null), onm: col(t => (t.owner && t.owner.businessName) || null),
+    urg: col(t => t.urgency || null), cat: col(t => t.category || null),
+    svc: col(t => Array.isArray(t.serviceFull) ? t.serviceFull.join(' > ') : (t.serviceFull || null)),
+    res: col(t => t.resolvedIn || null), clo: col(t => t.closedIn || null), sla: col(t => t.slaSolutionDate || null), reo: col(t => t.reopenedIn || null),
+  };
+  await comLockRetry(client => client.query(`
+    INSERT INTO silver.ticket
+      (ticket_id, subject, status, basestatus, createddate, last_update, ownerteam, owner_id, owner_name,
+       urgency, category, service_full, resolved_in, closed_in, sla_solution_date, reopened_in, extracted_at)
+    SELECT u.ticket_id::bigint, u.subject, u.status, u.basestatus, u.createddate::timestamptz, u.last_update::timestamptz, u.ownerteam, u.owner_id, u.owner_name,
+           u.urgency, u.category, u.service_full, u.resolved_in::timestamptz, u.closed_in::timestamptz, u.sla_solution_date::timestamptz, u.reopened_in::timestamptz, NOW()
+      FROM unnest($1::varchar[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[],
+                  $10::text[], $11::text[], $12::text[], $13::text[], $14::text[], $15::text[], $16::text[])
+        AS u(ticket_id, subject, status, basestatus, createddate, last_update, ownerteam, owner_id, owner_name,
+             urgency, category, service_full, resolved_in, closed_in, sla_solution_date, reopened_in)
+    ON CONFLICT (ticket_id) DO UPDATE SET
+      subject = EXCLUDED.subject, status = EXCLUDED.status, basestatus = EXCLUDED.basestatus, last_update = EXCLUDED.last_update,
+      ownerteam = EXCLUDED.ownerteam, owner_id = EXCLUDED.owner_id, owner_name = EXCLUDED.owner_name, urgency = EXCLUDED.urgency,
+      category = EXCLUDED.category, service_full = EXCLUDED.service_full, resolved_in = EXCLUDED.resolved_in, closed_in = EXCLUDED.closed_in,
+      sla_solution_date = EXCLUDED.sla_solution_date, reopened_in = EXCLUDED.reopened_in, extracted_at = EXCLUDED.extracted_at
+  `, [A.ids, A.subj, A.st, A.base, A.cr, A.up, A.team, A.oid, A.onm, A.urg, A.cat, A.svc, A.res, A.clo, A.sla, A.reo]));
+  cacheResposta.marcarAlterado();   // o Painel TV/Geral refazem a lista na próxima abertura
+  return tickets;
+}
+
+// Chamados abertos no banco que não vieram na lista de abertos do Movidesk: foram encerrados/mudaram — grava só o básico.
+async function reconferirRapido(token, seen, { ownerTeamVal, classValue }) {
+  const params = [['New', 'InAttendance', 'Stopped', 'InProgress']];
+  const where = ['t.basestatus = ANY($1::text[])'];
+  if (ownerTeamVal) { params.push(ownerTeamVal.toLowerCase()); where.push(`lower(t.ownerteam) = $${params.length}`); }
+  if (classValue) {
+    params.push(String(CF_CLASSIFICACAO), classValue.trim().toLowerCase());
+    where.push(`EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = $${params.length - 1}
+                          AND translate(lower(trim(cf.valor_texto)), 'áàâãéêíóôõúç', 'aaaaeeiooouc') = translate($${params.length}, 'áàâãéêíóôõúç', 'aaaaeeiooouc'))`);
+  }
+  const { rows } = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE ${where.join(' AND ')} ORDER BY t.last_update ASC NULLS FIRST LIMIT 400`, params);
+  const agora = Date.now();
+  const alvo = rows.map(r => String(r.id)).filter(id => !seen.has(id) && !(_reconferidoEm.get(id) > agora - 5 * 60 * 1000)).slice(0, 80);
+  let atualizados = 0;
+  for (const id of alvo) {
+    if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    try {
+      let full = null;
+      for (const ep of ['/tickets', '/tickets/past']) {
+        const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': EXPAND_LISTAGEM_LEVE })}`);
+        const data = await resp.json();
+        const t = Array.isArray(data) ? data[0] : data;
+        if (t && t.id) { full = t; break; }
+      }
+      _reconferidoEm.set(id, Date.now());
+      if (full) { await salvarBasico([full]); atualizados++; }
+    } catch (e) { console.warn(`[loader] reconferência rápida do ticket ${id} falhou: ${e.message}`); }
+    await sleep(80);
+  }
+  if (alvo.length) console.log(`[loader]   reconferência rápida: ${alvo.length} chamado(s) abertos no banco e fora da lista → ${atualizados} atualizado(s)`);
+  return { reconferidos: alvo.length, atualizados };
+}
+
+// Fila de detalhes: chamados ABERTOS sem detalhes ou com alteração mais nova que os detalhes gravados. Roda sozinha em
+// segundo plano (não segura o "uma carga por vez"), poucas chamadas em paralelo, e para quando a fila acaba.
+const enriquecimentoPendentes = { rodando: false, fila: 0, feitos: 0, falhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null };
+const ENRIQ_PARALELO = 3, ENRIQ_MAX_POR_RODADA = 600;
+async function iniciarEnriquecimentoPendentes() {
+  if (enriquecimentoPendentes.rodando) return enriquecimentoPendentes;
+  Object.assign(enriquecimentoPendentes, { rodando: true, fila: 0, feitos: 0, falhas: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null });
+  (async () => {
+    try {
+      const token = await getMovideskToken();
+      const { rows } = await db.query(`
+        SELECT t.ticket_id::bigint AS id FROM silver.ticket t
+         WHERE t.basestatus = ANY($1::text[]) AND (t.detalhes_em IS NULL OR t.detalhes_em < t.last_update)
+         ORDER BY (t.detalhes_em IS NULL) DESC, t.last_update DESC NULLS LAST LIMIT ${ENRIQ_MAX_POR_RODADA}`, [['New', 'InAttendance', 'Stopped', 'InProgress']]);
+      const ids = rows.map(r => String(r.id));
+      enriquecimentoPendentes.fila = ids.length;
+      let i = 0;
+      const trabalhador = async () => {
+        while (i < ids.length) {
+          const id = ids[i++];
+          try {
+            let full = null;
+            for (const ep of ['/tickets', '/tickets/past']) {
+              const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
+              const data = await resp.json();
+              const t = Array.isArray(data) ? data[0] : data;
+              if (t && t.id) { full = t; break; }
+            }
+            if (full) {
+              const cl = await db.query(`SELECT valor_texto FROM silver.ticket_campo_customizado WHERE ticket_id = $1::bigint AND custom_field_id = $2 LIMIT 1`, [id, CF_CLASSIFICACAO]).catch(() => ({ rows: [] }));
+              const classValue = cl.rows[0] && cl.rows[0].valor_texto;
+              await (classValue ? makeSaveComClassificacao(classValue) : saveBatch)([full]);
+              await db.query(
+                `INSERT INTO silver.ticket_organizacao (ticket_id, organizacao_id, organizacao_nome, atualizado_em)
+                 SELECT DISTINCT ON (ticket_id) ticket_id, organizacao_id, organizacao_nome, NOW() FROM silver.ticket_cliente WHERE ticket_id = $1::bigint
+                  ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
+                 ON CONFLICT (ticket_id) DO UPDATE SET organizacao_id = EXCLUDED.organizacao_id, organizacao_nome = EXCLUDED.organizacao_nome, atualizado_em = EXCLUDED.atualizado_em`, [id]
+              ).catch(() => {});
+            }
+            enriquecimentoPendentes.feitos++;
+          } catch (e) { enriquecimentoPendentes.falhas++; enriquecimentoPendentes.ultimoErro = e.message; }
+          await sleep(120);
+        }
+      };
+      await Promise.all(Array.from({ length: ENRIQ_PARALELO }, trabalhador));
+      if (ids.length) console.log(`[loader] ✔ detalhes dos pendentes em segundo plano: ${enriquecimentoPendentes.feitos}/${ids.length} (${enriquecimentoPendentes.falhas} falha(s))`);
+    } catch (e) {
+      enriquecimentoPendentes.ultimoErro = e.message;
+      console.warn('[loader] enriquecimento de pendentes falhou:', e.message);
+    } finally {
+      enriquecimentoPendentes.rodando = false; enriquecimentoPendentes.terminadoEm = new Date().toISOString();
+    }
+  })();
+  return enriquecimentoPendentes;
+}
+
+async function runPendentesRapido(task, cronJobId = null) {
+  const mode         = `rapido:${task.id}`.slice(0, 20);
+  const ownerTeamVal = String(task.owner_team || '').trim();
+  const classValue   = String(task.classification || '').trim();
+  const classFilter  = ownerTeamVal
+    ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
+    : (classValue ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO} and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))` : null);
+  const pageSize = ownerTeamVal || !classValue ? 1000 : CLASS_FILTER_PAGE_SIZE;   // só campos básicos: páginas grandes
+  const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+
+  state.running = true; state.cancelRequested = false; state.mode = mode; state.startedAt = new Date().toISOString();
+  state.phase = 'preparando'; state.pagesDone = 0; state.ticketsDone = 0; state.savedIds = new Set(); state.errors = [];
+  await ensureTables();
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status, classification, owner_team, cron_job_id) VALUES ($1, NOW(), 'running', $2, $3, $4) RETURNING id`,
+    [mode, classValue || null, ownerTeamVal || null, cronJobId]).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+  try {
+    const token = await getMovideskToken();
+    const seen = new Set();
+    const save = async (batch) => { batch.forEach(t => seen.add(String(t.id))); return salvarBasico(batch); };
+    await fetchEndpoint(token, '/tickets', [classFilter, closedExclusion].filter(Boolean).join(' and '), save, pageSize, EXPAND_LISTAGEM_LEVE);
+    let rec = null;
+    if (ownerTeamVal || classValue) {
+      state.phase = 'reconferindo';
+      rec = await reconferirRapido(token, seen, { ownerTeamVal, classValue }).catch(e => { if (e.cancelled) throw e; console.warn('[loader] reconferência rápida ignorada:', e.message); return null; });
+    }
+    state.phase = 'idle'; state.running = false; state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode, tickets: state.ticketsDone, ...(rec ? { reconferidos: rec.reconferidos } : {}) };
+    if (logId) await db.query(`UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`, [state.ticketsDone, logId]).catch(() => {});
+    console.log(`[loader] ⚡ Pendentes rápidos "${task.name}" — ${state.ticketsDone} chamados (só campos básicos); detalhes seguem em segundo plano`);
+    iniciarEnriquecimentoPendentes().catch(() => {});
+    return state.lastResult;
+  } catch (err) {
+    state.running = false; state.phase = 'idle'; state.cancelRequested = false;
+    const cancelado = err.cancelled === true;
+    if (logId) await db.query(`UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`, [cancelado ? 'cancelled' : 'error', cancelado ? 'Cancelado pelo usuário' : err.message, logId]).catch(() => {});
+    if (!cancelado) { state.errors.push(err.message); console.error(`[loader] ✖ Pendentes rápidos "${task.name}" com erro:`, err.message); throw err; }
+    state.lastResult = { mode, tickets: state.ticketsDone, cancelled: true };
+  }
+}
+
 async function runCustom(task, cronJobId = null) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
   if (!task || !task.id) throw new Error('Tarefa personalizada inválida');
+  // Modo rápido (só em aberto): campos básicos agora, detalhes em segundo plano — ver runPendentesRapido
+  if (task.rapido && task.only_open) return runPendentesRapido(task, cronJobId);
 
   const mode           = `custom:${task.id}`.slice(0, 20);
   const ownerTeamVal   = String(task.owner_team || '').trim();
@@ -2804,4 +2979,5 @@ module.exports = {
   runAtualizacaoInteligente,
   reconferirAbertosPresos,
   sincronizarTicket,
+  iniciarEnriquecimentoPendentes, enriquecimentoPendentes,
 };

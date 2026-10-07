@@ -63,6 +63,7 @@ async function ensureTable() {
       updated_at     timestamptz NOT NULL DEFAULT NOW()
     )
   `).catch(() => {});
+  await db.query(`ALTER TABLE silver.cron_task ADD COLUMN IF NOT EXISTS rapido boolean NOT NULL DEFAULT false`).catch(() => {});
 }
 
 function customTaskId(task) {

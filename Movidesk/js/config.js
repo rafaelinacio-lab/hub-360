@@ -3000,6 +3000,7 @@ function cronTaskFillFields(t) {
     cronTaskSetSelect('cronTaskYear', t?.year === 'vigente' ? new Date().getFullYear() : (t?.year || ''));
     cronTaskSetSelect('cronTaskDays', t?.recent_days || '', v => `Últimos ${v} dias`);
     document.getElementById('cronTaskOpen').checked = !!t?.only_open;
+    const rp = document.getElementById('cronTaskRapido'); if (rp) rp.checked = !!t?.rapido;
 }
 
 // Preenche os filtros a partir de uma tarefa existente (padrão ou
@@ -3055,6 +3056,7 @@ async function cronTaskSave() {
         year: document.getElementById('cronTaskYear').value,
         recent_days: document.getElementById('cronTaskDays').value,
         only_open: document.getElementById('cronTaskOpen').checked,
+        rapido: !!document.getElementById('cronTaskRapido')?.checked,
     };
     if (!body.name) return showError('Preencha o nome.');
     if (!body.owner_team && !body.classification && !body.year && !body.recent_days && !body.only_open) {

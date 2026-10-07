@@ -55,6 +55,7 @@
   .badge.danger { background: var(--danger-soft); color: var(--danger); }
   .badge.neutral { background: var(--surface-low); color: var(--t2); }
   .badge.ok { background: var(--success-soft); color: var(--success); }
+  .badge.warn { background: var(--warning-soft); color: var(--warning); }
   .danger-num { color: var(--danger); font-weight: 800; }
   .empty-state { padding: 60px 0; text-align: center; color: var(--t2); font-size: 18px; }
   .ticket-link { color: var(--brand-text); text-decoration: none; font-weight: 800; }
@@ -82,6 +83,7 @@
   .slr-chip { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; }
   .slr-chip.r { background:var(--danger-soft,#fbe0e4); color:var(--danger,#b3263a); }
   .slr-chip.g { background:var(--success-soft,#dcf4ea); color:var(--success,#0b7a55); }
+  .slr-chip.w { background:color-mix(in srgb,#f2b24a 18%,transparent); color:#b7791f; }
   .slr-chip.n { background:var(--surface-low,#f6f2ed); color:var(--t3); }
   .slr-imp { display:grid; gap:3px; min-width:190px; }
   .slr-imp .a { font-size:16px; font-weight:800; color:var(--danger,#b3263a); }
@@ -234,7 +236,8 @@ function diasSemRetornoDe(dataStr){
   return Math.floor((Date.now()-new Date(dataStr).getTime())/86400000);
 }
 function statusPrazoDe(r){
-  if(!temPrazo(r)) return 'Sem Prazo';
+  // Aguardando (Stopped) sem data: o relógio do SLA está pausado (o Movidesk não informa o prazo enquanto pausa)
+  if(!temPrazo(r)) return r.base_status==='Stopped'?'Pausado':'Sem Prazo';
   return isVencido(r)?'Vencido':'No Prazo';
 }
 
@@ -383,8 +386,9 @@ function renderTeamChart(){
 function renderPrazoChart(){
   const vencido=_rows.filter(r=>statusPrazoDe(r)==='Vencido').length;
   const semPrazo=_rows.filter(r=>statusPrazoDe(r)==='Sem Prazo').length;
+  const pausado=_rows.filter(r=>statusPrazoDe(r)==='Pausado').length;
   const noPrazo=_rows.filter(r=>statusPrazoDe(r)==='No Prazo').length;
-  donutTv('prazoChart',[{label:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Sem prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',valor:noPrazo,cor:'#2fbf8a'}]);
+  donutTv('prazoChart',[{label:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',valor:pausado,cor:'#f2b24a'},{label:'Sem prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',valor:noPrazo,cor:'#2fbf8a'}]);
 }
 
 function renderTable(){
@@ -393,7 +397,7 @@ function renderTable(){
   if(!top.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`; return; }
   tbody.innerHTML=top.map(r=>{
     const sp=statusPrazoDe(r);
-    const badgeClass=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':'neutral';
+    const badgeClass=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
     const dsrAgente=diasSemRetornoDe(r.ultima_publica_agente);
     const dsrCliente=diasSemRetornoDe(r.ultima_publica_cliente);
     return `
@@ -466,6 +470,7 @@ function renderSlaResponsaveis(rows,per){
       <td><div class="slr-pend"><b class="t">${r.pendentes.toLocaleString('pt-BR')}</b>
         ${r.vencidos?`<span class="slr-chip r">${r.vencidos} vencido${r.vencidos>1?'s':''}</span>`:''}
         ${r.no_prazo?`<span class="slr-chip g">${r.no_prazo} no prazo</span>`:''}
+        ${r.pausados?`<span class="slr-chip w">${r.pausados} pausado${r.pausados>1?'s':''}</span>`:''}
         ${r.sem_prazo?`<span class="slr-chip n">${r.sem_prazo} sem prazo</span>`:''}
         ${!r.pendentes?'<span class="slr-chip n">nenhum</span>':''}</div></td>
       <td><div class="slr-imp"><span class="a ${r.impReal<0.05?'zero':''}">${r.impReal<0.05?'0,0 pp':'−'+fmt(r.impReal)+' pp'}</span>
@@ -482,8 +487,8 @@ updateClock();
 setInterval(updateClock,30000);
 loadPainelTV();
 // Painel de TV roda sem interação — recarrega sozinho pra ficar sempre
-// atualizado numa tela fixa.
-setInterval(loadPainelTV,5*60*1000);
+// atualizado numa tela fixa (a cada 1 min; o servidor guarda a lista por até 2 min ou até a carga gravar chamados).
+setInterval(loadPainelTV,60*1000);
 </script>
 <script src="/js/telemetria.js"></script>
 </body>
