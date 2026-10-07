@@ -59,6 +59,35 @@
   .empty-state { padding: 60px 0; text-align: center; color: var(--t2); font-size: 18px; }
   .ticket-link { color: var(--brand-text); text-decoration: none; font-weight: 800; }
   .ticket-link:hover { text-decoration: underline; }
+  .slr-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+  .slr-per { display:grid; gap:4px; font-size:12px; font-weight:700; color:var(--t3); }
+  .slr-per select { height:34px; padding:0 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--t1); font:inherit; font-size:13px; font-weight:600; }
+  .slr-resumo { display:flex; gap:10px 22px; flex-wrap:wrap; margin:14px 0 10px; font-size:13px; color:var(--t2); }
+  .slr-resumo b { color:var(--t1); font-size:20px; font-weight:800; margin-right:6px; letter-spacing:-.02em; }
+  .slr-scroll { max-height:520px; }
+  .slr-tab { width:100%; border-collapse:collapse; font-size:14px; }
+  .slr-tab th { text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--t3); font-weight:700; padding:8px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .slr-tab td { padding:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .slr-tab tr:last-child td { border-bottom:0; }
+  .slr-nome { display:flex; align-items:center; gap:10px; font-weight:700; color:var(--t1); min-width:170px; }
+  .slr-av { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; flex:none; }
+  .slr-sla { display:grid; gap:5px; min-width:200px; }
+  .slr-sla .linha { display:flex; align-items:baseline; gap:8px; }
+  .slr-sla .pct { font-size:20px; font-weight:800; letter-spacing:-.02em; }
+  .slr-sla .det { font-size:12px; color:var(--t3); }
+  .slr-barra { display:flex; height:9px; border-radius:999px; overflow:hidden; background:var(--border); }
+  .slr-barra i { display:block; height:100%; }
+  .slr-pend { display:flex; gap:6px; flex-wrap:wrap; align-items:center; min-width:190px; }
+  .slr-pend b.t { font-size:18px; font-weight:800; margin-right:4px; }
+  .slr-chip { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+  .slr-chip.r { background:var(--danger-soft,#fbe0e4); color:var(--danger,#b3263a); }
+  .slr-chip.g { background:var(--success-soft,#dcf4ea); color:var(--success,#0b7a55); }
+  .slr-chip.n { background:var(--surface-low,#f6f2ed); color:var(--t3); }
+  .slr-imp { display:grid; gap:3px; min-width:190px; }
+  .slr-imp .a { font-size:16px; font-weight:800; color:var(--danger,#b3263a); }
+  .slr-imp .a.zero { color:var(--success,#0b7a55); }
+  .slr-imp .b { font-size:12px; color:var(--t3); }
+  .slr-nota { margin:12px 0 0; font-size:11.5px; line-height:1.45; color:var(--t3); }
   .tv-erro { color: var(--danger); font-weight: 700; }
   @media (max-width: 760px) { body { padding: 14px; } .tv-head h1 { font-size: 24px; } .tv-page .stat-card .value { font-size: 44px; } }
 </style>
@@ -106,6 +135,28 @@
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a2 2 0 0 1 2-2h16"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a2 2 0 0 1-2 2H3"/></svg></span>Média ações/ticket</p>
         <div class="kpi-main"><p class="value" id="k-media-acoes">0</p></div>
         <div class="kpi-foot"><p class="legend">Trocas por chamado pendente.</p></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel" id="slaresp-panel">
+        <div class="slr-head">
+          <div>
+            <p class="chart-title">SLA individual por analista</p>
+            <p class="chart-sub" id="slr-sub">Suporte Técnico — resolvidos dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.</p>
+          </div>
+          <label class="slr-per">Período dos resolvidos
+            <select id="slr-periodo" aria-label="Período dos resolvidos">
+              <option value="mes">Mês atual</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="ano">Ano atual</option>
+            </select>
+          </label>
+        </div>
+        <div class="slr-resumo" id="slr-resumo"></div>
+        <div class="rolagem slr-scroll" id="slr-lista"><p class="imp-vazio">Carregando…</p></div>
+        <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo.</p>
       </div>
     </div>
 
@@ -240,7 +291,7 @@ function atualizarNota(){
 document.getElementById('f-servico').addEventListener('change',e=>{
   _servicoSel=e.target.value;
   try{ localStorage.setItem(CHAVE_SERVICO,_servicoSel); }catch(_){}
-  aplicarFiltro(); render(); atualizarNota();
+  aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis();
 });
 
 function updateClock(){
@@ -257,6 +308,7 @@ async function loadPainelTV(){
     render();
     document.getElementById('tv-content').style.display='block';
     atualizarNota();
+    carregarSlaResponsaveis();
   } catch(e){
     document.getElementById('tv-content').style.display='none';
     document.getElementById('tv-updated').innerHTML=`<span style="color:var(--danger)">Erro ao carregar: ${esc(e.message)}</span>`;
@@ -359,6 +411,73 @@ function renderTable(){
   }).join('');
 }
 
+
+// ── SLA individual por analista ─────────────────────────────────────────
+// Dados de GET /geral/sla-responsaveis (Suporte Técnico): resolvidos dentro/fora do prazo no período e pendentes agora.
+// Impacto realizado = fora ÷ total de resolvidos com prazo do time (pp). Impacto dos vencidos = quanto o SLA do time cairia se
+// todos os pendentes já vencidos desse analista fossem resolvidos fora do prazo.
+const CHAVE_PERIODO_SLA='painelTvPeriodoSla';
+function desdeDoPeriodo(p){
+  const h=new Date(), pad=n=>String(n).padStart(2,'0');
+  if(p==='ano') return `${h.getFullYear()}-01-01`;
+  if(p==='30'||p==='90'){ const d=new Date(h.getTime()-Number(p)*86400000); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  return `${h.getFullYear()}-${pad(h.getMonth()+1)}-01`;
+}
+const rotuloPeriodo={mes:'mês atual','30':'últimos 30 dias','90':'últimos 90 dias',ano:'ano atual'};
+let _slaSeq=0;
+async function carregarSlaResponsaveis(){
+  const sel=document.getElementById('slr-periodo');
+  const per=sel.value, seq=++_slaSeq, lista=document.getElementById('slr-lista');
+  try{
+    const q=`?desde=${desdeDoPeriodo(per)}${_servicoSel?`&servico=${encodeURIComponent(_servicoSel)}`:''}`;
+    const resp=await api('/geral/sla-responsaveis'+q,60000);
+    if(seq!==_slaSeq) return;
+    renderSlaResponsaveis(resp.rows||[],per);
+  }catch(e){ if(seq===_slaSeq){ lista.innerHTML=`<p class="tv-erro">Não foi possível carregar o SLA por analista: ${esc(e.message)}</p>`; document.getElementById('slr-resumo').innerHTML=''; } }
+}
+function corAvatar(n){ let h=0; for(const c of String(n).split(' ')[0]) h=(h*31+c.charCodeAt(0))%360; return `hsl(${h} 62% 54%)`; }
+function iniciais(n){ return String(n).trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase(); }
+function renderSlaResponsaveis(rows,per){
+  const fmt=(n,d=1)=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const dentroT=rows.reduce((s,r)=>s+r.dentro,0), foraT=rows.reduce((s,r)=>s+r.fora,0), T=dentroT+foraT;
+  const pendT=rows.reduce((s,r)=>s+r.pendentes,0), vencT=rows.reduce((s,r)=>s+r.vencidos,0);
+  const slaT=T?dentroT/T*100:null;
+  document.getElementById('slr-resumo').innerHTML=
+    `<span><b style="color:${slaT==null?'inherit':slaT>=90?'var(--success)':slaT>=80?'var(--warning)':'var(--danger)'}">${slaT==null?'—':fmt(slaT)+'%'}</b>SLA do time (${rotuloPeriodo[per]})</span>`+
+    `<span><b>${T.toLocaleString('pt-BR')}</b>resolvidos com prazo (${dentroT.toLocaleString('pt-BR')} dentro · ${foraT.toLocaleString('pt-BR')} fora)</span>`+
+    `<span><b>${pendT.toLocaleString('pt-BR')}</b>pendentes agora</span>`+
+    `<span><b style="color:${vencT?'var(--danger)':'inherit'}">${vencT.toLocaleString('pt-BR')}</b>já vencidos</span>`;
+  const itens=rows.map(r=>{
+    const tot=r.dentro+r.fora, pct=tot?r.dentro/tot*100:null;
+    const impReal=T?r.fora/T*100:0;
+    const impVenc=T?(dentroT/T-dentroT/(T+r.vencidos))*100:0;
+    return {...r,tot,pct,impReal,impVenc,impTot:impReal+impVenc};
+  }).filter(r=>r.tot||r.pendentes).sort((a,b)=>b.impTot-a.impTot||b.pendentes-a.pendentes);
+  const lista=document.getElementById('slr-lista');
+  if(!itens.length){ lista.innerHTML='<p class="imp-vazio">Nenhum chamado de Suporte Técnico neste filtro.</p>'; return; }
+  const corPct=p=>p==null?'var(--t3)':p>=90?'var(--success)':p>=80?'var(--warning)':'var(--danger)';
+  lista.innerHTML=`<table class="slr-tab"><thead><tr><th>Analista</th><th>SLA (resolvidos)</th><th>Pendentes</th><th>Impacto no SLA do time</th></tr></thead><tbody>`+
+    itens.map(r=>`<tr>
+      <td><div class="slr-nome"><span class="slr-av" style="background:${corAvatar(r.responsavel)}">${esc(iniciais(r.responsavel))}</span>${esc(r.responsavel)}</div></td>
+      <td><div class="slr-sla">
+        <div class="linha"><span class="pct" style="color:${corPct(r.pct)}">${r.pct==null?'—':fmt(r.pct)+'%'}</span><span class="det">${r.dentro.toLocaleString('pt-BR')} dentro · ${r.fora.toLocaleString('pt-BR')} fora</span></div>
+        ${r.tot?`<div class="slr-barra" role="img" aria-label="${r.dentro} dentro, ${r.fora} fora"><i style="width:${r.dentro/r.tot*100}%;background:var(--success)"></i><i style="width:${r.fora/r.tot*100}%;background:var(--danger)"></i></div>`:'<span class="det">sem resolvidos com prazo</span>'}
+      </div></td>
+      <td><div class="slr-pend"><b class="t">${r.pendentes.toLocaleString('pt-BR')}</b>
+        ${r.vencidos?`<span class="slr-chip r">${r.vencidos} vencido${r.vencidos>1?'s':''}</span>`:''}
+        ${r.no_prazo?`<span class="slr-chip g">${r.no_prazo} no prazo</span>`:''}
+        ${r.sem_prazo?`<span class="slr-chip n">${r.sem_prazo} sem prazo</span>`:''}
+        ${!r.pendentes?'<span class="slr-chip n">nenhum</span>':''}</div></td>
+      <td><div class="slr-imp"><span class="a ${r.impReal<0.05?'zero':''}">${r.impReal<0.05?'0,0 pp':'−'+fmt(r.impReal)+' pp'}</span>
+        <span class="b">${r.vencidos?`e mais −${fmt(r.impVenc)} pp se ${r.vencidos>1?`os ${r.vencidos} vencidos fecharem`:'o vencido fechar'} fora do prazo`:'sem vencidos que pesem'}</span></div></td>
+    </tr>`).join('')+`</tbody></table>`;
+  document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.`;
+}
+(function(){
+  const sel=document.getElementById('slr-periodo');
+  try{ const v=localStorage.getItem(CHAVE_PERIODO_SLA); if(v&&[...sel.options].some(o=>o.value===v)) sel.value=v; }catch(_){}
+  sel.addEventListener('change',()=>{ try{ localStorage.setItem(CHAVE_PERIODO_SLA,sel.value); }catch(_){} carregarSlaResponsaveis(); });
+})();
 updateClock();
 setInterval(updateClock,30000);
 loadPainelTV();
