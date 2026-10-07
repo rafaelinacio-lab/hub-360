@@ -60,6 +60,8 @@ function avRender() {
         <div class="config-form-stack">
           <input id="avGUser" class="config-input" placeholder="Usuário do Movidesk" autocomplete="off">
           <input id="avGPass" class="config-input" type="password" placeholder="Senha (deixe em branco para manter a atual)" autocomplete="new-password">
+          <input id="avGTotp" class="config-input" type="password" placeholder="Chave secreta do autenticador (2FA) — deixe em branco para manter" autocomplete="off">
+          <p class="config-card-help" style="margin:0">A chave secreta é a que aparece ao lado do QR code ao configurar o app autenticador (Google/Microsoft Authenticator), ou o link <code>otpauth://…</code>. Com ela o Hub gera o código de 6 dígitos na hora do login. Use um usuário só para isso, com permissão restrita a gatilhos, e alinhe com a segurança.</p>
           <input id="avGBase" class="config-input" placeholder="https://viasoft.movidesk.com">
           <div><button class="config-btn" type="button" onclick="avGatSalvar()">Salvar acesso</button>
             <button class="config-btn config-btn-muted" type="button" onclick="avGatMapear()">Mapear telas do Movidesk</button> <span id="avGStatus" class="config-status"></span></div>
@@ -253,6 +255,7 @@ async function avGatCarregar() {
         document.getElementById('avGUser').value = c.usuario || '';
         document.getElementById('avGPass').placeholder = c.temSenha ? 'Senha já salva — deixe em branco para manter' : 'Senha';
         document.getElementById('avGBase').value = c.base || '';
+        document.getElementById('avGTotp').placeholder = c.temTotp ? 'Chave do autenticador já salva — deixe em branco para manter' : 'Chave secreta do autenticador (2FA)';
         if (!c.chromium) document.getElementById('avGStatus').textContent = '⚠️ O Chromium não está instalado na imagem do Hub — o mapeamento não vai rodar até ele ser instalado.';
         const e = await avApi('/gatilho/execucao'); if (e.passos?.length || e.erro) avGatMostrar(e);
     } catch { /* aba sem permissão ou servidor antigo */ }
@@ -260,8 +263,8 @@ async function avGatCarregar() {
 async function avGatSalvar() {
     const st = document.getElementById('avGStatus');
     try {
-        await avApi('/gatilho/config', 'PUT', { usuario: document.getElementById('avGUser').value, senha: document.getElementById('avGPass').value, base: document.getElementById('avGBase').value });
-        document.getElementById('avGPass').value = ''; st.className = 'config-status ok'; st.textContent = 'Acesso salvo.'; avGatCarregar();
+        await avApi('/gatilho/config', 'PUT', { usuario: document.getElementById('avGUser').value, senha: document.getElementById('avGPass').value, totp: document.getElementById('avGTotp').value, base: document.getElementById('avGBase').value });
+        document.getElementById('avGPass').value = ''; document.getElementById('avGTotp').value = ''; st.className = 'config-status ok'; st.textContent = 'Acesso salvo.'; avGatCarregar();
     } catch (e) { st.className = 'config-status error'; st.textContent = e.message; }
 }
 async function avGatMapear() {
