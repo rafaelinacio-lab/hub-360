@@ -144,28 +144,6 @@
       </div>
     </div>
 
-    <div class="hrow c-1">
-      <div class="chart-panel" id="slaresp-panel">
-        <div class="slr-head">
-          <div>
-            <p class="chart-title">SLA individual por analista</p>
-            <p class="chart-sub" id="slr-sub">Suporte Técnico — resolvidos dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.</p>
-          </div>
-          <label class="slr-per">Período dos resolvidos
-            <select id="slr-periodo" aria-label="Período dos resolvidos">
-              <option value="mes">Mês atual</option>
-              <option value="30">Últimos 30 dias</option>
-              <option value="90">Últimos 90 dias</option>
-              <option value="ano">Ano atual</option>
-            </select>
-          </label>
-        </div>
-        <div class="slr-resumo" id="slr-resumo"></div>
-        <div class="rolagem slr-scroll" id="slr-lista"><p class="imp-vazio">Carregando…</p></div>
-        <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo.</p>
-      </div>
-    </div>
-
     <div class="hrow c-2">
       <div class="chart-panel">
         <p class="chart-title">Pendentes por equipe</p>
@@ -198,6 +176,28 @@
             <tbody id="tv-table-body"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel" id="slaresp-panel">
+        <div class="slr-head">
+          <div>
+            <p class="chart-title">SLA individual por analista</p>
+            <p class="chart-sub" id="slr-sub">Suporte Técnico — resolvidos dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.</p>
+          </div>
+          <label class="slr-per">Período dos resolvidos
+            <select id="slr-periodo" aria-label="Período dos resolvidos">
+              <option value="mes">Mês atual</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="ano">Ano atual</option>
+            </select>
+          </label>
+        </div>
+        <div class="slr-resumo" id="slr-resumo"></div>
+        <div class="rolagem slr-scroll" id="slr-lista"><p class="imp-vazio">Carregando…</p></div>
+        <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo.</p>
       </div>
     </div>
   </div>
