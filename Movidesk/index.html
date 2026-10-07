@@ -204,6 +204,9 @@
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
+                    <button class="cfg-tab-btn" data-tab="avisos" onclick="switchConfigTab('avisos')">
+                        <span class="material-symbols-outlined">campaign</span> Avisos automáticos
+                    </button>
                     <button class="cfg-tab-btn" data-tab="telemetria" onclick="switchConfigTab('telemetria')">
                         <span class="material-symbols-outlined">monitoring</span> Telemetria
                     </button>
@@ -702,6 +705,11 @@
                         <button type="button" class="config-btn config-btn-muted" id="aiaDescartar" disabled>Descartar</button>
                         <button type="button" class="config-btn" id="aiaSalvar" disabled>Salvar alterações</button>
                     </div>
+                </div>
+
+                <!-- ABA: Avisos automáticos -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-avisos">
+                    <div id="avRoot"><p class="config-card-help">Carregando…</p></div>
                 </div>
 
                 <!-- ABA: Acesso -->
@@ -1769,6 +1777,7 @@
     <script src="js/ticket-workspace.js"></script>
     <script src="js/curadoria.js"></script>
     <script src="js/pessoas.js"></script>
+    <script src="js/avisos.js"></script>
     <script src="js/config.js"></script>
     <script src="js/script.js"></script>
 

@@ -101,6 +101,7 @@ app.use('/api/satisfacao', satisfacaoRoutes);
 app.use('/api/dashboard-conferencia', dashboardConferenciaRoutes);
 app.use('/api/reincidencias', reincidenciasRoutes);
 app.use('/api/melhorias', melhoriasRoutes);
+app.use('/api/avisos', require('./routes/avisos'));
 // Para as telas de GCC/Satisfação avisarem qual vertical está em uso
 app.get('/api/escopo-vertical', require('./routes/auth').authMiddleware, async (req, res) => {
   try { const e = await require('./utils/verticalScope').escopoVertical(req.user.id); res.json({ filtrar: e.filtrar, vertical: e.vertical, semVertical: e.semVertical }); }
@@ -222,6 +223,9 @@ movideskLoader.refreshGccVerticalInferida().catch(e => {
 setInterval(() => {
   movideskLoader.refreshGccVerticalInferida().catch(() => {});
 }, 30 * 60 * 1000);
+
+// Avisos automáticos (mensagens para chamados novos de serviços configurados) — nasce desligado
+require('./utils/avisosAutomaticos').iniciar();
 
 // Iniciar servidor
 app.listen(PORT, () => {

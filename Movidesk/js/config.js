@@ -882,6 +882,7 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
+    if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
     if (tab === 'telemetria') loadTelemetria();
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba

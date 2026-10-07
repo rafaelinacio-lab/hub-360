@@ -309,3 +309,11 @@ ainda usa o padrão antigo (expediente lido em UTC, defasado em 3 h) até ser va
 - Validade: 2 minutos ou até `saveBatch` (movidesk-loader.js, usado pelas cargas, pela cron e pela Central do chamado) gravar tickets — o que vier primeiro. Até 6 chaves em memória (processo do servidor); reiniciar o contêiner limpa.
 - Só usar em rotas cujo resultado não dependa do usuário (a autenticação continua na rota).
 - Painel Geral → card "Top 10 causas dos chamados": `POST /api/geral/causas` agrupa `causa_normalizada` de `curadoria_chamados` (banco movidesk_curadoria; a Curadoria lê o histórico inteiro do chamado) para os tickets filtrados; só entram chamados já processados pela Curadoria.
+
+## Avisos automáticos
+Configurações → Avisos automáticos (só admin). Mensagens disparadas quando chega chamado **novo** no Movidesk de um serviço configurado.
+- `server/utils/avisosAutomaticos.js`: motor. A cada `intervaloSeg` (30–600 s, padrão 60) consulta a API do Movidesk (`$select` + `$filter createdDate ge <vigia>`, sem `$expand`) e, para cada chamado aberto, aplica a **primeira** regra ativa cujo serviço casa (prefixo do caminho "BU > Tipo > …", sem acento/caixa). No máximo um aviso por chamado.
+- Idempotência: reserva em `public.aviso_envio` (UNIQUE `regra_id, ticket_id`) antes de enviar; falhas são reenviadas até 3 vezes dentro de 1 h.
+- Seguro por padrão: chave geral desligada; ao ligar, a "vigia" começa agora (nada retroativo); regra nova nasce em **simulação** (só registra no histórico). Modo "ativo" exige agente remetente; envia `PATCH /tickets?id=` com `actions[{type:1|2, origin:9, description, createdBy:{id}}]`.
+- Tabelas (criadas sozinhas): `public.aviso_estado`, `public.aviso_regra`, `public.aviso_envio`. Rotas: `/api/avisos/*` (admin). Front: `js/avisos.js`.
+- Variáveis na mensagem: `{{saudacao}} {{ticket}} {{assunto}} {{servico}} {{urgencia}} {{equipe}}`.
