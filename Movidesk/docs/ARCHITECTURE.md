@@ -353,3 +353,8 @@ Tarefa personalizada com **"Só chamados em aberto"** + **"Modo rápido"** (`sil
 ### Painel TV: filtros e link sem login
 - Filtros Serviço, Equipe e **Classificação** (independentes, contagens cruzadas; sem padrão "Suporte Técnico") + botão "Limpar filtros". URL aceita `?servico=&equipe=&classificacao=`. O card "SLA individual" continua só Suporte Técnico (regra do SLA).
 - **Link da TV**: `painel-tv.html?k=CHAVE`. `acessoPainelTv` (routes/geral.js) libera `/geral/pendentes` e `/geral/sla-responsaveis` com a chave (config `painel_tv_chave`, comparação em tempo constante); sem `k`, vale o login + aba `paineltv`. Admin vê/renova a chave pelo botão "Link da TV" (`GET/POST /api/geral/tv-chave`); renovar invalida o link antigo.
+
+### Painel TV: movimento do dia, críticos, pessoa e urgência
+- `GET /geral/pendentes` agora devolve também `hoje[]` (chamados criados ou resolvidos/fechados hoje, fuso de Brasília, com serviço/equipe/classificação/urgência). O cliente aplica os mesmos filtros e mostra "Abertos hoje" e "Fechados hoje" (com saldo do dia).
+- "Críticos" = urgência cujo nome começa com crítico/urgente/emergência (`ehCritico` em painel-tv.html). Cards: Críticos pendentes e Críticos vencidos. Card "SLA por urgência" lista todas as urgências existentes (pendentes, vencidos, % vencido, barra do prazo). Gráfico "Pendentes por pessoa" empilhado por situação do prazo.
+- A tabela de pendentes mostra TODOS os chamados do filtro (antes cortava em 20), com rolagem interna.

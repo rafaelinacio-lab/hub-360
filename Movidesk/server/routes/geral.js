@@ -219,7 +219,21 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
           rows.forEach(r => { if (!r.organizacao) { const o = porId.get(String(r.ticket_id)); if (o) { r.organizacao = o.organizacao_nome; r.organizacao_id = o.organizacao_id; } } });
         } catch (e) { console.warn('[geral] fallback de organização dos pendentes falhou:', e.message); }
       }
-      return { rows };
+      // Movimento do dia (fuso de Brasília): chamados abertos hoje e resolvidos/fechados hoje, com os campos dos filtros.
+      let hoje = [];
+      try {
+        const h = await db.query(`
+          SELECT t.ticket_id::varchar AS ticket_id, t.service_full AS servico, t.ownerteam AS equipe, t.owner_name AS responsavel,
+                 t.urgency AS urgencia, cf.valor_texto AS classificacao, t.createddate AS criado_em,
+                 COALESCE(t.resolved_in, t.closed_in) AS fechado_em
+            FROM silver.ticket t
+            LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
+           WHERE (t.createddate >= now() - interval '2 days' OR t.resolved_in >= now() - interval '2 days' OR t.closed_in >= now() - interval '2 days')
+             AND ((t.createddate AT TIME ZONE 'America/Sao_Paulo')::date = (now() AT TIME ZONE 'America/Sao_Paulo')::date
+               OR (COALESCE(t.resolved_in, t.closed_in) AT TIME ZONE 'America/Sao_Paulo')::date = (now() AT TIME ZONE 'America/Sao_Paulo')::date)`);
+        hoje = h.rows || [];
+      } catch (e) { console.warn('[geral] movimento do dia falhou:', e.message); }
+      return { rows, hoje };
     });
   } catch (error) {
     if (error.code === '42P01') {
