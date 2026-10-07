@@ -281,6 +281,8 @@ input,select{font-family:inherit}
   gap:7px 14px;padding:22px 16px;background:var(--surface-mid);border-radius:12px;
 }
 .cloud span{line-height:1;font-weight:600}
+.chart-panel.rolagem{max-height:720px}
+.cloud.rolagem{max-height:240px}
 .cloud-empty{color:var(--t3);font-size:12.5px;text-align:center;padding:20px 0}
 
 .export-options{display:flex;gap:12px;padding:4px 0 8px}
@@ -469,12 +471,12 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-8-4">
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Evolução mensal da satisfação</p>
         <p class="chart-sub">Percentual de avaliações positivas (4 e 5) e negativas (1 e 2) em cada mês de resposta, nos filtros atuais (sem o filtro de ano/mês).</p>
-        <div class="chart-wrap" style="height:300px"><canvas id="satTrendChart"></canvas></div>
+        <div class="rolagem"><div class="chart-wrap" style="height:300px"><canvas id="satTrendChart"></canvas></div></div>
       </div>
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Distribuição das notas</p>
         <p class="chart-sub">Avaliações do período por nota.</p>
         <div class="donut-row"><div class="chart-wrap"><canvas id="notasChart"></canvas></div><ul class="donut-leg" id="notasChart-leg"></ul></div>
@@ -482,12 +484,12 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Comentários recentes</p>
         <p class="chart-sub">O que os clientes estão dizendo. Clique para abrir o chamado.</p>
         <div class="cm-lista rolagem" id="coment-lista"></div>
       </div>
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Nota por analista</p>
         <p class="chart-sub">Nota média individual (1 a 5). Clique para ver as avaliações.</p>
         <div class="an-lista rolagem" id="analista-lista"></div>
@@ -495,12 +497,12 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Avaliações por equipe</p>
         <p class="chart-sub">Quantidade de avaliações recebidas. Clique para ver os chamados.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
       </div>
-      <div class="chart-panel danger">
+      <div class="chart-panel danger rolagem">
         <p class="chart-title">Avaliações negativas por equipe</p>
         <p class="chart-sub">Notas 1 e 2.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamNegChart"></canvas></div></div>
@@ -508,12 +510,12 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Clientes com mais avaliações</p>
         <p class="chart-sub">Todas as avaliações do período.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="clientChart"></canvas></div></div>
       </div>
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Responsáveis com mais avaliações</p>
         <p class="chart-sub">Todas as avaliações do período.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="respChart"></canvas></div></div>
@@ -521,18 +523,18 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel danger">
+      <div class="chart-panel danger rolagem">
         <p class="chart-title" id="neg-panel-title">Ruim e péssimo</p>
         <p class="chart-sub">Tendência mensal e quem mais recebeu avaliações negativas.</p>
-        <div class="chart-wrap" style="height:190px;margin-bottom:18px"><canvas id="negTrendChart"></canvas></div>
+        <div class="rolagem" style="margin-bottom:18px"><div class="chart-wrap" style="height:190px"><canvas id="negTrendChart"></canvas></div></div>
         <div class="grid-2">
           <div>
             <p class="chart-title small">Clientes com mais avaliações negativas</p>
-            <div class="chart-wrap" style="height:190px"><canvas id="negClientChart"></canvas></div>
+            <div class="rolagem" style="max-height:260px"><div class="chart-wrap" style="height:190px"><canvas id="negClientChart"></canvas></div></div>
           </div>
           <div>
             <p class="chart-title small">Responsáveis com mais avaliações negativas</p>
-            <div class="chart-wrap" style="height:190px"><canvas id="negRespChart"></canvas></div>
+            <div class="rolagem" style="max-height:260px"><div class="chart-wrap" style="height:190px"><canvas id="negRespChart"></canvas></div></div>
           </div>
         </div>
       </div>
@@ -552,15 +554,15 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Palavras nos comentários negativos</p>
         <p class="chart-sub">Extraído dos comentários reais das notas 1 e 2, no filtro atual, sem palavras comuns do português.</p>
-        <div class="cloud" id="word-cloud"></div>
+        <div class="cloud rolagem" id="word-cloud"></div>
       </div>
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Contador — top 10 palavras</p>
         <p class="chart-sub">Quantas vezes cada palavra aparece.</p>
-        <div class="chart-wrap" style="height:260px"><canvas id="wordCountChart"></canvas></div>
+        <div class="rolagem"><div class="chart-wrap" style="height:260px"><canvas id="wordCountChart"></canvas></div></div>
       </div>
     </div>
   </div>
@@ -1258,6 +1260,7 @@ function renderSatTrend(){
   const cv=document.getElementById('satTrendChart'); if(!cv) return;
   const rows=getFilteredRows(true);
   const ks=[...new Set(rows.map(r=>mesDe(r.respondido_em)).filter(Boolean))].sort().slice(-12);
+  cv.parentElement.style.minWidth=Math.max(0,ks.length*64)+'px';   // muitos meses: o gráfico rola na horizontal
   const noMes=k=>rows.filter(r=>mesDe(r.respondido_em)===k);
   const pct=fn=>ks.map(k=>{ const l=noMes(k); return l.length?+(l.filter(fn).length/l.length*100).toFixed(1):null; });
   const n=ks.map(k=>noMes(k).length);
@@ -1363,6 +1366,7 @@ function render(){
   destroyChart('negTrendChart');
   const negTrendCtx=document.getElementById('negTrendChart');
   if(negTrendCtx){
+    negTrendCtx.parentElement.style.minWidth=Math.max(0,monthKeys.length*64)+'px';
     _charts.negTrendChart=new Chart(negTrendCtx,{
       type:'line',
       data:{labels:monthLabels,datasets:[{data:monthKeys.map(k=>byMonth[k]),borderColor:'#ee6f82',backgroundColor:'rgba(238,111,130,0.15)',fill:true,tension:0.35,pointRadius:4,borderWidth:2.5}]},
