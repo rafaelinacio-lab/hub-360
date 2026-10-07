@@ -125,6 +125,28 @@ function getCuradoriaPromptAnalisePromise() {
   });
 }
 
+// ── Regra de SLA por classificação ──────────────────────────────────────────────
+// A regra do documento "SLA SUPORTE MOVIDESK.pdf" (resolução em horas úteis por severidade) vale SÓ para chamados da
+// classificação "Suporte Técnico" (campo customizado 23946). Os demais seguem o SLA normal do próprio chamado: o
+// campo "previsão de solução" (slaSolutionDate) preenchido no Movidesk.
+const semAcentoMin = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+const ehSuporteTecnico = (classificacao) => semAcentoMin(classificacao) === 'suporte tecnico';
+// Devolve Map(ticket_id -> { classificacao, previsao }) a partir do banco principal (silver). Falha = Map vazio.
+async function infoSlaPorTicket(ids) {
+  const lista = [...new Set((ids || []).map((i) => String(i)).filter((i) => /^\d{1,18}$/.test(i)))];
+  const out = new Map();
+  if (!lista.length) return out;
+  try {
+    const r = await db.query(
+      `SELECT t.ticket_id::text AS id, t.sla_solution_date AS previsao, cf.valor_texto AS classificacao
+         FROM silver.ticket t
+         LEFT JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946
+        WHERE t.ticket_id = ANY($1::bigint[])`, [lista]);
+    (r.rows || []).forEach((x) => out.set(x.id, { classificacao: x.classificacao || null, previsao: x.previsao || null }));
+  } catch (e) { console.warn('[curadoria] não consegui ler classificação/previsão de solução:', e.message); }
+  return out;
+}
+
 function getCuradoriaSlaThresholdsPromise() {
   return new Promise((resolve, reject) => {
     getCuradoriaSlaThresholds((err, config) => err ? reject(err) : resolve(config));
@@ -210,7 +232,12 @@ router.get('/', authMiddleware, requireTabAccess('chamados'), async (req, res) =
     // createdDate, mas essa tabela só guarda os chamados atualmente abertos (sync
     // incremental) — o histórico processado pela curadoria nunca dava match, então
     // esse campo sempre voltava nulo.
-    res.json(rows.map(row => normalizeCuradoriaRow(row)));
+    const info = await infoSlaPorTicket(rows.map(r => r.ticket_id));
+    res.json(rows.map(row => {
+      const n = normalizeCuradoriaRow(row), i = info.get(String(row.ticket_id));
+      // classificacao e previsão de solução (SLA do próprio chamado) para a tela escolher a regra de SLA de cada chamado
+      return { ...n, classificacao: i ? i.classificacao : null, sla_previsao: i ? i.previsao : null };
+    }));
   } catch (error) {
     console.error('Erro ao buscar curadoria:', error);
     res.status(500).json({ error: 'Erro ao carregar dados de curadoria' });
@@ -406,6 +433,21 @@ async function buildSlaEstouroInstructions(row, timing) {
     getCuradoriaSlaThresholdsPromise(),
     getCuradoriaPromptSlaEstouroPromise()
   ]);
+  // Fora do Suporte Técnico a regra do documento NÃO vale: o prazo é a previsão de solução preenchida no chamado.
+  const sla = (await infoSlaPorTicket([row.ticket_id])).get(String(row.ticket_id));
+  if (sla && !ehSuporteTecnico(sla.classificacao)) {
+    const fmtBr = (v) => (v ? new Date(v).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '');
+    const previsao = fmtBr(sla.previsao);
+    return `CRITERIO DE ATRIBUICAO DE ESTOURO DE SLA:
+- Este chamado NAO e da classificacao Suporte Tecnico (classificacao: ${sla.classificacao || 'nao informada'}): o prazo de SLA e a "previsao de solucao" preenchida no proprio chamado no Movidesk, nao os prazos por severidade
+- Previsao de solucao do chamado = ${previsao || 'nao preenchida'}
+- Resolvido em = ${timing.resolvido_em ? fmtBr(timing.resolvido_em) : 'ainda aberto'}
+${previsao ? '- Se foi resolvido ate a previsao de solucao, responsavel = "nao_estourou"\n- Se foi resolvido depois da previsao de solucao' : '- Sem previsao de solucao nao ha como avaliar o prazo: responsavel = "indisponivel"\n- Se houver previsao'}, analise a tabela de acoes em ordem cronologica (autor, tipo e data) para decidir quem causou o atraso:
+  - "cliente": o suporte respondeu, sinalizou solucao ou pediu uma confirmacao/informacao, e o cliente demorou a responder ou confirmar, sendo essa demora do cliente o principal motivo do estouro
+  - "suporte": o atraso decorreu de demora do proprio suporte em responder, investigar, agir ou dar sequencia
+  - "indisponivel": nao ha acoes ou dados suficientes para decidir com confianca
+- Preencha justificativa em ate 2 frases e liste de 1 a 3 evidencias reais (id da acao, autor e data) que sustentam a decisao`;
+  }
   const slaResolucaoHoras = thresholds[normalizeUrgencia(row.urgencia)] ?? '';
   return renderPromptTemplate(template, {
     slaResolucaoHoras,
