@@ -883,6 +883,8 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
+    if (typeof rapidaParar === 'function') rapidaParar();
+    if (tab === 'rapida' && typeof rapidaCarregar === 'function') rapidaCarregar();
     if (tab === 'telemetria') loadTelemetria();
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba
