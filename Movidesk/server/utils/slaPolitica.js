@@ -42,6 +42,8 @@ const PADRAO = {
   limiteMensalHoras: 16,       // A.7 (Padrão)
   validadeMeses: 3,            // Seção 21.8
   minimoElegiveis: 5,          // Seção 20: abaixo disso a apuração acumula
+  // Lançamento automático das horas técnicas ao fim de cada mês (a política vale desde 01/08/2026).
+  automatico: { ativo: true, desde: '2026-08' },
 };
 
 const num = (v, min, max, pad) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : pad; };
@@ -72,6 +74,7 @@ function normalizar(entrada) {
     limiteMensalHoras: num(e.limiteMensalHoras, 0, 10000, PADRAO.limiteMensalHoras),
     validadeMeses: Math.round(num(e.validadeMeses, 1, 60, PADRAO.validadeMeses)),
     minimoElegiveis: Math.round(num(e.minimoElegiveis, 1, 1000, PADRAO.minimoElegiveis)),
+    automatico: { ativo: !(e.automatico && e.automatico.ativo === false), desde: /^\d{4}-(0[1-9]|1[0-2])$/.test(String(e.automatico && e.automatico.desde)) ? e.automatico.desde : PADRAO.automatico.desde },
   };
 }
 

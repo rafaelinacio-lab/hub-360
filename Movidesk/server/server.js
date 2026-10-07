@@ -231,6 +231,7 @@ setInterval(() => {
 
 // Avisos automáticos (mensagens para chamados novos de serviços configurados) — nasce desligado
 require('./utils/avisosAutomaticos').iniciar();
+require('./utils/slaHorasCore').iniciarAutomatico();   // lança as horas técnicas de crédito sozinho a cada fechamento de mês
 
 // Iniciar servidor
 app.listen(PORT, () => {

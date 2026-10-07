@@ -255,6 +255,7 @@ input,select{font-family:inherit}
 .imp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media (max-width:1100px){.imp-grid{grid-template-columns:1fr}}
 .imp-sub{font-size:12px;font-weight:700;margin:0 0 6px}
+.ht-badge{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;background:color-mix(in srgb,#10b981 16%,transparent);color:#10b981;white-space:nowrap;cursor:help}
 .imp-pos{color:#f87171}.imp-neg{color:var(--green)}
 .imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
 
@@ -1322,7 +1323,7 @@ async function loadHistoricoCompleto(){
   const btn=document.getElementById('btn-carregar-tudo');
   if(btn){ btn.disabled=true; btn.textContent='Carregando (pode levar alguns minutos)…'; }
   try{
-    const [resp]=await Promise.all([api('/geral?todos=1',10*60*1000),fetchPendentesGlobal()]);
+    const [resp]=await Promise.all([api('/geral?todos=1',10*60*1000),fetchPendentesGlobal(),carregarSaldosHT()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
@@ -1335,7 +1336,7 @@ async function loadHistoricoCompleto(){
 }
 async function loadGeral(){
   try{
-    const [resp]=await Promise.all([api('/geral'),fetchPendentesGlobal()]);
+    const [resp]=await Promise.all([api('/geral'),fetchPendentesGlobal(),carregarSaldosHT()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
@@ -2027,6 +2028,12 @@ function pluginCruz(){
 // Para cada ticket resolvido no mês: impacto = média do mês com todos os tickets
 // − média do mês sem ele. O tempo vem do servidor (POST /geral/sla-liquido):
 // horas úteis da abertura à resolução, descontando os status de pausa.
+// Saldo de horas técnicas (crédito da Política de SLA) por organização — GET /geral/horas-tecnicas; calculado sozinho pelo servidor.
+let _saldosHT={};
+const htDe=r=>{ const x=r&&r.organizacao_id!=null?_saldosHT[r.organizacao_id]:null; return x&&x.h>0?x:null; };
+const htTexto=r=>{ const x=htDe(r); return x?`${x.h.toLocaleString('pt-BR',{maximumFractionDigits:2})} h técnicas`:''; };
+const htBadge=r=>{ const x=htDe(r); return x?` <span class="ht-badge" title="Saldo de horas técnicas de crédito${x.v?` — ${x.vh.toLocaleString('pt-BR',{maximumFractionDigits:2})} h vencem em ${new Date(x.v+'T12:00:00').toLocaleDateString('pt-BR')}`:''}">⏱ ${esc(htTexto(r))}</span>`:''; };
+async function carregarSaldosHT(){ try{ _saldosHT=(await api('/geral/horas-tecnicas',30000)).saldos||{}; }catch(_){ _saldosHT={}; } }
 const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
 // A meta por urgência (documento de SLA) vale SÓ para a classificação Suporte Técnico; os demais seguem a previsão de solução do chamado.
 const ehSuporteTecnicoG=r=>String(r&&r.classificacao||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='suporte tecnico';
@@ -2931,7 +2938,7 @@ const LISTAGEM_COLS=[
     get:r=>`#${r.ticket_id}`,
     html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a>`,
     sort:r=>Number(r.ticket_id)||0},
-  {label:'Organização', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
+  {label:'Organização', get:r=>`${r.organizacao||'—'}${htDe(r)?` · ${htTexto(r)}`:''}`, html:r=>`${esc(r.organizacao||'—')}${htBadge(r)}`, sort:r=>(r.organizacao||'').toLowerCase()},
   {label:'Assunto', get:r=>r.assunto||'—', sort:r=>(r.assunto||'').toLowerCase()},
   {label:'Classificação', get:r=>classificacaoDe(r), sort:r=>classificacaoDe(r).toLowerCase()},
   {label:'Equipe', get:r=>r.equipe||'—', sort:r=>(r.equipe||'').toLowerCase()},
@@ -3180,7 +3187,7 @@ function openDetailModal(title,sub,rows,opts){
     tbody.innerHTML=visiveis.map(r=>`
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
           <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
-          <td>${esc(r.organizacao||'—')}</td>
+          <td>${esc(r.organizacao||'—')}${htBadge(r)}</td>
           <td>${esc(r.assunto||'—')}</td>
           <td>${esc(r.equipe||'—')}</td>
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
@@ -3245,7 +3252,7 @@ function tlItem(a){
 function openTicketModal(ticketId){
   const r=_rowsById[ticketId]||{};
   document.getElementById('ticket-modal-title').textContent=`Ticket #${ticketId}`;
-  document.getElementById('ticket-modal-sub').textContent=r.organizacao||'';
+  document.getElementById('ticket-modal-sub').innerHTML=`${esc(r.organizacao||'')}${htBadge(r)}`;
   document.getElementById('ticket-modal-link').href=ticketUrl(ticketId);
   document.getElementById('ticket-modal-body').innerHTML=`
     <div class="td-info-grid">

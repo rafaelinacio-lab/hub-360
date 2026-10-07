@@ -194,6 +194,20 @@ router.post('/tv-chave', authMiddleware, requireRole('admin'), async (req, res) 
   try { res.json({ chave: await lerChaveTv(true) }); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Saldo de horas técnicas (crédito da Política de SLA) por organização, para o Painel Geral mostrar ao lado do cliente.
+router.get('/horas-tecnicas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const saldos = await require('../utils/slaHorasCore').saldosPorCliente();
+    const out = {};
+    for (const [id, s] of Object.entries(saldos)) if (s.disponivel > 0 || s.concedido > 0) out[id] = { h: s.disponivel, v: s.aVencer ? s.aVencer.validade : null, vh: s.aVencer ? s.aVencer.horas : 0 };
+    res.json({ saldos: out });
+  } catch (e) {
+    if (e.code === '42P01') return res.json({ saldos: {} });
+    console.error('[geral] horas-tecnicas:', e.message);
+    res.json({ saldos: {} });   // o saldo é um complemento: nunca derruba o painel
+  }
+});
+
 router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
