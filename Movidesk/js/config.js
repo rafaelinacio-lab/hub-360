@@ -2147,6 +2147,19 @@ function dlUpdateYearNote() {
     }
 }
 
+function dlRenderDetalhes(d) {
+    const box = document.getElementById('dlDetalhes');
+    if (!box) return;
+    if (!d) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const feitosPct = d.abertos ? Math.round(((d.abertos - d.faltam) / d.abertos) * 100) : 100;
+    document.getElementById('dlDetalhesBar').style.width = feitosPct + '%';
+    const hora = (iso) => iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    document.getElementById('dlDetalhesTxt').textContent = d.rodando
+        ? `rodando agora — ${d.feitos}/${d.fila} da rodada · faltam ${d.faltam} de ${d.abertos} chamados abertos${d.falhas ? ` · ${d.falhas} falha(s)` : ''}`
+        : `${d.faltam ? `faltam ${d.faltam} de ${d.abertos} chamados abertos` : `todos os ${d.abertos} chamados abertos com detalhes`}${d.terminadoEm ? ` · última rodada terminou às ${hora(d.terminadoEm)}` : ''}${d.ultimoErro ? ` · último erro: ${d.ultimoErro}` : ''}`;
+}
+
 async function dlLoad() {
     dlInitYears(); // inicializa o grid de anos na primeira abertura da aba
     try {
@@ -2155,8 +2168,9 @@ async function dlLoad() {
         const data = await resp.json();
         dlRenderStatus(data.current, data.tokenSuffix);
         dlRenderHistory(data.history || []);
-        // polling automático enquanto estiver rodando
-        if (data.current?.running) {
+        dlRenderDetalhes(data.detalhes);
+        // polling automático enquanto estiver rodando (carga ou fila de detalhes)
+        if (data.current?.running || data.detalhes?.rodando) {
             if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
         } else {
             clearInterval(_dlPollTimer);
