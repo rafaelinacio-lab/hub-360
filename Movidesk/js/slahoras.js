@@ -73,7 +73,9 @@ function shDesenharApuracao() {
         </tbody></table></div>
       <div style="margin-top:12px"><p class="config-card-help" style="margin:0 0 6px"><b>Lançamento automático:</b> ${SH.cfg.automatico.ativo ? `ligado — ao fechar cada mês o Hub apura e lança as horas técnicas sozinho (a partir de ${SH.cfg.automatico.desde}), uma vez por cliente e competência.` : '<span style="color:#f59e0b">desligado (ligue em Parâmetros)</span>'}
         Clientes com menos de ${SH.cfg.minimoElegiveis} chamados avaliados acumulam até 3 meses. <span id="shAutoSt"></span></p>
-        <button class="config-btn config-btn-muted" type="button" onclick="shGerarCreditos()">Rodar a apuração automática agora</button> <span id="shGerMsg" class="config-status"></span></div>`;
+        <button class="config-btn config-btn-muted" type="button" onclick="shGerarCreditos()">Rodar a apuração automática agora</button>
+        <button class="config-btn config-btn-muted" type="button" title="Reconsulta no Movidesk os chamados desta competência cujas respostas estão sem autor, para identificar a Primeira Resposta" onclick="shRepararAutores()">Corrigir autores das ações desta competência</button>
+        <span id="shGerMsg" class="config-status"></span></div>`;
 }
 async function shMostrarStatusAuto() {
     try {
@@ -81,6 +83,19 @@ async function shMostrarStatusAuto() {
         el.textContent = !st ? 'Ainda não rodou desde o último deploy (roda 2 minutos após subir e a cada hora).'
             : st.ok ? `Última rodada: ${shDataHora(st.em)} — ${st.lancados} crédito(s) lançado(s), ${st.acumulando} cliente(s) acumulando.` : `Última rodada falhou (${shDataHora(st.em)}): ${st.erro}`;
     } catch (_) { /* informativo */ }
+}
+async function shRepararAutores() {
+    if (!confirm(`Reconsultar no Movidesk os chamados de ${SH.comp} cujas respostas estão sem autor? Roda em segundo plano (alguns minutos) e depois é só apurar de novo.`)) return;
+    try {
+        await shApi('/reparar-autores', 'POST', { competencia: SH.comp }); shMsg('shGerMsg', 'Reparo iniciado — acompanhando…');
+        const t = setInterval(async () => {
+            try {
+                const r = (await shApi('/automatico/status')).reparo;
+                shMsg('shGerMsg', r.rodando ? `Reparando autores: ${r.feitos}/${r.total}${r.falhas ? ` (${r.falhas} falha(s))` : ''}…` : `Reparo concluído: ${r.feitos}/${r.total} chamado(s) reconsultado(s). Apure de novo para ver o efeito.`);
+                if (!r.rodando) clearInterval(t);
+            } catch (_) { clearInterval(t); }
+        }, 3000);
+    } catch (e) { shMsg('shGerMsg', e.message, true); }
 }
 async function shDetalheCliente(org) {
     const box = document.getElementById('shDetalhe'); box.innerHTML = '<div class="config-card"><p class="config-card-help">Carregando…</p></div>';

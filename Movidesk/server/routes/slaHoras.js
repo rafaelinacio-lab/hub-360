@@ -101,7 +101,16 @@ router.post('/creditos/gerar', soAdmin, limiteApurar, async (req, res) => {
     res.json(r);
   } catch (e) { erro(res, e); }
 });
-router.get('/automatico/status', async (req, res) => { try { res.json({ status: await core.lerStatus() }); } catch (e) { erro(res, e); } });
+router.get('/automatico/status', async (req, res) => { try { res.json({ status: await core.lerStatus(), reparo: core.estadoReparo() }); } catch (e) { erro(res, e); } });
+// Reconsulta no Movidesk os chamados da competência cujas ações públicas estão sem autor (em segundo plano; acompanhe em /automatico/status).
+router.post('/reparar-autores', soAdmin, limiteApurar, async (req, res) => {
+  try {
+    if (!compOk(req.body && req.body.competencia)) return res.status(400).json({ error: 'Informe a competência no formato AAAA-MM' });
+    if (core.estadoReparo().rodando) return res.status(409).json({ error: 'Já existe um reparo em andamento.' });
+    core.repararAutores(req.body.competencia, { limite: 5000 }).then(() => core.invalidarSaldos()).catch((e) => console.error('[sla-horas] reparo de autores:', e.message));
+    res.json({ iniciado: true });
+  } catch (e) { erro(res, e); }
+});
 router.get('/extrato/resumo', async (req, res) => {
   try {
     const rows = (await db.query(`SELECT organizacao_id, organizacao_nome, tipo, horas::float AS horas, criado_em, validade FROM public.sla_credito ORDER BY criado_em`)).rows;
