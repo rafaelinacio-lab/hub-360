@@ -608,6 +608,7 @@ async function ensureTables() {
     // em ~720 mil tickets, é o motivo real do Painel Geral travar/nunca
     // responder. Índice composto cobre também o join de "quem respondeu"
     // em satisfacao.js (ticket_id + cliente_id).
+    ['silver.ticket_cliente idx cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_cliente_id ON silver.ticket_cliente(cliente_id)`],
     ['silver.ticket_cliente idx ticket_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_id ON silver.ticket_cliente(ticket_id)`],
     ['silver.ticket_cliente idx ticket_id+cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_cliente ON silver.ticket_cliente(ticket_id, cliente_id)`],
     // Mesmo com o índice acima, a heurística de organização (ORG_LATERAL) continua
