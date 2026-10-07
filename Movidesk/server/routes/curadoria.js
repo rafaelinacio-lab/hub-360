@@ -679,7 +679,7 @@ let curadoriaProcessingState = {
 };
 let activeCuradoriaProcessing = null;
 
-async function runCuradoriaProcessingLoop() {
+async function runCuradoriaProcessingLoop(opts = {}) {
   try {
     // Busca a lista inteira de pendentes UMA vez, no início. Se buscássemos "o próximo
     // pendente" a cada iteração, um chamado que falha (continua com processado = 0)
@@ -690,11 +690,14 @@ async function runCuradoriaProcessingLoop() {
     const whereClause = buildCuradoriaWhereClause(pendentesCfg, defaultGuidedWhere);
     const orderDir = pendentesCfg.guided.orderDir === 'DESC' ? 'DESC' : 'ASC';
 
+    // Processar por ano (opcional): só os pendentes abertos naquele ano; "limite" corta a fila (teto de gasto por rodada).
+    const filtroAno = opts.ano ? ` AND LEFT(COALESCE(aberto_em::text, ''), 4) = '${Number(opts.ano)}'` : '';
     const pendingResult = await db.queryDatabase(
       'movidesk_curadoria',
       `SELECT ticket_id, servico, actions, fato, causa, modulo_x_rotina, owner, solicitante, aberto_em, resolvido_em, urgencia
-       FROM public.curadoria_chamados WHERE ${whereClause} ORDER BY ticket_id ${orderDir}`
+       FROM public.curadoria_chamados WHERE (${whereClause})${filtroAno} ORDER BY ticket_id ${orderDir}`
     );
+    if (opts.limite) pendingResult.rows = pendingResult.rows.slice(0, Number(opts.limite));
     curadoriaProcessingState.total = pendingResult.rows.length;
 
     for (const row of pendingResult.rows) {
@@ -720,25 +723,36 @@ async function runCuradoriaProcessingLoop() {
   }
 }
 
-function startCuradoriaProcessingJob() {
+function startCuradoriaProcessingJob(opts = {}) {
   if (activeCuradoriaProcessing) return curadoriaProcessingState; // já rodando — não inicia outro em paralelo
 
   curadoriaProcessingState = {
     running: true, total: 0, processed: 0, failed: 0, currentTicketId: null,
-    startedAt: new Date().toISOString(), finishedAt: null, stopRequested: false, recentErrors: []
+    startedAt: new Date().toISOString(), finishedAt: null, stopRequested: false, recentErrors: [],
+    ano: opts.ano || null, limite: opts.limite || null
   };
-  activeCuradoriaProcessing = runCuradoriaProcessingLoop();
+  activeCuradoriaProcessing = runCuradoriaProcessingLoop(opts);
   return curadoriaProcessingState;
+}
+
+// Lê "ano" e "limite" opcionais do corpo/consulta (ano 2000–2100; limite 1–100000). Valores inválidos são ignorados.
+function lerFiltroProcessamento(src = {}) {
+  const ano = parseInt(src.ano, 10), limite = parseInt(src.limite, 10);
+  return {
+    ano: Number.isInteger(ano) && ano >= 2000 && ano <= 2100 ? ano : null,
+    limite: Number.isInteger(limite) && limite >= 1 && limite <= 100000 ? limite : null,
+  };
 }
 
 // ===== GET /curadoria/pending-count =====
 router.get('/pending-count', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
+    const { ano } = lerFiltroProcessamento(req.query);
     const result = await db.queryDatabase(
       'movidesk_curadoria',
-      `SELECT COUNT(*) FROM public.curadoria_chamados WHERE processado = 0`
+      `SELECT COUNT(*) FROM public.curadoria_chamados WHERE processado = 0${ano ? ` AND LEFT(COALESCE(aberto_em::text, ''), 4) = '${ano}'` : ''}`
     );
-    res.json({ count: Number(result.rows[0].count) || 0 });
+    res.json({ count: Number(result.rows[0].count) || 0, ano });
   } catch (error) {
     console.error('Erro ao contar chamados pendentes:', error);
     res.status(500).json({ error: 'Erro ao contar chamados pendentes' });
@@ -749,7 +763,7 @@ router.get('/pending-count', authMiddleware, requireRole('admin'), async (req, r
 // Inicia (ou retorna o estado de) o job de processamento em segundo plano. Responde na hora;
 // o processamento continua rodando no servidor mesmo se o usuário sair da tela.
 router.post('/process-pending', authMiddleware, requireRole('admin'), (req, res) => {
-  const state = startCuradoriaProcessingJob();
+  const state = startCuradoriaProcessingJob(lerFiltroProcessamento(req.body));
   res.json(state);
 });
 
@@ -1746,9 +1760,9 @@ router.get('/enriquecimento/count', authMiddleware, requireRole('admin'), async 
 // de uma vez (cada um já é resumível e idempotente — não reprocessa o que já está ok).
 let fullLoadLastRun = { at: null, source: null };
 
-function runFullLoad(source = 'manual') {
-  fullLoadLastRun = { at: new Date().toISOString(), source };
-  startCuradoriaProcessingJob();
+function runFullLoad(source = 'manual', opts = {}) {
+  fullLoadLastRun = { at: new Date().toISOString(), source, ano: opts.ano || null, limite: opts.limite || null };
+  startCuradoriaProcessingJob(opts);
   startSlaEstouroRecalcJob();
   startSurveySyncJob();
   startModuloSyncJob();
@@ -1757,7 +1771,7 @@ function runFullLoad(source = 'manual') {
 
 // ===== POST /curadoria/full-load =====
 router.post('/full-load', authMiddleware, requireRole('admin'), (req, res) => {
-  const lastRun = runFullLoad('manual');
+  const lastRun = runFullLoad('manual', lerFiltroProcessamento(req.body));
   res.json({
     lastRun,
     processamento: curadoriaProcessingState,

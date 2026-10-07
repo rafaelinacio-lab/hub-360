@@ -306,6 +306,13 @@
                         <h3 class="config-card-title">Pipeline de Análise</h3>
                         <p class="config-card-help">Processa todos os chamados pendentes de uma vez só: análise de IA → estouro de SLA → satisfação (pesquisa Movidesk) → módulo x rotina. Roda no servidor em segundo plano — pode fechar esta tela que ele continua. Roda automaticamente às 08:00, 12:00 e 19:00.</p>
 
+                        <div class="config-status-line" style="gap:12px; flex-wrap:wrap;">
+                            <span class="config-status-label">Processar só o ano:</span>
+                            <input id="cfgPipeAno" type="number" min="2000" max="2100" value="2026" class="config-input" style="width:90px;" oninput="loadPipeAnoCount()" title="Só os chamados abertos nesse ano (deixe vazio para todos os anos)">
+                            <span class="config-status-label">Limite por rodada:</span>
+                            <input id="cfgPipeLimite" type="number" min="1" max="100000" placeholder="sem limite" class="config-input" style="width:110px;" title="Máximo de chamados analisados pela IA nesta rodada (teto de gasto)">
+                            <span id="cfgPipeAnoCount" class="config-card-help" style="margin:0"></span>
+                        </div>
                         <div class="config-status-line">
                             <span class="config-status-label">Última execução:</span>
                             <span id="cfgFullLoadLastRun" class="config-token-status config-token-status-off">-</span>
