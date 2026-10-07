@@ -319,3 +319,4 @@ Configurações → Avisos automáticos (só admin). Mensagens disparadas quando
 - Variáveis na mensagem: `{{saudacao}} {{ticket}} {{assunto}} {{servico}} {{urgencia}} {{equipe}}`.
 - Cada regra tem vigência opcional (início/fim, `vigencia_inicio/fim`): vale só para chamados criados dentro do período; depois do fim o aviso para sozinho.
 - Regra também filtra por classificação do ticket (campo 23946, `classificacoes`; vazio = qualquer). A listagem da API não traz campos customizados de forma confiável, então só os chamados candidatos (serviço e prazo casam) são relidos por id.
+- Mensagem do aviso é convertida em HTML ao enviar (parágrafos, quebras de linha e links); variáveis `{{cliente}}` e `{{primeiro_nome}}` releem o chamado por id (`$expand=clients`).

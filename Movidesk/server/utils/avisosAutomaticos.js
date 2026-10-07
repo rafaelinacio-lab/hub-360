@@ -96,14 +96,18 @@ function servicoCasa(servicoDoChamado, servicosDaRegra) {
 // então, só quando alguma regra pede classificação, o chamado candidato é relido por id.
 const RULE_ID_CLASSIFICACAO = 11397;
 const CF_CLASSIFICACAO = 23946;
-async function classificacaoDoChamado(id) {
-  const lista = await movidesk('GET', '/tickets', { query: { id, $select: 'id', $expand: 'customFieldValues' } });
+const _detalhes = new Map();   // ticket_id -> { classe, cliente } (vale só durante o ciclo)
+async function detalhesDoChamado(id) {
+  if (_detalhes.has(id)) return _detalhes.get(id);
+  const lista = await movidesk('GET', '/tickets', { query: { id, $select: 'id', $expand: 'customFieldValues,clients' } });
   const t = Array.isArray(lista) ? lista[0] : lista;
   const cfs = Array.isArray(t?.customFieldValues) ? t.customFieldValues : [];
   const cf = cfs.find((c) => Number(c.customFieldRuleId) === RULE_ID_CLASSIFICACAO) || cfs.find((c) => Number(c.customFieldId) === CF_CLASSIFICACAO);
-  if (!cf) return '';
-  const item = Array.isArray(cf.items) && cf.items[0] ? cf.items[0].customFieldItem : null;
-  return String(item || cf.value || '').trim();
+  const item = cf && Array.isArray(cf.items) && cf.items[0] ? cf.items[0].customFieldItem : null;
+  const cliente = (Array.isArray(t?.clients) ? t.clients : []).map((c) => String(c.businessName || '').trim()).find(Boolean) || '';
+  const d = { classe: cf ? String(item || cf.value || '').trim() : '', cliente };
+  _detalhes.set(id, d);
+  return d;
 }
 const classificacaoCasa = (valor, lista) => !(lista || []).length || (lista || []).some((c) => norm(c) === norm(valor));
 
@@ -112,14 +116,24 @@ function saudacao(data = new Date()) {
   const h = (data.getUTCHours() + 24 - 3) % 24;   // Brasília
   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
 }
+// O Movidesk mostra a descrição da ação como HTML: quebras de linha simples somem. Convertemos o texto
+// (escapado) em parágrafos/<br> e links clicáveis.
+function textoParaHtml(texto) {
+  const esc = String(texto || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const comLinks = esc.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  return comLinks.replace(/\r/g, '').split(/\n{2,}/).map((p) => `<p>${p.trim().replace(/\n/g, '<br>')}</p>`).join('');
+}
+const USA_CLIENTE = /\{\{\s*(cliente|primeiro_nome)\s*\}\}/;
 function montarMensagem(modelo, t) {
+  const cliente = t.cliente || '';
   const v = {
+    cliente, primeiro_nome: cliente.split(/\s+/)[0] ? cliente.split(/\s+/)[0].replace(/^./, (c) => c.toUpperCase()) : '',
     ticket: t.id, assunto: t.subject || '', servico: t.servico || '', urgencia: t.urgency || '',
     equipe: t.ownerTeam || '', saudacao: saudacao(),
   };
   return String(modelo || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k) => (k in v ? String(v[k]) : m));
 }
-const VARIAVEIS = ['saudacao', 'ticket', 'assunto', 'servico', 'urgencia', 'equipe'];
+const VARIAVEIS = ['saudacao', 'cliente', 'primeiro_nome', 'ticket', 'assunto', 'servico', 'urgencia', 'equipe'];
 
 // ── Ciclo ──────────────────────────────────────────────────────────────
 let rodando = false;
@@ -133,7 +147,7 @@ async function regrasAtivas() {
 async function enviarAcao(regra, t, texto) {
   await movidesk('PATCH', '/tickets', {
     query: { id: t.id },
-    body: { actions: [{ type: ACAO_TIPO[regra.tipo_acao] || ACAO_TIPO.interna, origin: ACAO_ORIGEM, description: texto, createdBy: { id: regra.agente_id } }] },
+    body: { actions: [{ type: ACAO_TIPO[regra.tipo_acao] || ACAO_TIPO.interna, origin: ACAO_ORIGEM, description: textoParaHtml(texto), createdBy: { id: regra.agente_id } }] },
   });
 }
 
@@ -148,13 +162,14 @@ async function processarChamado(regras, t, resumo) {
     let classe = null;   // só busca se alguma candidata exigir classificação
     for (const r of candidatas) {
       if (!(r.classificacoes || []).length) { regra = r; break; }
-      if (classe === null) classe = await classificacaoDoChamado(t.id);
+      if (classe === null) classe = (await detalhesDoChamado(t.id)).classe;
       if (classificacaoCasa(classe, r.classificacoes)) { regra = r; break; }
     }
     if (!regra && classe !== null) { resumo.outraClassificacao++; if (resumo.classificacoesVistas.length < 5 && !resumo.classificacoesVistas.includes(classe || '(vazia)')) resumo.classificacoesVistas.push(classe || '(vazia)'); return 0; }
   }
   if (!regra) { resumo.semRegra++; if (resumo.servicosSemRegra.length < 5 && !resumo.servicosSemRegra.includes(t.servico)) resumo.servicosSemRegra.push(t.servico); return 0; }
   resumo.casaram++;
+  if (USA_CLIENTE.test(regra.mensagem)) t.cliente = (await detalhesDoChamado(t.id)).cliente;
   const texto = montarMensagem(regra.mensagem, t);
   const simulando = regra.modo !== 'ativo' || !regra.agente_id;
   const ins = await db.query(
@@ -202,6 +217,7 @@ async function ciclo() {
   if (rodando) return;
   rodando = true;
   try {
+    _detalhes.clear();
     const estado = await lerEstado();
     if (!estado.ligado) return;
     const regras = await regrasAtivas();
@@ -238,4 +254,4 @@ async function agendar() {
 }
 function iniciar() { garantirTabelas().catch((e) => console.error('[avisos] tabelas:', e.message)); agendar(); }
 
-module.exports = { iniciar, ciclo, garantirTabelas, lerEstado, gravarEstado, servicoCasa, montarMensagem, VARIAVEIS, listaAgentes };
+module.exports = { textoParaHtml, iniciar, ciclo, garantirTabelas, lerEstado, gravarEstado, servicoCasa, montarMensagem, VARIAVEIS, listaAgentes };
