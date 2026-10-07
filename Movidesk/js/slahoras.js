@@ -58,6 +58,7 @@ async function shApurar() {
 }
 function shDesenharApuracao() {
     const a = SH.apuracao, box = document.getElementById('shApRes'); if (!box) return;
+    setTimeout(shMostrarStatusAuto, 0);
     if (!a.clientes.length) { box.innerHTML = '<p class="config-card-help">Nenhum chamado de Suporte Técnico encerrado nesta competência.</p>'; return; }
     box.innerHTML = `<p style="margin:0 0 8px"><b>${a.total.clientes}</b> cliente(s) · <b>${a.chamados}</b> chamado(s) encerrados · avaliados <b>${a.total.avaliados}</b> · cumprimento geral
         <b style="color:${shCorPct(a.total.pct)}">${shPct(a.total.pct)}</b></p>
@@ -70,8 +71,16 @@ function shDesenharApuracao() {
           <td>${c.creditoLancado != null ? `${shH(c.creditoLancado)} h` : '—'}</td>
           <td><button class="config-btn config-btn-muted" type="button" onclick="shDetalheCliente('${shEsc(c.organizacao_id || 'sem:' + c.nome).replace(/'/g, '&#39;')}')">Chamados</button></td></tr>`).join('')}
         </tbody></table></div>
-      <div style="margin-top:12px"><button class="config-btn" type="button" onclick="shGerarCreditos()">Lançar créditos sugeridos desta competência</button> <span id="shGerMsg" class="config-status"></span>
-        <p class="config-card-help" style="margin-top:6px">Só meses já encerrados. Cada cliente recebe no máximo um crédito por competência (Seção 21.8) e o que está marcado “acumula” não é lançado.</p></div>`;
+      <div style="margin-top:12px"><p class="config-card-help" style="margin:0 0 6px"><b>Lançamento automático:</b> ${SH.cfg.automatico.ativo ? `ligado — ao fechar cada mês o Hub apura e lança as horas técnicas sozinho (a partir de ${SH.cfg.automatico.desde}), uma vez por cliente e competência.` : '<span style="color:#f59e0b">desligado (ligue em Parâmetros)</span>'}
+        Clientes com menos de ${SH.cfg.minimoElegiveis} chamados avaliados acumulam até 3 meses. <span id="shAutoSt"></span></p>
+        <button class="config-btn config-btn-muted" type="button" onclick="shGerarCreditos()">Rodar a apuração automática agora</button> <span id="shGerMsg" class="config-status"></span></div>`;
+}
+async function shMostrarStatusAuto() {
+    try {
+        const st = (await shApi('/automatico/status')).status, el = document.getElementById('shAutoSt'); if (!el) return;
+        el.textContent = !st ? 'Ainda não rodou desde o último deploy (roda 2 minutos após subir e a cada hora).'
+            : st.ok ? `Última rodada: ${shDataHora(st.em)} — ${st.lancados} crédito(s) lançado(s), ${st.acumulando} cliente(s) acumulando.` : `Última rodada falhou (${shDataHora(st.em)}): ${st.erro}`;
+    } catch (_) { /* informativo */ }
 }
 async function shDetalheCliente(org) {
     const box = document.getElementById('shDetalhe'); box.innerHTML = '<div class="config-card"><p class="config-card-help">Carregando…</p></div>';
@@ -89,11 +98,10 @@ async function shDetalheCliente(org) {
     } catch (e) { box.innerHTML = `<div class="config-card"><p class="config-status error">${shEsc(e.message)}</p></div>`; }
 }
 async function shGerarCreditos() {
-    if (!confirm(`Lançar as horas técnicas sugeridas de ${SH.comp}? Cada cliente recebe no máximo um crédito por competência.`)) return;
-    shMsg('shGerMsg', 'Lançando…');
+    shMsg('shGerMsg', 'Rodando… (pode levar alguns segundos por mês apurado)');
     try {
-        const r = await shApi('/creditos/gerar', 'POST', { competencia: SH.comp });
-        const msg = `${r.lancados.length} crédito(s) lançado(s)${r.pulados.length ? `; ${r.pulados.length} não lançado(s): ${r.pulados.slice(0, 3).map((p) => `${p.nome} (${p.motivo})`).join('; ')}` : ''}.`;
+        const r = await shApi('/creditos/gerar', 'POST', {});
+        const msg = r.ignorado ? `Nada feito: ${r.ignorado}.` : `${r.lancados.length} crédito(s) lançado(s); ${r.semCredito} cliente(s) sem crédito (cumprimento ≥ 90%); ${r.acumulando.length} acumulando para o próximo mês.`;
         SH.apuracao = await shApi(`/apuracao?competencia=${SH.comp}`); shDesenharApuracao(); shMsg('shGerMsg', msg);
     } catch (e) { shMsg('shGerMsg', e.message, true); }
 }
@@ -118,7 +126,7 @@ async function shAbrirExtrato(org, nome) {
         const rot = { credito: 'Crédito', uso: 'Uso', ajuste: 'Ajuste' };
         box.innerHTML = `<div class="config-card"><h3 class="config-card-title">${shEsc(nome)} — disponível: ${shH(d.saldo.disponivel)} h</h3>
           <div style="overflow:auto;max-height:320px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left"><th>Data</th><th>Tipo</th><th>Horas</th><th>Competência</th><th>Validade</th><th>Motivo</th><th>Por</th></tr></thead><tbody>
-          ${d.lancamentos.map((l) => `<tr style="border-top:1px solid var(--border)"><td>${shDataHora(l.criado_em)}</td><td>${rot[l.tipo] || l.tipo}</td><td style="color:${l.tipo === 'uso' || l.horas < 0 ? '#ef4444' : '#10b981'};font-weight:700">${l.tipo === 'uso' ? '−' : ''}${shH(l.horas)}</td>
+          ${d.lancamentos.map((l) => `<tr style="border-top:1px solid var(--border)"><td>${shDataHora(l.criado_em)}</td><td>${l.tipo === 'credito' && !l.horas ? 'Apurado (sem crédito)' : (rot[l.tipo] || l.tipo)}</td><td style="color:${l.tipo === 'uso' || l.horas < 0 ? '#ef4444' : l.horas ? '#10b981' : 'var(--t3)'};font-weight:700">${l.tipo === 'uso' ? '−' : ''}${shH(l.horas)}</td>
           <td>${shEsc(l.competencia || '—')}</td><td>${shData(l.validade)}</td><td>${shEsc(l.motivo || '')}</td><td>${shEsc(l.criado_por || '')}</td></tr>`).join('')}</tbody></table></div>
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:end">
             <label>Horas <input id="shUsoH" type="number" step="0.25" min="0.25" class="config-input" style="width:110px"></label>
@@ -173,6 +181,10 @@ async function shRenderParametros() {
       ${['Crítica', 'Alta', 'Média', 'Baixa'].map((s) => `<tr><td>${s}</td>${['pr', 'contorno', 'resolucao'].map((k) => `<td><input class="config-input" style="width:100px" type="number" min="1" data-pl="${plano}" data-sev="${s}" data-k="${k}" value="${g.planos[plano][s][k] ?? ''}" placeholder="n/a"></td>`).join('')}</tr>`).join('')}</tbody></table>`;
     c.innerHTML = `<div class="config-card"><h3 class="config-card-title">Parâmetros da política</h3>
       <p class="config-card-help">Tudo aqui é editável: a política pode mudar (Seção 24) sem alterar código. Prazos em <b>minutos úteis</b> (60 = 1 h; 480 = 1 dia útil de 8 h). Só administrador salva.</p>
+      <h4>Lançamento automático das horas técnicas</h4>
+      <label style="display:block"><input type="checkbox" id="shAutoAtivo" ${g.automatico.ativo ? 'checked' : ''}> Apurar e lançar sozinho ao fechar cada mês</label>
+      <label>Apurar a partir de <input type="month" id="shAutoDesde" class="config-input" style="width:170px" value="${g.automatico.desde}"></label>
+      <p class="config-card-help">A política vale desde 01/08/2026. Meses anteriores à data acima nunca são lançados. Cuidado ao antecipar a data: ao salvar e na próxima rodada, os meses entre ela e hoje passam a gerar crédito.</p>
       <h4>Janela de atendimento (segunda a sexta)</h4>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${g.janela.map((j, i) => `<span><input type="time" class="config-input" id="shJi${i}" value="${j[0]}"> às <input type="time" class="config-input" id="shJf${i}" value="${j[1]}"></span>`).join('')}</div>
       <h4>Feriados (um por linha: AAAA-MM-DD Nome)</h4>
@@ -208,6 +220,7 @@ async function shSalvarParametros() {
     g.planoPadrao = document.getElementById('shPlanoPadrao').value;
     document.querySelectorAll('input[data-pl]').forEach((i) => { g.planos[i.dataset.pl][i.dataset.sev][i.dataset.k] = i.value === '' ? null : Number(i.value); });
     g.creditos = [...document.querySelectorAll('.shCredMin')].map((x, i) => ({ min: Number(x.value), horas: Number(document.querySelectorAll('.shCredH')[i].value) }));
+    g.automatico = { ativo: document.getElementById('shAutoAtivo').checked, desde: document.getElementById('shAutoDesde').value || '2026-08' };
     g.gatilhoCriticoHoras = Number(document.getElementById('shGat').value); g.limiteMensalHoras = Number(document.getElementById('shLim').value);
     g.validadeMeses = Number(document.getElementById('shVal').value); g.minimoElegiveis = Number(document.getElementById('shMinEl').value);
     try { SH.cfg = (await shApi('/config', 'PUT', { config: g })).config; SH.apuracao = null; shMsg('shParMsg', 'Parâmetros salvos. A próxima apuração já usa os novos valores.'); }
