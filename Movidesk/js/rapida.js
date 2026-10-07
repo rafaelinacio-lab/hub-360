@@ -57,9 +57,30 @@ function rpHistoricoHtml() {
         `<tr><td>${rpHora(r.started_at)}</td><td>${dur(r.started_at, r.finished_at)}</td><td>${r.tickets_loaded ?? '—'}</td><td>${st[r.status] || rpEsc(r.status)}${r.error_msg ? `<br><small>${rpEsc(r.error_msg)}</small>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
+function rpListaHtml() {
+    const c = RP.dados?.conferenciaLista;
+    if (!c || !c.iniciadoEm) return '';
+    const pct = c.total ? Math.round((c.feitos / c.total) * 100) : 100;
+    return `<p style="margin:0 0 6px">${c.rodando ? '<b>Conferindo…</b> ' : '<b>Concluída</b> · '}lista: <b>${c.naLista}</b> · abertos no banco que NÃO estão na lista: <b>${c.sobrando}</b> · da lista sem estar aberto no banco: <b>${c.faltando}</b> · verificados ${c.feitos}/${c.total} · corrigidos ${c.corrigidos}${c.falhas ? ` · ${c.falhas} falha(s)` : ''}${c.ultimoErro ? ` · <span style="color:#c0392b">${rpEsc(c.ultimoErro)}</span>` : ''}</p>
+      <div style="height:8px;border-radius:999px;background:var(--border);overflow:hidden"><div style="height:100%;width:${pct}%;background:#10b981"></div></div>
+      ${c.amostraSobrando?.length ? `<p class="config-card-help">Exemplos que sobram: ${c.amostraSobrando.map(rpEsc).join(', ')}</p>` : ''}
+      ${c.amostraFaltando?.length ? `<p class="config-card-help">Exemplos que faltam: ${c.amostraFaltando.map(rpEsc).join(', ')}</p>` : ''}`;
+}
+async function rapidaConferirLista() {
+    const f = document.getElementById('rpLista')?.files?.[0], m = document.getElementById('rpListaMsg');
+    if (!f) { m.textContent = 'Escolha o arquivo.'; return; }
+    m.textContent = 'Enviando…';
+    try {
+        const r = await fetch(`${API_BASE}/crons/rapida/conferir-lista`, { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream' }, body: await f.arrayBuffer() });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || `Falha (${r.status})`);
+        m.textContent = 'Conferência iniciada.'; rapidaCarregar(true);
+    } catch (e) { m.textContent = e.message; }
+}
 function rpAtualizarStatus() {
     const a = document.getElementById('rpStatus'), b = document.getElementById('rpDetalhes'), c = document.getElementById('rpHistorico');
     if (a) a.innerHTML = rpStatusHtml(); if (b) b.innerHTML = rpDetalhesHtml(); if (c) c.innerHTML = rpHistoricoHtml();
+    const l = document.getElementById('rpListaRes'); if (l) l.innerHTML = rpListaHtml();
 }
 
 function rpRender() {
@@ -95,6 +116,14 @@ function rpRender() {
         <h3 class="config-card-title">Detalhes em segundo plano</h3>
         <p class="config-card-help">O que a carga rápida deixou para depois: ações, campos personalizados e demais dados dos chamados abertos.</p>
         <div id="rpDetalhes">${rpDetalhesHtml()}</div>
+      </div>
+      <div class="config-card">
+        <h3 class="config-card-title">Conferir com uma lista do Movidesk</h3>
+        <p class="config-card-help">Exporte do Movidesk a lista de chamados pendentes (.xlsx com a coluna "Número", ou texto/CSV com os ids) e envie aqui. O Hub compara com o banco, confirma no Movidesk os chamados que sobram ou faltam e corrige.</p>
+        <input type="file" id="rpLista" accept=".xlsx,.csv,.txt" class="config-input">
+        <button class="config-btn" type="button" onclick="rapidaConferirLista()">Conferir</button>
+        <span id="rpListaMsg" class="config-status"></span>
+        <div id="rpListaRes" style="margin-top:10px;font-size:14px">${rpListaHtml()}</div>
       </div>
       <div class="config-card">
         <h3 class="config-card-title">Últimas execuções</h3>

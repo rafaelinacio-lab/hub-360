@@ -207,8 +207,18 @@ async function lerRapida() {
       porStatus = (await db.query(`SELECT t.basestatus AS base, COUNT(*)::int AS n FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) ${where.length ? 'AND ' + where.join(' AND ') : ''} GROUP BY 1 ORDER BY 2 DESC`, params)).rows;
     } catch (_) { /* sem contagem */ }
   }
-  return { tarefa: t, job, historico, detalhes, escopoAbertos, porStatus, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
+  return { tarefa: t, job, historico, detalhes, escopoAbertos, porStatus, conferenciaLista: movideskLoader.conferenciaLista, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
 }
+router.post('/rapida/conferir-lista', express.raw({ type: '*/*', limit: '20mb' }), async (req, res) => {
+  try {
+    const { lerIds } = require('../utils/xlsxMini');
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(String(req.body || ''));
+    const ids = lerIds(buf);
+    if (ids.length < 1) return res.status(400).json({ error: 'Nenhum id de chamado encontrado no arquivo' });
+    if (movideskLoader.conferenciaLista.rodando) return res.status(409).json({ error: 'Já existe uma conferência em andamento' });
+    res.json(await movideskLoader.iniciarConferenciaLista(ids));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 router.get('/rapida', async (req, res) => {
   try { res.json(await lerRapida()); } catch (e) { res.status(500).json({ error: e.message }); }
 });

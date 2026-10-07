@@ -2017,6 +2017,44 @@ async function reconferirRapido(token, seen, escopo, { forcar = false } = {}) {
   return { reconferidos: alvo.length, atualizados };
 }
 
+// Conferência por lista de ids (ex.: exportação do Movidesk): confirma no Movidesk os chamados que o banco tem como
+// abertos e que NÃO estão na lista (encerrados/fora de escopo) e busca os da lista que o banco não tem como abertos.
+const conferenciaLista = { rodando: false, total: 0, naLista: 0, sobrando: 0, faltando: 0, feitos: 0, corrigidos: 0, falhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null, amostraSobrando: [], amostraFaltando: [] };
+async function iniciarConferenciaLista(ids) {
+  if (conferenciaLista.rodando) return conferenciaLista;
+  const lista = new Set(ids.map(String));
+  const { rows } = await db.query(`SELECT t.ticket_id::text AS id FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[]))`, [CLOSED_STATUSES]);
+  const abertosBanco = new Set(rows.map(r => r.id));
+  const sobrando = [...abertosBanco].filter(id => !lista.has(id));
+  const faltando = [...lista].filter(id => !abertosBanco.has(id));
+  Object.assign(conferenciaLista, { rodando: true, total: sobrando.length + faltando.length, naLista: lista.size, sobrando: sobrando.length, faltando: faltando.length, feitos: 0, corrigidos: 0, falhas: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null, amostraSobrando: sobrando.slice(0, 15), amostraFaltando: faltando.slice(0, 15) });
+  (async () => {
+    try {
+      const token = await getMovideskToken();
+      const alvo = [...sobrando, ...faltando]; let i = 0;
+      const trabalhador = async () => {
+        while (i < alvo.length) {
+          const id = alvo[i++];
+          try {
+            let full = null;
+            for (const ep of ['/tickets', '/tickets/past']) {
+              const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': 'owner,clients' })}`);
+              const data = await resp.json();
+              const t = Array.isArray(data) ? data[0] : data;
+              if (t && t.id) { full = t; break; }
+            }
+            if (full) { await salvarBasico([full]); conferenciaLista.corrigidos++; }
+          } catch (e) { conferenciaLista.falhas++; conferenciaLista.ultimoErro = e.message; }
+          conferenciaLista.feitos++;
+        }
+      };
+      await Promise.all(Array.from({ length: 8 }, trabalhador));
+    } catch (e) { conferenciaLista.ultimoErro = e.message; }
+    conferenciaLista.rodando = false; conferenciaLista.terminadoEm = new Date().toISOString();
+  })();
+  return conferenciaLista;
+}
+
 // Fila de detalhes: chamados ABERTOS sem detalhes ou com alteração mais nova que os detalhes gravados. Roda sozinha em
 // segundo plano (não segura o "uma carga por vez"), poucas chamadas em paralelo, e para quando a fila acaba.
 const enriquecimentoPendentes = { rodando: false, fila: 0, feitos: 0, falhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null };
@@ -3027,5 +3065,5 @@ module.exports = {
   runAtualizacaoInteligente,
   reconferirAbertosPresos,
   sincronizarTicket,
-  iniciarEnriquecimentoPendentes, enriquecimentoPendentes, escopoSql, CLOSED_STATUSES,
+  iniciarEnriquecimentoPendentes, enriquecimentoPendentes, iniciarConferenciaLista, conferenciaLista, escopoSql, CLOSED_STATUSES,
 };

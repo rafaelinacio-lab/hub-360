@@ -346,3 +346,6 @@ Tarefa personalizada com **"Só chamados em aberto"** + **"Modo rápido"** (`sil
 - Painel TV: filtro de **equipe** além do de serviço (`?equipe=` na URL ou última escolha salva); as contagens das opções respeitam serviço+classificação, e o card de SLA individual (`/geral/sla-responsaveis?equipe=`) também.
 - Carga rápida sem nenhum filtro = **todos** os chamados pendentes (qualquer serviço, equipe ou classificação).
 - Carga rápida: "aberto" = qualquer status que não seja resolvido/fechado/cancelado (a mesma definição do Painel TV), em toda a reconferência, fila de detalhes e contagens. A reconferência dos abertos no banco que sumiram da lista corrige até 500 chamados a cada 3 min (8 em paralelo); a aba mostra os abertos por status e a diferença para o que o Movidesk devolveu na última carga.
+
+### Conferência por lista de ids (Carga rápida)
+`POST /api/crons/rapida/conferir-lista` (corpo bruto: .xlsx com coluna "Número" ou texto/CSV; leitor em `server/utils/xlsxMini.js`). `iniciarConferenciaLista` (movidesk-loader) compara os abertos do banco com a lista, busca no Movidesk (básico + clientes, 8 em paralelo) os que sobram e os que faltam e regrava com `salvarBasico`. Progresso em `GET /rapida` → `conferenciaLista`.
