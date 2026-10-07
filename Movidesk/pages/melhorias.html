@@ -339,8 +339,28 @@ async function abrir(id){
   $('gCorpo').innerHTML='<div class="sub">Carregando…</div>';
   try{ desenharGaveta(await api('/'+id)); }catch(e){ $('gCorpo').innerHTML=`<div class="aviso erro">${esc(e.message)}</div>`; }
 }
-function briefing(m,coms){
-  return `# Implementar no Hub 360: ${m.titulo}\n\nSugestão ${m.codigo} · ${CFG.tipos[m.tipo]} · Área: ${m.area||'—'} · ${m.votos} apoio(s)\nAutor: ${m.criado_por_nome}\n\n## O que foi pedido\n${m.descricao}\n\n## Benefício esperado\n${m.beneficio||'(não informado)'}\n\n${m.resposta?`## Orientação da administração\n${m.resposta}\n\n`:''}${coms.length?`## Comentários\n${coms.map(c=>`- ${c.autor_nome}${c.interno?' (interno)':''}: ${c.texto}`).join('\n')}\n\n`:''}## Pedido\nAnalise o código relacionado a "${m.area||'o Hub'}", proponha a abordagem, implemente numa branch, teste e descreva o que não foi possível testar. Ao final, escreva a nota de implantação em linguagem simples para o autor.`;
+function textoJira(a){
+  return `1-*ROTINA*\n\n${a.rotina}\n\n2-*MOTIVO/FINALIDADE*\n\n${a.motivo}\n\n3-*ESPECIFICAÇÃO*\n\n${a.especificacao.map((x,i)=>`${i+1}. ${x}`).join('\n')}\n\n4-*PLANO DE TESTES*\n\n${a.planoTestes.map((x,i)=>`${i+1}. ${x}`).join('\n')}`;
+}
+function briefing(m,coms,a){
+  return `# Implementar no Hub 360: ${m.titulo}\n\nSugestão ${m.codigo} · ${CFG.tipos[m.tipo]} · Área: ${m.area||'—'} · ${m.votos} apoio(s)\nAutor: ${m.criado_por_nome}\n\n## O que foi pedido\n${m.descricao}\n\n## Benefício esperado\n${m.beneficio||'(não informado)'}\n\n${m.resposta?`## Orientação da administração\n${m.resposta}\n\n`:''}${coms.length?`## Comentários\n${coms.map(c=>`- ${c.autor_nome}${c.interno?' (interno)':''}: ${c.texto}`).join('\n')}\n\n`:''}${a&&a.aprovadaPor?`## Estrutura aprovada por ${a.aprovadaPor}\n${textoJira(a)}\n\n${a.riscos&&a.riscos.length?`Riscos/impactos: ${a.riscos.join('; ')}\n\n`:''}`:''}## Pedido\nAnalise o código relacionado a "${m.area||'o Hub'}", proponha a abordagem, implemente numa branch, teste e descreva o que não foi possível testar. Ao final, escreva a nota de implantação em linguagem simples para o autor.`;
+}
+
+function blocoIa(m,a,enc){
+  if(!a) return `<div class="sec"><div class="adm"><h4 style="margin:0">Análise da IA</h4><div class="sub">A IA lê a solicitação, entende o que precisa ser feito e monta a estrutura (rotina, motivo, especificação e plano de testes) para você revisar e aprovar.</div><div class="acoes"><button class="btn primario peq" id="iaGerar" ${enc?'disabled':''}>✨ Analisar com IA</button></div></div></div>`;
+  const li=(t,arr)=>arr&&arr.length?`<div><b>${t}</b><ul style="margin:4px 0 0 18px;padding:0">${arr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+  const dup=a.duplicadas&&a.duplicadas.length?`<div><b>Possíveis duplicadas</b><ul style="margin:4px 0 0 18px;padding:0">${a.duplicadas.map(x=>`<li>${esc(x.codigo)} — ${esc(x.motivo)}</li>`).join('')}</ul></div>`:'';
+  return `<div class="sec"><div class="adm"><h4 style="margin:0">Análise da IA ${a.aprovadaPor?`<span class="sub">· ✓ aprovada por ${esc(a.aprovadaPor)}</span>`:'<span class="sub">· rascunho — revise antes de aprovar</span>'}</h4>
+    <div class="txt">${esc(a.entendimento)}</div>
+    <div class="sub">${a.prioridade?`Prioridade sugerida: P${a.prioridade} · `:''}${a.esforco?`Esforço sugerido: ${esc(a.esforco)} · `:''}${esc(a.justificativa||'')}</div>
+    ${dup}${li('Dúvidas em aberto (resolva antes de desenvolver)',a.perguntas)}${li('Riscos e impactos',a.riscos)}
+    <label>Rotina <input id="iaRotina" maxlength="120" value="${esc(a.rotina)}"></label>
+    <label>Motivo / finalidade <textarea id="iaMotivo" maxlength="1500" style="min-height:90px">${esc(a.motivo)}</textarea></label>
+    <label>Especificação (um item por linha) <textarea id="iaEsp" style="min-height:130px">${esc((a.especificacao||[]).join('\n'))}</textarea></label>
+    <label>Plano de testes (um cenário por linha) <textarea id="iaTestes" style="min-height:110px">${esc((a.planoTestes||[]).join('\n'))}</textarea></label>
+    <div class="duas"><label>Prioridade <select id="iaPrio"><option value="">—</option>${[1,2,3,4].map(p=>`<option value="${p}" ${a.prioridade===p?'selected':''}>P${p}</option>`).join('')}</select></label>
+      <label>Esforço <select id="iaEsf"><option value="">—</option>${CFG.esforcos.map(p=>`<option ${a.esforco===p?'selected':''}>${p}</option>`).join('')}</select></label></div>
+    <div class="acoes"><button class="btn peq" id="iaGerar" ${enc?'disabled':''}>Gerar de novo</button><button class="btn peq" id="iaJira">Copiar para o Jira</button><button class="btn peq" id="iaSalvar">Salvar edição</button><button class="btn primario peq" id="iaAprovar" ${enc?'disabled':''}>Aprovar e seguir</button></div></div></div>`;
 }
 function desenharGaveta(d){
   const m=d.melhoria, adm=CFG.eu.admin, enc=['implantada','recusada'].includes(m.status);
@@ -351,6 +371,7 @@ function desenharGaveta(d){
      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn peq" id="gVoto" ${enc?'disabled':''}>${m.eu_votei?'✓ Você apoia — remover':'▲ Apoiar'}</button>${podeEditar?'<button class="btn peq" id="gEditar">Editar</button><button class="btn peq" id="gExcluir">Excluir</button>':''}</div></div>
    ${m.resposta?`<div class="sec"><h4>Resposta da administração</h4><div class="txt resp">${esc(m.resposta)}</div></div>`:''}
    ${m.status==='implantada'&&m.nota_implantacao?`<div class="sec"><h4>O que foi implantado${m.implantada_em?` em ${dia(m.implantada_em)}`:''}</h4><div class="txt resp">${esc(m.nota_implantacao)}</div></div>`:''}
+   ${adm?blocoIa(m,d.analise,enc):''}
    ${adm?`<div class="sec"><div class="adm"><h4 style="margin:0">Administração</h4>
       <div class="duas"><label>Status <select id="aStatus">${Object.entries(CFG.status).map(([k,v])=>`<option value="${k}" ${k===m.status?'selected':''}>${esc(v)}</option>`).join('')}</select></label>
         <label>Prioridade <select id="aPrio"><option value="">—</option>${[1,2,3,4].map(p=>`<option value="${p}" ${m.prioridade===p?'selected':''}>P${p}${p===1?' (urgente)':p===4?' (baixa)':''}</option>`).join('')}</select></label>
@@ -371,7 +392,23 @@ function desenharGaveta(d){
   if($('gEditar')) $('gEditar').addEventListener('click',()=>abrirForm(m));
   if($('gExcluir')) $('gExcluir').addEventListener('click',async()=>{ if(!confirm('Excluir esta sugestão?')) return; try{ await api('/'+m.id,{method:'DELETE'}); fechar(); carregar(); }catch(e){ falha(e); } });
   if(adm){
-    $('aBrief').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(briefing(m,d.comentarios)); aviso('gAviso','Briefing copiado. Cole no Claude Code.'); }catch{ aviso('gAviso','Não consegui copiar automaticamente.','erro'); } });
+    const linhas=id=>$(id).value.split('\n').map(x=>x.trim()).filter(Boolean);
+    const corpoIa=()=>({rotina:$('iaRotina').value,motivo:$('iaMotivo').value,especificacao:linhas('iaEsp'),planoTestes:linhas('iaTestes'),prioridade:$('iaPrio').value||null,esforco:$('iaEsf').value||null});
+    const ocupado=(b,t)=>{ b.disabled=true; b.dataset.t=b.textContent; b.textContent=t; };
+    if($('iaGerar')) $('iaGerar').addEventListener('click',async e=>{
+      if(d.analise&&!confirm('Gerar de novo substitui a estrutura atual (inclusive suas edições). Continuar?')) return;
+      ocupado(e.target,'Analisando…');
+      try{ await api(`/${m.id}/analise-ia`,{method:'POST'}); await recarregar('Estrutura gerada. Revise e aprove.'); }catch(er){ e.target.disabled=false; e.target.textContent=e.target.dataset.t; falha(er); }
+    });
+    if($('iaSalvar')){
+      $('iaSalvar').addEventListener('click',async()=>{ try{ await api(`/${m.id}/analise`,{method:'PUT',body:corpoIa()}); await recarregar('Edição salva.'); }catch(e){ falha(e); } });
+      $('iaJira').addEventListener('click',async()=>{ try{ const b=corpoIa(); await navigator.clipboard.writeText(textoJira({...d.analise,...b})); aviso('gAviso','Texto no formato do Jira copiado.'); }catch{ aviso('gAviso','Não consegui copiar automaticamente.','erro'); } });
+      $('iaAprovar').addEventListener('click',async()=>{
+        if(!confirm('Aprovar esta estrutura? A sugestão passa para “Aprovada” e a prioridade e o esforço são gravados.')) return;
+        try{ await api(`/${m.id}/analise`,{method:'PUT',body:corpoIa()}); await api(`/${m.id}/analise/aprovar`,{method:'POST'}); await recarregar('Estrutura aprovada. Use “Copiar briefing de desenvolvimento” para seguir.'); }catch(e){ falha(e); }
+      });
+    }
+    $('aBrief').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(briefing(m,d.comentarios,d.analise)); aviso('gAviso','Briefing copiado. Cole no Claude Code.'); }catch{ aviso('gAviso','Não consegui copiar automaticamente.','erro'); } });
     $('aSalvar').addEventListener('click',async()=>{
       const novo=$('aStatus').value;
       if(['implantada','recusada'].includes(novo)&&novo!==m.status&&!confirm(`Marcar como “${CFG.status[novo]}”? Isso encerra a sugestão e fecha os apoios.`)) return;
