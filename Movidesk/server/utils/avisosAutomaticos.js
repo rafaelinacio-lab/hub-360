@@ -117,11 +117,19 @@ function saudacao(data = new Date()) {
   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
 }
 // O Movidesk mostra a descrição da ação como HTML: quebras de linha simples somem. Convertemos o texto
-// (escapado) em parágrafos/<br> e links clicáveis.
+// (escapado) em HTML. Sintaxe aceita na mensagem:  **negrito**  ·  [texto](https://link)  ·  ![descrição](https://imagem)
+// Só links http(s); links soltos viram clicáveis sozinhos. Qualquer outro HTML digitado é escapado.
 function textoParaHtml(texto) {
-  const esc = String(texto || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const comLinks = esc.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-  return comLinks.replace(/\r/g, '').split(/\n{2,}/).map((p) => `<p>${p.trim().replace(/\n/g, '<br>')}</p>`).join('');
+  const guardados = [];
+  const guarda = (html) => `\u0000${guardados.push(html) - 1}\u0000`;
+  const url = (u) => u.replace(/"/g, '%22').replace(/'/g, '%27');
+  let t = String(texto || '').replace(/\r/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  t = t.replace(/!\[([^\]\n]*)\]\((https?:\/\/[^\s)]+)\)/g, (m, alt, u) => guarda(`<img src="${url(u)}" alt="${alt.replace(/"/g, '')}" style="max-width:100%;height:auto">`));
+  t = t.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, txt, u) => guarda(`<a href="${url(u)}" target="_blank" rel="noopener">${txt}</a>`));
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+  t = t.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]])/g, (m, u) => `<a href="${url(u)}" target="_blank" rel="noopener">${u}</a>`);
+  t = t.split(/\n{2,}/).map((p) => `<p>${p.trim().replace(/\n/g, '<br>')}</p>`).join('');
+  return t.replace(/\u0000(\d+)\u0000/g, (m, i) => guardados[+i]);
 }
 const USA_CLIENTE = /\{\{\s*(cliente|primeiro_nome)\s*\}\}/;
 function montarMensagem(modelo, t) {

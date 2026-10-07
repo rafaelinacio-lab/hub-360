@@ -140,7 +140,8 @@ router.get('/agentes', async (req, res) => {
 
 router.post('/previa', (req, res) => {
   const t = { id: '123456', subject: 'Erro ao emitir nota fiscal', servico: txt(req.body?.servico, 300) || 'Agronegócio > Agrotitan', urgency: 'Alta', ownerTeam: 'Agrotitan - Suporte Técnico' };
-  res.json({ texto: av.montarMensagem(txt(req.body?.mensagem, 5000), t) });
+  const texto = av.montarMensagem(txt(req.body?.mensagem, 5000), t);
+  res.json({ texto, html: av.textoParaHtml(texto) });
 });
 
 module.exports = router;

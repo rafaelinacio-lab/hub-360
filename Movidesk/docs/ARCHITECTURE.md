@@ -321,3 +321,4 @@ Configurações → Avisos automáticos (só admin). Mensagens disparadas quando
 - Regra também filtra por classificação do ticket (campo 23946, `classificacoes`; vazio = qualquer). A listagem da API não traz campos customizados de forma confiável, então só os chamados candidatos (serviço e prazo casam) são relidos por id.
 - Mensagem do aviso é convertida em HTML ao enviar (parágrafos, quebras de linha e links); variáveis `{{cliente}}` e `{{primeiro_nome}}` releem o chamado por id (`$expand=clients`).
 - Chats: a coleta no Movidesk (a cada ~1 min) pode ser pausada pelo admin no botão da página Chats (`PUT /api/chats/coleta`, chave `chats_coleta` na tabela config); `CHATS_SYNC=0` no ambiente desliga de vez.
+- Mensagem do aviso aceita `**negrito**`, `[texto](https://link)` e `![descrição](https://imagem)` (só http/https; outro HTML é escapado). Imagem é por endereço público; não há upload de arquivo.

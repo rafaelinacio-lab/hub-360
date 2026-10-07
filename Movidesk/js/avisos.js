@@ -110,9 +110,13 @@ async function avFormulario() {
         <select id="avAgente" class="config-input"><option value="">— Agente remetente (obrigatório para enviar de verdade) —</option>
           ${AV.agentes.map((a) => `<option value="${avEsc(a.id)}" ${a.id === r.agente_id ? 'selected' : ''}>${avEsc(a.nome)}</option>`).join('')}</select>
         ${AV.erroAgentes ? `<p class="config-status error">${avEsc(AV.erroAgentes)}</p>` : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="config-btn config-btn-muted" onclick="avInserir('negrito')" title="Negrito"><b>N</b></button>
+          <button type="button" class="config-btn config-btn-muted" onclick="avInserir('link')" title="Inserir link">🔗 Link</button>
+          <button type="button" class="config-btn config-btn-muted" onclick="avInserir('imagem')" title="Inserir imagem por endereço (URL)">🖼️ Imagem</button></div>
         <textarea id="avMsg" class="config-input" rows="6" maxlength="5000" placeholder="Mensagem">${avEsc(r.mensagem)}</textarea>
-        <p class="config-card-help" style="margin:0">Variáveis: ${AV.dados.variaveis.map((v) => `<code>{{${v}}}</code>`).join(' ')}</p>
-        <div><button class="config-btn config-btn-muted" type="button" onclick="avPrevia()">Ver prévia</button> <span id="avPreviaTxt" class="config-card-help"></span></div>
+        <p class="config-card-help" style="margin:0">Variáveis: ${AV.dados.variaveis.map((v) => `<code>{{${v}}}</code>`).join(' ')}<br>Formatação: <code>**negrito**</code> · <code>[texto](https://link)</code> · <code>![descrição](https://endereço-da-imagem.png)</code> — a imagem precisa estar num endereço público (o cliente precisa conseguir abrir).</p>
+        <div><button class="config-btn config-btn-muted" type="button" onclick="avPrevia()">Ver prévia</button> <div id="avPreviaTxt" class="config-card-help" style="margin-top:8px"></div></div>
         <select id="avModo" class="config-input"><option value="simulacao" ${r.modo !== 'ativo' ? 'selected' : ''}>Simulação — só registra no histórico, não escreve no Movidesk</option><option value="ativo" ${r.modo === 'ativo' ? 'selected' : ''}>Enviar de verdade para o Movidesk</option></select>
         <div><strong>Por quanto tempo o aviso fica no ar</strong> <span class="config-card-help">— vale para chamados criados dentro do período; deixe em branco para não ter prazo</span>
           <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
@@ -141,8 +145,13 @@ function avChipsC() {
     document.getElementById('avChipsC').innerHTML = AV.editando.classificacoes.map((s, i) => `<span style="background:var(--surface-mid,#eee);border-radius:999px;padding:4px 10px;font-size:12px">${avEsc(s)} <a href="#" onclick="AV.editando.classificacoes.splice(${i},1);avChipsC();return false" title="Remover">✕</a></span>`).join('') || '<span class="config-card-help">Qualquer classificação.</span>';
 }
 async function avPrevia() {
-    try { const d = await avApi('/previa', 'POST', { mensagem: document.getElementById('avMsg').value, servico: AV.editando.servicos[0] }); document.getElementById('avPreviaTxt').textContent = d.texto; }
-    catch (e) { document.getElementById('avPreviaTxt').textContent = e.message; }
+    const alvo = document.getElementById('avPreviaTxt');
+    try {
+        const d = await avApi('/previa', 'POST', { mensagem: document.getElementById('avMsg').value, servico: AV.editando.servicos[0] });
+        // o HTML vem do servidor já escapado, só com <p>, <br>, <b>, <a> e <img> http(s); mesmo assim vai num iframe sem scripts
+        alvo.innerHTML = '<iframe sandbox="" style="width:100%;height:240px;border:1px solid var(--border,#ccc);border-radius:12px;background:#fff"></iframe>';
+        alvo.firstChild.srcdoc = `<body style="font:14px sans-serif;color:#222;margin:12px">${d.html}</body>`;
+    } catch (e) { alvo.textContent = e.message; }
 }
 async function avSalvarRegra() {
     const r = AV.editando, st = document.getElementById('avFormStatus');
@@ -178,4 +187,22 @@ function avDiagnostico(e) {
 }
 async function avVerificarAgora() {
     try { await avApi('/verificar', 'POST', {}); await avisosCarregar(); } catch (e) { alert(e.message); }
+}
+
+// Botões de formatação da mensagem: inserem a sintaxe no ponto do cursor (ou em volta do texto selecionado)
+function avInserir(tipo) {
+    const ta = document.getElementById('avMsg');
+    const ini = ta.selectionStart, fim = ta.selectionEnd, sel = ta.value.slice(ini, fim);
+    let ins;
+    if (tipo === 'negrito') ins = `**${sel || 'texto'}**`;
+    else if (tipo === 'link') {
+        const url = prompt('Endereço do link (https://...):', 'https://'); if (!url) return;
+        if (!/^https?:\/\//i.test(url)) { alert('Use um endereço que comece com http:// ou https://'); return; }
+        ins = `[${sel || prompt('Texto que aparece para o cliente:', 'clique aqui') || 'clique aqui'}](${url.trim()})`;
+    } else {
+        const url = prompt('Endereço (URL) da imagem — precisa ser público (https://...):', 'https://'); if (!url) return;
+        if (!/^https?:\/\//i.test(url)) { alert('Use um endereço que comece com http:// ou https://'); return; }
+        ins = `![${sel || 'imagem'}](${url.trim()})`;
+    }
+    ta.setRangeText(ins, ini, fim, 'end'); ta.focus();
 }
