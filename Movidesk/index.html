@@ -205,6 +205,9 @@
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
+                    <button class="cfg-tab-btn" data-tab="slahoras" onclick="switchConfigTab('slahoras')">
+                        <span class="material-symbols-outlined">schedule</span> SLA e horas
+                    </button>
                     <button class="cfg-tab-btn" data-tab="tokens" onclick="switchConfigTab('tokens')">
                         <span class="material-symbols-outlined">key</span> Tokens
                     </button>
@@ -724,6 +727,11 @@
                 <!-- ABA: Carga rápida (pendentes quase ao vivo) -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-rapida">
                     <div id="rpRoot"><p class="config-card-help">Carregando…</p></div>
+                </div>
+
+                <!-- ABA: SLA e horas -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-slahoras">
+                    <div id="shRoot"><p class="config-card-help">Carregando…</p></div>
                 </div>
 
                 <!-- ABA: Tokens -->
@@ -1824,6 +1832,7 @@
     <script src="js/avisos.js"></script>
     <script src="js/rapida.js"></script>
     <script src="js/tokens.js"></script>
+    <script src="js/slahoras.js"></script>
     <script src="js/config.js"></script>
     <script src="js/script.js"></script>
 
