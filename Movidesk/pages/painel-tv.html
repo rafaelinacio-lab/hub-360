@@ -487,8 +487,8 @@ updateClock();
 setInterval(updateClock,30000);
 loadPainelTV();
 // Painel de TV roda sem interação — recarrega sozinho pra ficar sempre
-// atualizado numa tela fixa.
-setInterval(loadPainelTV,5*60*1000);
+// atualizado numa tela fixa (a cada 1 min; o servidor guarda a lista por até 2 min ou até a carga gravar chamados).
+setInterval(loadPainelTV,60*1000);
 </script>
 <script src="/js/telemetria.js"></script>
 </body>

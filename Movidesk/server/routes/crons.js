@@ -49,6 +49,7 @@ function normalizarTarefa(body = {}) {
     owner_team:     txt(body.owner_team),
     classification: txt(body.classification),
     only_open:      !!body.only_open,
+    rapido:         !!body.rapido && !!body.only_open,   // modo rápido só faz sentido com "só em aberto"
     recent_days:    int(body.recent_days),
     year:           int(body.year),
   };
@@ -104,9 +105,9 @@ router.post('/tasks', async (req, res) => {
     const erro = validarTarefa(t);
     if (erro) return res.status(400).json({ error: erro });
     const { rows } = await db.query(
-      `INSERT INTO silver.cron_task (name, owner_team, classification, only_open, recent_days, year)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year]
+      `INSERT INTO silver.cron_task (name, owner_team, classification, only_open, recent_days, year, rapido)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year, t.rapido]
     );
     res.json({ task: rows[0] });
   } catch (e) {
@@ -122,9 +123,9 @@ router.patch('/tasks/:id', async (req, res) => {
     if (erro) return res.status(400).json({ error: erro });
     const { rows } = await db.query(
       `UPDATE silver.cron_task
-       SET name = $1, owner_team = $2, classification = $3, only_open = $4, recent_days = $5, year = $6, updated_at = NOW()
-       WHERE id = $7 RETURNING *`,
-      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year, id]
+       SET name = $1, owner_team = $2, classification = $3, only_open = $4, recent_days = $5, year = $6, rapido = $7, updated_at = NOW()
+       WHERE id = $8 RETURNING *`,
+      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year, t.rapido, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Tarefa não encontrada' });
     res.json({ task: rows[0] });
