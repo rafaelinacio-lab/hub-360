@@ -88,7 +88,7 @@ router.get('/apuracao/detalhe', limiteApurar, async (req, res) => {
     const c = r.clientes.find((x) => (x.organizacao_id || `sem:${x.nome}`) === org);
     if (!c) return res.json({ chamados: [] });
     res.json({ cliente: { nome: c.nome, plano: c.plano }, chamados: c._itens.map(({ c: t, av }) => ({ id: t.id, assunto: t.subject, criado_em: t.criado_em, encerrado_em: t.encerrado_em, severidade: av.severidade, dentro: av.dentro,
-      marcos: av.marcos, naoMedidos: av.naoMedidos })).sort((a, b) => (a.dentro === b.dentro ? 0 : a.dentro === false ? -1 : 1)) });
+      marcos: av.marcos, naoMedidos: av.naoMedidos, prOrigem: t.prOrigem, prMotivo: t.prMotivo, prPor: t.prPor })).sort((a, b) => (a.dentro === b.dentro ? 0 : a.dentro === false ? -1 : 1)) });
   } catch (e) { erro(res, e); }
 });
 

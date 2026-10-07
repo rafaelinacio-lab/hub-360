@@ -86,12 +86,12 @@ async function shDetalheCliente(org) {
     const box = document.getElementById('shDetalhe'); box.innerHTML = '<div class="config-card"><p class="config-card-help">Carregando…</p></div>';
     try {
         const d = await shApi(`/apuracao/detalhe?competencia=${SH.comp}&org=${encodeURIComponent(org)}`);
-        const m = (x) => (!x.aplica ? '<span style="color:var(--t3)">n/a</span>' : x.dentro === null ? '<span style="color:var(--t3)" title="Sem registro para medir">não medido</span>'
+        const m = (x, c) => (!x.aplica ? '<span style="color:var(--t3)">n/a</span>' : x.dentro === null ? `<span style="color:var(--t3)" title="${shEsc((c && c.prMotivo && x.nome === 'Primeira Resposta') ? c.prMotivo : 'Sem registro para medir')}">não medido${(c && c.prMotivo && x.nome === 'Primeira Resposta') ? `<br><small>${shEsc(c.prMotivo)}</small>` : ''}</span>`
             : `<span style="color:${x.dentro ? '#10b981' : '#ef4444'};font-weight:700">${shMin(x.minutos)}</span> <span style="color:var(--t3)">/ ${shMin(x.prazo)}</span>`);
         box.innerHTML = `<div class="config-card"><h3 class="config-card-title">${shEsc(d.cliente ? d.cliente.nome : '')} — chamados de ${SH.comp} (plano ${d.cliente ? shPlano[d.cliente.plano] : ''})</h3>
           <div style="overflow:auto;max-height:420px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left"><th>Chamado</th><th>Severidade</th><th>Primeira Resposta</th><th>Resolução do Suporte</th><th>Situação</th><th>Encerrado</th></tr></thead><tbody>
           ${d.chamados.map((c) => `<tr style="border-top:1px solid var(--border)"><td><a href="https://viasoft.movidesk.com/Ticket/Edit/${shEsc(c.id)}" target="_blank" rel="noopener">#${shEsc(c.id)}</a> <span style="color:var(--t3)">${shEsc((c.assunto || '').slice(0, 50))}</span></td>
-          <td>${shEsc(c.severidade || 'sem urgência')}</td><td>${m(c.marcos.pr)}</td><td>${m(c.marcos.resolucao)}</td>
+          <td>${shEsc(c.severidade || 'sem urgência')}</td><td>${m(c.marcos.pr, c)}${c.prOrigem === 'estimado' ? ' <span title="Autor sem perfil registrado: identificado como equipe pelo nome (estimativa)" style="color:#f59e0b">~</span>' : ''}${c.prPor ? `<br><small style="color:var(--t3)">${shEsc(c.prPor)}</small>` : ''}</td><td>${m(c.marcos.resolucao, c)}</td>
           <td>${c.dentro === null ? '<span style="color:var(--t3)">não avaliado</span>' : c.dentro ? '<span style="color:#10b981">dentro</span>' : '<span style="color:#ef4444">fora</span>'}</td><td>${shDataHora(c.encerrado_em)}</td></tr>`).join('')}
           </tbody></table></div></div>`;
         box.scrollIntoView({ behavior: 'smooth' });

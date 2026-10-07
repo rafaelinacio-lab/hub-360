@@ -46,11 +46,27 @@ async function carregarChamados(competencia, cfg) {
         FROM silver.ticket_acao WHERE ticket_id = ANY($1::bigint[]) ORDER BY criado_em`, [ids.slice(i, i + 3000)]);
     for (const a of r.rows) { if (!acoes.has(a.id)) acoes.set(a.id, []); acoes.get(a.id).push(a); }
   }
+  // Nomes dos clientes de cada chamado: serve para reconhecer, nas ações antigas SEM perfil/e-mail do autor, quem é da equipe.
+  const clientes = new Map();
+  for (let i = 0; i < ids.length; i += 3000) {
+    const r = await db.query(`SELECT ticket_id::text AS id, nome FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`, [ids.slice(i, i + 3000)]).catch(() => ({ rows: [] }));
+    for (const c of r.rows) { if (!clientes.has(c.id)) clientes.set(c.id, new Set()); if (c.nome) clientes.get(c.id).add(P.semAcento(c.nome)); }
+  }
   const auto = new Set(cfg.autoresAutomaticos.map(P.semAcento));
   return tk.map((t) => {
-    const lista = acoes.get(t.id) || [];
-    const pr = lista.find((a) => ehAgente(a) && !auto.has(P.semAcento(a.criado_por_nome)) && new Date(a.criado_em) > new Date(t.criado_em));
-    return { ...t, eventos: lista.filter((a) => a.status).map((a) => ({ em: a.criado_em, status: a.status })), primeiraRespostaEm: pr ? pr.criado_em : null };
+    const lista = acoes.get(t.id) || [], nomesCli = clientes.get(t.id) || new Set();
+    const abertura = new Date(t.criado_em);
+    const publicas = lista.filter((a) => a.is_public);
+    // Agente confirmado: perfil 1/3 ou e-mail @viasoft. Sem perfil nem e-mail (ações antigas): estimado pelo nome (não é um dos clientes do chamado).
+    const classe = (a) => (ehAgente(a) ? 'perfil' : (a.is_public && a.criado_por_profile_type == null && !a.criado_por_email && a.criado_por_nome && !nomesCli.has(P.semAcento(a.criado_por_nome)) ? 'estimado' : null));
+    const candidatas = lista.filter((a) => classe(a) && new Date(a.criado_em) > abertura);
+    const humanas = candidatas.filter((a) => !auto.has(P.semAcento(a.criado_por_nome)));
+    const pr = humanas[0] || null;
+    let motivo = null;
+    if (!pr) motivo = !lista.length ? 'sem ações gravadas no banco para este chamado' : !publicas.length ? 'só há notas internas (nenhuma ação pública)'
+      : candidatas.length ? 'só há respostas de autores automáticos' : 'nenhuma resposta pública de agente identificada (autor sem perfil ou só ações do cliente)';
+    return { ...t, eventos: lista.filter((a) => a.status).map((a) => ({ em: a.criado_em, status: a.status })), primeiraRespostaEm: pr ? pr.criado_em : null,
+      prOrigem: pr ? classe(pr) : null, prMotivo: motivo, prPor: pr ? pr.criado_por_nome : null };
   });
 }
 async function planosMap() {
