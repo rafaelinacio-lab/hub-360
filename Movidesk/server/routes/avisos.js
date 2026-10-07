@@ -53,7 +53,7 @@ router.put('/geral', async (req, res) => {
       parcial.ligado = req.body.ligado;
       if (req.body.ligado) parcial.vigia = new Date().toISOString();   // ao ligar, só vale para chamados criados daqui para frente
     }
-    if (req.body?.intervaloSeg != null) parcial.intervaloSeg = Math.min(600, Math.max(30, Math.round(Number(req.body.intervaloSeg)) || 60));
+    if (req.body?.intervaloSeg != null) parcial.intervaloSeg = Math.min(600, Math.max(30, Math.round(Number(req.body.intervaloSeg)) || 120));
     res.json({ estado: await av.gravarEstado(parcial) });
   } catch (e) { res.status(500).json({ error: 'Erro ao salvar' }); }
 });

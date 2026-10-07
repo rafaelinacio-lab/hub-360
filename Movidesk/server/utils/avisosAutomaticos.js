@@ -19,7 +19,7 @@ const MAX_TENTATIVAS = 3;
 const POR_CICLO = 50;
 const JANELA_RETRY_MIN = 60;
 
-const PADRAO_ESTADO = { ligado: false, intervaloSeg: 60, vigia: null, ultimoCiclo: null, ultimoErro: null };
+const PADRAO_ESTADO = { ligado: false, intervaloSeg: 120, vigia: null, ultimoCiclo: null, ultimoErro: null };
 
 let pronto = null;
 function garantirTabelas() {
@@ -196,7 +196,7 @@ async function ciclo() {
 
 async function agendar() {
   clearTimeout(timer);
-  let seg = 60;
+  let seg = 120;
   try { seg = (await lerEstado()).intervaloSeg || 60; } catch { /* tabela ainda não existe: tenta de novo */ }
   timer = setTimeout(async () => { await ciclo(); agendar(); }, Math.max(30, seg) * 1000);
   timer.unref?.();
