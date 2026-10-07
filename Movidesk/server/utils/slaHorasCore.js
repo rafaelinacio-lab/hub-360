@@ -87,6 +87,48 @@ async function apurar(competencia, cfg) {
   return { competencia, clientes, chamados: chamados.length };
 }
 
+
+// ── Reparo dos autores das ações ──────────────────────────────────────────────────
+// Ações gravadas sem o autor (nome, e-mail e perfil nulos) impedem saber quem respondeu primeiro. Este reparo reconsulta no Movidesk
+// (mesma gravação da carga, com createdBy) os chamados de Suporte Técnico encerrados na competência que têm ação pública sem autor.
+// Roda sozinho antes de cada apuração (até `limite` chamados por rodada) e também pode ser disparado pela tela.
+const _tentados = new Set();   // chamados já reconsultados neste processo (evita insistir quando o Movidesk também não informa o autor)
+const _reparo = { rodando: false, competencia: null, total: 0, feitos: 0, falhas: 0, em: null };
+async function idsSemAutor(competencia, limite) {
+  const [ano, mes] = competencia.split('-').map(Number);
+  const ini = `${competencia}-01T00:00:00-03:00`, fim = `${mes === 12 ? ano + 1 : ano}-${String(mes === 12 ? 1 : mes + 1).padStart(2, '0')}-01T00:00:00-03:00`;
+  const r = await db.query(`
+    SELECT t.ticket_id::text AS id FROM silver.ticket t
+      JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
+     WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = 'suporte tecnico'
+       AND t.basestatus IN (${FECHADOS}) AND COALESCE(t.resolved_in, t.closed_in) >= $1::timestamptz AND COALESCE(t.resolved_in, t.closed_in) < $2::timestamptz
+       AND EXISTS (SELECT 1 FROM silver.ticket_acao a WHERE a.ticket_id = t.ticket_id AND a.is_public
+                    AND a.criado_por_profile_type IS NULL AND a.criado_por_email IS NULL AND a.criado_por_nome IS NULL)
+     ORDER BY t.ticket_id DESC LIMIT $3`, [ini, fim, limite + _tentados.size]);
+  return r.rows.map((x) => x.id).filter((id) => !_tentados.has(id)).slice(0, limite);
+}
+async function repararAutores(competencia, { limite = 1500, paralelo = 5 } = {}) {
+  if (_reparo.rodando) return { ignorado: 'já existe um reparo em andamento', ..._reparo };
+  _reparo.rodando = true; Object.assign(_reparo, { competencia, total: 0, feitos: 0, falhas: 0, em: new Date().toISOString() });
+  try {
+    const ids = await idsSemAutor(competencia, limite);
+    _reparo.total = ids.length;
+    if (!ids.length) return { ..._reparo };
+    const loader = require('../scripts/movidesk-loader');
+    let i = 0;
+    const trab = async () => {
+      while (i < ids.length) {
+        const id = ids[i++]; _tentados.add(id);
+        try { await loader.sincronizarTicket(id); } catch (e) { _reparo.falhas++; }
+        _reparo.feitos++;
+      }
+    };
+    await Promise.all(Array.from({ length: paralelo }, trab));
+    return { ..._reparo };
+  } finally { _reparo.rodando = false; }
+}
+const estadoReparo = () => ({ ..._reparo });
+
 // ── Lançamento AUTOMÁTICO das horas técnicas ─────────────────────────────────────────
 // Para cada cliente, percorre os meses já encerrados (a partir de cfg.automatico.desde) em ordem. Cada mês com chamados avaliados entra numa
 // "bolsa"; quando a bolsa chega a cfg.minimoElegiveis chamados avaliados, ou completa 3 competências (Seção 20.5), a apuração é fechada:
@@ -114,6 +156,7 @@ async function processarCompetencias({ por = 'automático', forcar = false } = {
     const bolsas = new Map();   // organizacao_id -> { nome, plano, meses: [{ comp, av:[] }] }
     const resumo = { competencias: comps, lancados: [], acumulando: [], semCredito: 0 };
     for (const comp of comps) {
+      await repararAutores(comp).catch((e) => console.warn('[sla-horas] reparo de autores ignorado:', e.message));   // Primeira Resposta depende de saber quem respondeu
       const ap = await apurar(comp, cfg);
       for (const cl of ap.clientes) {
         if (!cl.organizacao_id) continue;
@@ -182,4 +225,4 @@ async function saldosPorCliente() {
   return out;
 }
 const invalidarSaldos = () => { _saldosCache = { em: 0, valor: null }; };
-module.exports = { prepararTabelas, lerConfig, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, lerStatus, primeiroDiaSeguinte };
+module.exports = { repararAutores, estadoReparo, prepararTabelas, lerConfig, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, lerStatus, primeiroDiaSeguinte };
