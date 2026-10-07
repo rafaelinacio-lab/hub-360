@@ -59,7 +59,7 @@
   html body.tv-page .kpi-grid.compacto [data-tone="blue"] .value { color: var(--brand-text, #6ea8fe); }
   html body.tv-page .kpi-grid.compacto [data-tone="green"] .value { color: var(--success); }
   html body.tv-page .kpi-grid.compacto .stat-card.zero .value { color: var(--t3); }
-  .slr-tab tr[data-urg]:hover td { background: var(--surface-low, rgba(255,255,255,.04)); }
+  .slr-tab tr[data-resp]:hover td, .slr-tab tr[data-urg]:hover td, .donut-leg li[data-prazo]:hover { background: var(--surface-low, rgba(255,255,255,.04)); }
   .slr-tab tr.sel-linha td { background: var(--surface-mid, rgba(255,255,255,.08)); }
   .tv-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.62); align-items: center; justify-content: center; padding: 3vh 3vw; }
   .tv-modal-box { background: var(--surface); border: 1px solid var(--border-hi); border-radius: 22px; width: min(1500px,100%); max-height: 94vh; display: flex; flex-direction: column; padding: 22px 24px; box-shadow: 0 24px 80px rgba(0,0,0,.5); }
@@ -441,7 +441,7 @@ function donutTv(id,itens){
   if(_prazoChart){ _prazoChart.destroy(); _prazoChart=null; }
   const total=itens.reduce((a,i)=>a+i.valor,0);
   const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  if(leg) leg.innerHTML=itens.map(i=>`<li><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+  if(leg) leg.innerHTML=itens.map(i=>`<li data-prazo="${escAttr(i.chave||'')}" style="cursor:pointer" title="Ver os chamados"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
   if(!total) return;
   const t1=cs('--t1'), t3=cs('--t3');
   const centro={id:'centroRosca',afterDraw(ch){
@@ -451,7 +451,8 @@ function donutTv(id,itens){
     ctx.fillStyle=t3; ctx.font='600 13px Manrope,system-ui,sans-serif'; ctx.fillText('pendentes',x,y+20); ctx.restore(); }};
   _prazoChart=new Chart(cv,{type:'doughnut',
     data:{labels:itens.map(i=>i.label),datasets:[{data:itens.map(i=>i.valor),backgroundColor:itens.map(i=>i.cor),borderWidth:0,borderRadius:10,spacing:3}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'76%',plugins:{legend:{display:false}}},plugins:[centro]});
+    options:{responsive:true,maintainAspectRatio:false,cutout:'76%',plugins:{legend:{display:false}},
+      onClick:(e,els)=>{ if(els.length) abrirModal({prazo:itens[els[0].index].chave}); }, onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }},plugins:[centro]});
 }
 
 function renderTeamChart(){
@@ -474,6 +475,8 @@ function renderTeamChart(){
     plugins: [valores],
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { right: 48 } },
+      onClick: (e, els) => { if (els.length) abrirModal({ equipe: entries[els[0].index][0] }); },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
       plugins: { legend: { display: false } },
       scales: {
         x: { display: false, beginAtZero: true },
@@ -488,7 +491,7 @@ function renderPrazoChart(){
   const semPrazo=_rows.filter(r=>statusPrazoDe(r)==='Sem Prazo').length;
   const pausado=_rows.filter(r=>statusPrazoDe(r)==='Pausado').length;
   const noPrazo=_rows.filter(r=>statusPrazoDe(r)==='No Prazo').length;
-  donutTv('prazoChart',[{label:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',valor:pausado,cor:'#f2b24a'},{label:'Sem prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',valor:noPrazo,cor:'#2fbf8a'}]);
+  donutTv('prazoChart',[{label:'Vencido',chave:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',chave:'Pausado',valor:pausado,cor:'#f2b24a'},{label:'Sem prazo',chave:'Sem Prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',chave:'No Prazo',valor:noPrazo,cor:'#2fbf8a'}]);
 }
 
 
@@ -523,7 +526,9 @@ function renderPessoaChart(){
   _pessoaChart=new Chart(cv,{type:'bar',
     data:{labels:nomes,datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9}))},
     plugins:[total],
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48}},plugins:{legend:{display:true,position:'top',labels:{color:t2,usePointStyle:true,font:{size:12,weight:'700'}}}},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48}},
+      onClick:(e,els)=>{ if(els.length) abrirModal({pessoa:nomes[els[0].index],prazo:defs[els[0].datasetIndex][0]}); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },plugins:{legend:{display:true,position:'top',labels:{color:t2,usePointStyle:true,font:{size:12,weight:'700'}}}},
       scales:{x:{display:false,stacked:true,beginAtZero:true},y:{stacked:true,grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:13,weight:'700'}}}}}});
 }
 function renderUrgencia(){
@@ -542,18 +547,33 @@ function renderUrgencia(){
 }
 
 const ROTULO_CARD={todos:'Chamados pendentes',vencidos:'Chamados vencidos',criticos:'Chamados críticos pendentes','criticos-venc':'Chamados críticos vencidos','abertos-hoje':'Chamados abertos hoje','fechados-hoje':'Chamados fechados hoje'};
-function linhasDe(card,urg){
+// spec = { card, urg, equipe, pessoa, prazo }: o que foi clicado (card, urgência, barra de equipe/pessoa, fatia do prazo, analista).
+const prazoRotulo={Vencido:'Vencidos','No Prazo':'No prazo',Pausado:'Pausados (aguardando)','Sem Prazo':'Sem prazo'};
+function linhasDe(sp){
+  const {card,urg,equipe,pessoa,prazo}=sp;
   if(card==='abertos-hoje'||card==='fechados-hoje'){
     const hoje=hojeBR(), ab=card==='abertos-hoje';
     return _hojeAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&diaBR(ab?r.criado_em:r.fechado_em)===hoje).map(r=>({...r,_hoje:ab?'aberto':'fechado'}));
   }
   let l=_rows;
   if(urg) l=l.filter(r=>urgenciaDe(r)===urg);
+  if(equipe) l=l.filter(r=>(r.equipe||'Não informado')===equipe);
+  if(pessoa) l=l.filter(r=>((r.responsavel||'').trim()||'Não atribuído')===pessoa);
+  if(prazo) l=l.filter(r=>statusPrazoDe(r)===prazo);
   if(card==='vencidos') l=l.filter(isVencido);
   else if(card==='criticos') l=l.filter(ehCritico);
   else if(card==='criticos-venc') l=l.filter(r=>ehCritico(r)&&isVencido(r));
   return l;
 }
+const tituloDe=sp=>{
+  const partes=[];
+  if(sp.card&&ROTULO_CARD[sp.card]) partes.push(ROTULO_CARD[sp.card]);
+  if(sp.equipe) partes.push(`Equipe "${sp.equipe}"`);
+  if(sp.pessoa) partes.push(sp.pessoa);
+  if(sp.urg) partes.push(`Urgência "${sp.urg}"`);
+  if(sp.prazo) partes.push(prazoRotulo[sp.prazo]||sp.prazo);
+  return partes.length?partes.join(' · '):'Chamados pendentes';
+};
 function linhaHtml(r){
   const link=`<a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a>`;
   const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||'')}">${esc(r.organizacao||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num">${diasEmAberto(r)}</td>`;
@@ -567,10 +587,11 @@ const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><
 const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:22%"><col style="width:14%"><col style="width:7%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';
 // Modal com a lista de chamados do card/urgência clicado.
 let _modalSel=null;
-function abrirModal(card,urg){
-  _modalSel={card,urg};
-  const lista=[...linhasDe(card,urg)].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
-  document.getElementById('tv-modal-titulo').textContent=urg?`Urgência "${urg}" — pendentes`:ROTULO_CARD[card]||'Chamados';
+function abrirModal(sp){
+  if(typeof sp==='string') sp={card:sp};
+  _modalSel=sp;
+  const lista=[...linhasDe(sp)].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
+  document.getElementById('tv-modal-titulo').textContent=tituloDe(sp);
   document.getElementById('tv-modal-sub').textContent=`${lista.length.toLocaleString('pt-BR')} chamado(s)${lista.length?' — do mais antigo ao mais novo':''}. Clique no número para abrir no Movidesk.`;
   document.getElementById('tv-modal-corpo').innerHTML=lista.length?`<table>${COLGROUP_TAB}${CABECALHO_TAB}<tbody>${lista.map(linhaHtml).join('')}</tbody></table>`:'<p class="empty-state">Nenhum chamado neste recorte.</p>';
   document.getElementById('tv-modal').style.display='flex';
@@ -580,7 +601,9 @@ function fecharModal(){ _modalSel=null; document.getElementById('tv-modal').styl
 document.addEventListener('click',e=>{
   if(e.target.id==='tv-modal'||e.target.closest('#tv-modal-x')){ fecharModal(); return; }
   const c=e.target.closest('[data-card]'); if(c){ abrirModal(c.dataset.card); return; }
-  const u=e.target.closest('[data-urg]'); if(u) abrirModal('todos',u.dataset.urg);
+  const u=e.target.closest('[data-urg]'); if(u){ abrirModal({urg:u.dataset.urg}); return; }
+  const pz=e.target.closest('[data-prazo]'); if(pz){ abrirModal({prazo:pz.dataset.prazo}); return; }
+  const rs=e.target.closest('[data-resp]'); if(rs) abrirModal({pessoa:rs.dataset.resp});
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape') fecharModal();
@@ -593,7 +616,7 @@ function renderTable(){
   const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a));
   const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=`(${top.length.toLocaleString('pt-BR')} chamados)`;
   tbody.innerHTML=top.length?top.map(linhaHtml).join(''):`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`;
-  if(_modalSel) abrirModal(_modalSel.card,_modalSel.urg);   // atualização automática: mantém o modal aberto com dados novos
+  if(_modalSel) abrirModal(_modalSel);   // atualização automática: mantém o modal aberto com dados novos
 }
 
 
@@ -642,7 +665,7 @@ function renderSlaResponsaveis(rows,per){
   if(!itens.length){ lista.innerHTML='<p class="imp-vazio">Nenhum chamado de Suporte Técnico neste filtro.</p>'; return; }
   const corPct=p=>p==null?'var(--t3)':p>=90?'var(--success)':p>=80?'var(--warning)':'var(--danger)';
   lista.innerHTML=`<table class="slr-tab"><thead><tr><th>Analista</th><th>SLA (resolvidos)</th><th>Pendentes</th><th>Impacto no SLA do time</th></tr></thead><tbody>`+
-    itens.map(r=>`<tr>
+    itens.map(r=>`<tr data-resp="${escAttr(r.responsavel)}" style="cursor:pointer" title="Ver os pendentes deste analista">
       <td><div class="slr-nome"><span class="slr-av" style="background:${corAvatar(r.responsavel)}">${esc(iniciais(r.responsavel))}</span>${esc(r.responsavel)}</div></td>
       <td><div class="slr-sla">
         <div class="linha"><span class="pct" style="color:${corPct(r.pct)}">${r.pct==null?'—':fmt(r.pct)+'%'}</span><span class="det">${r.dentro.toLocaleString('pt-BR')} dentro · ${r.fora.toLocaleString('pt-BR')} fora</span></div>
