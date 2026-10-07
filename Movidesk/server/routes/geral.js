@@ -173,7 +173,22 @@ router.get('/pendentes', authMiddleware, requireTabAccess('paineltv'), async (re
         ${LAST_PUBLIC_ACTION_JOIN}
         ORDER BY p.criado_em DESC
       `);
-      return { rows: result.rows || [] };
+      const rows = result.rows || [];
+      // Chamados recém-carregados ainda não entraram em silver.ticket_organizacao (ela é refeita a cada 30 min):
+      // para os pendentes sem organização, usa direto o cliente do chamado (mesma heurística da materialização).
+      const semOrg = rows.filter(r => !r.organizacao).map(r => r.ticket_id).filter(id => /^\d{1,18}$/.test(String(id)));
+      if (semOrg.length) {
+        try {
+          const fb = await db.query(`
+            SELECT DISTINCT ON (ticket_id) ticket_id::text AS id, organizacao_id, organizacao_nome
+              FROM silver.ticket_cliente
+             WHERE ticket_id = ANY($1::bigint[]) AND NULLIF(btrim(organizacao_nome), '') IS NOT NULL
+             ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false)`, [semOrg]);
+          const porId = new Map((fb.rows || []).map(x => [x.id, x]));
+          rows.forEach(r => { if (!r.organizacao) { const o = porId.get(String(r.ticket_id)); if (o) { r.organizacao = o.organizacao_nome; r.organizacao_id = o.organizacao_id; } } });
+        } catch (e) { console.warn('[geral] fallback de organização dos pendentes falhou:', e.message); }
+      }
+      return { rows };
     });
   } catch (error) {
     if (error.code === '42P01') {
@@ -486,7 +501,7 @@ router.get('/sla-responsaveis', authMiddleware, requireTabAccess('paineltv'), as
           SELECT COALESCE(NULLIF(btrim(t.owner_name), ''), 'Não atribuído') AS responsavel,
                  (t.basestatus IN (${FECHADOS_SQL})) AS resolvido,
                  (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado')) AS pendente,
-                 t.resolved_in, t.sla_solution_date AS prazo
+                 t.basestatus AS base, t.resolved_in, t.sla_solution_date AS prazo
             FROM silver.ticket t
             JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
            WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = '${CLASSIFICACAO_SLA}'${filtroServico}
@@ -499,7 +514,8 @@ router.get('/sla-responsaveis', authMiddleware, requireTabAccess('paineltv'), as
                COUNT(*) FILTER (WHERE pendente)::int AS pendentes,
                COUNT(*) FILTER (WHERE pendente AND prazo IS NOT NULL AND prazo <  NOW())::int AS vencidos,
                COUNT(*) FILTER (WHERE pendente AND prazo IS NOT NULL AND prazo >= NOW())::int AS no_prazo,
-               COUNT(*) FILTER (WHERE pendente AND prazo IS NULL)::int AS sem_prazo
+               COUNT(*) FILTER (WHERE pendente AND prazo IS NULL AND base = 'Stopped')::int AS pausados,
+               COUNT(*) FILTER (WHERE pendente AND prazo IS NULL AND base IS DISTINCT FROM 'Stopped')::int AS sem_prazo
           FROM b GROUP BY 1 ORDER BY 1`, params);
       return { desde, servico: servico || null, classificacao: 'Suporte Técnico', rows: r.rows || [] };
     });
