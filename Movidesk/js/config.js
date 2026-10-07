@@ -879,7 +879,7 @@ function switchConfigTab(tab) {
     // Carregar consumo de IA ao abrir aba IA
     if (tab === 'ia') loadAiUsage();
     if (tab === 'ia-assist') { aiaInit(); loadAiAssistTab(); }
-    if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
+    if (tab === 'curadoria') { if (typeof loadPipeAnoCount === 'function') loadPipeAnoCount(); loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
@@ -1658,7 +1658,12 @@ async function loadFullLoadStatus() {
 async function triggerCuradoriaFullLoad() {
     _setFullLoadButtonLoading(true);
     try {
-        const response = await fetch(`${API_BASE}/curadoria/full-load`, { method: 'POST', headers: authHeaders() });
+        const ano = (document.getElementById('cfgPipeAno')?.value || '').trim();
+        const limite = (document.getElementById('cfgPipeLimite')?.value || '').trim();
+        const qtd = document.getElementById('cfgPipeAnoCount')?.dataset.n || '';
+        const txt = `${ano ? `os chamados de ${ano}` : 'TODOS os chamados pendentes'}${limite ? `, no máximo ${limite}` : ''}${qtd ? ` (hoje: ${qtd} pendentes${ano ? ' nesse ano' : ''})` : ''}`;
+        if (!confirm(`A IA vai analisar ${txt}. Isso consome créditos da OpenAI. Continuar?`)) { _setFullLoadButtonLoading(false); return; }
+        const response = await fetch(`${API_BASE}/curadoria/full-load`, { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ano: ano || undefined, limite: limite || undefined }) });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Falha ao disparar pipeline');
         renderFullLoadStatus(data);
@@ -1667,6 +1672,19 @@ async function triggerCuradoriaFullLoad() {
         _setFullLoadButtonLoading(false);
         setCfgStatus('cfgFullLoadStatus', `Erro ao iniciar: ${error.message}`, 'error');
     }
+}
+
+async function loadPipeAnoCount() {
+    const el = document.getElementById('cfgPipeAnoCount');
+    if (!el) return;
+    const ano = (document.getElementById('cfgPipeAno')?.value || '').trim();
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/pending-count${ano ? `?ano=${encodeURIComponent(ano)}` : ''}`, { headers: authHeaders() });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'erro');
+        el.dataset.n = d.count;
+        el.textContent = `${d.count.toLocaleString('pt-BR')} chamado(s) pendente(s)${ano ? ` em ${ano}` : ''}`;
+    } catch (e) { el.dataset.n = ''; el.textContent = ''; }
 }
 
 async function stopFullPipeline() {
