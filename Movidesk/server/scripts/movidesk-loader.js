@@ -818,6 +818,86 @@ async function logTicketChanges(logId, ids, fieldsMap) {
 }
 
 // ── Persistir um lote de tickets ──────────────────────────────────────────────
+// Grava os clientes/organizações dos chamados (silver.ticket_cliente): DELETE + INSERT por chamado, numa transação.
+// Usada pelo saveBatch (carga completa) e pela carga rápida de pendentes (salvarBasico).
+async function gravarClientes(tickets) {
+  // schema Java: ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome
+  const cliRowsBruto = [];
+  for (const t of tickets) {
+    if (!Array.isArray(t.clients)) continue;
+    for (const c of t.clients) {
+      // Nem sempre a organização vem aninhada em c.organization — em tickets
+      // como o #876730, a empresa aparece como um client PRÓPRIO dentro de
+      // clients[] (personType 2 = pessoa jurídica), com organization:null
+      // nela mesma. Sem esse fallback, nem o contato pessoa física nem o
+      // registro da empresa ficavam com organizacao_id/nome preenchidos, e o
+      // ticket caía em "Não informado" mesmo tendo organização clara no
+      // Movidesk.
+      const orgId   = c.organization?.id ? String(c.organization.id)
+                     : (c.personType === 2 && c.id ? String(c.id) : null);
+      const orgNome = c.organization?.businessName
+                     || (c.personType === 2 ? c.businessName : null)
+                     || null;
+      cliRowsBruto.push({
+        ticket_id:        String(t.id),
+        // Cliente sem id no Movidesk (contato removido/sem cadastro): a tabela criada
+        // pelo extrator Java tem cliente_id NOT NULL, e um único cliente assim derrubava
+        // o lote inteiro ("null value in column cliente_id ... violates not-null").
+        // Grava um marcador em vez de perder o cliente (e a organização dele).
+        cliente_id:       c.id ? String(c.id) : SEM_ID_CLIENTE,
+        nome:             c.businessName || null,
+        email:            c.email || null,
+        organizacao_id:   orgId,
+        organizacao_nome: orgNome,
+        // profileType — um ticket pode ter mais de um "client" (o contato
+        // externo de verdade E o próprio agente interno da Viasoft que
+        // criou/atua no ticket). profileType=3 é o padrão do Movidesk pra
+        // agente interno — guardamos pra poder priorizar o contato externo
+        // na hora de escolher a organização do cliente (ver rotas
+        // ouvidoria.js/gcc.js).
+        profile_type:     c.profileType != null ? String(c.profileType) : null,
+      });
+    }
+  }
+  const cliRows = dedupeClientes(cliRowsBruto);
+  if (cliRows.length) {
+    // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT
+    // por ticket, na mesma transação (mesmo motivo do bloco acima).
+    const cliTicketIds = [...new Set(cliRows.map(r => r.ticket_id))];
+    await comLockRetry(async (client) => {
+      await client.query('BEGIN');
+      try {
+        await client.query(
+          `DELETE FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`,
+          [cliTicketIds]
+        );
+        await client.query(`
+          INSERT INTO silver.ticket_cliente
+            (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type, extracted_at)
+          SELECT
+            u.ticket_id::bigint, COALESCE(NULLIF(u.cliente_id, ''), '${SEM_ID_CLIENTE}'), u.nome, u.email,
+            NULLIF(u.organizacao_id, ''), u.organizacao_nome, u.profile_type, NOW()
+          FROM unnest(
+            $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]
+          ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type)
+        `, [
+          cliRows.map(r => r.ticket_id),
+          cliRows.map(r => r.cliente_id),
+          cliRows.map(r => r.nome),
+          cliRows.map(r => r.email),
+          cliRows.map(r => r.organizacao_id),
+          cliRows.map(r => r.organizacao_nome),
+          cliRows.map(r => r.profile_type),
+        ]);
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      }
+    });
+  }
+}
+
 async function saveBatch(tickets) {
   if (!tickets.length) return [];
 
@@ -1064,81 +1144,8 @@ async function saveBatch(tickets) {
     });
   }
 
-  // ── 4. silver.ticket_cliente ── (schema Java: ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
-  const cliRowsBruto = [];
-  for (const t of tickets) {
-    if (!Array.isArray(t.clients)) continue;
-    for (const c of t.clients) {
-      // Nem sempre a organização vem aninhada em c.organization — em tickets
-      // como o #876730, a empresa aparece como um client PRÓPRIO dentro de
-      // clients[] (personType 2 = pessoa jurídica), com organization:null
-      // nela mesma. Sem esse fallback, nem o contato pessoa física nem o
-      // registro da empresa ficavam com organizacao_id/nome preenchidos, e o
-      // ticket caía em "Não informado" mesmo tendo organização clara no
-      // Movidesk.
-      const orgId   = c.organization?.id ? String(c.organization.id)
-                     : (c.personType === 2 && c.id ? String(c.id) : null);
-      const orgNome = c.organization?.businessName
-                     || (c.personType === 2 ? c.businessName : null)
-                     || null;
-      cliRowsBruto.push({
-        ticket_id:        String(t.id),
-        // Cliente sem id no Movidesk (contato removido/sem cadastro): a tabela criada
-        // pelo extrator Java tem cliente_id NOT NULL, e um único cliente assim derrubava
-        // o lote inteiro ("null value in column cliente_id ... violates not-null").
-        // Grava um marcador em vez de perder o cliente (e a organização dele).
-        cliente_id:       c.id ? String(c.id) : SEM_ID_CLIENTE,
-        nome:             c.businessName || null,
-        email:            c.email || null,
-        organizacao_id:   orgId,
-        organizacao_nome: orgNome,
-        // profileType — um ticket pode ter mais de um "client" (o contato
-        // externo de verdade E o próprio agente interno da Viasoft que
-        // criou/atua no ticket). profileType=3 é o padrão do Movidesk pra
-        // agente interno — guardamos pra poder priorizar o contato externo
-        // na hora de escolher a organização do cliente (ver rotas
-        // ouvidoria.js/gcc.js).
-        profile_type:     c.profileType != null ? String(c.profileType) : null,
-      });
-    }
-  }
-  const cliRows = dedupeClientes(cliRowsBruto);
-  if (cliRows.length) {
-    // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT
-    // por ticket, na mesma transação (mesmo motivo do bloco acima).
-    const cliTicketIds = [...new Set(cliRows.map(r => r.ticket_id))];
-    await comLockRetry(async (client) => {
-      await client.query('BEGIN');
-      try {
-        await client.query(
-          `DELETE FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`,
-          [cliTicketIds]
-        );
-        await client.query(`
-          INSERT INTO silver.ticket_cliente
-            (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type, extracted_at)
-          SELECT
-            u.ticket_id::bigint, COALESCE(NULLIF(u.cliente_id, ''), '${SEM_ID_CLIENTE}'), u.nome, u.email,
-            NULLIF(u.organizacao_id, ''), u.organizacao_nome, u.profile_type, NOW()
-          FROM unnest(
-            $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]
-          ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type)
-        `, [
-          cliRows.map(r => r.ticket_id),
-          cliRows.map(r => r.cliente_id),
-          cliRows.map(r => r.nome),
-          cliRows.map(r => r.email),
-          cliRows.map(r => r.organizacao_id),
-          cliRows.map(r => r.organizacao_nome),
-          cliRows.map(r => r.profile_type),
-        ]);
-        await client.query('COMMIT');
-      } catch (e) {
-        await client.query('ROLLBACK').catch(() => {});
-        throw e;
-      }
-    });
-  }
+  // ── 4. silver.ticket_cliente ──
+  await gravarClientes(tickets);
 
   cacheResposta.marcarAlterado();   // listas em cache do Painel Geral passam a ser refeitas
   return tickets;
@@ -1939,6 +1946,25 @@ async function salvarBasico(tickets) {
       category = EXCLUDED.category, service_full = EXCLUDED.service_full, resolved_in = EXCLUDED.resolved_in, closed_in = EXCLUDED.closed_in,
       sla_solution_date = EXCLUDED.sla_solution_date, reopened_in = EXCLUDED.reopened_in, extracted_at = EXCLUDED.extracted_at
   `, [A.ids, A.subj, A.st, A.base, A.cr, A.up, A.team, A.oid, A.onm, A.urg, A.cat, A.svc, A.res, A.clo, A.sla, A.reo]));
+  // Clientes (opcional: só quando a listagem veio com `clients`). Sem id em algum cliente = expansão suspeita (o Movidesk já
+  // corrompeu campos expandidos junto com $filter): esse chamado fica sem mexer e os clientes vêm pela fila de detalhes.
+  const comClientes = tickets.filter(t => Array.isArray(t.clients) && t.clients.length && t.clients.every(c => c && c.id));
+  if (tickets.some(t => 'clients' in t) && tickets.length >= 20 && !comClientes.length) {
+    console.warn('[loader] a listagem rápida veio sem clientes utilizáveis — mantendo os clientes atuais (a fila de detalhes completa)');
+  }
+  if (comClientes.length) {
+    try {
+      await gravarClientes(comClientes);
+      const ids = comClientes.map(t => String(t.id));
+      const orgs = comClientes.map(t => { const c = t.clients[0]; return c?.organization?.businessName || null; });
+      await db.query(`UPDATE silver.ticket t SET clientorganization = u.org FROM unnest($1::bigint[], $2::text[]) AS u(id, org) WHERE t.ticket_id = u.id AND u.org IS NOT NULL`, [ids, orgs]);
+      await db.query(`
+        INSERT INTO silver.ticket_organizacao (ticket_id, organizacao_id, organizacao_nome, atualizado_em)
+        SELECT DISTINCT ON (ticket_id) ticket_id, organizacao_id, organizacao_nome, NOW() FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])
+         ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
+        ON CONFLICT (ticket_id) DO UPDATE SET organizacao_id = EXCLUDED.organizacao_id, organizacao_nome = EXCLUDED.organizacao_nome, atualizado_em = EXCLUDED.atualizado_em`, [ids]);
+    } catch (e) { console.warn('[loader] clientes da carga rápida não gravados:', e.message); }
+  }
   cacheResposta.marcarAlterado();   // o Painel TV/Geral refazem a lista na próxima abertura
   return tickets;
 }
@@ -1962,7 +1988,7 @@ async function reconferirRapido(token, seen, { ownerTeamVal, classValue }) {
     try {
       let full = null;
       for (const ep of ['/tickets', '/tickets/past']) {
-        const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': EXPAND_LISTAGEM_LEVE })}`);
+        const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': 'owner,clients' })}`);
         const data = await resp.json();
         const t = Array.isArray(data) ? data[0] : data;
         if (t && t.id) { full = t; break; }
@@ -2039,7 +2065,8 @@ async function runPendentesRapido(task, cronJobId = null) {
   const classFilter  = ownerTeamVal
     ? `ownerTeam eq '${ownerTeamVal.replace(/'/g, "''")}'`
     : (classValue ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO} and cf/items/any(item: item/customFieldItem eq '${classValue.replace(/'/g, "''")}'))` : null);
-  const pageSize = ownerTeamVal || !classValue ? 1000 : CLASS_FILTER_PAGE_SIZE;   // só campos básicos: páginas grandes
+  const EXPAND_RAPIDO = 'owner,clients';   // campos básicos + clientes (organização) já na carga rápida
+  const pageSize = ownerTeamVal || !classValue ? 300 : CLASS_FILTER_PAGE_SIZE;   // com clientes a página é menor que só o básico
   const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
 
   state.running = true; state.cancelRequested = false; state.mode = mode; state.startedAt = new Date().toISOString();
@@ -2053,7 +2080,7 @@ async function runPendentesRapido(task, cronJobId = null) {
     const token = await getMovideskToken();
     const seen = new Set();
     const save = async (batch) => { batch.forEach(t => seen.add(String(t.id))); return salvarBasico(batch); };
-    await fetchEndpoint(token, '/tickets', [classFilter, closedExclusion].filter(Boolean).join(' and '), save, pageSize, EXPAND_LISTAGEM_LEVE);
+    await fetchEndpoint(token, '/tickets', [classFilter, closedExclusion].filter(Boolean).join(' and '), save, pageSize, EXPAND_RAPIDO);
     let rec = null;
     if (ownerTeamVal || classValue) {
       state.phase = 'reconferindo';
