@@ -21,7 +21,7 @@ document.documentElement.setAttribute('data-ui', 'v2');
 // senão por chamada concluída). Avisa o shell com a porcentagem e, quando tudo terminou e a tela já foi
 // desenhada, com `pronto`. O shell usa isso na persiana de transição.
 (function () {
-    if (window.parent === window || !window.fetch) return;
+    if (window.parent === window || !window.fetch || window.__hubSemMedidor) return;
     var QUIETO_MS = 250, LIMITE_MS = 9000, JANELA_MS = 700;   // só entram na espera as chamadas feitas logo que a página abre
     var reqs = [], docPct = 0, ultimo = 0, pronto = false, carregou = false, quietoTimer = 0, t0 = Date.now(), tLoad = 0;
 
