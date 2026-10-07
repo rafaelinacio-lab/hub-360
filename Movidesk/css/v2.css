@@ -423,3 +423,34 @@ html[data-ui="v2"] .bk-det p { margin: 6px 0 0; }
 
 /* nome de equipe: marca em etiqueta + restante */
 html[data-ui="v2"] .eq-marca { display: inline-block; margin-right: 8px; padding: 2px 9px; border-radius: 999px; background: var(--surface-low); color: var(--t2); font-size: 11px; font-weight: 800; letter-spacing: .02em; vertical-align: 1px; }
+
+/* ─── Impacto de SLA: por ticket, por grupo e dispersão ─── */
+html[data-ui="v2"] .imp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+html[data-ui="v2"] .imp-chip { padding: 6px 14px; border: 0; border-radius: 999px; background: var(--surface-low); color: var(--t2); font: 700 12.5px/1 inherit; font-family: inherit; cursor: pointer; }
+html[data-ui="v2"] .imp-chip:hover { background: var(--surface-hover, var(--surface-low)); color: var(--t1); }
+html[data-ui="v2"] .imp-chip.on { background: var(--brand-soft); color: var(--brand-text); }
+html[data-ui="v2"] .imp-kpis4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
+@media (max-width: 1000px) { html[data-ui="v2"] .imp-kpis4 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+html[data-ui="v2"] .imp-k { background: var(--surface-low); border-radius: 16px; padding: 12px 16px; }
+html[data-ui="v2"] .imp-k small { display: block; color: var(--t3); font-weight: 800; font-size: 11px; letter-spacing: .04em; }
+html[data-ui="v2"] .imp-k b { display: block; font-size: 26px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
+html[data-ui="v2"] .imp-k span { display: block; color: var(--t2); font-size: 12px; }
+html[data-ui="v2"] .imp-lista { max-height: 560px; padding-right: 6px; }
+html[data-ui="v2"] .imp-r { display: grid; grid-template-columns: 70px minmax(0,1fr) 74px; gap: 12px; align-items: center; padding: 8px 4px; border-top: 1px solid var(--border); cursor: pointer; font-size: 12.5px; }
+html[data-ui="v2"] .imp-r:hover { background: var(--surface-low); }
+html[data-ui="v2"] .imp-mid { min-width: 0; }
+html[data-ui="v2"] .imp-ass { display: block; font-weight: 700; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-ui="v2"] .imp-mid small { display: block; margin: 1px 0 5px; color: var(--t3); font-size: 11.5px; }
+html[data-ui="v2"] .imp-mid small i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+html[data-ui="v2"] .imp-bul { position: relative; height: 10px; border-radius: 5px; background: var(--surface-low); }
+html[data-ui="v2"] .imp-bul i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
+html[data-ui="v2"] .imp-bul em { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 2px; background: var(--t1); }
+html[data-ui="v2"] .imp-val { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+html[data-ui="v2"] .imp-pos { color: #ee6f82; }
+html[data-ui="v2"] .imp-neg { color: #2fbf8a; }
+html[data-ui="v2"] .imp-nota2 { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: var(--surface-low); color: var(--t2); font-size: 12.5px; }
+html[data-ui="v2"] .imp-grupos { max-height: 420px; padding-right: 6px; }
+html[data-ui="v2"] .imp-g { display: grid; grid-template-columns: 24px minmax(120px, 220px) minmax(0,1fr) 80px; gap: 12px; align-items: center; padding: 9px 4px; border-top: 1px solid var(--border); font-size: 13px; cursor: pointer; }
+html[data-ui="v2"] .imp-g:hover { background: var(--surface-low); }
+html[data-ui="v2"] .imp-gi { color: var(--t3); font-weight: 800; font-size: 12px; }
+html[data-ui="v2"] .imp-gn { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
