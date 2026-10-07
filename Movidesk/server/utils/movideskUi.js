@@ -114,14 +114,23 @@ async function entrar(page, acesso) {
   const campoCodigo = page.locator('input[autocomplete="one-time-code"]:visible, input[name*="code" i]:visible, input[name*="token" i]:visible, input[name*="otp" i]:visible, input[name*="verif" i]:visible, input[inputmode="numeric"]:visible, input[type="tel"]:visible, input[maxlength="6"]:visible').first();
   if (await campoCodigo.count()) {
     await foto(page, 'Pede o código do autenticador (2FA)');
+    try {
+      execucao.mapa.tela2fa = await page.evaluate(() => {
+        const m = document.querySelector('.modal.show, [role="dialog"]:not([aria-hidden="true"]), #CreateMfa');
+        return { classe: m ? (m.getAttribute('class') || '') : null, id: m ? m.id : null, texto: m ? (m.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 1500) : null };
+      });
+    } catch { /* diagnóstico */ }
     if (!acesso.totp) throw new Error('O Movidesk pediu o código do autenticador (2FA), mas a chave do autenticador não foi cadastrada no Hub.');
     const restante = 30 - ((Date.now() / 1000) % 30);
     if (restante < 4) await page.waitForTimeout((restante + 1) * 1000);   // não usa um código prestes a vencer
     await campoCodigo.fill(codigoTotp(acesso.totp));
     const lembrar = page.getByLabel(/lembrar|confiar|não perguntar/i).first();
     try { if (await lembrar.count()) await lembrar.check({ timeout: 2000 }); } catch { /* opcional */ }
-    const enviar = page.locator('button[type="submit"]:visible, input[type="submit"]:visible, button:visible:has-text("Verificar"), button:visible:has-text("Confirmar"), button:visible:has-text("Entrar")').first();
-    if (await enviar.count()) await enviar.click(); else await campoCodigo.press('Enter');
+    // O botão de confirmar precisa ser o do MESMO modal/formulário do campo de código (atrás dele pode haver o botão "Entrar" do login).
+    const area = campoCodigo.locator('xpath=ancestor::*[contains(@class,"modal") or @role="dialog" or self::form][1]');
+    const dentro = (await area.count()) ? area : page;
+    const enviar = dentro.locator('button:visible:has-text("Ativar"), button:visible:has-text("Verificar"), button:visible:has-text("Confirmar"), button:visible:has-text("Validar"), button:visible:has-text("Enviar"), button:visible:has-text("Entrar"), button[type="submit"]:visible, input[type="submit"]:visible').first();
+    if (await enviar.count()) await enviar.click({ timeout: 8000 }); else await campoCodigo.press('Enter');
     await page.waitForTimeout(3000);
     if (await page.locator('input[autocomplete="one-time-code"]:visible, input[inputmode="numeric"]:visible, input[maxlength="6"]:visible').count()) { await foto(page, 'Código do 2FA não foi aceito'); throw new Error('O Movidesk não aceitou o código do autenticador (chave errada, ou o relógio do servidor está fora de hora).'); }
   }
