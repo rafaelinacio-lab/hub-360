@@ -113,6 +113,10 @@
     <select id="f-servico" aria-label="Filtrar por serviço">
       <option value="">Todos os serviços</option>
     </select>
+    <label for="f-equipe">Equipe</label>
+    <select id="f-equipe" aria-label="Filtrar por equipe">
+      <option value="">Todas as equipes</option>
+    </select>
     <span class="filtro-chip" id="f-chip" style="display:none"></span>
   </div>
 
@@ -262,6 +266,30 @@ function lerServicoSalvo(){
   }catch(_){ return ''; }
 }
 let _servicoSel=lerServicoSalvo();
+// Filtro por equipe (combina com o de serviço): ?equipe=Nome na URL ou a última escolha salva no navegador.
+const CHAVE_EQUIPE='painelTvEquipe';
+function lerEquipeSalva(){
+  try{
+    const u=new URLSearchParams(location.search).get('equipe');
+    if(u!==null) return u;
+    return localStorage.getItem(CHAVE_EQUIPE)||'';
+  }catch(_){ return ''; }
+}
+let _equipeSel=lerEquipeSalva();
+const equipeDe=r=>(r.equipe||'').trim()||'Não informado';
+// base do serviço+classificação, ainda sem o filtro de equipe (de onde saem as opções de equipe e as contagens)
+function baseSemEquipe(){
+  return _servicoSel ? _rowsAll.filter(r=>(r.servico||'').trim()===_servicoSel && ehClassificacaoAlvo(r)) : _rowsAll.slice();
+}
+function montarOpcoesEquipe(){
+  const sel=document.getElementById('f-equipe');
+  const cont={};
+  baseSemEquipe().forEach(r=>{ const e=equipeDe(r); cont[e]=(cont[e]||0)+1; });
+  if(_equipeSel && !(_equipeSel in cont)) cont[_equipeSel]=0;   // não perde a escolha se a equipe zerou
+  const equipes=Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt'));
+  sel.innerHTML='<option value="">Todas as equipes</option>'+equipes.map(e=>`<option value="${escAttr(e)}">${esc(e)} (${cont[e]})</option>`).join('');
+  sel.value=_equipeSel;
+}
 
 function montarOpcoesServico(){
   const sel=document.getElementById('f-servico');
@@ -280,17 +308,21 @@ function montarOpcoesServico(){
   sel.value=_servicoSel;
 }
 function aplicarFiltro(){
-  _rows=_servicoSel
-    ? _rowsAll.filter(r=>(r.servico||'').trim()===_servicoSel && ehClassificacaoAlvo(r))
-    : _rowsAll.slice();
+  montarOpcoesEquipe();
+  _rows=baseSemEquipe().filter(r=>!_equipeSel||equipeDe(r)===_equipeSel);
   const chip=document.getElementById('f-chip');
   chip.style.display=_servicoSel?'':'none';
   chip.textContent=`Classificação: ${CLASSIFICACAO_DO_SERVICO}`;
 }
 function atualizarNota(){
-  const filtro=_servicoSel?` — serviço "${_servicoSel}", classificação ${CLASSIFICACAO_DO_SERVICO}`:'';
+  const filtro=(_servicoSel?` — serviço "${_servicoSel}", classificação ${CLASSIFICACAO_DO_SERVICO}`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'');
   document.getElementById('tv-updated').textContent=`Atualizado às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
 }
+document.getElementById('f-equipe').addEventListener('change',e=>{
+  _equipeSel=e.target.value;
+  try{ localStorage.setItem(CHAVE_EQUIPE,_equipeSel); }catch(_){}
+  aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis();
+});
 document.getElementById('f-servico').addEventListener('change',e=>{
   _servicoSel=e.target.value;
   try{ localStorage.setItem(CHAVE_SERVICO,_servicoSel); }catch(_){}
@@ -433,7 +465,7 @@ async function carregarSlaResponsaveis(){
   const sel=document.getElementById('slr-periodo');
   const per=sel.value, seq=++_slaSeq, lista=document.getElementById('slr-lista');
   try{
-    const q=`?desde=${desdeDoPeriodo(per)}${_servicoSel?`&servico=${encodeURIComponent(_servicoSel)}`:''}`;
+    const q=`?desde=${desdeDoPeriodo(per)}${_servicoSel?`&servico=${encodeURIComponent(_servicoSel)}`:''}${_equipeSel?`&equipe=${encodeURIComponent(_equipeSel)}`:''}`;
     const resp=await api('/geral/sla-responsaveis'+q,60000);
     if(seq!==_slaSeq) return;
     renderSlaResponsaveis(resp.rows||[],per);
@@ -476,7 +508,7 @@ function renderSlaResponsaveis(rows,per){
       <td><div class="slr-imp"><span class="a ${r.impReal<0.05?'zero':''}">${r.impReal<0.05?'0,0 pp':'−'+fmt(r.impReal)+' pp'}</span>
         <span class="b">${r.vencidos?`e mais −${fmt(r.impVenc)} pp se ${r.vencidos>1?`os ${r.vencidos} vencidos fecharem`:'o vencido fechar'} fora do prazo`:'sem vencidos que pesem'}</span></div></td>
     </tr>`).join('')+`</tbody></table>`;
-  document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.`;
+  document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}${_equipeSel?` — equipe "${_equipeSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.`;
 }
 (function(){
   const sel=document.getElementById('slr-periodo');
