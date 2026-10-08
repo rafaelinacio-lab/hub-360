@@ -92,9 +92,10 @@ async function fetchOpenTickets() {
             console.error('Erro ao atualizar KPIs da aba Movidesk:', movideskError);
         }
 
-        const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem('lastSyncTime', hora);
-        updateSyncStatus(`⏰ Atualizado em ${hora} · renova a cada 2 min`);
+        // A etiqueta mostra quando os DADOS foram atualizados (fim da última carga do Movidesk), não a hora em que a tela buscou.
+        const dadosEm = await buscarFrescorDashboard();
+        if (dadosEm) localStorage.setItem('lastSyncTime', dadosEm);
+        updateSyncStatus(`⏰ Dados atualizados em ${dadosEm || localStorage.getItem('lastSyncTime') || 'sem registro'} · a tela renova a cada 2 min`);
         
     } catch (error) {
         console.error('Erro ao buscar chamados:', error);
@@ -1816,6 +1817,17 @@ function getOrCreatePill() {
     return el;
 }
 
+async function buscarFrescorDashboard() {
+    try {
+        const r = await fetch(`${API_BASE}/frescor/dashboard`, { headers: authHeaders() });
+        if (!r.ok) return '';
+        const d = await r.json();
+        return d.atualizadoEm
+            ? new Date(d.atualizadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            : '';
+    } catch (_) { return ''; }
+}
+
 function updateSyncStatus(message, isError) {
     const el = getOrCreatePill();
     el.style.background = isError
@@ -1830,7 +1842,7 @@ function showLastSync() {
     // Só atualiza se não houver outra mensagem recente
     if (!el.textContent.includes('Sincronizando') && !el.textContent.includes('Falha')) {
         if (saved) {
-            el.textContent = `⏰ Atualizado em ${saved}`;
+            el.textContent = `⏰ Dados atualizados em ${saved}`;
         } else {
             el.textContent = '⏰ Nunca sincronizado';
         }

@@ -214,6 +214,11 @@ router.get('/diagnostico', authMiddleware, requireRole('admin'), async (req, res
   res.json(out);
 });
 
+// Última atualização dos dados do Painel TV (mesma regra do /api/frescor/painel-tv, mas com o acesso por chave do link da TV).
+router.get('/frescor-tv', acessoPainelTv, async (req, res) => {
+  res.json(await require('../utils/frescor').frescor('painel-tv'));
+});
+
 // Saldo de horas técnicas (crédito da Política de SLA) por organização, para o Painel Geral mostrar ao lado do cliente.
 router.get('/horas-tecnicas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
