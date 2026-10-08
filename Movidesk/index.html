@@ -217,9 +217,6 @@
                     <button class="cfg-tab-btn" data-tab="telemetria" onclick="switchConfigTab('telemetria')">
                         <span class="material-symbols-outlined">monitoring</span> Telemetria
                     </button>
-                    <button class="cfg-tab-btn" data-tab="rapida" onclick="switchConfigTab('rapida')">
-                        <span class="material-symbols-outlined">bolt</span> Carga rápida
-                    </button>
                     <button class="cfg-tab-btn" data-tab="datalake" onclick="switchConfigTab('datalake')">
                         <span class="material-symbols-outlined">database</span> Carga Datalake
                     </button>
@@ -724,12 +721,6 @@
                     </div>
                 </div>
 
-                <!-- ABA: Carga rápida (pendentes quase ao vivo) -->
-                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-rapida">
-                    <div id="dlRoot"></div>
-                    <div id="rpRoot"><p class="config-card-help">Carregando…</p></div>
-                </div>
-
                 <!-- ABA: SLA e horas -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-slahoras">
                     <div id="shRoot"><p class="config-card-help">Carregando…</p></div>
@@ -1053,6 +1044,9 @@
                             <div style="color:var(--muted,#71717a);font-size:13px;">Carregando…</div>
                         </div>
                     </div>
+
+                    <!-- Carga delta: só o que mudou, com ações em segundo plano (js/delta.js) -->
+                    <div id="deltaRoot"></div>
 
                     <!-- Cargas automáticas (crons configuráveis) -->
                     <div class="config-card">
@@ -1831,7 +1825,7 @@
     <script src="js/curadoria.js"></script>
     <script src="js/pessoas.js"></script>
     <script src="js/avisos.js"></script>
-    <script src="js/rapida.js"></script>
+    <script src="js/delta.js"></script>
     <script src="js/tokens.js"></script>
     <script src="js/slahoras.js"></script>
     <script src="js/config.js"></script>

@@ -885,8 +885,7 @@ function switchConfigTab(tab) {
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
     if (tab === 'tokens' && typeof tokensCarregar === 'function') tokensCarregar();
     if (tab === 'slahoras' && typeof slaHorasCarregar === 'function') slaHorasCarregar();
-    if (typeof rapidaParar === 'function') rapidaParar();
-    if (tab === 'rapida' && typeof rapidaCarregar === 'function') rapidaCarregar();
+    if (typeof deltaParar === 'function') deltaParar();
     if (tab === 'telemetria') loadTelemetria();
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba
@@ -898,6 +897,7 @@ function switchConfigTab(tab) {
         if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
         dlLoad();
         dlSatLoad();
+        if (typeof deltaCarregar === 'function') deltaCarregar();
         cronLoad();
     }
 }
