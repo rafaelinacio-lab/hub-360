@@ -1104,6 +1104,9 @@ function isResolvido(r){ return FINALIZADO_STATUSES.includes(r.base_status); }
 // SLA "no prazo": só conta tickets resolvidos que tinham prazo definido
 // (sla_solucao) — sem prazo, não dá pra dizer se cumpriu ou não.
 function temPrazo(r){ return !!r.sla_solucao; }
+// Entra no "SLA cumprido": classificação Suporte Técnico, equipe de suporte (nome com "Suporte") e sem os clientes
+// excluídos (Coronel Vivida, MP Agrotech, AD Tech, ou só a Viasoft Informática como cliente — sla_fora_cliente, servidor).
+function contaNoSla(r){ return classificacaoDe(r)==='Suporte Técnico'&&/suporte/i.test(r.equipe||'')&&!r.sla_fora_cliente; }
 function isNoPrazo(r){ return temPrazo(r)&&r.resolvido_em&&new Date(r.resolvido_em)<=new Date(r.sla_solucao); }
 function isVencido(r){ return isAberto(r)&&temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
 function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
@@ -1663,14 +1666,14 @@ function render(){
   }
 
   // ── SLA / backlog ──
-  const resolvidosComPrazo=resolvidosRows.filter(temPrazo);
+  const resolvidosComPrazo=resolvidosRows.filter(contaNoSla).filter(temPrazo);
   const slaCumprido=resolvidosComPrazo.length?resolvidosComPrazo.filter(isNoPrazo).length/resolvidosComPrazo.length:0;
   const vencidosRows=pendentesRows.filter(isVencido);
   const pctVencido=pendentesRows.length?vencidosRows.length/pendentesRows.length:0;
   document.getElementById('k-sla-cumprido').textContent=fmtPct(slaCumprido);
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent=
-    resolvidosComPrazo.length?`${resolvidosComPrazo.length.toLocaleString('pt-BR')} resolvidos com prazo definido.`:'Nenhum resolvido com prazo definido no período.';
+    resolvidosComPrazo.length?`${resolvidosComPrazo.length.toLocaleString('pt-BR')} resolvidos com prazo (Suporte Técnico, equipes de suporte).`:'Nenhum resolvido com prazo no período (Suporte Técnico, equipes de suporte).';
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
   renderBacklogSituacao(pendentesRows);
 
@@ -2726,7 +2729,7 @@ function renderKpiExtras(){
     pendentes:meses.map(mk=>rows.filter(r=>pendenteEmMes(r,mk)).length),
     reabertura:meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isReaberto).length/l.length*100:null; }),
     fcr:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isFCR).length/l.length*100:null; }),
-    sla:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido).filter(temPrazo); return l.length?l.filter(isNoPrazo).length/l.length*100:null; }),
+    sla:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido).filter(contaNoSla).filter(temPrazo); return l.length?l.filter(isNoPrazo).length/l.length*100:null; }),
   };
   // tom da variação: 'bom' | 'ruim' | 'neutro' conforme o que a mudança significa para o negócio
   const sentido={abertos:0,resolvidos:1,media:-1,clientes:0,pendentes:-1,sla:1,reabertura:-1,fcr:1};
@@ -2764,7 +2767,7 @@ function respDetalheHtml(nome){
   let B=P.N?calc(P.N):null, semAnt=false;
   if(B&&!B.ab.length&&!B.rs.length){ B=null; semAnt=true; }        // período anterior sem dados (ex.: histórico não carregado)
   const refTxt=P.rotAnt||'período anterior';
-  const slaDe=l=>{ const c=l.filter(temPrazo); return {ok:c.filter(isNoPrazo).length,total:c.length}; };
+  const slaDe=l=>{ const c=l.filter(contaNoSla).filter(temPrazo); return {ok:c.filter(isNoPrazo).length,total:c.length}; };
   const sA=slaDe(A.rs), sB=B?slaDe(B.rs):null;
   const pA=sA.total?sA.ok/sA.total*100:null, pB=sB&&sB.total?sB.ok/sB.total*100:null;
   const pend=rows.filter(isAberto), venc=pend.filter(isVencido).length;
@@ -3049,7 +3052,7 @@ const EXPANSOES={
   media:      {t:'Média de ações/ticket',        rows:()=>_rowsFull, ordenar:(a,b)=>Number(b.acoes_count||0)-Number(a.acoes_count||0), acoes:true},
   clientes:   {t:'Clientes únicos',              rows:()=>_rowsFull, ordenar:(a,b)=>String(a.organizacao||'').localeCompare(String(b.organizacao||''),'pt')},
   pendentes:  {t:'Tickets pendentes',            rows:()=>_pendentesGlobal},
-  sla:        {t:'SLA cumprido (resolvidos com prazo)', rows:()=>_rowsResolv.filter(temPrazo)},
+  sla:        {t:'SLA cumprido (resolvidos com prazo)', rows:()=>_rowsResolv.filter(contaNoSla).filter(temPrazo)},
   vencido:    {t:'Backlog vencido',              rows:()=>_pendentesGlobal.filter(isVencido)},
   classe:     {t:'Classificação',                rows:()=>_rowsFull},
   tendencia:  {t:'Aberturas no período',         rows:()=>_rowsFull},
@@ -3106,7 +3109,7 @@ const INFO_CARDS={
     obs:FILTROS_TXT},
   'k-sla-cumprido':{t:'SLA cumprido (resolvidos)',
     o:'Percentual de tickets resolvidos dentro do prazo de solução do Movidesk.',
-    c:['Considera só tickets resolvidos no período que tinham prazo de solução definido.','Cumprido = data de resolução menor ou igual ao prazo de solução.','% = cumpridos ÷ resolvidos com prazo. Tickets sem prazo ficam de fora.']},
+    c:['Considera só tickets resolvidos no período que tinham prazo de solução definido.','Só classificação Suporte Técnico e equipes de suporte (nome da equipe com "Suporte").','Ficam de fora chamados com cliente VIASOFT CORONEL VIVIDA, MP AGROTECH ou AD TECH, e chamados em que a VIASOFT INFORMATICA LTDA é o único cliente (sem cliente de fora da Viasoft).','Cumprido = data de resolução menor ou igual ao prazo de solução.','% = cumpridos ÷ resolvidos com prazo. Tickets sem prazo ficam de fora.']},
   'k-backlog-vencido':{t:'Backlog já vencido',
     o:'Tickets pendentes cujo prazo de SLA já passou.',
     c:['Pendente com prazo de solução definido e prazo anterior ao momento atual.','A legenda mostra o % em relação ao total de pendentes.','Clique no card para ver a lista.']},

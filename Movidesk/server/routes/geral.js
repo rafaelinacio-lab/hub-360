@@ -69,7 +69,8 @@ const LIST_SELECT = `
     tc.organizacao_nome                  AS organizacao,
     cf.valor_texto                        AS classificacao,
     COALESCE(ac.total, 0)                  AS acoes_count,
-    COALESCE(ac.publicas, 0)                AS acoes_publicas
+    COALESCE(ac.publicas, 0)                AS acoes_publicas,
+    COALESCE(cl.fora_sla, false)             AS sla_fora_cliente
   FROM silver.ticket t
   LEFT JOIN silver.ticket_campo_customizado cf
     ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
@@ -79,6 +80,19 @@ const LIST_SELECT = `
     FROM silver.ticket_acao
     WHERE ticket_id = t.ticket_id
   ) ac ON true
+  -- "SLA cumprido" do Painel Geral ignora (pedido do usuário, 08/10/2026): chamados com cliente VIASOFT CORONEL
+  -- VIVIDA, MP AGROTECH ou AD TECH (no cadastro: "TECH NEGOCIOS"; o regex não pega "GALAAD TECH") e chamados em que
+  -- a VIASOFT INFORMATICA LTDA é o cliente sem nenhum cliente de fora da Viasoft. Nome = organização ou, sem ela, o
+  -- nome do cliente. Custa ~1 s na consulta do ano (81 mil chamados, medido em 08/10/2026).
+  LEFT JOIN LATERAL (
+    SELECT BOOL_OR(x.n ~ '(VIASOFT CORONEL VIVIDA|MP AGROTECH|TECH NEGOCIOS|(^|[^A-Z])AD ?TECH)')
+        OR (BOOL_OR(x.n LIKE 'VIASOFT INFORMATICA%') AND BOOL_AND(x.n LIKE 'VIASOFT%' OR x.email ILIKE '%@viasoft.com.br')) AS fora_sla
+    FROM (
+      SELECT UPPER(BTRIM(COALESCE(NULLIF(BTRIM(c.organizacao_nome), ''), c.nome, ''))) AS n, c.email
+      FROM silver.ticket_cliente c
+      WHERE c.ticket_id = t.ticket_id
+    ) x
+  ) cl ON true
 `;
 
 // Sem filtro de equipe/classificação (ao contrário de ouvidoria.js/gcc.js),
