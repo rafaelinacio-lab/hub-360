@@ -322,6 +322,15 @@ input,select{font-family:inherit}
 .modal-body .dtable{min-width:640px}
 .modal-body .dtable th{position:sticky;top:0;background:var(--surface);white-space:nowrap}
 .modal-body .dtable td{vertical-align:top}
+
+/* modais com tabela de chamados: largos o bastante para todas as colunas, sem cortar; se a janela for estreita, a rolagem horizontal aparece (fina e visível) */
+#detail-modal .modal-box,#expand-modal .modal-box,#risco-modal .modal-box{max-width:min(1240px,96vw)}
+.modal-body .dtable{min-width:0;table-layout:auto}
+.modal-body .dtable-scroll{scrollbar-width:thin;scrollbar-color:var(--border-hi,#cfc7bc) transparent}
+.modal-body .dtable-scroll::-webkit-scrollbar{display:block;height:8px}
+.modal-body .dtable-scroll::-webkit-scrollbar-thumb{background:var(--border-hi,#cfc7bc);border-radius:8px}
+.modal-body .dtable td:first-child,.modal-body .dtable td.num{white-space:nowrap}
+#detail-modal .dtable td:nth-child(4),#detail-modal .dtable td:nth-child(5){white-space:nowrap}
 body.modal-open{overflow:hidden}
 
 .modal-body .dtable tbody tr.clickable{cursor:pointer}
