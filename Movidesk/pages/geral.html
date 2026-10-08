@@ -2789,6 +2789,7 @@ function respDetalheHtml(nome){
     <div class="sec">Resumo do período</div>`+
     blocoVar({nome:'Abertos',cor:cssVar('--orange'),valor:`${A.ab.length.toLocaleString('pt-BR')} tickets`,v:A.ab.length,ant:B?B.ab.length:null,altoEhBom:false,unid:'ticket',refTxt})+
     blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.rs.length.toLocaleString('pt-BR')} tickets`,v:A.rs.length,ant:B?B.rs.length:null,altoEhBom:true,unid:'ticket',refTxt})+
+    blocoVar({nome:'Reabertos',cor:cssVar('--orange'),valor:`${A.rs.filter(isReaberto).length.toLocaleString('pt-BR')} de ${A.rs.length.toLocaleString('pt-BR')} resolvidos`,v:A.rs.filter(isReaberto).length,ant:B?B.rs.filter(isReaberto).length:null,altoEhBom:false,unid:'ticket',refTxt})+
     blocoVar({nome:'SLA cumprido',cor:cssVar('--green'),valor:pA==null?'—':`${pA.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${sA.ok}/${sA.total}`,v:pA,ant:pB,altoEhBom:true,pp:true,refTxt})+
     `<div class="sec">SLA cumprido por urgência</div>${slaUrg}<div class="sec">Abertos por urgência</div>${porUrg}
     <div class="tv-tip-foot" style="margin-top:6px">Hoje: <b>${pend.length.toLocaleString('pt-BR')}</b> pendentes, <b class="${venc?'tv-ruim':''}">${venc.toLocaleString('pt-BR')}</b> com prazo de SLA vencido.</div>
@@ -2804,7 +2805,7 @@ function renderRespChart(rows){
   rows.forEach(r=>{ const p=r.responsavel||'Não informado'; (por[p]=por[p]||{criados:0}).criados++; });
   // resolvidos e SLA do período: pela data de RESOLUÇÃO, como os cards do topo
   _rowsResolv.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return;
-    o.resolvidos=(o.resolvidos||0)+1; if(temPrazo(r)){ o.comPrazo=(o.comPrazo||0)+1; if(isNoPrazo(r)) o.noPrazo=(o.noPrazo||0)+1; } });
+    o.resolvidos=(o.resolvidos||0)+1; if(isReaberto(r)) o.reabertos=(o.reabertos||0)+1; if(temPrazo(r)){ o.comPrazo=(o.comPrazo||0)+1; if(isNoPrazo(r)) o.noPrazo=(o.noPrazo||0)+1; } });
   const pendG=getPendentesGlobalRows();
   pendG.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return; o.pend=(o.pend||0)+1; if(isVencido(r)) o.venc=(o.venc||0)+1; });
   _respLista=Object.entries(por).sort((a,b)=>b[1].criados-a[1].criados).slice(0,RANK_MAX);
@@ -2813,13 +2814,14 @@ function renderRespChart(rows){
   const mx=Math.max(1,..._respLista.map(([,v])=>v.criados));
   const nfm=n=>Number(n||0).toLocaleString('pt-BR');
   const corSla=v=>v>=90?cssVar('--green'):v>=70?'#fbbf24':cssVar('--orange');
-  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n">Abertos</th><th class="n">Resolvidos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
+  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n">Abertos</th><th class="n">Resolvidos</th><th class="n" title="Resolvidos no período que foram reabertos (mesma regra da taxa de reabertura)">Reabertos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
     _respLista.map(([n,v],i)=>{
       const pct=v.comPrazo?(v.noPrazo||0)/v.comPrazo*100:null;
       return `<tr tabindex="0" role="button" data-n="${escAttr(n)}" class="${_respFixo===n?'fixo':''}" aria-label="Detalhe de ${escAttr(n)}">
         <td><span class="rsp-rank">${i+1}</span></td>
         <td><div class="rsp-nome">${esc(n)}</div><div class="rsp-barra"><i style="width:${Math.max(3,v.criados/mx*100)}%"></i></div></td>
         <td class="n"><b>${nfm(v.criados)}</b></td><td class="n">${nfm(v.resolvidos)}</td>
+        <td class="n" title="${v.resolvidos?`${((v.reabertos||0)/v.resolvidos*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos resolvidos`:'sem resolvidos no período'}" style="${v.reabertos?'color:var(--orange);font-weight:700':''}">${nfm(v.reabertos)}</td>
         <td class="n">${pct==null?'<span style="color:var(--t3)">—</span>':`<div class="rsp-sla"><span>${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span><span class="trilho"><i style="width:${pct}%;background:${corSla(pct)}"></i></span></div>`}</td>
         <td class="n">${nfm(v.pend)}</td><td class="n" style="${v.venc?'color:var(--orange);font-weight:700':''}">${nfm(v.venc)}</td></tr>`;
     }).join('')+`</tbody></table>`;
