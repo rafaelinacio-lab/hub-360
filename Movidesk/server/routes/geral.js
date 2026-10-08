@@ -27,12 +27,7 @@ const { parseData } = require('../utils/sla');
 // atendimento, sem fim de semana, sem feriados cadastrados e sem o tempo em status de pausa (aguardando cliente/terceiro/
 // validação…). Pedido do usuário, 08/10/2026 — antes usava utils/sla.js (07:45–12:00/13:30–18:00, sem feriados).
 const slaPolitica = require('../utils/slaPolitica');
-const { lerConfig: lerConfigSla } = require('../utils/slaHorasCore');
-let _cfgSla = null, _cfgSlaEm = 0;
-async function configSla() {
-  if (!_cfgSla || Date.now() - _cfgSlaEm > 60 * 1000) { _cfgSla = await lerConfigSla(); _cfgSlaEm = Date.now(); }
-  return _cfgSla;
-}
+const { lerConfigEmCache: configSla } = require('../utils/slaHorasCore');
 const { classificarTexto, listarTemas } = require('../utils/temasChamados');
 const cacheResposta = require('../utils/cacheResposta');
 

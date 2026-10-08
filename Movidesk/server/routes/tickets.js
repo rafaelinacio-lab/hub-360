@@ -2078,7 +2078,7 @@ router.get('/:id/sla', requireTicketsAccess, async (req, res) => {
         ...ticket,
         createdDate,
         slaAgreementRule: ticket.slaAgreementRule ?? ticket.slaagreementrule ?? null,
-      });
+      }, await require('../utils/slaHorasCore').lerConfigEmCache());   // política de SLA: feriados, janela e pausas
       return res.json(slaResult);
     } catch (calcError) {
       console.error('Cálculo de SLA falhou:', calcError);
@@ -2091,7 +2091,7 @@ router.get('/:id/sla', requireTicketsAccess, async (req, res) => {
 });
 
 // POST - Calcular SLA para um ticket enviado no corpo
-router.post('/sla', requireTicketsAccess, (req, res) => {
+router.post('/sla', requireTicketsAccess, async (req, res) => {
   try {
     const ticket = req.body;
     
@@ -2099,7 +2099,7 @@ router.post('/sla', requireTicketsAccess, (req, res) => {
       return res.status(400).json({ error: 'Ticket inválido' });
     }
 
-    const slaResult = calcularSLAPrimeiroContato(ticket);
+    const slaResult = calcularSLAPrimeiroContato(ticket, await require('../utils/slaHorasCore').lerConfigEmCache());
     res.json(slaResult);
   } catch (error) {
     console.error('Erro ao calcular SLA:', error);

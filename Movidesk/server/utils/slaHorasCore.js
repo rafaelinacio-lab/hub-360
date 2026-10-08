@@ -24,6 +24,12 @@ async function lerConfig() {
   let salvo = null; try { salvo = r.rows[0] ? JSON.parse(r.rows[0].value) : null; } catch (_) { /* usa o padrão */ }
   return P.normalizar(salvo);
 }
+// Mesma configuração com cache de 1 min, para quem calcula SLA a cada requisição (Painel Geral, SLA por chamado).
+let _cfgCache = null, _cfgCacheEm = 0;
+async function lerConfigEmCache() {
+  if (!_cfgCache || Date.now() - _cfgCacheEm > 60 * 1000) { _cfgCache = await lerConfig(); _cfgCacheEm = Date.now(); }
+  return _cfgCache;
+}
 // ── apuração mensal ──────────────────────────────────────────────────────────
 const ehAgente = (a) => a.is_public && (['1', '3'].includes(String(a.criado_por_profile_type)) || (a.criado_por_profile_type == null && /@viasoft\.com\.br$/i.test(a.criado_por_email || '')));
 async function carregarChamados(competencia, cfg) {
@@ -230,4 +236,4 @@ async function saldosPorCliente() {
   return out;
 }
 const invalidarSaldos = () => { _saldosCache = { em: 0, valor: null }; };
-module.exports = { repararAutores, estadoReparo, prepararTabelas, lerConfig, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, lerStatus, primeiroDiaSeguinte };
+module.exports = { repararAutores, estadoReparo, prepararTabelas, lerConfig, lerConfigEmCache, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, lerStatus, primeiroDiaSeguinte };

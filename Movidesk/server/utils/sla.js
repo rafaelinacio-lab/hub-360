@@ -268,7 +268,10 @@ function calcularMinutosUteisComPausas(ticket, inicio, fim, fusoMin = 0) {
 // Cálculo principal
 // =========================
 
-function calcularSLAPrimeiroContato(ticket) {
+// cfgPolitica (opcional): configuração da política de SLA (slaHorasCore.lerConfigEmCache). Com ela, o tempo consumido
+// segue a mesma régua do resto do Hub — janela de atendimento, sem fim de semana, sem feriados e sem o tempo em pausa
+// (lista de Configurações → SLA e horas, ex.: "Aguardando"). Sem ela, a régua antiga deste arquivo (07:45, sem feriados).
+function calcularSLAPrimeiroContato(ticket, cfgPolitica = null) {
   const abertura = parseData(ticket.createdDate);
   const primeiroContato = encontrarPrimeiroContato(ticket);
 
@@ -297,11 +300,10 @@ function calcularSLAPrimeiroContato(ticket) {
 
   const dataPrimeiroContato = primeiroContato.createdDate;
 
-  const minutosConsumidos = calcularMinutosUteisComPausas(
-    ticket,
-    abertura,
-    dataPrimeiroContato
-  );
+  const minutosConsumidos = cfgPolitica
+    ? require('./slaPolitica').minutosLiquidos(abertura, dataPrimeiroContato,
+        montarLinhaDoTempoStatus(ticket).map(e => ({ em: e.data, status: e.status })), cfgPolitica)
+    : calcularMinutosUteisComPausas(ticket, abertura, dataPrimeiroContato);
 
   const dentrodoSLA = minutosConsumidos <= slaPrevistoMinutos;
 
