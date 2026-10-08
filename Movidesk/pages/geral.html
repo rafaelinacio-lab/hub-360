@@ -533,7 +533,7 @@ input,select{font-family:inherit}
 .modal-body .dtable-scroll{scrollbar-width:thin;scrollbar-color:var(--border-hi,#cfc7bc) transparent}
 .modal-body .dtable-scroll::-webkit-scrollbar{display:block;height:8px}
 .modal-body .dtable-scroll::-webkit-scrollbar-thumb{background:var(--border-hi,#cfc7bc);border-radius:8px}
-.modal-body .dtable td:first-child,.modal-body .dtable td.num{white-space:nowrap}
+.modal-body .dtable td:first-child,.modal-body .dtable td.num,.modal-body .dtable td.an-col{white-space:nowrap}
 #detail-modal .dtable td:nth-child(4),#detail-modal .dtable td:nth-child(5){white-space:nowrap}
 body.modal-open{overflow:hidden}
 
@@ -1120,9 +1120,9 @@ function fmtPct(n){ return `${(n*100).toFixed(1)}%`; }
 
 // ── exportação (Excel / PDF / Word) ─────────────────────────────────
 const EXPORT_HEADERS_BASE=['ID','Organização','Assunto','Classificação','Equipe','Status','Urgência','Serviço','Responsável','Ações','Ações públicas','Criado em','Resolvido em','Reaberto em'];
-const exportHeaders=()=>modoAnalytics()?[...EXPORT_HEADERS_BASE,'Previsão de solução','Início da implantação','Valor do orçamento']:EXPORT_HEADERS_BASE;
+const exportHeaders=()=>modoAnalytics(_rowsFull)?[...EXPORT_HEADERS_BASE,'Previsão de solução','Início da implantação','Valor do orçamento']:EXPORT_HEADERS_BASE;
 function buildExportRows(){
-  const extra=modoAnalytics();
+  const extra=modoAnalytics(_rowsFull);
   return (_rowsFull||[]).map(r=>[
     r.ticket_id,
     r.organizacao||'',
@@ -1174,7 +1174,7 @@ async function runExport(format){
   try{
     const hoje=new Date().toISOString().slice(0,10);
     const charts=captureChartImages();
-    if(modoAnalytics()) await garantirCamposAnalytics(_rowsFull||[]).catch(e=>console.error('[campos analytics]',e.message));
+    if(modoAnalytics(_rowsFull)) await garantirCamposAnalytics(_rowsFull||[]).catch(e=>console.error('[campos analytics]',e.message));
     const rows=buildExportRows();
     if(format==='xlsx') await exportXlsx(rows,charts,`painel_geral_${hoje}.xlsx`);
     else if(format==='pdf') await exportPdf(rows,charts,`painel_geral_${hoje}.pdf`,'Painel Geral de Tickets');
@@ -2935,8 +2935,13 @@ function renderSlaUrgChart(resolvidosComPrazo){
 // ── serviço Analytics: colunas extras (previsão de solução, início da implantação, valor do orçamento) ──
 // Aparecem na Chamado Listagem e na exportação quando o filtro Serviço está só em serviços do Analytics.
 // Início da implantação e valor do orçamento são campos customizados do Movidesk, buscados sob demanda (POST /geral/campos-analytics).
-const ehAnalytics=r=>/^analytics\b/i.test(String((r&&r.servico)||'').split(' > ')[0].trim());
-function modoAnalytics(){ const v=getMsValues('f-serv'); return v.length>0&&v.every(s=>/^analytics\b/i.test(String(s).split(' > ')[0].trim())); }
+const ehAnalytics=r=>!!r&&(/^analytics\b/i.test(String(r.servico||'').split(' > ')[0].trim())||(!r.servico&&/^analytics\b/i.test(String(r.equipe||'').trim())));
+// colunas extras: filtro Serviço só em Analytics, ou a lista mostrada é toda de chamados do Analytics
+function modoAnalytics(rows){
+  const v=getMsValues('f-serv');
+  if(v.length>0&&v.every(s=>/^analytics\b/i.test(String(s).split(' > ')[0].trim()))) return true;
+  return Array.isArray(rows)&&rows.length>0&&rows.every(ehAnalytics);
+}
 let _camposAn={}, _orcamentoConfigurado=true;
 async function garantirCamposAnalytics(rows){
   const faltam=(rows||[]).filter(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn)).map(r=>r.ticket_id);
@@ -2962,7 +2967,7 @@ const COLS_ANALYTICS=[
   {label:'Início da implantação', get:r=>dataCampo(campoAn(r,'implantacao'))||'—', sort:r=>{ const v=campoAn(r,'implantacao'); const d=v?new Date(v).getTime():0; return isNaN(d)?0:d; }},
   {label:'Valor do orçamento', num:true, get:r=>fmtOrcamento(campoAn(r,'orcamento'))||'—', sort:r=>{ const t=String(campoAn(r,'orcamento')||'').replace(/[^\d,.\-]/g,''); const n=Number(t.includes(',')?t.replace(/\./g,'').replace(',','.'):t); return isNaN(n)?0:n; }},
 ];
-const colsListagem=()=>modoAnalytics()?[...LISTAGEM_COLS,...COLS_ANALYTICS]:LISTAGEM_COLS;
+const colsListagem=()=>modoAnalytics(_rowsFull)?[...LISTAGEM_COLS,...COLS_ANALYTICS]:LISTAGEM_COLS;
 const LISTAGEM_COLS=[
   {label:'ID',num:true,
     get:r=>`#${r.ticket_id}`,
@@ -3007,7 +3012,7 @@ function listagemRender(){
   const COLS=colsListagem();
   if(_listagemSort.col>=COLS.length) _listagemSort={col:9,dir:-1};
   // campos do Analytics vêm do servidor sob demanda: busca e redesenha quando chegarem
-  if(modoAnalytics()&&all.some(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn))&&!listagemRender._buscando){
+  if(modoAnalytics(all)&&all.some(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn))&&!listagemRender._buscando){
     listagemRender._buscando=true;
     garantirCamposAnalytics(all).then(()=>{ listagemRender._buscando=false; listagemRender(); },e=>{ listagemRender._buscando=false; console.error('[campos analytics]',e.message); });
   }
@@ -3211,11 +3216,16 @@ function openDetailModal(title,sub,rows,opts){
   opts=opts||{};
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
+  const an=modoAnalytics(rows);      // chamados do Analytics: previsão de solução, início da implantação e valor do orçamento
   document.getElementById('detail-modal-thead').innerHTML=
-    '<th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th>'+(opts.acoes?'<th class="num">Ações</th>':'');
+    '<th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th>'+(opts.acoes?'<th class="num">Ações</th>':'')+
+    (an?'<th>Previsão de solução</th><th>Início da implantação</th><th class="num">Valor do orçamento</th>':'');
+  if(an&&rows.some(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn))){
+    garantirCamposAnalytics(rows).then(()=>{ if(document.getElementById('detail-modal').classList.contains('show')) openDetailModal(title,sub,rows,opts); },e=>console.error('[campos analytics]',e.message));
+  }
   const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="6">Nenhum ticket encontrado.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="9">Nenhum ticket encontrado.</td></tr>`;
   } else {
     const ordenado=rows.slice().sort(opts.ordenar||((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0)));
     const visiveis=ordenado.slice(0,DETALHE_MAX);
@@ -3229,6 +3239,7 @@ function openDetailModal(title,sub,rows,opts){
           <td>${esc(r.equipe||'—')}</td>
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
           ${opts.acoes?`<td class="num">${Number(r.acoes_count||0).toLocaleString('pt-BR')}</td>`:''}
+          ${an?`<td class="an-col">${esc(dtStr(r.sla_solucao)||'—')}</td><td class="an-col">${esc(ehAnalytics(r)?(dataCampo(campoAn(r,'implantacao'))||'—'):'—')}</td><td class="num an-col">${esc(ehAnalytics(r)?(fmtOrcamento(campoAn(r,'orcamento'))||'—'):'—')}</td>`:''}
         </tr>`).join('');
   }
   document.getElementById('detail-modal').classList.add('show');
