@@ -232,6 +232,7 @@ setInterval(() => {
 
 // Avisos automáticos (mensagens para chamados novos de serviços configurados) — nasce desligado
 require('./utils/avisosAutomaticos').iniciar();
+require('./utils/slaLiquido').iniciar();   // tempo de SLA líquido por chamado, guardado para o Painel Geral (rodada a cada 2 min)
 require('./utils/slaHorasCore').iniciarAutomatico();   // lança as horas técnicas de crédito sozinho a cada fechamento de mês
 
 // Iniciar servidor

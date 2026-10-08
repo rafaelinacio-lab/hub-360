@@ -75,8 +75,11 @@ const LIST_SELECT = `
     cf.valor_texto                        AS classificacao,
     COALESCE(ac.total, 0)                  AS acoes_count,
     COALESCE(ac.publicas, 0)                AS acoes_publicas,
-    COALESCE(cl.fora_sla, false)             AS sla_fora_cliente
+    COALESCE(cl.fora_sla, false)             AS sla_fora_cliente,
+    -- tempo de solução líquido já calculado (utils/slaLiquido.js); só vale se foi calculado para esta resolução
+    CASE WHEN sl.resolvido_em = t.resolved_in THEN sl.minutos END AS sla_liquido_min
   FROM silver.ticket t
+  LEFT JOIN silver.ticket_sla_liquido sl ON sl.ticket_id = t.ticket_id
   LEFT JOIN silver.ticket_campo_customizado cf
     ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
   ${ORG_JOIN}

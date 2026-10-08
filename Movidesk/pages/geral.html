@@ -1636,6 +1636,9 @@ function getPendentesGlobalRows(){
 // ── render ───────────────────────────────────────────────────────────
 function render(){
   if(!_rows.length && document.getElementById('geral-dash').dataset.err) return;
+  // Tempo de SLA líquido que já vem calculado do servidor (silver.ticket_sla_liquido): entra no cache e o card de SLA
+  // abre junto com os outros. Quem vier sem (ex.: histórico antigo) cai no cálculo sob demanda de antes.
+  for(const r of _rows){ if(r.sla_liquido_min!=null&&!(r.ticket_id in _impactoMinutos)) _impactoMinutos[r.ticket_id]=Number(r.sla_liquido_min); }
   renderJanelaBanner();
   const {rowsCtx,rowsFull,rowsResolv}=getFilteredRows();
   _rowsFull=rowsFull;
