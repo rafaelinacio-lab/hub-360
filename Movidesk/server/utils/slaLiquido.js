@@ -13,7 +13,7 @@ const { lerConfigEmCache } = require('./slaHorasCore');
 
 const DESDE = '2025-01-01';
 const LOTE = 2000;
-const MAX_POR_RODADA = 20000;
+const MAX_POR_RODADA = 150000;   // ~7 s por 20 mil (só banco): a primeira rodada preenche tudo de uma vez
 const INTERVALO_MS = 2 * 60 * 1000;
 const CF_CLASSIFICACAO = 23946;
 
@@ -50,15 +50,18 @@ async function calcularLote(ids, cfg, hash) {
     eventos.get(x.id).push({ em: x.criado_em, status: x.status });
   }
   const linhas = t.rows.filter(r => r.createddate && r.resolved_in).map(r => ({
-    id: r.id, resolvido: r.resolved_in, min: P.minutosLiquidos(r.createddate, r.resolved_in, eventos.get(r.id) || [], cfg),
+    id: r.id, min: P.minutosLiquidos(r.createddate, r.resolved_in, eventos.get(r.id) || [], cfg),
   }));
   if (!linhas.length) return 0;
+  // resolvido_em sai direto de silver.ticket (microssegundos): o Date do JS corta em milissegundos e a comparação
+  // "calculado para esta resolução" (aqui e no Painel Geral) nunca batia.
   await db.query(`
     INSERT INTO silver.ticket_sla_liquido (ticket_id, minutos, resolvido_em, cfg_hash, calculado_em)
-    SELECT u.id, u.min, u.res, $4, NOW() FROM unnest($1::bigint[], $2::int[], $3::timestamptz[]) AS u(id, min, res)
+    SELECT u.id, u.min, t.resolved_in, $3, NOW()
+      FROM unnest($1::bigint[], $2::int[]) AS u(id, min) JOIN silver.ticket t ON t.ticket_id = u.id
     ON CONFLICT (ticket_id) DO UPDATE SET minutos = EXCLUDED.minutos, resolvido_em = EXCLUDED.resolvido_em,
       cfg_hash = EXCLUDED.cfg_hash, calculado_em = EXCLUDED.calculado_em`,
-  [linhas.map(l => l.id), linhas.map(l => l.min), linhas.map(l => l.resolvido), hash]);
+  [linhas.map(l => l.id), linhas.map(l => l.min), hash]);
   return linhas.length;
 }
 
