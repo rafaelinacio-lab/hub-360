@@ -1119,8 +1119,10 @@ function classificacaoDe(r){ return (r.classificacao||'').trim()||'Não classifi
 function fmtPct(n){ return `${(n*100).toFixed(1)}%`; }
 
 // ── exportação (Excel / PDF / Word) ─────────────────────────────────
-const EXPORT_HEADERS=['ID','Organização','Assunto','Classificação','Equipe','Status','Urgência','Serviço','Responsável','Ações','Ações públicas','Criado em','Resolvido em','Reaberto em'];
+const EXPORT_HEADERS_BASE=['ID','Organização','Assunto','Classificação','Equipe','Status','Urgência','Serviço','Responsável','Ações','Ações públicas','Criado em','Resolvido em','Reaberto em'];
+const exportHeaders=()=>modoAnalytics()?[...EXPORT_HEADERS_BASE,'Previsão de solução','Início da implantação','Valor do orçamento']:EXPORT_HEADERS_BASE;
 function buildExportRows(){
+  const extra=modoAnalytics();
   return (_rowsFull||[]).map(r=>[
     r.ticket_id,
     r.organizacao||'',
@@ -1136,6 +1138,7 @@ function buildExportRows(){
     dtStr(r.criado_em),
     dtStr(r.resolvido_em),
     dtStr(r.reaberto_em),
+    ...(extra?[dtStr(r.sla_solucao),dataCampo(campoAn(r,'implantacao')),fmtOrcamento(campoAn(r,'orcamento'))]:[]),
   ]);
 }
 function captureChartImages(){
@@ -1171,6 +1174,7 @@ async function runExport(format){
   try{
     const hoje=new Date().toISOString().slice(0,10);
     const charts=captureChartImages();
+    if(modoAnalytics()) await garantirCamposAnalytics(_rowsFull||[]).catch(e=>console.error('[campos analytics]',e.message));
     const rows=buildExportRows();
     if(format==='xlsx') await exportXlsx(rows,charts,`painel_geral_${hoje}.xlsx`);
     else if(format==='pdf') await exportPdf(rows,charts,`painel_geral_${hoje}.pdf`,'Painel Geral de Tickets');
@@ -1187,7 +1191,7 @@ async function exportXlsx(rows,charts,filename){
   if(typeof ExcelJS==='undefined') throw new Error('Biblioteca ExcelJS não carregou (verifique a conexão com a internet/CDN).');
   const wb=new ExcelJS.Workbook();
   const wsData=wb.addWorksheet('Dados');
-  wsData.addRow(EXPORT_HEADERS).font={bold:true};
+  wsData.addRow(exportHeaders()).font={bold:true};
   rows.forEach(r=>wsData.addRow(r));
   wsData.columns.forEach(c=>c.width=18);
   if(charts.length){
@@ -1232,7 +1236,7 @@ async function exportPdf(rows,charts,filename,titulo){
   doc.setFontSize(14);
   doc.text('Dados',margin,36);
   doc.autoTable({
-    head:[EXPORT_HEADERS],
+    head:[exportHeaders()],
     body:rows,
     startY:48,
     margin:{left:margin,right:margin},
@@ -1259,7 +1263,7 @@ async function exportDocx(rows,charts,filename,titulo){
     children.push(new Paragraph({children:[new ImageRun({data:bytes,transformation:{width:w,height:h}})]}));
   }
   children.push(new Paragraph({text:'Dados',heading:HeadingLevel.HEADING_2,spacing:{before:300}}));
-  const headerRow=new TableRow({children:EXPORT_HEADERS.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
+  const headerRow=new TableRow({children:exportHeaders().map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
   const bodyRows=rows.map(r=>new TableRow({children:r.map(v=>new TableCell({children:[new Paragraph(String(v??''))]}))}));
   children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[headerRow,...bodyRows]}));
   const doc=new Document({sections:[{children}]});
@@ -2928,6 +2932,37 @@ function renderSlaUrgChart(resolvidosComPrazo){
 }
 
 // ── Chamado Listagem: tabela completa, ordenável e com busca ────────
+// ── serviço Analytics: colunas extras (previsão de solução, início da implantação, valor do orçamento) ──
+// Aparecem na Chamado Listagem e na exportação quando o filtro Serviço está só em serviços do Analytics.
+// Início da implantação e valor do orçamento são campos customizados do Movidesk, buscados sob demanda (POST /geral/campos-analytics).
+const ehAnalytics=r=>/^analytics\b/i.test(String((r&&r.servico)||'').split(' > ')[0].trim());
+function modoAnalytics(){ const v=getMsValues('f-serv'); return v.length>0&&v.every(s=>/^analytics\b/i.test(String(s).split(' > ')[0].trim())); }
+let _camposAn={}, _orcamentoConfigurado=true;
+async function garantirCamposAnalytics(rows){
+  const faltam=(rows||[]).filter(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn)).map(r=>r.ticket_id);
+  for(let i=0;i<faltam.length;i+=3000){
+    const lote=faltam.slice(i,i+3000);
+    const r=await fetch(`${API}/geral/campos-analytics`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids:lote})});
+    if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error||r.statusText);
+    const d=await r.json(); _orcamentoConfigurado=d.orcamentoConfigurado!==false;
+    lote.forEach(id=>{ _camposAn[id]=d.campos[id]||{implantacao:null,orcamento:null}; });
+  }
+}
+const dataCampo=v=>{ if(!v) return ''; const d=new Date(v); return isNaN(d)?String(v):dtStr(d); };
+function fmtOrcamento(v){
+  if(v==null||v==='') return '';
+  let t=String(v).replace(/[^\d,.\-]/g,'');
+  t=t.includes(',')?t.replace(/\./g,'').replace(',','.'):t;
+  const n=Number(t);
+  return isNaN(n)||t===''?String(v):n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+const campoAn=(r,k)=>(_camposAn[r.ticket_id]||{})[k];
+const COLS_ANALYTICS=[
+  {label:'Previsão de solução', get:r=>dtStr(r.sla_solucao)||'—', sort:r=>r.sla_solucao?new Date(r.sla_solucao).getTime():0},
+  {label:'Início da implantação', get:r=>dataCampo(campoAn(r,'implantacao'))||'—', sort:r=>{ const v=campoAn(r,'implantacao'); const d=v?new Date(v).getTime():0; return isNaN(d)?0:d; }},
+  {label:'Valor do orçamento', num:true, get:r=>fmtOrcamento(campoAn(r,'orcamento'))||'—', sort:r=>{ const t=String(campoAn(r,'orcamento')||'').replace(/[^\d,.\-]/g,''); const n=Number(t.includes(',')?t.replace(/\./g,'').replace(',','.'):t); return isNaN(n)?0:n; }},
+];
+const colsListagem=()=>modoAnalytics()?[...LISTAGEM_COLS,...COLS_ANALYTICS]:LISTAGEM_COLS;
 const LISTAGEM_COLS=[
   {label:'ID',num:true,
     get:r=>`#${r.ticket_id}`,
@@ -2969,12 +3004,19 @@ function listagemSetSort(colIdx){
 }
 function listagemRender(){
   const all=_rowsFull||[];
+  const COLS=colsListagem();
+  if(_listagemSort.col>=COLS.length) _listagemSort={col:9,dir:-1};
+  // campos do Analytics vêm do servidor sob demanda: busca e redesenha quando chegarem
+  if(modoAnalytics()&&all.some(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn))&&!listagemRender._buscando){
+    listagemRender._buscando=true;
+    garantirCamposAnalytics(all).then(()=>{ listagemRender._buscando=false; listagemRender(); },e=>{ listagemRender._buscando=false; console.error('[campos analytics]',e.message); });
+  }
   const filtered=_listagemSearch
-    ? all.filter(r=>LISTAGEM_COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
+    ? all.filter(r=>COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
     : all;
   const {col,dir}=_listagemSort;
   const sorted=filtered.slice().sort((a,b)=>{
-    const va=LISTAGEM_COLS[col].sort(a), vb=LISTAGEM_COLS[col].sort(b);
+    const va=COLS[col].sort(a), vb=COLS[col].sort(b);
     if(va<vb) return -1*dir;
     if(va>vb) return 1*dir;
     return 0;
@@ -2984,19 +3026,19 @@ function listagemRender(){
   document.getElementById('listagem-sub').textContent=
     `${sorted.length.toLocaleString('pt-BR')} de ${all.length.toLocaleString('pt-BR')} ticket${all.length===1?'':'s'} — considera os filtros aplicados`;
 
-  document.getElementById('listagem-thead').innerHTML=LISTAGEM_COLS.map((c,i)=>{
+  document.getElementById('listagem-thead').innerHTML=COLS.map((c,i)=>{
     const arrow=_listagemSort.col===i?(_listagemSort.dir===1?'▲':'▼'):'';
     return `<th class="sortable${c.num?' num':''}" onclick="listagemSetSort(${i})">${esc(c.label)}<span class="sort-arrow">${arrow}</span></th>`;
   }).join('');
 
   const tbody=document.getElementById('listagem-tbody');
   if(!sorted.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="${LISTAGEM_COLS.length}">Nenhum ticket encontrado.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="${COLS.length}">Nenhum ticket encontrado.</td></tr>`;
     return;
   }
   tbody.innerHTML=sorted.map(r=>`
     <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
-      ${LISTAGEM_COLS.map(c=>`<td${c.num?' class="num"':''}>${c.html?c.html(r):esc(c.get(r))}</td>`).join('')}
+      ${COLS.map(c=>`<td${c.num?' class="num"':''}>${c.html?c.html(r):esc(c.get(r))}</td>`).join('')}
     </tr>`).join('');
 }
 document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
