@@ -69,6 +69,7 @@
   .tv-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 10px; }
   html body.tv-page .kpi-grid.compacto .stat-card:not(.versus) { align-content: start; }
   html body.tv-page .kpi-grid.k3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  html body.tv-page .kpi-grid.k2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
   html body.tv-page .kpi-grid.compacto .stat-card.versus { display: flex; flex-direction: column; align-items: stretch; gap: 8px; cursor: default; }
   html body.tv-page .kpi-grid.compacto .stat-card.versus:hover { transform: none; box-shadow: none; }
   .vs-corpo { display: flex; align-items: center; gap: 14px; }
@@ -184,21 +185,16 @@
 
   <div id="tv-content" style="display:none">
     <p class="kpi-titulo">Backlog agora</p>
-    <div class="kpi-grid k4 compacto k3">
+    <div class="kpi-grid k4 compacto k2">
       <div data-tone="blue" class="stat-card" data-card="todos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
         <div class="kpi-main"><p class="value" id="k-pendentes">0</p></div>
         <div class="kpi-foot"><p class="legend">Tickets em aberto agora.</p></div>
       </div>
-      <div data-tone="red" class="stat-card danger bk-hero" data-card="vencidos">
+      <div data-tone="red" class="stat-card danger" data-card="vencidos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Vencidos</p>
         <div class="kpi-main"><p class="value" id="k-vencidos">0</p></div>
-        <div class="kpi-foot"><p class="legend">Prazo de SLA já passado.</p></div>
-      </div>
-      <div data-tone="red" class="stat-card danger" data-card="vencidos">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/></svg></span>% do backlog vencido</p>
-        <div class="kpi-main"><p class="value bad" id="k-pct-vencido">0%</p></div>
-        <div class="kpi-foot"><p class="legend">Vencidos ÷ pendentes.</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-vencidos-l">Prazo de SLA já passado.</p></div>
       </div>
     </div>
 
@@ -480,8 +476,10 @@ function render(){
   const pctVencido=pendentes?vencidos/pendentes*100:0;
 
   document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
+  // Vencidos traz o % do backlog vencido na legenda (mesmo visual de "Críticos pendentes"; o card próprio do % saiu).
   document.getElementById('k-vencidos').textContent=vencidos.toLocaleString('pt-BR');
-  document.getElementById('k-pct-vencido').textContent=`${pctVencido.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+  document.getElementById('k-vencidos').closest('.stat-card').classList.toggle('zero',vencidos===0);
+  document.getElementById('k-vencidos-l').textContent=vencidos?`${pctVencido.toLocaleString('pt-BR',{maximumFractionDigits:1})}% do backlog vencido.`:'Nenhum chamado vencido.';
 
   renderHoje(vencidosRows);
   renderTeamChart();
