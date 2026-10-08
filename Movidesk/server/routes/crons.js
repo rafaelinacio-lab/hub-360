@@ -274,7 +274,14 @@ async function lerDeltaTela() {
     `SELECT j.id, j.enabled, j.interval_minutes FROM silver.cron_job j JOIN silver.cron_task t ON j.task = 'custom:' || t.id WHERE t.rapido = TRUE ORDER BY j.id LIMIT 1`
   ).catch(() => ({ rows: [] }))).rows[0] || null;
   const st = movideskLoader.state || {};
-  return { config: cfg, job, historico, rapida, rodando: !!st.running && st.mode === 'delta', fase: st.mode === 'delta' ? st.phase : null };
+  // chamados com detalhes (ações/campos) atrasados — mesmo critério que a cron põe na fila
+  const atrasados = (await db.query(`
+    SELECT COUNT(*)::int AS n FROM silver.ticket
+     WHERE (detalhes_em IS NULL OR detalhes_em < last_update)
+       AND (last_update > NOW() - INTERVAL '7 days' OR (basestatus IS NOT NULL AND NOT (basestatus = ANY($1::text[]))))`, [movideskLoader.CLOSED_STATUSES]
+  ).catch(() => ({ rows: [{ n: null }] }))).rows[0].n;
+  return { config: cfg, job, historico, rapida, detalhes: { ...movideskLoader.detalhesDelta, atrasados },
+    rodando: !!st.running && st.mode === 'delta', fase: st.mode === 'delta' ? st.phase : null };
 }
 router.get('/delta', async (req, res) => {
   try { res.json(await lerDeltaTela()); } catch (e) { res.status(500).json({ error: e.message }); }

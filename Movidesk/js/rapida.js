@@ -179,11 +179,19 @@ function dlStatusHtml() {
     const linhas = [
         `${badge} a cada <b>${job.interval_minutes} min</b> · última execução: <b>${rpHora(job.last_run_at)}</b>${job.last_status === 'error' ? ` · <span style="color:#c0392b">erro: ${rpEsc(job.last_error || '')}</span>` : ''}`,
         c?.cursor_em ? `Em dia com o Movidesk até <b>${rpHora(c.cursor_em)}</b>${atraso != null ? ` (há ${atraso} min)` : ''}` : 'Cursor: ainda não rodou (a primeira execução parte do chamado mais recente do banco).',
-        e ? `Última rodada: <b>${e.listados}</b> mudaram no Movidesk · <b>${e.gravados}</b> regravados com ações · ${e.jaEmDia} já estavam em dia · <b>${e.segundos} s</b>${e.falhas ? ` · <span style="color:#c0392b">${e.falhas} falha(s) — ${rpEsc(e.ultimaFalha || '')}</span>` : ''}` : '',
-        f ? `Conferência dos abertos (${rpHora(c.ultima_conferencia_em)}): Movidesk <b>${f.abertosMovidesk}</b> × banco <b>${f.abertosBanco}</b> · corrigidos <b>${f.corrigidos}</b> (faltando ${f.faltando}, divergentes ${f.divergentes}, abertos só no banco ${f.soNoBanco})${f.pendentes ? ` · ${f.pendentes} ficam para a próxima` : ''} · ${f.segundos} s` : `Conferência dos abertos: a cada <b>${c?.conferir_a_cada_min || 30} min</b> (ainda não rodou).`,
+        e ? `Última rodada: <b>${e.listados}</b> mudaram no Movidesk · <b>${e.gravados}</b> gravados (status, responsável, prazo, clientes) · ${e.jaEmDia} já estavam em dia · <b>${e.segundos} s</b>` : '',
+        dlDetalhesHtml(),
+        f ? `Conferência dos abertos (${rpHora(c.ultima_conferencia_em)}): Movidesk <b>${f.abertosMovidesk}</b> × banco <b>${f.abertosBanco}</b> · <b>${f.enfileirados}</b> para regravar (faltando ${f.faltando}, divergentes ${f.divergentes}, abertos só no banco ${f.soNoBanco}) · ${f.segundos} s · a cada ${c.conferir_a_cada_min} min` : `Conferência dos abertos: a cada <b>${c?.conferir_a_cada_min || 30} min</b> (ainda não rodou).`,
     ];
     if (job.enabled && rapida?.enabled) linhas.push('<span style="color:#b45309">A carga rápida abaixo também está ligada e ocupa a fila por vários minutos a cada rodada — com o delta ligado ela não é mais necessária; desligue-a para o delta rodar no horário.</span>');
     return linhas.filter(Boolean).join('<br>');
+}
+
+function dlDetalhesHtml() {
+    const d = DL.dados.detalhes;
+    if (!d) return '';
+    const txt = d.rodando ? `<b>gravando</b> — ${d.feitos} feitos, <b>${d.fila}</b> na fila` : (d.atrasados ? `<b>${d.atrasados}</b> aguardando a próxima rodada` : 'em dia');
+    return `Detalhes em segundo plano (ações, campos): ${txt}${d.atrasados && d.rodando ? ` · ${d.atrasados} com detalhes atrasados no banco` : ''}${d.falhas ? ` · <span style="color:#c0392b">${d.falhas} falha(s) — ${rpEsc(d.ultimoErro || '')}</span>` : ''}${!d.rodando && d.terminadoEm ? ` · última: ${rpHora(d.terminadoEm)}` : ''}`;
 }
 
 function dlHistoricoHtml() {
@@ -205,9 +213,9 @@ function dlRender() {
     document.getElementById('dlRoot').innerHTML = `
       <div class="config-card">
         <h3 class="config-card-title">Carga delta — só o que mudou (recomendada)</h3>
-        <p class="config-card-help">A cada execução o Hub pergunta ao Movidesk <strong>quais chamados mudaram</strong> desde a última vez e regrava <strong>só esses, por completo</strong>
-          (status, responsável, <strong>ações</strong>, clientes, campos). Costuma levar poucos segundos. De tempos em tempos confere todos os chamados abertos
-          (inclusive os parados há meses) e corrige o que divergir.</p>
+        <p class="config-card-help">A cada execução o Hub pergunta ao Movidesk <strong>quais chamados mudaram</strong> desde a última vez (abertos ou encerrados) e grava
+          <strong>na hora</strong> o essencial deles (status, responsável, prazo, clientes) — leva poucos segundos. As <strong>ações e campos</strong> desses chamados vêm logo em seguida,
+          <strong>em segundo plano</strong>, sem segurar as outras cargas. De tempos em tempos confere todos os chamados abertos (inclusive os parados há meses) e corrige o que divergir.</p>
         <div id="dlStatus" style="margin:10px 0 14px;font-size:14px">${dlStatusHtml()}</div>
         <div class="config-form-stack">
           <label>Rodar a cada (minutos, mínimo 1)
