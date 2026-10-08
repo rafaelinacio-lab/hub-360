@@ -636,16 +636,9 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
     <div class="topbar-filters">
-      <div class="multi-sel" id="f-bu">
+      <div class="multi-sel" id="f-serv">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">BU: todos</span>
-          <span class="sym ms-arrow">expand_more</span>
-        </button>
-        <div class="ms-drop"></div>
-      </div>
-      <div class="multi-sel" id="f-tipo">
-        <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Tipo: todos</span>
+          <span class="ms-lbl">Serviço: todos</span>
           <span class="sym ms-arrow">expand_more</span>
         </button>
         <div class="ms-drop"></div>
@@ -667,13 +660,6 @@ body.modal-open{overflow:hidden}
       <div class="multi-sel" id="f-cliente">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Cliente: todos</span>
-          <span class="sym ms-arrow">expand_more</span>
-        </button>
-        <div class="ms-drop"></div>
-      </div>
-      <div class="multi-sel" id="f-serv">
-        <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Serviço: todos</span>
           <span class="sym ms-arrow">expand_more</span>
         </button>
         <div class="ms-drop"></div>
@@ -1423,7 +1409,7 @@ function msBusca(id,placeholder){
 // Desmarca todos os filtros (Equipe, Responsável, Cliente, Serviço, Classificação,
 // Status, Ano e Mês), zera as buscas dos dropdowns e redesenha o painel.
 const FILTROS_MS=[
-  ['f-bu','BU'],['f-tipo','Tipo'],['f-equipe','Equipe'],['f-resp','Responsável'],['f-cliente','Cliente'],['f-serv','Serviço'],
+  ['f-serv','Serviço'],['f-equipe','Equipe'],['f-resp','Responsável'],['f-cliente','Cliente'],
   ['f-class','Classificação'],['f-status','Status'],['f-year','Ano'],['f-month','Mês'],
 ];
 function limparFiltros(){
@@ -1466,34 +1452,17 @@ function aplicarAnoPadrao(){
   if(chk){ chk.checked=true; updateMsLabel('f-year','Ano: todos'); }
 }
 
-// BU = 1º nível do serviço (ex.: Agrotitan); Tipo = 2º nível (ex.: Suporte, Produto). Escolher a BU já limita Tipo, Equipe,
-// Serviço e Responsável ao que existe naquela BU. Sem serviço no chamado, a BU vem do prefixo da equipe ("Agrotitan - Suporte").
-const BU_ALIASES={'Agrotitan':'Agronegócio','Analytics':'Analytics - B.I'};   // nome nos dados → nome da BU em Pessoas
-const nivelServ=(s,i)=>(String(s||'').split(' > ')[i]||'').trim();
-let _busConhecidas=new Map();   // sem acento/maiúsculas → nome como aparece nos dados
-const normBu=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-function buDe(r){
-  const b=nivelServ(r.servico,0); if(b) return b;
-  const pref=limpaEquipe(r.equipe).split(' - ')[0];
-  return _busConhecidas.get(normBu(pref))||'';
-}
-const tipoDe=r=>nivelServ(r.servico,1);
+// As opções de Equipe, Serviço e Responsável vêm de todos os chamados carregados (os filtros BU e Tipo foram removidos: o Serviço, que já traz "BU > Tipo > …", ocupa o lugar deles).
 function opcoesMs(id,label,values,rotulo){
   const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-  populateMs(id,opts.map(v=>({v,l:rotulo?rotulo(v):v})),`${label}: todos`,
-    id==='f-bu'?()=>{ atualizarOpcoesDependentes(true); render(); }
-    :id==='f-tipo'?()=>{ atualizarOpcoesDependentes(false); render(); }:render);
+  populateMs(id,opts.map(v=>({v,l:rotulo?rotulo(v):v})),`${label}: todos`,render);
   msBusca(id,`Buscar ${label.toLowerCase()}…`);
 }
-function atualizarOpcoesDependentes(recalcTipo){
+function atualizarOpcoesDependentes(){
   const todos=[..._rows,..._rowsPendentesAll];
-  const bus=getMsValues('f-bu'), tipos=getMsValues('f-tipo');
-  const naBu=todos.filter(r=>!bus.length||bus.includes(buDe(r)));
-  if(recalcTipo) opcoesMs('f-tipo','Tipo',naBu.map(tipoDe));
-  const noTipo=naBu.filter(r=>!getMsValues('f-tipo').length||getMsValues('f-tipo').includes(tipoDe(r)));
-  opcoesMs('f-equipe','Equipe',noTipo.map(r=>limpaEquipeOuNada(r.equipe)));
-  opcoesMs('f-serv','Serviço',noTipo.map(r=>r.servico));
-  opcoesMs('f-resp','Responsável',noTipo.map(r=>r.responsavel));
+  opcoesMs('f-equipe','Equipe',todos.map(r=>limpaEquipeOuNada(r.equipe)));
+  opcoesMs('f-serv','Serviço',todos.map(r=>r.servico));
+  opcoesMs('f-resp','Responsável',todos.map(r=>r.responsavel));
 }
 const limpaEquipeOuNada=e=>e?e:'';
 function buildFilterOptions(){
@@ -1501,10 +1470,7 @@ function buildFilterOptions(){
     const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
     populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
-  _busConhecidas=new Map();
-  [..._rows,..._rowsPendentesAll].forEach(r=>{ const b=nivelServ(r.servico,0); if(b) _busConhecidas.set(normBu(b),b); });
-  opcoesMs('f-bu','BU',[..._rows,..._rowsPendentesAll].map(buDe),v=>BU_ALIASES[v]?`${BU_ALIASES[v]} (${v})`:v);
-  atualizarOpcoesDependentes(true);
+  atualizarOpcoesDependentes();
   fill('f-cliente','Cliente',[..._rows,..._rowsPendentesAll].map(r=>r.organizacao));
   fill('f-class','Classificação',_rows.map(classificacaoDe));
   populateMs('f-status',[
@@ -1582,8 +1548,6 @@ function getFilteredRows(){
   const equipeFils=getMsValues('f-equipe');
   const respFils=getMsValues('f-resp');
   const servFils=getMsValues('f-serv');
-  const buFils=getMsValues('f-bu');
-  const tipoFils=getMsValues('f-tipo');
   const cliFils=getMsValues('f-cliente');
   const classFils=getMsValues('f-class');
   const statusFils=getMsValues('f-status');
@@ -1594,8 +1558,6 @@ function getFilteredRows(){
     if(CANCELADO_STATUSES.includes(r.base_status)) return false;
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
-    if(buFils.length&&!buFils.includes(buDe(r))) return false;
-    if(tipoFils.length&&!tipoFils.includes(tipoDe(r))) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
     if(cliFils.length&&!cliFils.includes(r.organizacao)) return false;
     if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
@@ -1638,8 +1600,6 @@ function getPendentesGlobalRows(){
   const equipeFils=getMsValues('f-equipe');
   const respFils=getMsValues('f-resp');
   const servFils=getMsValues('f-serv');
-  const buFils=getMsValues('f-bu');
-  const tipoFils=getMsValues('f-tipo');
   const cliFils=getMsValues('f-cliente');
   const classFils=getMsValues('f-class');
   const statusFils=getMsValues('f-status');
@@ -1655,8 +1615,6 @@ function getPendentesGlobalRows(){
     }
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
-    if(buFils.length&&!buFils.includes(buDe(r))) return false;
-    if(tipoFils.length&&!tipoFils.includes(tipoDe(r))) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
     if(cliFils.length&&!cliFils.includes(r.organizacao)) return false;
     if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
