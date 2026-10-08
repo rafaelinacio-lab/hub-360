@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
+<script src="../js/ui-version.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GCC</title>
@@ -321,6 +322,15 @@ input,select{font-family:inherit}
 .modal-body .dtable{min-width:640px}
 .modal-body .dtable th{position:sticky;top:0;background:var(--surface);white-space:nowrap}
 .modal-body .dtable td{vertical-align:top}
+
+/* modais com tabela de chamados: largos o bastante para todas as colunas, sem cortar; se a janela for estreita, a rolagem horizontal aparece (fina e visível) */
+#detail-modal .modal-box,#expand-modal .modal-box,#risco-modal .modal-box{max-width:min(1240px,96vw)}
+.modal-body .dtable{min-width:0;table-layout:auto}
+.modal-body .dtable-scroll{scrollbar-width:thin;scrollbar-color:var(--border-hi,#cfc7bc) transparent}
+.modal-body .dtable-scroll::-webkit-scrollbar{display:block;height:8px}
+.modal-body .dtable-scroll::-webkit-scrollbar-thumb{background:var(--border-hi,#cfc7bc);border-radius:8px}
+.modal-body .dtable td:first-child,.modal-body .dtable td.num{white-space:nowrap}
+#detail-modal .dtable td:nth-child(4),#detail-modal .dtable td:nth-child(5){white-space:nowrap}
 body.modal-open{overflow:hidden}
 
 .modal-body .dtable tbody tr.clickable{cursor:pointer}
@@ -463,6 +473,11 @@ body.modal-open{overflow:hidden}
   .map-legend{flex:none;width:100%}
 }
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/v2.css">
+
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 <div id="gcc-page">
@@ -472,18 +487,20 @@ body.modal-open{overflow:hidden}
       <div class="vbar"></div>
       <span class="topbar-sub">Gestão de Combate ao Churn — Visão de gestão</span>
       <span style="margin-left:auto"></span>
-      <button class="btn-refresh" id="btn-atualizar" onclick="loadGcc()">
+      <div class="topbar-acoes">
+      <button class="btn-refresh" title="Atualizar os dados" aria-label="Atualizar os dados" id="btn-atualizar" onclick="loadGcc()">
         <span class="sym">refresh</span>Atualizar
       </button>
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar tickets
       </button>
-      <button class="btn-refresh" onclick="openChamadoListagemModal()">
+      <button class="btn-refresh" title="Chamado Listagem" aria-label="Chamado Listagem" onclick="openChamadoListagemModal()">
         <span class="sym">list_alt</span>Chamado Listagem
       </button>
-      <button class="btn-refresh" onclick="openExportModal()">
+      <button class="btn-refresh" title="Exportar" aria-label="Exportar" onclick="openExportModal()">
         <span class="sym">download</span>Exportar
       </button>
+      </div>
     </div>
     <div class="topbar-filters">
       <div class="multi-sel" id="f-tipo">
@@ -2568,5 +2585,6 @@ loadMapData().then(()=>{ if(_rows.length) render(); });
 loadGcc();
 applyRolePermissions();
 </script>
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

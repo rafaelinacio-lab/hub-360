@@ -1,0 +1,227 @@
+/* Dashboard — Visual 2.0 (design "dashboard_hub"): cabeçalho com título numérico, indicadores coloridos em formato de ingresso,
+   barra de prazo, chips, Kanban de cartões "ingresso", Lista em linha do tempo (barras de atraso em escala logarítmica)
+   e carga por atendente em cartões. Só vale com <html data-ui="v2"> e só dentro de #dashboardView.
+   O JS é o de sempre (js/dashboard.js); aqui é só estilo. Animações ficam por conta de css/sem-animacao.css (desligadas). */
+
+html[data-ui="v2"] #dashboardView {
+  --d-late: #e5484d; --d-ok: #17a37e; --d-info: #4f6df0; --d-amber: #e0900f; --d-teal: #1fa9b8; --d-pause: #b0b6c6;
+  --d-late-pill: rgb(229 72 77 / .12); --d-on-late: #d83a40;
+  --d-2: #f8f9fb; --d-line: var(--border); --d-line-2: color-mix(in srgb, var(--border) 55%, transparent);
+  --mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Consolas, monospace;
+  /* os nomes antigos passam a usar a paleta do design */
+  --red-mid: var(--d-late); --amb-mid: var(--d-amber); --blu-mid: var(--d-info); --grn-mid: var(--d-ok);
+}
+html[data-ui="v2"].dark #dashboardView, html[data-ui="v2"][data-theme="dark"] #dashboardView {
+  --d-late: #ff6670; --d-ok: #2fd0a0; --d-info: #7b93ff; --d-amber: #f2b24a; --d-teal: #4cc9d6; --d-pause: #3f4758;
+  --d-late-pill: rgb(255 102 112 / .15); --d-on-late: #ff7f88; --d-2: #10141a;
+}
+html[data-ui="v2"] #dashboardView svg { width: 14px; height: 14px; }
+
+/* ── Layout ── */
+html[data-ui="v2"] #dashboardView { padding: 8px 4px 40px; }
+html[data-ui="v2"] #dashboardView .dashboard-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+html[data-ui="v2"] #dashboardView .dashboard-main { min-width: 0; display: grid; gap: 18px; }
+@media (max-width: 1100px) { html[data-ui="v2"] #dashboardView .dashboard-layout { grid-template-columns: 1fr; } }
+
+/* ── Cabeçalho ── */
+html[data-ui="v2"] #dashboardView .dsh-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+html[data-ui="v2"] #dashboardView .dsh-ttl { margin-right: auto; display: grid; gap: 6px; min-width: 0; }
+html[data-ui="v2"] #dashboardView .dsh-eyebrow { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+html[data-ui="v2"] #dashboardView .dsh-ttl h1 { margin: 0; font-size: clamp(24px, 2.8vw, 34px); line-height: 1.1; font-weight: 800; letter-spacing: -.03em; color: var(--text); }
+html[data-ui="v2"] #dashboardView .dsh-late { color: var(--d-late); }
+html[data-ui="v2"] #dashboardView .dsh-head .tk-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; }
+html[data-ui="v2"] #dashboardView .tk-busca { height: 36px; width: 260px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+html[data-ui="v2"] #dashboardView .tk-conferir { height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+html[data-ui="v2"] #dashboardView .tk-conferir:hover { border-color: var(--brand); }
+html[data-ui="v2"] #dashboardView .tk-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); overflow: visible; }
+html[data-ui="v2"] #dashboardView .tk-seg button { height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+html[data-ui="v2"] #dashboardView .tk-seg button[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+
+/* ── Indicadores ── */
+html[data-ui="v2"] #dashboardView .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+html[data-ui="v2"] #dashboardView .kpi-tile {
+  --t1: var(--brand); position: relative; overflow: hidden; display: grid; gap: 3px; text-align: left; padding: 16px 18px 15px;
+  border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-card, 0 6px 18px rgba(60,40,20,.06)); cursor: pointer;
+}
+html[data-ui="v2"] #dashboardView .kpi-tile:nth-child(2) { --t1: var(--d-ok); }
+html[data-ui="v2"] #dashboardView .kpi-tile:nth-child(3) { --t1: var(--d-info); }
+html[data-ui="v2"] #dashboardView .kpi-tile:nth-child(4) { --t1: var(--d-amber); }
+html[data-ui="v2"] #dashboardView .kpi-tile:nth-child(5) { --t1: var(--d-late); }
+html[data-ui="v2"] #dashboardView .kpi-tile:nth-child(6) { --t1: var(--d-teal); }
+html[data-ui="v2"] #dashboardView .kpi-tile::before { content: ""; position: absolute; left: 18px; top: 0; width: 34px; height: 4px; border-radius: 0 0 4px 4px; background: var(--t1); }
+html[data-ui="v2"] #dashboardView .kpi-tile::after {
+  content: ""; position: absolute; right: -16px; top: -4px; width: 100px; height: 58px; transform: rotate(14deg); background: var(--t1); opacity: .13;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 70'%3E%3Cpath d='M12 0H108a12 12 0 0 1 12 12V27a8 8 0 0 0 0 16V58a12 12 0 0 1-12 12H12A12 12 0 0 1 0 58V43a8 8 0 0 0 0-16V12A12 12 0 0 1 12 0Z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 70'%3E%3Cpath d='M12 0H108a12 12 0 0 1 12 12V27a8 8 0 0 0 0 16V58a12 12 0 0 1-12 12H12A12 12 0 0 1 0 58V43a8 8 0 0 0 0-16V12A12 12 0 0 1 12 0Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+html[data-ui="v2"] #dashboardView .kpi-tile:hover { border-color: color-mix(in srgb, var(--t1) 55%, var(--border)); }
+html[data-ui="v2"] #dashboardView .kpi-tile.kpi-late { border-color: var(--border); }
+html[data-ui="v2"] #dashboardView .kpi-label { position: relative; z-index: 1; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+html[data-ui="v2"] #dashboardView .kpi-num { position: relative; z-index: 1; font-size: 40px; font-weight: 800; line-height: 1.05; letter-spacing: -.04em; font-variant-numeric: tabular-nums; color: var(--text); }
+html[data-ui="v2"] #dashboardView .kpi-late .kpi-num { color: var(--d-late); }
+html[data-ui="v2"] #dashboardView .kpi-ok .kpi-num { color: var(--text); }
+html[data-ui="v2"] #dashboardView .kpi-sub { position: relative; z-index: 1; font-size: 12px; color: var(--muted); }
+
+/* ── Barra de prazo ── */
+html[data-ui="v2"] #dashboardView .sla-bar-wrap { margin: 0; display: grid; gap: 8px; }
+html[data-ui="v2"] #dashboardView .sla-bar { display: flex; gap: 3px; height: 12px; background: none; overflow: visible; border-radius: 999px; }
+html[data-ui="v2"] #dashboardView .sla-bar > span { border-radius: 999px; min-width: 0; }
+html[data-ui="v2"] #dashboardView .sla-bar > span[style*="width:0"], html[data-ui="v2"] #dashboardView .sla-bar > span[style*="width: 0"] { display: none; }
+html[data-ui="v2"] #dashboardView .sla-bar-late { background: var(--d-late); }
+html[data-ui="v2"] #dashboardView .sla-bar-other { background: var(--d-pause); opacity: 1; }
+html[data-ui="v2"] #dashboardView .sla-bar-ok { background: var(--d-ok); }
+html[data-ui="v2"] #dashboardView .sla-bar-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; font-size: 12px; color: var(--muted); }
+html[data-ui="v2"] #dashboardView .sla-bar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+html[data-ui="v2"] #dashboardView .sla-bar-legend i { width: 8px; height: 8px; border-radius: 3px; margin: 0; }
+html[data-ui="v2"] #dashboardView .sla-bar-legend b { color: var(--text); font-weight: 800; }
+
+/* ── Seção de chamados, chips e filtros ── */
+html[data-ui="v2"] #dashboardView #cardsSection { padding: 0; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; display: grid; gap: 14px; }
+html[data-ui="v2"] #dashboardView #cardsSection .tk-head { display: none; }
+html[data-ui="v2"] #dashboardView .tk-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; align-items: center; }
+html[data-ui="v2"] #dashboardView .tk-chip { height: 31px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+html[data-ui="v2"] #dashboardView .tk-chip:hover { border-color: var(--muted); }
+html[data-ui="v2"] #dashboardView .tk-chip b { font: 600 11px var(--mono); padding: 1px 6px; border-radius: 6px; background: var(--surface-low, var(--d-2)); color: var(--text); margin: 0; opacity: 1; }
+html[data-ui="v2"] #dashboardView .tk-chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--surface); font-weight: 700; }
+html[data-ui="v2"] #dashboardView .tk-chip[aria-pressed="true"] b { background: rgb(128 128 128 / .3); color: inherit; }
+html[data-ui="v2"] #dashboardView #filterBar.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; padding: 0; }
+html[data-ui="v2"] #dashboardView #filterBar .filter-select { height: 31px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+html[data-ui="v2"] #dashboardView #escopoEquipeInfo { font: 500 11px var(--mono) !important; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+html[data-ui="v2"] #dashboardView #filterClear { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+
+/* ── Kanban ── */
+html[data-ui="v2"] #dashboardView .cards-container.kb-mode { display: block; padding: 0; }
+html[data-ui="v2"] #dashboardView .kb-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; align-items: start; }
+html[data-ui="v2"] #dashboardView .kb-col { --c: var(--d-pause); display: grid; flex-direction: initial; gap: 12px; min-width: 0; padding: 12px; border-radius: 20px; background: var(--d-2); border: 1px solid var(--d-line-2); }
+html[data-ui="v2"] #dashboardView .kb-col-New { --c: var(--d-ok); }
+html[data-ui="v2"] #dashboardView .kb-col-InAttendance { --c: var(--d-info); }
+html[data-ui="v2"] #dashboardView .kb-col-Stopped { --c: var(--d-amber); }
+html[data-ui="v2"] #dashboardView .kb-col-topo { position: static; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 13px; background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--c); }
+html[data-ui="v2"] #dashboardView .kb-col-topo h3 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .02em; color: var(--text); }
+html[data-ui="v2"] #dashboardView .kb-col-n { margin-left: auto; min-width: 30px; height: 24px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--c) 14%, var(--surface)); color: var(--c); display: grid; place-items: center; font: 700 12.5px var(--mono); }
+html[data-ui="v2"] #dashboardView .kb-board { overflow: visible; padding-bottom: 0; }
+html[data-ui="v2"] #dashboardView .kb-lista { display: grid; gap: 12px; padding: 0; max-height: none; min-height: 0; overflow: visible; }
+html[data-ui="v2"] #dashboardView .kb-card { flex: none; min-height: 0; }
+html[data-ui="v2"] #dashboardView .kb-vazio { padding: 26px 12px; text-align: center; color: var(--muted); }
+html[data-ui="v2"] #dashboardView .kb-card {
+  --p: var(--muted); position: relative; display: grid; gap: 10px; align-content: start; min-width: 0; overflow: hidden; cursor: pointer;
+  padding: 14px 14px 0 19px; background: var(--surface); border: 1px solid var(--border); border-radius: 15px;
+  box-shadow: inset 4px 0 0 var(--p), 0 1px 2px rgb(27 32 48 / .05);
+}
+html[data-ui="v2"] #dashboardView .kb-card:hover { border-color: color-mix(in srgb, var(--p) 45%, var(--border)); box-shadow: inset 4px 0 0 var(--p), 0 14px 26px -16px var(--p); }
+html[data-ui="v2"] #dashboardView .kb-card::before, html[data-ui="v2"] #dashboardView .kb-card::after { content: ""; position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: var(--d-2); box-shadow: inset 0 0 0 1px var(--border); z-index: 1; }
+html[data-ui="v2"] #dashboardView .kb-card::before { left: -6px; }
+html[data-ui="v2"] #dashboardView .kb-card::after { right: -6px; }
+html[data-ui="v2"] #dashboardView .kb-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+html[data-ui="v2"] #dashboardView .tag, html[data-ui="v2"] #dashboardView .tl-info .tag { font: 700 10.5px var(--v2-font, inherit); letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; color: var(--p); background: color-mix(in srgb, var(--p) 14%, transparent); }
+html[data-ui="v2"] #dashboardView .kb-id { font: 500 12px var(--mono); color: var(--muted); }
+html[data-ui="v2"] #dashboardView .pill { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+html[data-ui="v2"] #dashboardView .pill.late { background: var(--d-late-pill); color: var(--d-on-late); }
+html[data-ui="v2"] #dashboardView .pill.pause { color: var(--muted); background: var(--d-2); border: 1px solid var(--border); }
+html[data-ui="v2"] #dashboardView .pill.okp { color: var(--d-ok); background: color-mix(in srgb, var(--d-ok) 14%, transparent); }
+html[data-ui="v2"] #dashboardView .pill svg { width: 12px; height: 12px; }
+html[data-ui="v2"] #dashboardView .kb-titulo { margin: 0; font-weight: 600; font-size: 14.5px; line-height: 1.42; color: var(--text); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+html[data-ui="v2"] #dashboardView .kb-cliente { display: flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 3px 9px; border-radius: 8px; background: var(--d-2); font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-ui="v2"] #dashboardView .kb-rodape { display: flex; align-items: center; gap: 8px; margin: 0 -14px 0 -19px; padding: 10px 14px 11px 19px; border-top: 2px dashed var(--border); background: var(--d-2); font-size: 12.5px; }
+html[data-ui="v2"] #dashboardView .kb-rodape b { font-weight: 600; color: var(--text); }
+html[data-ui="v2"] #dashboardView .kb-espera { font-size: 11px; font-weight: 700; color: var(--d-on-late); background: var(--d-late-pill); padding: 2px 8px; border-radius: 999px; }
+html[data-ui="v2"] #dashboardView .kb-quando { margin-left: auto; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; font: 500 11.5px var(--mono); }
+html[data-ui="v2"] #dashboardView .kb-tira { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--d-line-2); }
+html[data-ui="v2"] #dashboardView .kb-tira i { display: block; height: 100%; background: var(--d-late); opacity: .85; border-radius: 0 3px 3px 0; }
+html[data-ui="v2"] #dashboardView .av { width: 22px; height: 22px; border-radius: 50%; color: #fff; font: 700 9.5px var(--v2-font, inherit); display: grid; place-items: center; flex: none; }
+html[data-ui="v2"] #dashboardView .av.av-sm { width: 16px; height: 16px; font-size: 7.5px; }
+
+/* ── Lista em linha do tempo ── */
+html[data-ui="v2"] #dashboardView .cards-container.tk-list-mode { display: block; padding: 0; }
+html[data-ui="v2"] #dashboardView .tl-chart { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-card, 0 6px 18px rgba(60,40,20,.06)); overflow: hidden; min-width: 0; }
+html[data-ui="v2"] #dashboardView .tl-grid { display: grid; grid-template-columns: minmax(260px, 44%) minmax(0, 1fr); }
+html[data-ui="v2"] #dashboardView .tl-axis { display: contents; }
+html[data-ui="v2"] #dashboardView .tl-a-l { padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--d-2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+html[data-ui="v2"] #dashboardView .tl-ord { border: 0; background: none; padding: 3px 8px; border-radius: 999px; color: var(--muted); font: inherit; font-size: 10.5px; cursor: pointer; }
+html[data-ui="v2"] #dashboardView .tl-ord:hover { color: var(--text); }
+html[data-ui="v2"] #dashboardView .tl-ord[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+html[data-ui="v2"] #dashboardView .tl-a-p { position: relative; min-height: 40px; border-bottom: 1px solid var(--border); background: var(--d-2); margin: 0; padding-right: 20px; }
+html[data-ui="v2"] #dashboardView .tl-a-p span { position: absolute; bottom: 8px; transform: translateX(-50%); font: 500 10.5px var(--mono); color: var(--muted); }
+html[data-ui="v2"] #dashboardView .tl-group { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 11px 20px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--d-2); border-top: 1px solid var(--d-line-2); }
+html[data-ui="v2"] #dashboardView .tl-group i { width: 9px; height: 9px; border-radius: 50%; background: var(--d-pause); }
+html[data-ui="v2"] #dashboardView .tl-g-New i { background: var(--d-ok); }
+html[data-ui="v2"] #dashboardView .tl-g-InAttendance i { background: var(--d-info); }
+html[data-ui="v2"] #dashboardView .tl-g-Stopped i { background: var(--d-amber); }
+html[data-ui="v2"] #dashboardView .tl-group b { color: var(--text); }
+html[data-ui="v2"] #dashboardView .tl-r { display: contents; cursor: pointer; --p: var(--muted); }
+html[data-ui="v2"] #dashboardView .tl-r > .tl-info, html[data-ui="v2"] #dashboardView .tl-r > .tl-plot { border-top: 1px solid var(--d-line-2); }
+html[data-ui="v2"] #dashboardView .tl-r:hover > .tl-info, html[data-ui="v2"] #dashboardView .tl-r:hover > .tl-plot, html[data-ui="v2"] #dashboardView .tl-r:focus-visible > .tl-info, html[data-ui="v2"] #dashboardView .tl-r:focus-visible > .tl-plot { background: color-mix(in srgb, var(--p) 6%, var(--surface)); }
+html[data-ui="v2"] #dashboardView .tl-info { display: grid; gap: 2px; padding: 11px 20px; min-width: 0; align-content: center; position: relative; }
+html[data-ui="v2"] #dashboardView .tl-info::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0; background: var(--p); }
+html[data-ui="v2"] #dashboardView .tl-info .l1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+html[data-ui="v2"] #dashboardView .tl-info .no { font: 500 12px var(--mono); color: var(--muted); flex: none; }
+html[data-ui="v2"] #dashboardView .tl-info .t { font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+html[data-ui="v2"] #dashboardView .tl-info .l2 { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); min-width: 0; }
+html[data-ui="v2"] #dashboardView .tl-info .l2 .tag { padding: 1px 7px; font-size: 9.5px; }
+html[data-ui="v2"] #dashboardView .tl-plot { position: relative; margin: 0; padding-right: 20px; min-height: 54px; }
+html[data-ui="v2"] #dashboardView .tl-plot .g { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--d-line-2); }
+html[data-ui="v2"] #dashboardView .tl-plot .bar { position: absolute; left: 0; top: 50%; height: 12px; margin-top: -6px; border-radius: 0 8px 8px 0; background: var(--d-late); }
+html[data-ui="v2"] #dashboardView .tl-plot .lab { position: absolute; top: 50%; transform: translateY(-50%); margin-left: 20px; font: 600 11.5px var(--mono); color: var(--d-late); white-space: nowrap; }
+html[data-ui="v2"] #dashboardView .tl-plot .lab.mut { color: var(--muted); font-weight: 500; }
+html[data-ui="v2"] #dashboardView .tl-plot .lab.ok { color: var(--d-ok); }
+html[data-ui="v2"] #dashboardView .tl-plot .age { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; border: 3px solid var(--d-info); background: var(--surface); }
+html[data-ui="v2"] #dashboardView .tl-plot .pz { position: absolute; left: 0; top: 50%; height: 0; border-top: 2px dashed var(--d-pause); }
+html[data-ui="v2"] #dashboardView .tl-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 12px 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: var(--d-2); }
+html[data-ui="v2"] #dashboardView .tl-legend span { display: inline-flex; align-items: center; gap: 8px; }
+html[data-ui="v2"] #dashboardView .tl-legend .k-bar { width: 22px; height: 8px; border-radius: 0 5px 5px 0; background: var(--d-late); }
+html[data-ui="v2"] #dashboardView .tl-legend .k-age { width: 11px; height: 11px; border-radius: 50%; border: 3px solid var(--d-info); }
+html[data-ui="v2"] #dashboardView .tl-legend .k-pz { width: 22px; border-top: 2px dashed var(--d-pause); }
+@media (max-width: 760px) {
+  html[data-ui="v2"] #dashboardView .tl-grid { grid-template-columns: 1fr; }
+  html[data-ui="v2"] #dashboardView .tl-a-l { display: none; }
+  html[data-ui="v2"] #dashboardView .tl-a-p { margin: 0 20px; padding-right: 0; }
+  html[data-ui="v2"] #dashboardView .tl-plot { margin: 0 20px 6px; min-height: 40px; padding-right: 0; }
+}
+
+/* ── Carga por atendente ── */
+html[data-ui="v2"] #dashboardView .dashboard-sidebar { position: sticky; top: 84px; display: grid; gap: 16px; padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-card, 0 6px 18px rgba(60,40,20,.06)); }
+html[data-ui="v2"] #dashboardView .dashboard-sidebar .sidebar-title { margin: 0; font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+html[data-ui="v2"] #dashboardView .crew-tot { display: flex; align-items: baseline; gap: 10px; }
+html[data-ui="v2"] #dashboardView .crew-tot b { font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; color: var(--text); }
+html[data-ui="v2"] #dashboardView .crew-tot span { font-size: 12.5px; color: var(--muted); line-height: 1.3; }
+html[data-ui="v2"] #dashboardView .sum { display: grid; gap: 14px; padding: 16px; margin-top: 12px; border-radius: 18px; background: var(--d-2); border: 1px solid var(--d-line-2); }
+html[data-ui="v2"] #dashboardView .sbar { display: flex; gap: 3px; height: 12px; }
+html[data-ui="v2"] #dashboardView .sbar i { display: block; border-radius: 999px; background: var(--c); }
+html[data-ui="v2"] #dashboardView .sgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+html[data-ui="v2"] #dashboardView .sgrid div { display: grid; gap: 4px; justify-items: start; }
+html[data-ui="v2"] #dashboardView .sgrid b { font-size: 30px; font-weight: 800; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--c); }
+html[data-ui="v2"] #dashboardView .sgrid span { display: inline-flex; align-items: center; gap: 6px; font: 500 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+html[data-ui="v2"] #dashboardView .sgrid span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+html[data-ui="v2"] #dashboardView .attendants-container { display: grid; gap: 12px; }
+html[data-ui="v2"] #dashboardView .ag { --hc: var(--d-info); position: relative; display: grid; gap: 12px; width: 100%; text-align: left; font: inherit; color: var(--text); cursor: pointer; padding: 14px 14px 13px 16px; border-radius: 18px; border: 1px solid var(--border); overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--hc) 11%, var(--surface)), var(--surface) 58%); }
+html[data-ui="v2"] #dashboardView .ag::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: var(--hc); }
+html[data-ui="v2"] #dashboardView .ag:hover, html[data-ui="v2"] #dashboardView .ag[aria-pressed="true"] { border-color: color-mix(in srgb, var(--hc) 55%, var(--border)); }
+html[data-ui="v2"] #dashboardView .ag[aria-pressed="true"] { box-shadow: 0 0 0 1px var(--hc); }
+html[data-ui="v2"] #dashboardView .ag-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+html[data-ui="v2"] #dashboardView .ag-av { width: 44px; height: 44px; border-radius: 14px; background: var(--hc); color: #fff; font-weight: 800; font-size: 14px; display: grid; place-items: center; }
+html[data-ui="v2"] #dashboardView .ag-id { min-width: 0; display: grid; gap: 2px; }
+html[data-ui="v2"] #dashboardView .ag .nm { font-weight: 700; font-size: 14px; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+html[data-ui="v2"] #dashboardView .ag .role { font: 500 11px var(--mono); color: var(--muted); }
+html[data-ui="v2"] #dashboardView .ag-cnt { display: grid; justify-items: end; line-height: 1; }
+html[data-ui="v2"] #dashboardView .ag .cnt { font-size: 32px; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+html[data-ui="v2"] #dashboardView .ag-cnt small { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+html[data-ui="v2"] #dashboardView .load { display: flex; gap: 2px; height: 10px; border-radius: 999px; background: var(--border); overflow: hidden; }
+html[data-ui="v2"] #dashboardView .load i { display: block; height: 100%; width: var(--w); background: var(--c); }
+html[data-ui="v2"] #dashboardView .ag-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+html[data-ui="v2"] #dashboardView .st { display: inline-flex; align-items: center; gap: 7px; padding: 3px 11px 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+html[data-ui="v2"] #dashboardView .st::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+html[data-ui="v2"] #dashboardView .st b { font-weight: 800; }
+html[data-ui="v2"] #dashboardView .st.r { background: var(--d-late-pill); color: var(--d-on-late); }
+html[data-ui="v2"] #dashboardView .st.y { background: color-mix(in srgb, var(--d-amber) 16%, transparent); color: var(--d-amber); }
+html[data-ui="v2"] #dashboardView .st.g { background: color-mix(in srgb, var(--d-ok) 16%, transparent); color: var(--d-ok); }
+@media (max-width: 1100px) { html[data-ui="v2"] #dashboardView .dashboard-sidebar { position: static; } }
+
+html[data-ui="v2"] #dashboardView .kb-col-topo h3 { text-transform: none; font-size: 14px; color: var(--text); letter-spacing: .02em; }
+html[data-ui="v2"] #dashboardView .kb-col-topo h3::before { display: none; }
+html[data-ui="v2"] #dashboardView .kb-col-n { border: 0; }
+
+/* impacto do chamado no SLA do time */
+html[data-ui="v2"] #dashboardView .kb-sla-imp { align-self: flex-start; font: 800 11.5px var(--mono, monospace); padding: 2px 9px; border-radius: 999px; margin: 2px 0 8px; cursor: help; }
+html[data-ui="v2"] #dashboardView .kb-sla-imp.late { color: var(--d-on-late); background: var(--d-late-pill); }
+html[data-ui="v2"] #dashboardView .kb-sla-imp.soon { color: #b7791f; background: color-mix(in srgb, #f2b24a 18%, transparent); }
+html[data-ui="v2"] #dashboardView .kb-sla-imp.ok { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }

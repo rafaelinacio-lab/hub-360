@@ -62,7 +62,7 @@ async function chamarIA({ source, system, user, json = true, maxTokens = 900, te
   try {
     resp = await fetch(`${BASE}/chat/completions`, {
       method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), timeout: timeoutMs,
+      body: JSON.stringify(body, bemFormado), timeout: timeoutMs,
     });
   } catch (e) { throw new IaError(502, `Não consegui falar com a IA: ${e.message}`); }
   const data = await resp.json().catch(() => ({}));
@@ -77,7 +77,15 @@ async function chamarIA({ source, system, user, json = true, maxTokens = 900, te
 }
 
 // ── apoio para montar o contexto ────────────────────────────────────────────
-const limitar = (v, n) => { const s = String(v == null ? '' : v); return s.length > n ? s.slice(0, n) + '…' : s; };
+const limitar = (v, n) => {
+  const s = String(v == null ? '' : v);
+  if (s.length <= n) return s;
+  let corte = n;
+  if (/[\ud800-\udbff]/.test(s[corte - 1] || '')) corte--;   // não corta um emoji ao meio (par substituto)
+  return s.slice(0, corte) + '…';
+};
+// Trocar caracteres "soltos" (metade de emoji) por U+FFFD: a OpenAI recusa JSON com eles ("failed to parse JSON value")
+function bemFormado(_chave, valor) { return typeof valor === 'string' && typeof valor.toWellFormed === 'function' ? valor.toWellFormed() : valor; }
 const semHtml = (v) => String(v == null ? '' : v).replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 const dataBr = (v) => (v ? new Date(v).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
 

@@ -44,6 +44,27 @@ JIRA_BASE_URL  = os.environ.get("JIRA_BASE_URL", "")
 JIRA_EMAIL     = os.environ.get("JIRA_EMAIL", "")
 JIRA_API_TOKEN = os.environ.get("JIRA_API_TOKEN", "")
 
+# Credenciais controladas pelo Hub (Configurações → Tokens): se HUB_URL e HUB_EXTRATOR_KEY estiverem no .env, o que está
+# salvo lá tem prioridade sobre as variáveis acima (que viram só o plano B se o Hub estiver fora do ar).
+def _credenciais_do_hub():
+    hub, chave = os.environ.get("HUB_URL", "").rstrip("/"), os.environ.get("HUB_EXTRATOR_KEY", "")
+    if not (hub and chave):
+        return None
+    try:
+        import json, urllib.request
+        req = urllib.request.Request(f"{hub}/api/extrator/jira", headers={"X-Extrator-Key": chave})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        return d if d.get("base_url") and d.get("email") and d.get("api_token") else None
+    except Exception as e:  # Hub fora do ar / chave trocada: segue com o .env
+        print(f"[jira] não consegui ler as credenciais do Hub ({type(e).__name__}); usando o .env", file=sys.stderr)
+        return None
+
+import sys
+_hub = _credenciais_do_hub()
+if _hub:
+    JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN = _hub["base_url"].rstrip("/"), _hub["email"], _hub["api_token"]
+
 if not (JIRA_BASE_URL and JIRA_EMAIL and JIRA_API_TOKEN):
     raise SystemExit(
         "Faltam credenciais do Jira: configure JIRA_BASE_URL, JIRA_EMAIL e "

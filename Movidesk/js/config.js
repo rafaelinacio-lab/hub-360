@@ -879,9 +879,14 @@ function switchConfigTab(tab) {
     // Carregar consumo de IA ao abrir aba IA
     if (tab === 'ia') loadAiUsage();
     if (tab === 'ia-assist') { aiaInit(); loadAiAssistTab(); }
-    if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
+    if (tab === 'curadoria') { if (typeof loadPipeAnoCount === 'function') loadPipeAnoCount(); loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
-    if (tab === 'acesso') { loadTabPermissionsConfig(); loadVerticalAliases(); }
+    if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
+    if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
+    if (tab === 'tokens' && typeof tokensCarregar === 'function') tokensCarregar();
+    if (tab === 'slahoras' && typeof slaHorasCarregar === 'function') slaHorasCarregar();
+    if (typeof deltaParar === 'function') deltaParar();
+    if (tab === 'telemetria') loadTelemetria();
     if (tab === 'datalake') {
         // garante que os botões nunca fiquem travados ao abrir a aba
         const btnFull   = document.getElementById('dlBtnFull');
@@ -892,6 +897,7 @@ function switchConfigTab(tab) {
         if (btnCancel) { btnCancel.style.display = 'none'; btnCancel.disabled = false; }
         dlLoad();
         dlSatLoad();
+        if (typeof deltaCarregar === 'function') deltaCarregar();
         cronLoad();
     }
 }
@@ -1656,7 +1662,12 @@ async function loadFullLoadStatus() {
 async function triggerCuradoriaFullLoad() {
     _setFullLoadButtonLoading(true);
     try {
-        const response = await fetch(`${API_BASE}/curadoria/full-load`, { method: 'POST', headers: authHeaders() });
+        const ano = (document.getElementById('cfgPipeAno')?.value || '').trim();
+        const limite = (document.getElementById('cfgPipeLimite')?.value || '').trim();
+        const qtd = document.getElementById('cfgPipeAnoCount')?.dataset.n || '';
+        const txt = `${ano ? `os chamados de ${ano}` : 'TODOS os chamados pendentes'}${limite ? `, no máximo ${limite}` : ''}${qtd ? ` (hoje: ${qtd} pendentes${ano ? ' nesse ano' : ''})` : ''}`;
+        if (!confirm(`A IA vai analisar ${txt}. Isso consome créditos da OpenAI. Continuar?`)) { _setFullLoadButtonLoading(false); return; }
+        const response = await fetch(`${API_BASE}/curadoria/full-load`, { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ ano: ano || undefined, limite: limite || undefined }) });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Falha ao disparar pipeline');
         renderFullLoadStatus(data);
@@ -1665,6 +1676,19 @@ async function triggerCuradoriaFullLoad() {
         _setFullLoadButtonLoading(false);
         setCfgStatus('cfgFullLoadStatus', `Erro ao iniciar: ${error.message}`, 'error');
     }
+}
+
+async function loadPipeAnoCount() {
+    const el = document.getElementById('cfgPipeAnoCount');
+    if (!el) return;
+    const ano = (document.getElementById('cfgPipeAno')?.value || '').trim();
+    try {
+        const r = await fetch(`${API_BASE}/curadoria/pending-count${ano ? `?ano=${encodeURIComponent(ano)}` : ''}`, { headers: authHeaders() });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'erro');
+        el.dataset.n = d.count;
+        el.textContent = `${d.count.toLocaleString('pt-BR')} chamado(s) pendente(s)${ano ? ` em ${ano}` : ''}`;
+    } catch (e) { el.dataset.n = ''; el.textContent = ''; }
 }
 
 async function stopFullPipeline() {
@@ -2127,6 +2151,19 @@ function dlUpdateYearNote() {
     }
 }
 
+function dlRenderDetalhes(d) {
+    const box = document.getElementById('dlDetalhes');
+    if (!box) return;
+    if (!d) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const feitosPct = d.abertos ? Math.round(((d.abertos - d.faltam) / d.abertos) * 100) : 100;
+    document.getElementById('dlDetalhesBar').style.width = feitosPct + '%';
+    const hora = (iso) => iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    document.getElementById('dlDetalhesTxt').textContent = d.rodando
+        ? `rodando agora — ${d.feitos}/${d.fila} da rodada · faltam ${d.faltam} de ${d.abertos} chamados abertos${d.falhas ? ` · ${d.falhas} falha(s)` : ''}`
+        : `${d.faltam ? `faltam ${d.faltam} de ${d.abertos} chamados abertos` : `todos os ${d.abertos} chamados abertos com detalhes`}${d.terminadoEm ? ` · última rodada terminou às ${hora(d.terminadoEm)}` : ''}${d.ultimoErro ? ` · último erro: ${d.ultimoErro}` : ''}`;
+}
+
 async function dlLoad() {
     dlInitYears(); // inicializa o grid de anos na primeira abertura da aba
     try {
@@ -2135,8 +2172,9 @@ async function dlLoad() {
         const data = await resp.json();
         dlRenderStatus(data.current, data.tokenSuffix);
         dlRenderHistory(data.history || []);
-        // polling automático enquanto estiver rodando
-        if (data.current?.running) {
+        dlRenderDetalhes(data.detalhes);
+        // polling automático enquanto estiver rodando (carga ou fila de detalhes)
+        if (data.current?.running || data.detalhes?.rodando) {
             if (!_dlPollTimer) _dlPollTimer = setInterval(dlLoad, 3000);
         } else {
             clearInterval(_dlPollTimer);
@@ -2980,6 +3018,7 @@ function cronTaskFillFields(t) {
     cronTaskSetSelect('cronTaskYear', t?.year === 'vigente' ? new Date().getFullYear() : (t?.year || ''));
     cronTaskSetSelect('cronTaskDays', t?.recent_days || '', v => `Últimos ${v} dias`);
     document.getElementById('cronTaskOpen').checked = !!t?.only_open;
+    const rp = document.getElementById('cronTaskRapido'); if (rp) rp.checked = !!t?.rapido;
 }
 
 // Preenche os filtros a partir de uma tarefa existente (padrão ou
@@ -3035,6 +3074,7 @@ async function cronTaskSave() {
         year: document.getElementById('cronTaskYear').value,
         recent_days: document.getElementById('cronTaskDays').value,
         only_open: document.getElementById('cronTaskOpen').checked,
+        rapido: !!document.getElementById('cronTaskRapido')?.checked,
     };
     if (!body.name) return showError('Preencha o nome.');
     if (!body.owner_team && !body.classification && !body.year && !body.recent_days && !body.only_open) {
@@ -3457,4 +3497,152 @@ async function saveVerticalAliases() {
         document.getElementById('cfgVertAliases').value = d.texto || '';
         setCfgStatus('cfgVertAliasesStatus', 'Equivalências salvas. Valem para o próximo carregamento do GCC e da Satisfação.', 'ok');
     } catch (e) { setCfgStatus('cfgVertAliasesStatus', `Erro ao salvar: ${e.message}`, 'error'); }
+}
+
+// ── Telemetria: uso do Hub 360 (quem, o quê, quando, quantos cliques) ─────────
+const TEL_DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+function telEsc(v) { return String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function telTempo(seg) {
+    const s = Number(seg) || 0;
+    if (s < 60) return s ? `${s}s` : '—';
+    const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+    return h ? `${h}h ${String(m).padStart(2, '0')}min` : `${m}min`;
+}
+function telQuando(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+    const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (dias <= 0 && new Date().getDate() === d.getDate()) return `hoje ${hora}`;
+    return `${d.toLocaleDateString('pt-BR')} ${hora}`;
+}
+const telN = (n) => (Number(n) || 0).toLocaleString('pt-BR');
+
+async function loadTelemetria() {
+    const corpo = document.getElementById('telCorpo');
+    const status = document.getElementById('telStatus');
+    if (!corpo) return;
+    const dias = document.getElementById('telDias').value;
+    const selUser = document.getElementById('telUsuario');
+    const usuario = selUser.value;
+    status.textContent = 'Carregando…';
+    try {
+        const r = await fetch(`${API_BASE}/telemetria/resumo?dias=${encodeURIComponent(dias)}${usuario ? `&usuario=${encodeURIComponent(usuario)}` : ''}`, { headers: authHeaders() });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        status.textContent = '';
+
+        // lista de usuários do filtro (preserva a seleção)
+        if (selUser.options.length <= 1 && d.listaUsuarios) {
+            selUser.innerHTML = '<option value="">Todos</option>' + d.listaUsuarios.map((u) => `<option value="${u.id}">${telEsc(u.name)}</option>`).join('');
+            selUser.value = usuario;
+        }
+
+        const k = d.kpi || {};
+        const cards = [
+            ['Usuários ativos', telN(k.usuarios)], ['Acessos a abas', telN(k.acessos)], ['Cliques', telN(k.cliques)],
+            ['Tempo ativo total', telTempo(k.seg_ativos)], ['Sessões', telN(k.sessoes)],
+            ['Cliques por acesso', k.acessos ? (k.cliques / k.acessos).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'],
+        ];
+        const kpis = `<div class="tel-kpis">${cards.map(([l, v]) => `<div class="tel-kpi"><span>${l}</span><b>${v}</b></div>`).join('')}</div>`;
+
+        const tUsuarios = `<div class="config-card"><h3 class="config-card-title">Quem mais usa</h3>
+            ${d.usuarios.length ? `<div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>#</th><th>Usuário</th><th class="n">Acessos</th><th class="n">Cliques</th><th class="n">Tempo ativo</th><th class="n">Dias ativos</th><th>Aba mais usada</th><th>Último acesso</th></tr></thead><tbody>
+            ${d.usuarios.map((u, i) => `<tr><td>${i + 1}</td><td><b>${telEsc(u.nome)}</b><br><small>${telEsc(u.email || '')}</small></td><td class="n">${telN(u.acessos)}</td><td class="n">${telN(u.cliques)}</td><td class="n">${telTempo(u.seg_ativos)}</td><td class="n">${telN(u.dias_ativos)}</td><td>${telEsc(u.aba_top || '—')}</td><td>${telQuando(u.ultima)}</td></tr>`).join('')}
+            </tbody></table></div>` : '<p class="tel-vazio">Nenhum uso registrado neste período.</p>'}</div>`;
+
+        const maxC = Math.max(1, ...d.abas.map((a) => a.cliques));
+        const tAbas = `<div class="config-card"><h3 class="config-card-title">O que mais usam (por aba)</h3>
+            ${d.abas.length ? `<div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>Aba</th><th class="n">Acessos</th><th class="n">Cliques</th><th class="n">Usuários</th><th class="n">Tempo ativo</th><th style="width:30%"></th></tr></thead><tbody>
+            ${d.abas.map((a) => `<tr><td><b>${telEsc(a.aba)}</b></td><td class="n">${telN(a.acessos)}</td><td class="n">${telN(a.cliques)}</td><td class="n">${telN(a.usuarios)}</td><td class="n">${telTempo(a.seg_ativos)}</td><td><div class="tel-barra"><i style="width:${Math.max(2, a.cliques / maxC * 100)}%"></i></div></td></tr>`).join('')}
+            </tbody></table></div>` : '<p class="tel-vazio">Sem dados.</p>'}</div>`;
+
+        const tAlvos = `<div class="config-card"><h3 class="config-card-title">Botões e controles mais clicados</h3>
+            ${d.alvos.length ? `<div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>Controle</th><th>Aba</th><th class="n">Cliques</th><th class="n">Usuários</th></tr></thead><tbody>
+            ${d.alvos.map((a) => `<tr><td>${telEsc(a.alvo)}</td><td>${telEsc(a.aba)}</td><td class="n">${telN(a.cliques)}</td><td class="n">${telN(a.usuarios)}</td></tr>`).join('')}
+            </tbody></table></div>` : '<p class="tel-vazio">Sem cliques registrados.</p>'}</div>`;
+
+        // mapa de calor: dia da semana x hora (horário de Brasília)
+        const grade = Array.from({ length: 7 }, () => Array(24).fill(0));
+        let maxH = 1;
+        d.heat.forEach((h) => { grade[h.dow][h.hora] = h.n; maxH = Math.max(maxH, h.n); });
+        const heat = `<div class="config-card"><h3 class="config-card-title">Quando usam (dia da semana × hora)</h3>
+            <p class="config-card-help">Visitas + cliques, horário de Brasília. Mais escuro = mais uso.</p>
+            <div class="tel-heat"><div></div>${Array.from({ length: 24 }, (_, h) => `<small>${h}</small>`).join('')}
+            ${grade.map((linha, dow) => `<small>${TEL_DIAS_SEMANA[dow]}</small>${linha.map((n, h) => `<i title="${TEL_DIAS_SEMANA[dow]} ${h}h: ${telN(n)}" style="opacity:${n ? (0.15 + 0.85 * n / maxH).toFixed(2) : 0.06}"></i>`).join('')}`).join('')}
+            </div></div>`;
+
+        const maxS = Math.max(1, ...d.serie.map((x) => x.cliques + x.acessos));
+        const serie = `<div class="config-card"><h3 class="config-card-title">Dia a dia</h3>
+            ${d.serie.length ? `<div class="tel-serie">${d.serie.map((x) => `<div title="${new Date(x.dia).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}: ${telN(x.usuarios)} usuário(s), ${telN(x.acessos)} acessos, ${telN(x.cliques)} cliques"><i style="height:${Math.max(3, (x.cliques + x.acessos) / maxS * 100)}%"></i><small>${new Date(x.dia).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })}</small></div>`).join('')}</div>` : '<p class="tel-vazio">Sem dados.</p>'}</div>`;
+
+        const sem = d.semAcesso && d.semAcesso.length
+            ? `<div class="config-card"><h3 class="config-card-title">Sem nenhum acesso no período (${d.semAcesso.length})</h3>
+               <div class="tel-scroll"><table class="tel-tabela"><thead><tr><th>Usuário</th><th>E-mail</th><th>Último login</th></tr></thead><tbody>
+               ${d.semAcesso.map((u) => `<tr><td>${telEsc(u.name)}</td><td>${telEsc(u.email)}</td><td>${telQuando(u.last_login)}</td></tr>`).join('')}
+               </tbody></table></div></div>` : '';
+
+        corpo.innerHTML = kpis + tUsuarios + tAbas + tAlvos + heat + serie + sem;
+    } catch (e) {
+        status.textContent = `Não foi possível carregar a telemetria: ${e.message}`;
+        status.className = 'config-status error';
+    }
+}
+
+// ── Diagnóstico de chat: os atendimentos de chat chegam com os campos preenchidos? ──
+async function rodarDiagnosticoChat() {
+    const btn = document.getElementById('cfgChatDiagBtn');
+    const status = document.getElementById('cfgChatDiagStatus');
+    const box = document.getElementById('cfgChatDiagResultado');
+    if (!btn) return;
+    btn.disabled = true; status.textContent = 'Consultando o Movidesk…'; box.innerHTML = '';
+    try {
+        const tk = (document.getElementById('cfgChatDiagTickets') || {}).value || '';
+        const r = await fetch(`${API_BASE}/geral/chat-diagnostico?tickets=${encodeURIComponent(tk)}&procurar=${encodeURIComponent(((document.getElementById('cfgChatDiagProcurar') || {}).value || '').trim())}`, { headers: authHeaders() });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        status.textContent = '';
+        const e = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const a = d.amostra, c = d.chats;
+        const linhas = [];
+        if (c.total) {
+            linhas.push(`<b>✅ Encontrei ${c.total} chamado(s) de chat recentes</b> (o mais recente em ${e(new Date(c.maisRecente).toLocaleString('pt-BR'))}).`);
+            linhas.push(`Código de origem desses chamados: <b>${e(c.origens.join(', '))}</b>.`);
+            linhas.push(`Grupos de chat: ${c.grupos.length ? e(c.grupos.join(' · ')) : '<b>nenhum preenchido</b>'}.`);
+            linhas.push(`Widgets: ${c.widgets.length ? e(c.widgets.join(' · ')) : '—'}.`);
+            linhas.push(`Com tempo de conversa: <b>${c.comTempoConversa}</b> de ${c.total} · com tempo de espera: <b>${c.comTempoEspera}</b> de ${c.total} · com grupo: <b>${c.comGrupo}</b> de ${c.total}.`);
+            if (c.exemplos.length) linhas.push('Exemplos: ' + c.exemplos.map((x) => `#${e(x.id)} (${e(x.grupo || 'sem grupo')}, espera ${e(x.espera ?? '—')}, conversa ${e(x.conversa ?? '—')})`).join(' · '));
+            linhas.push('<b>Conclusão:</b> dá para acompanhar o chat no Hub a partir dos chamados. O Hub já guarda esses chats: veja em Chamados → Chats.');
+        } else {
+            linhas.push('<b>⚠️ Não achei chamados com widget de chat preenchido.</b> Ou o chat ainda não gera chamado com esses campos, ou a conta não os devolve.');
+            linhas.push(`Na amostra dos últimos ${a.total} chamados, as origens são: ${Object.entries(a.porOrigem).map(([k, v]) => `${e(k)} (${v})`).join(', ') || '—'}.`);
+        }
+        // o que a API devolve para cada chamado informado
+        if (d.sonda && d.sonda.length) {
+            linhas.push('<br><b>Chamados conferidos:</b>');
+            d.sonda.forEach((x) => {
+                if (x.erro) { linhas.push(`#${e(x.id)}: ${e(x.erro)}`); return; }
+                linhas.push(`#${e(x.id)} — origem <b>${e(x.origin ?? 'vazia')}</b> · status ${e(x.status || '—')} · grupo <b>${e(x.grupo || 'vazio')}</b> · widget <b>${e(x.widget || 'vazio')}</b> · atendente ${e(x.atendente || '—')} · serviço ${e(x.servico || '—')} · espera ${e(x.espera ?? '—')} · conversa ${e(x.conversa ?? '—')}`
+                    + (x.noHub === undefined ? '' : (x.noHub ? ` · <b>no Hub:</b> sim (status ${e(x.noHub.base_status)}, tempo de conversa ${e(x.noHub.tempo_conversa ?? 'vazio')})` : ' · <b>no Hub:</b> <b>NÃO</b> (a coleta não pegou este chamado)')));
+            });
+        }
+        if (d.procura) {
+            const pr = d.procura;
+            linhas.push(`<br><b>Procurando "${e(pr.valor)}" no chamado #${e(pr.id)}:</b> ` + (pr.erro ? e(pr.erro)
+                : (pr.encontrado.length ? pr.encontrado.map((x) => `<code>${e(x)}</code>`).join('<br>') : '<b>não encontrado em nenhum campo</b>')));
+            if (!pr.erro) {
+                linhas.push('Campos de chat do chamado: ' + (Object.keys(pr.camposChat).length ? Object.entries(pr.camposChat).map(([k, v]) => `${e(k)} = ${e(typeof v === 'object' ? JSON.stringify(v) : v)}`).join(' · ') : 'nenhum'));
+                linhas.push('Todos os campos devolvidos: ' + e(pr.todosOsCampos.join(', ')));
+            }
+        }
+        // por origem, entre os últimos 100 chamados: quantos têm grupo/widget
+        if (a.porOrigemDetalhe) {
+            linhas.push('<br><b>Origens nos últimos ' + a.total + ' chamados:</b> ' + Object.entries(a.porOrigemDetalhe).map(([k, v]) => `origem ${e(k)}: ${v.total} (com grupo ${v.comGrupo}, com widget ${v.comWidget})`).join(' · '));
+        }
+        if (d.erros && d.erros.length) linhas.push('<b>Avisos da API:</b><br>' + d.erros.map(e).join('<br>'));
+        box.innerHTML = linhas.join('<br>');
+    } catch (err) {
+        status.textContent = `Não foi possível verificar: ${err.message}`;
+        status.className = 'config-status error';
+    } finally { btn.disabled = false; }
 }

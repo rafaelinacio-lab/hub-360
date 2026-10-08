@@ -355,6 +355,139 @@ body::-webkit-scrollbar {
     display: inline-block;
 }
 
+/* Aba ativa: ícone também na cor de destaque */
+.sidebar-btn.active svg {
+    color: var(--topbar-accent);
+}
+
+/* Configurações: só o ícone, no fim da barra (o nome fica no tooltip) */
+#navConfiguracoes {
+    margin-left: auto;
+    padding: 0 12px;
+}
+#navConfiguracoes .sidebar-btn-label {
+    display: none;
+}
+
+/* Contador de ativos nas abas (ex.: Incidentes) */
+.nav-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #fbbf24;
+    color: #2a1c03;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 18px;
+    text-align: center;
+}
+.nav-badge[hidden] { display: none; }
+.nav-badge.grave { background: #f87171; color: #1a0b0b; }
+
+/* Menu recolhido: só os ícones; ao passar o mouse (ou focar com o teclado) a aba
+   se expande e mostra o nome. A aba atual fica marcada pelo ícone/sublinhado laranja. */
+.topbar-nav .sidebar-btn {
+    gap: 0;
+    padding: 0 13px;
+}
+.topbar-nav .sidebar-btn .sidebar-btn-label {
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: max-width 0.24s ease, margin-left 0.24s ease, opacity 0.18s ease;
+}
+.topbar-nav .sidebar-btn:hover .sidebar-btn-label,
+.topbar-nav .sidebar-btn:focus-visible .sidebar-btn-label {
+    max-width: 150px;
+    margin-left: 8px;
+    opacity: 1;
+}
+/* o contador vira uma bolinha no canto do ícone */
+.topbar-nav .sidebar-btn .nav-badge {
+    position: absolute;
+    top: 12px;
+    right: 3px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 16px;
+    border-radius: 8px;
+}
+
+/* Botão e paleta "Ir para…" (Ctrl+K) */
+.nav-busca-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--topbar-icon);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.nav-busca-btn:hover { color: var(--text); border-color: var(--topbar-accent); }
+.nav-busca-btn kbd, .nav-paleta-dica kbd {
+    font: 600 10.5px system-ui, sans-serif;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 5px;
+}
+@media (max-width: 1100px) { .nav-busca-btn { display: none; } }
+.nav-paleta {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(8, 10, 16, 0.55);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 12vh;
+}
+.nav-paleta[hidden] { display: none; }
+.nav-paleta-box {
+    width: min(560px, 92vw);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+.nav-paleta-box input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 15px 18px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+}
+#navPaletaLista { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow-y: auto; }
+#navPaletaLista li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+}
+#navPaletaLista li svg { width: 17px; height: 17px; flex: none; color: var(--topbar-icon); }
+#navPaletaLista li small { margin-left: auto; color: var(--topbar-icon); font-size: 11px; }
+#navPaletaLista li.sel { background: rgba(251, 146, 60, 0.14); }
+#navPaletaLista li.sel svg { color: var(--topbar-accent); }
+.nav-paleta-dica { margin: 0; padding: 8px 14px; border-top: 1px solid var(--border); color: var(--topbar-icon); font-size: 11px; }
+
 .topbar-actions {
     display: flex;
     align-items: center;
@@ -493,6 +626,19 @@ body::-webkit-scrollbar {
     box-shadow: none;
 }
 
+/* Menu recolhido: a página embutida (ex.: Painel Geral) avisa ao rolar pra baixo
+   e a barra do Hub encolhe, dando mais área de visualização. */
+.topbar { transition: height .22s ease, opacity .22s ease; }
+body.nav-oculta .topbar {
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+    border-bottom-width: 0;
+    pointer-events: none;
+}
+.embedded-pages-view { transition: height .22s ease; }
+body.nav-oculta .embedded-pages-view { height: 100vh; }
+
 .embedded-page-frame {
     width: 100%;
     height: 100%;
@@ -515,80 +661,6 @@ body.legacy-view-mode .main-content {
 
 body.legacy-view-mode .app-wrapper {
     min-height: 100vh;
-}
-
-/* ===== Transição de abas (ícone) =====
-   Fundo opaco (mesma cor da superfície) que cobre o conteúdo antigo/novo
-   por completo enquanto a animação roda; o conteúdo só some depois. */
-.tab-fx-overlay {
-    position: fixed;
-    z-index: 500;
-    pointer-events: none;
-    background: var(--bg, #f4f7f9);
-    opacity: 0;
-}
-.tab-fx-ring {
-    position: fixed;
-    z-index: 501;
-    pointer-events: none;
-    width: 64px;
-    height: 64px;
-    margin-left: -32px;
-    margin-top: -32px;
-    border-radius: 50%;
-    border: 2px solid var(--topbar-accent, #ea580c);
-}
-.tab-fx-icon {
-    position: fixed;
-    z-index: 502;
-    pointer-events: none;
-    color: var(--topbar-accent, #ea580c);
-    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.28));
-}
-.tab-fx-icon svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-}
-
-/* Desenho do gráfico (GCC): o ícone é "traçado" à mão no centro da tela */
-.tab-fx-draw {
-    position: fixed;
-    z-index: 502;
-    pointer-events: none;
-    color: var(--topbar-accent, #ea580c);
-    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.28));
-}
-.tab-fx-draw svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-    overflow: visible;
-}
-.tab-fx-draw path {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-.tab-fx-draw circle {
-    fill: currentColor;
-}
-
-body.legacy-view-mode #embeddedPagesView {
-    display: none !important;
-}
-
-.dashboard-layout {
-    display: grid;
-    grid-template-columns: 1fr 260px;
-    gap: 20px;
-    align-items: start;
-}
-
-.dashboard-main {
-    min-width: 0;
 }
 
 /* ===== Status Summary Cards (with sparklines) ===== */
@@ -5642,3 +5714,27 @@ body.legacy-view-mode #embeddedPagesView {
 .aia-barra.aia-sujo #aiaBarraTxt { color: #b45309; font-weight: 600; }
 .aia-barra .config-btn:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 760px) { .aia-corpo { grid-template-columns: 1fr; } }
+
+/* ===== Telemetria (Configurações) ===== */
+.tel-filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 10px; }
+.tel-filtros label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted, #8b93a7); }
+.tel-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+.tel-kpi { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.tel-kpi span { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #8b93a7); }
+.tel-kpi b { display: block; margin-top: 4px; font-size: 24px; color: var(--text); }
+.tel-scroll { overflow-x: auto; }
+.tel-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tel-tabela th { text-align: left; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted, #8b93a7); padding: 8px; border-bottom: 1px solid var(--border); }
+.tel-tabela td { padding: 9px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+.tel-tabela small { color: var(--muted, #8b93a7); }
+.tel-tabela .n { text-align: right; font-variant-numeric: tabular-nums; }
+.tel-barra { height: 8px; border-radius: 999px; background: rgba(148, 163, 184, .18); overflow: hidden; }
+.tel-barra i { display: block; height: 100%; border-radius: 999px; background: var(--topbar-accent, #fb923c); }
+.tel-vazio { margin: 10px 0 0; color: var(--muted, #8b93a7); font-size: 13px; }
+.tel-heat { display: grid; grid-template-columns: 34px repeat(24, minmax(10px, 1fr)); gap: 3px; align-items: center; }
+.tel-heat small { font-size: 10px; text-align: center; color: var(--muted, #8b93a7); }
+.tel-heat i { display: block; aspect-ratio: 1 / 1; border-radius: 3px; background: var(--topbar-accent, #fb923c); }
+.tel-serie { display: flex; align-items: flex-end; gap: 3px; height: 150px; overflow-x: auto; padding-top: 6px; }
+.tel-serie > div { flex: 1 0 14px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.tel-serie i { display: block; width: 100%; border-radius: 3px 3px 0 0; background: var(--topbar-accent, #fb923c); }
+.tel-serie small { font-size: 9px; color: var(--muted, #8b93a7); writing-mode: vertical-rl; transform: rotate(180deg); }

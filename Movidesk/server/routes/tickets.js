@@ -1447,6 +1447,31 @@ async function fetchFiltersFromLocalDb(viewer) {
 // conhecido na apidatalake ainda — ver plano de migração, seção de custom
 // fields). Isso é uma aproximação deliberada: pode incluir mais valores do
 // que a rota `GET /` de fato mostra depois de aplicar o filtro de customField.
+// SLA do time no mês (Suporte Técnico, resolvidos com prazo): base para mostrar nos chamados do Dashboard o impacto de cada um no SLA.
+// dentro = resolvido até o prazo; fora = resolvido depois do prazo. Mesma regra do "SLA individual" do Painel TV.
+let _slaTimeCache = { em: 0, valor: null };
+router.get('/sla-time', requireTicketsAccess, async (req, res) => {
+  try {
+    if (_slaTimeCache.valor && Date.now() - _slaTimeCache.em < 5 * 60 * 1000) return res.json(_slaTimeCache.valor);
+    const hoje = new Date();
+    const desde = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1)).toISOString().slice(0, 10);
+    const r = await db.query(`
+      SELECT COUNT(*) FILTER (WHERE t.resolved_in <= t.sla_solution_date)::int AS dentro,
+             COUNT(*) FILTER (WHERE t.resolved_in >  t.sla_solution_date)::int AS fora
+        FROM silver.ticket t
+        JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946
+       WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = 'suporte tecnico'
+         AND t.basestatus IN ('Resolved','Closed','Resolvido','Fechado')
+         AND t.sla_solution_date IS NOT NULL AND t.resolved_in >= $1::date`, [desde]);
+    _slaTimeCache = { em: Date.now(), valor: { desde, dentro: r.rows[0].dentro, fora: r.rows[0].fora } };
+    res.json(_slaTimeCache.valor);
+  } catch (e) {
+    if (e.code === '42P01') return res.json({ dentro: 0, fora: 0 });
+    console.error('[tickets] sla-time:', e.message);
+    res.status(500).json({ error: 'Erro ao calcular o SLA do time' });
+  }
+});
+
 router.get('/filters', requireTicketsAccess, async (req, res) => {
   const viewer = await resolveViewerContext(req);
   const cacheKey = getViewerCacheKey(viewer, 'tickets:filters');

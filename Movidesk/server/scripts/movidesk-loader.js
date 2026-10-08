@@ -19,6 +19,7 @@
 const fetch   = require('node-fetch');
 const db      = require('../db/remote');
 const { getToken } = require('../routes/config');
+const cacheResposta = require('../utils/cacheResposta');
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const MOVI_BASE   = 'https://apimovidesk.viasoftcloud.com.br/public/v1';
@@ -254,17 +255,33 @@ async function getMovideskToken() {
   );
 }
 
+// Limite do gateway do Movidesk: 150 requisições/min por perfil (429 "PROFILE_RATE_LIMIT_EXCEEDED: 192/150", visto em
+// 08/10/2026 com a carga rápida + fila de detalhes + reconferência em paralelo). Toda chamada das cargas passa por aqui:
+// janela deslizante de 60 s com folga para a Central do chamado e os chats (que não passam por este limitador).
+const MOVIDESK_REQ_POR_MIN = Math.max(10, Number(process.env.MOVIDESK_REQ_POR_MIN) || 100);
+const _chamadasMovidesk = [];
+async function aguardarVezMovidesk() {
+  while (true) {
+    const agora = Date.now();
+    while (_chamadasMovidesk.length && _chamadasMovidesk[0] <= agora - 60000) _chamadasMovidesk.shift();
+    if (_chamadasMovidesk.length < MOVIDESK_REQ_POR_MIN) { _chamadasMovidesk.push(agora); return; }
+    await sleep(_chamadasMovidesk[0] + 60000 - agora + 50);
+  }
+}
+
 async function fetchWithRetry(url) {
   let lastErr;
   for (let i = 0; i <= MAX_RETRIES; i++) {
     try {
+      await aguardarVezMovidesk();
       const resp = await fetch(url, { timeout: FETCH_TIMEOUT_MS });
       if (resp.ok) return resp;
       const body = await resp.text().catch(() => '');
       lastErr = new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
       const retryable = resp.status === 429 || resp.status === 408 || resp.status >= 500;
       if (!retryable || i === MAX_RETRIES) throw lastErr;
-      const ms = 1000 * Math.pow(2, i) + Math.floor(Math.random() * 400);
+      // 429 = cota do minuto esgotada (outro processo usando o mesmo perfil): espera a janela virar.
+      const ms = resp.status === 429 ? 30000 + Math.floor(Math.random() * 5000) : 1000 * Math.pow(2, i) + Math.floor(Math.random() * 400);
       console.warn(`[loader] retry ${i + 1}/${MAX_RETRIES} in ${ms}ms — ${lastErr.message}`);
       await sleep(ms);
     } catch (e) {
@@ -537,6 +554,7 @@ async function ensureTables() {
       'stopped_time_wt float', 'sla_response_date timestamptz', 'extracted_at timestamptz',
       'sla_solution_date timestamptz',
       'reopened_in timestamptz',
+      'detalhes_em timestamptz',   // quando as ações/clientes/campos do chamado foram gravados (fila de detalhes em segundo plano)
     ].map(col => {
       const [name] = col.split(' ');
       return [`silver.ticket.${name}`, `ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`];
@@ -606,6 +624,7 @@ async function ensureTables() {
     // em ~720 mil tickets, é o motivo real do Painel Geral travar/nunca
     // responder. Índice composto cobre também o join de "quem respondeu"
     // em satisfacao.js (ticket_id + cliente_id).
+    ['silver.ticket_cliente idx cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_cliente_id ON silver.ticket_cliente(cliente_id)`],
     ['silver.ticket_cliente idx ticket_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_id ON silver.ticket_cliente(ticket_id)`],
     ['silver.ticket_cliente idx ticket_id+cliente_id', `CREATE INDEX IF NOT EXISTS idx_ticket_cliente_ticket_cliente ON silver.ticket_cliente(ticket_id, cliente_id)`],
     // Mesmo com o índice acima, a heurística de organização (ORG_LATERAL) continua
@@ -816,6 +835,86 @@ async function logTicketChanges(logId, ids, fieldsMap) {
 }
 
 // ── Persistir um lote de tickets ──────────────────────────────────────────────
+// Grava os clientes/organizações dos chamados (silver.ticket_cliente): DELETE + INSERT por chamado, numa transação.
+// Usada pelo saveBatch (carga completa) e pela carga rápida de pendentes (salvarBasico).
+async function gravarClientes(tickets) {
+  // schema Java: ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome
+  const cliRowsBruto = [];
+  for (const t of tickets) {
+    if (!Array.isArray(t.clients)) continue;
+    for (const c of t.clients) {
+      // Nem sempre a organização vem aninhada em c.organization — em tickets
+      // como o #876730, a empresa aparece como um client PRÓPRIO dentro de
+      // clients[] (personType 2 = pessoa jurídica), com organization:null
+      // nela mesma. Sem esse fallback, nem o contato pessoa física nem o
+      // registro da empresa ficavam com organizacao_id/nome preenchidos, e o
+      // ticket caía em "Não informado" mesmo tendo organização clara no
+      // Movidesk.
+      const orgId   = c.organization?.id ? String(c.organization.id)
+                     : (c.personType === 2 && c.id ? String(c.id) : null);
+      const orgNome = c.organization?.businessName
+                     || (c.personType === 2 ? c.businessName : null)
+                     || null;
+      cliRowsBruto.push({
+        ticket_id:        String(t.id),
+        // Cliente sem id no Movidesk (contato removido/sem cadastro): a tabela criada
+        // pelo extrator Java tem cliente_id NOT NULL, e um único cliente assim derrubava
+        // o lote inteiro ("null value in column cliente_id ... violates not-null").
+        // Grava um marcador em vez de perder o cliente (e a organização dele).
+        cliente_id:       c.id ? String(c.id) : SEM_ID_CLIENTE,
+        nome:             c.businessName || null,
+        email:            c.email || null,
+        organizacao_id:   orgId,
+        organizacao_nome: orgNome,
+        // profileType — um ticket pode ter mais de um "client" (o contato
+        // externo de verdade E o próprio agente interno da Viasoft que
+        // criou/atua no ticket). profileType=3 é o padrão do Movidesk pra
+        // agente interno — guardamos pra poder priorizar o contato externo
+        // na hora de escolher a organização do cliente (ver rotas
+        // ouvidoria.js/gcc.js).
+        profile_type:     c.profileType != null ? String(c.profileType) : null,
+      });
+    }
+  }
+  const cliRows = dedupeClientes(cliRowsBruto);
+  if (cliRows.length) {
+    // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT
+    // por ticket, na mesma transação (mesmo motivo do bloco acima).
+    const cliTicketIds = [...new Set(cliRows.map(r => r.ticket_id))];
+    await comLockRetry(async (client) => {
+      await client.query('BEGIN');
+      try {
+        await client.query(
+          `DELETE FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`,
+          [cliTicketIds]
+        );
+        await client.query(`
+          INSERT INTO silver.ticket_cliente
+            (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type, extracted_at)
+          SELECT
+            u.ticket_id::bigint, COALESCE(NULLIF(u.cliente_id, ''), '${SEM_ID_CLIENTE}'), u.nome, u.email,
+            NULLIF(u.organizacao_id, ''), u.organizacao_nome, u.profile_type, NOW()
+          FROM unnest(
+            $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]
+          ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type)
+        `, [
+          cliRows.map(r => r.ticket_id),
+          cliRows.map(r => r.cliente_id),
+          cliRows.map(r => r.nome),
+          cliRows.map(r => r.email),
+          cliRows.map(r => r.organizacao_id),
+          cliRows.map(r => r.organizacao_nome),
+          cliRows.map(r => r.profile_type),
+        ]);
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      }
+    });
+  }
+}
+
 async function saveBatch(tickets) {
   if (!tickets.length) return [];
 
@@ -919,6 +1018,7 @@ async function saveBatch(tickets) {
       urgencies, categories, services,
       resolvedIns, closedIns, stoppedTs, stoppedCs,
       slaRespDs, clientOrgs, slaSolDs, reopenedIns]));
+  await db.query(`UPDATE silver.ticket SET detalhes_em = NOW() WHERE ticket_id = ANY($1::bigint[])`, [ids]).catch(() => {});   // fila de detalhes em segundo plano
 
   // ── 2. silver.ticket_acao ──
   // Dedup por (ticket_id, acao_id) — mesmo motivo do dedup de tickets acima:
@@ -1061,82 +1161,10 @@ async function saveBatch(tickets) {
     });
   }
 
-  // ── 4. silver.ticket_cliente ── (schema Java: ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome)
-  const cliRowsBruto = [];
-  for (const t of tickets) {
-    if (!Array.isArray(t.clients)) continue;
-    for (const c of t.clients) {
-      // Nem sempre a organização vem aninhada em c.organization — em tickets
-      // como o #876730, a empresa aparece como um client PRÓPRIO dentro de
-      // clients[] (personType 2 = pessoa jurídica), com organization:null
-      // nela mesma. Sem esse fallback, nem o contato pessoa física nem o
-      // registro da empresa ficavam com organizacao_id/nome preenchidos, e o
-      // ticket caía em "Não informado" mesmo tendo organização clara no
-      // Movidesk.
-      const orgId   = c.organization?.id ? String(c.organization.id)
-                     : (c.personType === 2 && c.id ? String(c.id) : null);
-      const orgNome = c.organization?.businessName
-                     || (c.personType === 2 ? c.businessName : null)
-                     || null;
-      cliRowsBruto.push({
-        ticket_id:        String(t.id),
-        // Cliente sem id no Movidesk (contato removido/sem cadastro): a tabela criada
-        // pelo extrator Java tem cliente_id NOT NULL, e um único cliente assim derrubava
-        // o lote inteiro ("null value in column cliente_id ... violates not-null").
-        // Grava um marcador em vez de perder o cliente (e a organização dele).
-        cliente_id:       c.id ? String(c.id) : SEM_ID_CLIENTE,
-        nome:             c.businessName || null,
-        email:            c.email || null,
-        organizacao_id:   orgId,
-        organizacao_nome: orgNome,
-        // profileType — um ticket pode ter mais de um "client" (o contato
-        // externo de verdade E o próprio agente interno da Viasoft que
-        // criou/atua no ticket). profileType=3 é o padrão do Movidesk pra
-        // agente interno — guardamos pra poder priorizar o contato externo
-        // na hora de escolher a organização do cliente (ver rotas
-        // ouvidoria.js/gcc.js).
-        profile_type:     c.profileType != null ? String(c.profileType) : null,
-      });
-    }
-  }
-  const cliRows = dedupeClientes(cliRowsBruto);
-  if (cliRows.length) {
-    // Sem unique constraint confiável no schema do extractor Java — DELETE + INSERT
-    // por ticket, na mesma transação (mesmo motivo do bloco acima).
-    const cliTicketIds = [...new Set(cliRows.map(r => r.ticket_id))];
-    await comLockRetry(async (client) => {
-      await client.query('BEGIN');
-      try {
-        await client.query(
-          `DELETE FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])`,
-          [cliTicketIds]
-        );
-        await client.query(`
-          INSERT INTO silver.ticket_cliente
-            (ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type, extracted_at)
-          SELECT
-            u.ticket_id::bigint, COALESCE(NULLIF(u.cliente_id, ''), '${SEM_ID_CLIENTE}'), u.nome, u.email,
-            NULLIF(u.organizacao_id, ''), u.organizacao_nome, u.profile_type, NOW()
-          FROM unnest(
-            $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]
-          ) AS u(ticket_id, cliente_id, nome, email, organizacao_id, organizacao_nome, profile_type)
-        `, [
-          cliRows.map(r => r.ticket_id),
-          cliRows.map(r => r.cliente_id),
-          cliRows.map(r => r.nome),
-          cliRows.map(r => r.email),
-          cliRows.map(r => r.organizacao_id),
-          cliRows.map(r => r.organizacao_nome),
-          cliRows.map(r => r.profile_type),
-        ]);
-        await client.query('COMMIT');
-      } catch (e) {
-        await client.query('ROLLBACK').catch(() => {});
-        throw e;
-      }
-    });
-  }
+  // ── 4. silver.ticket_cliente ──
+  await gravarClientes(tickets);
 
+  cacheResposta.marcarAlterado();   // listas em cache do Painel Geral passam a ser refeitas
   return tickets;
 }
 
@@ -1899,9 +1927,265 @@ async function reconferirAbertosPresos(token, seen, { classValue, ownerTeamVal, 
   return { reconferidos: alvo.length, atualizados };
 }
 
+
+// ═══ Pendentes rápidos: campos básicos agora, detalhes depois ═══════════════════════════════════════════════
+// A carga completa de pendentes relê CADA chamado por id (ações, clientes, campos customizados) — com equipe grande
+// demora muito e o Painel TV fica defasado. No modo rápido a lista de abertos vem em páginas grandes só com os campos
+// básicos (status, responsável, prazo, serviço, urgência, datas) e é gravada na hora; o que falta (ações, clientes,
+// campos customizados) vai para uma fila que roda em segundo plano (enriquecimento) e só preenche o banco.
+async function salvarBasico(tickets) {
+  if (!tickets.length) return [];
+  const porId = new Map();
+  for (const t of tickets) porId.set(String(t.id), t);
+  tickets = [...porId.values()];
+  const col = (fn) => tickets.map(fn);
+  const A = {
+    ids: col(t => String(t.id)), subj: col(t => t.subject || null), st: col(t => t.status || null), base: col(t => t.baseStatus || null),
+    cr: col(t => t.createdDate || null), up: col(t => t.lastUpdate || null), team: col(t => t.ownerTeam || null),
+    oid: col(t => (t.owner && t.owner.id) ? String(t.owner.id) : null), onm: col(t => (t.owner && t.owner.businessName) || null),
+    urg: col(t => t.urgency || null), cat: col(t => t.category || null),
+    svc: col(t => Array.isArray(t.serviceFull) ? t.serviceFull.join(' > ') : (t.serviceFull || null)),
+    res: col(t => t.resolvedIn || null), clo: col(t => t.closedIn || null), sla: col(t => t.slaSolutionDate || null), reo: col(t => t.reopenedIn || null),
+  };
+  await comLockRetry(client => client.query(`
+    INSERT INTO silver.ticket
+      (ticket_id, subject, status, basestatus, createddate, last_update, ownerteam, owner_id, owner_name,
+       urgency, category, service_full, resolved_in, closed_in, sla_solution_date, reopened_in, extracted_at)
+    SELECT u.ticket_id::bigint, u.subject, u.status, u.basestatus, u.createddate::timestamptz, u.last_update::timestamptz, u.ownerteam, u.owner_id, u.owner_name,
+           u.urgency, u.category, u.service_full, u.resolved_in::timestamptz, u.closed_in::timestamptz, u.sla_solution_date::timestamptz, u.reopened_in::timestamptz, NOW()
+      FROM unnest($1::varchar[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[],
+                  $10::text[], $11::text[], $12::text[], $13::text[], $14::text[], $15::text[], $16::text[])
+        AS u(ticket_id, subject, status, basestatus, createddate, last_update, ownerteam, owner_id, owner_name,
+             urgency, category, service_full, resolved_in, closed_in, sla_solution_date, reopened_in)
+    ON CONFLICT (ticket_id) DO UPDATE SET
+      subject = EXCLUDED.subject, status = EXCLUDED.status, basestatus = EXCLUDED.basestatus, last_update = EXCLUDED.last_update,
+      ownerteam = EXCLUDED.ownerteam, owner_id = EXCLUDED.owner_id, owner_name = EXCLUDED.owner_name, urgency = EXCLUDED.urgency,
+      category = EXCLUDED.category, service_full = EXCLUDED.service_full, resolved_in = EXCLUDED.resolved_in, closed_in = EXCLUDED.closed_in,
+      sla_solution_date = EXCLUDED.sla_solution_date, reopened_in = EXCLUDED.reopened_in, extracted_at = EXCLUDED.extracted_at
+  `, [A.ids, A.subj, A.st, A.base, A.cr, A.up, A.team, A.oid, A.onm, A.urg, A.cat, A.svc, A.res, A.clo, A.sla, A.reo]));
+  // Clientes (opcional: só quando a listagem veio com `clients`). Sem id em algum cliente = expansão suspeita (o Movidesk já
+  // corrompeu campos expandidos junto com $filter): esse chamado fica sem mexer e os clientes vêm pela fila de detalhes.
+  const comClientes = tickets.filter(t => Array.isArray(t.clients) && t.clients.length && t.clients.every(c => c && c.id));
+  if (tickets.some(t => 'clients' in t) && tickets.length >= 20 && !comClientes.length) {
+    console.warn('[loader] a listagem rápida veio sem clientes utilizáveis — mantendo os clientes atuais (a fila de detalhes completa)');
+  }
+  if (comClientes.length) {
+    try {
+      await gravarClientes(comClientes);
+      const ids = comClientes.map(t => String(t.id));
+      const orgs = comClientes.map(t => { const c = t.clients[0]; return c?.organization?.businessName || null; });
+      await db.query(`UPDATE silver.ticket t SET clientorganization = u.org FROM unnest($1::bigint[], $2::text[]) AS u(id, org) WHERE t.ticket_id = u.id AND u.org IS NOT NULL`, [ids, orgs]);
+      await db.query(`
+        INSERT INTO silver.ticket_organizacao (ticket_id, organizacao_id, organizacao_nome, atualizado_em)
+        SELECT DISTINCT ON (ticket_id) ticket_id, organizacao_id, organizacao_nome, NOW() FROM silver.ticket_cliente WHERE ticket_id = ANY($1::bigint[])
+         ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
+        ON CONFLICT (ticket_id) DO UPDATE SET organizacao_id = EXCLUDED.organizacao_id, organizacao_nome = EXCLUDED.organizacao_nome, atualizado_em = EXCLUDED.atualizado_em`, [ids]);
+    } catch (e) { console.warn('[loader] clientes da carga rápida não gravados:', e.message); }
+  }
+  cacheResposta.marcarAlterado();   // o Painel TV/Geral refazem a lista na próxima abertura
+  return tickets;
+}
+
+// Chamados abertos no banco que não vieram na lista de abertos do Movidesk: foram encerrados/mudaram — grava só o básico.
+let _ultimaReconferenciaRapida = 0;
+const RECONFERENCIA_RAPIDA_A_CADA_MS = 3 * 60 * 1000;
+// Cláusula SQL do escopo (equipe/serviço/classificação) sobre silver.ticket t; devolve { where:[...], params }.
+function escopoSql({ ownerTeamVal, servicoVal, classValue }, params = []) {
+  const where = [];
+  if (ownerTeamVal) { params.push(ownerTeamVal.toLowerCase()); where.push(`lower(t.ownerteam) = $${params.length}`); }
+  if (servicoVal) { params.push(servicoVal.toLowerCase()); where.push(`(lower(t.service_full) = $${params.length} OR lower(t.service_full) LIKE $${params.length} || ' > %')`); }
+  if (classValue) {
+    params.push(String(CF_CLASSIFICACAO), classValue.trim().toLowerCase());
+    where.push(`EXISTS (SELECT 1 FROM silver.ticket_campo_customizado cf WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = $${params.length - 1}
+                          AND translate(lower(trim(cf.valor_texto)), 'áàâãéêíóôõúç', 'aaaaeeiooouc') = translate($${params.length}, 'áàâãéêíóôõúç', 'aaaaeeiooouc'))`);
+  }
+  return { where, params };
+}
+
+// Chamados abertos no banco que não vieram na lista de abertos do Movidesk: foram encerrados/mudaram — grava só o básico.
+// Aberto = qualquer status que não seja resolvido/fechado/cancelado (mesma definição do Painel TV). Roda no máximo a cada 3 min e com 8 consultas em paralelo, para não pesar na carga rápida.
+async function reconferirRapido(token, seen, escopo, { forcar = false } = {}) {
+  if (!forcar && Date.now() - _ultimaReconferenciaRapida < RECONFERENCIA_RAPIDA_A_CADA_MS) return null;
+  _ultimaReconferenciaRapida = Date.now();
+  const { where, params } = escopoSql(escopo, [CLOSED_STATUSES]);
+  const { rows } = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) ${where.length ? 'AND ' + where.join(' AND ') : ''} ORDER BY t.last_update ASC NULLS FIRST LIMIT 3000`, params);
+  const agora = Date.now();
+  const alvo = rows.map(r => String(r.id)).filter(id => !seen.has(id) && !(_reconferidoEm.get(id) > agora - 5 * 60 * 1000)).slice(0, 500);
+  let atualizados = 0, i = 0;
+  const trabalhador = async () => {
+    while (i < alvo.length) {
+      if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+      const id = alvo[i++];
+      try {
+        let full = null;
+        for (const ep of ['/tickets', '/tickets/past']) {
+          const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': 'owner,clients' })}`);
+          const data = await resp.json();
+          const t = Array.isArray(data) ? data[0] : data;
+          if (t && t.id) { full = t; break; }
+        }
+        _reconferidoEm.set(id, Date.now());
+        if (full) { await salvarBasico([full]); atualizados++; }
+      } catch (e) { console.warn(`[loader] reconferência rápida do ticket ${id} falhou: ${e.message}`); }
+    }
+  };
+  await Promise.all(Array.from({ length: 8 }, trabalhador));
+  if (alvo.length) console.log(`[loader]   reconferência rápida: ${alvo.length} chamado(s) abertos no banco e fora da lista → ${atualizados} atualizado(s)`);
+  return { reconferidos: alvo.length, atualizados };
+}
+
+// Conferência por lista de ids (ex.: exportação do Movidesk): confirma no Movidesk os chamados que o banco tem como
+// abertos e que NÃO estão na lista (encerrados/fora de escopo) e busca os da lista que o banco não tem como abertos.
+const conferenciaLista = { rodando: false, total: 0, naLista: 0, sobrando: 0, faltando: 0, feitos: 0, corrigidos: 0, falhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null, amostraSobrando: [], amostraFaltando: [] };
+async function iniciarConferenciaLista(ids) {
+  if (conferenciaLista.rodando) return conferenciaLista;
+  const lista = new Set(ids.map(String));
+  const { rows } = await db.query(`SELECT t.ticket_id::text AS id FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[]))`, [CLOSED_STATUSES]);
+  const abertosBanco = new Set(rows.map(r => r.id));
+  const sobrando = [...abertosBanco].filter(id => !lista.has(id));
+  const faltando = [...lista].filter(id => !abertosBanco.has(id));
+  Object.assign(conferenciaLista, { rodando: true, total: sobrando.length + faltando.length, naLista: lista.size, sobrando: sobrando.length, faltando: faltando.length, feitos: 0, corrigidos: 0, falhas: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null, amostraSobrando: sobrando.slice(0, 15), amostraFaltando: faltando.slice(0, 15) });
+  (async () => {
+    try {
+      const token = await getMovideskToken();
+      const alvo = [...sobrando, ...faltando]; let i = 0;
+      const trabalhador = async () => {
+        while (i < alvo.length) {
+          const id = alvo[i++];
+          try {
+            let full = null;
+            for (const ep of ['/tickets', '/tickets/past']) {
+              const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': SELECT_FIELDS, '$expand': 'owner,clients' })}`);
+              const data = await resp.json();
+              const t = Array.isArray(data) ? data[0] : data;
+              if (t && t.id) { full = t; break; }
+            }
+            if (full) { await salvarBasico([full]); conferenciaLista.corrigidos++; }
+          } catch (e) { conferenciaLista.falhas++; conferenciaLista.ultimoErro = e.message; }
+          conferenciaLista.feitos++;
+        }
+      };
+      await Promise.all(Array.from({ length: 8 }, trabalhador));
+    } catch (e) { conferenciaLista.ultimoErro = e.message; }
+    conferenciaLista.rodando = false; conferenciaLista.terminadoEm = new Date().toISOString();
+  })();
+  return conferenciaLista;
+}
+
+// Fila de detalhes: chamados ABERTOS sem detalhes ou com alteração mais nova que os detalhes gravados. Roda sozinha em
+// segundo plano (não segura o "uma carga por vez"), poucas chamadas em paralelo, e para quando a fila acaba.
+const enriquecimentoPendentes = { rodando: false, fila: 0, feitos: 0, falhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null };
+const ENRIQ_PARALELO = 5, ENRIQ_MAX_POR_RODADA = 1200;
+async function iniciarEnriquecimentoPendentes() {
+  if (enriquecimentoPendentes.rodando) return enriquecimentoPendentes;
+  Object.assign(enriquecimentoPendentes, { rodando: true, fila: 0, feitos: 0, falhas: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null });
+  (async () => {
+    try {
+      const token = await getMovideskToken();
+      const { rows } = await db.query(`
+        SELECT t.ticket_id::bigint AS id FROM silver.ticket t
+         WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) AND (t.detalhes_em IS NULL OR t.detalhes_em < t.last_update)
+         ORDER BY (t.detalhes_em IS NULL) DESC, t.createddate ASC NULLS LAST LIMIT ${ENRIQ_MAX_POR_RODADA}`, [CLOSED_STATUSES]);
+      const ids = rows.map(r => String(r.id));
+      enriquecimentoPendentes.fila = ids.length;
+      let i = 0;
+      const trabalhador = async () => {
+        while (i < ids.length) {
+          const id = ids[i++];
+          try {
+            let full = null;
+            for (const ep of ['/tickets', '/tickets/past']) {
+              const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
+              const data = await resp.json();
+              const t = Array.isArray(data) ? data[0] : data;
+              if (t && t.id) { full = t; break; }
+            }
+            if (full) {
+              const cl = await db.query(`SELECT valor_texto FROM silver.ticket_campo_customizado WHERE ticket_id = $1::bigint AND custom_field_id = $2 LIMIT 1`, [id, CF_CLASSIFICACAO]).catch(() => ({ rows: [] }));
+              const classValue = cl.rows[0] && cl.rows[0].valor_texto;
+              await (classValue ? makeSaveComClassificacao(classValue) : saveBatch)([full]);
+              await db.query(
+                `INSERT INTO silver.ticket_organizacao (ticket_id, organizacao_id, organizacao_nome, atualizado_em)
+                 SELECT DISTINCT ON (ticket_id) ticket_id, organizacao_id, organizacao_nome, NOW() FROM silver.ticket_cliente WHERE ticket_id = $1::bigint
+                  ORDER BY ticket_id, COALESCE(email ILIKE '%@viasoft.com.br', false), COALESCE(profile_type = '3', false), NULLIF(organizacao_nome, '') IS NULL
+                 ON CONFLICT (ticket_id) DO UPDATE SET organizacao_id = EXCLUDED.organizacao_id, organizacao_nome = EXCLUDED.organizacao_nome, atualizado_em = EXCLUDED.atualizado_em`, [id]
+              ).catch(() => {});
+            }
+            enriquecimentoPendentes.feitos++;
+          } catch (e) { enriquecimentoPendentes.falhas++; enriquecimentoPendentes.ultimoErro = e.message; }
+          await sleep(120);
+        }
+      };
+      await Promise.all(Array.from({ length: ENRIQ_PARALELO }, trabalhador));
+      if (ids.length) console.log(`[loader] ✔ detalhes dos pendentes em segundo plano: ${enriquecimentoPendentes.feitos}/${ids.length} (${enriquecimentoPendentes.falhas} falha(s))`);
+    } catch (e) {
+      enriquecimentoPendentes.ultimoErro = e.message;
+      console.warn('[loader] enriquecimento de pendentes falhou:', e.message);
+    } finally {
+      enriquecimentoPendentes.rodando = false; enriquecimentoPendentes.terminadoEm = new Date().toISOString();
+      // Ainda sobrou fila (a rodada tem teto) e a maioria deu certo: emenda a próxima rodada sem esperar a carga seguinte.
+      if (enriquecimentoPendentes.fila >= ENRIQ_MAX_POR_RODADA && enriquecimentoPendentes.feitos > 0 && enriquecimentoPendentes.falhas * 2 < enriquecimentoPendentes.feitos) {
+        setTimeout(() => iniciarEnriquecimentoPendentes().catch(() => {}), 2000);
+      }
+    }
+  })();
+  return enriquecimentoPendentes;
+}
+
+async function runPendentesRapido(task, cronJobId = null) {
+  const mode         = `rapido:${task.id}`.slice(0, 20);
+  const ownerTeamVal = String(task.owner_team || '').trim();
+  const servicoVal   = String(task.service_first || '').trim();   // serviço de 1º nível (BU), ex.: "Agronegócio"
+  const classValue   = String(task.classification || '').trim();
+  const q = (v) => v.replace(/'/g, "''");
+  // Equipe e serviço são campos "planos" (baratos para a API); a classificação (campo customizado) só entra sozinha.
+  const classFilter  = (ownerTeamVal || servicoVal)
+    ? [ownerTeamVal && `ownerTeam eq '${q(ownerTeamVal)}'`, servicoVal && `serviceFirstLevel eq '${q(servicoVal)}'`].filter(Boolean).join(' and ')
+    : (classValue ? `customFieldValues/any(cf: cf/customFieldId eq ${CF_CLASSIFICACAO} and cf/items/any(item: item/customFieldItem eq '${q(classValue)}'))` : null);
+  const EXPAND_RAPIDO = 'owner,clients';   // campos básicos + clientes (organização) já na carga rápida
+  const pageSize = ownerTeamVal || servicoVal || !classValue ? 300 : CLASS_FILTER_PAGE_SIZE;   // com clientes a página é menor que só o básico
+  const closedExclusion = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+
+  state.running = true; state.cancelRequested = false; state.mode = mode; state.startedAt = new Date().toISOString();
+  state.phase = 'preparando'; state.pagesDone = 0; state.ticketsDone = 0; state.savedIds = new Set(); state.errors = [];
+  await ensureTables();
+  const logRow = await db.query(
+    `INSERT INTO silver.carga_log (mode, started_at, status, classification, owner_team, cron_job_id) VALUES ($1, NOW(), 'running', $2, $3, $4) RETURNING id`,
+    [mode, classValue || null, ownerTeamVal || null, cronJobId]).catch(() => ({ rows: [{ id: null }] }));
+  const logId = logRow.rows?.[0]?.id;
+  try {
+    const token = await getMovideskToken();
+    const seen = new Set();
+    const save = async (batch) => { batch.forEach(t => seen.add(String(t.id))); return salvarBasico(batch); };
+    const t0 = Date.now();
+    await fetchEndpoint(token, '/tickets', [classFilter, closedExclusion].filter(Boolean).join(' and '), save, pageSize, EXPAND_RAPIDO);
+    const tLista = Date.now() - t0;
+    let rec = null;
+    {   // sem filtro (todos os pendentes) também reconfere: o escopo vazio = todos os abertos do banco
+      state.phase = 'reconferindo';
+      rec = await reconferirRapido(token, seen, { ownerTeamVal, servicoVal, classValue }).catch(e => { if (e.cancelled) throw e; console.warn('[loader] reconferência rápida ignorada:', e.message); return null; });
+    }
+    console.log(`[loader]   tempos: listagem ${(tLista / 1000).toFixed(1)}s · reconferência ${((Date.now() - t0 - tLista) / 1000).toFixed(1)}s`);
+    state.phase = 'idle'; state.running = false; state.lastFinish = new Date().toISOString();
+    state.lastResult = { mode, tickets: state.ticketsDone, ...(rec ? { reconferidos: rec.reconferidos } : {}) };
+    if (logId) await db.query(`UPDATE silver.carga_log SET finished_at=NOW(), tickets_loaded=$1, status='done' WHERE id=$2`, [state.ticketsDone, logId]).catch(() => {});
+    console.log(`[loader] ⚡ Pendentes rápidos "${task.name}" — ${state.ticketsDone} chamados (só campos básicos); detalhes seguem em segundo plano`);
+    iniciarEnriquecimentoPendentes().catch(() => {});
+    return state.lastResult;
+  } catch (err) {
+    state.running = false; state.phase = 'idle'; state.cancelRequested = false;
+    const cancelado = err.cancelled === true;
+    if (logId) await db.query(`UPDATE silver.carga_log SET finished_at=NOW(), status=$1, error_msg=$2 WHERE id=$3`, [cancelado ? 'cancelled' : 'error', cancelado ? 'Cancelado pelo usuário' : err.message, logId]).catch(() => {});
+    if (!cancelado) { state.errors.push(err.message); console.error(`[loader] ✖ Pendentes rápidos "${task.name}" com erro:`, err.message); throw err; }
+    state.lastResult = { mode, tickets: state.ticketsDone, cancelled: true };
+  }
+}
+
 async function runCustom(task, cronJobId = null) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
   if (!task || !task.id) throw new Error('Tarefa personalizada inválida');
+  // Modo rápido (só em aberto): campos básicos agora, detalhes em segundo plano — ver runPendentesRapido
+  if (task.rapido && task.only_open) return runPendentesRapido(task, cronJobId);
 
   const mode           = `custom:${task.id}`.slice(0, 20);
   const ownerTeamVal   = String(task.owner_team || '').trim();
@@ -2030,12 +2314,17 @@ async function runCustom(task, cronJobId = null) {
 // Regrava UM chamado exatamente como a carga faz (mesmo saveBatch: silver.ticket, clientes, ações, campos
 // customizados, organização), buscando-o com a mesma chamada limpa "id=" + EXPAND_FIELDS. Usada pelo Hub logo
 // depois de uma alteração feita pela Central do chamado, para o banco ficar no mesmo padrão sem esperar a cron.
-async function sincronizarTicket(id) {
-  const token = await getMovideskToken();
-  const resp = await fetchWithRetry(`${MOVI_BASE}/tickets?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
-  const data = await resp.json();
-  const full = Array.isArray(data) ? data[0] : data;
-  if (!full || !full.id) return null;
+async function sincronizarTicket(id, { token } = {}) {
+  token = token || await getMovideskToken();
+  // Chamado parado há ~90+ dias (mesmo aberto) só existe em /tickets/past.
+  let full = null;
+  for (const ep of ['/tickets', '/tickets/past']) {
+    const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
+    const data = await resp.json();
+    const t = Array.isArray(data) ? data[0] : data;
+    if (t && t.id) { full = t; break; }
+  }
+  if (!full) return null;
   // Mantém a classificação canônica (23946) que a carga por classificação grava, quando o chamado já tem uma.
   const cl = await db.query(
     `SELECT valor_texto FROM silver.ticket_campo_customizado WHERE ticket_id = $1::bigint AND custom_field_id = $2 LIMIT 1`, [id, CF_CLASSIFICACAO]
@@ -2049,6 +2338,209 @@ async function sincronizarTicket(id) {
      ON CONFLICT (ticket_id) DO UPDATE SET organizacao_id = EXCLUDED.organizacao_id, organizacao_nome = EXCLUDED.organizacao_nome, atualizado_em = EXCLUDED.atualizado_em`, [id]
   ).catch(() => {});
   return full;
+}
+
+// ── Carga DELTA (incremental por lastUpdate, com cursor) ─────────────────────
+// Duas partes, como a carga rápida, mas só com o que MUDOU (abertos e encerrados):
+// 1) a cron (runDelta) pergunta ao Movidesk o que mudou desde o cursor — campos básicos + owner/clients, páginas de 300 —
+//    e grava na hora só o essencial (salvarBasico: status, responsável, prazo, serviço, datas, clientes). Leva segundos e
+//    libera a fila de cargas;
+// 2) a fila de detalhes do delta (segundo plano, fora do "uma carga por vez") regrava esses chamados por completo
+//    (sincronizarTicket: ações, campos customizados, clientes, organização). Cada rodada da cron também põe na fila quem
+//    ficou com detalhes atrasados (detalhes_em < last_update) — cobre reinício do servidor no meio da fila.
+// Cerca de 1.300 chamados mudam por dia (medido em 08/10/2026). O cursor é o MAIOR lastUpdate devolvido pelo Movidesk
+// (não o relógio do servidor) e a busca recua DELTA_MARGEM_MS, então nada cai entre duas rodadas.
+// Rede de segurança (a cada conferir_a_cada_min): lista os ABERTOS em /tickets e /tickets/past (abertos parados há ~90+
+// dias só aparecem no /past) e põe na fila o que diverge do banco — faltando, status/lastUpdate diferente, aberto só no banco.
+// Estado em silver.carga_delta (linha única, id = 1); agenda/liga-desliga na cron de task 'delta' (silver.cron_job).
+const DELTA_MARGEM_MS = 2 * 60 * 1000;
+const DELTA_PAGINA = 300;               // mesmo tamanho da carga rápida (básico + owner,clients)
+const DELTA_DETALHES_PARALELO = 4;
+const DELTA_ATRASADOS_MAX = 1000;       // atrasados que cada rodada põe na fila
+const deltaMs = (s) => (s ? new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(String(s)) ? s : `${s}Z`).getTime() : null);   // a API devolve UTC sem "Z"
+
+async function ensureDeltaTable() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS silver.carga_delta (
+      id                    int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      cursor_em             timestamptz,
+      conferir_a_cada_min   int NOT NULL DEFAULT 30,
+      ultima_conferencia_em timestamptz,
+      ultima_execucao       jsonb,
+      ultima_conferencia    jsonb,
+      atualizado_em         timestamptz NOT NULL DEFAULT NOW()
+    )`).catch(() => {});
+  await db.query(`INSERT INTO silver.carga_delta (id) VALUES (1) ON CONFLICT (id) DO NOTHING`).catch(() => {});
+}
+
+async function lerDelta() {
+  await ensureDeltaTable();
+  return (await db.query(`SELECT * FROM silver.carga_delta WHERE id = 1`)).rows[0] || null;
+}
+
+// Lista paginada; `leve` = só id/baseStatus/lastUpdate sem $expand (barata, sem o bug de $filter + $expand).
+async function listarDelta(token, endpoint, filter, { leve = false } = {}) {
+  const todos = new Map();
+  const pagina = leve ? ID_SCAN_PAGE_SIZE : DELTA_PAGINA;
+  let skip = 0;
+  while (true) {
+    if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    const lote = leve
+      ? await (await fetchWithRetry(`${MOVI_BASE}${endpoint}?${qs({ token, '$select': 'id,baseStatus,lastUpdate', '$top': pagina, '$skip': skip, '$orderby': 'id asc', '$filter': filter })}`)).json()
+      : await fetchPage(token, endpoint, filter, skip, pagina, 'owner,clients');
+    if (!Array.isArray(lote) || !lote.length) break;
+    for (const t of lote) todos.set(String(t.id), t);
+    if (lote.length < pagina) break;
+    skip += pagina;
+    await sleep(150);
+  }
+  return todos;
+}
+
+// ── Fila de detalhes do delta (segundo plano) ──
+const detalhesDelta = { rodando: false, fila: 0, feitos: 0, falhas: 0, naoEncontrados: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null };
+const _filaDelta = new Set();
+function enfileirarDetalhesDelta(ids) {
+  for (const id of ids) _filaDelta.add(String(id));
+  detalhesDelta.fila = _filaDelta.size;
+  if (!detalhesDelta.rodando && _filaDelta.size) processarDetalhesDelta().catch(() => {});
+}
+async function processarDetalhesDelta() {
+  if (detalhesDelta.rodando) return;
+  Object.assign(detalhesDelta, { rodando: true, feitos: 0, falhas: 0, naoEncontrados: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null });
+  try {
+    const token = await getMovideskToken();
+    const trabalhador = async () => {
+      while (_filaDelta.size) {
+        const id = _filaDelta.values().next().value;
+        _filaDelta.delete(id);
+        detalhesDelta.fila = _filaDelta.size;
+        try {
+          if (await sincronizarTicket(id, { token })) detalhesDelta.feitos++; else detalhesDelta.naoEncontrados++;
+        } catch (e) {
+          detalhesDelta.falhas++; detalhesDelta.ultimoErro = `#${id}: ${e.message}`;
+          console.warn(`[loader] delta: detalhes do chamado ${id} falharam: ${e.message}`);
+        }
+        await sleep(120);
+      }
+    };
+    await Promise.all(Array.from({ length: DELTA_DETALHES_PARALELO }, trabalhador));
+    if (detalhesDelta.feitos || detalhesDelta.falhas) console.log(`[loader] ✔ delta: detalhes em segundo plano — ${detalhesDelta.feitos} gravado(s), ${detalhesDelta.falhas} falha(s)`);
+  } catch (e) {
+    detalhesDelta.ultimoErro = e.message;
+    console.warn('[loader] fila de detalhes do delta falhou:', e.message);
+  } finally {
+    detalhesDelta.rodando = false; detalhesDelta.terminadoEm = new Date().toISOString(); detalhesDelta.fila = _filaDelta.size;
+    if (_filaDelta.size) setTimeout(() => processarDetalhesDelta().catch(() => {}), 2000);   // chegou mais enquanto terminava
+  }
+}
+
+// Rede de segurança: abertos no Movidesk (/tickets + /tickets/past) × abertos no banco. Devolve o resumo e os ids a regravar.
+async function conferirAbertosDelta(token) {
+  const t0 = Date.now();
+  const filtro = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+  const mov = await listarDelta(token, '/tickets/past', filtro, { leve: true });
+  for (const [id, t] of await listarDelta(token, '/tickets', filtro, { leve: true })) mov.set(id, t);   // /tickets é o mais recente
+  const { rows } = await db.query(
+    `SELECT ticket_id::text AS id, basestatus, last_update FROM silver.ticket WHERE ticket_id = ANY($1::bigint[])`, [[...mov.keys()]]);
+  const banco = new Map(rows.map(r => [r.id, r]));
+  const { rows: abertosBanco } = await db.query(
+    `SELECT ticket_id::text AS id FROM silver.ticket WHERE basestatus IS NOT NULL AND NOT (basestatus = ANY($1::text[]))`, [CLOSED_STATUSES]);
+  let faltando = 0, divergentes = 0, soNoBanco = 0;
+  const ids = [];
+  for (const [id, t] of mov) {
+    const r = banco.get(id);
+    if (!r) { faltando++; ids.push(id); continue; }
+    const lu = deltaMs(t.lastUpdate), ld = r.last_update ? new Date(r.last_update).getTime() : null;
+    if (r.basestatus !== t.baseStatus || (lu && (!ld || Math.abs(lu - ld) > 1000))) { divergentes++; ids.push(id); }
+  }
+  for (const { id } of abertosBanco) if (!mov.has(id)) { soNoBanco++; ids.push(id); }
+  return { resumo: { abertosMovidesk: mov.size, abertosBanco: abertosBanco.length, faltando, divergentes, soNoBanco, enfileirados: ids.length, segundos: Math.round((Date.now() - t0) / 1000) }, ids };
+}
+
+async function runDelta(cronJobId = null, { forcarConferencia = false } = {}) {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+  Object.assign(state, {
+    running: true, cancelRequested: false, mode: 'delta', startedAt: new Date().toISOString(), phase: 'preparando',
+    pagesDone: 0, ticketsDone: 0, savedIds: new Set(), errors: [],
+  });
+  const t0 = Date.now();
+  let logId = null;
+  try {
+    await ensureTables();
+    const cfg = await lerDelta();
+    logId = (await db.query(
+      `INSERT INTO silver.carga_log (mode, started_at, status, cron_job_id) VALUES ('delta', NOW(), 'running', $1) RETURNING id`, [cronJobId]
+    ).catch(() => ({ rows: [{ id: null }] }))).rows[0]?.id;
+    const token = await getMovideskToken();
+
+    // Sem cursor (primeira vez): parte do chamado mais recente do banco.
+    let cursorMs = cfg?.cursor_em ? new Date(cfg.cursor_em).getTime() : null;
+    if (!cursorMs) {
+      const m = (await db.query(`SELECT MAX(last_update) AS m FROM silver.ticket WHERE last_update <= NOW()`)).rows[0]?.m;
+      cursorMs = m ? new Date(m).getTime() : Date.now() - 60 * 60 * 1000;
+    }
+    const desde = new Date(cursorMs - DELTA_MARGEM_MS).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+    state.phase = 'fetching'; state.endpoint = '/tickets';
+    const mudou = await listarDelta(token, '/tickets', `lastUpdate ge ${desde}`);
+    // Pula quem já está gravado com o mesmo lastUpdate (efeito da margem).
+    const { rows } = await db.query(
+      `SELECT ticket_id::text AS id, last_update FROM silver.ticket WHERE ticket_id = ANY($1::bigint[])`, [[...mudou.keys()]]);
+    const banco = new Map(rows.map(r => [r.id, r.last_update ? new Date(r.last_update).getTime() : null]));
+    const novos = [...mudou.values()].filter(t => { const ld = banco.get(String(t.id)); return !ld || Math.abs(deltaMs(t.lastUpdate) - ld) > 1000; });
+
+    state.phase = 'saving';
+    if (novos.length) await salvarBasico(novos);
+    state.ticketsDone = novos.length;
+    const maxVisto = Math.max(cursorMs, ...[...mudou.values()].map(t => deltaMs(t.lastUpdate) || 0));
+
+    // Detalhes em segundo plano: os que mudaram agora + quem ficou atrasado (recentes ou abertos).
+    const { rows: atrasados } = await db.query(`
+      SELECT ticket_id::text AS id FROM silver.ticket
+       WHERE (detalhes_em IS NULL OR detalhes_em < last_update)
+         AND (last_update > NOW() - INTERVAL '7 days' OR (basestatus IS NOT NULL AND NOT (basestatus = ANY($1::text[]))))
+       ORDER BY last_update DESC NULLS LAST LIMIT ${DELTA_ATRASADOS_MAX}`, [CLOSED_STATUSES]).catch(() => ({ rows: [] }));
+    enfileirarDetalhesDelta([...novos.map(t => String(t.id)), ...atrasados.map(r => r.id)]);
+
+    let conferencia = null;
+    const intervaloConf = Math.max(5, Number(cfg?.conferir_a_cada_min) || 30) * 60 * 1000;
+    const ultimaConf = cfg?.ultima_conferencia_em ? new Date(cfg.ultima_conferencia_em).getTime() : 0;
+    if (forcarConferencia || Date.now() - ultimaConf >= intervaloConf) {
+      state.phase = 'reconferindo';
+      const c = await conferirAbertosDelta(token);
+      conferencia = c.resumo;
+      enfileirarDetalhesDelta(c.ids);
+      console.log(`[loader]   delta: conferência dos abertos — Movidesk ${conferencia.abertosMovidesk} × banco ${conferencia.abertosBanco}, ${conferencia.enfileirados} para regravar (${conferencia.segundos}s)`);
+    }
+
+    const execucao = {
+      inicio: state.startedAt, segundos: Math.round((Date.now() - t0) / 1000), desde, listados: mudou.size,
+      jaEmDia: mudou.size - novos.length, gravados: novos.length, filaDetalhes: _filaDelta.size,
+    };
+    await db.query(
+      `UPDATE silver.carga_delta SET cursor_em = $1, ultima_execucao = $2::jsonb, atualizado_em = NOW()
+         ${conferencia ? ', ultima_conferencia_em = NOW(), ultima_conferencia = $3::jsonb' : ''} WHERE id = 1`,
+      conferencia ? [new Date(maxVisto), JSON.stringify(execucao), JSON.stringify(conferencia)] : [new Date(maxVisto), JSON.stringify(execucao)]);
+    if (logId) {
+      await db.query(`UPDATE silver.carga_log SET finished_at = NOW(), tickets_loaded = $1, status = 'done' WHERE id = $2`, [novos.length, logId]).catch(() => {});
+    }
+    console.log(`[loader] ✔ Delta: ${mudou.size} mudaram desde ${desde}, ${novos.length} gravado(s) (básico), ${execucao.filaDetalhes} na fila de detalhes — ${execucao.segundos}s`);
+    state.lastResult = { mode: 'delta', tickets: novos.length, ...execucao, conferencia };
+    return state.lastResult;
+  } catch (err) {
+    const cancelado = err.cancelled === true;
+    if (!cancelado) state.errors.push(err.message);
+    if (logId) {
+      await db.query(`UPDATE silver.carga_log SET finished_at = NOW(), status = $1, error_msg = $2 WHERE id = $3`,
+        [cancelado ? 'cancelled' : 'error', cancelado ? 'Cancelado pelo usuário' : err.message, logId]).catch(() => {});
+    }
+    if (!cancelado) { console.error('[loader] ✖ Delta com erro:', err.message); throw err; }
+    state.lastResult = { mode: 'delta', tickets: state.ticketsDone, cancelled: true };
+    return state.lastResult;
+  } finally {
+    state.running = false; state.phase = 'idle'; state.cancelRequested = false; state.lastFinish = new Date().toISOString();
+  }
 }
 
 async function runFixOrganizacao() {
@@ -2802,4 +3294,6 @@ module.exports = {
   runAtualizacaoInteligente,
   reconferirAbertosPresos,
   sincronizarTicket,
+  runDelta, lerDelta, ensureDeltaTable, detalhesDelta,
+  iniciarEnriquecimentoPendentes, enriquecimentoPendentes, iniciarConferenciaLista, conferenciaLista, escopoSql, CLOSED_STATUSES,
 };

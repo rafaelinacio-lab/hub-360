@@ -21,6 +21,7 @@ const TASK_LABELS = {
   geral:       'Painel Geral — ano vigente',
   incremental: 'Incremental (todos os tickets)',
   full:        'Full (por ano/classificação/equipe)',
+  delta:       'Delta — só o que mudou (com ações)',
 };
 
 const timers = new Map(); // job id -> { intervalHandle, timeoutHandle }
@@ -63,6 +64,8 @@ async function ensureTable() {
       updated_at     timestamptz NOT NULL DEFAULT NOW()
     )
   `).catch(() => {});
+  await db.query(`ALTER TABLE silver.cron_task ADD COLUMN IF NOT EXISTS rapido boolean NOT NULL DEFAULT false`).catch(() => {});
+  await db.query(`ALTER TABLE silver.cron_task ADD COLUMN IF NOT EXISTS service_first text`).catch(() => {});
 }
 
 function customTaskId(task) {
@@ -80,6 +83,7 @@ async function runTask(job) {
   if (task === 'gcc') return movideskLoader.runGcc(id);
   if (task === 'geral') return movideskLoader.runGeral(id);
   if (task === 'incremental') return movideskLoader.runIncremental(id);
+  if (task === 'delta') return movideskLoader.runDelta(id);
   if (task === 'full') {
     const p = params || {};
     return movideskLoader.runFull({

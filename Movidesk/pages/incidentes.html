@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
+<script src="../js/ui-version.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Incidentes</title>
@@ -163,6 +164,8 @@ a.id{color:var(--t3);font-weight:600;text-decoration:none} a.id:hover{text-decor
 .pill.pr.erro_conhecido{background:var(--p3-bg);color:var(--p3)} .pill.pr.resolvido{background:var(--ok-bg);color:var(--ok)}
 @media (max-width:640px){.pm-linha{grid-template-columns:1fr 1fr}.sug{grid-template-columns:1fr}}
 </style>
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 <div class="page">
@@ -761,5 +764,6 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const extra=['pmF
   const abrir=new URLSearchParams(location.search).get('id'); if(abrir) abrirGaveta(Number(abrir));
 })();
 </script>
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

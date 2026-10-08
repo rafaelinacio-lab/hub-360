@@ -1189,7 +1189,6 @@ function navigateTo(view) {
     const views = {
         dashboard: document.getElementById('dashboardView'),
         chamados: document.getElementById('curadoriaView'),
-        pessoas:   document.getElementById('pessoasView'),
         configuracoes: document.getElementById('configuracoesView'),
     };
 
@@ -1215,7 +1214,6 @@ function navigateTo(view) {
     } else {
         stopDashboardRefreshLoop();
     }
-    if (normalizedView === 'pessoas') pessoasLoad();
     if (normalizedView === 'chamados') loadCuradoria();
     if (normalizedView === 'configuracoes') {
         loadMovideskTokenStatus();
@@ -1265,13 +1263,11 @@ async function loadCurrentUser() {
 // aqui. TAB_PERMISSION_BTN_BY_KEY é declarada só uma vez, em auth.js.
 async function applyRoleBasedNavigation() {
     const cfgBtn = document.getElementById('navConfiguracoes');
-    const pessoasBtn = document.getElementById('navPessoas');
     if (!cfgBtn) return;
 
     const admin = isCurrentUserAdmin();
 
     cfgBtn.style.display = admin ? 'flex' : 'none';
-    if (pessoasBtn) pessoasBtn.style.display = admin ? 'flex' : 'none';
 
     // Botão "Sincronizar" da aba Movidesk: também admin-only, mesmo critério.
     const mdSyncBtn = document.getElementById('mdSyncDbBtn');

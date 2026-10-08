@@ -22,172 +22,37 @@ const EMBED_MODE = !LEGACY_VIEW;
 const EMBED_PAGE_ROUTES = {
     dashboard: 'pages/dashboard.html',
     chamados: 'pages/curadoria.html',
-    pessoas: 'pages/pessoas.html',
     configuracoes: 'pages/configuracoes.html',
     ouvidoria: 'pages/ouvidoria.html',
     gcc: 'pages/gcc.html',
     jira: 'pages/jira.html',
     movidesk: 'pages/geral.html',
     satisfacao: 'pages/satisfacao.html',
+    chats: 'pages/chats.html',
     incidentes: 'pages/incidentes.html',
     reincidencias: 'pages/reincidencias.html',
     melhorias: 'pages/melhorias.html'
 };
 
-// ─── Animação de transição: ícone da aba clicada "voa" até o centro do
-// conteúdo, pulsa com um anel de destaque e desaparece revelando a página.
-// Fundo opaco cobre TUDO por baixo (aba antiga + nova carregando) até a
-// animação terminar — só então o overlay some e revela o conteúdo.
-const TAB_FX_FADE_IN  = 180;  // overlay vira opaco
-const TAB_FX_HOLD_END = 1500; // overlay começa a sumir
-const TAB_FX_TOTAL    = 1900; // overlay totalmente transparente de novo
-
+// ─── Transição entre abas: só a persiana do Visual 2.0 (js/modload.js).
+// Sem porcentagem: ela cobre a tela, a aba carrega por baixo e a persiana abre assim que a página (iframe) termina de carregar,
+// depois de um tempo mínimo para não piscar. Os dados chegam depois e cada card mostra "Carregando dados…" (css/v2.css .hub-load).
+const PERSIANA_MIN_MS = 450;
+let _persianaAtiva = false, _persianaVigia = 0, _persianaT0 = 0;
+function persianaAbrir() { _persianaAtiva = false; clearTimeout(_persianaVigia); if (window.HubModload) window.HubModload.hide(); }
 function playTabIconTransition(view) {
-    const main = document.querySelector('.main-content');
-    if (!main) return;
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    const mainRect = main.getBoundingClientRect();
-    const overlay = document.createElement('div');
-    overlay.className = 'tab-fx-overlay';
-    overlay.style.left = `${mainRect.left}px`;
-    overlay.style.top = `${mainRect.top}px`;
-    overlay.style.width = `${mainRect.width}px`;
-    overlay.style.height = `${mainRect.height}px`;
-    document.body.appendChild(overlay);
-
-    overlay.animate(
-        [
-            { opacity: 0, offset: 0 },
-            { opacity: 1, offset: TAB_FX_FADE_IN / TAB_FX_TOTAL },
-            { opacity: 1, offset: TAB_FX_HOLD_END / TAB_FX_TOTAL },
-            { opacity: 0, offset: 1 },
-        ],
-        { duration: TAB_FX_TOTAL, easing: 'ease', fill: 'forwards' }
-    );
-
-    if (view === 'gcc') {
-        playGccArrowDraw(mainRect);
-    } else {
-        playIconFly(view, mainRect);
-    }
-
-    setTimeout(() => overlay.remove(), TAB_FX_TOTAL + 80);
+    if (!window.HubModload || !window.HubModload.show(view, PERSIANA_MIN_MS)) return;
+    _persianaAtiva = true; _persianaT0 = Date.now();
+    clearTimeout(_persianaVigia);
+    _persianaVigia = setTimeout(persianaAbrir, 4000);   // vigia: nunca prende a tela
 }
-
-// Voo genérico do ícone da aba clicada até o centro da tela.
-function playIconFly(view, mainRect) {
-    const btn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
-    const svg = btn && btn.querySelector('svg');
-    if (!svg) return;
-
-    const startRect = svg.getBoundingClientRect();
-    const cx = mainRect.left + mainRect.width / 2;
-    const cy = mainRect.top + mainRect.height / 2;
-    const startCx = startRect.left + startRect.width / 2;
-    const startCy = startRect.top + startRect.height / 2;
-    const dx = cx - startCx;
-    const dy = cy - startCy;
-    const bigScale = 92 / startRect.width;
-    const delay = TAB_FX_FADE_IN;
-
-    const ring = document.createElement('div');
-    ring.className = 'tab-fx-ring';
-    ring.style.left = `${cx}px`;
-    ring.style.top = `${cy}px`;
-    ring.style.opacity = '0';
-
-    const icon = document.createElement('div');
-    icon.className = 'tab-fx-icon';
-    icon.innerHTML = svg.outerHTML;
-    icon.style.left = `${startRect.left}px`;
-    icon.style.top = `${startRect.top}px`;
-    icon.style.width = `${startRect.width}px`;
-    icon.style.height = `${startRect.height}px`;
-    icon.style.opacity = '0';
-
-    document.body.appendChild(ring);
-    document.body.appendChild(icon);
-
-    ring.animate(
-        [
-            { transform: 'translate(-50%,-50%) scale(0)', opacity: 0.5, offset: 0 },
-            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.35, offset: 0.4 },
-            { transform: 'translate(-50%,-50%) scale(2.6)', opacity: 0, offset: 1 },
-        ],
-        { duration: 900, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
-    );
-
-    icon.animate(
-        [
-            { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1, offset: 0 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(-10deg)`, opacity: 1, offset: 0.45 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 1.1}) rotate(4deg)`, opacity: 1, offset: 0.68 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale}) rotate(0deg)`, opacity: 1, offset: 0.85 },
-            { transform: `translate(${dx}px,${dy}px) scale(${bigScale * 0.5}) rotate(8deg)`, opacity: 0, offset: 1 },
-        ],
-        { duration: 1000, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }
-    );
-
-    setTimeout(() => { ring.remove(); icon.remove(); }, TAB_FX_TOTAL + 80);
-}
-
-// GCC: a setinha de queda (trending down) é desenhada traço a traço no
-// centro da tela, em vez de voar — pedido explícito pra essa aba.
-function playGccArrowDraw(mainRect) {
-    const cx = mainRect.left + mainRect.width / 2;
-    const cy = mainRect.top + mainRect.height / 2;
-    const size = 120;
-    const delay = TAB_FX_FADE_IN;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'tab-fx-draw';
-    wrap.style.left = `${cx - size / 2}px`;
-    wrap.style.top = `${cy - size / 2}px`;
-    wrap.style.width = `${size}px`;
-    wrap.style.height = `${size}px`;
-
-    const NS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100');
-
-    const line = document.createElementNS(NS, 'path');
-    line.setAttribute('d', 'M10 22 L38 46 L58 30 L88 64');
-    const arrow = document.createElementNS(NS, 'path');
-    arrow.setAttribute('d', 'M88 40 L88 64 L64 64');
-    const dot = document.createElementNS(NS, 'circle');
-    dot.setAttribute('cx', '88');
-    dot.setAttribute('cy', '64');
-    dot.setAttribute('r', '0');
-
-    svg.appendChild(line);
-    svg.appendChild(arrow);
-    svg.appendChild(dot);
-    wrap.appendChild(svg);
-    document.body.appendChild(wrap);
-
-    const lineLen = line.getTotalLength();
-    const arrowLen = arrow.getTotalLength();
-    line.style.strokeDasharray = String(lineLen);
-    line.style.strokeDashoffset = String(lineLen);
-    arrow.style.strokeDasharray = String(arrowLen);
-    arrow.style.strokeDashoffset = String(arrowLen);
-
-    line.animate(
-        [{ strokeDashoffset: lineLen }, { strokeDashoffset: 0 }],
-        { duration: 600, delay, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
-    );
-    arrow.animate(
-        [{ strokeDashoffset: arrowLen }, { strokeDashoffset: 0 }],
-        { duration: 280, delay: delay + 600, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }
-    );
-    dot.animate(
-        [{ r: 0, opacity: 0.9 }, { r: 6, opacity: 0 }],
-        { duration: 400, delay: delay + 880, easing: 'ease-out', fill: 'forwards' }
-    );
-
-    setTimeout(() => wrap.remove(), TAB_FX_TOTAL + 80);
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const frame = document.getElementById('embeddedPageFrame');
+    if (frame) frame.addEventListener('load', () => {
+        if (!_persianaAtiva) return;
+        setTimeout(persianaAbrir, Math.max(60, PERSIANA_MIN_MS - (Date.now() - _persianaT0)));
+    });
+});
 
 // ─── Bolha de hover que acompanha o mouse entre as abas do menu superior ───
 function initTopbarHoverPill() {
@@ -232,9 +97,123 @@ function loadEmbeddedPage(view) {
 
     const src = EMBED_PAGE_ROUTES[normalizedView] || EMBED_PAGE_ROUTES.dashboard;
     if (frame.getAttribute('src') !== src) {
+        document.body.classList.remove('nav-oculta');
         frame.setAttribute('src', src);
+    } else if (typeof persianaAbrir === 'function') {
+        setTimeout(persianaAbrir, 500);   // a página já estava carregada: nada a esperar
     }
 }
+
+// A página embutida avisa quando rolou pra baixo (esconder o menu) ou pra cima (mostrar).
+window.addEventListener('message', (ev) => {
+    const frame = document.getElementById('embeddedPageFrame');
+    if (!frame || ev.source !== frame.contentWindow || ev.origin !== location.origin) return;
+    if (!ev.data || ev.data.tipo !== 'hub360:menu-oculto') return;
+    document.body.classList.toggle('nav-oculta', !!ev.data.oculto);
+});
+document.addEventListener('DOMContentLoaded', () => {
+    const frame = document.getElementById('embeddedPageFrame');
+    // Página nova carregada no iframe sempre começa com o menu visível
+    if (frame) frame.addEventListener('load', () => document.body.classList.remove('nav-oculta'));
+});
+
+// ─── Contador de incidentes ativos na aba ───────────────────────────────────
+async function atualizarBadgeIncidentes() {
+    const btn = document.getElementById('navIncidentes');
+    const badge = document.getElementById('navBadgeIncidentes');
+    if (!btn || !badge || btn.style.display === 'none') return;
+    try {
+        const r = await fetch(`${API_BASE}/incidentes/metricas`, { headers: authHeaders() });
+        if (!r.ok) return;
+        const m = await r.json();
+        const n = Number(m.totalAtivos) || 0;
+        badge.textContent = n > 99 ? '99+' : String(n);
+        badge.hidden = n === 0;
+        badge.classList.toggle('grave', (Number(m.gravesAtivos) || 0) > 0);
+        badge.title = `${n} incidente${n === 1 ? '' : 's'} ativo${n === 1 ? '' : 's'}`
+            + (m.gravesAtivos ? ` (${m.gravesAtivos} grave${m.gravesAtivos === 1 ? '' : 's'})` : '');
+    } catch (_) { /* sem contador, a aba funciona igual */ }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(atualizarBadgeIncidentes, 3000);   // depois das abas liberadas pelo perfil
+    setInterval(atualizarBadgeIncidentes, 3 * 60 * 1000);
+});
+
+// ─── "Ir para…" (Ctrl+K): abas do menu e número de chamado ──────────────────
+(function paletaIrPara() {
+    let itens = [];
+    let sel = 0;
+    const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const el = (id) => document.getElementById(id);
+
+    function abasVisiveis() {
+        return [...document.querySelectorAll('.topbar-nav .sidebar-btn[data-view]')]
+            .filter((b) => b.style.display !== 'none')
+            .map((b) => ({
+                view: b.dataset.view,
+                nome: (b.querySelector('.sidebar-btn-label') || b).textContent.trim(),
+                icone: b.querySelector('svg') ? b.querySelector('svg').outerHTML : '',
+            }));
+    }
+    function montar() {
+        const q = semAcento(el('navPaletaInput').value.trim());
+        itens = abasVisiveis()
+            .filter((a) => !q || semAcento(a.nome).includes(q))
+            .map((a) => ({ tipo: 'aba', ...a }));
+        if (/^\d{4,}$/.test(q)) {
+            itens.unshift({ tipo: 'chamado', numero: q, nome: `Abrir o chamado #${q} no Movidesk`, icone: '' });
+        }
+        sel = Math.min(sel, Math.max(0, itens.length - 1));
+        el('navPaletaLista').innerHTML = itens.length
+            ? itens.map((i, n) => `<li role="option" data-n="${n}" class="${n === sel ? 'sel' : ''}">${i.icone}<span>${i.nome}</span>${i.tipo === 'chamado' ? '<small>nova aba</small>' : ''}</li>`).join('')
+            : '<li style="cursor:default">Nada encontrado</li>';
+    }
+    function abrir() {
+        const box = el('navPaleta');
+        if (!box) return;
+        box.hidden = false;
+        el('navPaletaInput').value = '';
+        sel = 0;
+        montar();
+        el('navPaletaInput').focus();
+    }
+    function fechar() { const box = el('navPaleta'); if (box) box.hidden = true; }
+    function escolher(n) {
+        const i = itens[n];
+        if (!i) return;
+        fechar();
+        if (i.tipo === 'chamado') window.open(`https://viasoft.movidesk.com/Ticket/Edit/${i.numero}`, '_blank', 'noopener');
+        else navigateTo(i.view);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = el('navBuscaBtn');
+        if (btn) btn.addEventListener('click', abrir);
+        const box = el('navPaleta');
+        if (!box) return;
+        box.addEventListener('mousedown', (e) => { if (e.target === box) fechar(); });
+        el('navPaletaInput').addEventListener('input', () => { sel = 0; montar(); });
+        el('navPaletaLista').addEventListener('click', (e) => {
+            const li = e.target.closest('li[data-n]');
+            if (li) escolher(Number(li.dataset.n));
+        });
+        el('navPaletaInput').addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, itens.length - 1); montar(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); montar(); }
+            else if (e.key === 'Enter') { e.preventDefault(); escolher(sel); }
+        });
+    });
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); abrir(); }
+        else if (e.key === 'Escape' && el('navPaleta') && !el('navPaleta').hidden) fechar();
+    });
+    // Ctrl+K dentro da página embutida (iframe) também abre a paleta
+    window.addEventListener('message', (ev) => {
+        const frame = document.getElementById('embeddedPageFrame');
+        if (!frame || ev.source !== frame.contentWindow || ev.origin !== location.origin) return;
+        if (ev.data && ev.data.tipo === 'hub360:paleta') abrir();
+    });
+})();
 
 // ─── Função auxiliar para gerar URL de foto de usuário ───────────────────────
 function getPhotoUrl(email) {
@@ -350,6 +329,7 @@ let _cachedTickets = [];
 function navigateTo(view) {
     // Normaliza para evitar bugs com acentos ou espaços vindos de data-view
     const normalizedView = (view || '').trim().toLowerCase();
+    if (window.Telemetria) window.Telemetria.view(normalizedView);
 
     if (EMBED_MODE) {
         if (normalizedView === 'configuracoes' && !isCurrentUserAdmin()) {
@@ -371,7 +351,6 @@ function navigateTo(view) {
     const views = {
         dashboard: document.getElementById('dashboardView'),
         chamados: document.getElementById('curadoriaView'),
-        pessoas:   document.getElementById('pessoasView'),
         configuracoes: document.getElementById('configuracoesView'),
         movidesk: document.getElementById('movideskView'),
     };
@@ -400,7 +379,6 @@ function navigateTo(view) {
     } else {
         stopDashboardRefreshLoop();
     }
-    if (normalizedView === 'pessoas') pessoasLoad();
     if (normalizedView === 'chamados') loadCuradoria();
     if (normalizedView === 'configuracoes') {
         loadMovideskTokenStatus();
@@ -763,7 +741,7 @@ async function initializeApp() {
             logoutBtn.dataset.bound = '1';
         }
 
-        const view = LEGACY_VIEW && ['dashboard','chamados','pessoas','configuracoes','movidesk'].includes(LEGACY_VIEW) ? LEGACY_VIEW : 'dashboard';
+        const view = LEGACY_VIEW && ['dashboard','chamados','configuracoes','movidesk'].includes(LEGACY_VIEW) ? LEGACY_VIEW : 'dashboard';
         navigateTo(view);
         return;
     }

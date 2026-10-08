@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script>window.__hubSemMedidor = true; /* quem mede é o iframe interno */</script>
+<script src="../js/ui-version.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Movidesk - Embed</title>
@@ -18,8 +20,7 @@
             height: 100%;
             border: 0;
             display: block;
-            opacity: 0;
-            transition: opacity 0.4s ease;
+            
         }
 
         .embedded-view-frame.loaded {
@@ -27,111 +28,31 @@
         }
 
         /* ── Loader overlay ─────────────────────────────────── */
-        #loaderOverlay {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent;
-            z-index: 10;
-            transition: opacity 0.4s ease;
-        }
-
-        #loaderOverlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        /* From Uiverse.io by alexruix */
-        .loader {
-            --cell-size: 52px;
-            --cell-spacing: 1px;
-            --cells: 3;
-            --total-size: calc(var(--cells) * (var(--cell-size) + 2 * var(--cell-spacing)));
-            display: flex;
-            flex-wrap: wrap;
-            width: var(--total-size);
-            height: var(--total-size);
-        }
-
-        .cell {
-            flex: 0 0 var(--cell-size);
-            margin: var(--cell-spacing);
-            background-color: transparent;
-            box-sizing: border-box;
-            border-radius: 4px;
-            animation: 1.5s ripple ease infinite;
-        }
-
-        .cell.d-1 { animation-delay: 100ms; }
-        .cell.d-2 { animation-delay: 200ms; }
-        .cell.d-3 { animation-delay: 300ms; }
-        .cell.d-4 { animation-delay: 400ms; }
-
-        .cell:nth-child(1) { --cell-color: #00FF87; }
-        .cell:nth-child(2) { --cell-color: #0CFD95; }
-        .cell:nth-child(3) { --cell-color: #17FBA2; }
-        .cell:nth-child(4) { --cell-color: #23F9B2; }
-        .cell:nth-child(5) { --cell-color: #30F7C3; }
-        .cell:nth-child(6) { --cell-color: #3DF5D4; }
-        .cell:nth-child(7) { --cell-color: #45F4DE; }
-        .cell:nth-child(8) { --cell-color: #53F1F0; }
-        .cell:nth-child(9) { --cell-color: #60EFFF; }
-
-        @keyframes ripple {
-            0%   { background-color: transparent; }
-            30%  { background-color: var(--cell-color); }
-            60%  { background-color: transparent; }
-            100% { background-color: transparent; }
-        }
     </style>
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 
-    <div id="loaderOverlay">
-        <div class="loader">
-            <div class="cell d-0"></div>
-            <div class="cell d-1"></div>
-            <div class="cell d-2"></div>
-            <div class="cell d-3"></div>
-            <div class="cell d-4"></div>
-            <div class="cell d-1"></div>
-            <div class="cell d-2"></div>
-            <div class="cell d-3"></div>
-            <div class="cell d-4"></div>
-        </div>
-    </div>
-
     <iframe
         id="movideskFrame"
-        class="embedded-view-frame"
+        class="embedded-view-frame loaded"
         src="../index.html?legacyView=movidesk"
         title="Movidesk"
     ></iframe>
 
     <script>
-        const frame   = document.getElementById('movideskFrame');
-        const overlay = document.getElementById('loaderOverlay');
-
-        // Mostra o loader por pelo menos 2s, depois aguarda o iframe estar pronto
-        const minDisplay = new Promise(r => setTimeout(r, 2000));
-        const iframeLoad = new Promise(r => frame.addEventListener('load', r, { once: true }));
-
-        Promise.all([minDisplay, iframeLoad]).then(() => {
-            overlay.classList.add('hidden');
-            frame.classList.add('loaded');
-            overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-        });
-
-        // Fallback: máximo 10s independente de tudo
-        setTimeout(() => {
-            if (!frame.classList.contains('loaded')) {
-                overlay.classList.add('hidden');
-                frame.classList.add('loaded');
-            }
-        }, 10000);
+        // O progresso vem do iframe interno (js/ui-version.js dele) e é repassado ao shell: a persiana só abre
+        // quando os dados da tela interna já estão desenhados. Sem loader próprio (só a persiana anima).
+        (function () {
+            var frame = document.getElementById('movideskFrame');
+            window.addEventListener('message', function (e) {
+                if (e.source !== frame.contentWindow || !e.data || e.data.tipo !== 'hub360:carga') return;
+                try { window.parent.postMessage(e.data, location.origin); } catch (_) {}
+            });
+        })();
     </script>
 
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

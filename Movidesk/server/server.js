@@ -17,6 +17,8 @@ const gccRoutes = require('./routes/gcc');
 const geralRoutes = require('./routes/geral');
 const satisfacaoRoutes = require('./routes/satisfacao');
 const incidentesRoutes = require('./routes/incidentes');
+const telemetriaRoutes = require('./routes/telemetria');
+const chatsRoutes = require('./routes/chats');
 const melhoriasRoutes = require('./routes/melhorias');
 const reincidenciasRoutes = require('./routes/reincidencias');
 const dashboardConferenciaRoutes = require('./routes/dashboard-conferencia');
@@ -93,10 +95,18 @@ app.use('/api/curadoria', curadoriaRoutes);
 app.use('/api/ouvidoria', ouvidoriaRoutes);
 app.use('/api/gcc', gccRoutes);
 app.use('/api/geral', geralRoutes);
+app.use('/api/frescor', require('./routes/frescor'));
+app.use('/api/telemetria', telemetriaRoutes);
+app.use('/api/chats', chatsRoutes);
 app.use('/api/satisfacao', satisfacaoRoutes);
 app.use('/api/dashboard-conferencia', dashboardConferenciaRoutes);
 app.use('/api/reincidencias', reincidenciasRoutes);
 app.use('/api/melhorias', melhoriasRoutes);
+app.use('/api/avisos-img', require('./routes/avisos').publico);   // imagens dos avisos (pública, só leitura)
+app.use('/api/avisos', require('./routes/avisos'));
+app.use('/api/extrator', require('./routes/tokens').extrator);   // sem login: só o extrator do Jira, com chave própria
+app.use('/api/tokens', require('./routes/tokens'));
+app.use('/api/sla-horas', require('./routes/slaHoras'));
 // Para as telas de GCC/Satisfação avisarem qual vertical está em uso
 app.get('/api/escopo-vertical', require('./routes/auth').authMiddleware, async (req, res) => {
   try { const e = await require('./utils/verticalScope').escopoVertical(req.user.id); res.json({ filtrar: e.filtrar, vertical: e.vertical, semVertical: e.semVertical }); }
@@ -141,7 +151,8 @@ app.get('/health', (req, res) => {
 
 // Error handling
 app.use((err, req, res, next) => {
-  console.error('Erro:', err);
+  console.error('Erro:', err.type || '', err.message || err);
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Pedido grande demais para o servidor' });
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
@@ -218,6 +229,10 @@ movideskLoader.refreshGccVerticalInferida().catch(e => {
 setInterval(() => {
   movideskLoader.refreshGccVerticalInferida().catch(() => {});
 }, 30 * 60 * 1000);
+
+// Avisos automáticos (mensagens para chamados novos de serviços configurados) — nasce desligado
+require('./utils/avisosAutomaticos').iniciar();
+require('./utils/slaHorasCore').iniciarAutomatico();   // lança as horas técnicas de crédito sozinho a cada fechamento de mês
 
 // Iniciar servidor
 app.listen(PORT, () => {

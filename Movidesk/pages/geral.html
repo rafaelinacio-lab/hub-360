@@ -14,6 +14,8 @@
   })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="../js/ui-version.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
 /* ═══ Tokens ══════════════════════════════════════════════════════════ */
@@ -120,8 +122,10 @@ input,select{font-family:inherit}
 .topbar{
   position:sticky;top:0;z-index:100;
   background:var(--surface);border-bottom:1px solid var(--border);
-  padding:0 24px;
+  padding:0 24px;transition:transform .22s ease;
 }
+/* ao rolar pra baixo o cabeçalho (título + filtros) sai de cena; volta ao rolar pra cima */
+.topbar.oculto{transform:translateY(-100%)}
 .topbar-in{
   display:flex;align-items:center;gap:12px;height:56px;
   max-width:1480px;margin:0 auto;
@@ -211,6 +215,126 @@ input,select{font-family:inherit}
 .ms-loadyear:hover{border-color:var(--orange);color:var(--t1)}
 .ms-loadyear:disabled{opacity:.6;cursor:default}
 
+/* ─── Evolução mensal (abertos x resolvidos) ────────────────────────── */
+.tv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.tv-eyebrow{font-size:10px;letter-spacing:.14em;color:var(--t3);font-weight:700;text-transform:uppercase;margin:0 0 4px}
+.tv-legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.tv-pill{
+  display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface-low);font-size:12px;font-weight:600;color:var(--t1);
+}
+.tv-pill i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.tv-pill small{font-size:10.5px;color:var(--t3);font-weight:600}
+.tv-tip{
+  position:absolute;pointer-events:none;z-index:50;min-width:270px;max-width:320px;opacity:0;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh-md);
+  padding:12px 14px;font-size:12px;color:var(--t1);transition:opacity .12s;
+}
+.tv-tip-mes{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin-bottom:8px}
+.tv-tip-blk{padding:8px 0;border-top:1px solid var(--border)}
+.tv-tip-mes+.tv-tip-blk{border-top:none;padding-top:0}
+.tv-tip-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.tv-tip-nome{font-size:14px;font-weight:600}
+.tv-tip-val{font-size:15px;font-weight:700}
+.tv-tip-sub{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px;font-size:10.5px;color:var(--t3)}
+.tv-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:7px;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border:1px solid}
+.tv-badge.bom{color:var(--green);border-color:var(--green);background:rgba(74,222,128,.08)}
+.tv-badge.ruim{color:#f87171;border-color:#f87171;background:rgba(248,113,113,.1)}
+.tv-badge.neutro{color:var(--t2);border-color:var(--border);background:var(--surface-low)}
+.tv-bom{color:var(--green)}.tv-ruim{color:#f87171}
+.tv-tip-foot{font-size:10.5px;color:var(--t3);border-top:1px solid var(--border);padding-top:7px;margin-top:2px}
+
+/* ─── Impacto mensal de SLA por ticket ──────────────────────────────── */
+.imp-nota{
+  display:flex;gap:10px;align-items:flex-start;padding:11px 14px;margin:0 0 12px;border:1px solid var(--border);
+  border-radius:12px;background:var(--surface-low);font-size:12px;color:var(--t2);line-height:1.5;
+}
+.imp-nota b{color:var(--t1)}
+.imp-top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.imp-kpis{display:flex;flex-wrap:wrap;gap:8px}
+.imp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:1100px){.imp-grid{grid-template-columns:1fr}}
+.imp-sub{font-size:12px;font-weight:700;margin:0 0 6px}
+.td-ht{margin:0 0 14px;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,#10b981 10%,transparent)}
+.td-ht .lbl{margin:0 0 2px}
+.ht-badge{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;background:color-mix(in srgb,#10b981 16%,transparent);color:#10b981;white-space:nowrap;cursor:help}
+.imp-pos{color:#f87171}.imp-neg{color:var(--green)}
+.imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
+
+/* ─── Evolução mensal do atingimento do SLA ─────────────────────────── */
+.sl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.sl-ult{min-width:190px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-low);text-align:right}
+.sl-ult b{display:block;font-size:30px;line-height:1.1;color:var(--green)}
+.sl-ult small{font-size:11px}
+.sl-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+@media (max-width:900px){.sl-kpis{grid-template-columns:1fr}}
+.sl-kpi{padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-low)}
+.sl-kpi b{display:block;font-size:22px;color:var(--t1);margin:4px 0 2px}
+.sl-kpi small{font-size:11px;color:var(--t3)}
+.sl-nota{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;padding:9px 14px;border:1px solid var(--border);border-radius:10px;font-size:11px;color:var(--t3)}
+.sl-nota i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+
+/* botão "!" de ajuda em cada card + modal explicativo */
+.panel-acoes{display:inline-flex;align-items:center;gap:4px;flex:none}
+.panel-info{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;
+  border:1.5px solid var(--t3);background:transparent;color:var(--t3);cursor:pointer;padding:0;
+  font:800 12px/1 system-ui,sans-serif;transition:color .15s,border-color .15s,background .15s;
+}
+.panel-info:hover,.panel-info:focus-visible{color:var(--orange);border-color:var(--orange);background:var(--surface-mid);outline:none}
+.panel-info.solta{position:absolute;top:10px;right:42px;z-index:2}
+.info-box h4{margin:14px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.info-box p,.info-box li{font-size:13px;line-height:1.55;color:var(--t1);margin:0 0 6px}
+.info-box ul{margin:0;padding-left:18px}
+.info-box .info-obs{margin-top:12px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-low);font-size:12px;color:var(--t2)}
+
+/* ─── Temas mais recorrentes ────────────────────────────────────────── */
+.tm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.tm-row{display:grid;grid-template-columns:30px minmax(150px,1.1fr) 2fr minmax(70px,auto);align-items:center;gap:14px;padding:11px 4px;border-radius:10px;cursor:pointer;transition:background .12s}
+.tm-row:hover{background:var(--surface-mid)}
+.tm-rank{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:1px solid var(--border);background:var(--surface-low)}
+.tm-nome{font-size:14px;font-weight:700;color:var(--t1)}
+.tm-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.tm-trilho{height:12px;border-radius:999px;background:var(--surface-low);overflow:hidden}
+.tm-barra{height:100%;border-radius:999px;transition:width .35s ease}
+.tm-val{text-align:right}
+.tm-val b{display:block;font-size:18px;font-weight:800;line-height:1.1}
+.tm-val small{font-size:11px;color:var(--t3)}
+@media (max-width:760px){.tm-row{grid-template-columns:28px 1fr auto}.tm-trilho{grid-column:1 / -1;order:5}}
+
+/* seletor de visão dentro de um card (ex.: Top responsáveis: Quantidade | SLA cumprido) */
+.seg{display:flex;justify-content:center;gap:3px;background:var(--surface-low);padding:3px;border-radius:9px;border:1px solid var(--border);width:max-content;margin:0 auto 10px}
+.seg button{padding:5px 14px;border-radius:7px;font-size:12px;font-weight:600;color:var(--t2);background:transparent}
+.seg button:hover:not(.on){color:var(--t1)}
+.seg button.on{background:var(--orange);color:#fff}
+/* Responsáveis por volume: lista + painel de detalhe */
+.rsp-wrap{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:18px;align-items:start}
+@media (max-width:1000px){.rsp-wrap{grid-template-columns:1fr}}
+.rsp-lista table{width:100%;border-collapse:collapse;font-size:13px}
+.rsp-lista th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+.rsp-lista th.n,.rsp-lista td.n{text-align:right;font-variant-numeric:tabular-nums}
+.rsp-lista td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.rsp-lista tbody tr{cursor:pointer;transition:background .1s}
+.rsp-lista tbody tr:hover,.rsp-lista tbody tr:focus-visible{background:var(--surface-mid);outline:none}
+.rsp-lista tbody tr.fixo{background:var(--orange-bg);box-shadow:inset 3px 0 0 var(--orange)}
+.rsp-rank{display:inline-flex;width:22px;height:22px;border-radius:7px;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:var(--surface-low);color:var(--t2)}
+.rsp-nome{font-weight:600;color:var(--t1)}
+.rsp-barra{height:5px;border-radius:999px;background:var(--surface-low);margin-top:5px;overflow:hidden}
+.rsp-barra i{display:block;height:100%;border-radius:999px;background:var(--slate)}
+.rsp-sla{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.rsp-sla .trilho{width:70px;height:6px;border-radius:999px;background:var(--surface-low);overflow:hidden}
+.rsp-sla .trilho i{display:block;height:100%;border-radius:999px}
+.rsp-det{position:sticky;top:76px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;min-height:260px}
+.rsp-det .vazio{color:var(--t3);font-size:12.5px;line-height:1.6;padding:30px 6px;text-align:center}
+.rsp-det h4{font-size:15px;font-weight:700;color:var(--t1);margin:0}
+.rsp-det .ref{font-size:11px;color:var(--t3);margin:2px 0 10px;letter-spacing:.04em;text-transform:uppercase}
+.rsp-det .sec{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);font-weight:700;margin:12px 0 2px}
+.rsp-det .topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.rsp-det .fixar{font-size:11px;color:var(--t3);border:1px solid var(--border);border-radius:999px;padding:2px 9px;background:var(--surface-low)}
+.rsp-det .fixar.on{color:var(--orange);border-color:var(--orange)}
+.rsp-det .tv-tip-blk{border-top:1px solid var(--border);padding:9px 0}
+.rsp-det .sec+.tv-tip-blk{border-top:none}
+.rsp-det .acoes{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
 /* sync toast */
 #sync-toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -239,6 +363,73 @@ input,select{font-family:inherit}
 #janela-banner button:hover{background:var(--surface3,var(--hover,rgba(128,128,128,.1)))}
 #janela-banner button:disabled{opacity:.6;cursor:default}
 
+/* KPIs do Visual 2.0: ícone, sparkline e variação (escondidos no visual clássico) */
+.kpi-ico,.kpi-spark,.kpi-delta{display:none}
+.kpi-main,.kpi-foot{display:block}
+.sla-ring svg,.sla-ring small,.sla-acoes{display:none}
+/* linhas do painel (composição do Hub 360 2.0) */
+.hrow{display:grid;gap:14px;margin-top:14px;align-items:stretch}
+.hrow.c-1{grid-template-columns:minmax(0,1fr)}
+.hrow.c-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hrow.c-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hrow.c-4-8{grid-template-columns:minmax(0,4fr) minmax(0,8fr)}
+.hrow.c-8-4{grid-template-columns:minmax(0,8fr) minmax(0,4fr)}
+@media (max-width:1180px){.hrow.c-3,.hrow.c-4-8,.hrow.c-8-4{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.hrow.c-2{grid-template-columns:minmax(0,1fr)}}
+.hrow>.chart-panel,.hrow>.data-panel,.hrow>.stat-card{margin:0}
+/* horários de pico */
+.pico{display:grid;grid-template-columns:34px repeat(13,minmax(0,1fr));gap:4px;align-items:center;font-size:11px;color:var(--t3);font-weight:700}
+.pico .h{text-align:center}
+.pico .d{padding-right:4px}
+.pico .c{height:30px;border-radius:8px;border:0;padding:0;cursor:pointer;background:var(--surface-low)}
+.pico .c:hover{outline:2px solid var(--brand,var(--orange));outline-offset:1px}
+/* chamados recentes */
+.rec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.rec-lista{display:flex;flex-direction:column;gap:8px}
+.rec-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:transparent;text-align:left;width:100%;cursor:pointer;color:inherit}
+.rec-item:hover{background:var(--surface-low)}
+.rec-av{flex:none;width:34px;height:34px;border-radius:12px;background:var(--surface-low);color:var(--t2);display:grid;place-items:center;font-size:11.5px;font-weight:800}
+.rec-tx{min-width:0;flex:1}
+.rec-tx b{display:block;font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-tx small{display:block;font-size:11.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-tx small i{font-style:normal;font-weight:800;color:var(--orange)}
+.st-badge{flex:none;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:var(--surface-low);color:var(--t2);white-space:nowrap}
+.st-badge.info{background:var(--info-soft,#dcebfb);color:var(--info,#0b5fb8)}
+.st-badge.warn{background:var(--warning-soft,#fbf0cc);color:var(--warning,#7a5a00)}
+.st-badge.ok{background:var(--success-soft,#dcf4ea);color:var(--success,#0b7a55)}
+.rec-vazio,.bk-vazio{color:var(--t3);font-size:12.5px;padding:18px 4px;text-align:center}
+/* backlog vencido: lista dos mais atrasados */
+.bk-lista{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.bk-item{display:flex;align-items:center;gap:10px;background:transparent;border:0;padding:5px 0;text-align:left;color:inherit;cursor:pointer;width:100%;font-size:13px;font-weight:700}
+.bk-item i{flex:none;width:8px;height:8px;border-radius:50%;background:#ee6f82}
+.bk-item .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-item .r{flex:none;opacity:.75;font-weight:600}
+.bk-acoes{display:none}
+/* roscas (Hub 360 2.0): anel grosso, total no centro e legenda ao lado */
+.donut-row{display:flex;align-items:center;gap:22px;flex:1;min-height:0}
+.donut-row .chart-wrap{flex:none;width:172px;height:172px}
+.donut-leg{list-style:none;margin:0;padding:0;flex:1;min-width:0}
+.donut-leg li{display:flex;align-items:center;gap:10px;padding:6px 4px;border-radius:10px;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer}
+.donut-leg li:hover{background:var(--surface-low)}
+.donut-leg i{flex:none;width:10px;height:10px;border-radius:50%}
+.donut-leg .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.donut-leg .v{flex:none;color:var(--t2);font-weight:700;font-variant-numeric:tabular-nums}
+@media (max-width:520px){.donut-row{flex-direction:column;align-items:stretch}.donut-row .chart-wrap{align-self:center}}
+/* rankings: área com barra de rolagem visível (o resto da tela esconde as barras) */
+.rolagem{overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.rolagem::-webkit-scrollbar{display:block;width:8px;height:8px}
+.rolagem::-webkit-scrollbar-track{background:transparent}
+.rolagem::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:999px}
+.rolagem::-webkit-scrollbar-thumb:hover{background:var(--t3)}
+.rank-scroll{max-height:340px;padding-right:6px}
+.imp-scroll{max-height:420px}
+.dtable-wrap.rolagem{max-height:340px}
+.rolagem .dtable th{position:sticky;top:0;z-index:1;background:var(--surface)}
+.rsp-lista.rolagem{max-height:440px}
+.rsp-lista.rolagem th{position:sticky;top:0;z-index:1;background:var(--surface)}
+#temas-lista{max-height:480px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+#temas-lista::-webkit-scrollbar{display:block;width:8px}
+#temas-lista::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:999px}
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:1480px;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -335,6 +526,15 @@ input,select{font-family:inherit}
 .modal-body .dtable{min-width:640px}
 .modal-body .dtable th{position:sticky;top:0;background:var(--surface);white-space:nowrap}
 .modal-body .dtable td{vertical-align:top}
+
+/* modais com tabela de chamados: largos o bastante para todas as colunas, sem cortar; se a janela for estreita, a rolagem horizontal aparece (fina e visível) */
+#detail-modal .modal-box,#expand-modal .modal-box,#risco-modal .modal-box{max-width:min(1240px,96vw)}
+.modal-body .dtable{min-width:0;table-layout:auto}
+.modal-body .dtable-scroll{scrollbar-width:thin;scrollbar-color:var(--border-hi,#cfc7bc) transparent}
+.modal-body .dtable-scroll::-webkit-scrollbar{display:block;height:8px}
+.modal-body .dtable-scroll::-webkit-scrollbar-thumb{background:var(--border-hi,#cfc7bc);border-radius:8px}
+.modal-body .dtable td:first-child,.modal-body .dtable td.num,.modal-body .dtable td.an-col{white-space:nowrap}
+#detail-modal .dtable td:nth-child(4),#detail-modal .dtable td:nth-child(5){white-space:nowrap}
 body.modal-open{overflow:hidden}
 
 .modal-body .dtable tbody tr.clickable{cursor:pointer}
@@ -403,6 +603,9 @@ body.modal-open{overflow:hidden}
 .btn-open-ticket:hover{opacity:.9}
 .section-note{font-size:11.5px;color:var(--t3);margin:-6px 0 12px}
 </style>
+<link rel="stylesheet" href="../css/v2.css">
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 <div id="geral-page">
@@ -419,25 +622,36 @@ body.modal-open{overflow:hidden}
         <button class="md-tab" onclick="mdSwitchTab('satisfacao')">
           <span class="sym">sentiment_satisfied</span>Satisfação
         </button>
+        <button class="md-tab" onclick="mdSwitchTab('chats')">
+          <span class="sym">forum</span>Chats
+        </button>
         <button class="md-tab" onclick="abrirPainelTV()">
           <span class="sym">tv</span>Painel TV
         </button>
       </div>
-      <div class="vbar"></div>
-      <button class="btn-refresh" id="btn-atualizar" onclick="loadGeral()">
+      <div class="topbar-acoes">
+      <button class="btn-refresh" title="Atualizar os dados" aria-label="Atualizar os dados" id="btn-atualizar" onclick="loadGeral()">
         <span class="sym">refresh</span>Atualizar
       </button>
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar tickets
       </button>
-      <button class="btn-refresh" onclick="openChamadoListagemModal()">
+      <button class="btn-refresh" title="Chamado Listagem" aria-label="Chamado Listagem" onclick="openChamadoListagemModal()">
         <span class="sym">list_alt</span>Chamado Listagem
       </button>
-      <button class="btn-refresh" onclick="openExportModal()">
+      <button class="btn-refresh" title="Exportar" aria-label="Exportar" onclick="openExportModal()">
         <span class="sym">download</span>Exportar
       </button>
+      </div>
     </div>
     <div class="topbar-filters">
+      <div class="multi-sel" id="f-serv">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Serviço: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
       <div class="multi-sel" id="f-equipe">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Equipe: todos</span>
@@ -455,13 +669,6 @@ body.modal-open{overflow:hidden}
       <div class="multi-sel" id="f-cliente">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Cliente: todos</span>
-          <span class="sym ms-arrow">expand_more</span>
-        </button>
-        <div class="ms-drop"></div>
-      </div>
-      <div class="multi-sel" id="f-serv">
-        <button class="ms-btn" type="button" onclick="toggleMs(this)">
-          <span class="ms-lbl">Serviço: todos</span>
           <span class="sym ms-arrow">expand_more</span>
         </button>
         <div class="ms-drop"></div>
@@ -508,122 +715,204 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="geral-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-5">
-      <div class="stat-card">
-        <p class="label">Tickets abertos</p>
-        <p class="value" id="k-abertos">0</p>
-        <p class="legend">Total criados no período.</p>
+    <div class="kpi-grid">
+      <div data-tone="orange" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg></span>Tickets abertos</p>
+        <div class="kpi-main"><p class="value" id="k-abertos">0</p><span class="kpi-spark" id="sp-abertos"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-abertos"></span><p class="legend">Total criados no período.</p></div>
       </div>
-      <div class="stat-card">
-        <p class="label">Tickets resolvidos</p>
-        <p class="value" id="k-resolvidos">0</p>
-        <p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p>
+      <div data-tone="green" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span>Tickets resolvidos</p>
+        <div class="kpi-main"><p class="value" id="k-resolvidos">0</p><span class="kpi-spark" id="sp-resolvidos"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p></div>
       </div>
-      <div class="stat-card">
-        <p class="label">Média de ações/ticket</p>
-        <p class="value" id="k-media-acoes">0</p>
-        <p class="legend">Trocas até o fechamento.</p>
+      <div data-tone="green" class="stat-card danger sla-hero">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA cumprido (resolvidos)</p>
+        <div class="kpi-main">
+          <p class="value bad" id="k-sla-cumprido">0%</p>
+          <div class="sla-ring"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sla-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg></div>
+          <span class="kpi-spark" id="sp-sla"></span>
+        </div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-sla"></span><p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p></div>
       </div>
-      <div class="stat-card">
-        <p class="label">Clientes únicos</p>
-        <p class="value" id="k-clientes">0</p>
-        <p class="legend">Base ativa de solicitantes.</p>
+      <div data-tone="yellow" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>Clientes únicos</p>
+        <div class="kpi-main"><p class="value" id="k-clientes">0</p><span class="kpi-spark" id="sp-clientes"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-clientes"></span><p class="legend">Base ativa de solicitantes.</p></div>
       </div>
-      <div class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
-        <p class="label">Tickets pendentes</p>
-        <p class="value bad" id="k-pendentes">0</p>
-        <p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p>
+      <div data-tone="red" class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tickets pendentes</p>
+        <div class="kpi-main"><p class="value bad" id="k-pendentes">0</p><span class="kpi-spark" id="sp-pendentes"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p></div>
+      </div>
+      <div data-tone="yellow" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span>Taxa de reabertura</p>
+        <div class="kpi-main"><p class="value bad" id="k-reabertura">0%</p><span class="kpi-spark" id="sp-reabertura"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-reabertura"></span><p class="legend">Reabertos ÷ resolvidos no período.</p></div>
+      </div>
+      <div data-tone="green" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".6"/></svg></span>Resolução no 1º contato (FCR)</p>
+        <div class="kpi-main"><p class="value good" id="k-fcr">0%</p><span class="kpi-spark" id="sp-fcr"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-fcr"></span><p class="legend">1 ação pública, sem notas internas.</p></div>
       </div>
     </div>
 
-    <div class="grid-2" style="margin-top:14px">
-      <div class="stat-card danger">
-        <p class="label">SLA cumprido (resolvidos)</p>
-        <p class="value bad" id="k-sla-cumprido">0%</p>
-        <p class="legend" id="k-sla-cumprido-legend">Resolvidos dentro do prazo.</p>
+    <div class="hrow c-1">
+      <div class="chart-panel">
+        <div class="tv-head">
+          <div>
+            <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 2px">Evolução mensal: abertos vs resolvidos</p>
+            <p class="chart-sub" style="text-align:left;margin:0">Abertura (data de criação) e resolução (data de resolução) por mês, com o saldo acumulado.</p>
+          </div>
+        </div>
+        <div class="tv-legend" id="trend-legend"></div>
+        <div class="chart-wrap" style="height:340px"><canvas id="trendVolChart"></canvas><div class="tv-tip" id="trend-tip"></div></div>
       </div>
-      <div class="stat-card danger clickable" onclick="openVencidosModal()">
-        <p class="label">Backlog já vencido</p>
-        <p class="value bad" id="k-backlog-vencido">0</p>
-        <p class="legend" id="k-backlog-vencido-legend">Prazo de SLA já passado. Clique pra ver.</p>
+    </div>
+
+    <div class="hrow c-3">
+      <div class="chart-panel">
+        <p class="chart-title">Clientes com mais chamados</p>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div></div>
       </div>
-    </div>
-
-    <p class="section-label">Classificação — ranking abertos x fechados</p>
-    <p class="chart-sub">Clara = abertos · escura = fechados</p>
-    <div class="chart-panel">
-      <div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div>
-    </div>
-
-    <p class="section-label">Tendência de aberturas e resoluções</p>
-    <div class="chart-panel">
-      <p class="chart-title">Tickets abertos vs resolvidos por mês</p>
-      <div class="chart-wrap" style="height:220px"><canvas id="trendVolChart"></canvas></div>
-    </div>
-
-    <p class="section-label">Envelhecimento do backlog</p>
-    <div class="chart-panel">
-      <p class="chart-title">Tempo em aberto por faixa de dias (só tickets pendentes)</p>
-      <div class="chart-wrap" style="height:190px"><canvas id="agingChart"></canvas></div>
-    </div>
-
-    <p class="section-label">Composição</p>
-    <div class="grid-2">
+      <div class="chart-panel">
+        <p class="chart-title">Por classificação</p>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div></div>
+      </div>
       <div class="chart-panel">
         <p class="chart-title">Volume por equipe</p>
-        <p class="chart-sub">Clara = abertos · escura = resolvidos</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div>
+        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
       </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div data-tone="red" class="stat-card bk-sit">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog por situação de prazo</p>
+        <span id="k-backlog-vencido" hidden>0</span>
+        <p class="bk-total"><b class="num" id="bk-total">0</b><span>chamados pendentes</span></p>
+        <div class="bk-barra" id="bk-barra"></div>
+        <div class="bk-leg" id="bk-leg"></div>
+        <div class="bk-nota" id="bk-nota"></div>
+        <details class="bk-det"><summary>Como é calculado</summary>
+          <p>Pendentes = chamados em aberto (todos os anos). Sem prazo = sem data de solução de SLA. Vencido = prazo anterior a agora. Com prazo, sem vencer = o restante, incluindo os que vencem hoje ou amanhã.</p>
+        </details>
+      </div>
+      <div class="data-panel danger">
+        <p class="panel-title">Equipes com maior % de backlog vencido</p>
+        <div class="dtable-wrap rolagem">
+          <table class="dtable">
+            <thead><tr><th>Equipe</th><th class="num">Pendentes</th><th class="num">Vencidos</th><th class="num">% vencido</th></tr></thead>
+            <tbody id="tbl-equipes-vencido"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel">
+      <p class="tv-eyebrow">Análise de urgência</p>
+      <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal por urgência</p>
+      <p class="chart-sub" style="text-align:left;margin:0 0 10px">Tickets abertos em cada mês (data de criação), por urgência. Passe sobre um mês para comparar com o anterior.</p>
+      <div class="tv-legend" id="urgtrend-legend" style="justify-content:flex-end"></div>
+      <div class="chart-wrap" style="height:340px"><canvas id="urgTrendChart"></canvas><div class="tv-tip" id="urgtrend-tip"></div></div>
+    </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel" id="sla-evo-panel">
+      <div class="sl-head">
+        <div>
+          <p class="tv-eyebrow">Visão global de desempenho</p>
+          <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal do atingimento do SLA</p>
+          <p class="chart-sub" style="text-align:left;margin:0" id="sla-evo-sub">Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência.</p>
+        </div>
+        <div class="sl-ult" id="sla-evo-ult"><span class="tv-eyebrow" style="margin:0">Último mês</span><b>—</b><small></small></div>
+      </div>
+      <div class="sl-kpis" id="sla-evo-kpis"></div>
+      <div class="chart-wrap" style="height:320px"><canvas id="slaEvoChart"></canvas><div class="tv-tip" id="sla-evo-tip" style="min-width:230px"></div></div>
+      <div class="sl-nota">
+        <span><i style="background:var(--green)"></i>Alta em pontos percentuais indica evolução</span>
+        <span><i style="background:#f87171"></i>Queda indica menor proporção dentro da meta</span>
+        <span><i style="background:var(--t3)"></i>Cada mês usa somente tickets elegíveis resolvidos nele (urgência Crítica, Alta, Média ou Baixa)</span>
+      </div>
+      <p class="chart-sub" style="text-align:left;margin:8px 0 0" id="sla-evo-status"></p>
+    </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel" id="impacto-panel">
+        <p class="chart-title">Impacto mensal de SLA por ticket</p>
+        <p class="chart-sub">Quais chamados mais puxaram a média do tempo de solução para cima ou para baixo. O traço de cada barra marca a meta da urgência.</p>
+        <div class="imp-chips" id="impacto-chips"></div>
+        <div class="imp-kpis4" id="impacto-kpis"></div>
+        <div id="impacto-corpo"></div>
+        <div class="imp-nota2" id="impacto-nota" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel" id="impacto-cima-panel">
+        <p class="chart-title"><span class="imp-pos">▲</span> Puxaram a média para cima</p>
+        <p class="chart-sub">Chamados que mais elevaram o tempo médio de solução. O traço marca a meta da urgência.</p>
+        <div class="rolagem imp-lista" id="impacto-cima"></div>
+      </div>
+      <div class="chart-panel" id="impacto-baixo-panel">
+        <p class="chart-title"><span class="imp-neg">▼</span> Puxaram a média para baixo</p>
+        <p class="chart-sub">Chamados que mais reduziram o tempo médio de solução.</p>
+        <div class="rolagem imp-lista" id="impacto-baixo"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel" id="impacto-cli-panel">
+        <p class="chart-title">Quem concentra o atraso</p>
+        <p class="chart-sub">Impacto somado no SLA do período, por grupo. Clique numa linha para ver os tickets.</p>
+        <div class="imp-chips" id="impacto-grupo-chips"></div>
+        <div class="rolagem imp-grupos" id="impacto-grupos"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
       <div class="chart-panel">
         <p class="chart-title">Tickets por urgência</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="urgChart"></canvas></div>
-      </div>
-    </div>
-
-    <p class="section-label">Ranking</p>
-    <div class="grid-2">
-      <div class="chart-panel">
-        <p class="chart-title">Top clientes por volume</p>
-        <p class="chart-sub">Clara = abertos · escura = resolvidos</p>
-        <div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div>
+        <p class="chart-sub" style="text-align:left">Distribuição dos tickets abertos no período.</p>
+        <div class="donut-row"><div class="chart-wrap"><canvas id="urgChart"></canvas></div><ul class="donut-leg" id="urgChart-leg"></ul></div>
       </div>
       <div class="chart-panel">
-        <p class="chart-title">Top responsáveis por volume</p>
-        <p class="chart-sub">Clara = abertos · escura = resolvidos</p>
-        <div class="chart-wrap" style="height:230px"><canvas id="respChart"></canvas></div>
+        <p class="chart-title">Envelhecimento do backlog</p>
+        <p class="chart-sub" style="text-align:left">Tempo em aberto por faixa de dias (só pendentes).</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="agingChart"></canvas></div>
       </div>
     </div>
 
-    <p class="section-label">Ação</p>
-    <div class="data-panel danger">
-      <p class="panel-title">Equipes com maior % de backlog vencido</p>
-      <div class="dtable-wrap">
-        <table class="dtable">
-          <thead><tr><th>Equipe</th><th class="num">Pendentes</th><th class="num">Vencidos</th><th class="num">% vencido</th></tr></thead>
-          <tbody id="tbl-equipes-vencido"><tr class="empty-row"><td colspan="4">Carregando…</td></tr></tbody>
-        </table>
+    <div class="hrow c-1">
+      <div class="chart-panel" id="resp-panel">
+        <p class="chart-title">Responsáveis por volume</p>
+        <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Passe o mouse sobre um colaborador para ver o detalhe do mês; clique para fixar.</p>
+        <div class="rsp-wrap">
+          <div id="respChart" class="rsp-lista rolagem"></div>
+          <aside id="resp-detalhe" class="rsp-det" aria-live="polite"></aside>
+        </div>
       </div>
     </div>
 
-    <p class="section-label">Qualidade da resolução</p>
-    <p class="section-note">FCR considera só tickets resolvidos com exatamente 1 ação pública (sem contar notas internas).</p>
-    <div class="grid-2">
-      <div class="stat-card danger">
-        <p class="label">Taxa de reabertura</p>
-        <p class="value bad" id="k-reabertura">0%</p>
-        <p class="legend">Tickets reabertos ÷ resolvidos no período.</p>
-      </div>
-      <div class="stat-card success">
-        <p class="label">Resolução no 1º contato (FCR)</p>
-        <p class="value good" id="k-fcr">0%</p>
-        <p class="legend">1 ação pública, sem contar notas internas.</p>
+    <div class="hrow c-1">
+      <div class="chart-panel" id="causas-panel">
+        <p class="chart-title">Top 10 causas dos chamados</p>
+        <p class="chart-sub" id="causas-sub" style="text-align:left">Causa identificada pela Curadoria lendo o histórico inteiro de cada chamado. Clique numa causa para ver os tickets.</p>
+        <div id="causas-lista" class="rolagem"></div>
       </div>
     </div>
 
-    <p class="section-label">SLA por urgência</p>
-    <div class="chart-panel">
-      <p class="chart-title">% cumprido no prazo, por nível de urgência</p>
-      <div class="chart-wrap" style="height:190px"><canvas id="slaUrgChart"></canvas></div>
+    <div class="hrow c-1">
+      <div class="chart-panel" id="pico-panel">
+        <p class="chart-title">Horários de pico</p>
+        <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador). Clique numa célula para ver os chamados.</p>
+        <div class="pico" id="pico-grid"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -701,6 +990,19 @@ body.modal-open{overflow:hidden}
   </div>
 </div>
 
+<div class="modal-overlay" id="info-modal" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-head">
+      <div>
+        <h3 id="info-modal-title">Sobre este indicador</h3>
+        <p>O que é e como é calculado</p>
+      </div>
+      <button class="modal-close" id="info-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body info-box" id="info-modal-body"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="export-modal" role="dialog" aria-modal="true">
   <div class="modal-box" style="max-width:420px">
     <div class="modal-head">
@@ -747,7 +1049,7 @@ function mdSwitchTab(view){
       return;
     }
   }catch{}
-  location.href=view==='movidesk'?'geral.html':'satisfacao.html';
+  location.href=view==='movidesk'?'geral.html':view+'.html';
 }
 // Painel TV é uma tela de kiosk (fontes grandes, sem menu lateral, pensada
 // pra rodar sozinha numa TV/monitor) — abre em aba nova em vez de navegar
@@ -817,8 +1119,10 @@ function classificacaoDe(r){ return (r.classificacao||'').trim()||'Não classifi
 function fmtPct(n){ return `${(n*100).toFixed(1)}%`; }
 
 // ── exportação (Excel / PDF / Word) ─────────────────────────────────
-const EXPORT_HEADERS=['ID','Organização','Assunto','Classificação','Equipe','Status','Urgência','Serviço','Responsável','Ações','Ações públicas','Criado em','Resolvido em','Reaberto em'];
+const EXPORT_HEADERS_BASE=['ID','Organização','Assunto','Classificação','Equipe','Status','Urgência','Serviço','Responsável','Ações','Ações públicas','Criado em','Resolvido em','Reaberto em'];
+const exportHeaders=()=>modoAnalytics(_rowsFull)?[...EXPORT_HEADERS_BASE,'Previsão de solução','Início da implantação','Valor do orçamento']:EXPORT_HEADERS_BASE;
 function buildExportRows(){
+  const extra=modoAnalytics(_rowsFull);
   return (_rowsFull||[]).map(r=>[
     r.ticket_id,
     r.organizacao||'',
@@ -834,6 +1138,7 @@ function buildExportRows(){
     dtStr(r.criado_em),
     dtStr(r.resolvido_em),
     dtStr(r.reaberto_em),
+    ...(extra?[dtStr(r.sla_solucao),dataCampo(campoAn(r,'implantacao')),fmtOrcamento(campoAn(r,'orcamento'))]:[]),
   ]);
 }
 function captureChartImages(){
@@ -869,6 +1174,7 @@ async function runExport(format){
   try{
     const hoje=new Date().toISOString().slice(0,10);
     const charts=captureChartImages();
+    if(modoAnalytics(_rowsFull)) await garantirCamposAnalytics(_rowsFull||[]).catch(e=>console.error('[campos analytics]',e.message));
     const rows=buildExportRows();
     if(format==='xlsx') await exportXlsx(rows,charts,`painel_geral_${hoje}.xlsx`);
     else if(format==='pdf') await exportPdf(rows,charts,`painel_geral_${hoje}.pdf`,'Painel Geral de Tickets');
@@ -885,7 +1191,7 @@ async function exportXlsx(rows,charts,filename){
   if(typeof ExcelJS==='undefined') throw new Error('Biblioteca ExcelJS não carregou (verifique a conexão com a internet/CDN).');
   const wb=new ExcelJS.Workbook();
   const wsData=wb.addWorksheet('Dados');
-  wsData.addRow(EXPORT_HEADERS).font={bold:true};
+  wsData.addRow(exportHeaders()).font={bold:true};
   rows.forEach(r=>wsData.addRow(r));
   wsData.columns.forEach(c=>c.width=18);
   if(charts.length){
@@ -930,7 +1236,7 @@ async function exportPdf(rows,charts,filename,titulo){
   doc.setFontSize(14);
   doc.text('Dados',margin,36);
   doc.autoTable({
-    head:[EXPORT_HEADERS],
+    head:[exportHeaders()],
     body:rows,
     startY:48,
     margin:{left:margin,right:margin},
@@ -957,7 +1263,7 @@ async function exportDocx(rows,charts,filename,titulo){
     children.push(new Paragraph({children:[new ImageRun({data:bytes,transformation:{width:w,height:h}})]}));
   }
   children.push(new Paragraph({text:'Dados',heading:HeadingLevel.HEADING_2,spacing:{before:300}}));
-  const headerRow=new TableRow({children:EXPORT_HEADERS.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
+  const headerRow=new TableRow({children:exportHeaders().map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true})]})]}))});
   const bodyRows=rows.map(r=>new TableRow({children:r.map(v=>new TableCell({children:[new Paragraph(String(v??''))]}))}));
   children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[headerRow,...bodyRows]}));
   const doc=new Document({sections:[{children}]});
@@ -977,6 +1283,7 @@ function downloadBlob(blob,filename){
 let _rows=[];
 let _charts={};
 let _rowsFull=[];
+let _rowsCtx=[];
 let _rowsResolv=[];
 let _rowsById={};
 let _janela=null; // null = histórico completo já carregado; senão, ex: "ano-vigente"
@@ -1017,20 +1324,39 @@ async function loadHistoricoCompleto(){
   const btn=document.getElementById('btn-carregar-tudo');
   if(btn){ btn.disabled=true; btn.textContent='Carregando (pode levar alguns minutos)…'; }
   try{
-    const [resp]=await Promise.all([api('/geral?todos=1',10*60*1000),fetchPendentesGlobal()]);
+    const [resp]=await Promise.all([api('/geral?todos=1',10*60*1000),fetchPendentesGlobal(),carregarSaldosHT()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
     buildFilterOptions();
-    render();
+    try{ render(); }
+    catch(re){ console.error('[painel geral] falha ao desenhar:',re); avisoGeral(`<b>Os dados chegaram (${_rows.length.toLocaleString('pt-BR')} chamados), mas o painel falhou ao desenhar:</b> ${esc(re.message)}`); return; }
+    avisoGeral(_rows.length?'':'<b>O servidor devolveu 0 chamados para o Painel Geral.</b> Se isso não é esperado, clique em “Diagnosticar” para ver o que há no banco. <button class="btn-refresh" style="width:auto;padding:4px 12px" onclick="diagnosticarGeral()">Diagnosticar</button><pre id="diag-geral" style="white-space:pre-wrap;margin:8px 0 0;font-size:12px"></pre>');
   } catch(e){
     alert('Não foi possível carregar o histórico completo: '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='Carregar histórico completo'; }
   }
 }
+function avisoGeral(html){
+  let el=document.getElementById('aviso-geral');
+  if(!html){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement('div'); el.id='aviso-geral'; el.style.cssText='margin:0 0 14px;padding:12px 16px;border-radius:14px;background:var(--danger-soft,#3a1d22);color:var(--t1);font-size:14px'; document.getElementById('geral-dash').prepend(el); }
+  el.innerHTML=html;
+}
+async function diagnosticarGeral(){
+  const pre=document.getElementById('diag-geral'); if(!pre) return; pre.textContent='Consultando o banco…';
+  try{
+    const d=await api('/geral/diagnostico',120000);
+    pre.textContent=d.erro?`Erro: ${d.erro} (${d.codigo||''})`:[
+      `Tabelas: ${Object.entries(d.tabelas||{}).map(([k,v])=>`${k}=${v?'ok':'FALTA'}`).join(' · ')}`,
+      `Chamados na base: ${d.total} · criados em ${new Date().getFullYear()}: ${d.criados_no_ano} · resolvidos no ano: ${d.resolvidos_no_ano} · abertos: ${d.abertos} · sem data de criação: ${d.sem_criacao}`,
+      `Último criado: ${d.ultimo_criado||'—'} · última alteração: ${d.ultima_alteracao||'—'}`,
+      `Consulta principal do painel: ${d.consultaPrincipal?`${d.consultaPrincipal.linhas} linhas em ${d.consultaPrincipal.ms} ms`:'não executou'}`].join('\n');
+  }catch(e){ pre.textContent='Não foi possível diagnosticar: '+e.message; }
+}
 async function loadGeral(){
   try{
-    const [resp]=await Promise.all([api('/geral'),fetchPendentesGlobal()]);
+    const [resp]=await Promise.all([api('/geral'),fetchPendentesGlobal(),carregarSaldosHT()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
@@ -1096,7 +1422,7 @@ function msBusca(id,placeholder){
 // Desmarca todos os filtros (Equipe, Responsável, Cliente, Serviço, Classificação,
 // Status, Ano e Mês), zera as buscas dos dropdowns e redesenha o painel.
 const FILTROS_MS=[
-  ['f-equipe','Equipe'],['f-resp','Responsável'],['f-cliente','Cliente'],['f-serv','Serviço'],
+  ['f-serv','Serviço'],['f-equipe','Equipe'],['f-resp','Responsável'],['f-cliente','Cliente'],
   ['f-class','Classificação'],['f-status','Status'],['f-year','Ano'],['f-month','Mês'],
 ];
 function limparFiltros(){
@@ -1139,14 +1465,25 @@ function aplicarAnoPadrao(){
   if(chk){ chk.checked=true; updateMsLabel('f-year','Ano: todos'); }
 }
 
+// As opções de Equipe, Serviço e Responsável vêm de todos os chamados carregados (os filtros BU e Tipo foram removidos: o Serviço, que já traz "BU > Tipo > …", ocupa o lugar deles).
+function opcoesMs(id,label,values,rotulo){
+  const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  populateMs(id,opts.map(v=>({v,l:rotulo?rotulo(v):v})),`${label}: todos`,render);
+  msBusca(id,`Buscar ${label.toLowerCase()}…`);
+}
+function atualizarOpcoesDependentes(){
+  const todos=[..._rows,..._rowsPendentesAll];
+  opcoesMs('f-equipe','Equipe',todos.map(r=>limpaEquipeOuNada(r.equipe)));
+  opcoesMs('f-serv','Serviço',todos.map(r=>r.servico));
+  opcoesMs('f-resp','Responsável',todos.map(r=>r.responsavel));
+}
+const limpaEquipeOuNada=e=>e?e:'';
 function buildFilterOptions(){
   const fill=(id,label,values)=>{
     const opts=[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
     populateMs(id,opts.map(v=>({v,l:v})),`${label}: todos`,render);
   };
-  fill('f-equipe','Equipe',_rows.map(r=>r.equipe));
-  fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
-  fill('f-serv','Serviço',_rows.map(r=>r.servico));
+  atualizarOpcoesDependentes();
   fill('f-cliente','Cliente',[..._rows,..._rowsPendentesAll].map(r=>r.organizacao));
   fill('f-class','Classificação',_rows.map(classificacaoDe));
   populateMs('f-status',[
@@ -1268,10 +1605,10 @@ function getFilteredRows(){
 
 // "Tickets pendentes" e tudo que deriva dele (backlog vencido, aging,
 // ranking por equipe) usam _rowsPendentesAll (todos os abertos, de qualquer
-// ano) e respeitam os mesmos filtros do resto do painel, INCLUINDO Ano/Mês —
-// aplicados sobre a data de ABERTURA. Com "Ano: 2026" o painel mostra a
-// volumetria de 2026 (abertos em 2026, ainda pendentes); sem nenhum ano
-// marcado volta a ser o backlog real, de todos os anos.
+// ano) e respeitam os filtros do resto do painel, MENOS Ano/Mês: pendente é o
+// backlog real de hoje, então qualquer ano marcado mostra todos os pendentes
+// (pedido do usuário, 08/10/2026 — antes "Ano: 2026" escondia os abertos de
+// anos anteriores).
 function getPendentesGlobalRows(){
   const equipeFils=getMsValues('f-equipe');
   const respFils=getMsValues('f-resp');
@@ -1279,16 +1616,8 @@ function getPendentesGlobalRows(){
   const cliFils=getMsValues('f-cliente');
   const classFils=getMsValues('f-class');
   const statusFils=getMsValues('f-status');
-  const yearFils=getMsValues('f-year').map(Number);
-  const monthFils=getMsValues('f-month').map(Number);
   if(statusFils.length&&!statusFils.includes('aberto')) return [];
   return _rowsPendentesAll.filter(r=>{
-    if(yearFils.length||monthFils.length){
-      if(!r.criado_em) return false;
-      const d=new Date(r.criado_em);
-      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
-      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
-    }
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
@@ -1304,6 +1633,7 @@ function render(){
   renderJanelaBanner();
   const {rowsCtx,rowsFull,rowsResolv}=getFilteredRows();
   _rowsFull=rowsFull;
+  _rowsCtx=rowsCtx;
   _rowsResolv=rowsResolv;
   _rowsById={};
   rowsFull.forEach(r=>{ _rowsById[r.ticket_id]=r; });
@@ -1317,20 +1647,18 @@ function render(){
   const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
   const mediaAcoes=abertos?somaAcoes/abertos:0;
   const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size;
-  // "Tickets pendentes" também segue o filtro de Ano/Mês (data de abertura):
-  // com 2026 marcado, são os abertos em 2026 que ainda estão pendentes.
+  // "Tickets pendentes" ignora Ano/Mês: sempre o backlog de todos os anos.
   const pendentesRows=getPendentesGlobalRows();
   _pendentesGlobal=pendentesRows;
 
   document.getElementById('k-abertos').textContent=abertos.toLocaleString('pt-BR');
   document.getElementById('k-resolvidos').textContent=resolvidos.toLocaleString('pt-BR');
   document.getElementById('k-taxa-resolucao-legend').textContent=`Taxa de resolução: ${fmtPct(taxaResolucao)}`;
-  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:1});
   document.getElementById('k-clientes').textContent=clientesUnicos.toLocaleString('pt-BR');
   document.getElementById('k-pendentes').textContent=pendentesRows.length.toLocaleString('pt-BR');
   {
     const yf=getMsValues('f-year'), mf=getMsValues('f-month');
-    const rotuloPeriodo=(yf.length||mf.length)?'Abertos no período e ainda em aberto. Clique pra ver.':'Ainda em aberto (todos os anos). Clique pra ver.';
+    const rotuloPeriodo=(yf.length||mf.length)?'Todos em aberto, de qualquer ano (não segue o filtro de Ano/Mês). Clique pra ver.':'Ainda em aberto (todos os anos). Clique pra ver.';
     document.getElementById('k-pendentes-legend').textContent=rotuloPeriodo;
   }
 
@@ -1340,11 +1668,11 @@ function render(){
   const vencidosRows=pendentesRows.filter(isVencido);
   const pctVencido=pendentesRows.length?vencidosRows.length/pendentesRows.length:0;
   document.getElementById('k-sla-cumprido').textContent=fmtPct(slaCumprido);
+  { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent=
     resolvidosComPrazo.length?`${resolvidosComPrazo.length.toLocaleString('pt-BR')} resolvidos com prazo definido.`:'Nenhum resolvido com prazo definido no período.';
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
-  document.getElementById('k-backlog-vencido-legend').textContent=
-    `${fmtPct(pctVencido)} do pendente. Clique pra ver.`;
+  renderBacklogSituacao(pendentesRows);
 
   // ── Qualidade da resolução ──
   const reabertosNoPeriodo=resolvidosRows.filter(isReaberto).length;
@@ -1355,22 +1683,33 @@ function render(){
   document.getElementById('k-fcr').textContent=fmtPct(taxaFcr);
 
   renderClassChart(rowsFull);
+  renderKpiExtras();
+  renderPico(rowsFull);
   renderTrendChart(rowsCtx);
+  renderUrgTrendChart(rowsCtx);
+  renderSlaEvolucao(rowsCtx);
+  renderTemas(rowsFull);
+  window._rowsFullAtual=rowsFull;
+  renderCausas(rowsFull);
+  renderImpactoSla(rowsResolv);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);
   renderClientChart(rowsFull);
   renderRespChart(rowsFull);
   renderEquipesVencidoTable(pendentesRows);
-  renderSlaUrgChart(resolvidosComPrazo);
+  igualarAlturaGrid();
 }
+
+// Rankings mostram até RANK_MAX itens; a área do ranking rola (barra de rolagem) para ver o restante.
+const RANK_MAX=100;
 
 // ── cores (tokens do tema) ──────────────────────────────────────────
 function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 function chartColors(){
   return {
     t1:cssVar('--t1'), t2:cssVar('--t2'), t3:cssVar('--t3'), border:cssVar('--border'),
-    orange:cssVar('--orange'), green:cssVar('--green'), purple:cssVar('--purple'), slate:cssVar('--slate'),
+    orange:(cssVar('--orange-fill')||cssVar('--orange')), green:cssVar('--green'), purple:cssVar('--purple'), slate:cssVar('--slate'),
   };
 }
 function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
@@ -1395,22 +1734,76 @@ function chartClickHandler(titlePrefix,filterFn){
   };
 }
 
+// Barras lado a lado (abertos e resolvidos de cada categoria), com o valor no fim
+// de cada barra. A altura do gráfico cresce com o número de categorias pra as
+// barras não ficarem espremidas.
+// Gráficos lado a lado (grid-2) com alturas diferentes deixavam um card com
+// espaço sobrando: iguala a altura de todos os gráficos da mesma linha à do maior.
+function igualarAlturaGrid(){
+  document.querySelectorAll('.grid-2').forEach(g=>{
+    const wraps=[...g.querySelectorAll(':scope > .chart-panel > .chart-wrap')];
+    if(wraps.length<2) return;
+    const base=w=>parseFloat(w.dataset.h0||(w.dataset.h0=parseFloat(w.style.height)||0));
+    const max=Math.max(...wraps.map(base));
+    wraps.forEach(w=>{
+      w.style.height=max+'px';
+      const ch=Object.values(_charts).find(c=>c&&c.canvas&&c.canvas.parentElement===w);
+      if(ch) ch.resize();
+    });
+  });
+}
+
 function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePrefix){
   destroyChart(id);
   const col=chartColors();
-  _charts[id]=new Chart(document.getElementById(id),{
+  const cv=document.getElementById(id);
+  const wrap=cv.parentElement;
+  if(wrap){ const h=Math.max(210,labels.length*38+56); wrap.style.height=h+'px'; wrap.dataset.h0=h; }
+  const valores={
+    id:'valoresBarras',
+    afterDatasetsDraw(chart){
+      const c=chart.ctx; c.save();
+      c.font='600 10.5px system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=col.t2;
+      chart.data.datasets.forEach((ds,di)=>{
+        chart.getDatasetMeta(di).data.forEach((bar,i)=>{
+          c.fillText(Number(ds.data[i]).toLocaleString('pt-BR'),bar.x+6,bar.y);
+        });
+      });
+      c.restore();
+    },
+  };
+  const clk=titlePrefix?chartClickHandler(titlePrefix,onClickFilter):undefined;
+  _charts[id]=new Chart(cv,{
     type:'bar',
     data:{ labels, datasets:[
-      { label:'Abertos', data:abertosData, backgroundColor:col.slate, barThickness:14, borderRadius:3, grouped:false, order:1 },
-      { label:'Resolvidos', data:resolvidosData, backgroundColor:col.orange, barThickness:8, borderRadius:3, grouped:false, order:0 }
+      { label:'Abertos', data:abertosData, backgroundColor:col.slate, borderRadius:3, barPercentage:.9, categoryPercentage:.8 },
+      { label:'Resolvidos', data:resolvidosData, backgroundColor:col.orange, borderRadius:3, barPercentage:.9, categoryPercentage:.8 }
     ]},
+    plugins:[valores],
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      layout:{padding:{right:44}},
+      interaction:{mode:'nearest',axis:'y',intersect:true},
       plugins:{ legend:{ display:true, position:'top', labels:{color:col.t2, boxWidth:10, font:{size:11}} } },
-      scales:{ x:{ display:false }, y:{ grid:{display:false}, ticks:{color:col.t2, font:{size:10.5}} } },
+      scales:{ x:{ display:false, beginAtZero:true }, y:{ grid:{display:false}, ticks:{color:col.t2, font:{size:10.5}} } },
       onHover:chartHoverCursor,
-      onClick: titlePrefix?chartClickHandler(titlePrefix,onClickFilter):undefined,
+      onClick: clk,
     }
   });
+  // clicar no NOME da categoria (eixo à esquerda, fora da área do gráfico) abre a lista igual ao clique na barra.
+  // O Chart.js só dispara onClick dentro da área do gráfico, então os rótulos usam eventos do próprio canvas.
+  if(clk){
+    const ch=_charts[id];
+    const pos=e=>{ const r=cv.getBoundingClientRect(); return rotuloEm(ch,{x:e.clientX-r.left,y:e.clientY-r.top}); };
+    cv.onmousemove=e=>{ if(pos(e)>=0) cv.style.cursor='pointer'; };
+    cv.onclick=e=>{ const i=pos(e); if(i>=0) clk(e,[{index:i}],ch); };
+  }
+}
+// índice da categoria cujo rótulo (à esquerda da área do gráfico) está sob o mouse; -1 se não for rótulo
+function rotuloEm(ch,evt){
+  const a=ch.chartArea, x=evt.x, y=evt.y;
+  if(!a||x==null||x>=a.left||y<a.top||y>a.bottom) return -1;
+  const i=Math.round(ch.scales.y.getValueForPixel(y));
+  return i>=0&&i<ch.data.labels.length?i:-1;
 }
 
 // ── Classificação — ranking abertos x fechados ──────────────────────
@@ -1422,7 +1815,7 @@ function renderClassChart(rows){
     porClass[c].abertos++;
     if(isResolvido(r)) porClass[c].resolvidos++;
   });
-  const entries=Object.entries(porClass).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
+  const entries=Object.entries(porClass).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
   layeredBars('classChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
     (r,label)=>classificacaoDe(r)===label,'Classificação');
 }
@@ -1438,40 +1831,642 @@ function bucketPorMes(rows){
   });
   return by;
 }
+// Evolução mensal: Mês inicial escolhido pelo usuário (vazio = padrão: ano filtrado ou últimos 12 meses).
+function mesAnteriorKey(mk){
+  const [y,m]=mk.split('-').map(Number);
+  return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`;
+}
+function mesProximoKey(mk){
+  const [y,m]=mk.split('-').map(Number);
+  return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`;
+}
+function rotuloMesCurto(mk){ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; }
+const fmtNum1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
+
+// Meses exibidos nos gráficos de evolução: o ano filtrado (de janeiro em diante)
+// ou os últimos 12 meses com dados. Meses contínuos, sem buracos.
+function mesesDoPeriodo(byMes){
+  const yearFilsA=getMsValues('f-year');
+  const yearFilVal=yearFilsA.length===1?yearFilsA[0]:null;
+  const ks=Object.keys(byMes).sort();
+  let todos=[];
+  if(ks.length){
+    for(let mk=ks[0];mk<=ks[ks.length-1];mk=mesProximoKey(mk)) todos.push(mk);
+  }
+  if(yearFilVal) todos=todos.filter(mk=>mk.startsWith(yearFilVal+'-'));
+  const ini=yearFilVal?todos[0]:todos[Math.max(0,todos.length-12)];
+  return ini?todos.slice(todos.indexOf(ini)):[];
+}
+
 function renderTrendChart(rows){
   destroyChart('trendVolChart');
   const col=chartColors();
   const byMes=bucketPorMes(rows);
-  const yearFilsA=getMsValues('f-year');
-  const yearFilVal=yearFilsA.length===1?yearFilsA[0]:null;
-  const meses=Object.keys(byMes).sort();
-  const chaves=yearFilVal
-    ? MONTH_NAMES.map((_,idx)=>`${yearFilVal}-${String(idx+1).padStart(2,'0')}`)
-    : meses.slice(-12);
-  const labels=yearFilVal
-    ? MONTH_NAMES
-    : chaves.map(mk=>{ const [y,m]=mk.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; });
+  const chaves=mesesDoPeriodo(byMes);
+
+  const get=(mk,k)=>byMes[mk]?byMes[mk][k]:0;
+  const ab=chaves.map(mk=>get(mk,'abertos'));
+  const rs=chaves.map(mk=>get(mk,'resolvidos'));
+  const totAb=ab.reduce((a,b)=>a+b,0), totRs=rs.reduce((a,b)=>a+b,0);
+  // Saldo acumulado = carteira: criados até o fim do mês e ainda não resolvidos naquela data
+  const azul=document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb';
+  const pendenteEm=(r,mk)=>{
+    if(!r.criado_em||monthKeyOf(r.criado_em)>mk) return false;
+    if(isResolvido(r)) return !!r.resolvido_em&&monthKeyOf(r.resolvido_em)>mk;
+    return true;
+  };
+  const _saldoCache={};
+  const saldoEm=mk=>(mk in _saldoCache)?_saldoCache[mk]:(_saldoCache[mk]=rows.reduce((n,r)=>n+(pendenteEm(r,mk)?1:0),0));
+  const sd=chaves.map(saldoEm);
+  const leg=document.getElementById('trend-legend');
+  if(leg){
+    leg.innerHTML=
+      `<span class="tv-pill"><i style="background:${col.orange}"></i>Abertos <small>${totAb.toLocaleString('pt-BR')}</small></span>`+
+      `<span class="tv-pill"><i style="background:${col.purple}"></i>Resolvidos <small>${totRs.toLocaleString('pt-BR')}</small></span>`+
+      `<span class="tv-pill"><i style="background:${azul}"></i>Saldo acumulado <small>${sd.length?sd[sd.length-1].toLocaleString('pt-BR'):'—'}</small></span>`+
+      `<span class="tv-pill">Saldo do período <small>${(totAb-totRs>0?'+':'')+(totAb-totRs).toLocaleString('pt-BR')}</small></span>`+
+      `<span class="tv-pill">Taxa de resolução <small>${totAb?fmtPct(totRs/totAb):'—'}</small></span>`;
+  }
+  if(!chaves.length) return;
+  const labels=chaves.map(rotuloMesCurto);
+
+  // linha com brilho (glow) na cor da série
+  const glow={
+    id:'tvGlow',
+    beforeDatasetDraw(chart,args){ const c=chart.ctx; c.save(); c.shadowColor=chart.data.datasets[args.index].borderColor; c.shadowBlur=10; },
+    afterDatasetDraw(chart){ chart.ctx.restore(); },
+  };
+  // rótulos de valor nos pontos: a série maior do mês fica em cima, a menor embaixo
+  const rotulos={
+    id:'tvLabels',
+    afterDatasetsDraw(chart){
+      const c=chart.ctx; c.save();
+      c.font='700 11px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+      chart.data.datasets.forEach((ds,di)=>{
+        if(di>1) return;                         // o saldo acumulado não leva etiqueta de valor
+        const meta=chart.getDatasetMeta(di);
+        meta.data.forEach((pt,i)=>{
+          const v=ds.data[i], outro=chart.data.datasets[1-di].data[i];
+          const acima=v>outro||(v===outro&&di===0);
+          const txt=String(v), w=c.measureText(txt).width+14, h=20;
+          const x=pt.x, y=pt.y+(acima?-20:20);
+          c.beginPath();
+          if(c.roundRect) c.roundRect(x-w/2,y-h/2,w,h,7); else c.rect(x-w/2,y-h/2,w,h);
+          c.fillStyle=col.surface; c.fill();
+          c.lineWidth=1; c.strokeStyle=col.border; c.stroke();
+          c.fillStyle=col.t1; c.fillText(txt,x,y+.5);
+        });
+      });
+      c.restore();
+    },
+  };
+
+  // tooltip HTML: valor, variação vs mês anterior e leitura de saldo/taxa
+  const tipEl=document.getElementById('trend-tip');
+  const blocoSerie=(nome,cor,v,ant,altoEhBom)=>{
+    const d=v-ant;
+    const pct=ant?d/ant*100:null;
+    const dir=d>0?'↑':d<0?'↓':'→';
+    const bom=d===0?null:(d>0)===altoEhBom;
+    const cls=bom===null?'neutro':bom?'bom':'ruim';
+    const txt=d===0?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
+    const sinal=d>0?'+':d<0?'−':'';
+    const pctTxt=pct===null?(v?'novo':'—'):`${sinal}${fmtNum1(Math.abs(pct))}%`;
+    return `<div class="tv-tip-blk">
+      <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cor}">${nome}</span><span class="tv-tip-val">${v.toLocaleString('pt-BR')} · ${pctTxt}</span></div>
+      <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${ant.toLocaleString('pt-BR')}</span></div>
+      <div class="tv-tip-sub"><span>${v.toLocaleString('pt-BR')} ticket${v===1?'':'s'}</span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${dir} ${sinal}${Math.abs(d).toLocaleString('pt-BR')} ticket${Math.abs(d)===1?'':'s'} vs. mês anterior</span></div>
+    </div>`;
+  };
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const i=tooltip.dataPoints[0].dataIndex, mk=chaves[i], ant=mesAnteriorKey(mk);
+    const a=ab[i], r=rs[i];
+    const saldo=a-r, taxa=a?r/a:null;
+    tipEl.innerHTML=
+      `<div class="tv-tip-mes">${rotuloMesCurto(mk).toUpperCase()}</div>`+
+      blocoSerie('Abertos',col.orange,a,get(ant,'abertos'),false)+
+      blocoSerie('Resolvidos',col.purple,r,get(ant,'resolvidos'),true)+
+      blocoSerie('Saldo acumulado',azul,sd[i],saldoEm(ant),false)+
+      `<div class="tv-tip-foot">Saldo do mês: <b class="${saldo>0?'tv-ruim':saldo<0?'tv-bom':''}">${saldo>0?'+':''}${saldo.toLocaleString('pt-BR')}</b> (${saldo>0?'backlog cresceu':saldo<0?'backlog reduziu':'backlog estável'}) · Taxa de resolução: <b>${taxa===null?'—':fmtPct(taxa)}</b></div>`;
+    const wrap=chart.canvas.parentElement;
+    const w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16;
+    if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    let y=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h));
+    tipEl.style.left=Math.max(0,x)+'px'; tipEl.style.top=y+'px'; tipEl.style.opacity=1;
+  };
+
+  col.surface=cssVar('--surface');
+  const mkSerie=(label,data,cor)=>({
+    label,data,borderColor:cor,backgroundColor:cor,fill:false,tension:.4,borderWidth:2.5,
+    pointRadius:4,pointHoverRadius:6,pointBackgroundColor:cor,pointBorderColor:col.surface,pointBorderWidth:2,pointHitRadius:12,
+  });
   _charts.trendVolChart=new Chart(document.getElementById('trendVolChart'),{
     type:'line',
-    data:{ labels, datasets:[
-      { label:'Abertos', data:chaves.map(mk=>byMes[mk]?byMes[mk].abertos:0), borderColor:col.orange, backgroundColor:col.orange+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 },
-      { label:'Resolvidos', data:chaves.map(mk=>byMes[mk]?byMes[mk].resolvidos:0), borderColor:col.purple, backgroundColor:col.purple+'20', fill:true, tension:.3, pointRadius:3, pointHitRadius:10 }
-    ]},
+    data:{ labels, datasets:[ mkSerie('Abertos',ab,col.orange), mkSerie('Resolvidos',rs,col.purple), mkSerie('Saldo acumulado',sd,azul) ] },
+    plugins:[glow,rotulos],
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:true,labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
-      scales:{y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}}, x:{grid:{display:false},ticks:{color:col.t2}}},
-      interaction:{mode:'nearest',intersect:true},
-      onHover:chartHoverCursor,
+      layout:{padding:{top:28,bottom:26,left:4,right:14}},
+      plugins:{legend:{display:false}, tooltip:{enabled:false, external:externo}},
+      scales:{
+        y:{beginAtZero:true,grace:'8%',grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600}}},
+      },
+      interaction:{mode:'index',intersect:false},
+      onHover:(evt,elements)=>{ evt.native.target.style.cursor=elements.length?'pointer':'default'; },
       onClick:(evt,elements,chart)=>{
-        if(!elements.length) return;
-        const {index:idx,datasetIndex:dsIdx}=elements[0];
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
+        if(!hit.length) return;
+        const {index:idx,datasetIndex:dsIdx}=hit[0];
         const mk=chaves[idx];
-        const label=chart.data.labels[idx];
-        const isAbertos=dsIdx===0;
-        const matched=rows.filter(r=>isAbertos
+        const matched=rows.filter(r=>dsIdx===0
           ? (r.criado_em&&monthKeyOf(r.criado_em)===mk)
-          : (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk));
-        openDetailModal(`${isAbertos?'Abertos':'Resolvidos'}: ${label}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+          : dsIdx===1
+            ? (r.resolvido_em&&isResolvido(r)&&monthKeyOf(r.resolvido_em)===mk)
+            : pendenteEm(r,mk));
+        openDetailModal(`${['Abertos','Resolvidos','Saldo acumulado'][dsIdx]}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+      },
+    }
+  });
+}
+
+// Linha vertical que acompanha o mouse nos gráficos de evolução.
+function pluginCruz(){
+  const cor=cssVar('--t3');
+  return {
+    id:'cruzTooltip',
+    afterDatasetsDraw(chart){
+      const act=chart.tooltip&&chart.tooltip.getActiveElements&&chart.tooltip.getActiveElements();
+      if(!act||!act.length) return;
+      const x=act[0].element.x, {top,bottom}=chart.chartArea, c=chart.ctx;
+      c.save(); c.beginPath(); c.moveTo(x,top); c.lineTo(x,bottom);
+      c.lineWidth=1; c.strokeStyle=cor; c.stroke(); c.restore();
+    },
+  };
+}
+
+// ── Impacto mensal de SLA por ticket ───────────────────────────────────
+// Para cada ticket resolvido no mês: impacto = média do mês com todos os tickets
+// − média do mês sem ele. O tempo vem do servidor (POST /geral/sla-liquido):
+// horas úteis da abertura à resolução, descontando os status de pausa.
+// Saldo de horas técnicas (crédito da Política de SLA) por organização — GET /geral/horas-tecnicas; calculado sozinho pelo servidor.
+let _saldosHT={};
+const fmtHT=n=>Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:2});
+const htDe=r=>{ const x=r&&r.organizacao_id!=null?_saldosHT[r.organizacao_id]:null; return x&&(x.c>0||x.h>0)?x:null; };
+// Texto curto: créditos concedidos no geral do cliente e o que ainda está disponível.
+const htTexto=r=>{ const x=htDe(r); return x?`${fmtHT(x.c)} h concedidas · ${fmtHT(x.h)} h disponíveis`:''; };
+const htBadge=r=>{ const x=htDe(r); return x?` <span class="ht-badge" title="Horas técnicas de crédito (Política de SLA). Concedidas no total: ${fmtHT(x.c)} h · usadas: ${fmtHT(x.u)} h · disponíveis: ${fmtHT(x.h)} h${x.e?` · expiradas: ${fmtHT(x.e)} h`:''}${x.v?` · ${fmtHT(x.vh)} h vencem em ${new Date(x.v+'T12:00:00').toLocaleDateString('pt-BR')}`:''}">⏱ ${esc(htTexto(r))}</span>`:''; };
+// Bloco do modal do chamado: o histórico de créditos concedidos ao cliente.
+const htBloco=r=>{ const x=htDe(r); if(!x) return ''; const creditos=(x.l||[]).map(c=>`<li>${esc(c.competencia||'—')}: <b>+${fmtHT(c.horas)} h</b>${c.validade?` <span style=\"color:var(--t3)\">(vence em ${new Date(c.validade+'T12:00:00').toLocaleDateString('pt-BR')})</span>`:''}</li>`).join('');
+  return `<div class="td-ht"><p class="lbl">Horas técnicas do cliente</p><p class="val"><b>${fmtHT(x.c)} h</b> concedidas no total · ${fmtHT(x.u)} h usadas · <b>${fmtHT(x.h)} h disponíveis</b>${x.e?` · ${fmtHT(x.e)} h expiradas`:''}</p>${creditos?`<ul style="margin:6px 0 0 18px;padding:0;font-size:13px">${creditos}</ul>`:''}</div>`; };
+async function carregarSaldosHT(){ try{ _saldosHT=(await api('/geral/horas-tecnicas',30000)).saldos||{}; }catch(_){ _saldosHT={}; } }
+const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
+// A meta por urgência (documento de SLA) vale SÓ para a classificação Suporte Técnico; os demais seguem a previsão de solução do chamado.
+const ehSuporteTecnicoG=r=>String(r&&r.classificacao||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='suporte tecnico';
+const metaDe=r=>ehSuporteTecnicoG(r)&&META_SOLUCAO_H[r.urgencia]!=null?META_SOLUCAO_H[r.urgencia]:null;
+let _impactoMinutos={};   // ticket_id -> minutos úteis líquidos (cache)
+let _impactoSeq=0;
+const fmtH=h=>`${h.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}h`;
+const fmtHImp=h=>`${h>0?'+':h<0?'−':''}${Math.abs(h).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}h`;
+
+// Fila única: o gráfico de atingimento e a análise de impacto pedem tickets
+// parecidos ao mesmo tempo; em série, o segundo já encontra tudo no cache.
+let _impactoFila=Promise.resolve();
+function buscarMinutosLiquidos(ids){
+  const p=_impactoFila.then(()=>impactoBuscarMinutos(ids));
+  _impactoFila=p.catch(()=>{});
+  return p;
+}
+async function impactoBuscarMinutos(ids){
+  const faltam=ids.filter(id=>!(id in _impactoMinutos));
+  for(let i=0;i<faltam.length;i+=2000){
+    const lote=faltam.slice(i,i+2000);
+    const r=await fetch(`${API}/geral/sla-liquido`,{
+      method:'POST',
+      headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},
+      body:JSON.stringify({ids:lote}),
+    });
+    if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); }
+    const {minutos}=await r.json();
+    lote.forEach(id=>{ _impactoMinutos[id]=minutos[id]!=null?minutos[id]:null; });
+  }
+}
+
+async function renderImpactoSla(rows){
+  const corpo=document.getElementById('impacto-corpo');
+  const kpis=document.getElementById('impacto-kpis');
+  if(!corpo||!kpis) return;
+  // Segue os filtros principais do painel: rows já vem só com os tickets
+  // resolvidos dentro do Ano/Mês filtrados (e equipe, cliente etc.).
+  const doMes=rows.filter(r=>r.resolvido_em);
+  if(!doMes.length){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Nenhum ticket resolvido no período filtrado.</p>'; return; }
+  const seq=++_impactoSeq;
+  const faltam=doMes.some(r=>!(r.ticket_id in _impactoMinutos));
+  if(faltam){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Calculando o tempo de solução líquido…</p>'; }
+  try{
+    await buscarMinutosLiquidos(doMes.map(r=>r.ticket_id));
+  } catch(e){
+    if(seq!==_impactoSeq) return;
+    corpo.innerHTML=`<p class="imp-vazio">Não foi possível calcular o SLA: ${esc(e.message)}</p>`;
+    return;
+  }
+  if(seq!==_impactoSeq) return; // o usuário mudou o mês/filtro enquanto calculava
+
+  const itens=doMes.filter(r=>_impactoMinutos[r.ticket_id]!=null).map(r=>({r,h:_impactoMinutos[r.ticket_id]/60}));
+  const n=itens.length;
+  if(!n){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Sem dados de resolução para calcular o tempo deste período.</p>'; ['impacto-cima','impacto-baixo'].forEach(i=>{ const e=document.getElementById(i); if(e) e.innerHTML=''; }); _impItens=[]; renderImpactoGrupos(); return; }
+  const soma=itens.reduce((a,x)=>a+x.h,0), media=soma/n;
+  itens.forEach(x=>{ x.imp=n>1?media-(soma-x.h)/(n-1):0; });
+  _impItens=itens; _impMedia=media;
+  renderImpactoTickets();
+  renderImpactoGrupos();
+}
+
+// ── Impacto: estado e três visões (por ticket, por grupo, dispersão) ──
+let _impItens=[], _impMedia=0, _impUrg='', _impGrupo='cliente';
+const IMP_COR_URG={'Crítica':'#ee6f82','Alta':'#ff8a2b','Média':'#2fbf8a','Baixa':'#4f9cf0'};
+function impChips(id,opcoes,atual,onClick){
+  const el=document.getElementById(id); if(!el) return;
+  el.innerHTML=opcoes.map(([v,l])=>`<button type="button" class="imp-chip${v===atual?' on':''}" data-v="${escAttr(v)}">${esc(l)}</button>`).join('');
+  el.querySelectorAll('.imp-chip').forEach(b=>b.addEventListener('click',()=>onClick(b.dataset.v)));
+}
+const mediana=l=>{ const a=l.slice().sort((x,y)=>x-y); const m=a.length>>1; return a.length?(a.length%2?a[m]:(a[m-1]+a[m])/2):0; };
+function impBarra(h,meta,maxH){
+  // escala logarítmica: o ticket de 9.000h não esconde os de 5h; o traço marca a meta
+  const L=v=>Math.log10(v+1)/Math.log10(maxH+1)*100;
+  const wH=Math.max(3,L(h)), wM=meta!=null?L(meta):null;
+  const fundo=meta!=null&&h>meta?`linear-gradient(90deg,#2fbf8a ${(wM/wH*100).toFixed(1)}%,#ee6f82 ${(wM/wH*100).toFixed(1)}%)`:'#2fbf8a';
+  return `<div class="imp-bul"><i style="width:${wH.toFixed(1)}%;background:${fundo}"></i>${wM!=null?`<em style="left:${wM.toFixed(1)}%"></em>`:''}</div>`;
+}
+function renderImpactoTickets(){
+  const corpo=document.getElementById('impacto-corpo'), kpis=document.getElementById('impacto-kpis'); if(!corpo||!kpis) return;
+  const todos=_impItens, n=todos.length;
+  impChips('impacto-chips',[['','Todas as urgências'],...Object.keys(IMP_COR_URG).map(u=>[u,u])],_impUrg,v=>{ _impUrg=v; renderImpactoTickets(); });
+  const comMeta=todos.filter(x=>metaDe(x.r)!=null);
+  const dentro=comMeta.filter(x=>x.h<=metaDe(x.r)).length;
+  const pos=todos.filter(x=>x.imp>0).sort((a,b)=>b.imp-a.imp);
+  const somaPos=pos.reduce((a,x)=>a+x.imp,0), top10=pos.slice(0,10).reduce((a,x)=>a+x.imp,0);
+  const dezX=comMeta.filter(x=>x.h>=10*metaDe(x.r)).length;
+  const card=(t,v,sub)=>`<div class="imp-k"><small>${t}</small><b>${v}</b><span>${sub}</span></div>`;
+  kpis.innerHTML=
+    card('MÉDIA DO PERÍODO',fmtH(_impMedia),`${n.toLocaleString('pt-BR')} tickets resolvidos`)+
+    card('OS 10 MAIORES PESAM',somaPos?fmtPct(top10/somaPos):'—','do desvio para cima')+
+    card('MEDIANA',fmtH(mediana(todos.map(x=>x.h))),'metade dos tickets abaixo disso')+
+    card('PASSARAM 10× A META',dezX.toLocaleString('pt-BR'),comMeta.length?`${fmtPct(dezX/comMeta.length)} · dentro da meta: ${fmtPct(dentro/comMeta.length)}`:'sem urgência com meta');
+  const vis=_impUrg?todos.filter(x=>x.r.urgencia===_impUrg):todos;
+  const maxH=Math.max(10,...vis.map(x=>x.h));
+  const linha=x=>{
+    const meta=metaDe(x.r), cor=IMP_COR_URG[x.r.urgencia]||'#a6adbf';
+    const vezes=meta&&x.h>meta?` · <b class="imp-pos">${Math.round(x.h/meta).toLocaleString('pt-BR')}× a meta</b>`:'';
+    return `<div class="imp-r" onclick="openTicketModal('${escAttr(x.r.ticket_id)}')">
+      <a class="ticket-link" href="${ticketUrl(x.r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(x.r.ticket_id)}</a>
+      <div class="imp-mid"><span class="imp-ass" title="${escAttr(x.r.assunto||'')}">${esc(x.r.assunto||'—')}</span>
+        <small><i style="background:${cor}"></i>${esc(x.r.urgencia||'Sem urgência')} · ${fmtH(x.h)}${meta?` de ${meta}h`:''}${vezes}</small>${impBarra(x.h,meta,maxH)}</div>
+      <span class="imp-val ${x.imp>0?'imp-pos':'imp-neg'}">${fmtHImp(x.imp)}</span></div>`;
+  };
+  const sobem=vis.filter(x=>x.imp>0.005).sort((a,b)=>b.imp-a.imp).slice(0,RANK_MAX);
+  const descem=vis.filter(x=>x.imp<-0.0005).sort((a,b)=>a.imp-b.imp).slice(0,RANK_MAX);
+  const semEfeito=vis.length-vis.filter(x=>x.imp>0.005).length-vis.filter(x=>x.imp<-0.0005).length;
+  corpo.innerHTML='';
+  const cima=document.getElementById('impacto-cima'), baixo=document.getElementById('impacto-baixo'), nota=document.getElementById('impacto-nota');
+  if(cima) cima.innerHTML=sobem.length?sobem.map(linha).join(''):'<p class="imp-vazio">Nenhum ticket elevou a média neste período.</p>';
+  if(baixo) baixo.innerHTML=descem.length?descem.map(linha).join(''):'<p class="imp-vazio">Nenhum ticket reduziu a média neste período.</p>';
+  if(nota){ nota.style.display=semEfeito>0?'':'none'; nota.textContent=`${semEfeito.toLocaleString('pt-BR')} ticket${semEfeito===1?'':'s'} ficaram perto da média e não aparecem nas listas abaixo (impacto menor que 0,01h).`; }
+}
+const IMP_GRUPOS={cliente:['Cliente',r=>r.organizacao||'Não informado'],equipe:['Equipe',r=>limpaEquipe(r.equipe)],responsavel:['Responsável',r=>r.responsavel||'Não atribuído'],urgencia:['Urgência',r=>r.urgencia||'Sem urgência']};
+function renderImpactoGrupos(){
+  const box=document.getElementById('impacto-grupos'); if(!box) return;
+  impChips('impacto-grupo-chips',Object.entries(IMP_GRUPOS).map(([k,[l]])=>[k,l]),_impGrupo,v=>{ _impGrupo=v; renderImpactoGrupos(); });
+  if(!_impItens.length){ box.innerHTML='<p class="imp-vazio">Sem dados no período filtrado.</p>'; return; }
+  const chave=IMP_GRUPOS[_impGrupo][1], por={};
+  _impItens.forEach(x=>{ const k=chave(x.r); const o=por[k]=por[k]||{k,soma:0,n:0,h:0,itens:[]}; o.soma+=x.imp; o.n++; o.h+=x.h; o.itens.push(x); });
+  const lista=Object.values(por).sort((a,b)=>b.soma-a.soma);
+  const max=Math.max(...lista.map(o=>Math.abs(o.soma)),0.0001);
+  const totalPos=lista.filter(o=>o.soma>0).reduce((a,o)=>a+o.soma,0), top8=lista.slice(0,8).filter(o=>o.soma>0).reduce((a,o)=>a+o.soma,0);
+  const sub=document.querySelector('#impacto-cli-panel .chart-sub');
+  if(sub) sub.textContent=`Impacto somado no SLA do período, por ${IMP_GRUPOS[_impGrupo][0].toLowerCase()}.${totalPos?` Os 8 primeiros respondem por ${fmtPct(top8/totalPos)} do desvio para cima.`:''} Clique numa linha para ver os tickets.`;
+  box.innerHTML=lista.slice(0,RANK_MAX).map((o,i)=>`<div class="imp-g" data-k="${escAttr(o.k)}" title="${o.n.toLocaleString('pt-BR')} tickets · tempo médio ${fmtH(o.h/o.n)}">
+    <span class="imp-gi">${i+1}</span><span class="imp-gn">${esc(o.k)}</span>
+    <div class="imp-bul"><i style="width:${Math.max(2,Math.abs(o.soma)/max*100).toFixed(1)}%;background:${o.soma>0?'linear-gradient(90deg,#ff8a2b,#ee6f82)':'#2fbf8a'}"></i></div>
+    <span class="imp-val ${o.soma>0?'imp-pos':'imp-neg'}">${fmtHImp(o.soma)}</span></div>`).join('');
+  box.querySelectorAll('.imp-g').forEach(el=>el.addEventListener('click',()=>{
+    const o=por[el.dataset.k]; if(!o) return;
+    const rows=o.itens.slice().sort((a,b)=>b.imp-a.imp).map(x=>x.r); rows.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+    openDetailModal(`${IMP_GRUPOS[_impGrupo][0]}: ${o.k}`,`${o.n.toLocaleString('pt-BR')} tickets · impacto ${fmtHImp(o.soma)}`,rows,{ordenar:(a,b)=>0});
+  }));
+}
+
+// ── Evolução mensal do atingimento do SLA ──────────────────────────────
+// % de tickets resolvidos no mês cujo tempo de solução líquido ficou dentro da
+// meta da própria urgência (META_SOLUCAO_H). Só entram tickets com urgência
+// Crítica/Alta/Média/Baixa ("elegíveis"). Mesmo tempo da análise de impacto.
+let _slaEvoSeq=0;
+async function renderSlaEvolucao(rows){
+  const seq=++_slaEvoSeq;
+  const status=document.getElementById('sla-evo-status');
+  const kpis=document.getElementById('sla-evo-kpis');
+  const ult=document.getElementById('sla-evo-ult');
+  if(!kpis||!ult) return;
+  const chaves=mesesDoPeriodo(bucketPorMes(rows));
+  const noPeriodo=new Set(chaves);
+  const elegiveis=rows.filter(r=>r.resolvido_em&&isResolvido(r)&&metaDe(r)!=null&&noPeriodo.has(monthKeyOf(r.resolvido_em)));
+  if(!elegiveis.length){
+    destroyChart('slaEvoChart'); kpis.innerHTML='';
+    ult.innerHTML='<span class="tv-eyebrow" style="margin:0">Último mês</span><b>—</b><small></small>';
+    if(status) status.textContent='Nenhum ticket elegível resolvido no período filtrado.';
+    return;
+  }
+  if(elegiveis.some(r=>!(r.ticket_id in _impactoMinutos)) && status) status.textContent='Calculando o tempo de solução líquido dos tickets…';
+  try{ await buscarMinutosLiquidos(elegiveis.map(r=>r.ticket_id)); }
+  catch(e){ if(seq===_slaEvoSeq&&status) status.textContent=`Não foi possível calcular o SLA: ${e.message}`; return; }
+  if(seq!==_slaEvoSeq) return;
+  if(status) status.textContent='';
+
+  const porMes={};
+  chaves.forEach(mk=>{ porMes[mk]={dentro:0,total:0,fora:[]}; });
+  elegiveis.forEach(r=>{
+    const min=_impactoMinutos[r.ticket_id];
+    if(min==null) return;
+    const b=porMes[monthKeyOf(r.resolvido_em)];
+    b.total++;
+    if(min/60<=metaDe(r)) b.dentro++; else b.fora.push(r);
+  });
+  const pct=chaves.map(mk=>porMes[mk].total?porMes[mk].dentro/porMes[mk].total*100:null);
+  const comDado=chaves.map((mk,i)=>i).filter(i=>pct[i]!=null);
+  if(!comDado.length){ destroyChart('slaEvoChart'); kpis.innerHTML=''; if(status) status.textContent='Sem dados de resolução para calcular o SLA.'; return; }
+  const labels=chaves.map(rotuloMesCurto);
+  const iU=comDado[comDado.length-1], iA=comDado.length>1?comDado[comDado.length-2]:null;
+  const fmtP=v=>`${v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+  const dpp=iA!=null?pct[iU]-pct[iA]:null;
+  const iMelhor=comDado.reduce((m,i)=>pct[i]>pct[m]?i:m,comDado[0]);
+
+  const [y0,m0]=chaves[0].split('-').map(Number);
+  document.getElementById('sla-evo-sub').textContent=
+    `Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência (tempo de solução líquido em horas úteis), a partir de ${new Date(y0,m0-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}.`;
+  ult.innerHTML=`<span class="tv-eyebrow" style="margin:0">Último mês</span><b>${fmtP(pct[iU])}</b><small class="${dpp==null||dpp===0?'':dpp>0?'tv-bom':'tv-ruim'}">${dpp==null?'sem mês anterior':`${dpp>0?'↑ +':dpp<0?'↓ −':'→ '}${Math.abs(dpp).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp vs. mês anterior`}</small>`;
+  kpis.innerHTML=
+    `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Competências</span><b>${comDado.length}</b><small>meses com tickets elegíveis</small></div>`+
+    `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Melhor mês</span><b>${fmtP(pct[iMelhor])}</b><small>${labels[iMelhor].toUpperCase()}</small></div>`+
+    `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Base do último mês</span><b>${porMes[chaves[iU]].total.toLocaleString('pt-BR')}</b><small>${porMes[chaves[iU]].dentro.toLocaleString('pt-BR')} dentro da meta</small></div>`;
+
+  destroyChart('slaEvoChart');
+  const col=chartColors();
+  const verde=col.green, surface=cssVar('--surface');
+  const rotulos={
+    id:'slaRotulos',
+    afterDatasetsDraw(chart){
+      const c=chart.ctx; c.save();
+      c.font='700 11px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+      chart.getDatasetMeta(0).data.forEach((pt,i)=>{
+        if(pct[i]==null) return;
+        const txt=fmtP(pct[i]), w=c.measureText(txt).width+14, h=20, x=pt.x, y=pt.y-20;
+        c.beginPath(); if(c.roundRect) c.roundRect(x-w/2,y-h/2,w,h,7); else c.rect(x-w/2,y-h/2,w,h);
+        c.fillStyle=surface; c.fill(); c.lineWidth=1; c.strokeStyle=col.border; c.stroke();
+        c.fillStyle=col.t1; c.fillText(txt,x,y+.5);
+      });
+      c.restore();
+    },
+  };
+  const tipEl=document.getElementById('sla-evo-tip');
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const i=tooltip.dataPoints[0].dataIndex, b=porMes[chaves[i]];
+    const ant=comDado.filter(k=>k<i).pop();
+    const d=pct[i]!=null&&ant!=null?pct[i]-pct[ant]:null;
+    tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.14em">${labels[i].toUpperCase()}</div>`+
+      `<div class="tv-tip-row"><span style="color:${verde};font-size:13px">Atingimento</span><span class="tv-tip-val">${pct[i]==null?'—':fmtP(pct[i])}</span></div>`+
+      `<div class="tv-tip-sub"><span>${b.dentro.toLocaleString('pt-BR')} de ${b.total.toLocaleString('pt-BR')} dentro da meta</span>`+
+      `<span class="${d==null||d===0?'':d>0?'tv-bom':'tv-ruim'}">${d==null?'':`${d>0?'↑ +':d<0?'↓ −':'→ '}${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp vs. mês anterior`}</span></div>`+
+      (b.fora.length?`<div class="tv-tip-foot">${b.fora.length.toLocaleString('pt-BR')} fora da meta · clique para ver</div>`:'');
+    const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16; if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    tipEl.style.left=Math.max(0,x)+'px';
+    tipEl.style.top=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h))+'px';
+    tipEl.style.opacity=1;
+  };
+  _charts.slaEvoChart=new Chart(document.getElementById('slaEvoChart'),{
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Atingimento do SLA',data:pct,borderColor:verde,borderWidth:2.5,tension:.35,spanGaps:true,fill:true,
+      backgroundColor:ctx=>{
+        const {chartArea:a,ctx:c}=ctx.chart; if(!a) return verde+'22';
+        const g=c.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0,verde+'55'); g.addColorStop(1,verde+'05'); return g;
+      },
+      pointRadius:4,pointHoverRadius:7,pointBackgroundColor:surface,pointBorderColor:verde,pointBorderWidth:2,pointHoverBackgroundColor:verde,pointHitRadius:12,
+    }]},
+    plugins:[rotulos,pluginCruz()],
+    options:{ responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:30,right:14}},
+      plugins:{ legend:{display:false}, tooltip:{enabled:false,external:externo} },
+      scales:{
+        y:{min:0,max:100,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,stepSize:25,callback:v=>v+'%'}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},callback:(v,i)=>labels[i].toUpperCase()}},
+      },
+      interaction:{mode:'index',intersect:false},
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
+      onClick:(evt,els,chart)=>{
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
+        if(!hit.length) return;
+        const i=hit[0].index, b=porMes[chaves[i]];
+        openDetailModal(`SLA fora da meta: ${labels[i]}`,`${b.fora.length} de ${b.total} ticket${b.total===1?'':'s'} elegíve${b.total===1?'l':'is'}`,b.fora);
+      },
+    }
+  });
+}
+
+// ── Temas mais recorrentes (palavras-chave nas ações) ──────────────────
+// O servidor (POST /geral/temas) devolve o tema de cada ticket a partir do assunto
+// e das primeiras ações; aqui só contamos, comparamos meses e desenhamos.
+let _temasCache={}, _temasCatalogo=[], _temasSeq=0;
+const TEMAS_MAX_ANALISE=20000;
+async function renderTemas(rows){
+  const lista=document.getElementById('temas-lista');
+  const status=document.getElementById('temas-status');
+  const totalEl=document.getElementById('temas-total');
+  if(!lista) return;
+  const seq=++_temasSeq;
+  let base=rows;
+  let nota='';
+  if(base.length>TEMAS_MAX_ANALISE){
+    base=base.slice().sort((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0)).slice(0,TEMAS_MAX_ANALISE);
+    nota=`Analisando os ${TEMAS_MAX_ANALISE.toLocaleString('pt-BR')} tickets mais recentes do período.`;
+  }
+  if(!base.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; totalEl.textContent=''; status.textContent=''; return; }
+
+  const faltam=base.map(r=>r.ticket_id).filter(id=>!(id in _temasCache));
+  try{
+    for(let i=0;i<faltam.length;i+=2000){
+      if(seq!==_temasSeq) return;
+      status.textContent=`Analisando os temas dos chamados… ${Math.min(i+2000,faltam.length).toLocaleString('pt-BR')} de ${faltam.length.toLocaleString('pt-BR')}`;
+      const lote=faltam.slice(i,i+2000);
+      const r=await fetch(`${API}/geral/temas`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids:lote})});
+      if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); }
+      const resp=await r.json();
+      _temasCatalogo=resp.catalogo||_temasCatalogo;
+      lote.forEach(id=>{ _temasCache[id]=resp.temas[id]??null; });
+    }
+  } catch(e){
+    if(seq===_temasSeq){ status.textContent=''; lista.innerHTML=`<p class="imp-vazio">Não foi possível analisar os temas: ${esc(e.message)}</p>`; }
+    return;
+  }
+  if(seq!==_temasSeq) return;
+  status.textContent=nota;
+
+  const cor=Object.fromEntries(_temasCatalogo.map(t=>[t.tema,t.cor]));
+  // contagem total e por mês de criação
+  const total={}, porMes={}, totMes={};
+  let comTema=0;
+  base.forEach(r=>{
+    const mk=r.criado_em?monthKeyOf(r.criado_em):null;
+    if(mk) totMes[mk]=(totMes[mk]||0)+1;
+    const t=_temasCache[r.ticket_id];
+    if(!t) return;
+    comTema++;
+    total[t]=(total[t]||0)+1;
+    if(mk){ porMes[mk]=porMes[mk]||{}; porMes[mk][t]=(porMes[mk][t]||0)+1; }
+  });
+  const meses=Object.keys(totMes).sort();
+  const mUlt=meses[meses.length-1], mAnt=meses.length>1?meses[meses.length-2]:null;
+  const part=(mk,t)=>mk&&totMes[mk]?((porMes[mk]||{})[t]||0)/totMes[mk]*100:null;
+
+  totalEl.textContent=`${base.length.toLocaleString('pt-BR')} tickets analisados · ${comTema.toLocaleString('pt-BR')} com tema identificado`;
+  const entradas=Object.entries(total).sort((a,b)=>b[1]-a[1]).slice(0,RANK_MAX);
+  if(!entradas.length){ lista.innerHTML='<p class="imp-vazio">Nenhum tema identificado nos tickets do período.</p>'; return; }
+  const max=entradas[0][1];
+  lista.innerHTML=entradas.map(([tema,n],i)=>{
+    const c=cor[tema]||'#94a3b8';
+    const pu=part(mUlt,tema), pa=part(mAnt,tema);
+    const dpp=pu!=null&&pa!=null?pu-pa:null;
+    const nUlt=(porMes[mUlt]||{})[tema]||0;
+    const varTxt=dpp==null?'sem mês anterior':`${dpp>0?'+':dpp<0?'−':''}${Math.abs(dpp).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} pp`;
+    return `<div class="tm-row" onclick="abrirTema('${escAttr(tema)}')" title="Clique para ver os tickets">
+      <div class="tm-rank" style="color:${c}">${String(i+1).padStart(2,'0')}</div>
+      <div><div class="tm-nome">${esc(tema)}</div><div class="tm-sub">${nUlt.toLocaleString('pt-BR')} no último mês · ${varTxt}</div></div>
+      <div class="tm-trilho"><div class="tm-barra" style="width:${Math.max(2,n/max*100)}%;background:${c}"></div></div>
+      <div class="tm-val"><b style="color:${c}">${n.toLocaleString('pt-BR')}</b><small>${fmtPct(n/base.length)}</small></div>
+    </div>`;
+  }).join('');
+  window._temasBase=base;
+}
+function abrirTema(tema){
+  const rows=(window._temasBase||[]).filter(r=>_temasCache[r.ticket_id]===tema);
+  openDetailModal(`Tema: ${tema}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
+}
+
+// ── Top 10 causas (diagnóstico da Curadoria sobre o histórico inteiro do chamado) ──
+let _causasSeq=0, _causasGrupos=[], _causasBase=null;
+async function renderCausas(rows){
+  const lista=document.getElementById('causas-lista'), sub=document.getElementById('causas-sub');
+  if(!lista) return;
+  const seq=++_causasSeq;
+  if(!rows.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; return; }
+  try{
+    if(!_causasBase){
+      lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
+      const r=await fetch(`${API}/geral/causas`,{headers:{Authorization:`Bearer ${tok()}`}});
+      const resp=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(resp.error||`HTTP ${r.status}`);
+      _causasBase=resp;
+    }
+    if(seq!==_causasSeq) return;
+    // cruza a base da Curadoria com os chamados que o painel está mostrando agora (respeita todos os filtros)
+    const ids=new Set(rows.map(r=>String(r.ticket_id)));
+    const porCausa=new Map(); let comCausa=0;
+    for(const [id,i] of _causasBase.itens){ if(!ids.has(id)) continue; comCausa++; (porCausa.get(i)||porCausa.set(i,[]).get(i)).push(id); }
+    const n=x=>x.toLocaleString('pt-BR');
+    const cob=ids.size?comCausa/ids.size:0;
+    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets do período têm causa diagnosticada (${fmtPct(cob)}) — os demais ainda não passaram pela Curadoria. Clique numa causa para ver os tickets.`;
+    _causasGrupos=[...porCausa.entries()].map(([i,lst])=>({causa:_causasBase.causas[i],qtd:lst.length,ids:lst})).sort((a,b)=>b.qtd-a.qtd).slice(0,10);
+    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do período foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
+    const max=_causasGrupos[0].qtd;
+    lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
+      <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
+      <div><div class="tm-nome">${esc(g.causa)}</div></div>
+      <div class="tm-trilho"><div class="tm-barra" style="width:${Math.max(2,g.qtd/max*100)}%;background:var(--brand)"></div></div>
+      <div class="tm-val"><b>${n(g.qtd)}</b><small>${fmtPct(g.qtd/comCausa)}</small></div>
+    </div>`).join('');
+  }catch(e){ if(seq===_causasSeq) lista.innerHTML=`<p class="imp-vazio">${esc(/^Não foi possível/.test(e.message)?e.message:'Não foi possível analisar as causas: '+e.message)}</p>`; }
+}
+function abrirCausa(i){
+  const g=_causasGrupos[i]; if(!g) return;
+  const set=new Set(g.ids);
+  const rows=(window._rowsFullAtual||[]).filter(r=>set.has(String(r.ticket_id)));
+  openDetailModal(`Causa: ${g.causa}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
+}
+
+// ── Evolução mensal por urgência (volume de tickets abertos no mês) ───
+const URGENCIAS_TREND=['Crítica','Alta','Média','Baixa'];
+function renderUrgTrendChart(rows){
+  destroyChart('urgTrendChart');
+  const col=chartColors();
+  const chaves=mesesDoPeriodo(bucketPorMes(rows));
+  const leg=document.getElementById('urgtrend-legend');
+  if(!chaves.length){ if(leg) leg.innerHTML=''; return; }
+  const cores={'Crítica':'#f87171','Alta':col.orange,'Média':col.green,'Baixa':document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb'};
+  const labels=chaves.map(rotuloMesCurto);
+  const conta={};  // `${mes}|${urgência}` -> tickets criados no mês
+  rows.forEach(r=>{
+    if(!r.criado_em||!URGENCIAS_TREND.includes(r.urgencia)) return;
+    const k=monthKeyOf(r.criado_em)+'|'+r.urgencia;
+    conta[k]=(conta[k]||0)+1;
+  });
+  const val=(mk,u)=>conta[mk+'|'+u]||0;
+  const dados=URGENCIAS_TREND.map(u=>chaves.map(mk=>val(mk,u)));
+  if(leg) leg.innerHTML=URGENCIAS_TREND.map((u,i)=>
+    `<span class="tv-pill"><i style="background:${cores[u]}"></i>${u} <small>${dados[i].reduce((a,b)=>a+b,0).toLocaleString('pt-BR')}</small></span>`).join('');
+
+  const tipEl=document.getElementById('urgtrend-tip');
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const i=tooltip.dataPoints[0].dataIndex, mk=chaves[i], ant=mesAnteriorKey(mk);
+    tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.14em">${labels[i].toUpperCase()}</div>`+
+      URGENCIAS_TREND.map(u=>{
+        const v=val(mk,u), a=val(ant,u), d=v-a, pct=a?d/a*100:null;
+        const sinal=d>0?'+':d<0?'−':'', dir=d>0?'↑':d<0?'↓':'→';
+        const cls=d===0?'neutro':d>0?'ruim':'bom';
+        const txt=d===0?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
+        const pctTxt=pct===null?(v?'novo':'—'):`${sinal}${fmtNum1(Math.abs(pct))}%`;
+        return `<div class="tv-tip-blk">
+          <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cores[u]}">${u}</span><span class="tv-tip-val">${v.toLocaleString('pt-BR')} · ${pctTxt}</span></div>
+          <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${a.toLocaleString('pt-BR')}</span></div>
+          <div class="tv-tip-sub"><span>${v.toLocaleString('pt-BR')} ticket${v===1?'':'s'}</span><span class="${d===0?'':d>0?'tv-ruim':'tv-bom'}">${dir} ${sinal}${Math.abs(d).toLocaleString('pt-BR')} ticket${Math.abs(d)===1?'':'s'} vs. mês anterior</span></div>
+        </div>`;
+      }).join('');
+    const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16;
+    if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    tipEl.style.left=Math.max(0,x)+'px';
+    tipEl.style.top=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h))+'px';
+    tipEl.style.opacity=1;
+  };
+  const surface=cssVar('--surface');
+  _charts.urgTrendChart=new Chart(document.getElementById('urgTrendChart'),{
+    type:'line',
+    data:{ labels, datasets:URGENCIAS_TREND.map((u,i)=>({
+      label:u,data:dados[i],borderColor:cores[u],backgroundColor:cores[u],fill:false,tension:.4,borderWidth:2.5,
+      pointRadius:4,pointHoverRadius:7,pointBackgroundColor:surface,pointBorderColor:cores[u],pointBorderWidth:2,
+      pointHoverBackgroundColor:cores[u],pointHitRadius:12,
+    })) },
+    plugins:[pluginCruz()],
+    options:{ responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:6,right:12}},
+      plugins:{ legend:{display:false}, tooltip:{enabled:false,external:externo} },
+      scales:{
+        y:{beginAtZero:true,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},callback:(v,i)=>labels[i].toUpperCase()}},
+      },
+      interaction:{mode:'index',intersect:false},
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
+      onClick:(evt,els,chart)=>{
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
+        if(!hit.length) return;
+        const {index:idx,datasetIndex:di}=hit[0], m=chaves[idx], u=URGENCIAS_TREND[di];
+        const matched=rows.filter(r=>r.urgencia===u&&r.criado_em&&monthKeyOf(r.criado_em)===m);
+        openDetailModal(`Urgência ${u}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
       },
     }
   });
@@ -1522,25 +2517,55 @@ function renderTeamChart(rows){
     porEquipe[e].abertos++;
     if(isResolvido(r)) porEquipe[e].resolvidos++;
   });
-  const entries=Object.entries(porEquipe).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
+  const entries=Object.entries(porEquipe).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
   layeredBars('teamChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
     (r,label)=>(r.equipe||'Não informado')===label,'Equipe');
 }
-function renderUrgChart(rows){
-  destroyChart('urgChart');
-  const col=chartColors();
-  const porUrg=contarPor(rows,r=>r.urgencia||'Em branco');
-  const entries=Object.entries(porUrg).sort((a,b)=>b[1]-a[1]);
-  _charts.urgChart=new Chart(document.getElementById('urgChart'),{
+// Rosca no estilo 2.0: anel fino-grosso com pontas arredondadas, total no centro, legenda clicável ao lado.
+const COR_URG={'Crítica':'#ee6f82','Alta':'#ff8a2b','Média':'#2fbf8a','Baixa':'#4f9cf0','Em branco':'#a6adbf'};
+function donutNovo(id,{itens,rotulo,filtro,titulo}){
+  destroyChart(id);
+  const cv=document.getElementById(id), leg=document.getElementById(id+'-leg'); if(!cv) return;
+  const col=chartColors(), lista=itens.filter(i=>i.valor>0), total=lista.reduce((a,i)=>a+i.valor,0);
+  const abrir=label=>{ const l=_rowsFull.filter(r=>filtro(r,label)); openDetailModal(`${titulo}: ${label}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l); };
+  if(leg) leg.innerHTML=itens.map(i=>`<li data-l="${escAttr(i.label)}"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+  if(leg) leg.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>abrir(li.dataset.l)));
+  if(!total) return;
+  const centro={ id:'centroRosca', afterDraw(ch){
+    const {ctx,chartArea:a}=ch; const x=(a.left+a.right)/2, y=(a.top+a.bottom)/2;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=col.t1; ctx.font='800 26px Manrope,system-ui,sans-serif'; ctx.fillText(total.toLocaleString('pt-BR'),x,y-6);
+    ctx.fillStyle=col.t3; ctx.font='600 11.5px Manrope,system-ui,sans-serif'; ctx.fillText(rotulo||'total',x,y+16); ctx.restore(); } };
+  _charts[id]=new Chart(cv,{
     type:'doughnut',
-    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:[col.orange,col.slate,col.purple,col.green,col.t3],borderWidth:0}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,cutout:'62%',
-      plugins:{legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
+    data:{labels:lista.map(i=>i.label),datasets:[{data:lista.map(i=>i.valor),backgroundColor:lista.map(i=>i.cor),borderWidth:0,borderRadius:10,spacing:3,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'76%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.toLocaleString('pt-BR')} (${(c.parsed/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%)`}}},
       onHover:chartHoverCursor,
-      onClick:chartClickHandler('Urgência',(r,label)=>(r.urgencia||'Em branco')===label),
-    }
+      onClick:(evt,els,ch)=>{ if(els.length) abrir(ch.data.labels[els[0].index]); }},
+    plugins:[centro]
   });
+}
+function renderUrgChart(rows){
+  const porUrg=contarPor(rows,r=>r.urgencia||'Em branco');
+  const extra=['#7c6cf0','#e9b730','#8a92a8'];
+  const itens=Object.entries(porUrg).sort((a,b)=>b[1]-a[1]).map(([label,valor],i)=>({label,valor,cor:COR_URG[label]||extra[i%extra.length]}));
+  donutNovo('urgChart',{itens,rotulo:'total',filtro:(r,l)=>(r.urgencia||'Em branco')===l,titulo:'Urgência'});
+}
+// Status dos chamados: partes que não se sobrepõem (vencido tem prioridade sobre o status do Movidesk)
+function statusDe(r){
+  if(isResolvido(r)) return 'Resolvidos';
+  if(CANCELADO_STATUSES.includes(r.base_status)) return 'Cancelados';
+  if(isVencido(r)) return 'Vencidos';
+  if(r.base_status==='Stopped') return 'Aguardando';
+  if(r.base_status==='New') return 'Novos';
+  return 'Em andamento';
+}
+function renderStatusChart(rows){
+  const ordem=[['Resolvidos','#2fbf8a'],['Em andamento','#4f9cf0'],['Aguardando','#f2c14e'],['Novos','#a6adbf'],['Vencidos','#ee6f82'],['Cancelados','#8a92a8']];
+  const por=contarPor(rows,statusDe);
+  const itens=ordem.filter(([n])=>n!=='Cancelados'||por[n]).map(([label,cor])=>({label,valor:por[label]||0,cor}));
+  donutNovo('statusChart',{itens,rotulo:'total',filtro:(r,l)=>statusDe(r)===l,titulo:'Status'});
 }
 
 // ── ranking ──────────────────────────────────────────────────────────
@@ -1552,29 +2577,287 @@ function renderClientChart(rows){
     porCliente[o].abertos++;
     if(isResolvido(r)) porCliente[o].resolvidos++;
   });
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
+  const entries=Object.entries(porCliente).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
   layeredBars('clientChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
     (r,label)=>(r.organizacao||'Não informado')===label,'Cliente');
 }
-function renderRespChart(rows){
-  const porResp={};
-  rows.forEach(r=>{
-    const p=r.responsavel||'Não informado';
-    porResp[p]=porResp[p]||{abertos:0,resolvidos:0};
-    porResp[p].abertos++;
-    if(isResolvido(r)) porResp[p].resolvidos++;
-  });
-  const entries=Object.entries(porResp).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,10);
-  layeredBars('respChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>(r.responsavel||'Não informado')===label,'Responsável');
+// ── Responsáveis por volume: lista + detalhe do mês (hover mostra, clique fixa) ──
+let _respFixo=null;        // colaborador fixado pelo clique
+let _respLista=[];         // linhas da lista atual
+// carteira ao fim do mês: criado até o mês e ainda não resolvido naquela data
+function pendenteEmMes(r,mk){
+  if(!r.criado_em||monthKeyOf(r.criado_em)>mk) return false;
+  if(isResolvido(r)) return !!r.resolvido_em&&monthKeyOf(r.resolvido_em)>mk;
+  return true;
+}
+// Período do detalhe = o MESMO da lista (filtros Ano/Mês do topo). Comparação com o período anterior equivalente:
+//  · Ano e Mês marcados (um de cada)  → mês anterior;
+//  · um só Ano (com ou sem meses)     → mesmos meses do ano anterior (se esses dados estiverem carregados);
+//  · demais casos                     → sem comparação.
+function periodoResp(){
+  const yf=getMsValues('f-year'), mf=getMsValues('f-month').map(m=>String(m).padStart(2,'0'));
+  const agora=monthKeyOf(new Date().toISOString());
+  const anosDados=[...new Set(_rowsCtx.flatMap(r=>[r.criado_em,r.resolvido_em]).filter(Boolean).map(d=>monthKeyOf(d).slice(0,4)))];
+  const todosMeses=['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const gerar=(anos,meses)=>new Set(anos.flatMap(a=>meses.map(m=>`${a}-${m}`)).filter(k=>k<=agora));   // sem meses futuros
+  const M=gerar(yf.length?yf:anosDados,mf.length?mf:todosMeses);
+  let N=null, rotAnt='';
+  if(yf.length===1){
+    if(mf.length===1){ const ant=mesAnteriorKey(`${yf[0]}-${mf[0]}`); N=new Set([ant]); rotAnt='mês anterior'; }
+    else { const ya=String(Number(yf[0])-1); N=new Set([...M].map(k=>`${ya}-${k.slice(5)}`)); rotAnt='mesmos meses de '+ya; }
+  }
+  const ks=[...M].sort();
+  const rot=M.size===1?rotuloMesCurto(ks[0]).toUpperCase()
+    :(yf.length===1&&!mf.length?yf[0]+(yf[0]===agora.slice(0,4)?' (até hoje)':'')
+    :(!yf.length&&!mf.length?'todo o período carregado':`${M.size} meses`));
+  return {M,N,rot,rotAnt,ultimaM:ks[ks.length-1]||null,ultimaN:N?[...N].sort().pop():null,parcial:M.has(agora)};
+}
+// bloco "valor + variação contra o período anterior" (mesmo desenho do tooltip dos gráficos de evolução)
+function blocoVar({nome,cor,valor,v,ant,altoEhBom,unid,pp,refTxt}){
+  const tem=v!=null&&ant!=null;
+  const d=tem?v-ant:null;
+  const bom=!tem||d===0?null:(d>0)===altoEhBom;
+  const cls=bom===null?'neutro':bom?'bom':'ruim';
+  const txt=!tem?'Sem comparação':d===0?'Estável':d>0?`Acima do ${refTxt.split(' ')[0]==='mesmos'?'período anterior':refTxt}`:`Abaixo do ${refTxt.split(' ')[0]==='mesmos'?'período anterior':refTxt}`;
+  const sinal=d>0?'+':d<0?'−':'', dir=d>0?'↑':d<0?'↓':'→';
+  const f=n=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:1});
+  const varTxt=!tem?'—':pp?`${f(Math.abs(d))} pp`:`${Math.abs(d).toLocaleString('pt-BR')} ${unid}${Math.abs(d)===1?'':'s'}`;
+  const pct=tem&&!pp&&ant?` · ${sinal}${f(Math.abs(d/ant*100))}%`:'';
+  return `<div class="tv-tip-blk">
+    <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cor}">${nome}</span><span class="tv-tip-val">${valor}${pct}</span></div>
+    <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>${tem||ant!=null?`Anterior: ${ant==null?'—':pp?f(ant)+'%':ant.toLocaleString('pt-BR')}`:''}</span></div>
+    <div class="tv-tip-sub"><span></span><span class="${bom===null?'':bom?'tv-bom':'tv-ruim'}">${tem?`${dir} ${sinal}${varTxt} vs. ${refTxt}`:''}</span></div>
+  </div>`;
+}
+// ── Backlog por situação de prazo (barra empilhada, como na Visão Diretoria) ──
+function renderBacklogSituacao(pend){
+  const barra=document.getElementById('bk-barra'); if(!barra) return;
+  const fim=new Date(); fim.setDate(fim.getDate()+1); fim.setHours(23,59,59,999);
+  const sem=pend.filter(r=>!temPrazo(r)), venc=pend.filter(isVencido), em=pend.filter(r=>temPrazo(r)&&!isVencido(r));
+  const logo=em.filter(r=>new Date(r.sla_solucao)<=fim).length;
+  const total=pend.length, p=n=>total?n/total*100:0;
+  const f1=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const seg=[
+    {k:'sem',  cor:'#a6adbf', rot:'Sem prazo definido', rows:sem},
+    {k:'em',   cor:'#4f9cf0', rot:`Com prazo, sem vencer${logo?` (inclui ${logo.toLocaleString('pt-BR')} que vencem hoje ou amanhã)`:''}`, rows:em},
+    {k:'venc', cor:'#ee6f82', rot:'Prazo vencido', rows:venc},
+  ];
+  document.getElementById('bk-total').textContent=total.toLocaleString('pt-BR');
+  barra.innerHTML=seg.map(x=>`<i style="width:${p(x.rows.length).toFixed(2)}%;background:${x.cor}" title="${escAttr(x.rot)}: ${x.rows.length.toLocaleString('pt-BR')}"></i>`).join('');
+  document.getElementById('bk-leg').innerHTML=seg.map(x=>`<button type="button" class="bk-row" data-k="${x.k}"><span class="bk-nome"><i style="background:${x.cor}"></i>${esc(x.rot)}</span><span class="bk-val"><b class="num">${x.rows.length.toLocaleString('pt-BR')}</b> <small>· ${f1(p(x.rows.length))}%</small></span></button>`).join('');
+  document.querySelectorAll('#bk-leg .bk-row').forEach(b=>b.addEventListener('click',()=>{
+    const x=seg.find(y=>y.k===b.dataset.k);
+    const ordenar=x.k==='venc'?(a,b2)=>new Date(a.sla_solucao)-new Date(b2.sla_solucao):undefined;
+    openDetailModal(`Backlog: ${x.k==='sem'?'sem prazo definido':x.k==='em'?'com prazo, sem vencer':'prazo vencido'}`,`${x.rows.length.toLocaleString('pt-BR')} ticket${x.rows.length===1?'':'s'}`,x.rows,{ordenar});
+  }));
+  document.getElementById('bk-nota').textContent=total
+    ? `Sem prazo definido não há como medir atraso. Hoje ${f1(p(sem.length))}% do backlog está nessa condição.`
+    : 'Nenhum chamado pendente no filtro atual.';
+}
+// ── (substituído) lista dos mais atrasados — sem uso no layout atual ───────────────────────────────
+function renderBacklogLista(vencidos){
+  const el=document.getElementById('bk-lista'); if(!el) return;
+  if(!vencidos.length){ el.innerHTML='<p class="bk-vazio">Nenhum chamado com prazo vencido.</p>'; return; }
+  const top=vencidos.slice().sort((a,b)=>new Date(a.sla_solucao)-new Date(b.sla_solucao)).slice(0,3);
+  top.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+  el.innerHTML=top.map(r=>`<button type="button" class="bk-item" title="${escAttr(r.assunto||'')} · vencido há ${diasVencido(r)} dia(s)" onclick="openTicketModal('${escAttr(r.ticket_id)}')"><i></i><span class="t">${esc(r.assunto||'Sem assunto')}</span><span class="r">${esc((r.responsavel||'—').split(' ')[0])}</span></button>`).join('');
 }
 
+// ── Horários de pico: aberturas por dia da semana x hora ───────────────
+const PICO_H0=7, PICO_H1=19, PICO_DIAS=[[1,'Seg'],[2,'Ter'],[3,'Qua'],[4,'Qui'],[5,'Sex'],[6,'Sáb'],[0,'Dom']];
+function renderPico(rows){
+  const box=document.getElementById('pico-grid'); if(!box) return;
+  const n=PICO_H1-PICO_H0+1;
+  const m={}; PICO_DIAS.forEach(([d])=>{ m[d]=Array(n).fill(0); });
+  let max=0;
+  rows.forEach(r=>{ if(!r.criado_em) return; const d=new Date(r.criado_em), h=d.getHours(); if(h<PICO_H0||h>PICO_H1) return; const v=++m[d.getDay()][h-PICO_H0]; if(v>max) max=v; });
+  if(!max){ box.style.display='block'; box.innerHTML='<p class="rec-vazio">Sem aberturas no período.</p>'; return; }
+  box.style.display='';
+  let h='<span></span>'+Array.from({length:n},(_,i)=>`<span class="h">${PICO_H0+i}h</span>`).join('');
+  PICO_DIAS.forEach(([d,nome])=>{
+    h+=`<span class="d">${nome}</span>`+m[d].map((v,i)=>{
+      const pct=Math.round(v/max*100);
+      return `<button type="button" class="c" title="${nome} ${PICO_H0+i}h: ${v.toLocaleString('pt-BR')} abertura${v===1?'':'s'}" style="background:${v?`color-mix(in srgb,var(--brand,var(--orange)) ${Math.max(14,pct)}%,var(--surface-low))`:'var(--surface-low)'}" onclick="picoAbrir(${d},${PICO_H0+i})"></button>`;
+    }).join('');
+  });
+  box.innerHTML=h;
+}
+function picoAbrir(dia,hora){
+  const nome=(PICO_DIAS.find(x=>x[0]===dia)||[0,''])[1];
+  const l=_rowsFull.filter(r=>{ if(!r.criado_em) return false; const d=new Date(r.criado_em); return d.getDay()===dia&&d.getHours()===hora; });
+  openDetailModal(`Aberturas: ${nome} às ${hora}h`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l);
+}
+
+// ── Chamados recentes ────────────────────────────────────────────────────
+const ST_BADGE={New:['Novo',''],InAttendance:['Em atendimento','info'],InProgress:['Em andamento','info'],Stopped:['Parado','warn'],Resolved:['Resolvido','ok'],Closed:['Fechado','ok'],Canceled:['Cancelado','']};
+function fmtRecente(v){
+  const d=new Date(v); if(isNaN(d)) return '';
+  const hoje=new Date(), ontem=new Date(Date.now()-864e5);
+  const hm=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===hoje.toDateString()) return `Hoje ${hm}`;
+  if(d.toDateString()===ontem.toDateString()) return `Ontem ${hm}`;
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+hm;
+}
+function renderRecentes(rows){
+  const box=document.getElementById('rec-lista'); if(!box) return;
+  const top=rows.filter(r=>r.criado_em).sort((a,b)=>new Date(b.criado_em)-new Date(a.criado_em)).slice(0,6);
+  if(!top.length){ box.innerHTML='<p class="rec-vazio">Nenhum chamado no período.</p>'; return; }
+  top.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+  box.innerHTML=top.map(r=>{
+    const [rot,cls]=ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—',''];
+    const ini=(r.organizacao||'?').replace(/[^A-Za-zÀ-ú0-9 ]/g,'').split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
+    return `<button type="button" class="rec-item" onclick="openTicketModal('${escAttr(r.ticket_id)}')"><span class="rec-av">${esc(ini)}</span><span class="rec-tx"><b>${esc(r.assunto||'Sem assunto')}</b><small><i>#${esc(r.ticket_id)}</i> · ${esc(r.organizacao||'—')} · ${esc(fmtRecente(r.criado_em))}</small></span><span class="st-badge ${cls}">${esc(rot)}</span></button>`;
+  }).join('');
+}
+
+// ── KPIs: série mensal (sparkline) e variação do último mês fechado vs. o anterior ──
+function renderKpiExtras(){
+  const rows=_rowsCtx||[]; if(!rows.length) return;
+  const agora=monthKeyOf(new Date());
+  const ks=new Set(); rows.forEach(r=>{ if(r.criado_em) ks.add(monthKeyOf(r.criado_em)); });
+  const todos=[...ks].filter(k=>k<agora).sort();               // só meses fechados
+  const meses=todos.slice(-8);
+  const por=(campo,mk)=>rows.filter(r=>r[campo]&&monthKeyOf(r[campo])===mk);
+  const serie={
+    abertos:  meses.map(mk=>por('criado_em',mk).length),
+    resolvidos:meses.map(mk=>por('resolvido_em',mk).filter(isResolvido).length),
+    media:    meses.map(mk=>{ const l=por('criado_em',mk); return l.length?l.reduce((a,r)=>a+Number(r.acoes_count||0),0)/l.length:0; }),
+    clientes: meses.map(mk=>new Set(por('criado_em',mk).map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size),
+    pendentes:meses.map(mk=>rows.filter(r=>pendenteEmMes(r,mk)).length),
+    reabertura:meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isReaberto).length/l.length*100:null; }),
+    fcr:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isFCR).length/l.length*100:null; }),
+    sla:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido).filter(temPrazo); return l.length?l.filter(isNoPrazo).length/l.length*100:null; }),
+  };
+  // tom da variação: 'bom' | 'ruim' | 'neutro' conforme o que a mudança significa para o negócio
+  const sentido={abertos:0,resolvidos:1,media:-1,clientes:0,pendentes:-1,sla:1,reabertura:-1,fcr:1};
+  const cor={abertos:'#ff8a2b',resolvidos:'#2fbf8a',media:'#4f9cf0',clientes:'#e9b730',pendentes:'#ee6f82',sla:'#2fbf8a',reabertura:'#e9b730',fcr:'#2fbf8a'};
+  const f1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
+  Object.keys(serie).forEach(k=>{
+    const sp=document.getElementById('sp-'+k), dl=document.getElementById('dl-'+k); if(!sp||!dl) return;
+    const v=serie[k].map(x=>x==null?null:x), ok=v.filter(x=>x!=null);
+    if(ok.length<2){ sp.innerHTML=''; dl.innerHTML=''; return; }
+    // sparkline
+    const W=110,H=34,mn=Math.min(...ok),mx=Math.max(...ok),span=(mx-mn)||1;
+    const pts=v.map((x,i)=>x==null?null:[i/(v.length-1)*W,H-3-((x-mn)/span)*(H-8)]).filter(Boolean);
+    const linha=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    const gid='spg-'+k;
+    sp.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cor[k]}" stop-opacity=".28"/><stop offset="1" stop-color="${cor[k]}" stop-opacity="0"/></linearGradient></defs><path d="${linha} L${W} ${H} L0 ${H} Z" fill="url(#${gid})"/><path d="${linha}" fill="none" stroke="${cor[k]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    // variação: último mês fechado x anterior
+    const a=v[v.length-1], b=v[v.length-2];
+    if(a==null||b==null){ dl.innerHTML=''; return; }
+    const d=a-b;
+    let txt; if(k==='sla'||k==='reabertura'||k==='fcr') txt=`${f1(Math.abs(d))} pp`; else if(k==='media') txt=f1(Math.abs(d)); else txt=b?`${f1(Math.abs(d/b*100))}%`:`${Math.abs(d).toLocaleString('pt-BR')}`;
+    const seta=d>0?'▲':d<0?'▼':'=';
+    const tom=d===0||!sentido[k]?'neutro':((d>0)===(sentido[k]>0)?'bom':'ruim');
+    dl.className='kpi-delta '+tom;
+    dl.title=`${rotuloMesCurto(meses[meses.length-1]).toUpperCase()} contra ${rotuloMesCurto(meses[meses.length-2]).toUpperCase()} (último mês fechado)`;
+    dl.textContent=d===0?'= estável':`${seta} ${txt}`;
+  });
+}
+function respDetalheHtml(nome){
+  const rows=_rowsCtx.filter(r=>(r.responsavel||'Não informado')===nome);
+  const P=periodoResp();
+  if(!P.M.size) return '<div class="vazio">Sem dados para este colaborador.</div>';
+  const inSet=(set,d)=>!!d&&set.has(monthKeyOf(d));
+  const calc=set=>({ ab:rows.filter(r=>inSet(set,r.criado_em)), rs:rows.filter(r=>isResolvido(r)&&inSet(set,r.resolvido_em)) });
+  const A=calc(P.M);
+  let B=P.N?calc(P.N):null, semAnt=false;
+  if(B&&!B.ab.length&&!B.rs.length){ B=null; semAnt=true; }        // período anterior sem dados (ex.: histórico não carregado)
+  const refTxt=P.rotAnt||'período anterior';
+  const slaDe=l=>{ const c=l.filter(temPrazo); return {ok:c.filter(isNoPrazo).length,total:c.length}; };
+  const sA=slaDe(A.rs), sB=B?slaDe(B.rs):null;
+  const pA=sA.total?sA.ok/sA.total*100:null, pB=sB&&sB.total?sB.ok/sB.total*100:null;
+  const pend=rows.filter(isAberto), venc=pend.filter(isVencido).length;
+  const azul=document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb';
+  const urg=[['Crítica','#f87171'],['Alta',cssVar('--orange')],['Média',cssVar('--green')],['Baixa',azul]];
+  const porUrg=urg.map(([u,cor])=>{ const a=A.ab.filter(r=>r.urgencia===u).length;
+    return blocoVar({nome:u,cor,valor:`${a.toLocaleString('pt-BR')} tickets`,v:a,ant:B?B.ab.filter(r=>r.urgencia===u).length:null,altoEhBom:false,unid:'ticket',refTxt}); }).join('');
+  // SLA cumprido por urgência (mesma regra do total: resolvidos no período com prazo, resolvidos até o prazo)
+  const pctSla=l=>{ const x=slaDe(l); return x.total?{p:x.ok/x.total*100,ok:x.ok,total:x.total}:null; };
+  const slaUrg=urg.map(([u,cor])=>{ const x=pctSla(A.rs.filter(r=>r.urgencia===u)), y=B?pctSla(B.rs.filter(r=>r.urgencia===u)):null;
+    return blocoVar({nome:u,cor,valor:x?`${x.p.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${x.ok}/${x.total}`:'— · sem resolvidos com prazo',v:x?x.p:null,ant:y?y.p:null,altoEhBom:true,pp:true,refTxt}); }).join('');
+  const fixado=_respFixo===nome;
+  const comp=B?`comparado com ${esc(P.rotAnt==='mês anterior'?rotuloMesCurto(P.ultimaN).toUpperCase():P.rotAnt)}`
+    :(semAnt?'sem comparação: dados do período anterior não carregados':'sem comparação');
+  return `<div class="topo"><div><h4>${esc(nome)}</h4><div class="ref">${esc(P.rot)} · ${comp}${P.parcial?' · <b style="color:var(--orange)" title="O período ainda não terminou: as variações ficam subestimadas">em andamento</b>':''}</div></div>
+      <span class="fixar ${fixado?'on':''}">${fixado?'📌 fixado · clique de novo para soltar':'clique para fixar'}</span></div>
+    <div class="sec">Resumo do período</div>`+
+    blocoVar({nome:'Abertos',cor:cssVar('--orange'),valor:`${A.ab.length.toLocaleString('pt-BR')} tickets`,v:A.ab.length,ant:B?B.ab.length:null,altoEhBom:false,unid:'ticket',refTxt})+
+    blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.rs.length.toLocaleString('pt-BR')} tickets`,v:A.rs.length,ant:B?B.rs.length:null,altoEhBom:true,unid:'ticket',refTxt})+
+    blocoVar({nome:'Reabertos',cor:cssVar('--orange'),valor:`${A.rs.filter(isReaberto).length.toLocaleString('pt-BR')} de ${A.rs.length.toLocaleString('pt-BR')} resolvidos`,v:A.rs.filter(isReaberto).length,ant:B?B.rs.filter(isReaberto).length:null,altoEhBom:false,unid:'ticket',refTxt})+
+    blocoVar({nome:'SLA cumprido',cor:cssVar('--green'),valor:pA==null?'—':`${pA.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${sA.ok}/${sA.total}`,v:pA,ant:pB,altoEhBom:true,pp:true,refTxt})+
+    `<div class="sec">SLA cumprido por urgência</div>${slaUrg}<div class="sec">Abertos por urgência</div>${porUrg}
+    <div class="tv-tip-foot" style="margin-top:6px">Hoje: <b>${pend.length.toLocaleString('pt-BR')}</b> pendentes, <b class="${venc?'tv-ruim':''}">${venc.toLocaleString('pt-BR')}</b> com prazo de SLA vencido.</div>
+    <div class="acoes"><button class="btn-refresh" type="button" data-ver="${escAttr(nome)}"><span class="sym">list_alt</span>Ver os tickets do período</button></div>`;
+}
+function respMostrar(nome){
+  const box=document.getElementById('resp-detalhe'); if(!box) return;
+  box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, no período dos filtros, o que ele abriu e resolveu, o SLA cumprido, comparado com o período anterior.<br>Clique para fixar o detalhe.</div>';
+}
+function renderRespChart(rows){
+  const box=document.getElementById('respChart'); if(!box) return;
+  const por={};
+  rows.forEach(r=>{ const p=r.responsavel||'Não informado'; (por[p]=por[p]||{criados:0}).criados++; });
+  // resolvidos e SLA do período: pela data de RESOLUÇÃO, como os cards do topo
+  _rowsResolv.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return;
+    o.resolvidos=(o.resolvidos||0)+1; if(isReaberto(r)) o.reabertos=(o.reabertos||0)+1; if(temPrazo(r)){ o.comPrazo=(o.comPrazo||0)+1; if(isNoPrazo(r)) o.noPrazo=(o.noPrazo||0)+1; } });
+  const pendG=getPendentesGlobalRows();
+  pendG.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return; o.pend=(o.pend||0)+1; if(isVencido(r)) o.venc=(o.venc||0)+1; });
+  _respLista=Object.entries(por).sort((a,b)=>b[1].criados-a[1].criados).slice(0,RANK_MAX);
+  if(!_respLista.length){ box.innerHTML='<div class="vazio" style="color:var(--t3);padding:20px">Nenhum ticket no período filtrado.</div>'; respMostrar(null); return; }
+  if(_respFixo&&!_respLista.some(([n])=>n===_respFixo)) _respFixo=null;
+  const mx=Math.max(1,..._respLista.map(([,v])=>v.criados));
+  const nfm=n=>Number(n||0).toLocaleString('pt-BR');
+  const corSla=v=>v>=90?cssVar('--green'):v>=70?'#fbbf24':cssVar('--orange');
+  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n">Abertos</th><th class="n">Resolvidos</th><th class="n" title="Resolvidos no período que foram reabertos (mesma regra da taxa de reabertura)">Reabertos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
+    _respLista.map(([n,v],i)=>{
+      const pct=v.comPrazo?(v.noPrazo||0)/v.comPrazo*100:null;
+      return `<tr tabindex="0" role="button" data-n="${escAttr(n)}" class="${_respFixo===n?'fixo':''}" aria-label="Detalhe de ${escAttr(n)}">
+        <td><span class="rsp-rank">${i+1}</span></td>
+        <td><div class="rsp-nome">${esc(n)}</div><div class="rsp-barra"><i style="width:${Math.max(3,v.criados/mx*100)}%"></i></div></td>
+        <td class="n"><b>${nfm(v.criados)}</b></td><td class="n">${nfm(v.resolvidos)}</td>
+        <td class="n" title="${v.resolvidos?`${((v.reabertos||0)/v.resolvidos*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos resolvidos`:'sem resolvidos no período'}" style="${v.reabertos?'color:var(--orange);font-weight:700':''}">${nfm(v.reabertos)}</td>
+        <td class="n">${pct==null?'<span style="color:var(--t3)">—</span>':`<div class="rsp-sla"><span>${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span><span class="trilho"><i style="width:${pct}%;background:${corSla(pct)}"></i></span></div>`}</td>
+        <td class="n">${nfm(v.pend)}</td><td class="n" style="${v.venc?'color:var(--orange);font-weight:700':''}">${nfm(v.venc)}</td></tr>`;
+    }).join('')+`</tbody></table>`;
+  respMostrar(_respFixo);
+}
+(function ligarResponsaveis(){
+  const lista=document.getElementById('respChart'), det=document.getElementById('resp-detalhe');
+  if(!lista||!det) return;
+  const marcar=()=>lista.querySelectorAll('tbody tr').forEach(tr=>tr.classList.toggle('fixo',tr.dataset.n===_respFixo));
+  lista.addEventListener('mouseover',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr&&!_respFixo) respMostrar(tr.dataset.n); });
+  lista.addEventListener('mouseleave',()=>{ if(!_respFixo) respMostrar(null); });
+  lista.addEventListener('focusin',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr&&!_respFixo) respMostrar(tr.dataset.n); });
+  lista.addEventListener('click',e=>{
+    const tr=e.target.closest('tr[data-n]'); if(!tr) return;
+    _respFixo=_respFixo===tr.dataset.n?null:tr.dataset.n;      // clicar de novo solta
+    marcar(); respMostrar(_respFixo||tr.dataset.n);
+  });
+  lista.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.closest('tr[data-n]')){ e.preventDefault(); e.target.closest('tr[data-n]').click(); } });
+  det.addEventListener('click',e=>{
+    const b=e.target.closest('[data-ver]'); if(!b) return;
+    const nome=b.dataset.ver;
+    const l=_rowsFull.filter(r=>(r.responsavel||'Não informado')===nome);
+    openDetailModal(`Responsável: ${nome}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'} abertos no período`,l);
+  });
+})();
+
 // ── ação: equipes com maior % de backlog vencido ────────────────────
+// Nome da equipe para exibição: tira espaços sobrando, "LTDA" no fim e GRITARIA (AGROTITAN → Agrotitan),
+// e separa a marca/vertical (parte antes do primeiro " - ") do restante. O nome completo vai no tooltip.
+function limpaEquipe(n){ return String(n||'').replace(/\s+/g,' ').trim()||'Não informado'; }
+function nomeEquipeExibicao(n){
+  const completo=limpaEquipe(n);
+  const bonito=t=>t.replace(/\s+LTDA$/i,'').replace(/[A-ZÀ-Ú]{4,}/g,m=>m.charAt(0)+m.slice(1).toLowerCase());
+  const i=completo.indexOf(' - ');
+  return i>0 ? {completo,marca:bonito(completo.slice(0,i)),resto:bonito(completo.slice(i+3))} : {completo,marca:'',resto:bonito(completo)};
+}
 function renderEquipesVencidoTable(pendentesRows){
   const tbody=document.getElementById('tbl-equipes-vencido');
   const porEquipe={};
   pendentesRows.forEach(r=>{
-    const e=r.equipe||'Não informado';
+    const e=limpaEquipe(r.equipe);     // equipes que só diferem por espaços viram uma só
     porEquipe[e]=porEquipe[e]||{pendentes:0,vencidos:0};
     porEquipe[e].pendentes++;
     if(isVencido(r)) porEquipe[e].vencidos++;
@@ -1582,19 +2865,22 @@ function renderEquipesVencidoTable(pendentesRows){
   const entries=Object.entries(porEquipe)
     .map(([e,v])=>[e,v,v.pendentes?v.vencidos/v.pendentes:0])
     .sort((a,b)=>b[2]-a[2])
-    .slice(0,10);
+    .slice(0,RANK_MAX);
   if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum ticket pendente no período filtrado.</td></tr>`; return; }
-  tbody.innerHTML=entries.map(([e,v,pct])=>`
+  tbody.innerHTML=entries.map(([e,v,pct])=>{
+    const n=nomeEquipeExibicao(e);
+    return `
     <tr class="clickable" onclick="openEquipeVencidoModal('${escAttr(e)}')">
-      <td>${esc(e)}</td>
+      <td class="eq-corrido" title="${escAttr(n.completo)}">${esc(n.marca?`${n.marca} - ${n.resto}`:n.resto)}</td>
       <td class="num">${v.pendentes}</td>
       <td class="num${v.vencidos?' bad':''}">${v.vencidos}</td>
       <td class="num${pct>=0.3?' bad':''}">${fmtPct(pct)}</td>
-    </tr>`).join('');
+    </tr>`; }).join('');
 }
 function openEquipeVencidoModal(equipe){
-  const matched=_pendentesGlobal.filter(r=>isVencido(r)&&(r.equipe||'Não informado')===equipe);
-  openDetailModal(`Vencidos: ${equipe}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+  const matched=_pendentesGlobal.filter(r=>isVencido(r)&&limpaEquipe(r.equipe)===equipe);
+  const n=nomeEquipeExibicao(equipe);
+  openDetailModal(`Vencidos: ${n.completo}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 function openVencidosModal(){
   const matched=_pendentesGlobal.filter(isVencido);
@@ -1637,12 +2923,48 @@ function renderSlaUrgChart(resolvidosComPrazo){
 }
 
 // ── Chamado Listagem: tabela completa, ordenável e com busca ────────
+// ── serviço Analytics: colunas extras (previsão de solução, início da implantação, valor do orçamento) ──
+// Aparecem na Chamado Listagem e na exportação quando o filtro Serviço está só em serviços do Analytics.
+// Início da implantação e valor do orçamento são campos customizados do Movidesk, buscados sob demanda (POST /geral/campos-analytics).
+const ehAnalytics=r=>!!r&&(/^analytics\b/i.test(String(r.servico||'').split(' > ')[0].trim())||(!r.servico&&/^analytics\b/i.test(String(r.equipe||'').trim())));
+// colunas extras: filtro Serviço só em Analytics, ou a lista mostrada é toda de chamados do Analytics
+function modoAnalytics(rows){
+  const v=getMsValues('f-serv');
+  if(v.length>0&&v.every(s=>/^analytics\b/i.test(String(s).split(' > ')[0].trim()))) return true;
+  return Array.isArray(rows)&&rows.length>0&&rows.every(ehAnalytics);
+}
+let _camposAn={}, _orcamentoConfigurado=true;
+async function garantirCamposAnalytics(rows){
+  const faltam=(rows||[]).filter(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn)).map(r=>r.ticket_id);
+  for(let i=0;i<faltam.length;i+=3000){
+    const lote=faltam.slice(i,i+3000);
+    const r=await fetch(`${API}/geral/campos-analytics`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids:lote})});
+    if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error||r.statusText);
+    const d=await r.json(); _orcamentoConfigurado=d.orcamentoConfigurado!==false;
+    lote.forEach(id=>{ _camposAn[id]=d.campos[id]||{implantacao:null,orcamento:null}; });
+  }
+}
+const dataCampo=v=>{ if(!v) return ''; const d=new Date(v); return isNaN(d)?String(v):dtStr(d); };
+function fmtOrcamento(v){
+  if(v==null||v==='') return '';
+  let t=String(v).replace(/[^\d,.\-]/g,'');
+  t=t.includes(',')?t.replace(/\./g,'').replace(',','.'):t;
+  const n=Number(t);
+  return isNaN(n)||t===''?String(v):n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+const campoAn=(r,k)=>(_camposAn[r.ticket_id]||{})[k];
+const COLS_ANALYTICS=[
+  {label:'Previsão de solução', get:r=>dtStr(r.sla_solucao)||'—', sort:r=>r.sla_solucao?new Date(r.sla_solucao).getTime():0},
+  {label:'Início da implantação', get:r=>dataCampo(campoAn(r,'implantacao'))||'—', sort:r=>{ const v=campoAn(r,'implantacao'); const d=v?new Date(v).getTime():0; return isNaN(d)?0:d; }},
+  {label:'Valor do orçamento', num:true, get:r=>fmtOrcamento(campoAn(r,'orcamento'))||'—', sort:r=>{ const t=String(campoAn(r,'orcamento')||'').replace(/[^\d,.\-]/g,''); const n=Number(t.includes(',')?t.replace(/\./g,'').replace(',','.'):t); return isNaN(n)?0:n; }},
+];
+const colsListagem=()=>modoAnalytics(_rowsFull)?[...LISTAGEM_COLS,...COLS_ANALYTICS]:LISTAGEM_COLS;
 const LISTAGEM_COLS=[
   {label:'ID',num:true,
     get:r=>`#${r.ticket_id}`,
     html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a>`,
     sort:r=>Number(r.ticket_id)||0},
-  {label:'Organização', get:r=>r.organizacao||'—', sort:r=>(r.organizacao||'').toLowerCase()},
+  {label:'Organização', get:r=>`${r.organizacao||'—'}${htDe(r)?` · ${htTexto(r)}`:''}`, html:r=>`${esc(r.organizacao||'—')}${htBadge(r)}`, sort:r=>(r.organizacao||'').toLowerCase()},
   {label:'Assunto', get:r=>r.assunto||'—', sort:r=>(r.assunto||'').toLowerCase()},
   {label:'Classificação', get:r=>classificacaoDe(r), sort:r=>classificacaoDe(r).toLowerCase()},
   {label:'Equipe', get:r=>r.equipe||'—', sort:r=>(r.equipe||'').toLowerCase()},
@@ -1678,12 +3000,19 @@ function listagemSetSort(colIdx){
 }
 function listagemRender(){
   const all=_rowsFull||[];
+  const COLS=colsListagem();
+  if(_listagemSort.col>=COLS.length) _listagemSort={col:9,dir:-1};
+  // campos do Analytics vêm do servidor sob demanda: busca e redesenha quando chegarem
+  if(modoAnalytics(all)&&all.some(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn))&&!listagemRender._buscando){
+    listagemRender._buscando=true;
+    garantirCamposAnalytics(all).then(()=>{ listagemRender._buscando=false; listagemRender(); },e=>{ listagemRender._buscando=false; console.error('[campos analytics]',e.message); });
+  }
   const filtered=_listagemSearch
-    ? all.filter(r=>LISTAGEM_COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
+    ? all.filter(r=>COLS.some(c=>String(c.get(r)).toLowerCase().includes(_listagemSearch)))
     : all;
   const {col,dir}=_listagemSort;
   const sorted=filtered.slice().sort((a,b)=>{
-    const va=LISTAGEM_COLS[col].sort(a), vb=LISTAGEM_COLS[col].sort(b);
+    const va=COLS[col].sort(a), vb=COLS[col].sort(b);
     if(va<vb) return -1*dir;
     if(va>vb) return 1*dir;
     return 0;
@@ -1693,19 +3022,19 @@ function listagemRender(){
   document.getElementById('listagem-sub').textContent=
     `${sorted.length.toLocaleString('pt-BR')} de ${all.length.toLocaleString('pt-BR')} ticket${all.length===1?'':'s'} — considera os filtros aplicados`;
 
-  document.getElementById('listagem-thead').innerHTML=LISTAGEM_COLS.map((c,i)=>{
+  document.getElementById('listagem-thead').innerHTML=COLS.map((c,i)=>{
     const arrow=_listagemSort.col===i?(_listagemSort.dir===1?'▲':'▼'):'';
     return `<th class="sortable${c.num?' num':''}" onclick="listagemSetSort(${i})">${esc(c.label)}<span class="sort-arrow">${arrow}</span></th>`;
   }).join('');
 
   const tbody=document.getElementById('listagem-tbody');
   if(!sorted.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="${LISTAGEM_COLS.length}">Nenhum ticket encontrado.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="${COLS.length}">Nenhum ticket encontrado.</td></tr>`;
     return;
   }
   tbody.innerHTML=sorted.map(r=>`
     <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
-      ${LISTAGEM_COLS.map(c=>`<td${c.num?' class="num"':''}>${c.html?c.html(r):esc(c.get(r))}</td>`).join('')}
+      ${COLS.map(c=>`<td${c.num?' class="num"':''}>${c.html?c.html(r):esc(c.get(r))}</td>`).join('')}
     </tr>`).join('');
 }
 document.getElementById('listagem-close').addEventListener('click',closeListagemModal);
@@ -1754,16 +3083,140 @@ function abrirExpansao(chave){
   });
 })();
 
+// ── Ajuda "!" em cada card: o que é e como é calculado ────────────────
+const FILTROS_TXT='Respeita os filtros do topo (equipe, responsável, cliente, serviço, classificação, status, ano e mês).';
+const INFO_CARDS={
+  'k-abertos':{t:'Tickets abertos',
+    o:'Quantidade de tickets criados no período.',
+    c:['Conta os tickets cuja data de criação cai no Ano/Mês filtrados — estejam ainda em aberto ou já resolvidos.','Tickets cancelados ficam de fora.','Só entram tickets a partir do ano inicial da janela de dados carregada.'],
+    obs:FILTROS_TXT},
+  'k-resolvidos':{t:'Tickets resolvidos',
+    o:'Quantidade de tickets com status finalizado no período.',
+    c:['Status Resolvido ou Fechado (Resolved/Closed).','O Ano/Mês vale para a data de RESOLUÇÃO, não a de abertura: um ticket aberto em 2025 e resolvido em 2026 conta como resolvido de 2026.','Taxa de resolução (legenda) = resolvidos ÷ tickets abertos do período. Pode passar de 100% quando se resolvem tickets criados antes do período.'],
+    obs:FILTROS_TXT},
+  'k-media-acoes':{t:'Média de ações por ticket',
+    o:'Quantas trocas (ações) cada ticket teve, em média.',
+    c:['Soma de todas as ações dos tickets criados no período (públicas e notas internas) ÷ número de tickets abertos no período.']},
+  'k-clientes':{t:'Clientes únicos',
+    o:'Quantidade de organizações diferentes que abriram tickets no período.',
+    c:['Conta organizações distintas entre os tickets criados no período (pelo cadastro de organização do ticket).','Tickets sem organização não entram na contagem.']},
+  'k-pendentes':{t:'Tickets pendentes',
+    o:'Tickets que ainda estão em aberto.',
+    c:['Todo ticket que não está finalizado (Resolvido/Fechado) nem cancelado.','Sempre o backlog real, de todos os anos: não segue o filtro de Ano/Mês (os demais filtros valem).','Clique no card para ver a lista.'],
+    obs:FILTROS_TXT},
+  'k-sla-cumprido':{t:'SLA cumprido (resolvidos)',
+    o:'Percentual de tickets resolvidos dentro do prazo de solução do Movidesk.',
+    c:['Considera só tickets resolvidos no período que tinham prazo de solução definido.','Cumprido = data de resolução menor ou igual ao prazo de solução.','% = cumpridos ÷ resolvidos com prazo. Tickets sem prazo ficam de fora.']},
+  'k-backlog-vencido':{t:'Backlog já vencido',
+    o:'Tickets pendentes cujo prazo de SLA já passou.',
+    c:['Pendente com prazo de solução definido e prazo anterior ao momento atual.','A legenda mostra o % em relação ao total de pendentes.','Clique no card para ver a lista.']},
+  'k-reabertura':{t:'Taxa de reabertura',
+    o:'Quanto das resoluções voltou a ser reaberto.',
+    c:['Tickets resolvidos no período que têm data de reabertura ÷ total de resolvidos no período.']},
+  'k-fcr':{t:'Resolução no 1º contato (FCR)',
+    o:'Percentual de tickets resolvidos com uma única resposta ao cliente.',
+    c:['Resolvidos no período com exatamente 1 ação pública (visível ao cliente) ÷ total de resolvidos.','Notas internas não entram na conta.']},
+  'classChart':{t:'Classificação — ranking abertos x fechados',
+    o:'As 10 classificações com mais tickets.',
+    c:['Usa o campo customizado de classificação do ticket; sem valor aparece como "Não classificado".','Barra cinza = tickets criados no período; barra laranja = desses, quantos já estão resolvidos.','Clique numa barra para ver os tickets.']},
+  'trendVolChart':{t:'Evolução mensal: abertos vs resolvidos',
+    o:'Quantos tickets entraram e quantos foram resolvidos em cada mês, e como a carteira de tickets em aberto evoluiu.',
+    c:['Abertos = tickets criados no mês (data de criação).','Resolvidos = tickets finalizados no mês (data de resolução).','Saldo acumulado = carteira: tickets criados até o fim do mês e ainda não resolvidos naquela data (inclui os abertos antes do período exibido).','Período: o ano filtrado (de janeiro em diante) ou os últimos 12 meses com dados.','O tooltip compara cada série com o mês anterior (valor, variação em % e em tickets) e mostra o saldo do mês e a taxa de resolução (resolvidos ÷ abertos).','Clique num ponto para ver os tickets daquela série e mês.']},
+  'urgTrendChart':{t:'Evolução mensal por urgência',
+    o:'Volume de tickets abertos em cada mês, separado por urgência.',
+    c:['Uma linha por urgência (Crítica, Alta, Média, Baixa) com os tickets criados no mês.','Tickets sem uma dessas quatro urgências não aparecem.','O tooltip compara cada urgência com o mês anterior (tickets e %).']},
+  'sla-evo-panel':{t:'Evolução mensal do atingimento do SLA',
+    o:'Percentual de tickets resolvidos dentro da meta da própria urgência, mês a mês.',
+    c:['Tempo de solução líquido = da abertura à resolução, só em horário útil de Brasília (seg-sex, 07:45-12:00 e 13:30-18:00) e sem o tempo parado (aguardando cliente/terceiro/validação e em atendimento - desenvolvimento).','Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Elegíveis = tickets resolvidos no mês com urgência Crítica/Alta/Média/Baixa.','% do mês = elegíveis dentro da meta ÷ elegíveis do mês.','Cartão "Último mês" mostra a variação em pontos percentuais (pp) contra o mês anterior com dados. Clique num ponto para ver os tickets fora da meta.']},
+  'impacto-panel':{t:'Impacto mensal de SLA por ticket',
+    o:'Quais tickets mais puxaram a média de tempo de solução para cima ou para baixo.',
+    c:['Usa o tempo de solução líquido (horas úteis, sem pausas) dos tickets resolvidos no período filtrado.','Impacto = média do período com todos os tickets − média sem aquele ticket. Positivo elevou o tempo médio; negativo reduziu.','As tabelas mostram os 10 maiores impactos em cada direção, com o tempo, a meta da urgência e o impacto em horas.'],
+    obs:'Segue os filtros principais do painel; com o filtro de Mês marcado a análise é mensal.'},
+  'impacto-cli-panel':{t:'Quem concentra o atraso',
+    o:'O impacto no tempo médio de solução somado por cliente, equipe, responsável ou urgência.',
+    c:['Usa o mesmo impacto de cada ticket do card "Impacto mensal de SLA por ticket" e soma por grupo.','Valor positivo = o grupo elevou a média de tempo de solução; negativo = reduziu.','Os 8 primeiros respondem por X% do desvio para cima (soma só dos grupos positivos).','Clique numa linha para ver os tickets do grupo.']},
+  'causas-panel':{t:'Top 10 causas dos chamados',
+    o:'As causas que mais aparecem nos chamados do período, segundo a análise da Curadoria.',
+    c:['A Curadoria (IA) lê o histórico inteiro de cada chamado — todas as ações do cliente e do atendente — e registra a causa (versão normalizada).','O painel agrupa os tickets filtrados pela mesma causa (ignorando maiúsculas, acentos e pontuação final) e mostra as 10 maiores.','% = tickets da causa ÷ tickets que já têm causa diagnosticada.','Chamados que ainda não passaram pela Curadoria não entram na conta; a cobertura aparece abaixo do título.','Clique numa causa para ver os tickets.'],
+    obs:'A qualidade depende do diagnóstico da Curadoria. '+FILTROS_TXT},
+  'temas-panel':{t:'Temas mais recorrentes',
+    o:'Os assuntos que mais aparecem nos chamados, descobertos a partir do texto do chamado e das ações.',
+    c:['Para cada ticket criado no período, lê o assunto (peso dobrado) e o texto das 5 primeiras ações (até 1.500 caracteres cada).','Procura palavras-chave de cada tema (dicionário em server/data/temas-chamados.json; ex.: Fiscal = NF-e, CFOP, SPED, ICMS…).','O tema do ticket é o que tiver mais ocorrências; em caso de empate vale a ordem do dicionário. Cada ticket conta em um tema só.','Tickets sem nenhuma palavra do dicionário ficam sem tema e aparecem apenas no total analisado.','% = tickets do tema ÷ tickets analisados. A variação em pp compara a participação do tema no último mês do período com o mês anterior.','Clique num tema para ver os tickets.'],
+    obs:'Por palavras-chave, não é leitura por IA: ajustar o dicionário melhora a precisão. '+FILTROS_TXT},
+  'agingChart':{t:'Envelhecimento do backlog',
+    o:'Há quanto tempo os tickets pendentes estão abertos.',
+    c:['Só tickets pendentes.','Idade = dias desde a criação, em faixas: 1 dia, 2 dias, 3-7, 8-14 e 15+ dias.','Clique numa barra para ver os tickets da faixa.']},
+  'teamChart':{t:'Volume por equipe',
+    o:'As 10 equipes com mais tickets.',
+    c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
+  'urgChart':{t:'Tickets por urgência',
+    o:'Distribuição dos tickets criados no período por urgência.',
+    c:['Contagem de tickets criados por valor de urgência; sem urgência aparece como "Em branco".']},
+  'clientChart':{t:'Top clientes por volume',
+    o:'As 10 organizações com mais tickets.',
+    c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
+  'respChart':{t:'Responsáveis por volume',
+    o:'Os 15 responsáveis com mais tickets abertos no período, com o detalhe de cada um.',
+    c:['Respeita os filtros do topo (equipe, cliente, serviço, classificação, status, ano e mês).','Abertos = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe ao lado; clique para fixar e clique de novo para soltar.','O detalhe usa o MESMO período da lista e compara com o anterior: com Ano e Mês marcados, o mês anterior; só com um Ano, os mesmos meses do ano anterior (se estiverem carregados); nos demais casos não há comparação. Mostra abertos, resolvidos, SLA cumprido total e por urgência (em pontos percentuais) e abertos por urgência.']},
+  'tbl-equipes-vencido':{t:'Equipes com maior % de backlog vencido',
+    o:'Em quais equipes o backlog pendente está mais atrasado.',
+    c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Mostra as 10 equipes com maior %; em destaque quando passa de 30%.','Clique numa equipe para ver os tickets vencidos.']},
+  'slaUrgChart':{t:'SLA por urgência',
+    o:'% de tickets resolvidos no prazo, por nível de urgência.',
+    c:['Considera os resolvidos no período com prazo de solução definido.','No prazo = resolvido até a data de prazo do Movidesk.','% = no prazo ÷ resolvidos com prazo, para cada urgência.']},
+};
+function abrirInfo(chave){
+  const i=INFO_CARDS[chave]; if(!i) return;
+  document.getElementById('info-modal-title').textContent=i.t;
+  document.getElementById('info-modal-body').innerHTML=
+    `<h4>O que é</h4><p>${i.o}</p>`+
+    `<h4>Como é calculado</h4><ul>${i.c.map(x=>`<li>${x}</li>`).join('')}</ul>`+
+    (i.obs?`<p class="info-obs">${i.obs}</p>`:'');
+  document.getElementById('info-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function fecharInfo(){
+  document.getElementById('info-modal').classList.remove('show');
+  syncModalBodyLock();
+}
+document.getElementById('info-modal-close').addEventListener('click',fecharInfo);
+document.getElementById('info-modal').addEventListener('click',e=>{ if(e.target.id==='info-modal') fecharInfo(); });
+(function colocarAjuda(){
+  Object.keys(INFO_CARDS).forEach(id=>{
+    const el=document.getElementById(id); const card=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(!card||card.querySelector('.panel-info')) return;
+    const b=document.createElement('button'); b.type='button'; b.className='panel-info'; b.textContent='!';
+    b.title='O que é e como é calculado'; b.setAttribute('aria-label','Ajuda: o que é e como é calculado');
+    b.addEventListener('click',ev=>{ ev.stopPropagation(); abrirInfo(id); });
+    const titulo=card.querySelector('.chart-title,.panel-title,.label');
+    if(titulo){
+      titulo.classList.add('panel-title-exp');
+      let acoes=titulo.querySelector('.panel-acoes');
+      if(!acoes){
+        acoes=document.createElement('span'); acoes.className='panel-acoes';
+        const exp=titulo.querySelector('.panel-expand');
+        titulo.appendChild(acoes);
+        if(exp) acoes.appendChild(exp);
+      }
+      acoes.prepend(b);
+    } else { b.classList.add('solta'); card.appendChild(b); }
+  });
+})();
+
 const DETALHE_MAX=1000;   // linhas desenhadas no modal (o resto fica fora para não travar a tela)
 function openDetailModal(title,sub,rows,opts){
   opts=opts||{};
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
+  const an=modoAnalytics(rows);      // chamados do Analytics: previsão de solução, início da implantação e valor do orçamento
   document.getElementById('detail-modal-thead').innerHTML=
-    '<th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th>'+(opts.acoes?'<th class="num">Ações</th>':'');
+    '<th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th>'+(opts.acoes?'<th class="num">Ações</th>':'')+
+    (an?'<th>Previsão de solução</th><th>Início da implantação</th><th class="num">Valor do orçamento</th>':'');
+  if(an&&rows.some(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn))){
+    garantirCamposAnalytics(rows).then(()=>{ if(document.getElementById('detail-modal').classList.contains('show')) openDetailModal(title,sub,rows,opts); },e=>console.error('[campos analytics]',e.message));
+  }
   const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="6">Nenhum ticket encontrado.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="9">Nenhum ticket encontrado.</td></tr>`;
   } else {
     const ordenado=rows.slice().sort(opts.ordenar||((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0)));
     const visiveis=ordenado.slice(0,DETALHE_MAX);
@@ -1772,11 +3225,12 @@ function openDetailModal(title,sub,rows,opts){
     tbody.innerHTML=visiveis.map(r=>`
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
           <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
-          <td>${esc(r.organizacao||'—')}</td>
+          <td>${esc(r.organizacao||'—')}${htBadge(r)}</td>
           <td>${esc(r.assunto||'—')}</td>
           <td>${esc(r.equipe||'—')}</td>
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
           ${opts.acoes?`<td class="num">${Number(r.acoes_count||0).toLocaleString('pt-BR')}</td>`:''}
+          ${an?`<td class="an-col">${esc(dtStr(r.sla_solucao)||'—')}</td><td class="an-col">${esc(ehAnalytics(r)?(dataCampo(campoAn(r,'implantacao'))||'—'):'—')}</td><td class="num an-col">${esc(ehAnalytics(r)?(fmtOrcamento(campoAn(r,'orcamento'))||'—'):'—')}</td>`:''}
         </tr>`).join('');
   }
   document.getElementById('detail-modal').classList.add('show');
@@ -1793,6 +3247,7 @@ function syncModalBodyLock(){
   const open=document.getElementById('detail-modal').classList.contains('show')
     || document.getElementById('ticket-modal').classList.contains('show')
     || document.getElementById('export-modal').classList.contains('show')
+    || document.getElementById('info-modal').classList.contains('show')
     || document.getElementById('listagem-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
@@ -1836,9 +3291,9 @@ function tlItem(a){
 function openTicketModal(ticketId){
   const r=_rowsById[ticketId]||{};
   document.getElementById('ticket-modal-title').textContent=`Ticket #${ticketId}`;
-  document.getElementById('ticket-modal-sub').textContent=r.organizacao||'';
+  document.getElementById('ticket-modal-sub').innerHTML=`${esc(r.organizacao||'')}${htBadge(r)}`;
   document.getElementById('ticket-modal-link').href=ticketUrl(ticketId);
-  document.getElementById('ticket-modal-body').innerHTML=`
+  document.getElementById('ticket-modal-body').innerHTML=`${htBloco(r)}
     <div class="td-info-grid">
       <div><p class="lbl">Assunto</p><p class="val">${esc(r.assunto||'—')}</p></div>
       <div><p class="lbl">Classificação</p><p class="val">${esc(classificacaoDe(r))}</p></div>
@@ -1875,9 +3330,44 @@ document.getElementById('ticket-modal').addEventListener('click',e=>{ if(e.targe
 
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
+  if(document.getElementById('info-modal').classList.contains('show')) fecharInfo();
+  else if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
   else if(document.getElementById('listagem-modal').classList.contains('show')) closeListagemModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
+});
+
+// ── Esconde o menu ao rolar pra baixo (mais área útil) ─────────────────
+// Rolando pra baixo: some o cabeçalho desta página e avisa o shell (index.html)
+// pra recolher o menu do Hub. Rolando pra cima, no topo da página ou com o mouse
+// na borda superior: tudo volta. Não esconde com um filtro aberto ou modal aberto.
+(function autoOcultarMenu(){
+  const topo=document.querySelector('.topbar');
+  if(!topo) return;
+  let oculto=false, ultimo=0;
+  const avisarShell=v=>{ try{ if(window.parent&&window.parent!==window) window.parent.postMessage({tipo:'hub360:menu-oculto',oculto:v},location.origin); }catch{} };
+  function aplicar(v){
+    if(v===oculto) return;
+    oculto=v; topo.classList.toggle('oculto',v); avisarShell(v);
+  }
+  window.addEventListener('scroll',()=>{
+    const y=window.scrollY||document.documentElement.scrollTop||0;
+    const dy=y-ultimo;
+    if(Math.abs(dy)<8) return;
+    ultimo=y;
+    if(y<80||dy<0) aplicar(false);
+    else if(!document.querySelector('.multi-sel.open')&&!document.body.classList.contains('modal-open')) aplicar(true);
+  },{passive:true});
+  document.addEventListener('mousemove',e=>{ if(oculto&&e.clientY<6) aplicar(false); },{passive:true});
+  // abrir um filtro (clique) traz o cabeçalho de volta
+  document.addEventListener('click',e=>{ if(oculto&&e.target.closest('.multi-sel')) aplicar(false); });
+})();
+
+// Ctrl+K dentro do iframe: pede ao shell (index.html) pra abrir o "Ir para…".
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&window.parent&&window.parent!==window){
+    e.preventDefault();
+    try{ window.parent.postMessage({tipo:'hub360:paleta'},location.origin); }catch{}
+  }
 });
 
 // ── sync ─────────────────────────────────────────────────────────────
@@ -1972,5 +3462,6 @@ applyRolePermissions();
   }catch{}
 })();
 </script>
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

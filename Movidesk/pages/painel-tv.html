@@ -1,99 +1,156 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html class="dark" lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel TV — Tickets Pendentes</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script src="../js/ui-version.js"></script>
 <style>
-  :root {
-    --bg-page: #0e0e12;
-    --bg-card: #1c1c24;
-    --bg-card-2: #20202a;
-    --border: #33333d;
-    --border-danger: #a33a3a;
-    --text-primary: #f5f4f1;
-    --text-secondary: #a3a2a0;
-    --text-muted: #6f6e6c;
-    --text-danger: #f0908f;
-  }
-  * { box-sizing: border-box; }
-  body {
-    background: var(--bg-page);
-    color: var(--text-primary);
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    margin: 0;
-    padding: 28px;
-  }
-  .container { max-width: 1600px; margin: 0 auto; }
-  .top-bar { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
-  .top-bar h1 { font-size: 22px; font-weight: 600; margin: 0; }
-  .top-bar .clock { font-size: 16px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-  .filtro-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; }
-  .filtro-bar label { font-size: 14px; color: var(--text-secondary); }
-  .filtro-bar select {
-    background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
-    border-radius: 8px; padding: 8px 12px; font-size: 14px; min-width: 260px; max-width: 520px;
-  }
-  .filtro-bar select:focus { outline: 2px solid #3987e5; outline-offset: 1px; }
-  .filtro-chip { background: #163a24; color: #7fd99b; border-radius: 999px; padding: 4px 12px; font-size: 13px; }
-  .note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 2rem; }
-  .kpi {
-    background: var(--bg-card);
-    border-radius: 12px;
-    padding: 1.75rem;
-    text-align: center;
-  }
-  .kpi.danger { border: 2px solid var(--border-danger); }
-  .kpi .label { font-size: 16px; color: var(--text-secondary); margin: 0 0 10px; }
-  .kpi .value { font-size: 60px; font-weight: 500; margin: 0; font-family: Georgia, serif; font-variant-numeric: tabular-nums; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 2rem; }
-  .panel { background: var(--bg-card); border-radius: 12px; padding: 1.5rem; }
-  .chart-title { font-size: 17px; color: var(--text-secondary); margin: 0 0 12px; font-weight: 500; }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; scrollbar-width: none; -ms-overflow-style: none; }
+  ::-webkit-scrollbar { display: none; }
+  body { font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; padding: 24px; -webkit-font-smoothing: antialiased; }
+  .container { max-width: 1760px; margin: 0 auto; }
+  /* cabeçalho */
+  .tv-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 6px; }
+  .tv-head h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -.02em; }
+  .tv-head .sub { color: var(--t2); font-size: 14px; font-weight: 600; }
+  .tv-head .esp { flex: 1; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; font-weight: 800; font-size: 13px; background: var(--surface); color: var(--t2); box-shadow: var(--shadow-card); }
+  @keyframes pulsa { 50% { opacity: .35; } }
+  .clock { font-size: 20px; font-weight: 800; color: var(--t1); font-variant-numeric: tabular-nums; }
+  .note { font-size: 12.5px; color: var(--t3); margin: 0 0 14px; }
+  .filtro-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 18px; }
+  .filtro-bar label { font-size: 13px; font-weight: 700; color: var(--t2); }
+  .filtro-bar select { background: var(--surface); color: var(--t1); border: 1px solid var(--border-hi); border-radius: 999px; padding: 9px 16px; font: 700 13px/1 "Manrope", system-ui, sans-serif; min-width: 240px; max-width: 520px; }
+  .filtro-bar select:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .btn-limpar { background: var(--surface); color: var(--t1); border: 1px solid var(--border-hi); border-radius: 999px; padding: 9px 16px; font: 800 13px/1 "Manrope", system-ui, sans-serif; cursor: pointer; }
+  .btn-limpar:hover { background: var(--surface-mid); }
+  .link-tv { display:none; flex-basis:100%; gap:8px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--t2); }
+  .link-tv input { flex:1; min-width:320px; background:var(--surface); color:var(--t1); border:1px solid var(--border-hi); border-radius:999px; padding:9px 16px; font:600 13px/1 "Manrope", system-ui, sans-serif; }
+  .filtro-chip { background: var(--success-soft); color: var(--success); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 800; }
+  /* KPIs grandes (leitura à distância) */
+  .tv-page .stat-card { padding: 22px 24px 20px; }
+  .tv-page .stat-card .label { font-size: 15px; }
+  .tv-page .stat-card .value, .tv-page .stat-card .value.bad { font-size: 56px; line-height: 60px; }
+  .tv-page .kpi-ico { width: 44px; height: 44px; border-radius: 15px; }
+  .tv-page .kpi-ico svg { width: 22px; height: 22px; }
+  .tv-page .kpi-foot .legend { font-size: 13px; }
+  .tv-page .bk-hero .value { font-size: 56px; line-height: 60px; }
+  /* KPIs compactos e clicáveis: duas faixas separadas, com título e espaço entre elas */
+  .kpi-titulo { margin: 18px 2px 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); }
+  .kpi-titulo:first-child { margin-top: 0; }
+  .kpi-grid.compacto { gap: 14px; }
+  html body.tv-page .kpi-grid.compacto .stat-card { padding: 12px 16px; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "lab lab" "val leg"; align-items: end; gap: 6px 14px; min-height: 0; height: auto; margin: 0; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  html body.tv-page .kpi-grid.compacto .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+  html body.tv-page .kpi-grid.compacto .stat-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  html body.tv-page .kpi-grid.compacto .stat-card.sel { outline: 2px solid var(--brand-text, #6ea8fe); outline-offset: 0; }
+  html body.tv-page .kpi-grid.compacto .stat-card .label { grid-area: lab; margin: 0; font-size: 13.5px; gap: 8px; }
+  html body.tv-page .kpi-grid.compacto .kpi-main { grid-area: val; margin: 0; }
+  html body.tv-page .kpi-grid.compacto .kpi-foot { grid-area: leg; margin: 0 0 4px; }
+  html body.tv-page .kpi-grid.compacto .stat-card .value, html body.tv-page .kpi-grid.compacto .stat-card .value.bad { font-size: 36px; line-height: 38px; margin: 0; }
+  html body.tv-page .kpi-grid.compacto .legend { margin: 0; text-align: left; }
+  html body.tv-page .kpi-grid.compacto .kpi-ico { width: 32px; height: 32px; border-radius: 11px; }
+  html body.tv-page .kpi-grid.compacto .kpi-ico svg { width: 17px; height: 17px; }
+  html body.tv-page .kpi-grid.compacto .kpi-foot .legend { font-size: 12px; line-height: 1.3; }
+  html body.tv-page .kpi-grid.compacto [data-tone="blue"] .value { color: var(--brand-text, #6ea8fe); }
+  html body.tv-page .kpi-grid.compacto [data-tone="green"] .value { color: var(--success); }
+  html body.tv-page .kpi-grid.compacto .stat-card.zero .value { color: var(--t3); }
+  .slr-tab tr[data-resp]:hover td, .slr-tab tr[data-urg]:hover td, .donut-leg li[data-prazo]:hover { background: var(--surface-low, rgba(255,255,255,.04)); }
+  .slr-tab tr.sel-linha td { background: var(--surface-mid, rgba(255,255,255,.08)); }
+  .tv-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.62); align-items: center; justify-content: center; padding: 3vh 3vw; }
+  .tv-modal-box { background: var(--surface); border: 1px solid var(--border-hi); border-radius: 22px; width: min(1500px,100%); max-height: 94vh; display: flex; flex-direction: column; padding: 22px 24px; box-shadow: 0 24px 80px rgba(0,0,0,.5); }
+  .tv-modal th { white-space: normal; line-height: 1.2; }
+  /* "Pendentes por equipe" ocupa a altura toda do card (que acompanha o "por pessoa", mais alto): a lista rola dentro dele, sem sobrar espaço vazio */
+  .pnl-preenche { display: flex; flex-direction: column; }
+  html[data-ui="v2"] .pnl-preenche > .rolagem { flex: 1 1 0; min-height: 0; max-height: none; }
+  .tv-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 10px; }
+  html body.tv-page .kpi-grid.compacto .stat-card:not(.versus) { align-content: start; }
+  html body.tv-page .kpi-grid.k3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  html body.tv-page .kpi-grid.compacto .stat-card.versus { display: flex; flex-direction: column; align-items: stretch; gap: 8px; cursor: default; }
+  html body.tv-page .kpi-grid.compacto .stat-card.versus:hover { transform: none; box-shadow: none; }
+  .vs-corpo { display: flex; align-items: center; gap: 14px; }
+  .vs-lado { flex: 1; display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: 12px; cursor: pointer; transition: background .12s; }
+  .vs-lado:hover { background: var(--surface-low, rgba(255,255,255,.06)); }
+  .vs-lado:focus-visible { outline: 2px solid var(--focus-ring); }
+  .vs-lado b { font-size: 38px; line-height: 40px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .vs-lado.ab b { color: var(--brand-text, #6ea8fe); } .vs-lado.fe b { color: var(--success); }
+  .vs-lado span { font-size: 13px; color: var(--t2); font-weight: 700; }
+  .leg-fixa { display:flex; gap:16px; flex-wrap:wrap; margin:2px 0 8px; font-size:13px; font-weight:700; color:var(--t2); }
+  .leg-fixa i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+  .vs-x { font-size: 22px; font-weight: 800; color: var(--t3); }
+  .vs-barra { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--border); }
+  .vs-barra i { display: block; height: 100%; transition: width .4s; } #vs-ab { background: #4f9cf0; } #vs-fe { background: #2fbf8a; }
+  html body.tv-page .kpi-grid.compacto .versus .legend { margin: 0; font-size: 12.5px; }
+  .filtro-card { display: none; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 14px; color: var(--t2); }
+  /* painéis */
   .chart-wrap { position: relative; width: 100%; }
-  .table-title { font-size: 19px; color: var(--text-danger); margin: 0 0 4px; font-weight: 500; }
-  table { width: 100%; font-size: 14px; border-collapse: collapse; table-layout: fixed; }
-  th {
-    background: var(--bg-card);
-    text-align: left;
-    color: var(--text-secondary);
-    padding: 12px 8px;
-    font-weight: 500;
-    position: sticky;
-    top: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  th.num, td.num { text-align: right; }
+  .tv-page .chart-panel .chart-title, .tv-page .data-panel .chart-title { font-size: 19px; font-weight: 800; margin: 0 0 2px; }
+  .tv-page .donut-row .chart-wrap { width: 210px; height: 210px; }
+  .tv-page .donut-leg li { font-size: 16px; padding: 9px 6px; cursor: default; }
+  .table-title { font-size: 19px; font-weight: 800; color: var(--t1); margin: 0 0 2px; }
+  .table-wrap { max-height: 56vh; overflow-y: auto; overflow-x: hidden; border-radius: 14px; }
+  table { width: 100%; font-size: 14.5px; border-collapse: collapse; table-layout: fixed; }
+  th { background: var(--surface-mid); text-align: left; color: var(--t3); padding: 12px 10px; font-weight: 800; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; position: sticky; top: 0; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  th:first-child { border-radius: 12px 0 0 12px; } th:last-child { border-radius: 0 12px 12px 0; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   th.center, td.center { text-align: center; }
-  td { padding: 10px 8px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td { padding: 12px 10px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--t1); font-weight: 600; }
   td.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge { padding: 4px 8px; border-radius: 6px; font-size: 13px; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge.danger { background: #3a1c1c; color: var(--text-danger); font-weight: 500; }
-  .badge.neutral { background: var(--bg-card); color: var(--text-secondary); }
-  .badge.ok { background: #163a24; color: #7fd99b; }
-  .table-wrap {
-    background: var(--bg-card-2);
-    border: 2px solid var(--border-danger);
-    border-radius: 12px;
-    overflow-x: hidden;
-    max-height: 56vh;
-    overflow-y: auto;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge legado */
-  }
-  .table-wrap::-webkit-scrollbar { display: none; } /* Chrome/Safari/Edge */
-  .danger-num { color: var(--text-danger); font-weight: 500; }
-  .empty-state { padding: 60px 0; text-align: center; color: var(--text-secondary); font-size: 18px; }
-  .ticket-link { color: #6fb3ff; text-decoration: none; font-weight: 500; }
+  .badge { padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 800; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge.danger { background: var(--danger-soft); color: var(--danger); }
+  .badge.neutral { background: var(--surface-low); color: var(--t2); }
+  .badge.ok { background: var(--success-soft); color: var(--success); }
+  .badge.warn { background: var(--warning-soft); color: var(--warning); }
+  .danger-num { color: var(--danger); font-weight: 800; }
+  .empty-state { padding: 60px 0; text-align: center; color: var(--t2); font-size: 18px; }
+  .ticket-link { color: var(--brand-text); text-decoration: none; font-weight: 800; }
   .ticket-link:hover { text-decoration: underline; }
+  .slr-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+  .slr-per { display:grid; gap:4px; font-size:12px; font-weight:700; color:var(--t3); }
+  .slr-per select { height:34px; padding:0 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--t1); font:inherit; font-size:13px; font-weight:600; }
+  .slr-resumo { display:flex; gap:10px 22px; flex-wrap:wrap; margin:14px 0 10px; font-size:13px; color:var(--t2); }
+  .slr-resumo b { color:var(--t1); font-size:20px; font-weight:800; margin-right:6px; letter-spacing:-.02em; }
+  .slr-scroll { max-height:520px; }
+  .slr-tab { width:100%; border-collapse:collapse; font-size:14px; }
+  .slr-tab th { text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--t3); font-weight:700; padding:8px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .slr-tab td { padding:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .slr-tab tr:last-child td { border-bottom:0; }
+  .slr-nome { display:flex; align-items:center; gap:10px; font-weight:700; color:var(--t1); min-width:170px; }
+  .slr-av { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; flex:none; }
+  .slr-sla { display:grid; gap:5px; min-width:200px; }
+  .slr-sla .linha { display:flex; align-items:baseline; gap:8px; }
+  .slr-sla .pct { font-size:20px; font-weight:800; letter-spacing:-.02em; }
+  .slr-sla .det { font-size:12px; color:var(--t3); }
+  .slr-barra { display:flex; height:9px; border-radius:999px; overflow:hidden; background:var(--border); }
+  .slr-barra i { display:block; height:100%; }
+  .slr-pend { display:flex; gap:6px; flex-wrap:wrap; align-items:center; min-width:190px; }
+  .slr-pend b.t { font-size:18px; font-weight:800; margin-right:4px; }
+  .slr-chip { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+  .slr-chip.r { background:var(--danger-soft,#fbe0e4); color:var(--danger,#b3263a); }
+  .slr-chip.g { background:var(--success-soft,#dcf4ea); color:var(--success,#0b7a55); }
+  .slr-chip.w { background:color-mix(in srgb,#f2b24a 18%,transparent); color:#b7791f; }
+  .slr-chip.n { background:var(--surface-low,#f6f2ed); color:var(--t3); }
+  .slr-imp { display:grid; gap:3px; min-width:190px; }
+  .slr-imp .a { font-size:16px; font-weight:800; color:var(--danger,#b3263a); }
+  .slr-imp .a.zero { color:var(--success,#0b7a55); }
+  .slr-imp .b { font-size:12px; color:var(--t3); }
+  .slr-nota { margin:12px 0 0; font-size:11.5px; line-height:1.45; color:var(--t3); }
+  .tv-erro { color: var(--danger); font-weight: 700; }
+  @media (max-width: 760px) { body { padding: 14px; } .tv-head h1 { font-size: 24px; } .tv-page .stat-card .value { font-size: 44px; } }
 </style>
+<link rel="stylesheet" href="../css/v2.css">
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
-<body>
+<body class="tv-page">
 <div class="container" id="tv-root">
-  <div class="top-bar">
-    <h1>Tickets pendentes — visão geral</h1>
+  <div class="tv-head">
+    <h1>Painel TV</h1>
+    <span class="sub">Tickets pendentes — visão geral</span>
+    <span class="esp"></span>
     <span class="clock" id="tv-clock"></span>
   </div>
   <p class="note" id="tv-updated">Carregando…</p>
@@ -103,87 +160,163 @@
     <select id="f-servico" aria-label="Filtrar por serviço">
       <option value="">Todos os serviços</option>
     </select>
-    <span class="filtro-chip" id="f-chip" style="display:none"></span>
+    <label for="f-equipe">Equipe</label>
+    <select id="f-equipe" aria-label="Filtrar por equipe">
+      <option value="">Todas as equipes</option>
+    </select>
+    <label for="f-resp">Responsável</label>
+    <select id="f-resp" aria-label="Filtrar por responsável">
+      <option value="">Todos os responsáveis</option>
+    </select>
+    <label for="f-cliente">Cliente</label>
+    <select id="f-cliente" aria-label="Filtrar por cliente">
+      <option value="">Todos os clientes</option>
+    </select>
+    <label for="f-classe">Classificação</label>
+    <select id="f-classe" aria-label="Filtrar por classificação">
+      <option value="">Todas as classificações</option>
+    </select>
+    <button type="button" class="btn-limpar" id="f-limpar" style="display:none">Limpar filtros</button>
+    <button type="button" class="btn-limpar" id="f-link" style="display:none">Link da TV</button>
   </div>
 
+  <div class="link-tv" id="link-tv-box"><span>Abra esta URL na TV (não precisa de login; quem tiver o link vê o painel):</span><input id="link-tv-url" readonly><button type="button" class="btn-limpar" id="link-copiar">Copiar</button><button type="button" class="btn-limpar" id="link-nova">Gerar novo link</button></div>
+
   <div id="tv-content" style="display:none">
-    <div class="kpi-grid">
-      <div class="kpi">
-        <p class="label">Pendentes</p>
-        <p class="value" id="k-pendentes">0</p>
+    <p class="kpi-titulo">Backlog agora</p>
+    <div class="kpi-grid k4 compacto k3">
+      <div data-tone="blue" class="stat-card" data-card="todos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
+        <div class="kpi-main"><p class="value" id="k-pendentes">0</p></div>
+        <div class="kpi-foot"><p class="legend">Tickets em aberto agora.</p></div>
       </div>
-      <div class="kpi danger">
-        <p class="label">Vencidos</p>
-        <p class="value" id="k-vencidos" style="color:var(--text-danger)">0</p>
+      <div data-tone="red" class="stat-card danger bk-hero" data-card="vencidos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Vencidos</p>
+        <div class="kpi-main"><p class="value" id="k-vencidos">0</p></div>
+        <div class="kpi-foot"><p class="legend">Prazo de SLA já passado.</p></div>
       </div>
-      <div class="kpi danger">
-        <p class="label">% do backlog vencido</p>
-        <p class="value" id="k-pct-vencido" style="color:var(--text-danger)">0%</p>
-      </div>
-      <div class="kpi">
-        <p class="label">Média ações/ticket</p>
-        <p class="value" id="k-media-acoes">0</p>
+      <div data-tone="red" class="stat-card danger" data-card="vencidos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/></svg></span>% do backlog vencido</p>
+        <div class="kpi-main"><p class="value bad" id="k-pct-vencido">0%</p></div>
+        <div class="kpi-foot"><p class="legend">Vencidos ÷ pendentes.</p></div>
       </div>
     </div>
 
-    <div class="grid-2">
-      <div class="panel">
+    <p class="kpi-titulo">Movimento do dia e críticos</p>
+    <div class="kpi-grid k4 compacto k3 kpi-dia">
+      <div data-tone="blue" class="stat-card versus" id="card-versus">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M3 14l4 4 4-4"/><path d="M17 20V6M13 10l4-4 4 4"/></svg></span>Abertos × fechados hoje</p>
+        <div class="vs-corpo">
+          <div class="vs-lado ab" data-card="abertos-hoje" role="button" tabindex="0" title="Ver os chamados abertos hoje"><b id="k-abertos-hoje">0</b><span>abertos</span></div>
+          <span class="vs-x">×</span>
+          <div class="vs-lado fe" data-card="fechados-hoje" role="button" tabindex="0" title="Ver os chamados fechados hoje"><b id="k-fechados-hoje">0</b><span>fechados</span></div>
+        </div>
+        <div class="vs-barra" aria-hidden="true"><i id="vs-ab"></i><i id="vs-fe"></i></div>
+      </div>
+      <div data-tone="red" class="stat-card danger" data-card="criticos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Críticos pendentes</p>
+        <div class="kpi-main"><p class="value" id="k-criticos">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-criticos-l">Urgência crítica em aberto.</p></div>
+      </div>
+      <div data-tone="red" class="stat-card danger" data-card="criticos-venc">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Críticos vencidos</p>
+        <div class="kpi-main"><p class="value" id="k-criticos-venc">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-criticos-venc-l">Críticos com prazo de SLA passado.</p></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel pnl-preenche">
         <p class="chart-title">Pendentes por equipe</p>
-        <div class="chart-wrap" style="height:240px;">
-          <canvas id="teamChart"></canvas>
-        </div>
+        <p class="chart-sub">Equipes com mais chamados em aberto.</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:240px;"><canvas id="teamChart"></canvas></div></div>
       </div>
-      <div class="panel">
+      <div class="chart-panel">
+        <p class="chart-title">Pendentes por pessoa</p>
+        <p class="chart-sub">Chamados em aberto por responsável, separados por situação do prazo.</p>
+        <div class="leg-fixa"><span><i style="background:#ee6f82"></i>Vencido</span><span><i style="background:#f2b24a"></i>Pausado</span><span><i style="background:#a6adbf"></i>Sem prazo</span><span><i style="background:#2fbf8a"></i>No prazo</span></div>
+        <div class="rolagem rank-scroll" style="max-height:520px"><div class="chart-wrap" id="pessoaWrap" style="height:240px;"><canvas id="pessoaChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel">
         <p class="chart-title">Situação do prazo</p>
-        <div class="chart-wrap" style="height:240px;">
-          <canvas id="prazoChart"></canvas>
+        <p class="chart-sub">Pendentes por situação do SLA.</p>
+        <div class="donut-row"><div class="chart-wrap"><canvas id="prazoChart"></canvas></div><ul class="donut-leg" id="prazoChart-leg"></ul></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">SLA por urgência</p>
+        <p class="chart-sub">Pendentes de cada urgência e quantos já estão com o prazo vencido.</p>
+        <div class="rolagem" id="urg-lista" style="max-height:520px"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="data-panel danger">
+        <p class="table-title">Chamados pendentes — do mais antigo ao mais novo <span id="tv-table-count" style="color:var(--t3);font-weight:700;font-size:15px"></span></p>
+        <p class="chart-sub">Todos os pendentes do filtro, ordenados pelo tempo em aberto (dias; menos de 1 dia aparece em horas); role a tabela para ver o restante. "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col style="width:6%"><col style="width:13%"><col style="width:22%"><col style="width:14%"><col style="width:7%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th>
+                <th class="num">Tempo aberto</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th>
+                <th class="center">Status real</th><th class="center">Status prazo</th>
+              </tr>
+            </thead>
+            <tbody id="tv-table-body"></tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <p class="table-title">Tickets mais antigos em aberto — ação imediata</p>
-    <p class="note">Ordenado por dias em aberto (desc). "Sem retorno" conta só ações públicas (visíveis ao cliente) — agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
-    <div class="table-wrap">
-      <table>
-        <colgroup>
-          <col style="width:5%">
-          <col style="width:13%">
-          <col style="width:22%">
-          <col style="width:15%">
-          <col style="width:7%">
-          <col style="width:9%">
-          <col style="width:9%">
-          <col style="width:10%">
-          <col style="width:10%">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Ticket</th>
-            <th>Cliente</th>
-            <th>Assunto</th>
-            <th>Responsável</th>
-            <th class="num">Dias aberto</th>
-            <th class="num">Sem retorno (agente)</th>
-            <th class="num">Sem retorno (cliente)</th>
-            <th class="center">Status real</th>
-            <th class="center">Status prazo</th>
-          </tr>
-        </thead>
-        <tbody id="tv-table-body"></tbody>
-      </table>
+    <div class="hrow c-1">
+      <div class="chart-panel" id="slaresp-panel">
+        <div class="slr-head">
+          <div>
+            <p class="chart-title">SLA individual por analista</p>
+            <p class="chart-sub" id="slr-sub">Suporte Técnico — resolvidos dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.</p>
+          </div>
+          <label class="slr-per">Período dos resolvidos
+            <select id="slr-periodo" aria-label="Período dos resolvidos">
+              <option value="mes">Mês atual</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="ano">Ano atual</option>
+            </select>
+          </label>
+        </div>
+        <div class="slr-resumo" id="slr-resumo"></div>
+        <div class="rolagem slr-scroll" id="slr-lista"><p class="imp-vazio">Carregando…</p></div>
+        <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo.</p>
+      </div>
     </div>
+  </div>
+</div>
+
+<div id="tv-modal" class="tv-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="tv-modal-titulo">
+  <div class="tv-modal-box">
+    <div class="tv-modal-head"><div><p class="table-title" id="tv-modal-titulo"></p><p class="chart-sub" id="tv-modal-sub"></p></div><button type="button" class="btn-limpar" id="tv-modal-x">Fechar ✕</button></div>
+    <div class="table-wrap" id="tv-modal-corpo" style="max-height:none;flex:1"></div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 const API = `${location.origin}/api`;
+// Link da TV (sem login): painel-tv.html?k=CHAVE — a chave é gerada em "Link da TV" (só admin).
+const CHAVE_TV=new URLSearchParams(location.search).get('k')||'';
 function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
 async function api(ep,timeoutMs=60000){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
-    const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},signal:ctrl.signal,cache:'no-store'});
+    const k=CHAVE_TV?`${ep.includes('?')?'&':'?'}k=${encodeURIComponent(CHAVE_TV)}`:'';
+    const r=await fetch(`${API}${ep}${k}`,{headers:tok()?{Authorization:`Bearer ${tok()}`}:{},signal:ctrl.signal,cache:'no-store'});
     if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
     return r.json();
   } catch(e){
@@ -200,6 +333,15 @@ function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANC
 function temPrazo(r){ return !!r.sla_solucao; }
 function isVencido(r){ return temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
 function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
+// Idade do chamado em ms (ordenação exata) e texto: menos de 1 dia mostra horas ("5 h"); menos de 1 hora, minutos.
+const fmtDataHora=v=>{ const d=new Date(v); return isNaN(d)?'':'Aberto em '+d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
+function idadeMs(r){ const t=new Date(r.criado_em).getTime(); return isNaN(t)?0:Math.max(0,Date.now()-t); }
+function tempoAberto(r){
+  const ms=idadeMs(r);
+  if(ms>=86400000) return Math.floor(ms/86400000).toLocaleString('pt-BR');
+  if(ms>=3600000) return `${Math.floor(ms/3600000)} h`;
+  return `${Math.max(1,Math.floor(ms/60000))} min`;
+}
 function ticketUrl(id){ return `https://viasoft.movidesk.com/Ticket/Edit/${id}`; }
 // "Sem retorno" conta só AÇÕES PÚBLICAS (visíveis ao cliente, is_public=true
 // em silver.ticket_acao) — não conta desde a abertura nem desde qualquer
@@ -212,65 +354,102 @@ function diasSemRetornoDe(dataStr){
   return Math.floor((Date.now()-new Date(dataStr).getTime())/86400000);
 }
 function statusPrazoDe(r){
-  if(!temPrazo(r)) return 'Sem Prazo';
+  // Aguardando (Stopped) sem data: o relógio do SLA está pausado (o Movidesk não informa o prazo enquanto pausa)
+  if(!temPrazo(r)) return r.base_status==='Stopped'?'Pausado':'Sem Prazo';
   return isVencido(r)?'Vencido':'No Prazo';
 }
 
 let _rowsAll=[]; // todos os pendentes
+let _hojeAll=[]; // movimento do dia (abertos/fechados hoje)
+let _pessoaChart=null;
 let _rows=[];    // pendentes depois do filtro de serviço
 let _teamChart=null, _prazoChart=null;
 
-// Ao escolher um serviço, o painel mostra só os chamados daquele serviço com esta
-// classificação. Sem serviço escolhido, mostra todos os pendentes.
-const CLASSIFICACAO_DO_SERVICO='Suporte Técnico';
 const semAcentoMin=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-const ehClassificacaoAlvo=r=>semAcentoMin(r.classificacao)===semAcentoMin(CLASSIFICACAO_DO_SERVICO);
 
-// O painel roda sem ninguém mexendo: a escolha fica salva no navegador (e a URL
-// pode fixar um serviço: painel-tv.html?servico=Nome do serviço).
-const CHAVE_SERVICO='painelTvServico';
-function lerServicoSalvo(){
+// O painel roda sem ninguém mexendo: as escolhas ficam salvas no navegador (e a URL pode fixar:
+// painel-tv.html?servico=Nome&equipe=Nome&classificacao=Nome). Sem escolha = tudo.
+const CHAVES={servico:'painelTvServico',equipe:'painelTvEquipe',classe:'painelTvClasse',resp:'painelTvResp',cli:'painelTvCliente'};
+const PARAM_URL={servico:'servico',equipe:'equipe',classe:'classificacao',resp:'responsavel',cli:'cliente'};
+function lerSalvo(c){
   try{
-    const u=new URLSearchParams(location.search).get('servico');
+    const u=new URLSearchParams(location.search).get(PARAM_URL[c]);
     if(u!==null) return u;
-    return localStorage.getItem(CHAVE_SERVICO)||'';
+    return localStorage.getItem(CHAVES[c])||'';
   }catch(_){ return ''; }
 }
-let _servicoSel=lerServicoSalvo();
-
-function montarOpcoesServico(){
-  const sel=document.getElementById('f-servico');
-  // conta, por serviço, só os que têm a classificação alvo (é o que vai aparecer)
-  const cont={};
-  _rowsAll.forEach(r=>{
-    const sv=(r.servico||'').trim();
-    if(!sv) return;
-    cont[sv]=cont[sv]||0;
-    if(ehClassificacaoAlvo(r)) cont[sv]++;
-  });
-  if(_servicoSel && !(_servicoSel in cont)) cont[_servicoSel]=0; // não perde a escolha se o serviço zerou
-  const servicos=Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt'));
-  sel.innerHTML='<option value="">Todos os serviços</option>'+servicos.map(sv=>
-    `<option value="${escAttr(sv)}">${esc(sv)} (${cont[sv]})</option>`).join('');
-  sel.value=_servicoSel;
+function salvar(c,v){ try{ localStorage.setItem(CHAVES[c],v); }catch(_){} }
+let _servicoSel=lerSalvo('servico'), _equipeSel=lerSalvo('equipe'), _classeSel=lerSalvo('classe'), _respSel=lerSalvo('resp'), _cliSel=lerSalvo('cli');
+const equipeDe=r=>(r.equipe||'').trim()||'Não informado';
+const classeDe=r=>(r.classificacao||'').trim()||'Sem classificação';
+const norm=semAcentoMin;
+const casaServico=r=>!_servicoSel||(r.servico||'').trim()===_servicoSel;
+const casaClasse=r=>!_classeSel||norm(classeDe(r))===norm(_classeSel);
+const casaEquipe=r=>!_equipeSel||equipeDe(r)===_equipeSel;
+const respDe=r=>(r.responsavel||'').trim()||'Não atribuído';
+const cliDe=r=>(r.organizacao||r.cliente_nome||'').trim()||'Não informado';
+const casaResp=r=>!_respSel||respDe(r)===_respSel;
+const casaCli=r=>!_cliSel||cliDe(r)===_cliSel;
+const casaTodos=r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&casaResp(r)&&casaCli(r);
+function contar(rows,fn){ const c={}; rows.forEach(r=>{ const k=fn(r); if(k) c[k]=(c[k]||0)+1; }); return c; }
+function preencher(id,todos,cont,sel){
+  const el=document.getElementById(id);
+  if(sel && !(sel in cont)) cont[sel]=0;   // não perde a escolha se zerou
+  el.innerHTML=`<option value="">${todos}</option>`+Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt')).map(v=>`<option value="${escAttr(v)}">${esc(v)} (${cont[v]})</option>`).join('');
+  el.value=sel;
+}
+// Cada filtro mostra as contagens considerando os outros dois.
+function montarOpcoes(){
+  const sem=(...fora)=>_rowsAll.filter(r=>[['servico',casaServico],['classe',casaClasse],['equipe',casaEquipe],['resp',casaResp],['cli',casaCli]].every(([k,f])=>fora.includes(k)||f(r)));
+  preencher('f-servico','Todos os serviços',contar(sem('servico'),r=>(r.servico||'').trim()),_servicoSel);
+  preencher('f-classe','Todas as classificações',contar(sem('classe'),classeDe),_classeSel);
+  preencher('f-equipe','Todas as equipes',contar(sem('equipe'),equipeDe),_equipeSel);
+  preencher('f-resp','Todos os responsáveis',contar(sem('resp'),respDe),_respSel);
+  preencher('f-cliente','Todos os clientes',contar(sem('cli'),cliDe),_cliSel);
 }
 function aplicarFiltro(){
-  _rows=_servicoSel
-    ? _rowsAll.filter(r=>(r.servico||'').trim()===_servicoSel && ehClassificacaoAlvo(r))
-    : _rowsAll.slice();
-  const chip=document.getElementById('f-chip');
-  chip.style.display=_servicoSel?'':'none';
-  chip.textContent=`Classificação: ${CLASSIFICACAO_DO_SERVICO}`;
+  montarOpcoes();
+  _rows=_rowsAll.filter(casaTodos);
+  document.getElementById('f-limpar').style.display=(_servicoSel||_equipeSel||_classeSel||_respSel||_cliSel)?'':'none';
+}
+// Hora em que os dados do painel foram atualizados de verdade (fim da última carga do Movidesk), não a do navegador.
+let _dadosEm='';
+async function carregarFrescor(){
+  try{
+    const f=await api('/geral/frescor-tv',15000);
+    _dadosEm=f.atualizadoEm?new Date(f.atualizadoEm).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'sem registro';
+  }catch(_){ /* mantém o último valor */ }
 }
 function atualizarNota(){
-  const filtro=_servicoSel?` — serviço "${_servicoSel}", classificação ${CLASSIFICACAO_DO_SERVICO}`:'';
-  document.getElementById('tv-updated').textContent=`Atualizado às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
+  const filtro=(_servicoSel?` — serviço "${_servicoSel}"`:'')+(_classeSel?` — classificação "${_classeSel}"`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'')+(_respSel?` — responsável "${_respSel}"`:'')+(_cliSel?` — cliente "${_cliSel}"`:'');
+  document.getElementById('tv-updated').textContent=`Dados atualizados em ${_dadosEm||'—'} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
 }
-document.getElementById('f-servico').addEventListener('change',e=>{
-  _servicoSel=e.target.value;
-  try{ localStorage.setItem(CHAVE_SERVICO,_servicoSel); }catch(_){}
-  aplicarFiltro(); render(); atualizarNota();
+function refiltrar(){ aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis(); }
+document.getElementById('f-servico').addEventListener('change',e=>{ _servicoSel=e.target.value; salvar('servico',_servicoSel); refiltrar(); });
+document.getElementById('f-classe').addEventListener('change',e=>{ _classeSel=e.target.value; salvar('classe',_classeSel); refiltrar(); });
+document.getElementById('f-equipe').addEventListener('change',e=>{ _equipeSel=e.target.value; salvar('equipe',_equipeSel); refiltrar(); });
+document.getElementById('f-resp').addEventListener('change',e=>{ _respSel=e.target.value; salvar('resp',_respSel); refiltrar(); });
+document.getElementById('f-cliente').addEventListener('change',e=>{ _cliSel=e.target.value; salvar('cli',_cliSel); refiltrar(); });
+document.getElementById('f-limpar').addEventListener('click',()=>{
+  _servicoSel=_equipeSel=_classeSel=_respSel=_cliSel='';
+  ['servico','equipe','classe','resp','cli'].forEach(c=>salvar(c,''));
+  if(location.search.match(/(servico|equipe|classificacao|responsavel|cliente)=/)){ const u=new URL(location.href); ['servico','equipe','classificacao','responsavel','cliente'].forEach(x=>u.searchParams.delete(x)); history.replaceState(null,'',u); }
+  refiltrar();
 });
+// "Link da TV": só aparece para quem está logado como admin (a chave só é entregue ao admin).
+(async function(){
+  if(CHAVE_TV||!tok()) return;
+  let chave; try{ chave=(await api('/geral/tv-chave',15000)).chave; }catch(_){ return; }
+  const btn=document.getElementById('f-link'), box=document.getElementById('link-tv-box'), inp=document.getElementById('link-tv-url');
+  const url=c=>`${location.origin}${location.pathname}?k=${c}`;
+  btn.style.display='';
+  btn.addEventListener('click',()=>{ inp.value=url(chave); box.style.display=box.style.display==='flex'?'none':'flex'; });
+  document.getElementById('link-copiar').addEventListener('click',async e=>{ inp.select(); try{ await navigator.clipboard.writeText(inp.value); e.target.textContent='Copiado!'; setTimeout(()=>e.target.textContent='Copiar',1500); }catch(_){ document.execCommand('copy'); } });
+  document.getElementById('link-nova').addEventListener('click',async()=>{
+    if(!confirm('Gerar um novo link? O link antigo (usado nas TVs) deixa de funcionar.')) return;
+    try{ const r=await fetch(`${API}/geral/tv-chave`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`}}); chave=(await r.json()).chave; inp.value=url(chave); }catch(e){ alert('Não foi possível gerar: '+e.message); }
+  });
+})();
 
 function updateClock(){
   const el=document.getElementById('tv-clock');
@@ -281,14 +460,16 @@ async function loadPainelTV(){
   try{
     const resp=await api('/geral/pendentes',60000);
     _rowsAll=(resp.rows||[]).filter(isAberto);
-    montarOpcoesServico();
+    _hojeAll=resp.hoje||[];
     aplicarFiltro();
     render();
     document.getElementById('tv-content').style.display='block';
+    await carregarFrescor();
     atualizarNota();
+    carregarSlaResponsaveis();
   } catch(e){
     document.getElementById('tv-content').style.display='none';
-    document.getElementById('tv-updated').innerHTML=`<span style="color:var(--text-danger)">Erro ao carregar: ${esc(e.message)}</span>`;
+    document.getElementById('tv-updated').innerHTML=`<span style="color:var(--danger)">Erro ao carregar: ${esc(e.message)}</span>`;
   }
 }
 
@@ -297,17 +478,36 @@ function render(){
   const vencidosRows=_rows.filter(isVencido);
   const vencidos=vencidosRows.length;
   const pctVencido=pendentes?vencidos/pendentes*100:0;
-  const somaAcoes=_rows.reduce((s,r)=>s+Number(r.acoes_count||0),0);
-  const mediaAcoes=pendentes?somaAcoes/pendentes:0;
 
   document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
   document.getElementById('k-vencidos').textContent=vencidos.toLocaleString('pt-BR');
   document.getElementById('k-pct-vencido').textContent=`${pctVencido.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
-  document.getElementById('k-media-acoes').textContent=mediaAcoes.toLocaleString('pt-BR',{maximumFractionDigits:2});
 
+  renderHoje(vencidosRows);
   renderTeamChart();
   renderPrazoChart();
+  renderPessoaChart();
+  renderUrgencia();
   renderTable();
+}
+
+function donutTv(id,itens){
+  const cv=document.getElementById(id), leg=document.getElementById(id+'-leg'); if(!cv) return;
+  if(_prazoChart){ _prazoChart.destroy(); _prazoChart=null; }
+  const total=itens.reduce((a,i)=>a+i.valor,0);
+  const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  if(leg) leg.innerHTML=itens.map(i=>`<li data-prazo="${escAttr(i.chave||'')}" style="cursor:pointer" title="Ver os chamados"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+  if(!total) return;
+  const t1=cs('--t1'), t3=cs('--t3');
+  const centro={id:'centroRosca',afterDraw(ch){
+    const {ctx,chartArea:a}=ch, x=(a.left+a.right)/2, y=(a.top+a.bottom)/2;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=t1; ctx.font='800 34px Manrope,system-ui,sans-serif'; ctx.fillText(total.toLocaleString('pt-BR'),x,y-8);
+    ctx.fillStyle=t3; ctx.font='600 13px Manrope,system-ui,sans-serif'; ctx.fillText('pendentes',x,y+20); ctx.restore(); }};
+  _prazoChart=new Chart(cv,{type:'doughnut',
+    data:{labels:itens.map(i=>i.label),datasets:[{data:itens.map(i=>i.valor),backgroundColor:itens.map(i=>i.cor),borderWidth:0,borderRadius:10,spacing:3}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'76%',plugins:{legend:{display:false}},
+      onClick:(e,els)=>{ if(els.length) abrirModal({prazo:itens[els[0].index].chave}); }, onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }},plugins:[centro]});
 }
 
 function renderTeamChart(){
@@ -316,20 +516,26 @@ function renderTeamChart(){
     const e=r.equipe||'Não informado';
     porEquipe[e]=(porEquipe[e]||0)+1;
   });
-  const entries=Object.entries(porEquipe).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const entries=Object.entries(porEquipe).sort((a,b)=>b[1]-a[1]).slice(0,30);
+  const cv=document.getElementById('teamChart'), wrap=cv.parentElement;
+  wrap.style.height=Math.max(220,entries.length*38+24)+'px';
+  const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2');
+  const valores={id:'valoresBarras',afterDatasetsDraw(ch){
+    const c=ch.ctx; c.save(); c.font='800 14px Manrope,system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=cs('--t1');
+    ch.getDatasetMeta(0).data.forEach((b,i)=>c.fillText(Number(entries[i][1]).toLocaleString('pt-BR'),b.x+8,b.y)); c.restore(); }};
   if(_teamChart) _teamChart.destroy();
-  _teamChart=new Chart(document.getElementById('teamChart'), {
+  _teamChart=new Chart(cv, {
     type: 'bar',
-    data: {
-      labels: entries.map(e=>e[0]),
-      datasets: [{ data: entries.map(e=>e[1]), backgroundColor: '#e66767', borderRadius: 4 }]
-    },
+    data: { labels: entries.map(e=>e[0]), datasets: [{ data: entries.map(e=>e[1]), backgroundColor: '#ff8a2b', borderRadius: 8, barPercentage: .7, categoryPercentage: .85 }] },
+    plugins: [valores],
     options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { right: 48 } },
+      onClick: (e, els) => { if (els.length) abrirModal({ equipe: entries[els[0].index][0] }); },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { color: '#33333d' }, ticks: { color: '#a3a2a0', font: { size: 13 }, precision: 0 } },
-        y: { grid: { display: false }, ticks: { color: '#a3a2a0', font: { size: 13 } } }
+        x: { display: false, beginAtZero: true },
+        y: { grid: { display: false }, border: { display: false }, ticks: { color: t2, font: { size: 14, weight: '700' } } }
       }
     }
   });
@@ -338,52 +544,235 @@ function renderTeamChart(){
 function renderPrazoChart(){
   const vencido=_rows.filter(r=>statusPrazoDe(r)==='Vencido').length;
   const semPrazo=_rows.filter(r=>statusPrazoDe(r)==='Sem Prazo').length;
+  const pausado=_rows.filter(r=>statusPrazoDe(r)==='Pausado').length;
   const noPrazo=_rows.filter(r=>statusPrazoDe(r)==='No Prazo').length;
-  if(_prazoChart) _prazoChart.destroy();
-  _prazoChart=new Chart(document.getElementById('prazoChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Vencido','Sem Prazo','No Prazo'],
-      datasets: [{ data: [vencido,semPrazo,noPrazo], backgroundColor: ['#e66767','#898781','#3987e5'], borderWidth: 0 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: 'bottom', labels: { color: '#a3a2a0', boxWidth: 14, font: { size: 13 } } } },
-      cutout: '60%'
-    }
-  });
+  donutTv('prazoChart',[{label:'Vencido',chave:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',chave:'Pausado',valor:pausado,cor:'#f2b24a'},{label:'Sem prazo',chave:'Sem Prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',chave:'No Prazo',valor:noPrazo,cor:'#2fbf8a'}]);
 }
+
+
+// ── Movimento do dia, críticos, pessoa e urgência ───────────────────────
+// Crítico = urgência com "crítica/crítico", "urgente" ou "emergência" no nome (a lista completa aparece em "SLA por urgência").
+const ehCritico=r=>/^(critic|urgent|emerg)/.test(semAcentoMin(r.urgencia));
+const urgenciaDe=r=>(r.urgencia||'').trim()||'Não informada';
+const hojeBR=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+const diaBR=v=>v?new Date(v).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}):'';
+function renderHoje(vencidosRows){
+  const hoje=hojeBR();
+  const mov=_hojeAll.filter(casaTodos);
+  const abertos=mov.filter(r=>diaBR(r.criado_em)===hoje).length, fechados=mov.filter(r=>diaBR(r.fechado_em)===hoje).length;
+  const set=(id,v,l)=>{ const el=document.getElementById(id); el.textContent=v.toLocaleString('pt-BR'); el.closest('.stat-card').classList.toggle('zero',v===0); if(l!=null) document.getElementById(id+'-l').textContent=l; };
+  document.getElementById('k-abertos-hoje').textContent=abertos.toLocaleString('pt-BR');
+  document.getElementById('k-fechados-hoje').textContent=fechados.toLocaleString('pt-BR');
+  const tot=abertos+fechados;
+  document.getElementById('vs-ab').style.width=(tot?abertos/tot*100:50)+'%';
+  document.getElementById('vs-fe').style.width=(tot?fechados/tot*100:50)+'%';
+  document.getElementById('card-versus').classList.toggle('bom',fechados>=abertos);
+  const crit=_rows.filter(ehCritico);
+  set('k-criticos',crit.length,crit.length?`${(crit.length/Math.max(_rows.length,1)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes.`:'Nenhum chamado crítico em aberto.');
+  set('k-criticos-venc',crit.filter(isVencido).length);
+}
+// Quem aparece na barra: o responsável; sem responsável mas com equipe, "Não atribuído · <equipe>"; sem nenhum dos dois, só "Não atribuído".
+const SEM_DONO='Não atribuído';
+function pessoaDe(r){
+  const n=(r.responsavel||'').trim(); if(n) return n;
+  const eq=String(r.equipe||'').replace(/\s+/g,' ').trim();
+  return eq?`${SEM_DONO} · ${eq}`:SEM_DONO;
+}
+const semDono=n=>n===SEM_DONO||n.startsWith(SEM_DONO+' · ');
+// No gráfico, quem não tem responsável aparece só com o nome da equipe (a chave interna "Não atribuído · equipe" mantém essas barras no topo e o clique certo).
+const rotuloPessoa=n=>n.startsWith(SEM_DONO+' · ')?n.slice(SEM_DONO.length+3):n;
+function renderPessoaChart(){
+  const por={};
+  _rows.forEach(r=>{ const n=pessoaDe(r); const o=por[n]||(por[n]={Vencido:0,'No Prazo':0,Pausado:0,'Sem Prazo':0,t:0}); o[statusPrazoDe(r)]++; o.t++; });
+  // Ordem decrescente por total. Os "Não atribuído" NÃO definem a escala: um backlog sem dono muito maior que o de qualquer pessoa achatava todas as barras.
+  const nomes=Object.keys(por).sort((a,b)=>por[b].t-por[a].t||a.localeCompare(b,'pt'));   // maior total primeiro (equipes sem responsável e pessoas juntas)
+  const maxPessoas=Math.max(1,...nomes.filter(n=>!semDono(n)).map(n=>por[n].t));
+  const maxSemDono=Math.max(0,...nomes.filter(semDono).map(n=>por[n].t));
+  const escalaMax=maxSemDono>maxPessoas*1.25?Math.ceil(maxPessoas*1.2):undefined;   // só corta se for realmente discrepante
+  const cv=document.getElementById('pessoaChart'), wrap=document.getElementById('pessoaWrap');
+  wrap.style.height=Math.max(220,nomes.length*34+30)+'px';
+  const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2'), t1=cs('--t1');
+  const defs=[['Vencido','#ee6f82'],['Pausado','#f2b24a'],['Sem Prazo','#a6adbf'],['No Prazo','#2fbf8a']];
+  const total={id:'totalPessoa',afterDatasetsDraw(ch){ const c=ch.ctx; c.save(); c.font='800 14px Manrope,system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=t1;
+    const last=ch.getDatasetMeta(ch.data.datasets.length-1).data, dir=ch.chartArea.right;
+    last.forEach((b,i)=>{ const cortada=escalaMax&&por[nomes[i]].t>escalaMax; c.fillText((cortada?'▸ ':'')+por[nomes[i]].t.toLocaleString('pt-BR'),Math.min(b.x,dir)+8,b.y); }); c.restore(); }};
+  if(_pessoaChart) _pessoaChart.destroy();
+  _pessoaChart=new Chart(cv,{type:'bar',
+    data:{labels:nomes.map(rotuloPessoa),datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9}))},
+    plugins:[total],
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48}},
+      onClick:(e,els)=>{ if(els.length) abrirModal({pessoa:nomes[els[0].index],prazo:defs[els[0].datasetIndex][0]}); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },plugins:{legend:{display:false}},
+      scales:{x:{display:false,stacked:true,beginAtZero:true,max:escalaMax},y:{stacked:true,grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:13,weight:'700'}}}}}});
+}
+function renderUrgencia(){
+  const por={};
+  _rows.forEach(r=>{ const u=urgenciaDe(r); const o=por[u]||(por[u]={t:0,v:0,n:0,p:0,s:0,crit:ehCritico(r)}); o.t++; const sp=statusPrazoDe(r); if(sp==='Vencido')o.v++; else if(sp==='No Prazo')o.n++; else if(sp==='Pausado')o.p++; else o.s++; });
+  const lista=Object.keys(por).sort((a,b)=>(por[b].crit-por[a].crit)||por[b].v-por[a].v||por[b].t-por[a].t);
+  const el=document.getElementById('urg-lista');
+  if(!lista.length){ el.innerHTML='<p class="imp-vazio">Nenhum chamado pendente.</p>'; return; }
+  const fmt=n=>n.toLocaleString('pt-BR');
+  el.innerHTML='<table class="slr-tab"><thead><tr><th>Urgência</th><th>Pendentes</th><th>Vencidos</th><th>% vencido</th><th>Situação do prazo</th></tr></thead><tbody>'+lista.map(u=>{
+    const o=por[u], pct=o.t?o.v/o.t*100:0, cor=pct>=40?'var(--danger)':pct>=20?'var(--warning)':'var(--success)';
+    return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" ><td><b>${esc(u)}</b></td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
+      <td style="color:${cor};font-weight:800">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
+      <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} sem prazo · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
+  }).join('')+'</tbody></table>';
+}
+
+const ROTULO_CARD={todos:'Chamados pendentes',vencidos:'Chamados vencidos',criticos:'Chamados críticos pendentes','criticos-venc':'Chamados críticos vencidos','abertos-hoje':'Chamados abertos hoje','fechados-hoje':'Chamados fechados hoje'};
+// spec = { card, urg, equipe, pessoa, prazo }: o que foi clicado (card, urgência, barra de equipe/pessoa, fatia do prazo, analista).
+const prazoRotulo={Vencido:'Vencidos','No Prazo':'No prazo',Pausado:'Pausados (aguardando)','Sem Prazo':'Sem prazo'};
+function linhasDe(sp){
+  const {card,urg,equipe,pessoa,prazo}=sp;
+  if(card==='abertos-hoje'||card==='fechados-hoje'){
+    const hoje=hojeBR(), ab=card==='abertos-hoje';
+    return _hojeAll.filter(r=>casaTodos(r)&&diaBR(ab?r.criado_em:r.fechado_em)===hoje).map(r=>({...r,_hoje:ab?'aberto':'fechado'}));
+  }
+  let l=_rows;
+  if(urg) l=l.filter(r=>urgenciaDe(r)===urg);
+  if(equipe) l=l.filter(r=>(r.equipe||'Não informado')===equipe);
+  if(pessoa) l=l.filter(r=>pessoaDe(r)===pessoa);
+  if(prazo) l=l.filter(r=>statusPrazoDe(r)===prazo);
+  if(card==='vencidos') l=l.filter(isVencido);
+  else if(card==='criticos') l=l.filter(ehCritico);
+  else if(card==='criticos-venc') l=l.filter(r=>ehCritico(r)&&isVencido(r));
+  return l;
+}
+const tituloDe=sp=>{
+  const partes=[];
+  if(sp.card&&ROTULO_CARD[sp.card]) partes.push(ROTULO_CARD[sp.card]);
+  if(sp.equipe) partes.push(`Equipe "${sp.equipe}"`);
+  if(sp.pessoa) partes.push(sp.pessoa);
+  if(sp.urg) partes.push(`Urgência "${sp.urg}"`);
+  if(sp.prazo) partes.push(prazoRotulo[sp.prazo]||sp.prazo);
+  return partes.length?partes.join(' · '):'Chamados pendentes';
+};
+function linhaHtml(r){
+  const link=`<a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a>`;
+  const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||r.cliente_nome||'')}">${esc(r.organizacao||r.cliente_nome||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num" title="${escAttr(fmtDataHora(r.criado_em))}">${tempoAberto(r)}</td>`;
+  const st=r.status_movidesk||r.base_status||'—';
+  if(r._hoje) return `<tr>${base}<td class="num">—</td><td class="num">—</td><td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
+  const sp=statusPrazoDe(r), bc=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
+  // Sem retorno: "…" = as ações do chamado ainda não chegaram ao banco (a fila de detalhes está carregando);
+  // agente nunca respondeu publicamente = conta desde a abertura; cliente que nunca escreveu = "—".
+  const semAcoes=Number(r.acoes_count||0)===0;
+  let dA=diasSemRetornoDe(r.ultima_publica_agente), dC=diasSemRetornoDe(r.ultima_publica_cliente), nuncaA=false;
+  if(!semAcoes&&dA==null){ dA=diasSemRetornoDe(r.criado_em); nuncaA=true; }
+  const celula=(v,dica)=>semAcoes?`<td class="num" style="color:var(--t3)" title="Ações do chamado ainda sendo carregadas">…</td>`:`<td class="num danger-num" ${dica?`title="${escAttr(dica)}"`:''}>${v!=null?v:'—'}</td>`;
+  return `<tr>${base}${celula(dA,nuncaA?'A equipe ainda não respondeu publicamente: contado desde a abertura':'')}${celula(dC,dC==null?'O cliente não enviou mensagem pública':'')}<td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp)}</span></td></tr>`;
+}
+const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th><th class="num">Tempo aberto</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th><th class="center">Status real</th><th class="center">Status prazo</th></tr></thead>';
+const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:22%"><col style="width:14%"><col style="width:7%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';
+// Modal com a lista de chamados do card/urgência clicado.
+let _modalSel=null;
+function abrirModal(sp){
+  if(typeof sp==='string') sp={card:sp};
+  _modalSel=sp;
+  const lista=[...linhasDe(sp)].sort((a,b)=>idadeMs(b)-idadeMs(a));
+  document.getElementById('tv-modal-titulo').textContent=tituloDe(sp);
+  document.getElementById('tv-modal-sub').textContent=`${lista.length.toLocaleString('pt-BR')} chamado(s)${lista.length?' — do mais antigo ao mais novo':''}. Clique no número para abrir no Movidesk.`;
+  document.getElementById('tv-modal-corpo').innerHTML=lista.length?`<table>${COLGROUP_TAB}${CABECALHO_TAB}<tbody>${lista.map(linhaHtml).join('')}</tbody></table>`:'<p class="empty-state">Nenhum chamado neste recorte.</p>';
+  document.getElementById('tv-modal').style.display='flex';
+  document.getElementById('tv-modal-corpo').scrollTop=0;
+}
+function fecharModal(){ _modalSel=null; document.getElementById('tv-modal').style.display='none'; }
+document.addEventListener('click',e=>{
+  if(e.target.id==='tv-modal'||e.target.closest('#tv-modal-x')){ fecharModal(); return; }
+  const c=e.target.closest('[data-card]'); if(c){ abrirModal(c.dataset.card); return; }
+  const u=e.target.closest('[data-urg]'); if(u){ abrirModal({urg:u.dataset.urg}); return; }
+  const pz=e.target.closest('[data-prazo]'); if(pz){ abrirModal({prazo:pz.dataset.prazo}); return; }
+  const rs=e.target.closest('[data-resp]'); if(rs) abrirModal({pessoa:rs.dataset.resp});
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') fecharModal();
+  else if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-card]')){ e.preventDefault(); abrirModal(e.target.dataset.card); }
+});
+document.querySelectorAll('[data-card]').forEach(el=>{ el.setAttribute('role','button'); el.setAttribute('tabindex','0'); });
 
 function renderTable(){
   const tbody=document.getElementById('tv-table-body');
-  const top=[..._rows].sort((a,b)=>diasEmAberto(b)-diasEmAberto(a)).slice(0,20);
-  if(!top.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`; return; }
-  tbody.innerHTML=top.map(r=>{
-    const sp=statusPrazoDe(r);
-    const badgeClass=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':'neutral';
-    const dsrAgente=diasSemRetornoDe(r.ultima_publica_agente);
-    const dsrCliente=diasSemRetornoDe(r.ultima_publica_cliente);
-    return `
-    <tr>
-      <td><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a></td>
-      <td class="ellipsis" title="${escAttr(r.organizacao||'')}">${esc(r.organizacao||'—')}</td>
-      <td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td>
-      <td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td>
-      <td class="num">${diasEmAberto(r)}</td>
-      <td class="num danger-num">${dsrAgente!=null?dsrAgente:'—'}</td>
-      <td class="num danger-num">${dsrCliente!=null?dsrCliente:'—'}</td>
-      <td class="center" title="${escAttr(r.status_movidesk||r.base_status||'')}"><span class="badge neutral">${esc(r.status_movidesk||r.base_status||'—')}</span></td>
-      <td class="center"><span class="badge ${badgeClass}">${esc(sp)}</span></td>
-    </tr>`;
-  }).join('');
+  const top=[..._rows].sort((a,b)=>idadeMs(b)-idadeMs(a));
+  const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=`(${top.length.toLocaleString('pt-BR')} chamados)`;
+  tbody.innerHTML=top.length?top.map(linhaHtml).join(''):`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`;
+  if(_modalSel) abrirModal(_modalSel);   // atualização automática: mantém o modal aberto com dados novos
 }
 
+
+// ── SLA individual por analista ─────────────────────────────────────────
+// Dados de GET /geral/sla-responsaveis (Suporte Técnico): resolvidos dentro/fora do prazo no período e pendentes agora.
+// Impacto realizado = fora ÷ total de resolvidos com prazo do time (pp). Impacto dos vencidos = quanto o SLA do time cairia se
+// todos os pendentes já vencidos desse analista fossem resolvidos fora do prazo.
+const CHAVE_PERIODO_SLA='painelTvPeriodoSla';
+function desdeDoPeriodo(p){
+  const h=new Date(), pad=n=>String(n).padStart(2,'0');
+  if(p==='ano') return `${h.getFullYear()}-01-01`;
+  if(p==='30'||p==='90'){ const d=new Date(h.getTime()-Number(p)*86400000); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  return `${h.getFullYear()}-${pad(h.getMonth()+1)}-01`;
+}
+const rotuloPeriodo={mes:'mês atual','30':'últimos 30 dias','90':'últimos 90 dias',ano:'ano atual'};
+let _slaSeq=0;
+async function carregarSlaResponsaveis(){
+  const sel=document.getElementById('slr-periodo');
+  const per=sel.value, seq=++_slaSeq, lista=document.getElementById('slr-lista');
+  try{
+    const q=`?desde=${desdeDoPeriodo(per)}${_servicoSel?`&servico=${encodeURIComponent(_servicoSel)}`:''}${_equipeSel?`&equipe=${encodeURIComponent(_equipeSel)}`:''}`;
+    const resp=await api('/geral/sla-responsaveis'+q,60000);
+    if(seq!==_slaSeq) return;
+    renderSlaResponsaveis(resp.rows||[],per);
+  }catch(e){ if(seq===_slaSeq){ lista.innerHTML=`<p class="tv-erro">Não foi possível carregar o SLA por analista: ${esc(e.message)}</p>`; document.getElementById('slr-resumo').innerHTML=''; } }
+}
+function corAvatar(n){ let h=0; for(const c of String(n).split(' ')[0]) h=(h*31+c.charCodeAt(0))%360; return `hsl(${h} 62% 54%)`; }
+function iniciais(n){ return String(n).trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase(); }
+function renderSlaResponsaveis(rows,per){
+  const fmt=(n,d=1)=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const dentroT=rows.reduce((s,r)=>s+r.dentro,0), foraT=rows.reduce((s,r)=>s+r.fora,0), T=dentroT+foraT;
+  const pendT=rows.reduce((s,r)=>s+r.pendentes,0), vencT=rows.reduce((s,r)=>s+r.vencidos,0);
+  const slaT=T?dentroT/T*100:null;
+  document.getElementById('slr-resumo').innerHTML=
+    `<span><b style="color:${slaT==null?'inherit':slaT>=90?'var(--success)':slaT>=80?'var(--warning)':'var(--danger)'}">${slaT==null?'—':fmt(slaT)+'%'}</b>SLA do time (${rotuloPeriodo[per]})</span>`+
+    `<span><b>${T.toLocaleString('pt-BR')}</b>resolvidos com prazo (${dentroT.toLocaleString('pt-BR')} dentro · ${foraT.toLocaleString('pt-BR')} fora)</span>`+
+    `<span><b>${pendT.toLocaleString('pt-BR')}</b>pendentes agora</span>`+
+    `<span><b style="color:${vencT?'var(--danger)':'inherit'}">${vencT.toLocaleString('pt-BR')}</b>já vencidos</span>`;
+  const itens=rows.map(r=>{
+    const tot=r.dentro+r.fora, pct=tot?r.dentro/tot*100:null;
+    const impReal=T?r.fora/T*100:0;
+    const impVenc=T?(dentroT/T-dentroT/(T+r.vencidos))*100:0;
+    return {...r,tot,pct,impReal,impVenc,impTot:impReal+impVenc};
+  }).filter(r=>r.tot||r.pendentes).sort((a,b)=>b.impTot-a.impTot||b.pendentes-a.pendentes);
+  const lista=document.getElementById('slr-lista');
+  if(!itens.length){ lista.innerHTML='<p class="imp-vazio">Nenhum chamado de Suporte Técnico neste filtro.</p>'; return; }
+  const corPct=p=>p==null?'var(--t3)':p>=90?'var(--success)':p>=80?'var(--warning)':'var(--danger)';
+  lista.innerHTML=`<table class="slr-tab"><thead><tr><th>Analista</th><th>SLA (resolvidos)</th><th>Pendentes</th><th>Impacto no SLA do time</th></tr></thead><tbody>`+
+    itens.map(r=>`<tr data-resp="${escAttr(r.responsavel)}" style="cursor:pointer" title="Ver os pendentes deste analista">
+      <td><div class="slr-nome"><span class="slr-av" style="background:${corAvatar(r.responsavel)}">${esc(iniciais(r.responsavel))}</span>${esc(r.responsavel)}</div></td>
+      <td><div class="slr-sla">
+        <div class="linha"><span class="pct" style="color:${corPct(r.pct)}">${r.pct==null?'—':fmt(r.pct)+'%'}</span><span class="det">${r.dentro.toLocaleString('pt-BR')} dentro · ${r.fora.toLocaleString('pt-BR')} fora</span></div>
+        ${r.tot?`<div class="slr-barra" role="img" aria-label="${r.dentro} dentro, ${r.fora} fora"><i style="width:${r.dentro/r.tot*100}%;background:var(--success)"></i><i style="width:${r.fora/r.tot*100}%;background:var(--danger)"></i></div>`:'<span class="det">sem resolvidos com prazo</span>'}
+      </div></td>
+      <td><div class="slr-pend"><b class="t">${r.pendentes.toLocaleString('pt-BR')}</b>
+        ${r.vencidos?`<span class="slr-chip r">${r.vencidos} vencido${r.vencidos>1?'s':''}</span>`:''}
+        ${r.no_prazo?`<span class="slr-chip g">${r.no_prazo} no prazo</span>`:''}
+        ${r.pausados?`<span class="slr-chip w">${r.pausados} pausado${r.pausados>1?'s':''}</span>`:''}
+        ${r.sem_prazo?`<span class="slr-chip n">${r.sem_prazo} sem prazo</span>`:''}
+        ${!r.pendentes?'<span class="slr-chip n">nenhum</span>':''}</div></td>
+      <td><div class="slr-imp"><span class="a ${r.impReal<0.05?'zero':''}">${r.impReal<0.05?'0,0 pp':'−'+fmt(r.impReal)+' pp'}</span>
+        <span class="b">${r.vencidos?`e mais −${fmt(r.impVenc)} pp se ${r.vencidos>1?`os ${r.vencidos} vencidos fecharem`:'o vencido fechar'} fora do prazo`:'sem vencidos que pesem'}</span></div></td>
+    </tr>`).join('')+`</tbody></table>`;
+  document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}${_equipeSel?` — equipe "${_equipeSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.`;
+}
+(function(){
+  const sel=document.getElementById('slr-periodo');
+  try{ const v=localStorage.getItem(CHAVE_PERIODO_SLA); if(v&&[...sel.options].some(o=>o.value===v)) sel.value=v; }catch(_){}
+  sel.addEventListener('change',()=>{ try{ localStorage.setItem(CHAVE_PERIODO_SLA,sel.value); }catch(_){} carregarSlaResponsaveis(); });
+})();
 updateClock();
 setInterval(updateClock,30000);
 loadPainelTV();
 // Painel de TV roda sem interação — recarrega sozinho pra ficar sempre
-// atualizado numa tela fixa.
-setInterval(loadPainelTV,5*60*1000);
+// atualizado numa tela fixa (a cada 1 min; o servidor guarda a lista por até 2 min ou até a carga gravar chamados).
+setInterval(loadPainelTV,60*1000);
 </script>
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

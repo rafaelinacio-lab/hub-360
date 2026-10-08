@@ -12,8 +12,12 @@
 
 const fetch = require('node-fetch');
 
-const BASE_URL = (process.env.DATALAKE_API_URL || '').replace(/\/+$/, '');
-const API_TOKEN = process.env.DATALAKE_API_TOKEN || '';
+const segredos = require('./segredos');
+// URL e token vêm de Configurações → Tokens (banco); sem nada lá, vale o .env.
+async function credenciais() {
+  const [url, token] = await Promise.all([segredos.obter('datalake_api_url'), segredos.obter('datalake_api_token')]);
+  return { BASE_URL: String(url || '').replace(/\/+$/, ''), API_TOKEN: token || '' };
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,16 +43,18 @@ class DatalakeApiError extends Error {
   }
 }
 
-function ensureConfigured() {
-  if (!BASE_URL || !API_TOKEN) {
+async function ensureConfigured() {
+  const c = await credenciais();
+  if (!c.BASE_URL || !c.API_TOKEN) {
     throw new DatalakeConfigError(
-      'DATALAKE_API_URL/DATALAKE_API_TOKEN não configurados no .env do painel'
+      'Endereço/token da apidatalake não configurados (Configurações → Tokens ou .env do painel)'
     );
   }
+  return c;
 }
 
 async function datalakeGet(path, { query = {}, attempt = 0 } = {}) {
-  ensureConfigured();
+  const { BASE_URL, API_TOKEN } = await ensureConfigured();
 
   const url = new URL(`${BASE_URL}${path}`);
   for (const [key, value] of Object.entries(query)) {

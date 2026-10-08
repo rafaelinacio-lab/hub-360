@@ -47,6 +47,7 @@ async function carregarEscopoEquipe() {
 }
 
 async function fetchOpenTickets() {
+    carregarSlaTime();   // impacto no SLA exibido nos cards (cache de 5 min no servidor)
     const container = document.getElementById('cardsContainer');
     if (!container) return;
     
@@ -91,9 +92,10 @@ async function fetchOpenTickets() {
             console.error('Erro ao atualizar KPIs da aba Movidesk:', movideskError);
         }
 
-        const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem('lastSyncTime', hora);
-        updateSyncStatus(`⏰ Atualizado em ${hora} · renova a cada 2 min`);
+        // A etiqueta mostra quando os DADOS foram atualizados (fim da última carga do Movidesk), não a hora em que a tela buscou.
+        const dadosEm = await buscarFrescorDashboard();
+        if (dadosEm) localStorage.setItem('lastSyncTime', dadosEm);
+        updateSyncStatus(`⏰ Dados atualizados em ${dadosEm || localStorage.getItem('lastSyncTime') || 'sem registro'} · a tela renova a cada 2 min`);
         
     } catch (error) {
         console.error('Erro ao buscar chamados:', error);
@@ -249,10 +251,24 @@ function updateSummaryCards(tickets) {
     setW('slaBarOther', pct(outros));
     setW('slaBarLate', pct(counts.overdue));
     const fmtPctBr = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setTxt('pctNew', fmtPctBr(totalTk ? (counts.New / (total || 1)) * 100 : 0));
+    setTxt('pctInAtt', fmtPctBr(totalTk ? (counts.InAttendance / (total || 1)) * 100 : 0));
+    setTxt('pctStopped', fmtPctBr(totalTk ? (counts.Stopped / (total || 1)) * 100 : 0));
     document.getElementById('pctOnTime').textContent = fmtPctBr(pct(counts.onTime));
     document.getElementById('pctOverdue').textContent = fmtPctBr(pct(counts.overdue));
     const bar = document.getElementById('slaBar');
     if (bar) bar.setAttribute('aria-label', `SLA: ${counts.onTime} no prazo, ${outros} pausados ou sem prazo, ${counts.overdue} atrasados`);
+    const leg = document.getElementById('slaBarLegend');
+    if (leg) leg.innerHTML = `<span><i style="background:var(--red-mid)"></i>Atrasado <b>${counts.overdue}</b></span><span><i style="background:var(--hint)"></i>Pausado ou sem prazo <b>${outros}</b></span><span><i style="background:var(--grn-mid)"></i>No prazo <b>${counts.onTime}</b></span>`;
+    // Título do Dashboard: os dois números que importam
+    const ttl = document.getElementById('dshTitulo');
+    if (ttl) ttl.innerHTML = `${total} chamado${total === 1 ? '' : 's'} em aberto${counts.overdue ? `, <span class="dsh-late">${counts.overdue} fora do prazo</span>` : ''}`;
+    const eb = document.getElementById('dshEyebrow');
+    if (eb) {
+        const eq = (document.getElementById('escopoEquipeInfo')?.textContent || '').replace(/^Equipe(s)?:?\s*/i, '').trim();
+        eb.textContent = `${eq ? (/^todas/i.test(eq) ? eq : 'Equipe ' + eq) + ' · ' : ''}atualizado ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    }
 
     // Gerar insight do card "Fora do Prazo" (desativado temporariamente)
     const insightEl = document.getElementById('overdueInsight');
@@ -882,28 +898,62 @@ function buildAttendantMap(tickets) {
     (tickets || []).forEach(t => {
         const owner = getTicketValue(t, 'ownerName', 'ownername', 'Sem atribuição') || 'Sem atribuição';
         const email = getTicketValue(t, 'ownerEmail', 'owneremail', '');
-        if (!map[owner]) map[owner] = { count: 0, late: 0, email };
+        if (!map[owner]) map[owner] = { count: 0, late: 0, paused: 0, email };
         map[owner].count++;
-        if (tkSlaInfo(t).kind === 'late') map[owner].late++;
+        const k = tkSlaInfo(t).kind;
+        if (k === 'late') map[owner].late++;
+        else if (k === 'paused') map[owner].paused++;
     });
     return map;
 }
+
+// Cor estável por pessoa (mesma conta do avatar da lista): matiz derivado do primeiro nome.
+function dshHue(nome) { const n = String(nome || '?').split(' ')[0]; let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+function dshIni(nome) { return String(nome || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase(); }
 
 function updateAttendantsList(attendantMap) {
     const container = document.getElementById('attendantsContainer');
     if (!container) return;
     const ativo = document.getElementById('filterAtendente')?.value || '';
     const entradas = Object.entries(attendantMap).sort((a, b) => b[1].count - a[1].count);
-    const max = entradas.length ? entradas[0][1].count : 1;
-    container.innerHTML = entradas.map(([name, d]) => `
-        <button type="button" class="att-row" data-att="${escapeHtml(name)}" aria-pressed="${ativo === name}" title="Filtrar pelos chamados de ${escapeHtml(name)}">
-            ${createAvatarHTML(d.email || null, name)}
-            <span class="att-nome">${escapeHtml(name)}</span>
-            <span class="att-n">${d.count}</span>
-            <span class="att-barra"><i class="${d.late ? 'tem-atraso' : ''}" style="width:${Math.max(6, (d.count / max) * 100)}%"></i></span>
-            <span class="att-meta">${d.late ? `${d.late} fora do prazo` : 'nenhum fora do prazo'}</span>
-        </button>`).join('') || '<p style="color: var(--muted);">Nenhum atendente</p>';
-    container.querySelectorAll('.att-row').forEach(btn => btn.addEventListener('click', () => {
+    const totQ = entradas.reduce((n, [, d]) => n + d.count, 0);
+    const maxQ = entradas.length ? entradas[0][1].count : 1;
+    const totRed = entradas.reduce((n, [, d]) => n + d.late, 0);
+    const totYel = entradas.reduce((n, [, d]) => n + d.paused, 0);
+    const totGrn = Math.max(0, totQ - totRed - totYel);
+
+    const resumo = document.getElementById('crewResumo');
+    if (resumo) {
+        const parte = (n, c) => (n ? `<i style="--c:${c};flex:${n} 1 0"></i>` : '');
+        resumo.innerHTML = `
+            <div class="crew-tot"><b>${totQ}</b><span>chamados abertos<br>entre ${entradas.length} atendente${entradas.length === 1 ? '' : 's'}</span></div>
+            <div class="sum">
+                <div class="sbar" role="img" aria-label="${totRed} atrasados, ${totYel} pausados, ${totGrn} em dia">${parte(totRed, 'var(--red-mid)')}${parte(totYel, 'var(--amb-mid)')}${parte(totGrn, 'var(--grn-mid)')}</div>
+                <div class="sgrid">
+                    <div style="--c:var(--red-mid)"><b>${totRed}</b><span>Atrasados</span></div>
+                    <div style="--c:var(--amb-mid)"><b>${totYel}</b><span>Pausados</span></div>
+                    <div style="--c:var(--grn-mid)"><b>${totGrn}</b><span>Em dia</span></div>
+                </div>
+            </div>`;
+    }
+
+    container.innerHTML = entradas.map(([name, d]) => {
+        const ok = Math.max(0, d.count - d.late - d.paused);
+        const seg = [[d.late, 'var(--red-mid)'], [d.paused, 'var(--amb-mid)'], [ok, 'var(--grn-mid)']].filter(x => x[0])
+            .map(([n, c]) => `<i style="--c:${c};--w:${((n / maxQ) * 100).toFixed(1)}%" title="${n}"></i>`).join('');
+        const chip = (cls, n, um, varias) => (n ? `<span class="st ${cls}"><b>${n}</b> ${n > 1 ? varias : um}</span>` : '');
+        return `
+        <button type="button" class="ag" data-att="${escapeHtml(name)}" aria-pressed="${ativo === name}" style="--hc:hsl(${dshHue(name)} 62% 54%)" title="Filtrar pelos chamados de ${escapeHtml(name)}">
+            <span class="ag-head">
+                <span class="ag-av">${dshIni(name)}</span>
+                <span class="ag-id"><span class="nm">${escapeHtml(name)}</span><span class="role">${totQ ? Math.round((d.count / totQ) * 100) : 0}% da fila</span></span>
+                <span class="ag-cnt"><b class="cnt">${d.count}</b><small>chamado${d.count === 1 ? '' : 's'}</small></span>
+            </span>
+            <span class="load" role="img" aria-label="${d.count} chamados">${seg}</span>
+            <span class="ag-stats">${chip('r', d.late, 'atrasado', 'atrasados')}${chip('y', d.paused, 'pausado', 'pausados')}${chip('g', ok, 'em dia', 'em dia')}</span>
+        </button>`;
+    }).join('') || '<p style="color: var(--muted);">Nenhum atendente</p>';
+    container.querySelectorAll('.ag').forEach(btn => btn.addEventListener('click', () => {
         const sel = document.getElementById('filterAtendente');
         if (!sel) return;
         sel.value = sel.value === btn.dataset.att ? '' : btn.dataset.att;
@@ -994,34 +1044,67 @@ function tkSortValue(t, key) {
     }
 }
 
+// ── Lista em linha do tempo (Visual 2.0) ─────────────────────────────────────
+// Cada chamado vira uma barra de atraso em escala logarítmica (1, 7, 30 e 60 dias); a bolinha azul marca
+// a última ação; pausados mostram o tracejado até a última ação. Agrupada por status; clicar abre a Central.
+const DSH_URG_COR = { 'Crítica': 'var(--red-mid)', 'Alta': 'var(--amb-mid)', 'Média': 'var(--blu-mid)', 'Baixa': 'var(--grn-mid)' };
+const DSH_MAXH = Math.log(1700);
+const dshPos = (h) => Math.min(100, Math.log(Math.max(0, h) + 1) / DSH_MAXH * 100);
+const DSH_MARCAS = [[24, '1 d'], [168, '7 d'], [720, '30 d'], [1440, '60 d']];
+function dshIdade(v) {   // "13 d", "23 h", "12 min" (sem o "há")
+    return String(tkAgo(v) || '').replace(/^há\s+/, '');
+}
+function dshHorasDesde(v) { const t = new Date(v).getTime(); return isNaN(t) ? 0 : Math.max(0, (Date.now() - t) / 3600000); }
+function dshAvatar(nome, classe = 'av') { return `<span class="${classe}" style="background:hsl(${dshHue(nome)} 62% 54%)">${dshIni(nome)}</span>`; }
+
 function renderTicketsTable(tickets) {
-    const linhas = tkSorted(tickets);
-    const seta = (k) => (_dashSort.key === k ? (_dashSort.dir === 1 ? ' ↑' : ' ↓') : '');
-    const th = (k, rotulo) => `<th scope="col"><button type="button" onclick="sortDashTable('${k}')">${rotulo}${seta(k)}</button></th>`;
-    const corpo = linhas.map(t => {
-        const sla = tkSlaInfo(t);
-        const urg = getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', ''));
+    const ordenados = tkSorted(tickets);
+    const grupos = {};
+    KB_COLUNAS.forEach(c => { grupos[c.key] = []; });
+    const outros = [];
+    ordenados.forEach(t => {
         const base = normalizeDashboardBaseStatus(getTicketValue(t, 'baseStatus', 'basestatus', '') || getTicketValue(t, 'status', 'status', ''));
-        const statusTxt = getTicketValue(t, 'status', 'status', '') || TK_STATUS_LABEL[base] || base;
-        const dono = getTicketValue(t, 'ownerName', 'ownername', 'Não atribuído') || 'Não atribuído';
-        const cliente = getTicketValue(t, 'clientName', 'clientname', '') || getTicketValue(t, 'clientOrganization', 'clientorganization', '');
-        const quem = getTicketValue(t, 'lastActionCreatedByBusinessName', 'lastactioncreatedbybusinessname', '');
-        const origem = getTicketValue(t, 'lastActionOrigin', 'lastactionorigin', '');
-        const upd = getTicketValue(t, 'lastUpdate', 'lastupdate', '') || getTicketValue(t, 'lastActionDate', 'lastactiondate', '');
-        return `
-        <tr class="tk-row" tabindex="0" role="button" onclick="openTicketWorkspace(${t.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTicketWorkspace(${t.id});}">
-            <td><span class="tk-pill sla-${sla.kind}">${escapeHtml(sla.label)}</span></td>
-            <td class="tk-id">#${escapeHtml(t.id)}</td>
-            <td><div class="tk-title" title="${escapeHtml(t.subject)}">${escapeHtml(t.subject)}</div><div class="tk-sub">${escapeHtml(cliente || '—')}</div></td>
-            <td><span class="urgency-bubble ${urg.class}">${urg.label}</span></td>
-            <td class="tk-col-agente"><div class="tk-agent">${createAvatarHTML(getTicketValue(t, 'ownerEmail', 'owneremail', '') || null, dono)}<span>${escapeHtml(dono)}</span></div></td>
-            <td><span class="tk-st st-${escapeHtml(base)}">${escapeHtml(statusTxt)}</span></td>
-            <td class="tk-col-last tk-last ${origem === 'Customer' ? 'cliente' : ''}"><span class="tk-last-quem">${origem === 'Customer' ? 'Cliente' : 'Agente'}${quem ? ' · ' + escapeHtml(quem) : ''}</span><small>${escapeHtml(tkAgo(upd))}</small></td>
-        </tr>`;
-    }).join('');
-    return `<div class="tk-wrap"><table class="tk-table">
-        <thead><tr>${th('sla', 'Prazo')}${th('id', 'Nº')}<th scope="col">Assunto / cliente</th>${th('urg', 'Urgência')}<th scope="col" class="tk-col-agente">Agente</th><th scope="col">Status</th>${th('upd', 'Última ação')}</tr></thead>
-        <tbody>${corpo}</tbody></table></div>`;
+        (grupos[base] || outros).push(t);
+    });
+    const cols = KB_COLUNAS.map(c => ({ ...c, itens: grupos[c.key] }));
+    if (outros.length) cols.push({ key: 'Outros', titulo: 'Outros status', itens: outros });
+
+    const seta = (k) => (_dashSort.key === k ? (_dashSort.dir === 1 ? ' ↑' : ' ↓') : '');
+    const ord = (k, rot) => `<button type="button" class="tl-ord" aria-pressed="${_dashSort.key === k}" onclick="sortDashTable('${k}')">${rot}${seta(k)}</button>`;
+    const eixo = `<div class="tl-axis"><div class="tl-a-l"><span>Ordenar</span>${ord('urg', 'Urgência')}${ord('sla', 'Prazo')}${ord('id', 'Nº')}${ord('upd', 'Última ação')}</div>
+        <div class="tl-a-p">${DSH_MARCAS.map(m => `<span style="left:${dshPos(m[0])}%">${m[1]}</span>`).join('')}</div></div>`;
+    const grade = DSH_MARCAS.map(m => `<i class="g" style="left:${dshPos(m[0])}%"></i>`).join('');
+
+    let i = 0;
+    const linhas = cols.filter(c => c.itens.length).map(c => `
+        <div class="tl-group tl-g-${c.key}"><i></i><b>${escapeHtml(c.titulo)}</b> ${c.itens.length}</div>
+        ${c.itens.map(t => {
+            const sla = tkSlaInfo(t);
+            const urg = getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', ''));
+            const dono = getTicketValue(t, 'ownerName', 'ownername', 'Não atribuído') || 'Não atribuído';
+            const upd = getTicketValue(t, 'lastUpdate', 'lastupdate', '') || getTicketValue(t, 'lastActionDate', 'lastactiondate', '');
+            const ageH = dshHorasDesde(upd);
+            const cor = DSH_URG_COR[urg.label] || 'var(--muted)';
+            const marcador = upd ? `<i class="age" style="left:${dshPos(ageH)}%" title="Última ação há ${escapeHtml(dshIdade(upd))}"></i>` : '';
+            let plot;
+            if (sla.kind === 'late') {
+                const lh = -sla.ms / 3600000;
+                plot = `<div class="bar" style="width:${dshPos(lh)}%"></div><span class="lab" style="left:${Math.max(dshPos(lh), upd ? dshPos(ageH) : 0)}%">${escapeHtml(sla.label.replace(/^Atrasado\s+/, ''))}</span>${marcador}`;
+            } else if (sla.kind === 'paused') {
+                plot = `<div class="pz" style="width:${dshPos(ageH)}%"></div>${marcador}<span class="lab mut" style="left:${dshPos(ageH)}%">Pausado</span>`;
+            } else {
+                plot = `${marcador}<span class="lab ${sla.kind === 'none' ? 'mut' : 'ok'}" style="left:${dshPos(ageH)}%">${escapeHtml(sla.kind === 'none' ? 'Sem prazo' : sla.label + ' restantes')}</span>`;
+            }
+            i++;
+            return `<div class="tl-r" style="--p:${cor}" tabindex="0" role="button" onclick="openTicketWorkspace(${t.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTicketWorkspace(${t.id});}">
+                <div class="tl-info"><div class="l1"><span class="no">#${escapeHtml(t.id)}</span><span class="t" title="${escapeHtml(t.subject)}">${escapeHtml(t.subject)}</span></div>
+                    <div class="l2"><span class="tag">${escapeHtml(urg.label)}</span>${dshAvatar(dono, 'av av-sm')}<span>${escapeHtml(dono)}</span></div></div>
+                <div class="tl-plot">${grade}${plot}</div>
+            </div>`;
+        }).join('')}`).join('');
+
+    return `<section class="tl-chart" aria-label="Lista de chamados"><div class="tl-grid">${eixo}${linhas}</div>
+        <div class="tl-legend"><span><i class="k-bar"></i>Tempo de atraso</span><span><i class="k-age"></i>Última ação</span><span><i class="k-pz"></i>Pausado, sem prazo correndo</span><span>Escala logarítmica: 1, 7, 30 e 60 dias</span></div></section>`;
 }
 
 // Contadores dos filtros rápidos (sempre sobre todos os chamados carregados).
@@ -1048,30 +1131,56 @@ const KB_COLUNAS = [
     { key: 'Stopped', titulo: 'Aguardando' },
 ];
 
+// ── Impacto de cada chamado no SLA do time (mês atual, Suporte Técnico) ──
+// SLA = dentro ÷ (dentro + fora). Atrasado: ao fechar fora do prazo, o SLA cai de D/T para D/(T+1).
+// No prazo: ao fechar dentro, sobe de D/T para (D+1)/(T+1). Valores em pontos percentuais (pp).
+let DSH_SLA = null, _dshUltimaLista = null;
+async function carregarSlaTime() {
+    try {
+        const r = await fetch(`${API_BASE}/tickets/sla-time`, { headers: authHeaders() });
+        if (!r.ok) return;
+        DSH_SLA = await r.json();
+        if (_dshUltimaLista) renderTickets(_dshUltimaLista.tickets, _dshUltimaLista.container);
+    } catch (_) { /* sem o impacto, o card segue normal */ }
+}
+function dshPp(v) { const a = Math.abs(v); return a.toLocaleString('pt-BR', { minimumFractionDigits: a < 0.1 ? 3 : 2, maximumFractionDigits: a < 0.1 ? 3 : 2 }); }
+function dshImpactoSla(sla) {
+    if (!DSH_SLA) return null;
+    const D = Number(DSH_SLA.dentro) || 0, T = D + (Number(DSH_SLA.fora) || 0);
+    if (T < 1 || !['late', 'soon', 'ok'].includes(sla.kind)) return null;
+    const perda = (D / T - D / (T + 1)) * 100, ganho = ((D + 1) / (T + 1) - D / T) * 100;
+    const time = `SLA do time no mês: ${(D / T * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% (${D} dentro · ${T - D} fora)`;
+    if (sla.kind === 'late') return { cls: 'late', txt: `SLA −${dshPp(perda)} pp`, tip: `Este chamado já estourou o prazo: ao ser resolvido, o SLA do time cai ${dshPp(perda)} pp. ${time}` };
+    if (sla.kind === 'soon') return { cls: 'soon', txt: `Risco −${dshPp(perda)} pp`, tip: `Vence em breve: se estourar, o SLA do time cai ${dshPp(perda)} pp; se fechar no prazo, sobe ${dshPp(ganho)} pp. ${time}` };
+    return { cls: 'ok', txt: `+${dshPp(ganho)} pp no prazo`, tip: `Resolvido dentro do prazo, o SLA do time sobe ${dshPp(ganho)} pp (se estourar, cai ${dshPp(perda)} pp). ${time}` };
+}
+
 function renderKanbanCard(t) {
     const sla = tkSlaInfo(t);
     const urg = getUrgencyFromSLA(getTicketValue(t, 'slaAgreementRule', 'slaagreementrule', ''));
     const dono = getTicketValue(t, 'ownerName', 'ownername', 'Não atribuído') || 'Não atribuído';
     const cliente = getTicketValue(t, 'clientName', 'clientname', '') || getTicketValue(t, 'clientOrganization', 'clientorganization', '');
     const origem = getTicketValue(t, 'lastActionOrigin', 'lastactionorigin', '');
-    const quem = getTicketValue(t, 'lastActionCreatedByBusinessName', 'lastactioncreatedbybusinessname', '');
     const upd = getTicketValue(t, 'lastUpdate', 'lastupdate', '') || getTicketValue(t, 'lastActionDate', 'lastactiondate', '');
     const primeiroNome = String(dono).split(' ')[0];
+    const cor = DSH_URG_COR[urg.label] || 'var(--muted)';
+    const imp = dshImpactoSla(sla);
+    const pill = sla.kind === 'late' ? `<span class="pill late"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6v7M12 18v.01"/></svg>${escapeHtml(sla.label)}</span>`
+        : sla.kind === 'paused' ? '<span class="pill pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Pausado</span>'
+        : `<span class="pill ${sla.kind === 'none' ? 'pause' : 'okp'}">${escapeHtml(sla.label)}</span>`;
     return `
-    <article class="kb-card kb-${sla.kind}" tabindex="0" role="button" aria-label="Chamado ${escapeHtml(t.id)}: ${escapeHtml(t.subject)}"
+    <article class="kb-card kb-${sla.kind}" style="--p:${cor}" tabindex="0" role="button" aria-label="Chamado ${escapeHtml(t.id)}: ${escapeHtml(t.subject)}"
         onclick="openTicketWorkspace(${t.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTicketWorkspace(${t.id});}">
-        <div class="kb-topo">
-            <span class="urgency-bubble ${urg.class}">${urg.label}</span>
-            <span class="kb-id">#${escapeHtml(t.id)}</span>
-            <span class="tk-pill sla-${sla.kind} kb-sla">${escapeHtml(sla.label)}</span>
-        </div>
+        <div class="kb-topo"><span class="tag">${escapeHtml(urg.label)}</span><span class="kb-id">#${escapeHtml(t.id)}</span>${pill}</div>
         <h4 class="kb-titulo" title="${escapeHtml(t.subject)}">${escapeHtml(t.subject)}</h4>
-        <div class="kb-cliente" title="${escapeHtml(cliente)}">${escapeHtml(cliente || 'Cliente não informado')}</div>
+        <div class="kb-cliente" title="${escapeHtml(cliente)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5l8-2v18M12 9h8v12M8 9h.01M8 13h.01M8 17h.01M16 13h.01M16 17h.01"/></svg>${escapeHtml(cliente || 'Cliente não informado')}</div>
+        ${imp ? `<div class="kb-sla-imp ${imp.cls}" title="${escapeHtml(imp.tip)}">${escapeHtml(imp.txt)}</div>` : ''}
         <div class="kb-rodape">
-            <span class="kb-agente" title="${escapeHtml(dono)}">${createAvatarHTML(getTicketValue(t, 'ownerEmail', 'owneremail', '') || null, dono)}<span>${escapeHtml(primeiroNome)}</span></span>
-            ${origem === 'Customer' ? '<span class="kb-espera" title="A última ação foi do cliente — ele aguarda retorno">Cliente aguarda</span>' : `${quem && String(quem).split(' ')[0] !== primeiroNome ? `<span class="kb-ult" title="Última ação: ${escapeHtml(quem)}">↩ ${escapeHtml(String(quem).split(' ')[0])}</span>` : ''}`}
-            <span class="kb-quando">${escapeHtml(tkAgo(upd))}</span>
+            ${dshAvatar(dono)}<b title="${escapeHtml(dono)}">${escapeHtml(primeiroNome)}</b>
+            ${origem === 'Customer' ? '<span class="kb-espera" title="A última ação foi do cliente — ele aguarda retorno">Cliente aguarda</span>' : ''}
+            <span class="kb-quando"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${escapeHtml(dshIdade(upd))}</span>
         </div>
+        ${sla.kind === 'late' ? `<div class="kb-tira" title="${escapeHtml(sla.label)}"><i style="width:${dshPos(-sla.ms / 3600000)}%"></i></div>` : ''}
     </article>`;
 }
 
@@ -1095,6 +1204,7 @@ function renderKanban(tickets) {
 
 // Função para renderizar os chamados (lista densa ou kanban)
 function renderTickets(tickets, container) {
+    _dshUltimaLista = { tickets, container };
     const seg = { lista: document.getElementById('viewLista'), cards: document.getElementById('viewCards') };
     if (seg.lista) seg.lista.setAttribute('aria-pressed', String(_dashView === 'lista'));
     if (seg.cards) seg.cards.setAttribute('aria-pressed', String(_dashView === 'cards'));
@@ -1707,6 +1817,17 @@ function getOrCreatePill() {
     return el;
 }
 
+async function buscarFrescorDashboard() {
+    try {
+        const r = await fetch(`${API_BASE}/frescor/dashboard`, { headers: authHeaders() });
+        if (!r.ok) return '';
+        const d = await r.json();
+        return d.atualizadoEm
+            ? new Date(d.atualizadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            : '';
+    } catch (_) { return ''; }
+}
+
 function updateSyncStatus(message, isError) {
     const el = getOrCreatePill();
     el.style.background = isError
@@ -1721,7 +1842,7 @@ function showLastSync() {
     // Só atualiza se não houver outra mensagem recente
     if (!el.textContent.includes('Sincronizando') && !el.textContent.includes('Falha')) {
         if (saved) {
-            el.textContent = `⏰ Atualizado em ${saved}`;
+            el.textContent = `⏰ Dados atualizados em ${saved}`;
         } else {
             el.textContent = '⏰ Nunca sincronizado';
         }

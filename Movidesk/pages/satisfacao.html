@@ -281,6 +281,8 @@ input,select{font-family:inherit}
   gap:7px 14px;padding:22px 16px;background:var(--surface-mid);border-radius:12px;
 }
 .cloud span{line-height:1;font-weight:600}
+.chart-panel.rolagem{max-height:720px}
+.cloud.rolagem{max-height:240px}
 .cloud-empty{color:var(--t3);font-size:12.5px;text-align:center;padding:20px 0}
 
 .export-options{display:flex;gap:12px;padding:4px 0 8px}
@@ -339,6 +341,11 @@ body.modal-open{overflow:hidden}
 .modal-body .listagem-table td{overflow-wrap:break-word;word-break:break-word;font-size:12.5px}
 .dtable-scroll{overflow-x:auto}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="../js/ui-version.js"></script>
+<link rel="stylesheet" href="../css/v2.css">
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 <div id="sat-page">
@@ -355,23 +362,27 @@ body.modal-open{overflow:hidden}
         <button class="md-tab active" onclick="mdSwitchTab('satisfacao')">
           <span class="sym">sentiment_satisfied</span>Satisfação
         </button>
+        <button class="md-tab" onclick="mdSwitchTab('chats')">
+          <span class="sym">forum</span>Chats
+        </button>
         <button class="md-tab" onclick="abrirPainelTV()">
           <span class="sym">tv</span>Painel TV
         </button>
       </div>
-      <div class="vbar"></div>
-      <button class="btn-refresh" id="btn-atualizar" onclick="loadSatisfacao()">
+      <div class="topbar-acoes">
+      <button class="btn-refresh" title="Atualizar os dados" aria-label="Atualizar os dados" id="btn-atualizar" onclick="loadSatisfacao()">
         <span class="sym">refresh</span>Atualizar
       </button>
       <button class="btn-sync" id="btn-sync" onclick="startSync()">
         <span class="sym">sync</span>Sincronizar pesquisas
       </button>
-      <button class="btn-refresh" onclick="openChamadoListagemModal()">
+      <button class="btn-refresh" title="Chamado Listagem" aria-label="Chamado Listagem" onclick="openChamadoListagemModal()">
         <span class="sym">list_alt</span>Chamado Listagem
       </button>
-      <button class="btn-refresh" onclick="openExportModal()">
+      <button class="btn-refresh" title="Exportar" aria-label="Exportar" onclick="openExportModal()">
         <span class="sym">download</span>Exportar
       </button>
+      </div>
     </div>
     <div class="topbar-filters">
       <div class="multi-sel" id="f-vertical">
@@ -433,86 +444,126 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="sat-dash">
     <p class="section-label">Totais do período</p>
-    <div class="grid-4">
-      <div class="stat-card">
-        <p class="label">Tickets avaliados</p>
-        <p class="value" id="k-avaliados">0</p>
-        <p class="legend" id="k-avaliados-legend">— % dos chamados resolvidos.</p>
+    <div class="kpi-grid k4">
+      <div data-tone="orange" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="m9 13 2 2 4-4"/></svg></span>Tickets avaliados</p>
+        <div class="kpi-main"><p class="value" id="k-avaliados">0</p><span class="kpi-spark" id="sp-avaliados"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-avaliados"></span><p class="legend" id="k-avaliados-legend">— % dos chamados resolvidos.</p></div>
       </div>
-      <div class="stat-card success">
-        <p class="label">Satisfação (Ótimo + Bom)</p>
-        <p class="value good" id="k-satisfacao">0%</p>
-        <p class="legend">Notas 4 e 5.</p>
+      <div data-tone="green" class="stat-card success sla-hero">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2.5 4 2.5 4-2.5 4-2.5"/><path d="M9 9.5v.01M15 9.5v.01"/></svg></span>Satisfação (Ótimo + Bom)</p>
+        <div class="kpi-main">
+          <p class="value good" id="k-satisfacao">0%</p>
+          <div class="sla-ring"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sat-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg></div>
+        </div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-satisfacao"></span><p class="legend">Notas 4 e 5.</p></div>
       </div>
-      <div class="stat-card danger">
-        <p class="label">Insatisfação (Ruim + Péssimo)</p>
-        <p class="value bad" id="k-insatisfacao">0%</p>
-        <p class="legend">Notas 1 e 2.</p>
+      <div data-tone="red" class="stat-card danger">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 16s1.5-2.5 4-2.5 4 2.5 4 2.5"/><path d="M9 9.5v.01M15 9.5v.01"/></svg></span>Insatisfação (Ruim + Péssimo)</p>
+        <div class="kpi-main"><p class="value bad" id="k-insatisfacao">0%</p><span class="kpi-spark" id="sp-insatisfacao"></span></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-insatisfacao"></span><p class="legend">Notas 1 e 2.</p></div>
       </div>
-      <div class="stat-card">
-        <p class="label">Taxa de resposta</p>
-        <p class="value" id="k-taxa-resposta">0%</p>
-        <p class="legend">Avaliados ÷ chamados resolvidos.</p>
-      </div>
-    </div>
-
-    <p class="section-label">Composição por equipe</p>
-    <div class="grid-2">
-      <div class="chart-panel">
-        <p class="chart-title">Quantidade de avaliações por equipe</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div>
-      </div>
-      <div class="chart-panel danger">
-        <p class="chart-title">Quantidade de avaliações negativas por equipe</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="teamNegChart"></canvas></div>
+      <div data-tone="blue" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/><path d="m9 12 2 2 4-4"/></svg></span>Taxa de resposta</p>
+        <div class="kpi-main"><p class="value" id="k-taxa-resposta">0%</p></div>
+        <div class="kpi-foot"><p class="legend">Avaliados ÷ chamados resolvidos.</p></div>
       </div>
     </div>
 
-    <p class="section-label">Ranking geral — todas as avaliações</p>
-    <div class="grid-2">
-      <div class="chart-panel">
+    <div class="hrow c-8-4">
+      <div class="chart-panel rolagem">
+        <p class="chart-title">Evolução mensal da satisfação</p>
+        <p class="chart-sub">Percentual de avaliações positivas (4 e 5) e negativas (1 e 2) em cada mês de resposta, nos filtros atuais (sem o filtro de ano/mês).</p>
+        <div class="rolagem"><div class="chart-wrap" style="height:300px"><canvas id="satTrendChart"></canvas></div></div>
+      </div>
+      <div class="chart-panel rolagem">
+        <p class="chart-title">Distribuição das notas</p>
+        <p class="chart-sub">Avaliações do período por nota.</p>
+        <div class="donut-row"><div class="chart-wrap"><canvas id="notasChart"></canvas></div><ul class="donut-leg" id="notasChart-leg"></ul></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel rolagem">
+        <p class="chart-title">Comentários recentes</p>
+        <p class="chart-sub">O que os clientes estão dizendo. Clique para abrir o chamado.</p>
+        <div class="cm-lista rolagem" id="coment-lista"></div>
+      </div>
+      <div class="chart-panel rolagem">
+        <p class="chart-title">Nota por analista</p>
+        <p class="chart-sub">Nota média individual (1 a 5). Clique para ver as avaliações.</p>
+        <div class="an-lista rolagem" id="analista-lista"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel rolagem">
+        <p class="chart-title">Avaliações por equipe</p>
+        <p class="chart-sub">Quantidade de avaliações recebidas. Clique para ver os chamados.</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
+      </div>
+      <div class="chart-panel danger rolagem">
+        <p class="chart-title">Avaliações negativas por equipe</p>
+        <p class="chart-sub">Notas 1 e 2.</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamNegChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Clientes com mais avaliações</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="clientChart"></canvas></div>
+        <p class="chart-sub">Todas as avaliações do período.</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="clientChart"></canvas></div></div>
       </div>
-      <div class="chart-panel">
+      <div class="chart-panel rolagem">
         <p class="chart-title">Responsáveis com mais avaliações</p>
-        <div class="chart-wrap" style="height:220px"><canvas id="respChart"></canvas></div>
+        <p class="chart-sub">Todas as avaliações do período.</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="respChart"></canvas></div></div>
       </div>
     </div>
 
-    <p class="section-label">Avaliações negativas</p>
-    <div class="chart-panel danger">
-      <p class="panel-title" id="neg-panel-title">Ruim e péssimo</p>
-      <p class="chart-title small">Tendência mensal</p>
-      <div class="chart-wrap" style="height:170px;margin-bottom:18px"><canvas id="negTrendChart"></canvas></div>
-      <div class="grid-2">
-        <div>
-          <p class="chart-title small">Clientes com mais avaliações negativas</p>
-          <div class="chart-wrap" style="height:170px"><canvas id="negClientChart"></canvas></div>
+    <div class="hrow c-1">
+      <div class="chart-panel danger rolagem">
+        <p class="chart-title" id="neg-panel-title">Ruim e péssimo</p>
+        <p class="chart-sub">Tendência mensal e quem mais recebeu avaliações negativas.</p>
+        <div class="rolagem" style="margin-bottom:18px"><div class="chart-wrap" style="height:190px"><canvas id="negTrendChart"></canvas></div></div>
+        <div class="grid-2">
+          <div>
+            <p class="chart-title small">Clientes com mais avaliações negativas</p>
+            <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="negClientChart"></canvas></div></div>
+          </div>
+          <div>
+            <p class="chart-title small">Responsáveis com mais avaliações negativas</p>
+            <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="negRespChart"></canvas></div></div>
+          </div>
         </div>
-        <div>
-          <p class="chart-title small">Responsáveis com mais avaliações negativas</p>
-          <div class="chart-wrap" style="height:170px"><canvas id="negRespChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="data-panel">
+        <p class="chart-title">Últimas avaliações negativas</p>
+        <p class="chart-sub">Somente as que têm comentário (30 mais recentes).</p>
+        <div class="dtable-wrap rolagem" style="max-height:440px">
+          <table class="dtable">
+            <thead><tr><th>Ticket</th><th>Cliente</th><th>Quem respondeu</th><th>Responsável do ticket</th><th class="num">Nota</th><th>Respondido em</th><th>Comentário</th></tr></thead>
+            <tbody id="tbl-negativas"><tr class="empty-row"><td colspan="7">Carregando…</td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <p class="section-label">Últimas avaliações negativas — com comentário</p>
-    <div class="data-panel">
-      <div class="dtable-wrap" style="overflow-x:auto">
-        <table class="dtable">
-          <thead><tr><th>Ticket</th><th>Cliente</th><th>Quem respondeu</th><th>Responsável do ticket</th><th class="num">Nota</th><th>Respondido em</th><th>Comentário</th></tr></thead>
-          <tbody id="tbl-negativas"><tr class="empty-row"><td colspan="7">Carregando…</td></tr></tbody>
-        </table>
+    <div class="hrow c-2">
+      <div class="chart-panel rolagem">
+        <p class="chart-title">Palavras nos comentários negativos</p>
+        <p class="chart-sub">Extraído dos comentários reais das notas 1 e 2, no filtro atual, sem palavras comuns do português.</p>
+        <div class="cloud rolagem" id="word-cloud"></div>
       </div>
-    </div>
-
-    <p class="section-label">Palavras nos comentários negativos</p>
-    <p class="chart-title small" style="margin:-4px 0 10px">Extraído dos comentários reais das notas 1 e 2, no filtro atual — sem stopwords comuns do português.</p>
-    <div class="cloud" id="word-cloud"></div>
-    <p class="chart-title" style="margin-top:16px">Contador — top 10 palavras</p>
-    <div class="chart-panel">
-      <div class="chart-wrap" style="height:220px"><canvas id="wordCountChart"></canvas></div>
+      <div class="chart-panel rolagem">
+        <p class="chart-title">Contador — top 10 palavras</p>
+        <p class="chart-sub">Quantas vezes cada palavra aparece.</p>
+        <div class="rolagem"><div class="chart-wrap" style="height:260px"><canvas id="wordCountChart"></canvas></div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -589,7 +640,7 @@ function mdSwitchTab(view){
       return;
     }
   }catch{}
-  location.href=view==='movidesk'?'geral.html':'satisfacao.html';
+  location.href=view==='movidesk'?'geral.html':view+'.html';
 }
 // Painel TV é uma tela de kiosk (fontes grandes, sem menu lateral, pensada
 // pra rodar sozinha numa TV/monitor) — abre em aba nova em vez de navegar
@@ -678,7 +729,7 @@ function tokenizeComments(rows){
   });
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]);
 }
-const CLOUD_COLORS=['#e85d04','#3987e5','#7c3aed','#c98500','#199e70','#64748b'];
+const CLOUD_COLORS=['#e85d04','#ff8a2b','#7c3aed','#c98500','#199e70','#64748b'];
 function renderWordCloud(freq){
   const el=document.getElementById('word-cloud');
   if(!freq.length){ el.innerHTML='<p class="cloud-empty">Sem comentários no filtro atual.</p>'; return; }
@@ -1065,7 +1116,7 @@ function buildFilterOptions(){
 }
 
 // ── filtro ───────────────────────────────────────────────────────────
-function getFilteredRows(){
+function getFilteredRows(semData){
   const verticalFils=getMsValues('f-vertical');
   const equipeFils=getMsValues('f-equipe');
   const orgFils=getMsValues('f-org');
@@ -1080,7 +1131,7 @@ function getFilteredRows(){
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
     if(notaFils.length&&!notaFils.includes(Number(r.nota))) return false;
-    if(yearFils.length||monthFils.length){
+    if(!semData&&(yearFils.length||monthFils.length)){
       if(!r.respondido_em) return false;
       const d=new Date(r.respondido_em);
       if(isNaN(d)) return false;
@@ -1102,31 +1153,162 @@ function topN(rows,keyFn,n=6){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,n);
 }
 function destroyChart(id){ if(_charts[id]){ _charts[id].destroy(); delete _charts[id]; } }
+const RANK_MAX=100;
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+// índice da categoria cujo NOME (rótulo à esquerda do gráfico) está sob o mouse; -1 se não for rótulo
+function rotuloEm(ch,evt){
+  const a=ch.chartArea, x=evt.x, y=evt.y;
+  if(!a||x>=a.left||y<a.top||y>a.bottom) return -1;
+  const i=Math.round(ch.scales.y.getValueForPixel(y));
+  return i>=0&&i<ch.data.labels.length?i:-1;
+}
 function barChart(id,labels,data,color,drill){
   destroyChart(id);
   const ctx=document.getElementById(id);
   if(!ctx) return;
-  _charts[id]=new Chart(ctx,{
+  const wrap=ctx.parentElement; if(wrap) wrap.style.height=Math.max(150,labels.length*34+24)+'px';
+  const t2=cssVar('--t2')||'#57554f';
+  const valores={id:'valoresBarras',afterDatasetsDraw(ch){
+    const c=ch.ctx; c.save(); c.font='700 11px Manrope,system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=t2;
+    ch.getDatasetMeta(0).data.forEach((bar,i)=>c.fillText(Number(data[i]).toLocaleString('pt-BR'),bar.x+6,bar.y)); c.restore(); }};
+  const abrir=i=>{
+    if(!drill||i<0||i>=labels.length) return;
+    const label=labels[i];
+    openChamadoListagemModal(drill.sourceRows.filter(r=>r[drill.field]===label),`${drill.fieldLabel}: ${label}`);
+  };
+  const ch=new Chart(ctx,{
     type:'bar',
-    data:{labels,datasets:[{data,backgroundColor:color,borderRadius:4}]},
+    data:{labels,datasets:[{data,backgroundColor:color,borderRadius:6,barPercentage:.7,categoryPercentage:.85}]},
+    plugins:[valores],
     options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:40}},
       plugins:{legend:{display:false}},
-      scales:{
-        x:{display:false},
-        y:{grid:{display:false},ticks:{color:'#8a8880',font:{size:11}}},
-      },
-      onClick:(evt,elements)=>{
-        if(!drill||!elements.length) return;
-        const label=labels[elements[0].index];
-        const filtered=drill.sourceRows.filter(r=>r[drill.field]===label);
-        openChamadoListagemModal(filtered,`${drill.fieldLabel}: ${label}`);
-      },
-      onHover:(evt,elements)=>{
-        evt.native.target.style.cursor=(drill&&elements.length)?'pointer':'default';
-      },
+      scales:{ x:{display:false,beginAtZero:true}, y:{grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:11,weight:'600'}}} },
+      onClick:(evt,els)=>{ if(els.length) abrir(els[0].index); },
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=(drill&&els.length)?'pointer':'default'; },
     },
   });
+  _charts[id]=ch;
+  if(drill){   // clicar no NOME da categoria também abre a lista (o Chart.js só avisa cliques dentro da área do gráfico)
+    const pos=e=>{ const r=ctx.getBoundingClientRect(); return rotuloEm(ch,{x:e.clientX-r.left,y:e.clientY-r.top}); };
+    ctx.onmousemove=e=>{ if(pos(e)>=0) ctx.style.cursor='pointer'; };
+    ctx.onclick=e=>{ const i=pos(e); if(i>=0) abrir(i); };
+  }
+}
+
+// Rosca no estilo 2.0 (anel arredondado, total no centro, legenda clicável)
+function donutNovo(id,{itens,rotulo,onClick}){
+  destroyChart(id);
+  const cv=document.getElementById(id), leg=document.getElementById(id+'-leg'); if(!cv) return;
+  const lista=itens.filter(i=>i.valor>0), total=lista.reduce((a,i)=>a+i.valor,0);
+  if(leg){
+    leg.innerHTML=itens.map(i=>`<li data-l="${escAttr(i.label)}"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+    leg.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>onClick&&onClick(li.dataset.l)));
+  }
+  if(!total) return;
+  const t1=cssVar('--t1'), t3=cssVar('--t3');
+  const centro={id:'centroRosca',afterDraw(ch){
+    const {ctx,chartArea:a}=ch, x=(a.left+a.right)/2, y=(a.top+a.bottom)/2;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=t1; ctx.font='800 26px Manrope,system-ui,sans-serif'; ctx.fillText(total.toLocaleString('pt-BR'),x,y-6);
+    ctx.fillStyle=t3; ctx.font='600 11.5px Manrope,system-ui,sans-serif'; ctx.fillText(rotulo||'total',x,y+16); ctx.restore(); }};
+  _charts[id]=new Chart(cv,{
+    type:'doughnut',
+    data:{labels:lista.map(i=>i.label),datasets:[{data:lista.map(i=>i.valor),backgroundColor:lista.map(i=>i.cor),borderWidth:0,borderRadius:10,spacing:3,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'76%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.toLocaleString('pt-BR')} (${(c.parsed/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%)`}}},
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
+      onClick:(evt,els,ch)=>{ if(els.length&&onClick) onClick(ch.data.labels[els[0].index]); }},
+    plugins:[centro]
+  });
+}
+
+// Mini-gráfico e variação do último mês fechado contra o anterior (mesmo desenho do Painel Geral)
+function sparkDelta(k,serie,{cor,sentido,pp}){
+  const sp=document.getElementById('sp-'+k), dl=document.getElementById('dl-'+k);
+  const ok=serie.filter(x=>x!=null);
+  if(ok.length<2){ if(sp) sp.innerHTML=''; if(dl) dl.innerHTML=''; return; }
+  if(sp){
+    const W=110,H=34,mn=Math.min(...ok),mx=Math.max(...ok),span=(mx-mn)||1;
+    const pts=serie.map((x,i)=>x==null?null:[i/(serie.length-1)*W,H-3-((x-mn)/span)*(H-8)]).filter(Boolean);
+    const linha=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    sp.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><defs><linearGradient id="spg-${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cor}" stop-opacity=".28"/><stop offset="1" stop-color="${cor}" stop-opacity="0"/></linearGradient></defs><path d="${linha} L${W} ${H} L0 ${H} Z" fill="url(#spg-${k})"/><path d="${linha}" fill="none" stroke="${cor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  if(!dl) return;
+  const a=serie[serie.length-1], b=serie[serie.length-2];
+  if(a==null||b==null){ dl.innerHTML=''; return; }
+  const d=a-b, f1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
+  const txt=pp?`${f1(Math.abs(d))} pp`:(b?`${f1(Math.abs(d/b*100))}%`:`${Math.abs(d).toLocaleString('pt-BR')}`);
+  const tom=d===0||!sentido?'neutro':((d>0)===(sentido>0)?'bom':'ruim');
+  dl.className='kpi-delta '+tom;
+  dl.title='Último mês fechado contra o anterior';
+  dl.textContent=d===0?'= estável':`${d>0?'▲':'▼'} ${txt}`;
+}
+function mesDe(d){ const dt=new Date(d); return isNaN(dt)?null:`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`; }
+function rotMes(k){ const [y,m]=k.split('-'); return `${MONTH_NAMES[Number(m)-1]}/${y.slice(2)}`; }
+function renderKpiExtras(){
+  const rows=getFilteredRows(true); if(!rows.length) return;
+  const agora=mesDe(new Date());
+  const ks=[...new Set(rows.map(r=>mesDe(r.respondido_em)).filter(Boolean))].filter(k=>k<agora).sort().slice(-8);
+  const noMes=k=>rows.filter(r=>mesDe(r.respondido_em)===k);
+  sparkDelta('avaliados',ks.map(k=>noMes(k).length),{cor:'#ff8a2b',sentido:0});
+  sparkDelta('satisfacao',ks.map(k=>{ const l=noMes(k); return l.length?l.filter(isPositiva).length/l.length*100:null; }),{cor:'#2fbf8a',sentido:1,pp:true});
+  sparkDelta('insatisfacao',ks.map(k=>{ const l=noMes(k); return l.length?l.filter(isNegativa).length/l.length*100:null; }),{cor:'#ee6f82',sentido:-1,pp:true});
+}
+function renderSatTrend(){
+  destroyChart('satTrendChart');
+  const cv=document.getElementById('satTrendChart'); if(!cv) return;
+  const rows=getFilteredRows(true);
+  const ks=[...new Set(rows.map(r=>mesDe(r.respondido_em)).filter(Boolean))].sort().slice(-12);
+  cv.parentElement.style.minWidth=Math.max(0,ks.length*64)+'px';   // muitos meses: o gráfico rola na horizontal
+  const noMes=k=>rows.filter(r=>mesDe(r.respondido_em)===k);
+  const pct=fn=>ks.map(k=>{ const l=noMes(k); return l.length?+(l.filter(fn).length/l.length*100).toFixed(1):null; });
+  const n=ks.map(k=>noMes(k).length);
+  const t2=cssVar('--t2'), grade=cssVar('--border');
+  const ctx=cv.getContext('2d'), g=ctx.createLinearGradient(0,0,0,300); g.addColorStop(0,'rgba(47,191,138,.28)'); g.addColorStop(1,'rgba(47,191,138,0)');
+  _charts.satTrendChart=new Chart(cv,{
+    type:'line',
+    data:{labels:ks.map(rotMes),datasets:[
+      {label:'Satisfação',data:pct(isPositiva),borderColor:'#2fbf8a',backgroundColor:g,fill:true,tension:.35,pointRadius:4,pointBackgroundColor:'#2fbf8a',borderWidth:2.5},
+      {label:'Insatisfação',data:pct(isNegativa),borderColor:'#ee6f82',backgroundColor:'transparent',tension:.35,pointRadius:4,pointBackgroundColor:'#ee6f82',borderWidth:2.5,borderDash:[6,4]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'top',align:'end',labels:{color:t2,usePointStyle:true,boxWidth:8,font:{size:12,weight:'600'}}},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y==null?'—':c.parsed.y.toLocaleString('pt-BR')+'%'}`,afterBody:items=>`${n[items[0].dataIndex].toLocaleString('pt-BR')} avaliações no mês`}}},
+      scales:{y:{min:0,max:100,grid:{color:grade},border:{display:false},ticks:{color:t2,callback:v=>v+'%'}},x:{grid:{display:false},ticks:{color:t2,font:{weight:'600'}}}}},
+  });
+}
+const COR_NOTA={5:'#2fbf8a',4:'#7fd8b0',3:'#a6adbf',2:'#f2a65a',1:'#ee6f82'};
+
+
+// ── Comentários recentes e nota por analista ─────────────────────────
+function corAvatar(nome){ let h=0; for(const c of String(nome||'?')) h=(h*31+c.charCodeAt(0))%360; return `linear-gradient(135deg,hsl(${h} 70% 52%),hsl(${(h+40)%360} 70% 42%))`; }
+function iniciais(nome){ return (String(nome||'?').replace(/[^A-Za-zÀ-ú0-9 ]/g,'').split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase())||'?'; }
+const ESTRELA='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>';
+function renderComentarios(rows){
+  const box=document.getElementById('coment-lista'); if(!box) return;
+  const l=rows.filter(r=>(r.comentario||'').trim()).sort((a,b)=>String(b.respondido_em||'').localeCompare(String(a.respondido_em||''))).slice(0,30);
+  if(!l.length){ box.innerHTML='<p class="cloud-empty">Nenhum comentário no filtro atual.</p>'; return; }
+  box.innerHTML=l.map(r=>{
+    const n=Number(r.nota), cls=n>=4?'bom':n<=2?'ruim':'';
+    const quem=[r.respondido_por,r.organizacao].filter(Boolean).join(' · ');
+    return `<button type="button" class="cm-item" onclick="window.open('${ticketUrl(r.ticket_id)}','_blank','noopener')" title="Abrir o chamado #${escAttr(r.ticket_id)}">
+      <span class="cm-av" style="background:${corAvatar(r.responsavel)}">${esc(iniciais(r.responsavel))}</span>
+      <span class="cm-tx"><b>“${esc(r.comentario.trim())}”</b><small>${esc(quem||'—')}${r.responsavel?` · atendido por ${esc(String(r.responsavel).split(' ')[0])}`:''}</small></span>
+      <span class="cm-nota ${cls}" title="${esc(NOTA_LABELS[n]||'')}">${n}${ESTRELA}</span></button>`;
+  }).join('');
+}
+function renderAnalistas(rows){
+  const box=document.getElementById('analista-lista'); if(!box) return;
+  const por={};
+  rows.forEach(r=>{ if(!r.responsavel) return; const o=por[r.responsavel]=por[r.responsavel]||{soma:0,n:0}; o.soma+=Number(r.nota); o.n++; });
+  const l=Object.entries(por).map(([nome,o])=>({nome,media:o.soma/o.n,n:o.n})).sort((a,b)=>b.media-a.media||b.n-a.n);
+  if(!l.length){ box.innerHTML='<p class="cloud-empty">Sem avaliações no filtro atual.</p>'; return; }
+  box.innerHTML=l.map(a=>`<button type="button" class="an-item" data-n="${escAttr(a.nome)}" title="${a.n.toLocaleString('pt-BR')} avaliação(ões)">
+      <span class="cm-av" style="background:${corAvatar(a.nome)}">${esc(iniciais(a.nome))}</span>
+      <span class="an-tx"><b>${esc(a.nome)}</b><span class="an-trilho"><i style="width:${(a.media/5*100).toFixed(1)}%"></i></span></span>
+      <span class="an-val">${a.media.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}</span></button>`).join('');
+  box.querySelectorAll('.an-item').forEach(b=>b.addEventListener('click',()=>{ const nome=b.dataset.n; openChamadoListagemModal(rows.filter(r=>r.responsavel===nome),`Responsável: ${nome}`); }));
 }
 
 // ── render ───────────────────────────────────────────────────────────
@@ -1150,20 +1332,26 @@ function render(){
   document.getElementById('k-satisfacao').textContent=fmtPct(satisfacao);
   document.getElementById('k-insatisfacao').textContent=fmtPct(insatisfacao);
   document.getElementById('k-taxa-resposta').textContent=fmtPct(taxaResposta);
+  { const arc=document.getElementById('sat-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,satisfacao))).toFixed(1)} ${C.toFixed(1)}`; } }
+  renderKpiExtras();
+  renderSatTrend();
+  renderComentarios(rows);
+  renderAnalistas(rows);
+  donutNovo('notasChart',{itens:[5,4,3,2,1].map(n=>({label:NOTA_LABELS[n],valor:rows.filter(r=>Number(r.nota)===n).length,cor:COR_NOTA[n]})),rotulo:'avaliações',onClick:l=>{ const n=Object.keys(NOTA_LABELS).find(k=>NOTA_LABELS[k]===l); openChamadoListagemModal(rows.filter(r=>String(r.nota)===String(n)),`Nota: ${l}`); }});
   document.getElementById('neg-panel-title').textContent=
     `Ruim e péssimo (${negativas.toLocaleString('pt-BR')} caso${negativas!==1?'s':''} — ${fmtPct(insatisfacao)} do total avaliado)`;
 
   // ── composição por equipe ──
-  const teamTop=topN(rows,r=>r.equipe,10);
-  barChart('teamChart',teamTop.map(([k])=>k),teamTop.map(([,v])=>v),'#3987e5',{sourceRows:rows,field:'equipe',fieldLabel:'Equipe'});
-  const teamNegTop=topN(negativasRows,r=>r.equipe,10);
-  barChart('teamNegChart',teamNegTop.map(([k])=>k),teamNegTop.map(([,v])=>v),'#e66767',{sourceRows:negativasRows,field:'equipe',fieldLabel:'Equipe'});
+  const teamTop=topN(rows,r=>r.equipe,RANK_MAX);
+  barChart('teamChart',teamTop.map(([k])=>k),teamTop.map(([,v])=>v),'#ff8a2b',{sourceRows:rows,field:'equipe',fieldLabel:'Equipe'});
+  const teamNegTop=topN(negativasRows,r=>r.equipe,RANK_MAX);
+  barChart('teamNegChart',teamNegTop.map(([k])=>k),teamNegTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'equipe',fieldLabel:'Equipe'});
 
   // ── ranking geral ──
-  const clientTop=topN(rows,r=>r.organizacao,10);
-  barChart('clientChart',clientTop.map(([k])=>k),clientTop.map(([,v])=>v),'#3987e5',{sourceRows:rows,field:'organizacao',fieldLabel:'Cliente'});
-  const respTop=topN(rows,r=>r.responsavel,10);
-  barChart('respChart',respTop.map(([k])=>k),respTop.map(([,v])=>v),'#3987e5',{sourceRows:rows,field:'responsavel',fieldLabel:'Responsável'});
+  const clientTop=topN(rows,r=>r.organizacao,RANK_MAX);
+  barChart('clientChart',clientTop.map(([k])=>k),clientTop.map(([,v])=>v),'#ff8a2b',{sourceRows:rows,field:'organizacao',fieldLabel:'Cliente'});
+  const respTop=topN(rows,r=>r.responsavel,RANK_MAX);
+  barChart('respChart',respTop.map(([k])=>k),respTop.map(([,v])=>v),'#ff8a2b',{sourceRows:rows,field:'responsavel',fieldLabel:'Responsável'});
 
   // ── negativas: tendência mensal ──
   const monthKey=d=>{ const dt=new Date(d); return isNaN(dt)?null:`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`; };
@@ -1178,18 +1366,19 @@ function render(){
   destroyChart('negTrendChart');
   const negTrendCtx=document.getElementById('negTrendChart');
   if(negTrendCtx){
+    negTrendCtx.parentElement.style.minWidth=Math.max(0,monthKeys.length*64)+'px';
     _charts.negTrendChart=new Chart(negTrendCtx,{
       type:'line',
-      data:{labels:monthLabels,datasets:[{data:monthKeys.map(k=>byMonth[k]),borderColor:'#e66767',backgroundColor:'rgba(230,103,103,0.15)',fill:true,tension:0.3,pointRadius:3}]},
+      data:{labels:monthLabels,datasets:[{data:monthKeys.map(k=>byMonth[k]),borderColor:'#ee6f82',backgroundColor:'rgba(238,111,130,0.15)',fill:true,tension:0.35,pointRadius:4,borderWidth:2.5}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-        scales:{y:{grid:{color:'rgba(120,120,120,.15)'},ticks:{color:'#8a8880',precision:0}},x:{grid:{display:false},ticks:{color:'#8a8880'}}}},
+        scales:{y:{grid:{color:'rgba(120,120,120,.15)'},ticks:{color:(cssVar('--t3')||'#8a8880'),precision:0}},x:{grid:{display:false},ticks:{color:(cssVar('--t3')||'#8a8880')}}}},
     });
   }
 
-  const negClientTop=topN(negativasRows,r=>r.organizacao,5);
-  barChart('negClientChart',negClientTop.map(([k])=>k),negClientTop.map(([,v])=>v),'#e66767',{sourceRows:negativasRows,field:'organizacao',fieldLabel:'Cliente'});
-  const negRespTop=topN(negativasRows,r=>r.responsavel,5);
-  barChart('negRespChart',negRespTop.map(([k])=>k),negRespTop.map(([,v])=>v),'#e66767',{sourceRows:negativasRows,field:'responsavel',fieldLabel:'Responsável'});
+  const negClientTop=topN(negativasRows,r=>r.organizacao,RANK_MAX);
+  barChart('negClientChart',negClientTop.map(([k])=>k),negClientTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'organizacao',fieldLabel:'Cliente'});
+  const negRespTop=topN(negativasRows,r=>r.responsavel,RANK_MAX);
+  barChart('negRespChart',negRespTop.map(([k])=>k),negRespTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'responsavel',fieldLabel:'Responsável'});
 
   // ── tabela de negativas com comentário ──
   const comentadas=negativasRows.filter(r=>(r.comentario||'').trim()).sort((a,b)=>String(b.respondido_em||'').localeCompare(String(a.respondido_em||''))).slice(0,30);
@@ -1214,9 +1403,9 @@ function render(){
   if(wcCtx){
     _charts.wordCountChart=new Chart(wcCtx,{
       type:'bar',
-      data:{labels:wordTop.map(([w])=>w),datasets:[{data:wordTop.map(([,c])=>c),backgroundColor:'#e66767',borderRadius:4}]},
+      data:{labels:wordTop.map(([w])=>w),datasets:[{data:wordTop.map(([,c])=>c),backgroundColor:'#ee6f82',borderRadius:4}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-        scales:{x:{grid:{color:'rgba(120,120,120,.15)'},ticks:{color:'#8a8880',precision:0}},y:{grid:{display:false},ticks:{color:'#8a8880'}}}},
+        scales:{x:{grid:{color:'rgba(120,120,120,.15)'},ticks:{color:(cssVar('--t3')||'#8a8880'),precision:0}},y:{grid:{display:false},ticks:{color:(cssVar('--t3')||'#8a8880')}}}},
     });
   }
 }
@@ -1244,5 +1433,6 @@ applyRolePermissions();
   }catch{}
 })();
 </script>
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

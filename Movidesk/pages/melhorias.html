@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
+<script src="../js/ui-version.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Melhorias</title>
@@ -104,27 +105,148 @@ textarea{width:100%;resize:vertical;min-height:80px}
 .acoes{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 @media (max-width:640px){.item{grid-template-columns:54px minmax(0,1fr)}.item .lado{grid-column:2}.duas{grid-template-columns:1fr}}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/v2.css">
+<style id="v2-melhorias">
+/* ═══ Melhorias no Visual 2.0 (layout "Ideias" do Hub 360 2.0) ═══ */
+html[data-ui="v2"]{
+  --accent:var(--brand);
+  --p1:var(--danger); --p1-bg:var(--danger-soft); --p2:var(--brand-text); --p2-bg:var(--brand-soft); --p3:var(--warning); --p3-bg:var(--warning-soft); --p4:var(--info); --p4-bg:var(--info-soft);
+  --ok:var(--success); --ok-bg:var(--success-soft); --warn:var(--warning); --warn-bg:var(--warning-soft); --bad:var(--danger); --bad-bg:var(--danger-soft);
+  --sh:var(--shadow-pop);
+}
+html[data-ui="v2"] body{font-family:"Manrope",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+html[data-ui="v2"] .page{max-width:1480px;padding:24px 24px 56px}
+html[data-ui="v2"] .topo{align-items:center;gap:14px 18px;margin-bottom:22px}
+html[data-ui="v2"] .topo h1{font-size:34px;font-weight:800;letter-spacing:-.02em}
+html[data-ui="v2"] .topo p{color:var(--t2);font-size:14px;font-weight:600;line-height:1.5;max-width:720px;margin-top:4px}
+html[data-ui="v2"] .btn{border:1px solid var(--border-hi);background:var(--surface);color:var(--t1);border-radius:999px;padding:10px 18px;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:8px}
+html[data-ui="v2"] .btn:hover:not(:disabled){background:var(--surface-low)}
+html[data-ui="v2"] .btn.primario{background:var(--brand);border-color:var(--brand);color:var(--on-brand);box-shadow:0 6px 18px rgba(255,138,43,.30);padding:13px 24px;font-weight:800}
+html[data-ui="v2"] .btn.primario:hover:not(:disabled){background:var(--brand-hover)}
+html[data-ui="v2"] .btn.peq{padding:7px 14px;font-size:12px}
+html[data-ui="v2"] .btn svg{width:18px;height:18px}
+/* duas colunas: lista + roadmap */
+html[data-ui="v2"] .mel-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:22px;align-items:start}
+html[data-ui="v2"] .mel-grid.quadro-on{grid-template-columns:minmax(0,1fr)}
+html[data-ui="v2"] .mel-grid.quadro-on .mel-side{display:none}
+@media (max-width:1100px){html[data-ui="v2"] .mel-grid{grid-template-columns:minmax(0,1fr)}}
+html[data-ui="v2"] .mel-main{min-width:0}
+html[data-ui="v2"] .vistas{display:inline-flex;gap:6px;padding:4px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-card)}
+html[data-ui="v2"] .vistas .chip{border-color:transparent;background:transparent}
+html[data-ui="v2"] .vistas .chip[aria-pressed="true"]{background:var(--brand-soft);border-color:transparent}
+html[data-ui="v2"] .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+html[data-ui="v2"] .toolbar .dir{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+html[data-ui="v2"] .chip{border:1px solid var(--border-hi);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--t2);cursor:pointer}
+html[data-ui="v2"] .chip:hover{background:var(--surface-low);color:var(--t1)}
+html[data-ui="v2"] .chip[aria-pressed="true"]{background:var(--brand-soft);border-color:var(--brand-text);color:var(--brand-text)}
+html[data-ui="v2"] .barra{gap:10px;margin-bottom:16px}
+html[data-ui="v2"] .barra input[type=search],html[data-ui="v2"] .barra select{border:1px solid var(--border-hi);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--t2)}
+html[data-ui="v2"] .barra input[type=search]{min-width:170px;width:190px;font-weight:600}
+html[data-ui="v2"] .barra input:focus,html[data-ui="v2"] .barra select:focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+/* cartão de sugestão */
+html[data-ui="v2"] .lista{gap:16px}
+html[data-ui="v2"] .item{display:flex;align-items:flex-start;gap:20px;border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-card);padding:20px 22px}
+html[data-ui="v2"] .item:hover,html[data-ui="v2"] .item:focus-visible{box-shadow:var(--shadow-pop);outline:none}
+html[data-ui="v2"] .item:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+html[data-ui="v2"] .item .corpo{flex:1;min-width:0}
+html[data-ui="v2"] .item h3{margin:0;font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
+html[data-ui="v2"] .item .desc{margin:4px 0 12px;color:var(--t2);font-size:13.5px;font-weight:500;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+html[data-ui="v2"] .item .meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+html[data-ui="v2"] .sub{font-size:12.5px;color:var(--t3);font-weight:600}
+html[data-ui="v2"] .autor{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--t2);font-weight:600}
+html[data-ui="v2"] .av{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:9.5px;font-weight:800;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+html[data-ui="v2"] .voto{flex:none;width:62px;border:1.5px solid var(--border-hi);border-radius:16px;background:transparent;padding:9px 0 8px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:18px;font-weight:800;color:var(--t2);line-height:1.1;cursor:pointer}
+html[data-ui="v2"] .voto svg{width:18px;height:18px}
+html[data-ui="v2"] .voto:hover:not(:disabled){background:var(--brand-soft);border-color:var(--brand-text);color:var(--brand-text)}
+html[data-ui="v2"] .voto.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-text)}
+html[data-ui="v2"] .voto:disabled{opacity:.5;cursor:default}
+html[data-ui="v2"] .pill{display:inline-flex;align-items:center;gap:7px;padding:5px 13px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+html[data-ui="v2"] .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+html[data-ui="v2"] .s-nova{background:var(--surface-low);color:var(--t2)} html[data-ui="v2"] .s-avaliacao{background:var(--warning-soft);color:var(--warning)}
+html[data-ui="v2"] .s-aprovada{background:var(--info-soft);color:var(--info)} html[data-ui="v2"] .s-desenvolvimento{background:var(--brand-soft);color:var(--brand-text)}
+html[data-ui="v2"] .s-implantada{background:var(--success-soft);color:var(--success)} html[data-ui="v2"] .s-recusada{background:var(--danger-soft);color:var(--danger)}
+html[data-ui="v2"] .tag{border:0;border-radius:999px;background:var(--surface-low);padding:3px 10px;font-size:11.5px;font-weight:700;color:var(--t2);margin:0}
+/* barra lateral */
+html[data-ui="v2"] .mel-side{display:flex;flex-direction:column;gap:20px;position:sticky;top:20px}
+html[data-ui="v2"] .card{background:var(--surface);border-radius:20px;box-shadow:var(--shadow-card);padding:22px 24px}
+html[data-ui="v2"] .card h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em}
+html[data-ui="v2"] .card .sub2{margin:2px 0 16px;color:var(--t3);font-size:12.5px;font-weight:600}
+html[data-ui="v2"] .road{display:grid;grid-template-columns:132px minmax(0,1fr) 28px;align-items:center;gap:12px;width:100%;padding:8px 4px;border:0;border-radius:10px;background:transparent;color:var(--t1);text-align:left;cursor:pointer;font-size:13px;font-weight:700}
+html[data-ui="v2"] .road:hover{background:var(--surface-low)}
+html[data-ui="v2"] .road .tr{height:9px;border-radius:999px;background:var(--surface-low);overflow:hidden}
+html[data-ui="v2"] .road .tr i{display:block;height:100%;border-radius:999px;background:var(--brand)}
+html[data-ui="v2"] .road .v{text-align:right;color:var(--t2);font-variant-numeric:tabular-nums}
+html[data-ui="v2"] .road[aria-pressed="true"] .n{color:var(--brand-text)}
+html[data-ui="v2"] .inv{position:relative;overflow:hidden;color:var(--on-inverse);background:linear-gradient(155deg,#1d1713 0%,#3d2412 100%)}
+html[data-ui="v2"].dark .inv,html[data-ui="v2"][data-theme="dark"] .inv{background:linear-gradient(155deg,#2b1a0d 0%,#4a2a12 100%)}
+html[data-ui="v2"] .inv::before,html[data-ui="v2"] .inv::after{content:"";position:absolute;border-radius:50%;pointer-events:none;border:1px solid rgba(255,159,79,.2)}
+html[data-ui="v2"] .inv::before{width:150px;height:150px;right:-40px;bottom:-60px}
+html[data-ui="v2"] .inv::after{width:230px;height:230px;right:-80px;bottom:-100px;border-color:rgba(255,159,79,.12)}
+html[data-ui="v2"] .inv>*{position:relative;z-index:1}
+html[data-ui="v2"] .inv .topoi{display:flex;align-items:center;gap:12px;margin-bottom:14px;font-weight:800;font-size:14px;color:var(--on-inverse-muted)}
+html[data-ui="v2"] .inv .ico{display:grid;place-items:center;width:40px;height:40px;border-radius:14px;background:var(--brand);color:var(--on-brand)}
+html[data-ui="v2"] .inv .ico svg{width:20px;height:20px}
+html[data-ui="v2"] .inv .big{font-size:56px;line-height:1;font-weight:800;letter-spacing:-.02em;color:var(--on-inverse)}
+html[data-ui="v2"] .inv .big small{font-size:20px;font-weight:700;opacity:.6}
+html[data-ui="v2"] .inv p{margin:8px 0 0;color:var(--on-inverse-muted);font-size:13px;font-weight:500}
+/* quadro */
+html[data-ui="v2"] .quadro{gap:14px;grid-template-columns:repeat(6,minmax(240px,1fr));padding-bottom:6px}
+html[data-ui="v2"] .col{background:var(--surface-low);border-radius:24px;padding:12px;gap:10px;min-height:120px}
+html[data-ui="v2"] .col h4{display:flex;align-items:center;gap:8px;margin:2px 6px 4px;font-size:13px;font-weight:800;letter-spacing:0;text-transform:none;color:var(--t1)}
+html[data-ui="v2"] .col h4::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--cor,var(--t3))}
+html[data-ui="v2"] .col .item{display:block;padding:12px 14px;min-width:0}
+html[data-ui="v2"] .col .item h3{font-size:14px;overflow-wrap:anywhere}
+html[data-ui="v2"] .col .tag{display:inline-block;white-space:nowrap;margin:4px 4px 0 0}
+html[data-ui="v2"] .vazio{border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-card);padding:40px;color:var(--t2);font-weight:600}
+html[data-ui="v2"] .aviso{border-radius:14px;font-weight:600}
+/* gaveta e modal */
+html[data-ui="v2"] .fundo,html[data-ui="v2"] .modal-fundo{background:rgba(29,24,20,.5);backdrop-filter:blur(3px)}
+html[data-ui="v2"] .gaveta{border-radius:28px 0 0 28px;background:var(--bg)}
+html[data-ui="v2"] .g-topo{background:var(--surface);border-bottom:0;border-radius:28px 0 0 0;padding:20px 24px;box-shadow:var(--shadow-card)}
+html[data-ui="v2"] .g-topo h2{font-size:20px;font-weight:800;letter-spacing:-.01em}
+html[data-ui="v2"] .g-topo .x{width:36px;height:36px;border-radius:50%;background:var(--surface-low);color:var(--t2);font-size:22px}
+html[data-ui="v2"] .g-corpo{padding:20px 24px;gap:18px}
+html[data-ui="v2"] .sec h4{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--t3)}
+html[data-ui="v2"] .txt,html[data-ui="v2"] .com{border:0;border-radius:16px;background:var(--surface);box-shadow:var(--shadow-card);padding:12px 16px;font-weight:500}
+html[data-ui="v2"] .resp{border-left:0;box-shadow:var(--shadow-card),inset 4px 0 0 var(--brand)}
+html[data-ui="v2"] .com.int{background:var(--warning-soft)}
+html[data-ui="v2"] .ev{border-bottom-color:var(--border)}
+html[data-ui="v2"] .adm{border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-card),inset 0 0 0 1.5px var(--brand);padding:16px}
+html[data-ui="v2"] .adm label,html[data-ui="v2"] .modal label{font-weight:700;color:var(--t2)}
+html[data-ui="v2"] .modal{border-radius:28px;padding:26px;box-shadow:var(--shadow-pop)}
+html[data-ui="v2"] .modal h3{font-size:20px;font-weight:800}
+html[data-ui="v2"] select,html[data-ui="v2"] input,html[data-ui="v2"] textarea{border:1px solid var(--border-hi);border-radius:14px;background:var(--surface);font-weight:600}
+html[data-ui="v2"] textarea{border-radius:16px}
+html[data-ui="v2"] select:focus,html[data-ui="v2"] input:focus,html[data-ui="v2"] textarea:focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+</style>
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 <div class="page">
   <div class="topo">
-    <div><h1>Melhorias</h1><p>Sugira melhorias para o Hub 360, apoie as ideias dos colegas e acompanhe o que está sendo avaliado, desenvolvido e já implantado.</p></div>
+    <div><h1>Melhorias</h1><p>Vote nas melhorias que mais importam para a operação, sugira novas ideias e acompanhe o que está sendo avaliado, desenvolvido e já implantado.</p></div>
     <div class="sp"></div>
-    <button class="btn primario" id="btnNova" type="button">+ Nova sugestão</button>
+    <span class="vistas"><button class="chip" id="vLista" aria-pressed="true" type="button">Lista</button><button class="chip" id="vQuadro" aria-pressed="false" type="button">Quadro</button></span>
+    <button class="btn primario" id="btnNova" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nova sugestão</button>
   </div>
-  <div class="kpis" id="kpis"></div>
-  <div class="barra">
-    <input type="search" id="fBusca" placeholder="Buscar sugestões…" aria-label="Buscar">
-    <select id="fArea" aria-label="Área"><option value="">Todas as áreas</option></select>
-    <select id="fTipo" aria-label="Tipo"><option value="">Todos os tipos</option></select>
-    <select id="fOrdem" aria-label="Ordenar"><option value="votos">Mais apoiadas</option><option value="recentes">Mais recentes</option></select>
-    <button class="chip" id="chipMeus" aria-pressed="false" type="button">Minhas sugestões</button>
-    <span class="sp"></span>
-    <button class="chip" id="vLista" aria-pressed="true" type="button">Lista</button>
-    <button class="chip" id="vQuadro" aria-pressed="false" type="button">Quadro</button>
+  <div class="mel-grid" id="melGrid">
+    <div class="mel-main">
+      <div class="toolbar"><span id="chipsStatus" style="display:contents"></span></div>
+      <div class="barra">
+        <input type="search" id="fBusca" placeholder="Buscar sugestões…" aria-label="Buscar">
+        <select id="fArea" aria-label="Área"><option value="">Todas as áreas</option></select>
+        <select id="fTipo" aria-label="Tipo"><option value="">Todos os tipos</option></select>
+        <button class="chip" id="chipMeus" aria-pressed="false" type="button">Minhas</button>
+        <span class="sp"></span>
+        <button class="chip" id="oVotos" data-ordem="votos" aria-pressed="true" type="button">Mais apoiadas</button><button class="chip" id="oRecentes" data-ordem="recentes" aria-pressed="false" type="button">Recentes</button>
+      </div>
+      <div class="aviso" id="aviso" role="status"></div>
+      <div id="conteudo"></div>
+    </div>
+    <aside class="mel-side" id="melSide"></aside>
   </div>
-  <div class="aviso" id="aviso" role="status"></div>
-  <div id="conteudo"></div>
 </div>
 
 <div class="fundo" id="fundo"></div>
@@ -163,26 +285,40 @@ let CFG=null, S={status:'',area:'',tipo:'',meus:false,q:'',ordem:'votos',vista:'
 const pill=m=>`<span class="pill s-${m.status}">${esc(m.rotuloStatus)}</span>`;
 const tags=m=>`<span class="tag">${esc(CFG.tipos[m.tipo]||m.tipo)}</span><span class="tag">${esc(m.area||'Outro')}</span>${m.prioridade?`<span class="tag" title="Prioridade definida pela administração">P${m.prioridade}</span>`:''}${m.esforco?`<span class="tag" title="Esforço estimado">Esforço ${esc(m.esforco)}</span>`:''}`;
 
+const SETA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const iniciais=n=>(String(n||'?').replace(/[^A-Za-zÀ-ú0-9 ]/g,'').split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase())||'?';
+const corAv=n=>{ let h=0; for(const c of String(n||'?')) h=(h*31+c.charCodeAt(0))%360; return `linear-gradient(135deg,hsl(${h} 70% 52%),hsl(${(h+40)%360} 70% 42%))`; };
 function cartao(m){
   const encerrada=['implantada','recusada'].includes(m.status);
-  return `<div class="item" tabindex="0" role="button" data-id="${m.id}">
-    ${S.vista==='lista'?`<button type="button" class="voto ${m.eu_votei?'on':''}" data-voto="${m.id}" ${encerrada?'disabled':''} aria-label="Apoiar esta sugestão" title="${encerrada?'Sugestão encerrada':(m.eu_votei?'Remover meu apoio':'Apoiar')}">${m.votos}<small>apoios</small></button>`:''}
-    <div style="min-width:0"><h3>${esc(m.titulo)}</h3><div class="sub">${m.codigo} · ${esc(m.criado_por_nome||'—')} · ${dia(m.criado_em)}${m.n_comentarios?` · ${m.n_comentarios} comentário(s)`:''}${S.vista==='quadro'?` · ${m.votos} apoios`:''}</div><div style="margin-top:4px">${tags(m)}</div></div>
-    ${S.vista==='lista'?`<div class="lado">${pill(m)}</div>`:''}</div>`;
+  const autor=`<span class="autor"><span class="av" style="background:${corAv(m.criado_por_nome)}">${esc(iniciais(m.criado_por_nome))}</span>${esc(m.criado_por_nome||'—')}</span>`;
+  if(S.vista==='lista') return `<article class="item" tabindex="0" role="button" data-id="${m.id}">
+    <button type="button" class="voto ${m.eu_votei?'on':''}" data-voto="${m.id}" ${encerrada?'disabled':''} aria-pressed="${!!m.eu_votei}" aria-label="Apoiar esta sugestão" title="${encerrada?'Sugestão encerrada':(m.eu_votei?'Remover meu apoio':'Apoiar')}">${SETA}${m.votos}</button>
+    <div class="corpo"><h3>${esc(m.titulo)}</h3>${m.descricao?`<p class="desc">${esc(m.descricao)}</p>`:'<div style="height:8px"></div>'}
+      <div class="meta">${pill(m)}${autor}<span class="sub">${m.codigo} · ${dia(m.criado_em)}${m.n_comentarios?` · ${m.n_comentarios} comentário(s)`:''}</span>${tags(m)}</div></div></article>`;
+  return `<div class="item" tabindex="0" role="button" data-id="${m.id}"><div style="min-width:0"><h3>${esc(m.titulo)}</h3><div class="sub">${m.codigo} · ${esc(m.criado_por_nome||'—')} · ${dia(m.criado_em)}${m.n_comentarios?` · ${m.n_comentarios} comentário(s)`:''} · ${m.votos} apoios</div><div style="margin-top:4px">${tags(m)}</div></div></div>`;
 }
+const COR_ST={nova:'#a6adbf',avaliacao:'#e9b730',aprovada:'#4f9cf0',desenvolvimento:'#ff8a2b',implantada:'#2fbf8a',recusada:'#ee6f82'};
 function desenhar(){
   const ordem=Object.keys(CFG.status);
-  $('kpis').innerHTML=`<button class="kpi" data-st="" aria-pressed="${S.status===''}"><div class="r">Todas</div><div class="n">${Object.values(S.cont).reduce((a,b)=>a+b,0)}</div></button>`+
-    ordem.map(k=>`<button class="kpi" data-st="${k}" aria-pressed="${S.status===k}"><div class="r">${esc(CFG.status[k])}</div><div class="n">${S.cont[k]||0}</div></button>`).join('');
-  if(!S.lista.length){ $('conteudo').innerHTML='<div class="vazio">Nenhuma sugestão encontrada. Seja o primeiro: clique em “+ Nova sugestão”.</div>'; return; }
+  $('melGrid').classList.toggle('quadro-on',S.vista==='quadro');
+  $('chipsStatus').innerHTML=['',...ordem].map(k=>`<button class="chip" data-st="${k}" aria-pressed="${S.status===k}" type="button">${k===''?'Todas':esc(CFG.status[k])}</button>`).join('');
+  $('oVotos').setAttribute('aria-pressed',String(S.ordem==='votos')); $('oRecentes').setAttribute('aria-pressed',String(S.ordem==='recentes'));
+  // barra lateral: roadmap por status + quantos apoios o usuário deu
+  const total=Object.values(S.cont).reduce((a,b)=>a+b,0)||1, maxN=Math.max(1,...ordem.map(k=>S.cont[k]||0));
+  const meus=S.lista.filter(m=>m.eu_votei).length;
+  $('melSide').innerHTML=`<section class="card"><h3>Roadmap</h3><p class="sub2">Sugestões por etapa · ${total===1&&!Object.keys(S.cont).length?0:total} no total</p>${ordem.map(k=>`<button type="button" class="road" data-st="${k}" aria-pressed="${S.status===k}"><span class="n">${esc(CFG.status[k])}</span><div class="tr"><i style="width:${((S.cont[k]||0)/maxN*100).toFixed(1)}%;background:${COR_ST[k]||'var(--brand)'}"></i></div><span class="v">${S.cont[k]||0}</span></button>`).join('')}</section>
+    <section class="card inv"><div class="topoi"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></span>Seus apoios</div><div class="big">${meus}<small> sugestões</small></div><p>${S.status||S.area||S.tipo||S.q||S.meus?'Entre as sugestões da lista atual que você apoiou.':'Sugestões que você apoiou. Clique no número de cada cartão para apoiar ou remover.'}</p></section>`;
+  if(!S.lista.length){ $('conteudo').innerHTML='<div class="vazio">Nenhuma sugestão encontrada. Seja o primeiro: clique em “Nova sugestão”.</div>'; return; }
   if(S.vista==='lista') $('conteudo').innerHTML=`<div class="lista">${S.lista.map(cartao).join('')}</div>`;
-  else $('conteudo').innerHTML=`<div class="quadro">${ordem.map(k=>`<div class="col"><h4>${esc(CFG.status[k])} (${S.lista.filter(m=>m.status===k).length})</h4>${S.lista.filter(m=>m.status===k).map(cartao).join('')}</div>`).join('')}</div>`;
+  else $('conteudo').innerHTML=`<div class="quadro">${ordem.map(k=>`<div class="col" style="--cor:${COR_ST[k]||'var(--t3)'}"><h4>${esc(CFG.status[k])} (${S.lista.filter(m=>m.status===k).length})</h4>${S.lista.filter(m=>m.status===k).map(cartao).join('')}</div>`).join('')}</div>`;
 }
 async function carregar(){
   const qs=new URLSearchParams({ordem:S.ordem}); if(S.status&&S.vista==='lista')qs.set('status',S.status); if(S.area)qs.set('area',S.area); if(S.tipo)qs.set('tipo',S.tipo); if(S.meus)qs.set('meus','1'); if(S.q)qs.set('q',S.q);
   try{ const d=await api('/?'+qs); S.lista=d.melhorias; S.cont=d.contagem; desenhar(); }catch(e){ aviso('aviso',e.message,'erro'); }
 }
-$('kpis').addEventListener('click',e=>{ const b=e.target.closest('[data-st]'); if(!b)return; S.status=b.dataset.st; if(S.vista==='quadro'&&S.status){ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); } carregar(); });
+document.addEventListener('click',e=>{ const o=e.target.closest('[data-ordem]'); if(o){ S.ordem=o.dataset.ordem; carregar(); } });
+function aoFiltrarStatus(e){ const b=e.target.closest('[data-st]'); if(!b)return; S.status=b.dataset.st; if(S.vista==='quadro'&&S.status){ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); } carregar(); }
+$('chipsStatus').addEventListener('click',aoFiltrarStatus); $('melSide').addEventListener('click',aoFiltrarStatus);
 $('conteudo').addEventListener('click',async e=>{
   const v=e.target.closest('[data-voto]');
   if(v){ e.stopPropagation(); try{ await api(`/${v.dataset.voto}/voto`,{method:'POST'}); carregar(); }catch(x){ aviso('aviso',x.message,'erro'); } return; }
@@ -192,7 +328,6 @@ $('conteudo').addEventListener('keydown',e=>{ if((e.key==='Enter')&&e.target.cla
 let tb=null; $('fBusca').addEventListener('input',()=>{ clearTimeout(tb); tb=setTimeout(()=>{ S.q=$('fBusca').value.trim(); carregar(); },250); });
 $('fArea').addEventListener('change',()=>{ S.area=$('fArea').value; carregar(); });
 $('fTipo').addEventListener('change',()=>{ S.tipo=$('fTipo').value; carregar(); });
-$('fOrdem').addEventListener('change',()=>{ S.ordem=$('fOrdem').value; carregar(); });
 $('chipMeus').addEventListener('click',()=>{ S.meus=!S.meus; $('chipMeus').setAttribute('aria-pressed',String(S.meus)); carregar(); });
 $('vLista').addEventListener('click',()=>{ S.vista='lista'; $('vLista').setAttribute('aria-pressed','true'); $('vQuadro').setAttribute('aria-pressed','false'); carregar(); });
 $('vQuadro').addEventListener('click',()=>{ S.vista='quadro'; S.status=''; $('vQuadro').setAttribute('aria-pressed','true'); $('vLista').setAttribute('aria-pressed','false'); carregar(); });
@@ -204,8 +339,28 @@ async function abrir(id){
   $('gCorpo').innerHTML='<div class="sub">Carregando…</div>';
   try{ desenharGaveta(await api('/'+id)); }catch(e){ $('gCorpo').innerHTML=`<div class="aviso erro">${esc(e.message)}</div>`; }
 }
-function briefing(m,coms){
-  return `# Implementar no Hub 360: ${m.titulo}\n\nSugestão ${m.codigo} · ${CFG.tipos[m.tipo]} · Área: ${m.area||'—'} · ${m.votos} apoio(s)\nAutor: ${m.criado_por_nome}\n\n## O que foi pedido\n${m.descricao}\n\n## Benefício esperado\n${m.beneficio||'(não informado)'}\n\n${m.resposta?`## Orientação da administração\n${m.resposta}\n\n`:''}${coms.length?`## Comentários\n${coms.map(c=>`- ${c.autor_nome}${c.interno?' (interno)':''}: ${c.texto}`).join('\n')}\n\n`:''}## Pedido\nAnalise o código relacionado a "${m.area||'o Hub'}", proponha a abordagem, implemente numa branch, teste e descreva o que não foi possível testar. Ao final, escreva a nota de implantação em linguagem simples para o autor.`;
+function textoJira(a){
+  return `1-*ROTINA*\n\n${a.rotina}\n\n2-*MOTIVO/FINALIDADE*\n\n${a.motivo}\n\n3-*ESPECIFICAÇÃO*\n\n${a.especificacao.map((x,i)=>`${i+1}. ${x}`).join('\n')}\n\n4-*PLANO DE TESTES*\n\n${a.planoTestes.map((x,i)=>`${i+1}. ${x}`).join('\n')}`;
+}
+function briefing(m,coms,a){
+  return `# Implementar no Hub 360: ${m.titulo}\n\nSugestão ${m.codigo} · ${CFG.tipos[m.tipo]} · Área: ${m.area||'—'} · ${m.votos} apoio(s)\nAutor: ${m.criado_por_nome}\n\n## O que foi pedido\n${m.descricao}\n\n## Benefício esperado\n${m.beneficio||'(não informado)'}\n\n${m.resposta?`## Orientação da administração\n${m.resposta}\n\n`:''}${coms.length?`## Comentários\n${coms.map(c=>`- ${c.autor_nome}${c.interno?' (interno)':''}: ${c.texto}`).join('\n')}\n\n`:''}${a&&a.aprovadaPor?`## Estrutura aprovada por ${a.aprovadaPor}\n${textoJira(a)}\n\n${a.riscos&&a.riscos.length?`Riscos/impactos: ${a.riscos.join('; ')}\n\n`:''}`:''}## Pedido\nAnalise o código relacionado a "${m.area||'o Hub'}", proponha a abordagem, implemente numa branch, teste e descreva o que não foi possível testar. Ao final, escreva a nota de implantação em linguagem simples para o autor.`;
+}
+
+function blocoIa(m,a,enc){
+  if(!a) return `<div class="sec"><div class="adm"><h4 style="margin:0">Análise da IA</h4><div class="sub">A IA lê a solicitação, entende o que precisa ser feito e monta a estrutura (rotina, motivo, especificação e plano de testes) para você revisar e aprovar.</div><div class="acoes"><button class="btn primario peq" id="iaGerar" ${enc?'disabled':''}>✨ Analisar com IA</button></div></div></div>`;
+  const li=(t,arr)=>arr&&arr.length?`<div><b>${t}</b><ul style="margin:4px 0 0 18px;padding:0">${arr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+  const dup=a.duplicadas&&a.duplicadas.length?`<div><b>Possíveis duplicadas</b><ul style="margin:4px 0 0 18px;padding:0">${a.duplicadas.map(x=>`<li>${esc(x.codigo)} — ${esc(x.motivo)}</li>`).join('')}</ul></div>`:'';
+  return `<div class="sec"><div class="adm"><h4 style="margin:0">Análise da IA ${a.aprovadaPor?`<span class="sub">· ✓ aprovada por ${esc(a.aprovadaPor)}</span>`:'<span class="sub">· rascunho — revise antes de aprovar</span>'}</h4>
+    <div class="txt">${esc(a.entendimento)}</div>
+    <div class="sub">${a.prioridade?`Prioridade sugerida: P${a.prioridade} · `:''}${a.esforco?`Esforço sugerido: ${esc(a.esforco)} · `:''}${esc(a.justificativa||'')}</div>
+    ${dup}${li('Dúvidas em aberto (resolva antes de desenvolver)',a.perguntas)}${li('Riscos e impactos',a.riscos)}
+    <label>Rotina <input id="iaRotina" maxlength="120" value="${esc(a.rotina)}"></label>
+    <label>Motivo / finalidade <textarea id="iaMotivo" maxlength="1500" style="min-height:90px">${esc(a.motivo)}</textarea></label>
+    <label>Especificação (um item por linha) <textarea id="iaEsp" style="min-height:130px">${esc((a.especificacao||[]).join('\n'))}</textarea></label>
+    <label>Plano de testes (um cenário por linha) <textarea id="iaTestes" style="min-height:110px">${esc((a.planoTestes||[]).join('\n'))}</textarea></label>
+    <div class="duas"><label>Prioridade <select id="iaPrio"><option value="">—</option>${[1,2,3,4].map(p=>`<option value="${p}" ${a.prioridade===p?'selected':''}>P${p}</option>`).join('')}</select></label>
+      <label>Esforço <select id="iaEsf"><option value="">—</option>${CFG.esforcos.map(p=>`<option ${a.esforco===p?'selected':''}>${p}</option>`).join('')}</select></label></div>
+    <div class="acoes"><button class="btn peq" id="iaGerar" ${enc?'disabled':''}>Gerar de novo</button><button class="btn peq" id="iaJira">Copiar para o Jira</button><button class="btn peq" id="iaSalvar">Salvar edição</button><button class="btn primario peq" id="iaAprovar" ${enc?'disabled':''}>Aprovar e seguir</button></div></div></div>`;
 }
 function desenharGaveta(d){
   const m=d.melhoria, adm=CFG.eu.admin, enc=['implantada','recusada'].includes(m.status);
@@ -216,6 +371,7 @@ function desenharGaveta(d){
      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn peq" id="gVoto" ${enc?'disabled':''}>${m.eu_votei?'✓ Você apoia — remover':'▲ Apoiar'}</button>${podeEditar?'<button class="btn peq" id="gEditar">Editar</button><button class="btn peq" id="gExcluir">Excluir</button>':''}</div></div>
    ${m.resposta?`<div class="sec"><h4>Resposta da administração</h4><div class="txt resp">${esc(m.resposta)}</div></div>`:''}
    ${m.status==='implantada'&&m.nota_implantacao?`<div class="sec"><h4>O que foi implantado${m.implantada_em?` em ${dia(m.implantada_em)}`:''}</h4><div class="txt resp">${esc(m.nota_implantacao)}</div></div>`:''}
+   ${adm?blocoIa(m,d.analise,enc):''}
    ${adm?`<div class="sec"><div class="adm"><h4 style="margin:0">Administração</h4>
       <div class="duas"><label>Status <select id="aStatus">${Object.entries(CFG.status).map(([k,v])=>`<option value="${k}" ${k===m.status?'selected':''}>${esc(v)}</option>`).join('')}</select></label>
         <label>Prioridade <select id="aPrio"><option value="">—</option>${[1,2,3,4].map(p=>`<option value="${p}" ${m.prioridade===p?'selected':''}>P${p}${p===1?' (urgente)':p===4?' (baixa)':''}</option>`).join('')}</select></label>
@@ -236,7 +392,23 @@ function desenharGaveta(d){
   if($('gEditar')) $('gEditar').addEventListener('click',()=>abrirForm(m));
   if($('gExcluir')) $('gExcluir').addEventListener('click',async()=>{ if(!confirm('Excluir esta sugestão?')) return; try{ await api('/'+m.id,{method:'DELETE'}); fechar(); carregar(); }catch(e){ falha(e); } });
   if(adm){
-    $('aBrief').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(briefing(m,d.comentarios)); aviso('gAviso','Briefing copiado. Cole no Claude Code.'); }catch{ aviso('gAviso','Não consegui copiar automaticamente.','erro'); } });
+    const linhas=id=>$(id).value.split('\n').map(x=>x.trim()).filter(Boolean);
+    const corpoIa=()=>({rotina:$('iaRotina').value,motivo:$('iaMotivo').value,especificacao:linhas('iaEsp'),planoTestes:linhas('iaTestes'),prioridade:$('iaPrio').value||null,esforco:$('iaEsf').value||null});
+    const ocupado=(b,t)=>{ b.disabled=true; b.dataset.t=b.textContent; b.textContent=t; };
+    if($('iaGerar')) $('iaGerar').addEventListener('click',async e=>{
+      if(d.analise&&!confirm('Gerar de novo substitui a estrutura atual (inclusive suas edições). Continuar?')) return;
+      ocupado(e.target,'Analisando…');
+      try{ await api(`/${m.id}/analise-ia`,{method:'POST'}); await recarregar('Estrutura gerada. Revise e aprove.'); }catch(er){ e.target.disabled=false; e.target.textContent=e.target.dataset.t; falha(er); }
+    });
+    if($('iaSalvar')){
+      $('iaSalvar').addEventListener('click',async()=>{ try{ await api(`/${m.id}/analise`,{method:'PUT',body:corpoIa()}); await recarregar('Edição salva.'); }catch(e){ falha(e); } });
+      $('iaJira').addEventListener('click',async()=>{ try{ const b=corpoIa(); await navigator.clipboard.writeText(textoJira({...d.analise,...b})); aviso('gAviso','Texto no formato do Jira copiado.'); }catch{ aviso('gAviso','Não consegui copiar automaticamente.','erro'); } });
+      $('iaAprovar').addEventListener('click',async()=>{
+        if(!confirm('Aprovar esta estrutura? A sugestão passa para “Aprovada” e a prioridade e o esforço são gravados.')) return;
+        try{ await api(`/${m.id}/analise`,{method:'PUT',body:corpoIa()}); await api(`/${m.id}/analise/aprovar`,{method:'POST'}); await recarregar('Estrutura aprovada. Use “Copiar briefing de desenvolvimento” para seguir.'); }catch(e){ falha(e); }
+      });
+    }
+    $('aBrief').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(briefing(m,d.comentarios,d.analise)); aviso('gAviso','Briefing copiado. Cole no Claude Code.'); }catch{ aviso('gAviso','Não consegui copiar automaticamente.','erro'); } });
     $('aSalvar').addEventListener('click',async()=>{
       const novo=$('aStatus').value;
       if(['implantada','recusada'].includes(novo)&&novo!==m.status&&!confirm(`Marcar como “${CFG.status[novo]}”? Isso encerra a sugestão e fecha os apoios.`)) return;
@@ -277,5 +449,6 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('mFundo').cl
   const id=new URLSearchParams(location.search).get('id'); if(id) abrir(Number(id));
 })();
 </script>
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

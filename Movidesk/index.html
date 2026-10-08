@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/dashboard-v2.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="css/v2.css">
+    <link rel="stylesheet" href="css/dashboard-v3.css">
+    <link rel="stylesheet" href="css/modload.css">
+    <script src="js/ui-version.js"></script>
+    <script src="js/ordenar-tabelas.js" defer></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <script>
         (function() {
@@ -58,6 +65,7 @@
     color: var(--muted, #9aa0a6);
 }
 </style>
+<link rel="stylesheet" href="css/sem-animacao.css">
 </head>
 <body>
 <div class="app-wrapper">
@@ -76,6 +84,27 @@
                     </svg>
                     <span class="sidebar-btn-label">Dashboard</span>
                 </button>
+                <button class="sidebar-btn" title="Movidesk — Painel Geral, Satisfação e Painel TV" data-view="movidesk" id="navMovidesk">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Movidesk</span>
+                </button>
+                <button class="sidebar-btn" title="Incidentes" data-view="incidentes" id="navIncidentes" style="display:none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Incidentes</span>
+                    <span class="nav-badge" id="navBadgeIncidentes" hidden></span>
+                </button>
+                <button class="sidebar-btn" title="Reincidências" data-view="reincidencias" id="navReincidencias" style="display:none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Reincidências</span>
+                </button>
                 <button class="sidebar-btn" title="Curadoria" data-view="chamados" id="navChamados">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="4" y="4" width="6" height="6" rx="1.5"/>
@@ -84,15 +113,6 @@
                         <rect x="14" y="14" width="6" height="6" rx="1.5"/>
                     </svg>
                     <span class="sidebar-btn-label">Curadoria</span>
-                </button>
-                <button class="sidebar-btn" title="Pessoas" data-view="pessoas" id="navPessoas">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Pessoas</span>
                 </button>
                 <button class="sidebar-btn" title="Ouvidoria" data-view="ouvidoria" id="navOuvidoria">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -107,6 +127,12 @@
                     </svg>
                     <span class="sidebar-btn-label">GCC</span>
                 </button>
+                <button class="sidebar-btn" title="Melhorias" data-view="melhorias" id="navMelhorias">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>
+                    </svg>
+                    <span class="sidebar-btn-label">Melhorias</span>
+                </button>
                 <button class="sidebar-btn" title="Jira" data-view="jira" id="navJira">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 3h18v4H3z"/>
@@ -115,33 +141,8 @@
                     </svg>
                     <span class="sidebar-btn-label">Jira</span>
                 </button>
-                <button class="sidebar-btn" title="Incidentes" data-view="incidentes" id="navIncidentes" style="display:none;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Incidentes</span>
-                </button>
-                <button class="sidebar-btn" title="Reincidências" data-view="reincidencias" id="navReincidencias" style="display:none;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Reincidências</span>
-                </button>
-                <button class="sidebar-btn" title="Melhorias" data-view="melhorias" id="navMelhorias">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Melhorias</span>
-                </button>
-                <button class="sidebar-btn" title="Movidesk" data-view="movidesk" id="navMovidesk">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                    </svg>
-                    <span class="sidebar-btn-label">Movidesk</span>
-                </button>
-                <button class="sidebar-btn" title="Configurações" data-view="configuracoes" id="navConfiguracoes" style="display:none;">
+                
+                <button class="sidebar-btn" title="Configurações" aria-label="Configurações" data-view="configuracoes" id="navConfiguracoes" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9.9 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -150,6 +151,7 @@
                 </button>
             </div>
             <div class="topbar-actions">
+                <button type="button" class="nav-busca-btn" id="navBuscaBtn" title="Ir para… (Ctrl+K)" aria-label="Buscar aba ou chamado (Ctrl+K)">Buscar… <kbd>Ctrl K</kbd></button>
                 <label class="ui-switch" id="darkModeBtn" title="Alternar tema claro e escuro" aria-label="Alternar tema claro e escuro">
                     <input type="checkbox" id="darkModeToggle" aria-label="Alternar tema claro e escuro">
                     <div class="slider">
@@ -172,47 +174,6 @@
 
             <div id="embeddedPagesView" class="embedded-pages-view" style="display:none;">
                 <iframe id="embeddedPageFrame" class="embedded-page-frame" title="Conteudo da aba" loading="lazy"></iframe>
-            </div>
-
-            <!-- ===== VIEW: PESSOAS ===== -->
-            <div id="pessoasView" class="app-view" style="display:none;">
-                <div class="pessoas-header">
-                    <div>
-                        <h1 class="pessoas-title">Pessoas</h1>
-                        <p class="pessoas-subtitle">Gerencie quem acessa a plataforma</p>
-                    </div>
-                    <button class="pessoas-btn-novo" id="btnNovaPessoa">+ Novo Usuário</button>
-                </div>
-
-                <!-- Filtros -->
-                <div class="pessoas-filters">
-                    <input type="text" id="pessoasSearch" class="pessoas-filter-input" placeholder="Buscar por nome ou e-mail…" oninput="pessoasApplyFilters()">
-                    <select id="pessoasFilterEquipe" class="pessoas-filter-select" onchange="pessoasApplyFilters()">
-                        <option value="">Todas as equipes</option>
-                    </select>
-                    <button class="pessoas-filter-clear" onclick="pessoasClearFilters()" title="Limpar filtros">✕ Limpar</button>
-                </div>
-
-                <!-- Tabela de usuários -->
-                <div class="pessoas-table-wrap">
-                    <table class="pessoas-table" id="pessoasTable">
-                        <thead>
-                            <tr>
-                                <th>Foto</th>
-                                <th>Nome</th>
-                                <th>E-mail</th>
-                                <th>Perfil</th>
-                                <th>Vertical</th>
-                                <th>Status</th>
-                                <th>Último acesso</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pessoasTbody">
-                            <tr><td colspan="8" class="pessoas-loading">Carregando…</td></tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
 
             <!-- ===== VIEW: CONFIGURAÇÕES ===== -->
@@ -244,6 +205,18 @@
                     <button class="cfg-tab-btn" data-tab="acesso" onclick="switchConfigTab('acesso')">
                         <span class="material-symbols-outlined">visibility</span> Acesso
                     </button>
+                    <button class="cfg-tab-btn" data-tab="slahoras" onclick="switchConfigTab('slahoras')">
+                        <span class="material-symbols-outlined">schedule</span> SLA e horas
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="tokens" onclick="switchConfigTab('tokens')">
+                        <span class="material-symbols-outlined">key</span> Tokens
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="avisos" onclick="switchConfigTab('avisos')">
+                        <span class="material-symbols-outlined">campaign</span> Avisos automáticos
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="telemetria" onclick="switchConfigTab('telemetria')">
+                        <span class="material-symbols-outlined">monitoring</span> Telemetria
+                    </button>
                     <button class="cfg-tab-btn" data-tab="datalake" onclick="switchConfigTab('datalake')">
                         <span class="material-symbols-outlined">database</span> Carga Datalake
                     </button>
@@ -265,6 +238,21 @@
                             <button id="cfgSaveMovideskToken" class="config-btn">Salvar token</button>
                         </div>
                         <div id="cfgMovideskStatus" class="config-status"></div>
+                    </div>
+                    <div class="config-card">
+                        <h3 class="config-card-title">Diagnóstico de chat</h3>
+                        <p class="config-card-help">Consulta o Movidesk agora (só leitura) e mostra se os atendimentos de chat chegam com grupo, widget e tempos de espera/conversa preenchidos. Serve para saber se dá para acompanhar o chat no Hub.</p>
+                        <div class="config-form-stack">
+                            <label class="config-card-help" for="cfgChatDiagTickets" style="margin:0">Números de chamados de chat para conferir (um por vez ou separados por vírgula). Pode usar chats que aparecem na tela do Movidesk:</label>
+                            <input id="cfgChatDiagTickets" class="config-input" type="text" value="908450, 908576, 908428, 908248" autocomplete="off" spellcheck="false">
+                            <label class="config-card-help" for="cfgChatDiagProcurar" style="margin:8px 0 0">Valor para procurar dentro do 1º chamado (ex.: o <b>chatId</b> do link <i>/Ticket/ChatVisualize/908248?chatId=77563584</i>) — mostra em qual campo da API ele vem:</label>
+                            <input id="cfgChatDiagProcurar" class="config-input" type="text" value="77563584" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgChatDiagBtn" class="config-btn" onclick="rodarDiagnosticoChat()">Verificar dados de chat</button>
+                        </div>
+                        <div id="cfgChatDiagStatus" class="config-status"></div>
+                        <div id="cfgChatDiagResultado" class="config-card-help" style="white-space:normal;line-height:1.6"></div>
                     </div>
                 </div>
 
@@ -324,6 +312,13 @@
                         <h3 class="config-card-title">Pipeline de Análise</h3>
                         <p class="config-card-help">Processa todos os chamados pendentes de uma vez só: análise de IA → estouro de SLA → satisfação (pesquisa Movidesk) → módulo x rotina. Roda no servidor em segundo plano — pode fechar esta tela que ele continua. Roda automaticamente às 08:00, 12:00 e 19:00.</p>
 
+                        <div class="config-status-line" style="gap:12px; flex-wrap:wrap;">
+                            <span class="config-status-label">Processar só o ano:</span>
+                            <input id="cfgPipeAno" type="number" min="2000" max="2100" value="2026" class="config-input" style="width:90px;" oninput="loadPipeAnoCount()" title="Só os chamados abertos nesse ano (deixe vazio para todos os anos)">
+                            <span class="config-status-label">Limite por rodada:</span>
+                            <input id="cfgPipeLimite" type="number" min="1" max="100000" placeholder="sem limite" class="config-input" style="width:110px;" title="Máximo de chamados analisados pela IA nesta rodada (teto de gasto)">
+                            <span id="cfgPipeAnoCount" class="config-card-help" style="margin:0"></span>
+                        </div>
                         <div class="config-status-line">
                             <span class="config-status-label">Última execução:</span>
                             <span id="cfgFullLoadLastRun" class="config-token-status config-token-status-off">-</span>
@@ -726,15 +721,58 @@
                     </div>
                 </div>
 
+                <!-- ABA: SLA e horas -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-slahoras">
+                    <div id="shRoot"><p class="config-card-help">Carregando…</p></div>
+                </div>
+
+                <!-- ABA: Tokens -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-tokens">
+                    <div id="tkRoot"><p class="config-card-help">Carregando…</p></div>
+                </div>
+
+                <!-- ABA: Avisos automáticos -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-avisos">
+                    <div id="avRoot"><p class="config-card-help">Carregando…</p></div>
+                </div>
+
                 <!-- ABA: Acesso -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-acesso">
+                    <!-- Pessoas (usuários da plataforma): fica dentro de Acesso -->
+                    <div class="config-card" id="pessoasView">
+                        <div class="pessoas-header">
+                            <div>
+                                <h3 class="config-card-title">Pessoas</h3>
+                                <p class="config-card-help">Gerencie quem acessa a plataforma</p>
+                            </div>
+                            <button class="pessoas-btn-novo" id="btnNovaPessoa">+ Novo Usuário</button>
+                        </div>
+                        <div class="pessoas-filters">
+                            <input type="text" id="pessoasSearch" class="pessoas-filter-input" placeholder="Buscar por nome ou e-mail…" oninput="pessoasApplyFilters()">
+                            <select id="pessoasFilterEquipe" class="pessoas-filter-select" onchange="pessoasApplyFilters()">
+                                <option value="">Todas as equipes</option>
+                            </select>
+                            <button class="pessoas-filter-clear" onclick="pessoasClearFilters()" title="Limpar filtros">✕ Limpar</button>
+                        </div>
+                        <div class="pessoas-table-wrap">
+                            <table class="pessoas-table" id="pessoasTable">
+                                <thead>
+                                    <tr><th>Foto</th><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Vertical</th><th>Status</th><th>Último acesso</th><th>Ações</th></tr>
+                                </thead>
+                                <tbody id="pessoasTbody">
+                                    <tr><td colspan="8" class="pessoas-loading">Carregando…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="config-card">
                         <h3 class="config-card-title">Abas por Perfil</h3>
                         <p class="config-card-help">
                             Escolha quais abas cada perfil vê no menu. <strong>Admin</strong> sempre tem acesso a
                             tudo (não aparece aqui, pra evitar que alguém se tranque fora da própria conta por
-                            engano). <strong>Pessoas</strong> e <strong>Configurações</strong> também ficam de
-                            fora — continuam restritas a admin sempre, independente desta tela.
+                            engano). <strong>Configurações</strong> (que inclui Pessoas) também fica de
+                            fora — continua restrita a admin sempre, independente desta tela.
                         </p>
 
                         <div id="cfgProfilesList"></div>
@@ -800,6 +838,31 @@
                     </div>
                 </div>
 
+                <!-- ABA: Telemetria -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-telemetria">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Uso do Hub 360</h3>
+                        <p class="config-card-help">Quem mais usa, o que abre, quando e quantos cliques dá. São registrados o nome da aba/tela e o rótulo dos botões clicados — nunca o que é digitado nem o conteúdo dos chamados. Os dados ficam 180 dias e só administradores veem esta tela.</p>
+                        <div class="tel-filtros">
+                            <label>Período
+                                <select id="telDias" class="config-input" onchange="loadTelemetria()">
+                                    <option value="1">Hoje</option>
+                                    <option value="7">Últimos 7 dias</option>
+                                    <option value="30" selected>Últimos 30 dias</option>
+                                    <option value="90">Últimos 90 dias</option>
+                                    <option value="180">Últimos 180 dias</option>
+                                </select>
+                            </label>
+                            <label>Usuário
+                                <select id="telUsuario" class="config-input" onchange="loadTelemetria()"><option value="">Todos</option></select>
+                            </label>
+                            <button class="config-btn" onclick="loadTelemetria()">Atualizar</button>
+                        </div>
+                        <div id="telStatus" class="config-status"></div>
+                    </div>
+                    <div id="telCorpo"></div>
+                </div>
+
                 <!-- ABA: Carga Datalake -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-datalake">
 
@@ -832,6 +895,13 @@
                                 <span class="material-symbols-outlined" style="font-size:14px;">radio_button_unchecked</span> Ocioso
                             </span>
                             <span id="dlMeta" style="font-size:13px;color:var(--muted,#71717a);">–</span>
+                        </div>
+
+                        <!-- Detalhes em segundo plano (carga rápida de pendentes) -->
+                        <div id="dlDetalhes" style="display:none;margin-top:10px;padding:12px 16px;border-radius:10px;background:var(--bg,#18181b);border:1px solid var(--border,#27272a);font-size:13px;">
+                            <strong>Detalhes dos pendentes em segundo plano</strong>
+                            <span id="dlDetalhesTxt" style="margin-left:8px;color:var(--muted,#71717a);"></span>
+                            <div style="margin-top:8px;height:6px;border-radius:999px;background:var(--border,#27272a);overflow:hidden;"><div id="dlDetalhesBar" style="height:100%;width:0;background:#10b981;"></div></div>
                         </div>
 
                         <!-- Progresso live (visível só durante carga) -->
@@ -975,6 +1045,9 @@
                         </div>
                     </div>
 
+                    <!-- Carga delta: só o que mudou, com ações em segundo plano (js/delta.js) -->
+                    <div id="deltaRoot"></div>
+
                     <!-- Cargas automáticas (crons configuráveis) -->
                     <div class="config-card">
                         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
@@ -1058,6 +1131,10 @@
                             <div class="pm-field" style="display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;">
                                 <input type="checkbox" id="cronTaskOpen" style="width:auto;margin:0;">
                                 <label for="cronTaskOpen" style="margin:0;text-transform:none;letter-spacing:normal;cursor:pointer;">Só chamados em aberto</label>
+                            </div>
+                            <div style="display:flex;align-items:flex-start;gap:8px;margin-top:8px;">
+                                <input type="checkbox" id="cronTaskRapido" style="width:auto;margin:3px 0 0;">
+                                <label for="cronTaskRapido" style="margin:0;text-transform:none;letter-spacing:normal;cursor:pointer;">Modo rápido (recomendado para pendentes): grava na hora os campos básicos — status, responsável, prazo, serviço — e os clientes/organização, e preenche ações e demais campos em segundo plano. Ideal para o Painel TV quase ao vivo. Vale só com "Só chamados em aberto".</label>
                             </div>
                             <p class="config-card-help" style="margin:0;">Preencha ao menos um filtro. Equipe é o filtro mais leve pra API; classificação sem equipe é bem mais lenta.</p>
                             <div id="cronTaskModalError" class="pm-error" style="display:none;"></div>
@@ -1268,19 +1345,35 @@
                 <!-- Coluna principal -->
                 <div class="dashboard-main">
 
+                    <!-- Cabeçalho do Dashboard (Visual 2.0): título com os números e os controles principais -->
+                    <header class="dsh-head">
+                        <div class="dsh-ttl">
+                            <span class="dsh-eyebrow" id="dshEyebrow">&nbsp;</span>
+                            <h1 id="dshTitulo">Chamados em aberto</h1>
+                        </div>
+                        <div class="tk-head-right">
+                                <input type="search" id="filterBusca" class="tk-busca" placeholder="Buscar por nº, assunto ou cliente…" aria-label="Buscar chamados" autocomplete="off">
+                                <button type="button" id="btnConferir" class="tk-conferir" title="Compara estes chamados com o status real no Movidesk e mostra o que está diferente">Conferir com o Movidesk</button>
+                                <div class="tk-seg" role="group" aria-label="Modo de visualização">
+                                    <button type="button" id="viewLista" aria-pressed="true">Lista</button>
+                                    <button type="button" id="viewCards" aria-pressed="false">Kanban</button>
+                                </div>
+                            </div>
+                    </header>
+
                     <!-- Faixa de KPIs (números reais dos chamados em tela) -->
                     <div class="kpi-strip" id="kpiStrip">
                         <button type="button" class="kpi-tile" onclick="openKpiModal('Total', 'Todos os Chamados')" title="Ver chamados">
-                            <span class="kpi-label">Abertos</span><span class="kpi-num" id="countTotal">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Abertos</span><span class="kpi-num" id="countTotal">—</span><span class="kpi-sub">toda a fila</span>
                         </button>
                         <button type="button" class="kpi-tile" onclick="openKpiModal('New', 'Chamados Novos')" title="Ver chamados">
-                            <span class="kpi-label">Novos</span><span class="kpi-num" id="countNew">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Novos</span><span class="kpi-num" id="countNew">—</span><span class="kpi-sub"><span id="pctNew">—%</span> do total</span>
                         </button>
                         <button type="button" class="kpi-tile" onclick="openKpiModal('InAttendance', 'Chamados em Atendimento')" title="Ver chamados">
-                            <span class="kpi-label">Em atendimento</span><span class="kpi-num" id="countInAttendance">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Em atendimento</span><span class="kpi-num" id="countInAttendance">—</span><span class="kpi-sub"><span id="pctInAtt">—%</span> do total</span>
                         </button>
                         <button type="button" class="kpi-tile" onclick="openKpiModal('Stopped', 'Chamados Aguardando')" title="Ver chamados">
-                            <span class="kpi-label">Aguardando</span><span class="kpi-num" id="countStopped">—</span><span class="kpi-sub">&nbsp;</span>
+                            <span class="kpi-label">Aguardando</span><span class="kpi-num" id="countStopped">—</span><span class="kpi-sub"><span id="pctStopped">—%</span> do total</span>
                         </button>
                         <button type="button" class="kpi-tile kpi-late" onclick="openKpiModal('overdue', 'Chamados Fora do Prazo')" title="Ver chamados">
                             <span class="kpi-label">Fora do prazo</span><span class="kpi-num" id="countOverdue">—</span><span class="kpi-sub"><span id="pctOverdue">—%</span> do total <span class="overdue-insight" id="overdueInsight"></span></span>
@@ -1290,8 +1383,8 @@
                         </button>
                     </div>
                     <div class="sla-bar-wrap">
-                        <div class="sla-bar" id="slaBar" role="img" aria-label="Saúde do SLA"><span class="sla-bar-ok" id="slaBarOk" style="width:0"></span><span class="sla-bar-other" id="slaBarOther" style="width:0"></span><span class="sla-bar-late" id="slaBarLate" style="width:0"></span></div>
-                        <div class="sla-bar-legend"><span><i style="background:var(--grn-mid)"></i>No prazo</span><span><i style="background:var(--hint)"></i>Pausado ou sem prazo</span><span><i style="background:var(--red-mid)"></i>Atrasado</span></div>
+                        <div class="sla-bar" id="slaBar" role="img" aria-label="Saúde do SLA"><span class="sla-bar-late" id="slaBarLate" style="width:0"></span><span class="sla-bar-other" id="slaBarOther" style="width:0"></span><span class="sla-bar-ok" id="slaBarOk" style="width:0"></span></div>
+                        <div class="sla-bar-legend" id="slaBarLegend"></div>
                     </div>
 
                     <!-- Chamados em Aberto (colapsável) -->
@@ -1299,14 +1392,6 @@
                         <div class="section-header tk-head">
                             <button id="toggleBtn" class="toggle-section-btn">▼ Chamados em Aberto</button>
                             <span class="filter-count" id="filterCount"></span>
-                            <div class="tk-head-right">
-                                <input type="search" id="filterBusca" class="tk-busca" placeholder="Buscar por nº, assunto ou cliente…" aria-label="Buscar chamados" autocomplete="off">
-                                <button type="button" id="btnConferir" class="tk-conferir" title="Compara estes chamados com o status real no Movidesk e mostra o que está diferente">Conferir com o Movidesk</button>
-                                <div class="tk-seg" role="group" aria-label="Modo de visualização">
-                                    <button type="button" id="viewLista" aria-pressed="true">Lista</button>
-                                    <button type="button" id="viewCards" aria-pressed="false">Kanban</button>
-                                </div>
-                            </div>
                         </div>
                         <div class="tk-chips" id="quickChips" role="group" aria-label="Filtros rápidos">
                             <button type="button" class="tk-chip" data-chip="todos" aria-pressed="true">Todos</button>
@@ -1368,6 +1453,7 @@
                 <!-- Sidebar de atendentes -->
                 <aside class="dashboard-sidebar">
                     <p class="sidebar-title">Carga por atendente</p>
+                    <div class="crew-resumo" id="crewResumo"></div>
                     <div class="attendants-container" id="attendantsContainer">
                         <p style="color: #999;">Carregando...</p>
                     </div>
@@ -1730,6 +1816,7 @@
             }
         })();
     </script>
+    <script src="js/telemetria.js"></script>
     <script src="js/ticket-analyzer.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/dashboard.js"></script>
@@ -1737,7 +1824,31 @@
     <script src="js/ticket-workspace.js"></script>
     <script src="js/curadoria.js"></script>
     <script src="js/pessoas.js"></script>
+    <script src="js/avisos.js"></script>
+    <script src="js/delta.js"></script>
+    <script src="js/tokens.js"></script>
+    <script src="js/slahoras.js"></script>
     <script src="js/config.js"></script>
     <script src="js/script.js"></script>
+
+<div class="nav-paleta" id="navPaleta" role="dialog" aria-modal="true" aria-label="Ir para" hidden>
+    <div class="nav-paleta-box">
+        <input type="text" id="navPaletaInput" placeholder="Ir para uma aba ou digitar o nº de um chamado…" autocomplete="off" spellcheck="false">
+        <ul id="navPaletaLista" role="listbox"></ul>
+        <p class="nav-paleta-dica">↑ ↓ navegar · Enter abrir · Esc fechar</p>
+    </div>
+</div>
+<div id="modload" aria-hidden="true">
+  <div class="ml-shutter"><i style="--k:0"></i><i style="--k:1"></i><i style="--k:2"></i><i style="--k:3"></i><i style="--k:4"></i><i style="--k:5"></i></div>
+  <div class="ml-body">
+    <div class="ml-meta"><span class="ml-ico" id="ml-ico"></span><small>Abrindo</small></div>
+    <div class="ml-big"><span id="ml-deg">0</span><sup>%</sup></div>
+    <b id="ml-name">Movidesk</b>
+    <p class="ml-tag" id="ml-tag"></p>
+  </div>
+  <ol class="ml-list" aria-hidden="true"><li>Buscando dados</li><li>Montando a tela</li><li>Quase pronto</li></ol>
+  <div class="ml-line"><i id="ml-fill"></i></div>
+</div>
+<script src="js/modload.js"></script>
 </body>
 </html>

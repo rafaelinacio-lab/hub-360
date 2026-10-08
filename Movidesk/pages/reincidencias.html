@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="pt-BR">
 <head>
+<script src="../js/ui-version.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel de Reincidências</title>
@@ -135,12 +136,14 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 .kpi.est{cursor:default}
 @media (max-width:700px){.rk2{grid-template-columns:minmax(0,1fr) 70px 48px}}
 </style>
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
 </head>
 <body>
 <div class="page">
   <div class="topo">
     <div><h1>Painel de Reincidências</h1>
-      <p>O mesmo problema voltando para o mesmo cliente. A IA lê o contexto e as ações dos chamados; o módulo é só um parâmetro.</p></div>
+      <p>O mesmo problema voltando para o mesmo cliente. A IA lê o contexto e as ações dos chamados e só entram os casos de confiança alta; o motivo vem do conteúdo, não só do campo Módulo/Rotina.</p></div>
     <div class="sp"></div>
       </div>
   <div id="vGeral">
@@ -217,7 +220,7 @@ function gDesenhar(){
   const h=`<div class="kpis">
     ${kp('Chamados reincidentes',nf(k.reincidentes),`${taxa}% dos ${nf(k.classificados)} classificados`,'reincidentes')}
     ${kp('Clientes afetados',nf(k.clientesAfetados),`de ${nf(k.clientes)} clientes (${pc(k.clientesAfetados,k.clientes)}%)`,'clientesAfetados')}
-    ${kp('Motivos que se repetem',nf(k.motivosAfetados),'módulos/rotinas ou causas distintas','motivosAfetados')}
+    ${kp('Motivos que se repetem',nf(k.motivosAfetados),'temas lidos no conteúdo dos chamados','motivosAfetados')}
     ${kp('Chamados analisados',nf(k.classificados),`${nf(k.semMotivo)} sem motivo ou cliente ficaram de fora`,'classificados')}
     ${kp('Retorno médio',k.retornoMedio==null?'—':nf(k.retornoMedio)+' d',k.retornoMediana==null?'sem reincidentes':`mediana ${nf(k.retornoMediana)} dias após encerrar o anterior`,'reincidentes')}
     ${kp('Reabertos no Movidesk',nf(k.reabertos),'o mesmo chamado foi reaberto','reabertos')}</div>
@@ -227,14 +230,14 @@ function gDesenhar(){
     </div>
     ${porAno&&d.mensal.length>12?`<div class="painel vg-graf" style="margin-bottom:14px"><h3>Evolução mensal (todos os anos)</h3>${gBarras(d.mensal,rotM,false)}</div>`:''}
     <div class="vg-grade3">
-      ${gRank('Top motivos de reincidência',d.motivos,{tipo:'motivo',nome:x=>x.motivo,sub:x=>`${nf(x.clientes)} clientes · ${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados deste motivo voltaram`,legenda:'Chamados que voltaram. Agrupado pelo módulo/rotina (ou causa) só para leitura. Clique para ver os chamados.'})}
+      ${gRank('Top motivos de reincidência',d.motivos,{tipo:'motivo',nome:x=>x.motivo,sub:x=>`${nf(x.clientes)} cliente(s) · ${pc(x.reinc,k.reincidentes)}% das reincidências${x.modulo?` · módulo mais comum: ${esc(x.modulo)}`:''}`,legenda:'Motivo lido no assunto, nas ações e na explicação da IA (o campo Módulo/Rotina só entra quando o texto não revela o tema). Clique para ver os chamados.'})}
       ${gRank('Clientes que mais reincidem',d.clientes,{tipo:'cliente',nome:x=>x.cliente,sub:x=>`${nf(x.motivos)} motivos · principal: ${esc(x.principal||'—')}`,legenda:'Clique para ver os chamados do cliente.'})}
       ${gRank('Equipes com mais reincidência',d.equipes,{tipo:'equipe',nome:x=>x.equipe,sub:x=>`${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados`,legenda:'Equipe responsável pelo chamado. Clique para ver os chamados.'})}
     </div>`;
   $('gResultado').innerHTML=h;
   $('gFrescor').textContent=`Calculado ${ha(d.geradoEm)}${d.cache?' (em cache, até 10 min)':''}`;
-  $('vgNota').innerHTML=`Um chamado é <b>reincidente</b> quando a <b>IA</b>, lendo o <b>contexto e as ações</b> dele e dos chamados anteriores do mesmo cliente (encerrados até ${f.dias} dias antes), conclui que é o <b>mesmo problema</b> voltando. `+
-    `O módulo/rotina é só uma dica e um filtro de agrupamento, não decide. Só entram na taxa os chamados já analisados pela IA (veja a cobertura abaixo).`;
+  $('vgNota').innerHTML=`Um chamado é <b>reincidente</b> quando a <b>IA</b>, lendo o <b>contexto e as ações</b> dele e dos chamados anteriores do mesmo cliente (encerrados até ${f.dias} dias antes), conclui com <b>confiança alta</b> que é o <b>mesmo problema</b> voltando. `+
+    `O motivo é lido no assunto, nas ações e na explicação da IA; o módulo/rotina é só apoio. Só entram na taxa os chamados já analisados pela IA (veja a cobertura abaixo).`;
   const sa=$('gAno'); if(sa.options.length<=1||sa.dataset.n!==String(d.anos.length)){ sa.innerHTML='<option value="">Todos os anos</option>'+d.anos.map(a=>`<option>${a}</option>`).join(''); sa.dataset.n=String(d.anos.length); }
   sa.value=f.ano?String(f.ano):'';
   const se=$('gEquipe'); if(se.dataset.n!==String(d.equipesLista.length)){ se.innerHTML='<option value="">Todas as equipes</option>'+d.equipesLista.map(e=>`<option>${esc(e)}</option>`).join(''); se.dataset.n=String(d.equipesLista.length); }
@@ -256,7 +259,7 @@ async function cobAtualizar(){
   let r; try{ r=await api('/geral/progresso'); }catch(e){ return; }
   const j=r.job||{}, box=$('gCobertura');
   const botao=C.podeAnalisar?`<button class="btn primario peq" id="gAnalisar" type="button" ${j.rodando?'disabled':''}>${j.rodando?'Analisando…':'↻ Analisar histórico com IA'}</button>`:'';
-  box.innerHTML=`<h3>Análise por IA do histórico</h3><div class="sub">${nf(r.analisados)} chamado(s) já analisados pela IA · ${nf(r.reincidentes)} reincidentes confirmados${r.ultimo?` · última análise ${ha(r.ultimo)}`:''}. `+
+  box.innerHTML=`<h3>Análise por IA do histórico</h3><div class="sub">${nf(r.analisados)} chamado(s) já analisados pela IA · ${nf(r.reincidentes)} reincidentes de confiança alta${r.ultimo?` · última análise ${ha(r.ultimo)}`:''}. `+
     `Cada rodada analisa até 150 chamados candidatos (mais recentes primeiro) e é incremental: clique de novo para cobrir os anos anteriores.</div>`+
     (j.rodando||j.fim?`<div class="sub" style="margin-top:6px">${j.rodando?`<span class="spin"></span> ${nf(j.feitos)} de ${nf(j.total)} analisados…`:esc(j.msg||'')}${j.erros?` · ${j.erros} erro(s)`:''}</div>`:'')+`<div style="margin-top:8px">${botao}</div>`;
   const b=$('gAnalisar'); if(b) b.addEventListener('click',async()=>{ b.disabled=true; try{ await api('/geral/analisar',{method:'POST',body:{max:150}}); }catch(e){ $('gAviso').textContent=e.message; $('gAviso').className='aviso erro'; } cobAtualizar(); });
@@ -284,8 +287,10 @@ async function gvAbrir(tipo,valor,titulo){
     if(!gvAtual||gvAtual.valor!==valor||gvAtual.tipo!==tipo) return;
     const extra=(tipo==='cliente'||tipo==='equipe')?` <button class="btn peq" id="gvFiltrar" type="button">Filtrar a visão por este</button>`:'';
     $('gvSub').innerHTML=`${nf(r.total)} chamado(s)${r.truncado?' (mostrando os 500 mais recentes)':''} · voltou em até ${f.dias} dias${extra}`;
-    $('gvCorpo').innerHTML=r.chamados.length?r.chamados.map(c=>`<div class="gv-item">${link(c.ticket_id)}<span class="sub" style="grid-column:auto">${br(String(c.criado_em).slice(0,10))}</span><span class="as" title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span>${c.reincidente?'<span class="gv-tag">REINCIDENTE</span>':'<span></span>'}
-      <span class="sub">${esc(c.cliente||'cliente não identificado')} · ${esc(c.motivo||'sem motivo classificado')} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}</span>${c.reincidente&&c.anterior?`<span class="sub gv-pq"><b>Por que é reincidente (análise da IA${c.confianca?`, confiança ${esc(c.confianca)}`:''}):</b> ${esc(c.explicacao||'o contexto e as ações indicam o mesmo problema')} · Anterior: ${link(c.anterior)}${c.anterior_assunto?` (“${esc(String(c.anterior_assunto).slice(0,90))}”)`:''}, encerrado em ${br(String(c.anterior_fim).slice(0,10))}; este abriu ${nf(c.dias_entre)} dia(s) depois.</span>`:''}</div>`).join(''):'<div class="vazio">Nenhum chamado para este item nos filtros atuais.</div>';
+    $('gvCorpo').innerHTML=r.chamados.length?r.chamados.map(c=>{
+      const modulo=c.modulo&&c.modulo!==c.motivo?` · módulo/rotina: ${esc(c.modulo)}`:'';
+      return `<div class="gv-item">${link(c.ticket_id)}<span class="sub" style="grid-column:auto">${br(String(c.criado_em).slice(0,10))}</span><span class="as" title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span>
+      <span class="sub">${esc(c.cliente||'cliente não identificado')} · <b>${esc(c.motivo||'Sem motivo identificado')}</b>${modulo} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}</span>${c.reincidente&&c.anterior?`<span class="sub gv-pq"><b>Por que é reincidente (análise da IA${c.confianca?`, confiança ${esc(c.confianca)}`:''}):</b> ${esc(c.explicacao||'o contexto e as ações indicam o mesmo problema')} · Anterior: ${link(c.anterior)}${c.anterior_assunto?` (“${esc(String(c.anterior_assunto).slice(0,90))}”)`:''}, encerrado em ${br(String(c.anterior_fim).slice(0,10))}; este abriu ${nf(c.dias_entre)} dia(s) depois.</span>`:''}</div>`;}).join(''):'<div class="vazio">Nenhum chamado para este item nos filtros atuais.</div>';
     const bf=$('gvFiltrar'); if(bf) bf.addEventListener('click',()=>{ if(tipo==='cliente') $('gCliente').value=valor; else $('gEquipe').value=valor; gvFechar(); gAplicar(); });
   }catch(e){ $('gvCorpo').innerHTML=`<div class="aviso erro">${esc(e.message)}</div>`; $('gvSub').textContent=''; }
 }
@@ -305,5 +310,6 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') gvFechar(); });
   else if(C.podeAnalisar&&!C.iaConfigurada) aviso('A chave da IA ainda não foi configurada (Configurações → Inteligência Artificial).','info');
 })();
 </script>
+<script src="/js/telemetria.js"></script>
 </body>
 </html>

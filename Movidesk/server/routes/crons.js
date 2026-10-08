@@ -7,6 +7,8 @@
  * job aqui já reagenda o timer dele em cron-manager.js na hora, sem precisar
  * reiniciar o servidor.
  *
+ * GET/PUT /api/crons/rapida — carga rápida de pendentes (tarefa + cron numa tela só)
+ * GET/PUT /api/crons/delta  — carga delta (só o que mudou, com ações): cron + opções; POST /delta/recuar, /delta/conferir
  * GET    /api/crons        — lista todos os jobs
  * POST   /api/crons        — cria um job novo
  * PATCH  /api/crons/:id    — edita (nome, tarefa, intervalo, params, enabled)
@@ -27,7 +29,7 @@ const { authMiddleware, requireRole } = require('./auth');
 const cronManager = require('../scripts/cron-manager');
 const movideskLoader = require('../scripts/movidesk-loader');
 
-const VALID_TASKS = ['ouvidoria', 'gcc', 'geral', 'incremental', 'full'];
+const VALID_TASKS = ['ouvidoria', 'gcc', 'geral', 'incremental', 'full', 'delta'];
 
 router.use(authMiddleware, requireRole('admin', 'supervisor'));
 
@@ -49,6 +51,7 @@ function normalizarTarefa(body = {}) {
     owner_team:     txt(body.owner_team),
     classification: txt(body.classification),
     only_open:      !!body.only_open,
+    rapido:         !!body.rapido && !!body.only_open,   // modo rápido só faz sentido com "só em aberto"
     recent_days:    int(body.recent_days),
     year:           int(body.year),
   };
@@ -71,15 +74,17 @@ let _taskOptionsAt = 0;
 router.get('/task-options', async (req, res) => {
   try {
     if (!_taskOptionsCache || Date.now() - _taskOptionsAt > 10 * 60 * 1000) {
-      const [equipes, classes, anos] = await Promise.all([
+      const [equipes, classes, anos, servicos] = await Promise.all([
         db.query(`SELECT DISTINCT ownerteam AS v FROM silver.ticket WHERE NULLIF(TRIM(ownerteam), '') IS NOT NULL ORDER BY 1`),
         db.query(`SELECT DISTINCT valor_texto AS v FROM silver.ticket_campo_customizado WHERE custom_field_id = $1 AND NULLIF(TRIM(valor_texto), '') IS NOT NULL ORDER BY 1`, [CF_CLASSIFICACAO]),
         db.query(`SELECT DISTINCT EXTRACT(YEAR FROM createddate)::int AS v FROM silver.ticket WHERE createddate IS NOT NULL ORDER BY 1 DESC`),
+        db.query(`SELECT split_part(service_full, ' > ', 1) AS v, COUNT(*) AS n FROM silver.ticket WHERE service_full IS NOT NULL AND service_full <> '' AND createddate >= NOW() - INTERVAL '18 months' GROUP BY 1 ORDER BY 2 DESC LIMIT 300`),
       ]);
       _taskOptionsCache = {
         teams: equipes.rows.map(r => r.v),
         classifications: classes.rows.map(r => r.v),
         years: anos.rows.map(r => r.v),
+        services: servicos.rows.map(r => r.v).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt')),
       };
       _taskOptionsAt = Date.now();
     }
@@ -104,9 +109,9 @@ router.post('/tasks', async (req, res) => {
     const erro = validarTarefa(t);
     if (erro) return res.status(400).json({ error: erro });
     const { rows } = await db.query(
-      `INSERT INTO silver.cron_task (name, owner_team, classification, only_open, recent_days, year)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year]
+      `INSERT INTO silver.cron_task (name, owner_team, classification, only_open, recent_days, year, rapido)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year, t.rapido]
     );
     res.json({ task: rows[0] });
   } catch (e) {
@@ -122,9 +127,9 @@ router.patch('/tasks/:id', async (req, res) => {
     if (erro) return res.status(400).json({ error: erro });
     const { rows } = await db.query(
       `UPDATE silver.cron_task
-       SET name = $1, owner_team = $2, classification = $3, only_open = $4, recent_days = $5, year = $6, updated_at = NOW()
-       WHERE id = $7 RETURNING *`,
-      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year, id]
+       SET name = $1, owner_team = $2, classification = $3, only_open = $4, recent_days = $5, year = $6, rapido = $7, updated_at = NOW()
+       WHERE id = $8 RETURNING *`,
+      [t.name, t.owner_team, t.classification, t.only_open, t.recent_days, t.year, t.rapido, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Tarefa não encontrada' });
     res.json({ task: rows[0] });
@@ -174,6 +179,160 @@ const CRON_LIST_SQL = `
     ORDER BY started_at DESC LIMIT 1
   ) cur ON true
   ORDER BY j.id`;
+
+// ── Carga rápida de pendentes (tela própria em Configurações) ─────────────
+// Uma única tarefa "rápida" (silver.cron_task.rapido) + a cron que a roda. GET devolve tudo para a tela; PUT cria/atualiza os dois.
+const NOME_TAREFA_RAPIDA = 'Pendentes — carga rápida';
+const NOME_CRON_RAPIDA = 'Pendentes rápidos (Painel TV)';
+async function lerRapida() {
+  const t = (await db.query(`SELECT * FROM silver.cron_task WHERE rapido = TRUE ORDER BY id LIMIT 1`).catch(() => ({ rows: [] }))).rows[0] || null;
+  const job = t ? (await db.query(`SELECT * FROM silver.cron_job WHERE task = $1 ORDER BY id LIMIT 1`, [`custom:${t.id}`])).rows[0] || null : null;
+  const historico = (await db.query(
+    `SELECT id, started_at, finished_at, status, error_msg, tickets_loaded FROM silver.carga_log WHERE mode LIKE 'rapido:%' ORDER BY started_at DESC LIMIT 20`
+  ).catch(() => ({ rows: [] }))).rows;
+  let detalhes = null;
+  try {
+    const q = (await db.query(
+      `SELECT COUNT(*) FILTER (WHERE detalhes_em IS NULL OR detalhes_em < last_update)::int AS faltam, COUNT(*)::int AS abertos
+         FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[]))`, [movideskLoader.CLOSED_STATUSES])).rows[0];
+    const e = movideskLoader.enriquecimentoPendentes || {};
+    detalhes = { ...q, rodando: !!e.rodando, fila: e.fila || 0, feitos: e.feitos || 0, falhas: e.falhas || 0, terminadoEm: e.terminadoEm || null, ultimoErro: e.ultimoErro || null };
+  } catch (_) { /* coluna detalhes_em ainda não existe */ }
+  // quantos chamados o banco tem ABERTOS dentro do escopo da tarefa (para comparar com a contagem do Movidesk)
+  let escopoAbertos = null, porStatus = null;
+  if (t) {
+    try {
+      const { where, params } = movideskLoader.escopoSql({ ownerTeamVal: t.owner_team || '', servicoVal: t.service_first || '', classValue: t.classification || '' }, [movideskLoader.CLOSED_STATUSES]);
+      escopoAbertos = (await db.query(`SELECT COUNT(*)::int AS n FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) ${where.length ? 'AND ' + where.join(' AND ') : ''}`, params)).rows[0].n;
+      // por status, para comparar linha a linha com o Movidesk
+      porStatus = (await db.query(`SELECT t.basestatus AS base, COUNT(*)::int AS n FROM silver.ticket t WHERE t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($1::text[])) ${where.length ? 'AND ' + where.join(' AND ') : ''} GROUP BY 1 ORDER BY 2 DESC`, params)).rows;
+    } catch (_) { /* sem contagem */ }
+  }
+  return { tarefa: t, job, historico, detalhes, escopoAbertos, porStatus, conferenciaLista: movideskLoader.conferenciaLista, carregando: !!movideskLoader.state?.running && String(movideskLoader.state?.mode || '').startsWith('rapido:') };
+}
+router.post('/rapida/conferir-lista', express.raw({ type: '*/*', limit: '20mb' }), async (req, res) => {
+  try {
+    const { lerIds } = require('../utils/xlsxMini');
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(String(req.body || ''));
+    const ids = lerIds(buf);
+    if (ids.length < 1) return res.status(400).json({ error: 'Nenhum id de chamado encontrado no arquivo' });
+    if (movideskLoader.conferenciaLista.rodando) return res.status(409).json({ error: 'Já existe uma conferência em andamento' });
+    res.json(await movideskLoader.iniciarConferenciaLista(ids));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/rapida/detalhes', async (req, res) => {
+  try { res.json(await movideskLoader.iniciarEnriquecimentoPendentes()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.get('/rapida', async (req, res) => {
+  try { res.json(await lerRapida()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/rapida', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const owner_team = (b.owner_team && String(b.owner_team).trim()) || null;
+    const classification = (b.classification && String(b.classification).trim()) || null;
+    const service_first = (b.service_first && String(b.service_first).trim()) || null;
+    // sem nenhum filtro = TODOS os chamados pendentes (qualquer serviço, equipe ou classificação)
+    let minutes;
+    try { minutes = cronSchedule.validarIntervalo(b.interval_minutes || 1); } catch (e) { return res.status(400).json({ error: e.message }); }
+    const enabled = b.enabled !== false;
+    const atual = (await db.query(`SELECT id FROM silver.cron_task WHERE rapido = TRUE ORDER BY id LIMIT 1`)).rows[0];
+    let tarefaId;
+    if (atual) {
+      tarefaId = atual.id;
+      await db.query(`UPDATE silver.cron_task SET owner_team=$1, classification=$2, service_first=$3, only_open=TRUE, rapido=TRUE, updated_at=NOW() WHERE id=$4`, [owner_team, classification, service_first, tarefaId]);
+    } else {
+      tarefaId = (await db.query(
+        `INSERT INTO silver.cron_task (name, owner_team, classification, service_first, only_open, rapido) VALUES ($1,$2,$3,$4,TRUE,TRUE) RETURNING id`,
+        [NOME_TAREFA_RAPIDA, owner_team, classification, service_first])).rows[0].id;
+    }
+    const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = $1 ORDER BY id LIMIT 1`, [`custom:${tarefaId}`])).rows[0];
+    if (job) {
+      await db.query(`UPDATE silver.cron_job SET interval_minutes=$1, enabled=$2, updated_at=NOW() WHERE id=$3`, [minutes, enabled, job.id]);
+      await cronManager.reloadJob(job.id);
+    } else {
+      const novo = (await db.query(
+        `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params) VALUES ($1,$2,$3,$4,'{}'::jsonb) RETURNING id`,
+        [NOME_CRON_RAPIDA, `custom:${tarefaId}`, minutes, enabled])).rows[0];
+      await cronManager.reloadJob(novo.id);
+    }
+    res.json(await lerRapida());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Carga delta (só o que mudou, com ações) — cartão em Configurações → Carga rápida ──────────
+// A cron é um silver.cron_job comum de task 'delta' (fila, Rodar agora, Parar e histórico de sempre); cursor e opções em
+// silver.carga_delta (movidesk-loader.js, runDelta).
+const NOME_CRON_DELTA = 'Delta — só o que mudou';
+async function lerDeltaTela() {
+  const cfg = await movideskLoader.lerDelta();
+  const job = (await db.query(`SELECT * FROM silver.cron_job WHERE task = 'delta' ORDER BY id LIMIT 1`)).rows[0] || null;
+  const historico = (await db.query(
+    `SELECT id, started_at, finished_at, status, error_msg, tickets_loaded FROM silver.carga_log WHERE mode = 'delta' ORDER BY started_at DESC LIMIT 20`
+  ).catch(() => ({ rows: [] }))).rows;
+  const rapida = (await db.query(
+    `SELECT j.id, j.enabled, j.interval_minutes FROM silver.cron_job j JOIN silver.cron_task t ON j.task = 'custom:' || t.id WHERE t.rapido = TRUE ORDER BY j.id LIMIT 1`
+  ).catch(() => ({ rows: [] }))).rows[0] || null;
+  const st = movideskLoader.state || {};
+  // chamados com detalhes (ações/campos) atrasados — mesmo critério que a cron põe na fila
+  const atrasados = (await db.query(`
+    SELECT COUNT(*)::int AS n FROM silver.ticket
+     WHERE (detalhes_em IS NULL OR detalhes_em < last_update)
+       AND (last_update > NOW() - INTERVAL '7 days' OR (basestatus IS NOT NULL AND NOT (basestatus = ANY($1::text[]))))`, [movideskLoader.CLOSED_STATUSES]
+  ).catch(() => ({ rows: [{ n: null }] }))).rows[0].n;
+  return { config: cfg, job, historico, rapida, detalhes: { ...movideskLoader.detalhesDelta, atrasados },
+    rodando: !!st.running && st.mode === 'delta', fase: st.mode === 'delta' ? st.phase : null };
+}
+router.get('/delta', async (req, res) => {
+  try { res.json(await lerDeltaTela()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/delta', async (req, res) => {
+  try {
+    const b = req.body || {};
+    let minutes;
+    try { minutes = cronSchedule.validarIntervalo(b.interval_minutes || 2); } catch (e) { return res.status(400).json({ error: e.message }); }
+    const conferir = Math.floor(Number(b.conferir_a_cada_min));
+    if (b.conferir_a_cada_min !== undefined && !(conferir >= 5 && conferir <= 1440)) {
+      return res.status(400).json({ error: 'Conferência dos abertos: entre 5 e 1440 minutos' });
+    }
+    const enabled = b.enabled !== false;
+    await movideskLoader.ensureDeltaTable();
+    if (b.conferir_a_cada_min !== undefined) await db.query(`UPDATE silver.carga_delta SET conferir_a_cada_min = $1, atualizado_em = NOW() WHERE id = 1`, [conferir]);
+    const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = 'delta' ORDER BY id LIMIT 1`)).rows[0];
+    if (job) {
+      await db.query(`UPDATE silver.cron_job SET interval_minutes = $1, enabled = $2, updated_at = NOW() WHERE id = $3`, [minutes, enabled, job.id]);
+      await cronManager.reloadJob(job.id);
+    } else {
+      const novo = (await db.query(
+        `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params) VALUES ($1, 'delta', $2, $3, '{}'::jsonb) RETURNING id`,
+        [NOME_CRON_DELTA, minutes, enabled])).rows[0];
+      await cronManager.reloadJob(novo.id);
+    }
+    res.json(await lerDeltaTela());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Recuar o cursor N horas (reprocessa o que mudou nesse período na próxima execução).
+router.post('/delta/recuar', async (req, res) => {
+  try {
+    const horas = Number(req.body?.horas);
+    if (!(horas > 0 && horas <= 24 * 30)) return res.status(400).json({ error: 'Informe de 1 hora a 30 dias' });
+    await movideskLoader.ensureDeltaTable();
+    await db.query(`UPDATE silver.carga_delta SET cursor_em = NOW() - make_interval(secs => $1), atualizado_em = NOW() WHERE id = 1`, [horas * 3600]);
+    res.json(await lerDeltaTela());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Conferir agora: zera a data da última conferência e dispara a cron (a conferência roda junto).
+router.post('/delta/conferir', async (req, res) => {
+  try {
+    const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = 'delta' ORDER BY id LIMIT 1`)).rows[0];
+    if (!job) return res.status(400).json({ error: 'Salve a cron do delta primeiro' });
+    await movideskLoader.ensureDeltaTable();
+    await db.query(`UPDATE silver.carga_delta SET ultima_conferencia_em = NULL WHERE id = 1`);
+    const queued = !!movideskLoader.state?.running;
+    cronManager.executeJob(job.id, { force: true }).catch(e => console.error('[crons] conferência do delta falhou:', e.message));
+    res.json({ started: true, queued });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 router.get('/', async (req, res) => {
   try {
