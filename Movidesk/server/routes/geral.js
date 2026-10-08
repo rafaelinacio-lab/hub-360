@@ -494,10 +494,10 @@ router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async 
 
 // ===== POST /geral/campos-analytics =====
 // Campos customizados que só os chamados do serviço Analytics usam, lidos de silver.ticket_campo_customizado (valor_texto):
-// "Data Início Implantação" (id 250810) e "Valor do orçamento" (id em CF_VALOR_ORCAMENTO_ID; sem ele a coluna vem vazia).
+// "Data Início Implantação" (id 250810) e "Valor do Orçamento (R$)" (id 26105, numérico). Os dois ids podem ser trocados por CF_INICIO_IMPLANTACAO_ID / CF_VALOR_ORCAMENTO_ID.
 // Body: { ids: ["123", ...] } (até 3000). Resposta: { campos: { "123": { implantacao, orcamento } }, orcamentoConfigurado }
 const CF_INICIO_IMPLANTACAO = Number(process.env.CF_INICIO_IMPLANTACAO_ID) || 250810;
-const CF_VALOR_ORCAMENTO = Number(process.env.CF_VALOR_ORCAMENTO_ID) || null;
+const CF_VALOR_ORCAMENTO = Number(process.env.CF_VALOR_ORCAMENTO_ID) || 26105;
 router.post('/campos-analytics', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
