@@ -530,11 +530,11 @@ body.modal-open{overflow:hidden}
         <div class="grid-2">
           <div>
             <p class="chart-title small">Clientes com mais avaliações negativas</p>
-            <div class="rolagem" style="max-height:260px"><div class="chart-wrap" style="height:190px"><canvas id="negClientChart"></canvas></div></div>
+            <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="negClientChart"></canvas></div></div>
           </div>
           <div>
             <p class="chart-title small">Responsáveis com mais avaliações negativas</p>
-            <div class="rolagem" style="max-height:260px"><div class="chart-wrap" style="height:190px"><canvas id="negRespChart"></canvas></div></div>
+            <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="negRespChart"></canvas></div></div>
           </div>
         </div>
       </div>
@@ -1375,9 +1375,9 @@ function render(){
     });
   }
 
-  const negClientTop=topN(negativasRows,r=>r.organizacao,5);
+  const negClientTop=topN(negativasRows,r=>r.organizacao,RANK_MAX);
   barChart('negClientChart',negClientTop.map(([k])=>k),negClientTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'organizacao',fieldLabel:'Cliente'});
-  const negRespTop=topN(negativasRows,r=>r.responsavel,5);
+  const negRespTop=topN(negativasRows,r=>r.responsavel,RANK_MAX);
   barChart('negRespChart',negRespTop.map(([k])=>k),negRespTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'responsavel',fieldLabel:'Responsável'});
 
   // ── tabela de negativas com comentário ──
