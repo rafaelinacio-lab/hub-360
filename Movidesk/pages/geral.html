@@ -1666,11 +1666,12 @@ function render(){
   }
 
   // ── SLA / backlog ──
-  const resolvidosComPrazo=resolvidosRows.filter(contaNoSla).filter(temPrazo);
-  const slaCumprido=resolvidosComPrazo.length?resolvidosComPrazo.filter(isNoPrazo).length/resolvidosComPrazo.length:0;
+  _slaFaltam=new Set();
+  const slaCard=slaHub(resolvidosRows);
+  const slaCumprido=slaCard.total?slaCard.ok/slaCard.total:0;
   const vencidosRows=pendentesRows.filter(isVencido);
   const pctVencido=pendentesRows.length?vencidosRows.length/pendentesRows.length:0;
-  document.getElementById('k-sla-cumprido').textContent=fmtPct(slaCumprido);
+  document.getElementById('k-sla-cumprido').textContent=slaCard.faltam?'…':slaCard.total?fmtPct(slaCumprido):'—';
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent='';   // sem legenda (pedido do usuário)
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
@@ -1701,6 +1702,7 @@ function render(){
   renderRespChart(rowsFull);
   renderEquipesVencidoTable(pendentesRows);
   igualarAlturaGrid();
+  buscarSlaFaltantes(render);   // SLA (régua do Hub): busca o tempo dos que faltam e redesenha
 }
 
 // Rankings mostram até RANK_MAX itens; a área do ranking rola (barra de rolagem) para ver o restante.
@@ -2028,6 +2030,26 @@ const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
 // A meta por urgência (documento de SLA) vale SÓ para a classificação Suporte Técnico; os demais seguem a previsão de solução do chamado.
 const ehSuporteTecnicoG=r=>String(r&&r.classificacao||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='suporte tecnico';
 const metaDe=r=>contaNoSla(r)&&META_SOLUCAO_H[r.urgencia]!=null?META_SOLUCAO_H[r.urgencia]:null;   // mesma elegibilidade do card SLA cumprido
+// ── SLA pela régua do Hub (todo SLA do Painel Geral; pedido do usuário, 08/10/2026) ──
+// Elegível = resolvido, contaNoSla e urgência com meta. Dentro = tempo líquido (POST /geral/sla-liquido: janela de
+// atendimento, sem fim de semana/feriado/pausa) ≤ meta da urgência. O tempo vem do servidor: quem ainda não está no
+// cache (_impactoMinutos) não entra na conta e é buscado em seguida (render() redesenha quando chegar).
+const elegivelSla=r=>!!r.resolvido_em&&isResolvido(r)&&metaDe(r)!=null;
+const temMinutosSla=r=>_impactoMinutos[r.ticket_id]!=null;
+const dentroSla=r=>temMinutosSla(r)&&_impactoMinutos[r.ticket_id]/60<=metaDe(r);
+let _slaFaltam=new Set(), _slaBuscando=false;
+function slaHub(l){
+  const e=l.filter(elegivelSla);
+  e.forEach(r=>{ if(!(r.ticket_id in _impactoMinutos)) _slaFaltam.add(r.ticket_id); });
+  const c=e.filter(temMinutosSla);   // tempo já calculado (null = sem dado de resolução: fica fora)
+  return {ok:c.filter(dentroSla).length,total:c.length,faltam:e.filter(r=>!(r.ticket_id in _impactoMinutos)).length};
+}
+function buscarSlaFaltantes(depois){
+  const ids=[..._slaFaltam]; _slaFaltam=new Set();
+  if(!ids.length||_slaBuscando) return;
+  _slaBuscando=true;
+  buscarMinutosLiquidos(ids).then(()=>{ _slaBuscando=false; depois(); }).catch(()=>{ _slaBuscando=false; });
+}
 let _impactoMinutos={};   // ticket_id -> minutos úteis líquidos (cache)
 let _impactoSeq=0;
 const fmtH=h=>`${h.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}h`;
@@ -2734,7 +2756,7 @@ function renderKpiExtras(){
     pendentes:meses.map(mk=>rows.filter(r=>pendenteEmMes(r,mk)).length),
     reabertura:meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isReaberto).length/l.length*100:null; }),
     fcr:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido); return l.length?l.filter(isFCR).length/l.length*100:null; }),
-    sla:      meses.map(mk=>{ const l=por('resolvido_em',mk).filter(isResolvido).filter(contaNoSla).filter(temPrazo); return l.length?l.filter(isNoPrazo).length/l.length*100:null; }),
+    sla:      meses.map(mk=>{ const x=slaHub(por('resolvido_em',mk)); return x.total&&!x.faltam?x.ok/x.total*100:null; }),
   };
   // tom da variação: 'bom' | 'ruim' | 'neutro' conforme o que a mudança significa para o negócio
   const sentido={abertos:0,resolvidos:1,media:-1,clientes:0,pendentes:-1,sla:1,reabertura:-1,fcr:1};
@@ -2772,7 +2794,7 @@ function respDetalheHtml(nome){
   let B=P.N?calc(P.N):null, semAnt=false;
   if(B&&!B.ab.length&&!B.rs.length){ B=null; semAnt=true; }        // período anterior sem dados (ex.: histórico não carregado)
   const refTxt=P.rotAnt||'período anterior';
-  const slaDe=l=>{ const c=l.filter(contaNoSla).filter(temPrazo); return {ok:c.filter(isNoPrazo).length,total:c.length}; };
+  const slaDe=l=>slaHub(l);
   const sA=slaDe(A.rs), sB=B?slaDe(B.rs):null;
   const pA=sA.total?sA.ok/sA.total*100:null, pB=sB&&sB.total?sB.ok/sB.total*100:null;
   const pend=rows.filter(isAberto), venc=pend.filter(isVencido).length;
@@ -2801,6 +2823,7 @@ function respDetalheHtml(nome){
 function respMostrar(nome){
   const box=document.getElementById('resp-detalhe'); if(!box) return;
   box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, no período dos filtros, o que ele abriu e resolveu, o SLA cumprido, comparado com o período anterior.<br>Clique para fixar o detalhe.</div>';
+  if(nome) buscarSlaFaltantes(()=>respMostrar(nome));   // período anterior pode não ter o tempo líquido ainda
 }
 function renderRespChart(rows){
   const box=document.getElementById('respChart'); if(!box) return;
@@ -2808,7 +2831,7 @@ function renderRespChart(rows){
   rows.forEach(r=>{ const p=r.responsavel||'Não informado'; (por[p]=por[p]||{criados:0}).criados++; });
   // resolvidos e SLA do período: pela data de RESOLUÇÃO, como os cards do topo
   _rowsResolv.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return;
-    o.resolvidos=(o.resolvidos||0)+1; if(isReaberto(r)) o.reabertos=(o.reabertos||0)+1; if(contaNoSla(r)&&temPrazo(r)){ o.comPrazo=(o.comPrazo||0)+1; if(isNoPrazo(r)) o.noPrazo=(o.noPrazo||0)+1; } });
+    o.resolvidos=(o.resolvidos||0)+1; if(isReaberto(r)) o.reabertos=(o.reabertos||0)+1; if(elegivelSla(r)){ if(!(r.ticket_id in _impactoMinutos)) _slaFaltam.add(r.ticket_id); if(temMinutosSla(r)){ o.comPrazo=(o.comPrazo||0)+1; if(dentroSla(r)) o.noPrazo=(o.noPrazo||0)+1; } } });
   const pendG=getPendentesGlobalRows();
   pendG.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return; o.pend=(o.pend||0)+1; if(isVencido(r)) o.venc=(o.venc||0)+1; });
   _respLista=Object.entries(por).sort((a,b)=>b[1].criados-a[1].criados).slice(0,RANK_MAX);
@@ -3057,7 +3080,7 @@ const EXPANSOES={
   media:      {t:'Média de ações/ticket',        rows:()=>_rowsFull, ordenar:(a,b)=>Number(b.acoes_count||0)-Number(a.acoes_count||0), acoes:true},
   clientes:   {t:'Clientes únicos',              rows:()=>_rowsFull, ordenar:(a,b)=>String(a.organizacao||'').localeCompare(String(b.organizacao||''),'pt')},
   pendentes:  {t:'Tickets pendentes',            rows:()=>_pendentesGlobal},
-  sla:        {t:'SLA cumprido (resolvidos com prazo)', rows:()=>_rowsResolv.filter(contaNoSla).filter(temPrazo)},
+  sla:        {t:'SLA cumprido (elegíveis resolvidos)', rows:()=>_rowsResolv.filter(elegivelSla)},
   vencido:    {t:'Backlog vencido',              rows:()=>_pendentesGlobal.filter(isVencido)},
   classe:     {t:'Classificação',                rows:()=>_rowsFull},
   tendencia:  {t:'Aberturas no período',         rows:()=>_rowsFull},
@@ -3069,7 +3092,7 @@ const EXPANSOES={
   equipesven: {t:'Backlog vencido por equipe',   rows:()=>_pendentesGlobal.filter(isVencido), ordenar:(a,b)=>String(a.equipe||'').localeCompare(String(b.equipe||''),'pt')},
   reabertura: {t:'Reabertos (resolvidos no período)', rows:()=>_rowsResolv.filter(isReaberto)},
   fcr:        {t:'Resolvidos no 1º contato (FCR)',    rows:()=>_rowsResolv.filter(isFCR)},
-  slaurg:     {t:'SLA por urgência',             rows:()=>_rowsResolv.filter(contaNoSla).filter(temPrazo), ordenar:(a,b)=>String(a.urgencia||'').localeCompare(String(b.urgencia||''),'pt')},
+  slaurg:     {t:'SLA por urgência',             rows:()=>_rowsResolv.filter(elegivelSla), ordenar:(a,b)=>String(a.urgencia||'').localeCompare(String(b.urgencia||''),'pt')},
 };
 function abrirExpansao(chave){
   const e=EXPANSOES[chave]; if(!e) return;
@@ -3113,8 +3136,8 @@ const INFO_CARDS={
     c:['Todo ticket que não está finalizado (Resolvido/Fechado) nem cancelado.','Sempre o backlog real, de todos os anos: não segue o filtro de Ano/Mês (os demais filtros valem).','Clique no card para ver a lista.'],
     obs:FILTROS_TXT},
   'k-sla-cumprido':{t:'SLA cumprido (resolvidos)',
-    o:'Percentual de tickets resolvidos dentro do prazo de solução do Movidesk.',
-    c:['Considera só tickets resolvidos no período que tinham prazo de solução definido.','Só classificação Suporte Técnico e equipes de suporte (nome da equipe com "Suporte").','Ficam de fora chamados com cliente VIASOFT CORONEL VIVIDA, MP AGROTECH ou AD TECH, e chamados em que a VIASOFT INFORMATICA LTDA é o único cliente (sem cliente de fora da Viasoft).','Cumprido = data de resolução menor ou igual ao prazo de solução.','% = cumpridos ÷ resolvidos com prazo. Tickets sem prazo ficam de fora.']},
+    o:'Percentual de tickets resolvidos dentro da meta da própria urgência (régua do Hub, a mesma da Evolução mensal).',
+    c:['Tempo de solução líquido: só a janela de atendimento da política de SLA, sem fins de semana, feriados e tempo em pausa (Configurações → SLA e horas). Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Só classificação Suporte Técnico e equipes de suporte (nome da equipe com "Suporte").','Ficam de fora chamados com cliente VIASOFT CORONEL VIVIDA, MP AGROTECH ou AD TECH, e chamados em que a VIASOFT INFORMATICA LTDA é o único cliente (sem cliente de fora da Viasoft).','Cumprido = tempo líquido menor ou igual à meta da urgência.','% = cumpridos ÷ elegíveis resolvidos no período (urgência Crítica/Alta/Média/Baixa).']},
   'k-backlog-vencido':{t:'Backlog já vencido',
     o:'Tickets pendentes cujo prazo de SLA já passou.',
     c:['Pendente com prazo de solução definido e prazo anterior ao momento atual.','A legenda mostra o % em relação ao total de pendentes.','Clique no card para ver a lista.']},
