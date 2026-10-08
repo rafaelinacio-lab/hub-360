@@ -1605,10 +1605,10 @@ function getFilteredRows(){
 
 // "Tickets pendentes" e tudo que deriva dele (backlog vencido, aging,
 // ranking por equipe) usam _rowsPendentesAll (todos os abertos, de qualquer
-// ano) e respeitam os mesmos filtros do resto do painel, INCLUINDO Ano/Mês —
-// aplicados sobre a data de ABERTURA. Com "Ano: 2026" o painel mostra a
-// volumetria de 2026 (abertos em 2026, ainda pendentes); sem nenhum ano
-// marcado volta a ser o backlog real, de todos os anos.
+// ano) e respeitam os filtros do resto do painel, MENOS Ano/Mês: pendente é o
+// backlog real de hoje, então qualquer ano marcado mostra todos os pendentes
+// (pedido do usuário, 08/10/2026 — antes "Ano: 2026" escondia os abertos de
+// anos anteriores).
 function getPendentesGlobalRows(){
   const equipeFils=getMsValues('f-equipe');
   const respFils=getMsValues('f-resp');
@@ -1616,16 +1616,8 @@ function getPendentesGlobalRows(){
   const cliFils=getMsValues('f-cliente');
   const classFils=getMsValues('f-class');
   const statusFils=getMsValues('f-status');
-  const yearFils=getMsValues('f-year').map(Number);
-  const monthFils=getMsValues('f-month').map(Number);
   if(statusFils.length&&!statusFils.includes('aberto')) return [];
   return _rowsPendentesAll.filter(r=>{
-    if(yearFils.length||monthFils.length){
-      if(!r.criado_em) return false;
-      const d=new Date(r.criado_em);
-      if(yearFils.length&&!yearFils.includes(d.getFullYear())) return false;
-      if(monthFils.length&&!monthFils.includes(d.getMonth()+1)) return false;
-    }
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
     if(servFils.length&&!servFils.includes(r.servico)) return false;
@@ -1655,8 +1647,7 @@ function render(){
   const somaAcoes=rowsFull.reduce((s,r)=>s+Number(r.acoes_count||0),0);
   const mediaAcoes=abertos?somaAcoes/abertos:0;
   const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao_id||r.organizacao).filter(Boolean)).size;
-  // "Tickets pendentes" também segue o filtro de Ano/Mês (data de abertura):
-  // com 2026 marcado, são os abertos em 2026 que ainda estão pendentes.
+  // "Tickets pendentes" ignora Ano/Mês: sempre o backlog de todos os anos.
   const pendentesRows=getPendentesGlobalRows();
   _pendentesGlobal=pendentesRows;
 
@@ -1667,7 +1658,7 @@ function render(){
   document.getElementById('k-pendentes').textContent=pendentesRows.length.toLocaleString('pt-BR');
   {
     const yf=getMsValues('f-year'), mf=getMsValues('f-month');
-    const rotuloPeriodo=(yf.length||mf.length)?'Abertos no período e ainda em aberto. Clique pra ver.':'Ainda em aberto (todos os anos). Clique pra ver.';
+    const rotuloPeriodo=(yf.length||mf.length)?'Todos em aberto, de qualquer ano (não segue o filtro de Ano/Mês). Clique pra ver.':'Ainda em aberto (todos os anos). Clique pra ver.';
     document.getElementById('k-pendentes-legend').textContent=rotuloPeriodo;
   }
 
@@ -3111,7 +3102,7 @@ const INFO_CARDS={
     c:['Conta organizações distintas entre os tickets criados no período (pelo cadastro de organização do ticket).','Tickets sem organização não entram na contagem.']},
   'k-pendentes':{t:'Tickets pendentes',
     o:'Tickets que ainda estão em aberto.',
-    c:['Todo ticket que não está finalizado (Resolvido/Fechado) nem cancelado.','Sem Ano/Mês filtrado, mostra o backlog real de todos os anos. Com Ano/Mês, mostra os abertos naquele período que ainda estão pendentes.','Clique no card para ver a lista.'],
+    c:['Todo ticket que não está finalizado (Resolvido/Fechado) nem cancelado.','Sempre o backlog real, de todos os anos: não segue o filtro de Ano/Mês (os demais filtros valem).','Clique no card para ver a lista.'],
     obs:FILTROS_TXT},
   'k-sla-cumprido':{t:'SLA cumprido (resolvidos)',
     o:'Percentual de tickets resolvidos dentro do prazo de solução do Movidesk.',
