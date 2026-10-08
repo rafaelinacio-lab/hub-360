@@ -2907,7 +2907,7 @@ function renderEquipesVencidoTable(pendentesRows){
     const n=nomeEquipeExibicao(e);
     return `
     <tr class="clickable" onclick="openEquipeVencidoModal('${escAttr(e)}')">
-      <td title="${escAttr(n.completo)}">${n.marca?`<span class="eq-marca">${esc(n.marca)}</span>`:''}${esc(n.resto)}</td>
+      <td title="${escAttr(n.completo)}"><span class="eq-nome">${esc(n.resto)}</span>${n.marca?`<span class="eq-marca">${esc(n.marca)}</span>`:''}</td>
       <td class="num">${v.pendentes}</td>
       <td class="num${v.vencidos?' bad':''}">${v.vencidos}</td>
       <td class="num${pct>=0.3?' bad':''}">${fmtPct(pct)}</td>

@@ -112,3 +112,47 @@ document.documentElement.setAttribute('data-ui', 'v2');
         return promessa;
     };
 })();
+
+// ─── Última atualização da aba ───
+// Etiqueta discreta no canto inferior direito com a data e a hora em que a tela recebeu dados da /api pela última vez
+// (carga inicial, "Atualizar" e renovações automáticas). Só em abas com conteúdo próprio: o shell (index.html) e as
+// molduras de iframe não mostram; Painel TV e Chats já têm indicador próprio.
+(function () {
+    if (!window.fetch || window.__hubSemUltAtu) return;
+    var caminho = location.pathname;
+    if (caminho.indexOf('/pages/') < 0 || /\/pages\/(chats|painel-tv)\.html$/.test(caminho)) return;
+    var IGNORAR = ['/api/telemetria', '/api/auth', '/api/avisos', '/api/sla-horas/config'];
+    var ultima = null, el = null;
+
+    function texto(d) {
+        try {
+            return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch (e) { return d.toLocaleString('pt-BR'); }
+    }
+    function desenhar() {
+        if (!ultima || !document.body) return;
+        if (document.querySelector('iframe')) return;                 // moldura de iframe: quem mostra é a tela interna
+        if (!el) {
+            var css = document.createElement('style');
+            css.textContent = '.hub-ultatu{position:fixed;right:12px;bottom:8px;z-index:40;padding:3px 10px;border-radius:999px;font:600 11px/1.4 Manrope,system-ui,sans-serif;'
+                + 'color:var(--t3,#675e54);background:var(--surface-mid,var(--bg2,#faf8f5));border:1px solid var(--border-hi,var(--border,#cfc7bc));opacity:.92;pointer-events:none;white-space:nowrap}'
+                + '@media print{.hub-ultatu{display:none}}';
+            document.head.appendChild(css);
+            el = document.createElement('div'); el.className = 'hub-ultatu'; el.setAttribute('role', 'status');
+            document.body.appendChild(el);
+        }
+        el.textContent = 'Última atualização: ' + texto(ultima);
+    }
+    function marcar() { ultima = new Date(); desenhar(); }
+    document.addEventListener('DOMContentLoaded', desenhar);
+
+    var anterior = window.fetch;
+    window.fetch = function (entrada, init) {
+        var url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
+        var metodo = String((init && init.method) || (entrada && entrada.method) || 'GET').toUpperCase();
+        var promessa = anterior.apply(this, arguments);
+        if (metodo !== 'GET' || url.indexOf('/api/') < 0 || IGNORAR.some(function (p) { return url.indexOf(p) >= 0; })) return promessa;
+        promessa.then(function (resp) { if (resp && resp.ok) marcar(); }, function () {});
+        return promessa;
+    };
+})();
