@@ -1106,7 +1106,10 @@ function isResolvido(r){ return FINALIZADO_STATUSES.includes(r.base_status); }
 function temPrazo(r){ return !!r.sla_solucao; }
 // Entra no "SLA cumprido": classificação Suporte Técnico, equipe de suporte (nome com "Suporte") e sem os clientes
 // excluídos (Coronel Vivida, MP Agrotech, AD Tech, ou só a Viasoft Informática como cliente — sla_fora_cliente, servidor).
-function contaNoSla(r){ return classificacaoDe(r)==='Suporte Técnico'&&/suporte/i.test(r.equipe||'')&&!r.sla_fora_cliente; }
+// Exceções de equipe que contam mesmo sem "Suporte" no nome (pedido do usuário, 08/10/2026):
+const EQUIPES_SLA_EXCECAO=new Set(['analytics - b.i']);
+const equipeContaNoSla=e=>/suporte/i.test(e||'')||EQUIPES_SLA_EXCECAO.has(String(e||'').trim().toLowerCase());
+function contaNoSla(r){ return classificacaoDe(r)==='Suporte Técnico'&&equipeContaNoSla(r.equipe)&&!r.sla_fora_cliente; }
 function isNoPrazo(r){ return temPrazo(r)&&r.resolvido_em&&new Date(r.resolvido_em)<=new Date(r.sla_solucao); }
 function isVencido(r){ return isAberto(r)&&temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
 function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
@@ -3137,7 +3140,7 @@ const INFO_CARDS={
     obs:FILTROS_TXT},
   'k-sla-cumprido':{t:'SLA cumprido (resolvidos)',
     o:'Percentual de tickets resolvidos dentro da meta da própria urgência (régua do Hub, a mesma da Evolução mensal).',
-    c:['Tempo de solução líquido: só a janela de atendimento da política de SLA, sem fins de semana, feriados e tempo em pausa (Configurações → SLA e horas). Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Só classificação Suporte Técnico e equipes de suporte (nome da equipe com "Suporte").','Ficam de fora chamados com cliente VIASOFT CORONEL VIVIDA, MP AGROTECH ou AD TECH, e chamados em que a VIASOFT INFORMATICA LTDA é o único cliente (sem cliente de fora da Viasoft).','Cumprido = tempo líquido menor ou igual à meta da urgência.','% = cumpridos ÷ elegíveis resolvidos no período (urgência Crítica/Alta/Média/Baixa).']},
+    c:['Tempo de solução líquido: só a janela de atendimento da política de SLA, sem fins de semana, feriados e tempo em pausa (Configurações → SLA e horas). Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Só classificação Suporte Técnico e equipes de suporte (nome da equipe com "Suporte"), mais a exceção Analytics - B.I.','Ficam de fora chamados com cliente VIASOFT CORONEL VIVIDA, MP AGROTECH ou AD TECH, e chamados em que a VIASOFT INFORMATICA LTDA é o único cliente (sem cliente de fora da Viasoft).','Cumprido = tempo líquido menor ou igual à meta da urgência.','% = cumpridos ÷ elegíveis resolvidos no período (urgência Crítica/Alta/Média/Baixa).']},
   'k-backlog-vencido':{t:'Backlog já vencido',
     o:'Tickets pendentes cujo prazo de SLA já passou.',
     c:['Pendente com prazo de solução definido e prazo anterior ao momento atual.','A legenda mostra o % em relação ao total de pendentes.','Clique no card para ver a lista.']},
