@@ -558,6 +558,8 @@ function pessoaDe(r){
   return eq?`${SEM_DONO} · ${eq}`:SEM_DONO;
 }
 const semDono=n=>n===SEM_DONO||n.startsWith(SEM_DONO+' · ');
+// No gráfico, quem não tem responsável aparece só com o nome da equipe (a chave interna "Não atribuído · equipe" mantém essas barras no topo e o clique certo).
+const rotuloPessoa=n=>n.startsWith(SEM_DONO+' · ')?n.slice(SEM_DONO.length+3):n;
 function renderPessoaChart(){
   const por={};
   _rows.forEach(r=>{ const n=pessoaDe(r); const o=por[n]||(por[n]={Vencido:0,'No Prazo':0,Pausado:0,'Sem Prazo':0,t:0}); o[statusPrazoDe(r)]++; o.t++; });
@@ -575,7 +577,7 @@ function renderPessoaChart(){
     last.forEach((b,i)=>{ const cortada=escalaMax&&por[nomes[i]].t>escalaMax; c.fillText((cortada?'▸ ':'')+por[nomes[i]].t.toLocaleString('pt-BR'),Math.min(b.x,dir)+8,b.y); }); c.restore(); }};
   if(_pessoaChart) _pessoaChart.destroy();
   _pessoaChart=new Chart(cv,{type:'bar',
-    data:{labels:nomes,datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9}))},
+    data:{labels:nomes.map(rotuloPessoa),datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9}))},
     plugins:[total],
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48}},
       onClick:(e,els)=>{ if(els.length) abrirModal({pessoa:nomes[els[0].index],prazo:defs[els[0].datasetIndex][0]}); },
