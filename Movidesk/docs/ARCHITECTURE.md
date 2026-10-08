@@ -347,6 +347,16 @@ Tarefa personalizada com **"Só chamados em aberto"** + **"Modo rápido"** (`sil
 - Carga rápida sem nenhum filtro = **todos** os chamados pendentes (qualquer serviço, equipe ou classificação).
 - Carga rápida: "aberto" = qualquer status que não seja resolvido/fechado/cancelado (a mesma definição do Painel TV), em toda a reconferência, fila de detalhes e contagens. A reconferência dos abertos no banco que sumiram da lista corrige até 500 chamados a cada 3 min (8 em paralelo); a aba mostra os abertos por status e a diferença para o que o Movidesk devolveu na última carga.
 
+### Carga delta — só o que mudou (Carga rápida → primeiro cartão)
+Cron de task `delta` (`silver.cron_job`, mesma fila/Rodar agora/Parar/histórico das outras) que roda `runDelta` (movidesk-loader.js):
+1. lista em `/tickets` só `id,baseStatus,lastUpdate` (sem `$expand`) com `lastUpdate ge <cursor − 2 min>`;
+2. pula quem já está no banco com o mesmo `last_update` e `detalhes_em` em dia; regrava o resto por `sincronizarTicket` (ações, clientes, campos, organização), 5 em paralelo;
+3. avança o cursor para o maior `lastUpdate` devolvido pelo Movidesk (não o relógio do servidor); se algum chamado falhar, para logo antes da falha mais antiga.
+
+A cada `conferir_a_cada_min` (padrão 30) a mesma execução confere **todos os abertos** em `/tickets` **e** `/tickets/past` (aberto parado há ~90+ dias só aparece no `/past`) contra o banco e regrava faltando, status/`last_update` divergente e abertos só no banco (até 500 por vez). Estado (cursor, última execução e conferência) em `silver.carga_delta` (linha única, criada no primeiro uso); sem cursor, a primeira rodada parte do `MAX(last_update)` do banco.
+Rotas: `GET/PUT /api/crons/delta` (intervalo, liga/desliga, intervalo da conferência), `POST /delta/recuar` (reprocessar as últimas N horas) e `POST /delta/conferir`. Medido em 08/10/2026: rodada normal 3 s (15 mudaram, 2 regravados); conferência ~70 s. Com o delta ligado a carga rápida (que relê todos os abertos a cada rodada, 5–8 min) não é mais necessária e só atrasa a fila.
+`sincronizarTicket` tenta `/tickets` e, se não achar, `/tickets/past`.
+
 ### Conferência por lista de ids (Carga rápida)
 `POST /api/crons/rapida/conferir-lista` (corpo bruto: .xlsx com coluna "Número" ou texto/CSV; leitor em `server/utils/xlsxMini.js`). `iniciarConferenciaLista` (movidesk-loader) compara os abertos do banco com a lista, busca no Movidesk (básico + clientes, 8 em paralelo) os que sobram e os que faltam e regrava com `salvarBasico`. Progresso em `GET /rapida` → `conferenciaLista`.
 

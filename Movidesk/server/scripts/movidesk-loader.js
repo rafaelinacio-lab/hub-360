@@ -2298,12 +2298,17 @@ async function runCustom(task, cronJobId = null) {
 // Regrava UM chamado exatamente como a carga faz (mesmo saveBatch: silver.ticket, clientes, ações, campos
 // customizados, organização), buscando-o com a mesma chamada limpa "id=" + EXPAND_FIELDS. Usada pelo Hub logo
 // depois de uma alteração feita pela Central do chamado, para o banco ficar no mesmo padrão sem esperar a cron.
-async function sincronizarTicket(id) {
-  const token = await getMovideskToken();
-  const resp = await fetchWithRetry(`${MOVI_BASE}/tickets?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
-  const data = await resp.json();
-  const full = Array.isArray(data) ? data[0] : data;
-  if (!full || !full.id) return null;
+async function sincronizarTicket(id, { token } = {}) {
+  token = token || await getMovideskToken();
+  // Chamado parado há ~90+ dias (mesmo aberto) só existe em /tickets/past.
+  let full = null;
+  for (const ep of ['/tickets', '/tickets/past']) {
+    const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, id, '$select': 'id', '$expand': EXPAND_FIELDS })}`);
+    const data = await resp.json();
+    const t = Array.isArray(data) ? data[0] : data;
+    if (t && t.id) { full = t; break; }
+  }
+  if (!full) return null;
   // Mantém a classificação canônica (23946) que a carga por classificação grava, quando o chamado já tem uma.
   const cl = await db.query(
     `SELECT valor_texto FROM silver.ticket_campo_customizado WHERE ticket_id = $1::bigint AND custom_field_id = $2 LIMIT 1`, [id, CF_CLASSIFICACAO]
@@ -2317,6 +2322,193 @@ async function sincronizarTicket(id) {
      ON CONFLICT (ticket_id) DO UPDATE SET organizacao_id = EXCLUDED.organizacao_id, organizacao_nome = EXCLUDED.organizacao_nome, atualizado_em = EXCLUDED.atualizado_em`, [id]
   ).catch(() => {});
   return full;
+}
+
+// ── Carga DELTA (incremental por lastUpdate, com cursor) ─────────────────────
+// A cada execução pergunta ao Movidesk só o que mudou desde o cursor (id/baseStatus/lastUpdate, sem $expand: 1 chamada,
+// ~1 s por 1000) e regrava SÓ esses chamados por completo (sincronizarTicket: ações, clientes, campos, organização).
+// Cerca de 1.300 chamados mudam por dia (medido em 08/10/2026), então cada rodada regrava poucas dezenas e leva segundos.
+// O cursor é o MAIOR lastUpdate devolvido pelo Movidesk (não o relógio do servidor) e a busca recua DELTA_MARGEM_MS, então
+// nada cai entre duas rodadas; quem já está gravado com o mesmo lastUpdate e com detalhes é pulado.
+// Rede de segurança (a cada conferir_a_cada_min): lista os ABERTOS em /tickets e /tickets/past (abertos parados há ~90+
+// dias só aparecem no /past) e corrige o que diverge do banco — faltando, status/lastUpdate diferente, aberto só no banco.
+// Estado em silver.carga_delta (linha única, id = 1); agenda/liga-desliga na cron de task 'delta' (silver.cron_job).
+const DELTA_MARGEM_MS = 2 * 60 * 1000;
+const DELTA_PARALELO = 5;
+const DELTA_CONFERENCIA_MAX = 500;   // correções por conferência (o resto fica para a próxima)
+const deltaMs = (s) => (s ? new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(String(s)) ? s : `${s}Z`).getTime() : null);   // a API devolve UTC sem "Z"
+
+async function ensureDeltaTable() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS silver.carga_delta (
+      id                    int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      cursor_em             timestamptz,
+      conferir_a_cada_min   int NOT NULL DEFAULT 30,
+      ultima_conferencia_em timestamptz,
+      ultima_execucao       jsonb,
+      ultima_conferencia    jsonb,
+      atualizado_em         timestamptz NOT NULL DEFAULT NOW()
+    )`).catch(() => {});
+  await db.query(`INSERT INTO silver.carga_delta (id) VALUES (1) ON CONFLICT (id) DO NOTHING`).catch(() => {});
+}
+
+async function lerDelta() {
+  await ensureDeltaTable();
+  return (await db.query(`SELECT * FROM silver.carga_delta WHERE id = 1`)).rows[0] || null;
+}
+
+// Lista sem $expand (só id/baseStatus/lastUpdate) — barata e sem o bug de $filter + $expand.
+async function listarLeve(token, endpoint, filter) {
+  const todos = new Map();
+  let skip = 0;
+  while (true) {
+    if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+    const url = `${MOVI_BASE}${endpoint}?${qs({ token, '$select': 'id,baseStatus,lastUpdate', '$top': ID_SCAN_PAGE_SIZE, '$skip': skip, '$orderby': 'id asc', '$filter': filter })}`;
+    const lote = await (await fetchWithRetry(url)).json();
+    if (!Array.isArray(lote) || !lote.length) break;
+    for (const t of lote) todos.set(String(t.id), t);
+    if (lote.length < ID_SCAN_PAGE_SIZE) break;
+    skip += ID_SCAN_PAGE_SIZE;
+    await sleep(150);
+  }
+  return todos;
+}
+
+// Regrava os ids com sincronizarTicket, poucos em paralelo. Devolve { gravados, naoEncontrados, falhas: [[id, msg]] }.
+async function regravarIds(token, ids) {
+  const r = { gravados: 0, naoEncontrados: 0, falhas: [] };
+  let i = 0;
+  const trabalhador = async () => {
+    while (i < ids.length) {
+      if (state.cancelRequested) throw Object.assign(new Error('Carga cancelada pelo usuário'), { cancelled: true });
+      const id = ids[i++];
+      try {
+        if (await sincronizarTicket(id, { token })) { r.gravados++; state.savedIds.add(String(id)); state.ticketsDone = state.savedIds.size; }
+        else r.naoEncontrados++;
+      } catch (e) {
+        r.falhas.push([String(id), e.message]);
+        console.warn(`[loader] delta: chamado ${id} falhou: ${e.message}`);
+      }
+      await sleep(120);
+    }
+  };
+  await Promise.all(Array.from({ length: DELTA_PARALELO }, trabalhador));
+  return r;
+}
+
+// Rede de segurança: abertos no Movidesk (/tickets + /tickets/past) × abertos no banco.
+async function conferirAbertosDelta(token) {
+  const t0 = Date.now();
+  const filtro = CLOSED_STATUSES.map(s => `baseStatus ne '${s}'`).join(' and ');
+  const mov = await listarLeve(token, '/tickets/past', filtro);
+  for (const [id, t] of await listarLeve(token, '/tickets', filtro)) mov.set(id, t);   // /tickets é o mais recente
+  const { rows } = await db.query(
+    `SELECT ticket_id::text AS id, basestatus, last_update FROM silver.ticket WHERE ticket_id = ANY($1::bigint[])`, [[...mov.keys()]]);
+  const banco = new Map(rows.map(r => [r.id, r]));
+  const { rows: abertosBanco } = await db.query(
+    `SELECT ticket_id::text AS id FROM silver.ticket WHERE basestatus IS NOT NULL AND NOT (basestatus = ANY($1::text[]))`, [CLOSED_STATUSES]);
+  let faltando = 0, divergentes = 0, soNoBanco = 0;
+  const alvo = [];
+  for (const [id, t] of mov) {
+    const r = banco.get(id);
+    if (!r) { faltando++; alvo.push(id); continue; }
+    const lu = deltaMs(t.lastUpdate), ld = r.last_update ? new Date(r.last_update).getTime() : null;
+    if (r.basestatus !== t.baseStatus || (lu && (!ld || Math.abs(lu - ld) > 1000))) { divergentes++; alvo.push(id); }
+  }
+  for (const { id } of abertosBanco) if (!mov.has(id)) { soNoBanco++; alvo.push(id); }
+  const res = await regravarIds(token, alvo.slice(0, DELTA_CONFERENCIA_MAX));
+  return {
+    abertosMovidesk: mov.size, abertosBanco: abertosBanco.length, faltando, divergentes, soNoBanco,
+    corrigidos: res.gravados, pendentes: Math.max(0, alvo.length - DELTA_CONFERENCIA_MAX), falhas: res.falhas.length,
+    segundos: Math.round((Date.now() - t0) / 1000),
+  };
+}
+
+async function runDelta(cronJobId = null, { forcarConferencia = false } = {}) {
+  if (state.running) throw new Error('Já existe uma carga em andamento');
+  Object.assign(state, {
+    running: true, cancelRequested: false, mode: 'delta', startedAt: new Date().toISOString(), phase: 'preparando',
+    pagesDone: 0, ticketsDone: 0, savedIds: new Set(), errors: [],
+  });
+  const t0 = Date.now();
+  let logId = null;
+  try {
+    await ensureTables();
+    const cfg = await lerDelta();
+    logId = (await db.query(
+      `INSERT INTO silver.carga_log (mode, started_at, status, cron_job_id) VALUES ('delta', NOW(), 'running', $1) RETURNING id`, [cronJobId]
+    ).catch(() => ({ rows: [{ id: null }] }))).rows[0]?.id;
+    _activeLogId = logId;   // saveBatch registra o que mudou em cada chamado (histórico da cron)
+    const token = await getMovideskToken();
+
+    // Sem cursor (primeira vez): parte do chamado mais recente do banco.
+    let cursorMs = cfg?.cursor_em ? new Date(cfg.cursor_em).getTime() : null;
+    if (!cursorMs) {
+      const m = (await db.query(`SELECT MAX(last_update) AS m FROM silver.ticket WHERE last_update <= NOW()`)).rows[0]?.m;
+      cursorMs = m ? new Date(m).getTime() : Date.now() - 60 * 60 * 1000;
+    }
+    const desde = new Date(cursorMs - DELTA_MARGEM_MS).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+    state.phase = 'fetching'; state.endpoint = '/tickets';
+    const mudou = await listarLeve(token, '/tickets', `lastUpdate ge ${desde}`);
+    // Pula quem já está gravado com o mesmo lastUpdate e com detalhes (efeito da margem).
+    const { rows } = await db.query(
+      `SELECT ticket_id::text AS id, last_update, detalhes_em FROM silver.ticket WHERE ticket_id = ANY($1::bigint[])`, [[...mudou.keys()]]);
+    const banco = new Map(rows.map(r => [r.id, r]));
+    const alvo = [...mudou.values()].filter(t => {
+      const r = banco.get(String(t.id));
+      if (!r || !r.last_update || !r.detalhes_em) return true;
+      const ld = new Date(r.last_update).getTime();
+      return Math.abs(deltaMs(t.lastUpdate) - ld) > 1000 || new Date(r.detalhes_em).getTime() < ld;
+    }).sort((a, b) => deltaMs(a.lastUpdate) - deltaMs(b.lastUpdate));
+
+    state.phase = 'saving';
+    const res = await regravarIds(token, alvo.map(t => String(t.id)));
+    // Cursor: maior lastUpdate visto; se algo falhou, para logo antes da falha mais antiga (a próxima rodada tenta de novo).
+    const maxVisto = Math.max(cursorMs, ...[...mudou.values()].map(t => deltaMs(t.lastUpdate) || 0));
+    const falhou = new Set(res.falhas.map(f => f[0]));
+    const menorFalha = Math.min(...alvo.filter(t => falhou.has(String(t.id))).map(t => deltaMs(t.lastUpdate)));
+    const novoCursor = Number.isFinite(menorFalha) ? Math.max(cursorMs, menorFalha - 1000) : maxVisto;
+
+    let conferencia = null;
+    const intervaloConf = Math.max(5, Number(cfg?.conferir_a_cada_min) || 30) * 60 * 1000;
+    const ultimaConf = cfg?.ultima_conferencia_em ? new Date(cfg.ultima_conferencia_em).getTime() : 0;
+    if (forcarConferencia || Date.now() - ultimaConf >= intervaloConf) {
+      state.phase = 'reconferindo';
+      conferencia = await conferirAbertosDelta(token);
+      console.log(`[loader]   delta: conferência dos abertos — Movidesk ${conferencia.abertosMovidesk} × banco ${conferencia.abertosBanco}, ${conferencia.corrigidos} corrigido(s) em ${conferencia.segundos}s`);
+    }
+
+    const execucao = {
+      inicio: state.startedAt, segundos: Math.round((Date.now() - t0) / 1000), desde, listados: mudou.size,
+      jaEmDia: mudou.size - alvo.length, gravados: res.gravados, naoEncontrados: res.naoEncontrados,
+      falhas: res.falhas.length, ultimaFalha: res.falhas[0] ? `#${res.falhas[0][0]}: ${res.falhas[0][1]}` : null,
+    };
+    await db.query(
+      `UPDATE silver.carga_delta SET cursor_em = $1, ultima_execucao = $2::jsonb, atualizado_em = NOW()
+         ${conferencia ? ', ultima_conferencia_em = NOW(), ultima_conferencia = $3::jsonb' : ''} WHERE id = 1`,
+      conferencia ? [new Date(novoCursor), JSON.stringify(execucao), JSON.stringify(conferencia)] : [new Date(novoCursor), JSON.stringify(execucao)]);
+    const total = res.gravados + (conferencia ? conferencia.corrigidos : 0);
+    if (logId) {
+      await db.query(`UPDATE silver.carga_log SET finished_at = NOW(), tickets_loaded = $1, status = 'done' WHERE id = $2`, [total, logId]).catch(() => {});
+    }
+    console.log(`[loader] ✔ Delta: ${mudou.size} mudaram desde ${desde}, ${res.gravados} regravado(s), ${execucao.jaEmDia} já em dia${res.falhas.length ? `, ${res.falhas.length} falha(s)` : ''} — ${execucao.segundos}s`);
+    state.lastResult = { mode: 'delta', tickets: total, ...execucao, conferencia };
+    return state.lastResult;
+  } catch (err) {
+    const cancelado = err.cancelled === true;
+    if (!cancelado) state.errors.push(err.message);
+    if (logId) {
+      await db.query(`UPDATE silver.carga_log SET finished_at = NOW(), status = $1, error_msg = $2 WHERE id = $3`,
+        [cancelado ? 'cancelled' : 'error', cancelado ? 'Cancelado pelo usuário' : err.message, logId]).catch(() => {});
+    }
+    if (!cancelado) { console.error('[loader] ✖ Delta com erro:', err.message); throw err; }
+    state.lastResult = { mode: 'delta', tickets: state.ticketsDone, cancelled: true };
+    return state.lastResult;
+  } finally {
+    _activeLogId = null;
+    state.running = false; state.phase = 'idle'; state.cancelRequested = false; state.lastFinish = new Date().toISOString();
+  }
 }
 
 async function runFixOrganizacao() {
@@ -3070,5 +3262,6 @@ module.exports = {
   runAtualizacaoInteligente,
   reconferirAbertosPresos,
   sincronizarTicket,
+  runDelta, lerDelta, ensureDeltaTable,
   iniciarEnriquecimentoPendentes, enriquecimentoPendentes, iniciarConferenciaLista, conferenciaLista, escopoSql, CLOSED_STATUSES,
 };

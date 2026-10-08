@@ -16,6 +16,7 @@ async function rapidaCarregar(silencioso = false) {
     const root = document.getElementById('rpRoot');
     if (!root) return;
     try {
+        deltaCarregar(silencioso);
         RP.dados = await rpApi('/crons/rapida');
         if (!RP.opcoes) { try { RP.opcoes = await rpApi('/crons/task-options'); } catch { RP.opcoes = { teams: [], classifications: [] }; } }
         // não refaz o formulário enquanto a pessoa está editando
@@ -153,4 +154,103 @@ async function rapidaPararCarga() {
     const msg = document.getElementById('rpMsg'), id = RP.dados?.job?.id;
     try { await rpApi(`/crons/${id}/stop`, 'POST', {}); msg.className = 'config-status ok'; msg.textContent = 'Pedido de parada enviado.'; setTimeout(() => rapidaCarregar(true), 1500); }
     catch (e) { msg.className = 'config-status error'; msg.textContent = e.message; }
+}
+
+// ── Carga delta (só o que mudou, com ações) — GET/PUT /api/crons/delta (runDelta em movidesk-loader.js) ──────────
+const DL = { dados: null };
+async function deltaCarregar(silencioso = false) {
+    const root = document.getElementById('dlRoot');
+    if (!root) return;
+    try {
+        DL.dados = await rpApi('/crons/delta');
+        if (!silencioso || !document.getElementById('dlIntervalo')) dlRender(); else dlAtualizarStatus();
+    } catch (e) { root.innerHTML = `<div class="config-card"><p class="config-status error">${rpEsc(e.message)}</p></div>`; }
+}
+
+function dlStatusHtml() {
+    const { job, config: c, rodando, fase, rapida } = DL.dados;
+    if (!job) return '<span class="config-token-status config-token-status-off">Ainda não configurada</span> Clique em <b>Salvar e ligar</b>.';
+    const FASE = { preparando: 'preparando', fetching: 'perguntando ao Movidesk o que mudou', saving: 'gravando', reconferindo: 'conferindo os abertos' };
+    const badge = rodando || job.last_status === 'running' ? `<span class="config-token-status config-token-status-on">Rodando agora</span>${fase ? ` ${rpEsc(FASE[fase] || fase)}…` : ''}`
+        : job.last_status === 'queued' ? '<span class="config-token-status config-token-status-off">Na fila</span> esperando outra carga terminar'
+        : job.enabled ? '<span class="config-token-status config-token-status-on">Ligada</span>' : '<span class="config-token-status config-token-status-off">Desligada</span>';
+    const e = c?.ultima_execucao, f = c?.ultima_conferencia;
+    const atraso = c?.cursor_em ? Math.max(0, Math.round((Date.now() - new Date(c.cursor_em).getTime()) / 60000)) : null;
+    const linhas = [
+        `${badge} a cada <b>${job.interval_minutes} min</b> · última execução: <b>${rpHora(job.last_run_at)}</b>${job.last_status === 'error' ? ` · <span style="color:#c0392b">erro: ${rpEsc(job.last_error || '')}</span>` : ''}`,
+        c?.cursor_em ? `Em dia com o Movidesk até <b>${rpHora(c.cursor_em)}</b>${atraso != null ? ` (há ${atraso} min)` : ''}` : 'Cursor: ainda não rodou (a primeira execução parte do chamado mais recente do banco).',
+        e ? `Última rodada: <b>${e.listados}</b> mudaram no Movidesk · <b>${e.gravados}</b> regravados com ações · ${e.jaEmDia} já estavam em dia · <b>${e.segundos} s</b>${e.falhas ? ` · <span style="color:#c0392b">${e.falhas} falha(s) — ${rpEsc(e.ultimaFalha || '')}</span>` : ''}` : '',
+        f ? `Conferência dos abertos (${rpHora(c.ultima_conferencia_em)}): Movidesk <b>${f.abertosMovidesk}</b> × banco <b>${f.abertosBanco}</b> · corrigidos <b>${f.corrigidos}</b> (faltando ${f.faltando}, divergentes ${f.divergentes}, abertos só no banco ${f.soNoBanco})${f.pendentes ? ` · ${f.pendentes} ficam para a próxima` : ''} · ${f.segundos} s` : `Conferência dos abertos: a cada <b>${c?.conferir_a_cada_min || 30} min</b> (ainda não rodou).`,
+    ];
+    if (job.enabled && rapida?.enabled) linhas.push('<span style="color:#b45309">A carga rápida abaixo também está ligada e ocupa a fila por vários minutos a cada rodada — com o delta ligado ela não é mais necessária; desligue-a para o delta rodar no horário.</span>');
+    return linhas.filter(Boolean).join('<br>');
+}
+
+function dlHistoricoHtml() {
+    const h = DL.dados.historico;
+    if (!h.length) return '<p class="config-card-help">Nenhuma execução ainda.</p>';
+    const dur = (a, b) => (a && b ? `${Math.max(0, Math.round((new Date(b) - new Date(a)) / 1000))} s` : '—');
+    const st = { done: '✅ Concluída', error: '❌ Erro', running: '⏳ Rodando', cancelled: '⏹ Cancelada' };
+    return `<div class="rolagem" style="max-height:240px;overflow:auto"><table class="pessoas-table"><thead><tr><th>Início</th><th>Duração</th><th>Regravados</th><th>Resultado</th></tr></thead><tbody>${h.map((r) =>
+        `<tr><td>${rpHora(r.started_at)}</td><td>${dur(r.started_at, r.finished_at)}</td><td>${r.tickets_loaded ?? '—'}</td><td>${st[r.status] || rpEsc(r.status)}${r.error_msg ? `<br><small>${rpEsc(r.error_msg)}</small>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function dlAtualizarStatus() {
+    const a = document.getElementById('dlStatus'), b = document.getElementById('dlHistorico');
+    if (a) a.innerHTML = dlStatusHtml(); if (b) b.innerHTML = dlHistoricoHtml();
+}
+
+function dlRender() {
+    const { job, config: c } = DL.dados;
+    document.getElementById('dlRoot').innerHTML = `
+      <div class="config-card">
+        <h3 class="config-card-title">Carga delta — só o que mudou (recomendada)</h3>
+        <p class="config-card-help">A cada execução o Hub pergunta ao Movidesk <strong>quais chamados mudaram</strong> desde a última vez e regrava <strong>só esses, por completo</strong>
+          (status, responsável, <strong>ações</strong>, clientes, campos). Costuma levar poucos segundos. De tempos em tempos confere todos os chamados abertos
+          (inclusive os parados há meses) e corrige o que divergir.</p>
+        <div id="dlStatus" style="margin:10px 0 14px;font-size:14px">${dlStatusHtml()}</div>
+        <div class="config-form-stack">
+          <label>Rodar a cada (minutos, mínimo 1)
+            <input id="dlIntervalo" class="config-input" type="number" min="1" max="60" style="width:110px" value="${job?.interval_minutes || 2}"></label>
+          <label>Conferir todos os abertos a cada (minutos, de 5 a 1440)
+            <input id="dlConferir" class="config-input" type="number" min="5" max="1440" style="width:110px" value="${c?.conferir_a_cada_min || 30}"></label>
+          <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="dlAtiva" ${job ? (job.enabled ? 'checked' : '') : 'checked'}> Ligada</label>
+          <div>
+            <button class="config-btn" type="button" onclick="deltaSalvar()">${job ? 'Salvar' : 'Salvar e ligar'}</button>
+            ${job ? `<button class="config-btn config-btn-muted" type="button" onclick="deltaAcao('run')">Rodar agora</button>
+            <button class="config-btn config-btn-muted" type="button" onclick="deltaAcao('conferir')">Conferir abertos agora</button>
+            <button class="config-btn config-btn-muted" type="button" onclick="deltaAcao('stop')">Parar</button>` : ''}
+            <span id="dlMsg" class="config-status"></span>
+          </div>
+          ${job ? `<div class="config-card-help" style="margin:0">Reprocessar o que mudou nas últimas
+            <input id="dlHoras" class="config-input" type="number" min="1" max="720" style="width:80px;display:inline-block" value="24"> horas
+            <button class="config-btn config-btn-muted" type="button" onclick="deltaRecuar()">Recuar</button> (vale na próxima execução)</div>` : ''}
+        </div>
+        <h4 style="margin:16px 0 8px">Últimas execuções</h4>
+        <div id="dlHistorico">${dlHistoricoHtml()}</div>
+      </div>`;
+}
+
+function dlMsg(texto, ok = true) { const m = document.getElementById('dlMsg'); if (m) { m.className = `config-status ${ok ? 'ok' : 'error'}`; m.textContent = texto; } }
+async function deltaSalvar() {
+    try {
+        DL.dados = await rpApi('/crons/delta', 'PUT', { interval_minutes: Number(document.getElementById('dlIntervalo').value),
+            conferir_a_cada_min: Number(document.getElementById('dlConferir').value), enabled: document.getElementById('dlAtiva').checked });
+        dlRender(); dlMsg('Salvo.');
+    } catch (e) { dlMsg(e.message, false); }
+}
+async function deltaAcao(acao) {
+    const id = DL.dados?.job?.id;
+    try {
+        if (acao === 'conferir') { const r = await rpApi('/crons/delta/conferir', 'POST', {}); dlMsg(r.queued ? 'Na fila — roda quando a carga atual terminar.' : 'Conferência iniciada…'); }
+        else if (acao === 'run') { const r = await rpApi(`/crons/${id}/run`, 'POST', {}); dlMsg(r.queued ? 'Na fila — roda quando a carga atual terminar.' : 'Execução iniciada…'); }
+        else { await rpApi(`/crons/${id}/stop`, 'POST', {}); dlMsg('Pedido de parada enviado.'); }
+        setTimeout(() => deltaCarregar(true), 1500);
+    } catch (e) { dlMsg(e.message, false); }
+}
+async function deltaRecuar() {
+    const horas = Number(document.getElementById('dlHoras').value);
+    if (!confirm(`Reprocessar tudo o que mudou nas últimas ${horas} hora(s)? Pode levar alguns minutos na próxima execução.`)) return;
+    try { DL.dados = await rpApi('/crons/delta/recuar', 'POST', { horas }); dlAtualizarStatus(); dlMsg('Cursor recuado — vale na próxima execução.'); }
+    catch (e) { dlMsg(e.message, false); }
 }

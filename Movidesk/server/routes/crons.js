@@ -8,6 +8,7 @@
  * reiniciar o servidor.
  *
  * GET/PUT /api/crons/rapida — carga rápida de pendentes (tarefa + cron numa tela só)
+ * GET/PUT /api/crons/delta  — carga delta (só o que mudou, com ações): cron + opções; POST /delta/recuar, /delta/conferir
  * GET    /api/crons        — lista todos os jobs
  * POST   /api/crons        — cria um job novo
  * PATCH  /api/crons/:id    — edita (nome, tarefa, intervalo, params, enabled)
@@ -28,7 +29,7 @@ const { authMiddleware, requireRole } = require('./auth');
 const cronManager = require('../scripts/cron-manager');
 const movideskLoader = require('../scripts/movidesk-loader');
 
-const VALID_TASKS = ['ouvidoria', 'gcc', 'geral', 'incremental', 'full'];
+const VALID_TASKS = ['ouvidoria', 'gcc', 'geral', 'incremental', 'full', 'delta'];
 
 router.use(authMiddleware, requireRole('admin', 'supervisor'));
 
@@ -256,6 +257,73 @@ router.put('/rapida', async (req, res) => {
       await cronManager.reloadJob(novo.id);
     }
     res.json(await lerRapida());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Carga delta (só o que mudou, com ações) — cartão em Configurações → Carga rápida ──────────
+// A cron é um silver.cron_job comum de task 'delta' (fila, Rodar agora, Parar e histórico de sempre); cursor e opções em
+// silver.carga_delta (movidesk-loader.js, runDelta).
+const NOME_CRON_DELTA = 'Delta — só o que mudou';
+async function lerDeltaTela() {
+  const cfg = await movideskLoader.lerDelta();
+  const job = (await db.query(`SELECT * FROM silver.cron_job WHERE task = 'delta' ORDER BY id LIMIT 1`)).rows[0] || null;
+  const historico = (await db.query(
+    `SELECT id, started_at, finished_at, status, error_msg, tickets_loaded FROM silver.carga_log WHERE mode = 'delta' ORDER BY started_at DESC LIMIT 20`
+  ).catch(() => ({ rows: [] }))).rows;
+  const rapida = (await db.query(
+    `SELECT j.id, j.enabled, j.interval_minutes FROM silver.cron_job j JOIN silver.cron_task t ON j.task = 'custom:' || t.id WHERE t.rapido = TRUE ORDER BY j.id LIMIT 1`
+  ).catch(() => ({ rows: [] }))).rows[0] || null;
+  const st = movideskLoader.state || {};
+  return { config: cfg, job, historico, rapida, rodando: !!st.running && st.mode === 'delta', fase: st.mode === 'delta' ? st.phase : null };
+}
+router.get('/delta', async (req, res) => {
+  try { res.json(await lerDeltaTela()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/delta', async (req, res) => {
+  try {
+    const b = req.body || {};
+    let minutes;
+    try { minutes = cronSchedule.validarIntervalo(b.interval_minutes || 2); } catch (e) { return res.status(400).json({ error: e.message }); }
+    const conferir = Math.floor(Number(b.conferir_a_cada_min));
+    if (b.conferir_a_cada_min !== undefined && !(conferir >= 5 && conferir <= 1440)) {
+      return res.status(400).json({ error: 'Conferência dos abertos: entre 5 e 1440 minutos' });
+    }
+    const enabled = b.enabled !== false;
+    await movideskLoader.ensureDeltaTable();
+    if (b.conferir_a_cada_min !== undefined) await db.query(`UPDATE silver.carga_delta SET conferir_a_cada_min = $1, atualizado_em = NOW() WHERE id = 1`, [conferir]);
+    const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = 'delta' ORDER BY id LIMIT 1`)).rows[0];
+    if (job) {
+      await db.query(`UPDATE silver.cron_job SET interval_minutes = $1, enabled = $2, updated_at = NOW() WHERE id = $3`, [minutes, enabled, job.id]);
+      await cronManager.reloadJob(job.id);
+    } else {
+      const novo = (await db.query(
+        `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params) VALUES ($1, 'delta', $2, $3, '{}'::jsonb) RETURNING id`,
+        [NOME_CRON_DELTA, minutes, enabled])).rows[0];
+      await cronManager.reloadJob(novo.id);
+    }
+    res.json(await lerDeltaTela());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Recuar o cursor N horas (reprocessa o que mudou nesse período na próxima execução).
+router.post('/delta/recuar', async (req, res) => {
+  try {
+    const horas = Number(req.body?.horas);
+    if (!(horas > 0 && horas <= 24 * 30)) return res.status(400).json({ error: 'Informe de 1 hora a 30 dias' });
+    await movideskLoader.ensureDeltaTable();
+    await db.query(`UPDATE silver.carga_delta SET cursor_em = NOW() - make_interval(secs => $1), atualizado_em = NOW() WHERE id = 1`, [horas * 3600]);
+    res.json(await lerDeltaTela());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Conferir agora: zera a data da última conferência e dispara a cron (a conferência roda junto).
+router.post('/delta/conferir', async (req, res) => {
+  try {
+    const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = 'delta' ORDER BY id LIMIT 1`)).rows[0];
+    if (!job) return res.status(400).json({ error: 'Salve a cron do delta primeiro' });
+    await movideskLoader.ensureDeltaTable();
+    await db.query(`UPDATE silver.carga_delta SET ultima_conferencia_em = NULL WHERE id = 1`);
+    const queued = !!movideskLoader.state?.running;
+    cronManager.executeJob(job.id, { force: true }).catch(e => console.error('[crons] conferência do delta falhou:', e.message));
+    res.json({ started: true, queued });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
