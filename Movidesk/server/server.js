@@ -95,6 +95,7 @@ app.use('/api/curadoria', curadoriaRoutes);
 app.use('/api/ouvidoria', ouvidoriaRoutes);
 app.use('/api/gcc', gccRoutes);
 app.use('/api/geral', geralRoutes);
+app.use('/api/frescor', require('./routes/frescor'));
 app.use('/api/telemetria', telemetriaRoutes);
 app.use('/api/chats', chatsRoutes);
 app.use('/api/satisfacao', satisfacaoRoutes);
