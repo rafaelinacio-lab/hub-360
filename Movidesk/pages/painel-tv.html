@@ -79,6 +79,8 @@
   .vs-lado b { font-size: 38px; line-height: 40px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .vs-lado.ab b { color: var(--brand-text, #6ea8fe); } .vs-lado.fe b { color: var(--success); }
   .vs-lado span { font-size: 13px; color: var(--t2); font-weight: 700; }
+  .vs-lado em { margin-left: auto; font-style: normal; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .vs-lado.ab em { color: var(--brand-text, #6ea8fe); } .vs-lado.fe em { color: var(--success); }
   .leg-fixa { display:flex; gap:16px; flex-wrap:wrap; margin:2px 0 8px; font-size:13px; font-weight:700; color:var(--t2); }
   .leg-fixa i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
   .vs-x { font-size: 22px; font-weight: 800; color: var(--t3); }
@@ -203,9 +205,9 @@
       <div data-tone="blue" class="stat-card versus" id="card-versus">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M3 14l4 4 4-4"/><path d="M17 20V6M13 10l4-4 4 4"/></svg></span>Abertos × fechados hoje</p>
         <div class="vs-corpo">
-          <div class="vs-lado ab" data-card="abertos-hoje" role="button" tabindex="0" title="Ver os chamados abertos hoje"><b id="k-abertos-hoje">0</b><span>abertos</span></div>
+          <div class="vs-lado ab" data-card="abertos-hoje" role="button" tabindex="0" title="Ver os chamados abertos hoje"><b id="k-abertos-hoje">0</b><span>abertos</span><em id="k-abertos-hoje-pct" title="Parte dos abertos no movimento do dia (abertos + fechados)">—</em></div>
           <span class="vs-x">×</span>
-          <div class="vs-lado fe" data-card="fechados-hoje" role="button" tabindex="0" title="Ver os chamados fechados hoje"><b id="k-fechados-hoje">0</b><span>fechados</span></div>
+          <div class="vs-lado fe" data-card="fechados-hoje" role="button" tabindex="0" title="Ver os chamados fechados hoje"><b id="k-fechados-hoje">0</b><span>fechados</span><em id="k-fechados-hoje-pct" title="Parte dos fechados no movimento do dia (abertos + fechados)">—</em></div>
         </div>
         <div class="vs-barra" aria-hidden="true"><i id="vs-ab"></i><i id="vs-fe"></i></div>
       </div>
@@ -562,6 +564,11 @@ function renderHoje(vencidosRows){
   document.getElementById('k-abertos-hoje').textContent=abertos.toLocaleString('pt-BR');
   document.getElementById('k-fechados-hoje').textContent=fechados.toLocaleString('pt-BR');
   const tot=abertos+fechados;
+  // % de cada lado no movimento do dia (abertos + fechados = 100%), igual à barra abaixo.
+  // (fechados = 100 − abertos, para os dois lados sempre somarem 100% depois do arredondamento)
+  const pctAb=tot?Math.round(abertos/tot*100):null;
+  document.getElementById('k-abertos-hoje-pct').textContent=pctAb==null?'—':`${pctAb}%`;
+  document.getElementById('k-fechados-hoje-pct').textContent=pctAb==null?'—':`${100-pctAb}%`;
   document.getElementById('vs-ab').style.width=(tot?abertos/tot*100:50)+'%';
   document.getElementById('vs-fe').style.width=(tot?fechados/tot*100:50)+'%';
   document.getElementById('card-versus').classList.toggle('bom',fechados>=abertos);
