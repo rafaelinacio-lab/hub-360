@@ -63,6 +63,9 @@
   .tv-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.62); align-items: center; justify-content: center; padding: 3vh 3vw; }
   .tv-modal-box { background: var(--surface); border: 1px solid var(--border-hi); border-radius: 22px; width: min(1500px,100%); max-height: 94vh; display: flex; flex-direction: column; padding: 22px 24px; box-shadow: 0 24px 80px rgba(0,0,0,.5); }
   .tv-modal th { white-space: normal; line-height: 1.2; }
+  /* "Pendentes por equipe" ocupa a altura toda do card (que acompanha o "por pessoa", mais alto): a lista rola dentro dele, sem sobrar espaço vazio */
+  .pnl-preenche { display: flex; flex-direction: column; }
+  html[data-ui="v2"] .pnl-preenche > .rolagem { flex: 1 1 0; min-height: 0; max-height: none; }
   .tv-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 10px; }
   html body.tv-page .kpi-grid.compacto .stat-card:not(.versus) { align-content: start; }
   html body.tv-page .kpi-grid.k3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
@@ -215,7 +218,7 @@
     </div>
 
     <div class="hrow c-2">
-      <div class="chart-panel">
+      <div class="chart-panel pnl-preenche">
         <p class="chart-title">Pendentes por equipe</p>
         <p class="chart-sub">Equipes com mais chamados em aberto.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:240px;"><canvas id="teamChart"></canvas></div></div>
