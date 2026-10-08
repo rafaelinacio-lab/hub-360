@@ -2403,7 +2403,7 @@ function dlRenderStatus(cur, tokenSuffix) {
     if (!badge) return;
 
     if (cur.running) {
-        const modeLabel  = String(cur.mode || '').startsWith('custom:') ? cronTaskLabel(cur.mode) : cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : cur.mode === 'fix-autores-acoes' ? 'Correção de autores das ações' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : cur.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
+        const modeLabel  = String(cur.mode || '').startsWith('custom:') ? cronTaskLabel(cur.mode) : cur.mode === 'delta' ? 'Delta' : cur.mode === 'full' ? 'Full' : cur.mode === 'full-anos' ? 'Full (por anos)' : cur.mode === 'fix-organizacao' ? 'Correção de organização' : cur.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : cur.mode === 'fix-autores-acoes' ? 'Correção de autores das ações' : cur.mode === 'backfill-basico' ? 'Backfill campos básicos' : cur.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
         const phaseLabel = cur.phase === 'fetching' ? 'Buscando na API…' : 'Salvando no banco…';
         badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">autorenew</span> ${modeLabel} em andamento`;
         badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e3a5f;color:#60a5fa;';
@@ -2455,7 +2455,7 @@ function dlRenderStatus(cur, tokenSuffix) {
         const tokenInfo = tokenSuffix ? ` · Token: ${tokenSuffix}` : '';
         if (last) {
             const finTime = cur.lastFinish ? new Date(cur.lastFinish).toLocaleString('pt-BR') : '–';
-            const lastModeLabel = String(last.mode || '').startsWith('custom:') ? cronTaskLabel(last.mode) : last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : last.mode === 'fix-autores-acoes' ? 'Correção de autores das ações' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : last.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
+            const lastModeLabel = String(last.mode || '').startsWith('custom:') ? cronTaskLabel(last.mode) : last.mode === 'delta' ? 'Delta' : last.mode === 'full' ? 'Full' : last.mode === 'full-anos' ? 'Full (anos)' : last.mode === 'fix-organizacao' ? 'Correção de organização' : last.mode === 'fix-dados-relacionados' ? 'Correção de ações/clientes' : last.mode === 'fix-autores-acoes' ? 'Correção de autores das ações' : last.mode === 'backfill-basico' ? 'Backfill campos básicos' : last.mode === 'atualizacao-inteligente' ? 'Atualização inteligente' : 'Incremental';
             meta.textContent = `Última: ${lastModeLabel} · ${last.tickets?.toLocaleString('pt-BR') || 0} tickets · ${finTime}${tokenInfo}`;
         } else {
             meta.textContent = (cur.errors?.length ? `Erro: ${cur.errors[0]}` : '–') + tokenInfo;
@@ -2539,6 +2539,7 @@ const CRON_TASK_LABEL = {
     geral: 'Painel Geral — ano vigente',
     incremental: 'Incremental — todos os tickets',
     full: 'Full — carga completa',
+    delta: 'Delta — só o que mudou',
 };
 let _cronTasks = [];
 

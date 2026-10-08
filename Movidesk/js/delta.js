@@ -78,7 +78,7 @@ function deltaRender() {
             <input id="deltaConferir" class="config-input" type="number" min="5" max="1440" style="width:110px" value="${c?.conferir_a_cada_min || 30}"></label>
           <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="deltaAtiva" ${job ? (job.enabled ? 'checked' : '') : 'checked'}> Ligada</label>
           <div>
-            <button class="config-btn" type="button" onclick="deltaSalvar()">${job ? 'Salvar' : 'Salvar e ligar'}</button>
+            <button class="config-btn" type="button" onclick="deltaSalvar()">${job ? 'Salvar' : DT.dados.rapida ? 'Transformar “Pendentes rápidos” em delta e ligar' : 'Salvar e ligar'}</button>
             ${job ? `<button class="config-btn config-btn-muted" type="button" onclick="deltaAcao('run')">Rodar agora</button>
             <button class="config-btn config-btn-muted" type="button" onclick="deltaAcao('conferir')">Conferir abertos agora</button>
             <button class="config-btn config-btn-muted" type="button" onclick="deltaAcao('stop')">Parar</button>` : ''}

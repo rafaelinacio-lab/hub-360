@@ -299,9 +299,14 @@ router.put('/delta', async (req, res) => {
     await movideskLoader.ensureDeltaTable();
     if (b.conferir_a_cada_min !== undefined) await db.query(`UPDATE silver.carga_delta SET conferir_a_cada_min = $1, atualizado_em = NOW() WHERE id = 1`, [conferir]);
     const job = (await db.query(`SELECT id FROM silver.cron_job WHERE task = 'delta' ORDER BY id LIMIT 1`)).rows[0];
-    if (job) {
-      await db.query(`UPDATE silver.cron_job SET interval_minutes = $1, enabled = $2, updated_at = NOW() WHERE id = $3`, [minutes, enabled, job.id]);
-      await cronManager.reloadJob(job.id);
+    // Sem cron delta ainda: transforma a cron da carga rápida ("Pendentes rápidos (Painel TV)") no delta — mesmo nome e
+    // histórico, só troca a tarefa (o delta substitui a carga rápida; ver docs/ARCHITECTURE.md).
+    const rapida = job ? null : (await db.query(
+      `SELECT j.id FROM silver.cron_job j JOIN silver.cron_task t ON j.task = 'custom:' || t.id WHERE t.rapido = TRUE ORDER BY j.id LIMIT 1`
+    ).catch(() => ({ rows: [] }))).rows[0];
+    if (job || rapida) {
+      await db.query(`UPDATE silver.cron_job SET task = 'delta', interval_minutes = $1, enabled = $2, updated_at = NOW() WHERE id = $3`, [minutes, enabled, (job || rapida).id]);
+      await cronManager.reloadJob((job || rapida).id);
     } else {
       const novo = (await db.query(
         `INSERT INTO silver.cron_job (name, task, interval_minutes, enabled, params) VALUES ($1, 'delta', $2, $3, '{}'::jsonb) RETURNING id`,
