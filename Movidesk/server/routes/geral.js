@@ -22,7 +22,17 @@ const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
-const { calcularMinutosUteisComPausas, parseData, FUSO_BRASILIA_MIN } = require('../utils/sla');
+const { parseData } = require('../utils/sla');
+// Tempo de solução líquido do Painel Geral = mesma régua da política de SLA (Configurações → SLA e horas): só a janela de
+// atendimento, sem fim de semana, sem feriados cadastrados e sem o tempo em status de pausa (aguardando cliente/terceiro/
+// validação…). Pedido do usuário, 08/10/2026 — antes usava utils/sla.js (07:45–12:00/13:30–18:00, sem feriados).
+const slaPolitica = require('../utils/slaPolitica');
+const { lerConfig: lerConfigSla } = require('../utils/slaHorasCore');
+let _cfgSla = null, _cfgSlaEm = 0;
+async function configSla() {
+  if (!_cfgSla || Date.now() - _cfgSlaEm > 60 * 1000) { _cfgSla = await lerConfigSla(); _cfgSlaEm = Date.now(); }
+  return _cfgSla;
+}
 const { classificarTexto, listarTemas } = require('../utils/temasChamados');
 const cacheResposta = require('../utils/cacheResposta');
 
@@ -489,14 +499,14 @@ router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async 
       if (!acoesPorTicket.has(a.id)) acoesPorTicket.set(a.id, []);
       acoesPorTicket.get(a.id).push({ createdDate: a.criado_em, status: a.status });
     }
+    const cfg = await configSla();
     const minutos = {};
     for (const t of tRes.rows) {
       const ini = parseData(t.criado_em), fim = parseData(t.resolvido_em);
       if (!ini || !fim) continue;
-      // Status inicial "Novo" na abertura: sem isso a função assume que o ticket já
-      // nasceu no status da primeira ação (e descontaria o início se fosse uma pausa).
-      const actions = [{ createdDate: ini, status: 'Novo' }, ...(acoesPorTicket.get(t.id) || [])];
-      minutos[t.id] = calcularMinutosUteisComPausas({ actions }, ini, fim, FUSO_BRASILIA_MIN);
+      // minutosLiquidos começa em "novo" na abertura e segue as mudanças de status das ações.
+      const eventos = (acoesPorTicket.get(t.id) || []).map(a => ({ em: a.createdDate, status: a.status }));
+      minutos[t.id] = slaPolitica.minutosLiquidos(ini, fim, eventos, cfg);
     }
     res.json({ minutos });
   } catch (error) {

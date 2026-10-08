@@ -2027,7 +2027,7 @@ async function carregarSaldosHT(){ try{ _saldosHT=(await api('/geral/horas-tecni
 const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
 // A meta por urgência (documento de SLA) vale SÓ para a classificação Suporte Técnico; os demais seguem a previsão de solução do chamado.
 const ehSuporteTecnicoG=r=>String(r&&r.classificacao||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='suporte tecnico';
-const metaDe=r=>ehSuporteTecnicoG(r)&&META_SOLUCAO_H[r.urgencia]!=null?META_SOLUCAO_H[r.urgencia]:null;
+const metaDe=r=>contaNoSla(r)&&META_SOLUCAO_H[r.urgencia]!=null?META_SOLUCAO_H[r.urgencia]:null;   // mesma elegibilidade do card SLA cumprido
 let _impactoMinutos={};   // ticket_id -> minutos úteis líquidos (cache)
 let _impactoSeq=0;
 const fmtH=h=>`${h.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}h`;
@@ -2062,7 +2062,7 @@ async function renderImpactoSla(rows){
   if(!corpo||!kpis) return;
   // Segue os filtros principais do painel: rows já vem só com os tickets
   // resolvidos dentro do Ano/Mês filtrados (e equipe, cliente etc.).
-  const doMes=rows.filter(r=>r.resolvido_em);
+  const doMes=rows.filter(r=>r.resolvido_em&&contaNoSla(r));
   if(!doMes.length){ kpis.innerHTML=''; corpo.innerHTML='<p class="imp-vazio">Nenhum ticket resolvido no período filtrado.</p>'; return; }
   const seq=++_impactoSeq;
   const faltam=doMes.some(r=>!(r.ticket_id in _impactoMinutos));
@@ -2802,7 +2802,7 @@ function renderRespChart(rows){
   rows.forEach(r=>{ const p=r.responsavel||'Não informado'; (por[p]=por[p]||{criados:0}).criados++; });
   // resolvidos e SLA do período: pela data de RESOLUÇÃO, como os cards do topo
   _rowsResolv.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return;
-    o.resolvidos=(o.resolvidos||0)+1; if(isReaberto(r)) o.reabertos=(o.reabertos||0)+1; if(temPrazo(r)){ o.comPrazo=(o.comPrazo||0)+1; if(isNoPrazo(r)) o.noPrazo=(o.noPrazo||0)+1; } });
+    o.resolvidos=(o.resolvidos||0)+1; if(isReaberto(r)) o.reabertos=(o.reabertos||0)+1; if(contaNoSla(r)&&temPrazo(r)){ o.comPrazo=(o.comPrazo||0)+1; if(isNoPrazo(r)) o.noPrazo=(o.noPrazo||0)+1; } });
   const pendG=getPendentesGlobalRows();
   pendG.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return; o.pend=(o.pend||0)+1; if(isVencido(r)) o.venc=(o.venc||0)+1; });
   _respLista=Object.entries(por).sort((a,b)=>b[1].criados-a[1].criados).slice(0,RANK_MAX);
@@ -3063,7 +3063,7 @@ const EXPANSOES={
   equipesven: {t:'Backlog vencido por equipe',   rows:()=>_pendentesGlobal.filter(isVencido), ordenar:(a,b)=>String(a.equipe||'').localeCompare(String(b.equipe||''),'pt')},
   reabertura: {t:'Reabertos (resolvidos no período)', rows:()=>_rowsResolv.filter(isReaberto)},
   fcr:        {t:'Resolvidos no 1º contato (FCR)',    rows:()=>_rowsResolv.filter(isFCR)},
-  slaurg:     {t:'SLA por urgência',             rows:()=>_rowsResolv.filter(temPrazo), ordenar:(a,b)=>String(a.urgencia||'').localeCompare(String(b.urgencia||''),'pt')},
+  slaurg:     {t:'SLA por urgência',             rows:()=>_rowsResolv.filter(contaNoSla).filter(temPrazo), ordenar:(a,b)=>String(a.urgencia||'').localeCompare(String(b.urgencia||''),'pt')},
 };
 function abrirExpansao(chave){
   const e=EXPANSOES[chave]; if(!e) return;
@@ -3129,10 +3129,10 @@ const INFO_CARDS={
     c:['Uma linha por urgência (Crítica, Alta, Média, Baixa) com os tickets criados no mês.','Tickets sem uma dessas quatro urgências não aparecem.','O tooltip compara cada urgência com o mês anterior (tickets e %).']},
   'sla-evo-panel':{t:'Evolução mensal do atingimento do SLA',
     o:'Percentual de tickets resolvidos dentro da meta da própria urgência, mês a mês.',
-    c:['Tempo de solução líquido = da abertura à resolução, só em horário útil de Brasília (seg-sex, 07:45-12:00 e 13:30-18:00) e sem o tempo parado (aguardando cliente/terceiro/validação e em atendimento - desenvolvimento).','Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Elegíveis = tickets resolvidos no mês com urgência Crítica/Alta/Média/Baixa.','% do mês = elegíveis dentro da meta ÷ elegíveis do mês.','Cartão "Último mês" mostra a variação em pontos percentuais (pp) contra o mês anterior com dados. Clique num ponto para ver os tickets fora da meta.']},
+    c:['Tempo de solução líquido = da abertura à resolução, só na janela de atendimento da política de SLA (hoje seg-sex, 08:30-12:00 e 13:30-18:00, horário de Brasília), sem fins de semana, sem feriados e sem o tempo em pausa (aguardando cliente/terceiro/validação, em atendimento - desenvolvimento). Janela, feriados e pausas: Configurações → SLA e horas.','Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Elegíveis = tickets resolvidos no mês com urgência Crítica/Alta/Média/Baixa, de Suporte Técnico, equipes de suporte e sem os clientes excluídos (mesma regra do card SLA cumprido).','% do mês = elegíveis dentro da meta ÷ elegíveis do mês.','Cartão "Último mês" mostra a variação em pontos percentuais (pp) contra o mês anterior com dados. Clique num ponto para ver os tickets fora da meta.']},
   'impacto-panel':{t:'Impacto mensal de SLA por ticket',
     o:'Quais tickets mais puxaram a média de tempo de solução para cima ou para baixo.',
-    c:['Usa o tempo de solução líquido (horas úteis, sem pausas) dos tickets resolvidos no período filtrado.','Impacto = média do período com todos os tickets − média sem aquele ticket. Positivo elevou o tempo médio; negativo reduziu.','As tabelas mostram os 10 maiores impactos em cada direção, com o tempo, a meta da urgência e o impacto em horas.'],
+    c:['Usa o tempo de solução líquido (só a janela de atendimento, sem fins de semana, feriados e pausas — política de SLA) dos tickets resolvidos no período filtrado.','Só entram tickets de Suporte Técnico, equipes de suporte e sem os clientes excluídos (mesma regra do card SLA cumprido).','Impacto = média do período com todos os tickets − média sem aquele ticket. Positivo elevou o tempo médio; negativo reduziu.','As tabelas mostram os 10 maiores impactos em cada direção, com o tempo, a meta da urgência e o impacto em horas.'],
     obs:'Segue os filtros principais do painel; com o filtro de Mês marcado a análise é mensal.'},
   'impacto-cli-panel':{t:'Quem concentra o atraso',
     o:'O impacto no tempo médio de solução somado por cliente, equipe, responsável ou urgência.',
