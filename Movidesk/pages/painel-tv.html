@@ -164,6 +164,14 @@
     <select id="f-equipe" aria-label="Filtrar por equipe">
       <option value="">Todas as equipes</option>
     </select>
+    <label for="f-resp">Responsável</label>
+    <select id="f-resp" aria-label="Filtrar por responsável">
+      <option value="">Todos os responsáveis</option>
+    </select>
+    <label for="f-cliente">Cliente</label>
+    <select id="f-cliente" aria-label="Filtrar por cliente">
+      <option value="">Todos os clientes</option>
+    </select>
     <label for="f-classe">Classificação</label>
     <select id="f-classe" aria-label="Filtrar por classificação">
       <option value="">Todas as classificações</option>
@@ -361,8 +369,8 @@ const semAcentoMin=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,
 
 // O painel roda sem ninguém mexendo: as escolhas ficam salvas no navegador (e a URL pode fixar:
 // painel-tv.html?servico=Nome&equipe=Nome&classificacao=Nome). Sem escolha = tudo.
-const CHAVES={servico:'painelTvServico',equipe:'painelTvEquipe',classe:'painelTvClasse'};
-const PARAM_URL={servico:'servico',equipe:'equipe',classe:'classificacao'};
+const CHAVES={servico:'painelTvServico',equipe:'painelTvEquipe',classe:'painelTvClasse',resp:'painelTvResp',cli:'painelTvCliente'};
+const PARAM_URL={servico:'servico',equipe:'equipe',classe:'classificacao',resp:'responsavel',cli:'cliente'};
 function lerSalvo(c){
   try{
     const u=new URLSearchParams(location.search).get(PARAM_URL[c]);
@@ -371,13 +379,18 @@ function lerSalvo(c){
   }catch(_){ return ''; }
 }
 function salvar(c,v){ try{ localStorage.setItem(CHAVES[c],v); }catch(_){} }
-let _servicoSel=lerSalvo('servico'), _equipeSel=lerSalvo('equipe'), _classeSel=lerSalvo('classe');
+let _servicoSel=lerSalvo('servico'), _equipeSel=lerSalvo('equipe'), _classeSel=lerSalvo('classe'), _respSel=lerSalvo('resp'), _cliSel=lerSalvo('cli');
 const equipeDe=r=>(r.equipe||'').trim()||'Não informado';
 const classeDe=r=>(r.classificacao||'').trim()||'Sem classificação';
 const norm=semAcentoMin;
 const casaServico=r=>!_servicoSel||(r.servico||'').trim()===_servicoSel;
 const casaClasse=r=>!_classeSel||norm(classeDe(r))===norm(_classeSel);
 const casaEquipe=r=>!_equipeSel||equipeDe(r)===_equipeSel;
+const respDe=r=>(r.responsavel||'').trim()||'Não atribuído';
+const cliDe=r=>(r.organizacao||r.cliente_nome||'').trim()||'Não informado';
+const casaResp=r=>!_respSel||respDe(r)===_respSel;
+const casaCli=r=>!_cliSel||cliDe(r)===_cliSel;
+const casaTodos=r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&casaResp(r)&&casaCli(r);
 function contar(rows,fn){ const c={}; rows.forEach(r=>{ const k=fn(r); if(k) c[k]=(c[k]||0)+1; }); return c; }
 function preencher(id,todos,cont,sel){
   const el=document.getElementById(id);
@@ -387,14 +400,17 @@ function preencher(id,todos,cont,sel){
 }
 // Cada filtro mostra as contagens considerando os outros dois.
 function montarOpcoes(){
-  preencher('f-servico','Todos os serviços',contar(_rowsAll.filter(r=>casaClasse(r)&&casaEquipe(r)),r=>(r.servico||'').trim()),_servicoSel);
-  preencher('f-classe','Todas as classificações',contar(_rowsAll.filter(r=>casaServico(r)&&casaEquipe(r)),classeDe),_classeSel);
-  preencher('f-equipe','Todas as equipes',contar(_rowsAll.filter(r=>casaServico(r)&&casaClasse(r)),equipeDe),_equipeSel);
+  const sem=(...fora)=>_rowsAll.filter(r=>[['servico',casaServico],['classe',casaClasse],['equipe',casaEquipe],['resp',casaResp],['cli',casaCli]].every(([k,f])=>fora.includes(k)||f(r)));
+  preencher('f-servico','Todos os serviços',contar(sem('servico'),r=>(r.servico||'').trim()),_servicoSel);
+  preencher('f-classe','Todas as classificações',contar(sem('classe'),classeDe),_classeSel);
+  preencher('f-equipe','Todas as equipes',contar(sem('equipe'),equipeDe),_equipeSel);
+  preencher('f-resp','Todos os responsáveis',contar(sem('resp'),respDe),_respSel);
+  preencher('f-cliente','Todos os clientes',contar(sem('cli'),cliDe),_cliSel);
 }
 function aplicarFiltro(){
   montarOpcoes();
-  _rows=_rowsAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r));
-  document.getElementById('f-limpar').style.display=(_servicoSel||_equipeSel||_classeSel)?'':'none';
+  _rows=_rowsAll.filter(casaTodos);
+  document.getElementById('f-limpar').style.display=(_servicoSel||_equipeSel||_classeSel||_respSel||_cliSel)?'':'none';
 }
 // Hora em que os dados do painel foram atualizados de verdade (fim da última carga do Movidesk), não a do navegador.
 let _dadosEm='';
@@ -405,17 +421,19 @@ async function carregarFrescor(){
   }catch(_){ /* mantém o último valor */ }
 }
 function atualizarNota(){
-  const filtro=(_servicoSel?` — serviço "${_servicoSel}"`:'')+(_classeSel?` — classificação "${_classeSel}"`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'');
+  const filtro=(_servicoSel?` — serviço "${_servicoSel}"`:'')+(_classeSel?` — classificação "${_classeSel}"`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'')+(_respSel?` — responsável "${_respSel}"`:'')+(_cliSel?` — cliente "${_cliSel}"`:'');
   document.getElementById('tv-updated').textContent=`Dados atualizados em ${_dadosEm||'—'} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
 }
 function refiltrar(){ aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis(); }
 document.getElementById('f-servico').addEventListener('change',e=>{ _servicoSel=e.target.value; salvar('servico',_servicoSel); refiltrar(); });
 document.getElementById('f-classe').addEventListener('change',e=>{ _classeSel=e.target.value; salvar('classe',_classeSel); refiltrar(); });
 document.getElementById('f-equipe').addEventListener('change',e=>{ _equipeSel=e.target.value; salvar('equipe',_equipeSel); refiltrar(); });
+document.getElementById('f-resp').addEventListener('change',e=>{ _respSel=e.target.value; salvar('resp',_respSel); refiltrar(); });
+document.getElementById('f-cliente').addEventListener('change',e=>{ _cliSel=e.target.value; salvar('cli',_cliSel); refiltrar(); });
 document.getElementById('f-limpar').addEventListener('click',()=>{
-  _servicoSel=_equipeSel=_classeSel='';
-  ['servico','equipe','classe'].forEach(c=>salvar(c,''));
-  if(location.search.match(/(servico|equipe|classificacao)=/)){ const u=new URL(location.href); ['servico','equipe','classificacao'].forEach(x=>u.searchParams.delete(x)); history.replaceState(null,'',u); }
+  _servicoSel=_equipeSel=_classeSel=_respSel=_cliSel='';
+  ['servico','equipe','classe','resp','cli'].forEach(c=>salvar(c,''));
+  if(location.search.match(/(servico|equipe|classificacao|responsavel|cliente)=/)){ const u=new URL(location.href); ['servico','equipe','classificacao','responsavel','cliente'].forEach(x=>u.searchParams.delete(x)); history.replaceState(null,'',u); }
   refiltrar();
 });
 // "Link da TV": só aparece para quem está logado como admin (a chave só é entregue ao admin).
@@ -540,7 +558,7 @@ const hojeBR=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Pa
 const diaBR=v=>v?new Date(v).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}):'';
 function renderHoje(vencidosRows){
   const hoje=hojeBR();
-  const mov=_hojeAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r));
+  const mov=_hojeAll.filter(casaTodos);
   const abertos=mov.filter(r=>diaBR(r.criado_em)===hoje).length, fechados=mov.filter(r=>diaBR(r.fechado_em)===hoje).length;
   const set=(id,v,l)=>{ const el=document.getElementById(id); el.textContent=v.toLocaleString('pt-BR'); el.closest('.stat-card').classList.toggle('zero',v===0); if(l!=null) document.getElementById(id+'-l').textContent=l; };
   document.getElementById('k-abertos-hoje').textContent=abertos.toLocaleString('pt-BR');
@@ -596,7 +614,7 @@ function renderUrgencia(){
   const fmt=n=>n.toLocaleString('pt-BR');
   el.innerHTML='<table class="slr-tab"><thead><tr><th>Urgência</th><th>Pendentes</th><th>Vencidos</th><th>% vencido</th><th>Situação do prazo</th></tr></thead><tbody>'+lista.map(u=>{
     const o=por[u], pct=o.t?o.v/o.t*100:0, cor=pct>=40?'var(--danger)':pct>=20?'var(--warning)':'var(--success)';
-    return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" ><td><b>${esc(u)}</b>${o.crit?' <span class="slr-chip r">crítico</span>':''}</td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
+    return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" ><td><b>${esc(u)}</b></td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
       <td style="color:${cor};font-weight:800">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
       <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} sem prazo · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
   }).join('')+'</tbody></table>';
@@ -609,7 +627,7 @@ function linhasDe(sp){
   const {card,urg,equipe,pessoa,prazo}=sp;
   if(card==='abertos-hoje'||card==='fechados-hoje'){
     const hoje=hojeBR(), ab=card==='abertos-hoje';
-    return _hojeAll.filter(r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&diaBR(ab?r.criado_em:r.fechado_em)===hoje).map(r=>({...r,_hoje:ab?'aberto':'fechado'}));
+    return _hojeAll.filter(r=>casaTodos(r)&&diaBR(ab?r.criado_em:r.fechado_em)===hoje).map(r=>({...r,_hoje:ab?'aberto':'fechado'}));
   }
   let l=_rows;
   if(urg) l=l.filter(r=>urgenciaDe(r)===urg);
