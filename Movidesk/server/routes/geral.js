@@ -492,6 +492,36 @@ router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async 
 });
 
 
+// ===== POST /geral/campos-analytics =====
+// Campos customizados que só os chamados do serviço Analytics usam, lidos de silver.ticket_campo_customizado (valor_texto):
+// "Data Início Implantação" (id 250810) e "Valor do orçamento" (id em CF_VALOR_ORCAMENTO_ID; sem ele a coluna vem vazia).
+// Body: { ids: ["123", ...] } (até 3000). Resposta: { campos: { "123": { implantacao, orcamento } }, orcamentoConfigurado }
+const CF_INICIO_IMPLANTACAO = Number(process.env.CF_INICIO_IMPLANTACAO_ID) || 250810;
+const CF_VALOR_ORCAMENTO = Number(process.env.CF_VALOR_ORCAMENTO_ID) || null;
+router.post('/campos-analytics', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+    .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
+  if (ids.length > 3000) return res.status(400).json({ error: 'Máximo de 3000 tickets por chamada' });
+  const base = { campos: {}, orcamentoConfigurado: !!CF_VALOR_ORCAMENTO };
+  if (!ids.length) return res.json(base);
+  try {
+    const campos = [CF_INICIO_IMPLANTACAO, CF_VALOR_ORCAMENTO].filter(Boolean);
+    const r = await db.query(
+      `SELECT ticket_id::text AS id, custom_field_id::bigint AS campo, valor_texto
+       FROM silver.ticket_campo_customizado
+       WHERE ticket_id = ANY($1::bigint[]) AND custom_field_id = ANY($2::bigint[])`, [ids, campos]);
+    for (const x of r.rows) {
+      const o = (base.campos[x.id] = base.campos[x.id] || { implantacao: null, orcamento: null });
+      if (Number(x.campo) === CF_INICIO_IMPLANTACAO) o.implantacao = x.valor_texto || null;
+      else if (CF_VALOR_ORCAMENTO && Number(x.campo) === CF_VALOR_ORCAMENTO) o.orcamento = x.valor_texto || null;
+    }
+    res.json(base);
+  } catch (error) {
+    console.error('Erro ao buscar campos de Analytics:', error.message);
+    res.status(500).json({ error: 'Erro ao buscar os campos do serviço Analytics' });
+  }
+});
+
 // ===== GET /geral/:ticketId =====
 // ===== POST /geral/temas =====
 // Tema mais citado de cada ticket: palavras-chave (server/data/temas-chamados.json)
