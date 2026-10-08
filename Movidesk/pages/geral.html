@@ -2171,8 +2171,13 @@ async function renderSlaEvolucao(rows){
   const kpis=document.getElementById('sla-evo-kpis');
   const ult=document.getElementById('sla-evo-ult');
   if(!kpis||!ult) return;
-  const chaves=mesesDoPeriodo(bucketPorMes(rows));
-  const noPeriodo=new Set(chaves);
+  // Segue o filtro de Ano/Mês: com "Setembro" marcado, só setembro (Último/Melhor mês e Base são do período filtrado).
+  // A variação "vs. mês anterior" compara com o mês de calendário anterior ao último exibido, mesmo fora do filtro.
+  const mesesFil=getMsValues('f-month').map(Number);
+  const chaves=mesesDoPeriodo(bucketPorMes(rows)).filter(mk=>!mesesFil.length||mesesFil.includes(Number(mk.slice(5,7))));
+  const mesAnt=mk=>{ const [y,m]=mk.split('-').map(Number); return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`; };
+  const chaveAnt=chaves.length?mesAnt(chaves[chaves.length-1]):null;
+  const noPeriodo=new Set(chaveAnt?[...chaves,chaveAnt]:chaves);
   const elegiveis=rows.filter(r=>r.resolvido_em&&isResolvido(r)&&metaDe(r)!=null&&noPeriodo.has(monthKeyOf(r.resolvido_em)));
   if(!elegiveis.length){
     destroyChart('slaEvoChart'); kpis.innerHTML='';
@@ -2187,7 +2192,7 @@ async function renderSlaEvolucao(rows){
   if(status) status.textContent='';
 
   const porMes={};
-  chaves.forEach(mk=>{ porMes[mk]={dentro:0,total:0,fora:[]}; });
+  noPeriodo.forEach(mk=>{ porMes[mk]={dentro:0,total:0,fora:[]}; });
   elegiveis.forEach(r=>{
     const min=_impactoMinutos[r.ticket_id];
     if(min==null) return;
@@ -2199,9 +2204,10 @@ async function renderSlaEvolucao(rows){
   const comDado=chaves.map((mk,i)=>i).filter(i=>pct[i]!=null);
   if(!comDado.length){ destroyChart('slaEvoChart'); kpis.innerHTML=''; if(status) status.textContent='Sem dados de resolução para calcular o SLA.'; return; }
   const labels=chaves.map(rotuloMesCurto);
-  const iU=comDado[comDado.length-1], iA=comDado.length>1?comDado[comDado.length-2]:null;
+  const iU=comDado[comDado.length-1];
   const fmtP=v=>`${v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
-  const dpp=iA!=null?pct[iU]-pct[iA]:null;
+  const pAnt=(()=>{ const k=mesAnt(chaves[iU]), b=porMes[k]; return b&&b.total?b.dentro/b.total*100:null; })();
+  const dpp=pAnt!=null?pct[iU]-pAnt:null;
   const iMelhor=comDado.reduce((m,i)=>pct[i]>pct[m]?i:m,comDado[0]);
 
   const [y0,m0]=chaves[0].split('-').map(Number);
