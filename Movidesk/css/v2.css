@@ -421,9 +421,8 @@ html[data-ui="v2"] .bk-det { margin-top: 12px; font-size: 12px; color: var(--t3)
 html[data-ui="v2"] .bk-det summary { cursor: pointer; color: var(--info); font-weight: 700; }
 html[data-ui="v2"] .bk-det p { margin: 6px 0 0; }
 
-/* nome de equipe: nome em destaque e a marca/vertical como legenda embaixo */
-html[data-ui="v2"] .eq-nome { display: block; font-weight: 700; color: var(--t1); line-height: 1.3; }
-html[data-ui="v2"] .eq-marca { display: block; margin-top: 1px; color: var(--t3); font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1.2; }
+/* nome de equipe: uma linha só, nome corrido (marca - equipe); o que não couber vira reticências e o nome completo fica no tooltip */
+html[data-ui="v2"] .eq-corrido { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; font-weight: 700; color: var(--t1); }
 
 /* ─── Impacto de SLA: por ticket, por grupo e dispersão ─── */
 html[data-ui="v2"] .imp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
