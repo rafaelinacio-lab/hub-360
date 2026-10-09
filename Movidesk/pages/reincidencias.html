@@ -370,6 +370,7 @@ function gvListar(){
 }
 $('gvBusca').addEventListener('input',gvListar); $('gvOrdem').addEventListener('change',gvListar);
 async function gvAbrir(tipo,valor,titulo){
+  titulo=String(titulo==null?'':titulo).replace(/<span[^>]*>.*?<\/span>/gi,'').replace(/<[^>]+>/g,'').trim();   // o rótulo do KPI vem com o ícone em HTML: só o texto vai no título
   gvAtual={tipo,valor,titulo}; gvOrigem=document.activeElement; $('gvBusca').value=''; $('gvOrdem').value='rec';
   $('gvTitulo').textContent=`${TIPO_ROTULO[tipo]||''}: ${titulo}`; $('gvSub').textContent='Carregando…';
   $('gvCorpo').innerHTML='<div class="carregando"><span class="spin"></span>Buscando os chamados…</div>';
