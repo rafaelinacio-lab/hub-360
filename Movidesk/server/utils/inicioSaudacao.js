@@ -117,25 +117,6 @@ const CORPOS = [
     'Você esteve aqui ontem; veja o que mudou desde então.', 'Ontem foi a última vez que você passou por aqui; segue o que mudou.',
     'De ontem para hoje, a fila andou; confira.', 'Voltou rápido! Veja as novidades de ontem para cá.',
   ].map((t) => ({ t, se: (c) => c.diasDesde === 1 })),
-  // voltou depois de 2–6 dias
-  ...[
-    'Faz {dias} dias desde a sua última visita; o resumo já está em dia.', 'Já faz {dias} dias! Veja o que mudou enquanto você esteve fora.',
-    'Passaram-se {dias} dias desde o último acesso; segue o panorama.', 'Depois de {dias} dias, aqui vai o que vale saber.',
-    'Sentimos sua falta nestes {dias} dias; o resumo está abaixo.',
-  ].map((t) => ({ t, se: (c) => c.diasDesde >= 2 && c.diasDesde <= 6 })),
-  // voltou depois de 7+ dias
-  ...[
-    'Faz {dias} dias que você não aparecia; separei o que mudou.', 'Que bom ter você de volta depois de {dias} dias.',
-    'Foram {dias} dias longe; o resumo abaixo atualiza tudo.', 'Depois de {dias} dias, vale começar pelo resumo.',
-  ].map((t) => ({ t, se: (c) => c.diasDesde >= 7 })),
-  // sequência
-  ...[
-    '{seq} dias seguidos por aqui; constância é isso.', 'Já são {seq} dias seguidos de acesso. Parabéns pela rotina!',
-    'Sequência de {seq} dias; continue assim.', 'Mais um dia na sequência de {seq}.', '{seq} dias seguidos: o hábito está formado.',
-  ].map((t) => ({ t, se: (c) => c.sequencia >= 2 })),
-  ...[
-    'Sete dias seguidos por aqui; é uma semana de constância.', 'Mais de uma semana seguida de acessos; ótimo ritmo.',
-  ].map((t) => ({ t, se: (c) => c.sequencia >= 7 })),
   // fila dele
   ...[
     'Você tem {venc} chamado(s) passando da meta; vale começar por eles.', 'Atenção: {venc} chamado(s) seu(s) já passaram da meta.',
@@ -197,7 +178,7 @@ const preencher = (modelo, c) => modelo
 const TOTAL_MODELOS = ABERTURAS.length + CORPOS.length;
 
 // Escolhe, em ordem determinística por (pessoa, dia), uma combinação abertura × corpo que ela nunca recebeu.
-// Em ~70% dos dias os corpos que citam a situação real (fila, dias sem visitar, sequência, feriado…) vêm primeiro.
+// Em ~70% dos dias os corpos que citam a situação real (fila, feriado…) vêm primeiro.
 function doBanco(c, usadas, semente) {
   const corpos = CORPOS.filter((x) => !x.se || x.se(c));
   const situacaoPrimeiro = hash(`${semente}:p`) % 10 < 7;
@@ -248,7 +229,7 @@ function validarIA(texto, c, historico) {
 }
 const SISTEMA_IA = `Você escreve a saudação curta da tela inicial de um painel interno de suporte (Hub 360 da Viasoft). Responda SOMENTE um JSON: {"saudacao":"..."}.
 Regras: português do Brasil; 1 ou 2 frases, no máximo ${MAX_CHARS} caracteres; tom leve, caloroso e profissional; use o primeiro nome da pessoa uma única vez; no máximo 1 emoji; não invente fatos nem números (só cite números presentes no CONTEXTO); não prometa nada.
-Escolha UM gancho real do CONTEXTO e construa a frase em torno dele (o dia da semana, o mês ou a data, véspera de feriado, quantos dias a pessoa ficou sem entrar, a sequência de dias seguidos, a primeira visita, a fila dela). Sem gancho forte, faça uma observação curta e específica sobre o período do dia ou o dia da semana.
+Escolha UM gancho real do CONTEXTO e construa a frase em torno dele (o dia da semana, o mês ou a data, véspera de feriado, a primeira visita, a fila dela). Nunca cite contagem de dias sem entrar nem sequência de dias seguidos. Sem gancho forte, faça uma observação curta e específica sobre o período do dia ou o dia da semana.
 PROIBIDO: 'estamos aqui', 'estamos prontos', 'no que precisar', 'à disposição', 'qualquer coisa', 'sucesso', 'produtivo' e 'tranquilo' juntos, 'bora', gírias de internet. Nunca termine com oferta de ajuda.
 NÃO repita nem se pareça com nenhuma das saudações anteriores listadas: mude a abertura, a estrutura, o ritmo e o assunto a cada dia. Nunca mencione dados de chamados ou de clientes.`;
 
@@ -256,7 +237,7 @@ async function daIA(c, historico, userEmail) {
   const { chamarIA } = require('./ai');
   const ctx = {
     primeiroNome: c.primeiroNome, saudacaoDoPeriodo: SD[c.periodo], periodo: c.periodo, diaDaSemana: ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'][c.dow],
-    data: c.dataBr, primeiraVisita: !!c.primeira, diasDesdeUltimaVisita: c.diasDesde, diasSeguidosComAcesso: c.sequencia,
+    data: c.dataBr, primeiraVisita: !!c.primeira,
     feriadoAmanha: c.feriadoAmanha || null, fila: c.vinculado ? { emAberto: c.filaAbertos, vencidos: c.filaVencidos, vencemHoje: c.vencemHoje } : null,
     saudacoesAnteriores: historico.slice(0, HISTORICO_PARA_IA).map((h) => h.texto),
   };

@@ -247,7 +247,7 @@ function linhaVisita(v){
   if (dd <= 0) return `Sua última visita foi hoje às ${hh}`;
   if (dd === 1) return `Sua última visita foi ontem às ${hh}`;
   if (dd === 2) return `Sua última visita foi anteontem às ${hh}`;
-  return `Faz ${dd} dias que você não aparecia`;
+  return null;   // sem contagem de dias
 }
 function relativo(iso){
   const d = iso ? new Date(iso) : null;
@@ -282,7 +282,6 @@ function renderHero(d){
   const chips = [];
   const linha = linhaVisita(v);
   if (linha) chips.push(`<span class="chip">${I.relogio.replace('width="17" height="17"', 'width="15" height="15"')}${esc(linha)}</span>`);
-  if (num(v.sequencia) >= 2) chips.push(`<span class="chip">${I.chama}${nf(v.sequencia)} dias seguidos</span>`);
   if (v.ultimaAba && ABAS[v.ultimaAba]) chips.push(`<span class="chip">${I.pino}Você parou em ${esc(ABAS[v.ultimaAba])}</span>`);
   $('hero').classList.toggle('compacto', S.soResumo);
   $('hero').innerHTML = `
