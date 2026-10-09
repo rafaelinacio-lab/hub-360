@@ -306,16 +306,23 @@ function renderMeu(d){
       <div class="aviso">${I.info}<div>Não encontramos chamados atribuídos ao seu e-mail, então por enquanto você vê só o resumo da equipe logo abaixo. Se você atende chamados, peça a um administrador para conferir o seu e-mail em Pessoas.</div></div>`;
     return;
   }
-  const v = num(m.vencidos) || 0, vh = num(m.vencemHoje) || 0;
-  el.innerHTML = `<div class="sec-head"><div><h2>Seu resumo</h2><p>Os chamados atribuídos a você</p></div></div>
-    <div class="grid g6">
-      ${card(I.inbox, 'Abertos', nf(m.abertos || 0), 'na sua fila agora', 'blue')}
+  const cartoes = (x) => {
+    const v = num(x.vencidos) || 0, vh = num(x.vencemHoje) || 0;
+    return `<div class="grid g6">
+      ${card(I.inbox, 'Abertos', nf(x.abertos || 0), 'novos na sua fila agora', 'blue')}
       ${card(I.alerta, 'Vencidos', nf(v), v ? 'com o prazo de SLA já passado' : 'nenhum fora do prazo', v ? 'bad' : 'good')}
       ${card(I.relogio, 'Vencem hoje', nf(vh), vh ? 'resolva ou renegocie hoje' : 'nada vence hoje', vh ? 'warn' : '')}
-      ${card(I.pausa, 'Pausados', nf(m.pausados || 0), 'aguardando retorno do cliente ou terceiro', '')}
-      ${card(I.check, 'Resolvidos no mês', nf(m.resolvidosMes || 0), 'neste mês', 'good')}
-      ${card(I.escudo, 'SLA do mês', pct(m.slaMes), (num(m.baseSlaMes) > 0) ? `sobre ${nf(m.baseSlaMes)} resolvido${m.baseSlaMes === 1 ? '' : 's'} com meta` : 'ainda sem resolvidos com meta', 'orange', deltaPp(m.slaMes, m.slaMesAnterior))}
+      ${card(I.pausa, 'Pausados', nf(x.pausados || 0), 'aguardando retorno do cliente ou terceiro', '')}
+      ${card(I.check, 'Resolvidos no mês', nf(x.resolvidosMes || 0), 'neste mês', 'good')}
+      ${card(I.escudo, 'SLA do mês', pct(x.slaMes), (num(x.baseSlaMes) > 0) ? `sobre ${nf(x.baseSlaMes)} resolvido${x.baseSlaMes === 1 ? '' : 's'} com meta` : 'ainda sem resolvidos com meta', 'orange', deltaPp(x.slaMes, x.slaMesAnterior))}
     </div>`;
+  };
+  if (Array.isArray(m.porEquipe) && m.porEquipe.length > 1) {
+    el.innerHTML = `<div class="sec-head"><div><h2>Seu resumo</h2><p>Os chamados atribuídos a você, por equipe (${m.porEquipe.length} equipes)</p></div></div>`
+      + m.porEquipe.map((x) => `<p style="margin:14px 0 8px;font-weight:600">${esc(x.equipe)}</p>${cartoes(x)}`).join('');
+    return;
+  }
+  el.innerHTML = `<div class="sec-head"><div><h2>Seu resumo</h2><p>Os chamados atribuídos a você</p></div></div>${cartoes(m)}`;
 }
 
 function renderEquipe(d){

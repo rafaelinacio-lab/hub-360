@@ -134,7 +134,7 @@ async function calcularVisita(userId, agoraMs) {
 // Suporte Técnico; B) resolvidos agregados por (serviço, equipe, responsável, mês); C) criados hoje por (serviço, equipe).
 async function carregarAbertos() {
   const r = await db.query(`
-    SELECT t.ticket_id::text AS ticket_id, t.createddate AS criado_em, t.status AS status_movidesk, t.urgency AS urgencia,
+    SELECT t.ticket_id::text AS ticket_id, t.createddate AS criado_em, t.status AS status_movidesk, t.basestatus AS basestatus, t.urgency AS urgencia,
            t.ownerteam AS equipe, btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) AS servico,
            COALESCE(NULLIF(t.owner_team, ''), t.ownerteam, '') AS equipe_escopo, lower(COALESCE(t.owneremail, '')) AS dono,
            cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS sla_fora_cliente
@@ -170,9 +170,9 @@ async function carregarResolvidos(agoraMs) {
   const [sla, simples, fechados] = await Promise.all([
     // SLA (régua do Hub): chamados de Suporte Técnico com tempo líquido guardado (utils/slaLiquido.js), resolvidos desde o mês anterior
     db.query(`
-      SELECT t.ticket_id::text AS id, ${svc} AS servico, ${eq} AS equipe, ${dono} AS dono, (t.resolved_in >= $1) AS no_mes, s.minutos, ${slaHub.sqlMetaH('t.urgency')} AS meta
+      SELECT t.ticket_id::text AS id, ${svc} AS servico, ${eq} AS equipe, ${dono} AS dono, (t.resolved_in >= $1) AS no_mes, s.minutos, ${slaHub.sqlMetaH('t.urgency')} AS meta, ${slaHub.sqlEquipeConta('t.ownerteam')} AS conta_eq
         FROM silver.ticket_sla_liquido s JOIN silver.ticket t ON t.ticket_id = s.ticket_id AND t.resolved_in = s.resolvido_em
-       WHERE s.resolvido_em >= $2 AND s.minutos IS NOT NULL AND t.basestatus IN (${RESOLVIDOS_SQL}) AND ${slaHub.sqlEquipeConta('t.ownerteam')}
+       WHERE s.resolvido_em >= $2 AND s.minutos IS NOT NULL AND t.basestatus IN (${RESOLVIDOS_SQL})
          AND ${slaHub.sqlMetaH('t.urgency')} IS NOT NULL`, [mes, ant]),
     // resolvidos de qualquer classificação por responsável (para "resolvidos no mês")
     db.query(`SELECT ${svc} AS servico, ${eq} AS equipe, ${dono} AS dono, (t.resolved_in >= $1) AS no_mes, COUNT(*)::int AS n
@@ -185,13 +185,15 @@ async function carregarResolvidos(agoraMs) {
   const grupos = new Map();   // (servico|equipe|dono|periodo) -> linha agregada
   const linha = (g, periodo) => {
     const k = `${g.servico}|${g.equipe}|${g.dono || ''}|${periodo}`;
-    if (!grupos.has(k)) grupos.set(k, { servico: g.servico, equipe: g.equipe, dono: g.dono || '', periodo, resolvidos: 0, fecharam: 0, base: 0, dentro: 0 });
+    if (!grupos.has(k)) grupos.set(k, { servico: g.servico, equipe: g.equipe, dono: g.dono || '', periodo, resolvidos: 0, fecharam: 0, base: 0, dentro: 0, baseP: 0, dentroP: 0 });
     return grupos.get(k);
   };
   for (const x of sla.rows) {
     if (_foraSla.get(x.id)) continue;
     const l = linha(x, x.no_mes ? 'mes' : 'ant');
-    l.base++; if (x.minutos / 60 <= x.meta) l.dentro++;
+    const ok = x.minutos / 60 <= x.meta;
+    l.baseP++; if (ok) l.dentroP++;                  // visão pessoal: todas as equipes do responsável
+    if (x.conta_eq) { l.base++; if (ok) l.dentro++; } // equipe: só equipes de suporte (régua do Hub)
   }
   for (const x of simples.rows) linha(x, x.no_mes ? 'mes' : 'ant').resolvidos += x.n;
   for (const x of fechados.rows) linha({ ...x, dono: '' }, 'hoje').fecharam += x.n;
@@ -255,23 +257,29 @@ function resumoEquipe(G, esc, alvos) {
     },
   };
 }
-// Resumo DELE (também da base global: abertos pelo e-mail do responsável; resolvidos/SLA pelas linhas agregadas dele)
+// Resumo DELE (também da base global: pelo e-mail do RESPONSÁVEL, sem filtrar pelo nome da equipe). Se ele atende chamados de mais
+// de uma equipe, vem também `porEquipe` com a visão de cada uma.
 function resumoDele(G, email, agoraMs) {
   const e = String(email || '').toLowerCase();
   const pend = e ? G.abertos.rows.filter((x) => x.dono === e) : [];
   const res = e ? G.resolvidos.filter((g) => g.dono === e) : [];
-  const mes = { base: soma(res, 'base', (g) => g.periodo === 'mes'), dentro: soma(res, 'dentro', (g) => g.periodo === 'mes') };
-  const ant = { base: soma(res, 'base', (g) => g.periodo === 'ant'), dentro: soma(res, 'dentro', (g) => g.periodo === 'ant') };
-  const resolvidosMes = soma(res, 'resolvidos', (g) => g.periodo === 'mes');
-  const abertos = pend.length;
-  return {
-    pend,
-    resumo: {
-      vinculado: abertos > 0 || resolvidosMes > 0 || mes.base > 0 || ant.base > 0, abertos,
-      vencidos: contar(pend, (x) => x.sla_hub === 'vencido'), vencemHoje: vencemHoje(pend.filter((x) => x.sla_hub), G.abertos.cfg, agoraMs),
-      pausados: contar(pend, (x) => x.sla_hub === 'pausado'), resolvidosMes, slaMes: pctDe(mes.dentro, mes.base), slaMesAnterior: pctDe(ant.dentro, ant.base), baseSlaMes: mes.base,
-    },
+  const calc = (p, r) => {
+    const mes = { base: soma(r, 'baseP', (g) => g.periodo === 'mes'), dentro: soma(r, 'dentroP', (g) => g.periodo === 'mes') };
+    const ant = { base: soma(r, 'baseP', (g) => g.periodo === 'ant'), dentro: soma(r, 'dentroP', (g) => g.periodo === 'ant') };
+    const sla = p.map((x) => ({ ...x, sla_hub: x.sla_hub_pessoal, sla_meta_h: x.sla_meta_h_pessoal }));
+    return {
+      abertos: contar(p, (x) => x.basestatus === 'New'),   // "Abertos" do cartão = só os Novos
+      vencidos: contar(sla, (x) => x.sla_hub === 'vencido'), vencemHoje: vencemHoje(sla, G.abertos.cfg, agoraMs),
+      pausados: contar(p, (x) => x.basestatus === 'Stopped'), resolvidosMes: soma(r, 'resolvidos', (g) => g.periodo === 'mes'),
+      slaMes: pctDe(mes.dentro, mes.base), slaMesAnterior: pctDe(ant.dentro, ant.base), baseSlaMes: mes.base,
+    };
   };
+  const resumo = calc(pend, res);
+  resumo.vinculado = pend.length > 0 || res.some((g) => g.resolvidos > 0 || g.baseP > 0);
+  const eqDe = (x) => x.equipe_escopo || x.equipe || '';
+  const nomes = [...new Set([...pend.map(eqDe), ...res.map((g) => g.equipe || '')].filter(Boolean))].sort();
+  if (nomes.length > 1) resumo.porEquipe = nomes.map((n) => ({ equipe: n, ...calc(pend.filter((x) => eqDe(x) === n), res.filter((g) => (g.equipe || '') === n)) }));
+  return { pend, resumo };
 }
 
 // O que mudou desde a última visita: 1 consulta de contagens + o SLA do mês como estava na última visita (parte da tabela

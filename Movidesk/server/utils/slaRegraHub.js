@@ -54,7 +54,12 @@ function marcarPendentes(rows, eventosPorId, cfg, agora = new Date()) {
     if (r.criado_em) r.sla_aberto_min = P.minutosLiquidos(r.criado_em, agora, ev, cfg);
     const ok = elegivel(r), meta = ok ? metaDe(r.urgencia) : null;
     const statusAtual = r.status_movidesk || (ev.length ? ev[ev.length - 1].status : '');
+    // Visão pessoal (por responsável): mesma régua, mas sem exigir "Suporte" no nome da equipe
+    const okP = String(r.classificacao || '').trim() === 'Suporte Técnico' && !r.sla_fora_cliente && metaDe(r.urgencia) != null;
+    const metaP = okP ? metaDe(r.urgencia) : null;
+    r.sla_hub_pessoal = classificarPendente({ elegivel: okP, metaH: metaP, abertoMin: r.sla_aberto_min, pausadoAgora: pausas.has(P.semAcento(statusAtual)) });
     r.sla_meta_h = meta;
+    r.sla_meta_h_pessoal = metaP;
     r.sla_hub = classificarPendente({ elegivel: ok, metaH: meta, abertoMin: r.sla_aberto_min, pausadoAgora: pausas.has(P.semAcento(statusAtual)) });
   }
   return rows;
