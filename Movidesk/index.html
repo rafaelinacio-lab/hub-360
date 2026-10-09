@@ -217,6 +217,9 @@
                     <button class="cfg-tab-btn" data-tab="tokens" onclick="switchConfigTab('tokens')">
                         <span class="material-symbols-outlined">key</span> Tokens
                     </button>
+                    <button class="cfg-tab-btn" data-tab="email" onclick="switchConfigTab('email')">
+                        <span class="material-symbols-outlined">mail</span> E-mail (SMTP)
+                    </button>
                     <button class="cfg-tab-btn" data-tab="avisos" onclick="switchConfigTab('avisos')">
                         <span class="material-symbols-outlined">campaign</span> Avisos automáticos
                     </button>
@@ -738,6 +741,41 @@
                 </div>
 
                 <!-- ABA: Avisos automáticos -->
+                <!-- ABA: E-mail (SMTP) -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-email">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Servidor de e-mail (SMTP)</h3>
+                        <p class="config-card-help">Usado para enviar o e-mail de boas-vindas quando uma pessoa é cadastrada em Pessoas. No Google Workspace, use uma <b>senha de app</b> (Conta Google → Segurança → Verificação em duas etapas → Senhas de app). A senha fica criptografada no banco e nunca é exibida de novo.</p>
+                        <div class="config-form-stack">
+                            <label class="config-card-help" for="cfgEmailHost" style="margin:0">Servidor SMTP</label>
+                            <input id="cfgEmailHost" type="text" class="config-input" placeholder="smtp.gmail.com" autocomplete="off">
+                            <label class="config-card-help" for="cfgEmailPort" style="margin:8px 0 0">Porta (587 com STARTTLS · 465 com SSL)</label>
+                            <input id="cfgEmailPort" type="number" class="config-input" placeholder="587" autocomplete="off">
+                            <label class="config-card-help" for="cfgEmailUser" style="margin:8px 0 0">Usuário (e-mail da conta que envia)</label>
+                            <input id="cfgEmailUser" type="email" class="config-input" placeholder="hub360@viasoft.com.br" autocomplete="off">
+                            <label class="config-card-help" for="cfgEmailPass" style="margin:8px 0 0">Senha de app</label>
+                            <input id="cfgEmailPass" type="password" class="config-input" placeholder="Cole a senha de app" autocomplete="new-password">
+                            <label class="config-card-help" for="cfgEmailFrom" style="margin:8px 0 0">Remetente exibido (opcional)</label>
+                            <input id="cfgEmailFrom" type="text" class="config-input" placeholder="Hub 360 &lt;hub360@viasoft.com.br&gt;" autocomplete="off">
+                            <label class="config-card-help" for="cfgEmailUrl" style="margin:8px 0 0">Endereço do painel (vai no botão "Acessar o Hub 360")</label>
+                            <input id="cfgEmailUrl" type="url" class="config-input" placeholder="https://hub-360.viasoftcloud.com.br" autocomplete="off">
+                        </div>
+                        <div class="config-actions" style="margin-top:14px">
+                            <button id="cfgEmailSalvar" class="config-btn" onclick="emailCfgSalvar()">Salvar</button>
+                        </div>
+                        <div id="cfgEmailStatus" class="config-status"></div>
+                    </div>
+                    <div class="config-card">
+                        <h3 class="config-card-title">Enviar e-mail de teste</h3>
+                        <p class="config-card-help">Manda o e-mail de boas-vindas de exemplo para o endereço abaixo, com as configurações já salvas.</p>
+                        <div class="config-form-row">
+                            <input id="cfgEmailTesteDest" type="email" class="config-input" placeholder="destino@viasoft.com.br" autocomplete="off">
+                            <button id="cfgEmailTesteBtn" class="config-btn" onclick="emailCfgTestar()">Enviar teste</button>
+                        </div>
+                        <div id="cfgEmailTesteStatus" class="config-status"></div>
+                    </div>
+                </div>
+
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-avisos">
                     <div id="avRoot"><p class="config-card-help">Carregando…</p></div>
                 </div>
@@ -1831,6 +1869,7 @@
     <script src="js/ticket-workspace.js"></script>
     <script src="js/curadoria.js"></script>
     <script src="js/pessoas.js"></script>
+    <script src="js/emailConfig.js"></script>
     <script src="js/avisos.js"></script>
     <script src="js/delta.js"></script>
     <script src="js/tokens.js"></script>

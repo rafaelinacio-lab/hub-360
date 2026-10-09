@@ -108,7 +108,7 @@ router.post('/:id/reenviar-boas-vindas', authMiddleware, requireRole('admin'), r
     if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
     if (!u.is_active) return res.status(400).json({ error: 'Usuário desativado: ative antes de reenviar.' });
     const env = await enviarBoasVindas({ nome: u.name, email: u.email, perfil: u.role, verticais: u.vertical });
-    if (!env.ok) return res.status(env.motivo === 'nao_configurado' ? 503 : 502).json({ error: env.motivo === 'nao_configurado' ? 'Envio de e-mail não configurado no servidor (SMTP_USER/SMTP_PASS).' : 'Não foi possível enviar o e-mail agora.' });
+    if (!env.ok) return res.status(env.motivo === 'nao_configurado' ? 503 : 502).json({ error: env.motivo === 'nao_configurado' ? 'Envio de e-mail não configurado: preencha em Configurações → E-mail.' : 'Não foi possível enviar o e-mail agora.' });
     return res.json({ ok: true, para: u.email });
   } catch (err) {
     console.error('POST /pessoas/:id/reenviar-boas-vindas error:', err.message);

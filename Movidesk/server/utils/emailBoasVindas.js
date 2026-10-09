@@ -1,16 +1,15 @@
 'use strict';
 // E-mail de boas-vindas ao cadastrar uma pessoa. HTML com tabelas e CSS inline (funciona em Gmail/Outlook/celular).
 // Para trocar o visual: cores em COR, imagem do topo em img/email-banner.png (1200×260, servida em PUBLIC_URL/img/).
-const { enviar } = require('./email');
+const { enviar, carregar } = require('./email');
 
 const COR = { marca: '#ff8a2b', marcaEscura: '#e85d04', texto: '#1f2937', suave: '#6b7280', fundo: '#f4f1ec', cartao: '#ffffff', borda: '#eadfd2', botaoTexto: '#2b1500' };
 const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const urlPublica = () => (process.env.PUBLIC_URL || 'https://hub-360.viasoftcloud.com.br').replace(/\/+$/, '');
 const PERFIL = { admin: 'Administrador', supervisor: 'Supervisor', atendente: 'Atendente', guest: 'Convidado' };
 const primeiroNome = (n) => { const p = String(n || '').trim().split(/\s+/)[0] || ''; return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : ''; };
 
-function montar({ nome, email, perfil, verticais }) {
-  const url = urlPublica(), dominio = (process.env.ALLOWED_DOMAIN || 'viasoft.com.br').trim().toLowerCase();
+function montar({ nome, email, perfil, verticais, url }) {
+  const dominio = (process.env.ALLOWED_DOMAIN || 'viasoft.com.br').trim().toLowerCase();
   const nomeP = primeiroNome(nome), perfilTxt = PERFIL[String(perfil || '').toLowerCase()] || perfil || '';
   const verts = String(verticais || '').split(/[;|]/).map((x) => x.trim()).filter(Boolean);
   const assunto = 'Seu acesso ao Hub 360 foi liberado';
@@ -47,7 +46,7 @@ function montar({ nome, email, perfil, verticais }) {
   return { assunto, html, texto };
 }
 async function enviarBoasVindas(pessoa) {
-  const m = montar(pessoa);
+  const m = montar({ ...pessoa, url: (await carregar()).publicUrl });
   return enviar({ para: pessoa.email, assunto: m.assunto, html: m.html, texto: m.texto });
 }
 module.exports = { montar, enviarBoasVindas };
