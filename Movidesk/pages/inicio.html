@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Início</title>
+<script>
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
+    });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="../js/ui-version.js"></script>
+<style>
+/* ═══ Tokens (mesmos das outras telas) ═══════════════════════ */
+:root {
+  --bg:#f2f1ee; --surface:#ffffff; --surface-mid:#f7f6f3; --surface-low:#f2f1ee;
+  --border:#e5e3de; --border-hi:#cac8c2;
+  --t1:#1a1917; --t2:#57554f; --t3:#9b9892;
+  --orange:#e85d04; --orange-bg:#fff3ec; --orange-bd:rgba(232,93,4,.25);
+  --green:#15803d; --green-bg:#f0fdf4; --green-bd:rgba(21,128,61,.25);
+  --red:#dc2626; --red-bg:#fef2f2; --red-bd:rgba(220,38,38,.22);
+  --blue:#2563eb; --blue-bg:#eff6ff; --blue-bd:rgba(37,99,235,.22);
+  --amber:#b45309; --amber-bg:#fffbeb; --amber-bd:rgba(180,83,9,.22);
+  --purple:#7c3aed; --purple-bg:#f5f3ff;
+  --sh-sm:0 1px 2px rgba(0,0,0,.05),0 1px 4px rgba(0,0,0,.04);
+  --sh-md:0 3px 12px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
+}
+html.dark {
+  --bg:#0f1117; --surface:#1a1d27; --surface-mid:#1e2232; --surface-low:#161921;
+  --border:#2a2d3a; --border-hi:#3c3f50;
+  --t1:#e8e7e3; --t2:#9b9892; --t3:#6b6962;
+  --orange:#fb923c; --orange-bg:rgba(251,146,60,.12); --orange-bd:rgba(251,146,60,.24);
+  --green:#4ade80; --green-bg:rgba(74,222,128,.1); --green-bd:rgba(74,222,128,.22);
+  --red:#f87171; --red-bg:rgba(248,113,113,.1); --red-bd:rgba(248,113,113,.24);
+  --blue:#60a5fa; --blue-bg:rgba(96,165,250,.1); --blue-bd:rgba(96,165,250,.24);
+  --amber:#fbbf24; --amber-bg:rgba(251,191,36,.1); --amber-bd:rgba(251,191,36,.22);
+  --purple:#a78bfa; --purple-bg:rgba(167,139,250,.1);
+  --sh-sm:0 1px 2px rgba(0,0,0,.3); --sh-md:0 3px 12px rgba(0,0,0,.3);
+}
+
+/* ═══ Base ══════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;scrollbar-width:none;-ms-overflow-style:none}
+::-webkit-scrollbar{display:none}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
+button{cursor:pointer;font-family:inherit;background:none;border:none;padding:0;color:inherit}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:8px}
+svg{display:block;flex:none}
+.page{max-width:1240px;margin:0 auto;padding:28px 28px 72px}
+
+/* ═══ Hero ═════════════════════════════════════════════════ */
+.hero{position:relative;overflow:hidden;border-radius:26px;padding:34px 38px 30px;
+  background:linear-gradient(135deg,var(--orange-bg) 0%,var(--surface) 62%);border:1px solid var(--orange-bd);box-shadow:var(--sh-sm)}
+.hero::after{content:"";position:absolute;right:-90px;top:-110px;width:380px;height:380px;border-radius:50%;
+  background:radial-gradient(circle,var(--orange-bd) 0%,transparent 68%);opacity:.7;pointer-events:none}
+.hero-top{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;position:relative;z-index:1;flex-wrap:wrap}
+.hero-data{font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--orange)}
+.hero h1{position:relative;z-index:1;font-family:'Manrope',sans-serif;font-weight:800;letter-spacing:-.025em;line-height:1.1;
+  font-size:clamp(28px,4.4vw,48px);margin:12px 0 16px;max-width:900px}
+.hero-ctx{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;color:var(--t2);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--surface);
+  border:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--t2);box-shadow:var(--sh-sm)}
+.chip svg{color:var(--orange)}
+.hero-ico{position:absolute;right:40px;bottom:26px;width:96px;height:96px;opacity:.9;z-index:1;color:var(--orange)}
+.ghost{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none;font-size:12.5px;font-weight:600;color:var(--t2);padding:6px 11px;
+  border-radius:999px;border:1px solid var(--border);background:var(--surface)}
+.ghost:hover{color:var(--t1);border-color:var(--border-hi)}
+.hero.compacto{padding:18px 26px;border-radius:20px}
+.hero.compacto h1,.hero.compacto .hero-ctx,.hero.compacto .hero-ico{display:none}
+.hero.compacto .hero-nome{display:block}
+.hero-nome{display:none;position:relative;z-index:1;font-family:'Manrope',sans-serif;font-weight:800;font-size:22px;margin-top:6px}
+
+/* ═══ Seções ════════════════════════════════════════════════ */
+.sec{margin-top:34px}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.sec-head h2{font-family:'Manrope',sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em}
+.sec-head p{font-size:12.5px;color:var(--t3);margin-top:2px}
+.seg{display:inline-flex;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+.seg button{padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--t2)}
+.seg button[aria-pressed="true"]{background:var(--orange);color:#fff}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.grid.g6{grid-template-columns:repeat(6,minmax(0,1fr))}   /* Seu resumo: 6 cartões numa linha */
+.grid.g5{grid-template-columns:repeat(5,minmax(0,1fr))}   /* Equipe: 4 cartões, um deles ocupa 2 colunas */
+@media (max-width:1180px){.grid.g6{grid-template-columns:repeat(3,minmax(0,1fr))}.grid.g5{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:760px){.grid.g5,.grid.g6{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.g5 > .card:last-child{grid-column:span 2}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 20px 16px;box-shadow:var(--sh-sm);
+  display:flex;flex-direction:column;gap:8px;min-width:0}
+.card .lbl{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;color:var(--t2)}
+.ico{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--surface-mid);color:var(--t2)}
+.card .val{font-family:'Manrope',sans-serif;font-weight:800;font-size:36px;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .sub{font-size:12.5px;color:var(--t3);line-height:1.35}
+.tone-bad .val{color:var(--red)} .tone-bad .ico{background:var(--red-bg);color:var(--red)}
+.tone-warn .val{color:var(--amber)} .tone-warn .ico{background:var(--amber-bg);color:var(--amber)}
+.tone-good .val{color:var(--green)} .tone-good .ico{background:var(--green-bg);color:var(--green)}
+.tone-blue .ico{background:var(--blue-bg);color:var(--blue)}
+.tone-orange .ico{background:var(--orange-bg);color:var(--orange)}
+.delta{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700}
+.delta.up{color:var(--green)} .delta.down{color:var(--red)} .delta.zero{color:var(--t3)}
+.val-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.span2{grid-column:span 2}
+.versus{display:flex;align-items:flex-end;gap:18px}
+.versus .lado b{display:block;font-family:'Manrope',sans-serif;font-weight:800;font-size:36px;line-height:1;font-variant-numeric:tabular-nums}
+.versus .lado span{font-size:12.5px;font-weight:600;color:var(--t2)}
+.versus .lado.ab b{color:var(--blue)} .versus .lado.fe b{color:var(--green)}
+.versus .x{font-size:20px;font-weight:800;color:var(--t3);padding-bottom:20px}
+.vs-bar{display:flex;height:9px;border-radius:999px;overflow:hidden;background:var(--border)}
+.vs-bar i{display:block;height:100%} .vs-bar .a{background:#4f9cf0} .vs-bar .f{background:#2fbf8a}
+.aviso{display:flex;gap:12px;align-items:flex-start;padding:16px 18px;border-radius:16px;background:var(--blue-bg);border:1px solid var(--blue-bd);color:var(--t2);font-size:13.5px}
+.aviso svg{color:var(--blue);margin-top:1px}
+
+/* ═══ Desde a última visita / dicas / atalhos ══════════════ */
+.cols{display:grid;gap:14px;grid-template-columns:1.25fr 1fr}
+.cols.um{grid-template-columns:1fr}
+.lista{list-style:none;display:flex;flex-direction:column}
+.lista li{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--border);font-size:14px}
+.lista li:last-child{border-bottom:none}
+.lista li b{font-family:'Manrope',sans-serif;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+.lista li.zero{color:var(--t3)} .lista li.zero b{color:var(--t3)}
+.lista li.bad b{color:var(--red)}
+.lista .ico{width:32px;height:32px}
+.painel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 20px;box-shadow:var(--sh-sm)}
+.painel h3{font-size:12.5px;font-weight:700;color:var(--t2);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.dicas{display:flex;flex-direction:column;gap:10px}
+.dica{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:14px;background:var(--surface-mid);font-size:13.5px;color:var(--t1);line-height:1.4}
+.dica svg{color:var(--amber);margin-top:2px}
+.atalhos{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.atalho{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:13px 14px;border-radius:14px;border:1px solid var(--border);
+  background:var(--surface-mid);text-align:left;transition:border-color .15s,transform .15s}
+.atalho:hover{border-color:var(--orange);transform:translateY(-1px)}
+.atalho b{font-size:14px;font-weight:700} .atalho span{font-size:12px;color:var(--t3)}
+.vazio-linha{font-size:14px;color:var(--t3);padding:6px 2px}
+
+/* ═══ Esqueleto e erro ════════════════════════════════════ */
+.sk{border-radius:12px;background:linear-gradient(90deg,var(--surface-mid) 25%,var(--surface-low) 37%,var(--surface-mid) 63%);
+  background-size:400% 100%;animation:shimmer 1.4s ease infinite}
+@keyframes shimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.sk-card{height:118px;border-radius:18px;border:1px solid var(--border)}
+.sk-hero{height:190px;border-radius:26px}
+.erro{margin-top:34px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:44px 20px;border-radius:22px;
+  background:var(--surface);border:1px solid var(--red-bd)}
+.erro h2{font-family:'Manrope',sans-serif;font-size:19px;font-weight:800}
+.erro p{color:var(--t2);font-size:13.5px;max-width:520px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;background:var(--orange);color:#fff;font-weight:700;font-size:13.5px}
+.btn:hover{filter:brightness(1.06)}
+[hidden]{display:none!important}
+@media (max-width:900px){.cols{grid-template-columns:1fr}.hero-ico{display:none}}
+@media (max-width:640px){
+  .page{padding:16px 16px 56px}
+  .hero{padding:24px 22px 22px;border-radius:22px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))} .span2{grid-column:span 2}
+  .card{padding:15px 15px 13px} .card .val,.versus .lado b{font-size:30px}
+}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}.atalho{transition:none}}
+</style>
+</head>
+<body>
+<div class="page" id="raiz" aria-live="polite">
+  <!-- esqueleto até chegar a primeira resposta -->
+  <div id="esqueleto">
+    <div class="sk sk-hero"></div>
+    <div class="grid" style="margin-top:34px">
+      <div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card"></div>
+      <div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card"></div>
+    </div>
+    <div class="grid" style="margin-top:34px">
+      <div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card span2"></div><div class="sk sk-card"></div>
+    </div>
+  </div>
+  <div id="erro" class="erro" hidden></div>
+  <div id="conteudo" hidden>
+    <header class="hero" id="hero"></header>
+    <section class="sec" id="secMeu" hidden></section>
+    <section class="sec" id="secEquipe" hidden></section>
+    <section class="sec" id="secDesde" hidden></section>
+    <section class="sec cols" id="secExtras" hidden></section>
+  </div>
+</div>
+
+<script>
+const API = `${location.origin}/api`;
+const TZ = 'America/Sao_Paulo';
+function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function api(ep, timeoutMs = 30000){
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try{
+    const r = await fetch(`${API}${ep}`, { headers: tok() ? { Authorization: `Bearer ${tok()}` } : {}, signal: ctrl.signal, cache: 'no-store' });
+    if(!r.ok){ const b = await r.json().catch(() => ({})); throw new Error(b.error || r.statusText || `Erro ${r.status}`); }
+    return await r.json();
+  } catch(e){
+    if(e.name === 'AbortError') throw new Error('Tempo limite excedido ao carregar');
+    throw e;
+  } finally { clearTimeout(t); }
+}
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v))) ? null : Number(v);
+const nf = (n, d = 0) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (v) => (num(v) == null ? '—' : `${nf(v, 1)}%`);
+const lerLS = (k, pad = '') => { try { return localStorage.getItem(k) ?? pad; } catch (_) { return pad; } };
+const gravarLS = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+
+// Rótulos das abas do shell (chave = data-view)
+const ABAS = { inicio: 'Início', dashboard: 'Dashboard', movidesk: 'Painel Geral', satisfacao: 'Satisfação', chats: 'Chats', incidentes: 'Incidentes',
+  reincidencias: 'Reincidências', chamados: 'Curadoria', ouvidoria: 'Ouvidoria', gcc: 'GCC', melhorias: 'Melhorias', jira: 'Jira', configuracoes: 'Configurações' };
+
+// ── Ícones (SVG inline: sem depender de fonte externa) ─────────────────────────────────
+const I = {
+  inbox:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></svg>',
+  alerta:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg>',
+  relogio: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  pausa:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+  check:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>',
+  escudo:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>',
+  mais:    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+  pessoas: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.4c1.8.8 3 2.6 3 4.6"/></svg>',
+  setas:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M3 14l4 4 4-4"/><path d="M17 20V6M13 10l4-4 4 4"/></svg>',
+  chama:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 .3 1.2 1 2 2 2-.5-3 1-5 1-8z"/></svg>',
+  pino:    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  lampada: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>',
+  info:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></svg>',
+  olho:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  sol:     '<svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><circle cx="48" cy="48" r="16" fill="currentColor" fill-opacity=".18"/><path d="M48 12v10M48 74v10M12 48h10M74 48h10M22.6 22.6l7 7M66.4 66.4l7 7M22.6 73.4l7-7M66.4 29.6l7-7"/></svg>',
+  tarde:   '<svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 66h68" /><path d="M26 66a22 22 0 0 1 44 0" fill="currentColor" fill-opacity=".18"/><path d="M48 24v8M20 40l6 5M76 40l-6 5M10 54h8M78 54h8"/></svg>',
+  lua:     '<svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M64 60A28 28 0 0 1 36 20a28 28 0 1 0 28 40z" fill="currentColor" fill-opacity=".18"/><path d="M70 18v8M66 22h8M80 40v6M77 43h6"/></svg>',
+};
+
+// ── Estado ──────────────────────────────────────────────────────────────────────────────
+const S = { dados: null, escopo: lerLS('inicioEscopo', 'equipe') === 'hub' ? 'hub' : 'equipe', soResumo: lerLS('inicioSoResumo') === '1', heroPronto: false, timer: 0, carregando: false };
+
+// ── Datas e textos ──────────────────────────────────────────────────────────────────────
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const dataExtenso = () => cap(new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ }));
+const diaKey = (d) => d.toLocaleDateString('en-CA', { timeZone: TZ });
+function linhaVisita(v){
+  if (!v) return null;
+  if (v.primeira || !v.anterior) return 'Bem-vindo pela primeira vez';
+  const ant = new Date(v.anterior);
+  if (isNaN(ant)) return null;
+  const hh = ant.toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+  const dd = Number.isInteger(v.diasDesde) ? v.diasDesde : Math.round((new Date(diaKey(new Date())) - new Date(diaKey(ant))) / 86400000);
+  if (dd <= 0) return `Sua última visita foi hoje às ${hh}`;
+  if (dd === 1) return `Sua última visita foi ontem às ${hh}`;
+  if (dd === 2) return `Sua última visita foi anteontem às ${hh}`;
+  return `Faz ${dd} dias que você não aparecia`;
+}
+function relativo(iso){
+  const d = iso ? new Date(iso) : null;
+  if (!d || isNaN(d)) return '';
+  const hh = d.toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+  const dd = Math.round((new Date(diaKey(new Date())) - new Date(diaKey(d))) / 86400000);
+  if (dd <= 0) return `hoje às ${hh}`; if (dd === 1) return `ontem às ${hh}`;
+  return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: TZ })} às ${hh}`;
+}
+function saudacaoPadrao(d){
+  const p = d.saudacao?.periodo, nome = d.usuario?.primeiroNome || '';
+  const base = p === 'noite' ? 'Boa noite' : p === 'tarde' ? 'Boa tarde' : 'Bom dia';
+  return nome ? `${base}, ${nome}!` : `${base}!`;
+}
+// ▲/▼ em pontos percentuais (verde sobe, vermelho desce; sem base → nada)
+function fmtDelta(d, titulo){
+  if (Math.abs(d) < 0.05) return `<span class="delta zero" title="${esc(titulo)}">→ 0,0 pp</span>`;
+  return `<span class="delta ${d > 0 ? 'up' : 'down'}" title="${esc(titulo)}">${d > 0 ? '▲ +' : '▼ −'}${nf(Math.abs(d), 1)} pp</span>`;
+}
+function deltaPp(atual, anterior){
+  const a = num(atual), b = num(anterior);
+  if (a == null || b == null) return '';
+  return fmtDelta(a - b, `Contra o mês anterior (${pct(b)})`);
+}
+const card = (ico, rotulo, valor, sub, tom = '', extra = '', classe = '') =>
+  `<div class="card ${tom ? 'tone-' + tom : ''} ${classe}"><div class="lbl"><span class="ico">${ico}</span>${esc(rotulo)}</div><div class="val-row"><div class="val">${valor}</div>${extra}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+
+// ── Blocos ──────────────────────────────────────────────────────────────────────────────
+function renderHero(d){
+  const u = d.usuario || {}, s = d.saudacao || {}, v = d.visita || {};
+  const icone = s.periodo === 'noite' ? I.lua : s.periodo === 'tarde' ? I.tarde : I.sol;
+  const chips = [];
+  const linha = linhaVisita(v);
+  if (linha) chips.push(`<span class="chip">${I.relogio.replace('width="17" height="17"', 'width="15" height="15"')}${esc(linha)}</span>`);
+  if (num(v.sequencia) >= 2) chips.push(`<span class="chip">${I.chama}${nf(v.sequencia)} dias seguidos</span>`);
+  if (v.ultimaAba && ABAS[v.ultimaAba]) chips.push(`<span class="chip">${I.pino}Você parou em ${esc(ABAS[v.ultimaAba])}</span>`);
+  $('hero').classList.toggle('compacto', S.soResumo);
+  $('hero').innerHTML = `
+    <div class="hero-top">
+      <div class="hero-data">${esc(dataExtenso())}</div>
+      <button type="button" class="ghost" id="btnResumo" aria-pressed="${S.soResumo}" title="${S.soResumo ? 'Mostrar a saudação' : 'Esconder a saudação e ficar só com o resumo'}">${I.olho}${S.soResumo ? 'Mostrar saudação' : 'Só o resumo'}</button>
+    </div>
+    <div class="hero-nome">${esc(u.primeiroNome ? `Olá, ${u.primeiroNome}` : 'Olá')}</div>
+    <h1>${esc(s.texto || saudacaoPadrao(d))}</h1>
+    <div class="hero-ctx">${chips.join('')}</div>
+    <div class="hero-ico" aria-hidden="true">${icone}</div>`;
+  $('btnResumo').onclick = () => { S.soResumo = !S.soResumo; gravarLS('inicioSoResumo', S.soResumo ? '1' : '0'); renderHero(S.dados); };
+}
+
+function renderMeu(d){
+  const el = $('secMeu'), m = d.meu;
+  if (m == null) { el.hidden = true; return; }
+  el.hidden = false;
+  if (!m.vinculado) {
+    el.innerHTML = `<div class="sec-head"><div><h2>Seu resumo</h2></div></div>
+      <div class="aviso">${I.info}<div>Não encontramos chamados atribuídos ao seu e-mail, então por enquanto você vê só o resumo da equipe logo abaixo. Se você atende chamados, peça a um administrador para conferir o seu e-mail em Pessoas.</div></div>`;
+    return;
+  }
+  const v = num(m.vencidos) || 0, vh = num(m.vencemHoje) || 0;
+  el.innerHTML = `<div class="sec-head"><div><h2>Seu resumo</h2><p>Os chamados atribuídos a você</p></div></div>
+    <div class="grid g6">
+      ${card(I.inbox, 'Abertos', nf(m.abertos || 0), 'na sua fila agora', 'blue')}
+      ${card(I.alerta, 'Vencidos', nf(v), v ? 'com o prazo de SLA já passado' : 'nenhum fora do prazo', v ? 'bad' : 'good')}
+      ${card(I.relogio, 'Vencem hoje', nf(vh), vh ? 'resolva ou renegocie hoje' : 'nada vence hoje', vh ? 'warn' : '')}
+      ${card(I.pausa, 'Pausados', nf(m.pausados || 0), 'aguardando retorno do cliente ou terceiro', '')}
+      ${card(I.check, 'Resolvidos no mês', nf(m.resolvidosMes || 0), 'neste mês', 'good')}
+      ${card(I.escudo, 'SLA do mês', pct(m.slaMes), (num(m.baseSlaMes) > 0) ? `sobre ${nf(m.baseSlaMes)} resolvido${m.baseSlaMes === 1 ? '' : 's'} com meta` : 'ainda sem resolvidos com meta', 'orange', deltaPp(m.slaMes, m.slaMesAnterior))}
+    </div>`;
+}
+
+function renderEquipe(d){
+  const el = $('secEquipe'), q = d.equipe;
+  if (q == null) { el.hidden = true; return; }
+  el.hidden = false;
+  const ab = num(q.entraramHoje) || 0, fe = num(q.fecharamHoje) || 0, tot = ab + fe;
+  const pa = tot ? Math.round(ab / tot * 100) : 50;
+  const seg = d.usuario?.podeVerHub
+    ? `<div class="seg" role="group" aria-label="Escopo do resumo"><button type="button" data-esc="equipe" aria-pressed="${S.escopo === 'equipe'}">Equipe</button><button type="button" data-esc="hub" aria-pressed="${S.escopo === 'hub'}">Hub inteiro</button></div>` : '';
+  const venc = num(q.vencidos) || 0;
+  el.innerHTML = `<div class="sec-head"><div><h2>Sua equipe — ${esc(q.rotulo || 'Hub inteiro')}</h2><p>${q.classificacao ? `Chamados de ${esc(q.classificacao)}` : 'Todos os chamados da equipe'}</p></div>${seg}</div>
+    <div class="grid g5">
+      ${card(I.pessoas, 'Pendentes', nf(q.pendentes || 0), `${nf(q.noPrazo || 0)} no prazo · ${nf(q.pausados || 0)} pausados`, 'blue')}
+      ${card(I.alerta, 'Vencidos', `${nf(venc)}<span style="font-size:.5em;font-weight:700;color:var(--t3)"> · ${pct(q.pctVencido)}</span>`, venc ? 'do backlog com o prazo de SLA passado' : 'nenhum vencido', venc ? 'bad' : 'good')}
+      <div class="card span2"><div class="lbl"><span class="ico">${I.setas}</span>Entraram × fecharam hoje</div>
+        <div class="versus"><div class="lado ab"><b>${nf(ab)}</b><span>entraram${tot ? ` · ${pa}%` : ''}</span></div><div class="x">×</div><div class="lado fe"><b>${nf(fe)}</b><span>fecharam${tot ? ` · ${100 - pa}%` : ''}</span></div></div>
+        <div class="vs-bar" aria-hidden="true"><i class="a" style="width:${pa}%"></i><i class="f" style="width:${100 - pa}%"></i></div></div>
+      ${card(I.escudo, 'SLA do mês', pct(q.slaMes), (num(q.baseSlaMes) > 0) ? `sobre ${nf(q.baseSlaMes)} resolvidos com meta` : 'ainda sem resolvidos com meta', 'orange', deltaPp(q.slaMes, q.slaMesAnterior))}
+    </div>`;
+  el.querySelectorAll('[data-esc]').forEach((b) => b.addEventListener('click', () => trocarEscopo(b.dataset.esc)));
+}
+
+function renderDesde(d){
+  const el = $('secDesde'), x = d.desdeUltimaVisita;
+  if (!x) { el.hidden = true; return; }
+  el.hidden = false;
+  const linhas = [];
+  const add = (ico, n, singular, plural, ruim) => { if (n == null) return; const v = num(n) || 0;
+    linhas.push(`<li class="${v === 0 ? 'zero' : ruim ? 'bad' : ''}"><span class="ico">${ico}</span><b>${nf(v)}</b><span>${v === 1 ? singular : plural}</span></li>`); };
+  add(I.inbox, x.novosNaMinhaFila, 'chamado novo na sua fila', 'chamados novos na sua fila');
+  add(I.mais, x.novosNaEquipe, 'chamado novo na equipe', 'chamados novos na equipe');
+  add(I.check, x.resolvidosEquipe, 'chamado resolvido pela equipe', 'chamados resolvidos pela equipe');
+  add(I.alerta, x.vencidosNovos, 'chamado passou a vencer', 'chamados passaram a vencer', true);
+  const dp = num(x.slaDeltaPp);
+  if (dp != null) linhas.push(`<li class="${Math.abs(dp) < 0.05 ? 'zero' : dp < 0 ? 'bad' : ''}"><span class="ico">${I.escudo}</span>${fmtDelta(dp, 'Variação do SLA da equipe desde a sua última visita')}<span>no SLA da equipe</span></li>`);
+  el.innerHTML = `<div class="sec-head"><div><h2>Desde a sua última visita</h2><p>${esc(relativo(x.desde))}</p></div></div>
+    <div class="painel"><ul class="lista">${linhas.length ? linhas.join('') : '<li class="zero">Nada de novo desde a sua última visita.</li>'}</ul></div>`;
+}
+
+function renderExtras(d){
+  const el = $('secExtras'), dicas = Array.isArray(d.dicas) ? d.dicas.filter(Boolean) : [], at = Array.isArray(d.atalhos) ? d.atalhos.filter((a) => a && a.aba) : [];
+  if (!dicas.length && !at.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.classList.toggle('um', !(dicas.length && at.length));
+  const bAt = at.length ? `<div class="painel"><h3>${I.pino}Seus atalhos</h3><div class="atalhos">${at.map((a) =>
+    `<button type="button" class="atalho" data-aba="${esc(a.aba)}"><b>${esc(a.rotulo || ABAS[a.aba] || a.aba)}</b><span>${num(a.vezes) ? `${nf(a.vezes)} acesso${a.vezes === 1 ? '' : 's'} recentes` : 'abrir'}</span></button>`).join('')}</div></div>` : '';
+  const bDi = dicas.length ? `<div class="painel"><h3>${I.lampada}Para hoje</h3><div class="dicas">${dicas.map((t) => `<div class="dica">${I.lampada}<span>${esc(t)}</span></div>`).join('')}</div></div>` : '';
+  el.innerHTML = bAt + bDi;
+  el.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => navegar(b.dataset.aba)));
+}
+
+// Abre a aba no shell (index.html): a página embutida avisa o pai, que valida e navega.
+function navegar(aba){
+  try { if (window.parent && window.parent !== window) window.parent.postMessage({ tipo: 'navegar', view: aba }, location.origin); } catch (_) {}
+}
+
+// ── Carga ───────────────────────────────────────────────────────────────────────────────
+function mostrar(qual){ $('esqueleto').hidden = qual !== 'esq'; $('erro').hidden = qual !== 'erro'; $('conteudo').hidden = qual !== 'ok'; }
+function mostrarErro(e){
+  mostrar('erro');
+  $('erro').innerHTML = `<div style="color:var(--red)">${I.alerta.replace('width="17" height="17"', 'width="30" height="30"')}</div><h2>Não consegui carregar o seu resumo agora</h2>
+    <p>${esc(e && e.message ? e.message : 'Erro desconhecido')}. Seus dados estão seguros: é só tentar de novo.</p>
+    <button type="button" class="btn" id="btnTentar">Tentar de novo</button>`;
+  $('btnTentar').onclick = () => { mostrar('esq'); carregar(); };
+}
+async function carregar(){
+  if (S.carregando) return;
+  S.carregando = true;
+  try {
+    const d = await api(`/inicio?escopo=${S.escopo}`);
+    S.dados = d;
+    if (!d.usuario?.podeVerHub) S.escopo = 'equipe';
+    else if (d.equipe?.escopo === 'hub' || d.equipe?.escopo === 'equipe') S.escopo = d.equipe.escopo;   // o servidor manda o que valeu
+    if (!S.heroPronto) { renderHero(d); S.heroPronto = true; }      // a saudação não muda nas recargas
+    renderMeu(d); renderEquipe(d); renderDesde(d); renderExtras(d);
+    mostrar('ok');
+  } catch (e) {
+    if (!S.dados) mostrarErro(e);                                   // numa recarga, mantém o que já está na tela
+  } finally { S.carregando = false; }
+}
+async function trocarEscopo(esc_){
+  if (esc_ === S.escopo) return;
+  S.escopo = esc_; gravarLS('inicioEscopo', esc_);
+  const el = $('secEquipe'); el.style.opacity = '.55';
+  await carregar();
+  el.style.opacity = '';
+}
+carregar();
+S.timer = setInterval(() => { if (document.visibilityState === 'visible') carregar(); }, 120000);
+</script>
+<script src="/js/telemetria.js"></script>
+</body>
+</html>
