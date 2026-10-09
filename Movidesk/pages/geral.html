@@ -434,6 +434,15 @@ input,select{font-family:inherit}
 #temas-lista{max-height:480px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 #temas-lista::-webkit-scrollbar{display:block;width:8px}
 #temas-lista::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:999px}
+/* Rankings no formato "situação de prazo": total, barra empilhada e legenda clicável */
+.bkv .bkv-total{display:flex;align-items:baseline;gap:10px;margin:2px 0 12px}
+.bkv .bkv-total b{font-size:34px;line-height:1;font-weight:800;letter-spacing:-.02em;color:var(--t1)}
+.bkv .bkv-total span{font-size:13px;color:var(--t2);font-weight:600}
+.bkv .bk-leg{max-height:300px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.bkv .bk-nome{min-width:0}
+.bkv .bk-nome em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bkv .bk-val b{font-variant-numeric:tabular-nums}
+.bkv .bk-vazio{color:var(--t3);font-size:12.5px;padding:18px 4px;text-align:center}
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
 .dash-wrap{max-width:none;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
@@ -786,18 +795,18 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-3">
       <div class="chart-panel">
         <p class="chart-title">Clientes com mais chamados</p>
-        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
-        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:230px"><canvas id="clientChart"></canvas></div></div>
+        <p class="chart-sub" style="text-align:left">Participação no volume do período · clique para ver os chamados</p>
+        <div class="bkv" id="clientChart"></div>
       </div>
       <div class="chart-panel">
         <p class="chart-title">Por classificação</p>
-        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
-        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:210px"><canvas id="classChart"></canvas></div></div>
+        <p class="chart-sub" style="text-align:left">Participação no volume do período · clique para ver os chamados</p>
+        <div class="bkv" id="classChart"></div>
       </div>
       <div class="chart-panel">
         <p class="chart-title">Volume por equipe</p>
-        <p class="chart-sub" style="text-align:left">Cinza = abertos · laranja = resolvidos</p>
-        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
+        <p class="chart-sub" style="text-align:left">Participação no volume do período · clique para ver os chamados</p>
+        <div class="bkv" id="teamChart"></div>
       </div>
     </div>
 
@@ -1889,18 +1898,38 @@ function rotuloEm(ch,evt){
   return i>=0&&i<ch.data.labels.length?i:-1;
 }
 
+// ── Rankings no formato "situação de prazo" (total + barra empilhada + legenda clicável) ──────────────────
+const PALETA_RANK=['#ff8a2b','#4f9cf0','#2fbf8a','#e9b730','#ee6f82','#a78bfa','#22d3ee','#f472b6'], COR_OUTROS='#a6adbf';
+function rankSituacao(id,{rows,chave,tipo,unidade}){
+  const el=document.getElementById(id); if(!el) return;
+  destroyChart(id);
+  const por=new Map();
+  rows.forEach(r=>{ const k=chave(r); const o=por.get(k)||por.set(k,{n:0,res:0}).get(k); o.n++; if(isResolvido(r)) o.res++; });
+  const ordem=[...por.entries()].sort((a,b)=>b[1].n-a[1].n);
+  const total=rows.length;
+  if(!total){ el.innerHTML='<p class="bk-vazio">Nenhum chamado no filtro atual.</p>'; return; }
+  const topo=ordem.slice(0,RANK_MAX), resto=ordem.slice(RANK_MAX);
+  const itens=topo.map(([nome,o],i)=>({nome,n:o.n,res:o.res,cor:i<PALETA_RANK.length?PALETA_RANK[i]:COR_OUTROS,filtro:r=>chave(r)===nome}));
+  if(resto.length){
+    const nomes=new Set(resto.map(x=>x[0]));
+    itens.push({nome:`Demais (${resto.length.toLocaleString('pt-BR')})`,n:resto.reduce((s2,x)=>s2+x[1].n,0),res:resto.reduce((s2,x)=>s2+x[1].res,0),cor:COR_OUTROS,filtro:r=>nomes.has(chave(r))});
+  }
+  const pct=n=>n/total*100, f1=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  // barra: um segmento por item colorido; os de cor "outros" viram um segmento só
+  const seg=[]; let cinza=0;
+  itens.forEach(x=>{ if(x.cor===COR_OUTROS) cinza+=x.n; else seg.push({cor:x.cor,n:x.n,rot:x.nome}); });
+  if(cinza) seg.push({cor:COR_OUTROS,n:cinza,rot:'Demais'});
+  el.innerHTML=`<p class="bkv-total"><b class="num">${total.toLocaleString('pt-BR')}</b><span>chamados · ${ordem.length.toLocaleString('pt-BR')} ${esc(unidade)}</span></p>`+
+    `<div class="bk-barra">${seg.map(x=>`<i style="width:${pct(x.n).toFixed(2)}%;background:${x.cor}" title="${escAttr(x.rot)}: ${x.n.toLocaleString('pt-BR')}"></i>`).join('')}</div>`+
+    `<div class="bk-leg">${itens.map((x,i)=>`<button type="button" class="bk-row" data-i="${i}"><span class="bk-nome"><i style="background:${x.cor}"></i><em title="${escAttr(x.nome)}">${esc(x.nome)}</em></span><span class="bk-val"><b class="num">${x.n.toLocaleString('pt-BR')}</b> <small>· ${f1(pct(x.n))}% · ${x.res.toLocaleString('pt-BR')} resolvido${x.res===1?'':'s'}</small></span></button>`).join('')}</div>`;
+  el.querySelectorAll('.bk-row').forEach(b=>b.addEventListener('click',()=>{
+    const x=itens[Number(b.dataset.i)], l=rows.filter(x.filtro);
+    openDetailModal(`${tipo}: ${x.nome}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l);
+  }));
+}
 // ── Classificação — ranking abertos x fechados ──────────────────────
 function renderClassChart(rows){
-  const porClass={};
-  rows.forEach(r=>{
-    const c=classificacaoDe(r);
-    porClass[c]=porClass[c]||{abertos:0,resolvidos:0};
-    porClass[c].abertos++;
-    if(isResolvido(r)) porClass[c].resolvidos++;
-  });
-  const entries=Object.entries(porClass).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
-  layeredBars('classChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>classificacaoDe(r)===label,'Classificação',{abertos:rows.length,resolvidos:rows.filter(isResolvido).length});
+  rankSituacao('classChart',{rows,chave:classificacaoDe,tipo:'Classificação',unidade:'classificações'});
 }
 
 // ── tendência ────────────────────────────────────────────────────────
@@ -2632,16 +2661,7 @@ function renderAgingChart(pendentesRows){
 
 // ── composição ───────────────────────────────────────────────────────
 function renderTeamChart(rows){
-  const porEquipe={};
-  rows.forEach(r=>{
-    const e=r.equipe||'Não informado';
-    porEquipe[e]=porEquipe[e]||{abertos:0,resolvidos:0};
-    porEquipe[e].abertos++;
-    if(isResolvido(r)) porEquipe[e].resolvidos++;
-  });
-  const entries=Object.entries(porEquipe).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
-  layeredBars('teamChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>(r.equipe||'Não informado')===label,'Equipe',{abertos:rows.length,resolvidos:rows.filter(isResolvido).length});
+  rankSituacao('teamChart',{rows,chave:r=>r.equipe||'Não informado',tipo:'Equipe',unidade:'equipes'});
 }
 // Rosca no estilo 2.0: anel fino-grosso com pontas arredondadas, total no centro, legenda clicável ao lado.
 const COR_URG={'Crítica':'#ee6f82','Alta':'#ff8a2b','Média':'#2fbf8a','Baixa':'#4f9cf0','Em branco':'#a6adbf'};
@@ -2692,16 +2712,7 @@ function renderStatusChart(rows){
 
 // ── ranking ──────────────────────────────────────────────────────────
 function renderClientChart(rows){
-  const porCliente={};
-  rows.forEach(r=>{
-    const o=r.organizacao||'Não informado';
-    porCliente[o]=porCliente[o]||{abertos:0,resolvidos:0};
-    porCliente[o].abertos++;
-    if(isResolvido(r)) porCliente[o].resolvidos++;
-  });
-  const entries=Object.entries(porCliente).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
-  layeredBars('clientChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>(r.organizacao||'Não informado')===label,'Cliente',{abertos:rows.length,resolvidos:rows.filter(isResolvido).length});
+  rankSituacao('clientChart',{rows,chave:r=>r.organizacao||'Não informado',tipo:'Cliente',unidade:'clientes'});
 }
 // ── Responsáveis por volume: lista + detalhe do mês (hover mostra, clique fixa) ──
 let _respFixo=null;        // colaborador fixado pelo clique
