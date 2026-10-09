@@ -1413,6 +1413,14 @@ jiraFetch('dashboard_data.json')
 
     // Restaurar filtros salvos (após dados e listas estarem prontos)
     restoreFilters();
+    // Sem seleção salva, abre no mês atual (pedido do usuário, 09/10/2026: todos os painéis em ano e mês atuais).
+    if(!MES_SEL.size){
+      const mesAtual=String(new Date().getMonth()+1).padStart(2,'0');
+      if(MK.includes(mesAtual)){
+        MES_SEL.add(mesAtual);
+        setTimeout(()=>{ document.querySelectorAll('#ms-fil-mes-list input').forEach(i=>{ i.checked=MES_SEL.has(i.value); }); updateMesBtn(); render(); },60);
+      }
+    }
 
     // ── Auto-reload: detecta mudança nos JSONs e recarrega tudo automaticamente ──
     const POLL_FILES = [
@@ -2365,6 +2373,7 @@ let cSupMes=null, cSupTipo=null;
 const MS_SUP_ALL={};
 const MS_SUP_SEL={};
 
+let _supMesPadrao=false;
 let SUP_MES_LABEL={'2026-01':'Jan','2026-02':'Fev','2026-03':'Mar','2026-04':'Abr','2026-05':'Mai','2026-06':'Jun'};
 let SUP_MESES=['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
 
@@ -2481,7 +2490,9 @@ async function initSup(){
   if(supSection) supSection.style.opacity='1';
   const vals=(fn)=>([...new Set(SUP_DATA.map(fn).filter(Boolean))].sort());
   const fill=(key,v)=>{MS_SUP_ALL[key]=v;buildMSListSup(key,v);updateMSBtnSup(key);};
-  if(SUP_MESES) fill('sup-mes', SUP_MESES.map(m=>SUP_MES_LABEL[m]));
+  // Primeira montagem sem mês escolhido: marca o mês atual (todos os painéis abrem em ano e mês atuais).
+  if(!_supMesPadrao){ _supMesPadrao=true; const d=new Date(), k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(SUP_MESES.includes(k)&&!(MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size)) (MS_SUP_SEL['sup-mes']=MS_SUP_SEL['sup-mes']||new Set()).add(SUP_MES_LABEL[k]); }
   fill('sup-mes',  SUP_MESES.map(m=>SUP_MES_LABEL[m]));
   fill('sup-seg',  vals(r=>r.p));
   fill('sup-tipo', vals(r=>r.ti));

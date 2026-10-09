@@ -1073,6 +1073,16 @@ function populateMs(id,items,allLabel,onChange){
 // Ao abrir a aba, o filtro de Ano já vem com o ano vigente marcado — o
 // usuário desmarca/marca outros anos pra ver o histórico. Só na primeira
 // montagem dos filtros, pra não remarcar se o usuário limpou de propósito.
+// Ao abrir, o filtro de Mês também vem com o mês atual marcado (pedido do usuário, 09/10/2026: todos os painéis abrem
+// em ano e mês atuais). Só na primeira montagem, pra não remarcar se o usuário limpou de propósito.
+let _mesPadraoAplicado=false;
+function aplicarMesPadrao(){
+  if(_mesPadraoAplicado) return;
+  _mesPadraoAplicado=true;
+  if(getMsValues('f-month').length) return;
+  const chk=document.querySelector(`#f-month .ms-drop input[value="${new Date().getMonth()+1}"]`);
+  if(chk){ chk.checked=true; updateMsLabel('f-month','Mês: todos'); }
+}
 let _anoPadraoAplicado=false;
 function aplicarAnoPadrao(){
   if(_anoPadraoAplicado) return;
@@ -1104,6 +1114,7 @@ function buildFilterOptions(){
   populateMs('f-year',years.map(y=>({v:y,l:y})),'Ano: todos',render);
   aplicarAnoPadrao();
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
+  aplicarMesPadrao();
 }
 
 // ── filtro ───────────────────────────────────────────────────────────

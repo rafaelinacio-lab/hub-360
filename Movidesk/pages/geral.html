@@ -1462,6 +1462,16 @@ function populateMs(id,items,allLabel,onChange){
 // Ao abrir a aba, o filtro de Ano já vem com o ano vigente marcado — o
 // usuário desmarca/marca outros anos pra ver o histórico. Só na primeira
 // montagem dos filtros, pra não remarcar se o usuário limpou de propósito.
+// Ao abrir, o filtro de Mês também vem com o mês atual marcado (pedido do usuário, 09/10/2026: todos os painéis abrem
+// em ano e mês atuais). Só na primeira montagem, pra não remarcar se o usuário limpou de propósito.
+let _mesPadraoAplicado=false;
+function aplicarMesPadrao(){
+  if(_mesPadraoAplicado) return;
+  _mesPadraoAplicado=true;
+  if(getMsValues('f-month').length) return;
+  const chk=document.querySelector(`#f-month .ms-drop input[value="${new Date().getMonth()+1}"]`);
+  if(chk){ chk.checked=true; updateMsLabel('f-month','Mês: todos'); }
+}
 let _anoPadraoAplicado=false;
 function aplicarAnoPadrao(){
   if(_anoPadraoAplicado) return;
@@ -1502,6 +1512,7 @@ function buildFilterOptions(){
   aplicarAnoPadrao();
   renderYearLoadMore(years);
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
+  aplicarMesPadrao();
   // Todos os filtros ganham o campo de busca no topo do dropdown.
   FILTROS_MS.forEach(([id,label])=>msBusca(id,`Buscar ${label.toLowerCase()}…`));
 }
@@ -1791,8 +1802,9 @@ function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePre
   _charts[id]=new Chart(cv,{
     type:'bar',
     data:{ labels, datasets:[
-      { label:'Abertos', data:abertosData, backgroundColor:col.slate, borderRadius:3, barPercentage:.9, categoryPercentage:.8 },
-      { label:'Resolvidos', data:resolvidosData, backgroundColor:col.orange, borderRadius:3, barPercentage:.9, categoryPercentage:.8 }
+      // mesmas cores do gráfico "Evolução mensal: abertos vs resolvidos" (Abertos laranja, Resolvidos roxo)
+      { label:'Abertos', data:abertosData, backgroundColor:col.orange, borderRadius:3, barPercentage:.9, categoryPercentage:.8 },
+      { label:'Resolvidos', data:resolvidosData, backgroundColor:col.purple, borderRadius:3, barPercentage:.9, categoryPercentage:.8 }
     ]},
     plugins:[valores],
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
