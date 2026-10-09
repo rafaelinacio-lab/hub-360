@@ -810,7 +810,17 @@ body.modal-open{overflow:hidden}
         </details>
       </div>
       <div class="data-panel danger">
-        <p class="panel-title">Equipes com maior % de backlog vencido</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px">
+          <p class="panel-title" style="margin:0">Backlog vencido por equipe</p>
+          <!-- filtro só desta tabela (não mexe no resto do painel) -->
+          <div class="multi-sel" id="f-eqven">
+            <button class="ms-btn" type="button" onclick="toggleMs(this)">
+              <span class="ms-lbl">Equipe: todas</span>
+              <span class="sym ms-arrow">expand_more</span>
+            </button>
+            <div class="ms-drop" style="left:auto;right:0"></div>
+          </div>
+        </div>
         <div class="dtable-wrap rolagem">
           <table class="dtable">
             <thead><tr><th>Equipe</th><th class="num">Pendentes</th><th class="num">Vencidos</th><th class="num">% vencido</th></tr></thead>
@@ -2948,11 +2958,17 @@ function renderEquipesVencidoTable(pendentesRows){
     porEquipe[e].pendentes++;
     if(isVencido(r)) porEquipe[e].vencidos++;
   });
+  // Filtro próprio da tabela (f-eqven): opções = equipes com pendentes; a escolha é mantida entre redesenhos.
+  const nomes=Object.keys(porEquipe).sort((a,b)=>a.localeCompare(b,'pt'));
+  populateMs('f-eqven',nomes.map(e=>({v:e,l:nomeEquipeExibicao(e).completo})),'Equipe: todas',()=>renderEquipesVencidoTable(_pendentesGlobal));
+  msBusca('f-eqven','Buscar equipe…');
+  const sel=new Set(getMsValues('f-eqven'));
+  // Ordem alfabética, todas as equipes (antes: as de maior % vencido, só as primeiras)
   const entries=Object.entries(porEquipe)
+    .filter(([e])=>!sel.size||sel.has(e))
     .map(([e,v])=>[e,v,v.pendentes?v.vencidos/v.pendentes:0])
-    .sort((a,b)=>b[2]-a[2])
-    .slice(0,RANK_MAX);
-  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">Nenhum ticket pendente no período filtrado.</td></tr>`; return; }
+    .sort((a,b)=>nomeEquipeExibicao(a[0]).completo.localeCompare(nomeEquipeExibicao(b[0]).completo,'pt'));
+  if(!entries.length){ tbody.innerHTML=`<tr class="empty-row"><td colspan="4">${sel.size?'Nenhuma das equipes escolhidas tem pendentes.':'Nenhum ticket pendente no período filtrado.'}</td></tr>`; return; }
   tbody.innerHTML=entries.map(([e,v,pct])=>{
     const n=nomeEquipeExibicao(e);
     return `
@@ -3248,9 +3264,9 @@ const INFO_CARDS={
   'respChart':{t:'Responsáveis por volume',
     o:'Os 15 responsáveis com mais tickets abertos no período, com o detalhe de cada um.',
     c:['Respeita os filtros do topo (equipe, cliente, serviço, classificação, status, ano e mês).','Abertos = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe ao lado; clique para fixar e clique de novo para soltar.','O detalhe usa o MESMO período da lista e compara com o anterior: com Ano e Mês marcados, o mês anterior; só com um Ano, os mesmos meses do ano anterior (se estiverem carregados); nos demais casos não há comparação. Mostra abertos, resolvidos, SLA cumprido total e por urgência (em pontos percentuais) e abertos por urgência.']},
-  'tbl-equipes-vencido':{t:'Equipes com maior % de backlog vencido',
+  'tbl-equipes-vencido':{t:'Backlog vencido por equipe',
     o:'Em quais equipes o backlog pendente está mais atrasado.',
-    c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Mostra as 10 equipes com maior %; em destaque quando passa de 30%.','Clique numa equipe para ver os tickets vencidos.']},
+    c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Todas as equipes com pendentes, em ordem alfabética; o % fica em destaque quando passa de 30%.','O filtro “Equipe” do próprio quadro vale só para esta tabela.','Clique numa equipe para ver os tickets vencidos.']},
   'slaUrgChart':{t:'SLA por urgência',
     o:'% de tickets resolvidos no prazo, por nível de urgência.',
     c:['Considera os resolvidos no período com prazo de solução definido.','No prazo = resolvido até a data de prazo do Movidesk.','% = no prazo ÷ resolvidos com prazo, para cada urgência.']},
