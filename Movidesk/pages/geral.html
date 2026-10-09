@@ -1692,6 +1692,9 @@ function render(){
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent='';   // sem legenda (pedido do usuário)
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
+  // Pendentes: legenda com o % do backlog com prazo de SLA vencido (todos os anos)
+  if(vencidosRows.length) document.getElementById('k-pendentes-legend').textContent=
+    `Todos os anos · ${(pctVencido*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% com prazo vencido. Clique pra ver.`;
   renderBacklogSituacao(pendentesRows);
 
   // ── Qualidade da resolução ──
@@ -2538,24 +2541,29 @@ function renderAgingChart(pendentesRows){
     {l:'15+ dias', max:Infinity},
   ];
   const counts=faixas.map(()=>0);
-  pendentesRows.forEach(r=>{
-    const d=diasEmAberto(r);
-    const idx=faixas.findIndex(f=>d<=f.max);
-    counts[idx===-1?faixas.length-1:idx]++;
-  });
+  // faixa de um chamado: a mesma regra na contagem e no clique (abertos hoje, 0 dias, entram em "1 dia")
+  const faixaDe=r=>{ const idx=faixas.findIndex(f=>diasEmAberto(r)<=f.max); return idx===-1?faixas.length-1:idx; };
+  pendentesRows.forEach(r=>{ counts[faixaDe(r)]++; });
+  const totalBk=pendentesRows.length;
+  const pctBk=n=>totalBk?`${(n/totalBk*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:'—';
+  const rotulos={ id:'rotulosAging', afterDatasetsDraw(chart){
+    const c=chart.ctx; c.save(); c.font='600 10.5px system-ui,sans-serif'; c.textAlign='center'; c.textBaseline='bottom'; c.fillStyle=col.t2;
+    chart.getDatasetMeta(0).data.forEach((bar,i)=>{ if(counts[i]) c.fillText(`${counts[i].toLocaleString('pt-BR')} · ${pctBk(counts[i])}`,bar.x,bar.y-3); });
+    c.restore(); } };
   const colors=[col.slate,col.slate,col.slate,col.amber||col.orange,col.orange];
   _charts.agingChart=new Chart(document.getElementById('agingChart'),{
     type:'bar',
     data:{labels:faixas.map(f=>f.l),datasets:[{data:counts,backgroundColor:colors,borderRadius:4}]},
+    plugins:[rotulos],
     options:{
-      responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y.toLocaleString('pt-BR')} ticket${c.parsed.y===1?'':'s'} · ${pctBk(c.parsed.y)} do backlog`}}},
       scales:{y:{beginAtZero:true,grid:{color:col.border},ticks:{color:col.t2,precision:0}},x:{grid:{display:false},ticks:{color:col.t2}}},
       onHover:chartHoverCursor,
       onClick:(evt,elements,chart)=>{
         if(!elements.length) return;
         const idx=elements[0].index, f=faixas[idx];
-        const min=idx>0?faixas[idx-1].max:0;
-        const matched=pendentesRows.filter(r=>{ const d=diasEmAberto(r); return d>min&&d<=f.max; });
+        const matched=pendentesRows.filter(r=>faixaDe(r)===idx);
         openDetailModal(`Envelhecimento: ${f.l}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
       },
     }
@@ -2582,7 +2590,7 @@ function donutNovo(id,{itens,rotulo,filtro,titulo}){
   const cv=document.getElementById(id), leg=document.getElementById(id+'-leg'); if(!cv) return;
   const col=chartColors(), lista=itens.filter(i=>i.valor>0), total=lista.reduce((a,i)=>a+i.valor,0);
   const abrir=label=>{ const l=_rowsFull.filter(r=>filtro(r,label)); openDetailModal(`${titulo}: ${label}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l); };
-  if(leg) leg.innerHTML=itens.map(i=>`<li data-l="${escAttr(i.label)}"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+  if(leg) leg.innerHTML=itens.map(i=>`<li data-l="${escAttr(i.label)}"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}${total?` · ${(i.valor/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:''}</span></li>`).join('');
   if(leg) leg.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>abrir(li.dataset.l)));
   if(!total) return;
   const centro={ id:'centroRosca', afterDraw(ch){
@@ -2838,7 +2846,7 @@ function respDetalheHtml(nome){
     <div class="sec">Resumo do período</div>`+
     blocoVar({nome:'Abertos',cor:cssVar('--orange'),valor:`${A.ab.length.toLocaleString('pt-BR')} tickets`,v:A.ab.length,ant:B?B.ab.length:null,altoEhBom:false,unid:'ticket',refTxt})+
     blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.rs.length.toLocaleString('pt-BR')} tickets`,v:A.rs.length,ant:B?B.rs.length:null,altoEhBom:true,unid:'ticket',refTxt})+
-    blocoVar({nome:'Reabertos',cor:cssVar('--orange'),valor:`${A.rs.filter(isReaberto).length.toLocaleString('pt-BR')} de ${A.rs.length.toLocaleString('pt-BR')} resolvidos`,v:A.rs.filter(isReaberto).length,ant:B?B.rs.filter(isReaberto).length:null,altoEhBom:false,unid:'ticket',refTxt})+
+    blocoVar({nome:'Reabertos',cor:cssVar('--orange'),valor:`${A.rs.length?`${(A.rs.filter(isReaberto).length/A.rs.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% · `:''}${A.rs.filter(isReaberto).length.toLocaleString('pt-BR')} de ${A.rs.length.toLocaleString('pt-BR')} resolvidos`,v:A.rs.filter(isReaberto).length,ant:B?B.rs.filter(isReaberto).length:null,altoEhBom:false,unid:'ticket',refTxt})+
     blocoVar({nome:'SLA cumprido',cor:cssVar('--green'),valor:pA==null?'—':`${pA.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${sA.ok}/${sA.total}`,v:pA,ant:pB,altoEhBom:true,pp:true,refTxt})+
     `<div class="sec">SLA cumprido por urgência</div>${slaUrg}<div class="sec">Abertos por urgência</div>${porUrg}
     <div class="tv-tip-foot" style="margin-top:6px">Hoje: <b>${pend.length.toLocaleString('pt-BR')}</b> pendentes, <b class="${venc?'tv-ruim':''}">${venc.toLocaleString('pt-BR')}</b> com prazo de SLA vencido.</div>
@@ -2873,7 +2881,7 @@ function renderRespChart(rows){
         <td class="n"><b>${nfm(v.criados)}</b></td><td class="n">${nfm(v.resolvidos)}</td>
         <td class="n" title="${v.resolvidos?`${((v.reabertos||0)/v.resolvidos*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos resolvidos`:'sem resolvidos no período'}" style="${v.reabertos?'color:var(--orange);font-weight:700':''}">${nfm(v.reabertos)}</td>
         <td class="n">${pct==null?'<span style="color:var(--t3)">—</span>':`<div class="rsp-sla"><span>${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span><span class="trilho"><i style="width:${pct}%;background:${corSla(pct)}"></i></span></div>`}</td>
-        <td class="n">${nfm(v.pend)}</td><td class="n" style="${v.venc?'color:var(--orange);font-weight:700':''}">${nfm(v.venc)}</td></tr>`;
+        <td class="n">${nfm(v.pend)}</td><td class="n" title="${v.pend?`${((v.venc||0)/v.pend*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes`:'sem pendentes'}" style="${v.venc?'color:var(--orange);font-weight:700':''}">${nfm(v.venc)}</td></tr>`;
     }).join('')+`</tbody></table>`;
   respMostrar(_respFixo);
 }
