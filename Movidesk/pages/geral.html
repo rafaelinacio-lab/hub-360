@@ -261,6 +261,10 @@ input,select{font-family:inherit}
 .imp-pos{color:#f87171}.imp-neg{color:var(--green)}
 .imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
 
+/* Faixa de KPIs do topo com 8 cards (Aging entrou ao lado de Pendentes) */
+html[data-ui="v2"] .kpi-grid.k8, .kpi-grid.k8 { grid-template-columns: repeat(8, minmax(0,1fr)); }
+@media (max-width:1400px){ html[data-ui="v2"] .kpi-grid.k8, .kpi-grid.k8 { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+@media (max-width:760px){ html[data-ui="v2"] .kpi-grid.k8, .kpi-grid.k8 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 /* ─── Evolução mensal do atingimento do SLA ─────────────────────────── */
 .sl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px}
 .sl-ult{min-width:190px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-low);text-align:right}
@@ -715,19 +719,19 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="geral-dash">
     <p class="section-label">Totais do período</p>
-    <div class="kpi-grid">
+    <div class="kpi-grid k8">
       <div data-tone="orange" class="stat-card">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg></span>Tickets abertos</p>
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg></span>Abertos</p>
         <div class="kpi-main"><p class="value" id="k-abertos">0</p><span class="kpi-spark" id="sp-abertos"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-abertos"></span><p class="legend">Total criados no período.</p></div>
       </div>
       <div data-tone="green" class="stat-card">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span>Tickets resolvidos</p>
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span>Resolvidos</p>
         <div class="kpi-main"><p class="value" id="k-resolvidos">0</p><span class="kpi-spark" id="sp-resolvidos"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p></div>
       </div>
       <div data-tone="green" class="stat-card danger sla-hero">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA cumprido (resolvidos)</p>
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA</p>
         <div class="kpi-main">
           <p class="value bad" id="k-sla-cumprido">0%</p>
           <div class="sla-ring"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sla-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg></div>
@@ -741,9 +745,14 @@ body.modal-open{overflow:hidden}
         <div class="kpi-foot"><span class="kpi-delta" id="dl-clientes"></span><p class="legend">Base ativa de solicitantes.</p></div>
       </div>
       <div data-tone="red" class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tickets pendentes</p>
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
         <div class="kpi-main"><p class="value bad" id="k-pendentes">0</p><span class="kpi-spark" id="sp-pendentes"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p></div>
+      </div>
+      <div data-tone="red" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12"/><path d="M7 2c0 5 10 5 10 10S7 17 7 22"/><path d="M17 2c0 5-10 5-10 10s10 5 10 10"/></svg></span>Aging</p>
+        <div class="kpi-main"><p class="value bad" id="k-aging">—</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-aging-legend">Tempo de vida dos pendentes.</p></div>
       </div>
       <div data-tone="yellow" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span>Taxa de reabertura</p>
@@ -751,7 +760,7 @@ body.modal-open{overflow:hidden}
         <div class="kpi-foot"><span class="kpi-delta" id="dl-reabertura"></span><p class="legend">Reabertos ÷ resolvidos no período.</p></div>
       </div>
       <div data-tone="green" class="stat-card">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".6"/></svg></span>Resolução no 1º contato (FCR)</p>
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".6"/></svg></span>FCR</p>
         <div class="kpi-main"><p class="value good" id="k-fcr">0%</p><span class="kpi-spark" id="sp-fcr"></span></div>
         <div class="kpi-foot"><span class="kpi-delta" id="dl-fcr"></span><p class="legend">1 ação pública, sem notas internas.</p></div>
       </div>
@@ -1692,6 +1701,20 @@ function render(){
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent='';   // sem legenda (pedido do usuário)
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
+  // Aging: tempo de vida dos pendentes (dias desde a abertura) — média em destaque, mediana e % com mais de 30 dias
+  {
+    const dias=pendentesRows.filter(r=>r.criado_em).map(diasEmAberto).sort((a,b)=>a-b);
+    const el=document.getElementById('k-aging'), lg=document.getElementById('k-aging-legend');
+    if(el&&lg){
+      if(!dias.length){ el.textContent='—'; lg.textContent='Nenhum pendente.'; }
+      else{
+        const media=dias.reduce((a,d)=>a+d,0)/dias.length, mediana=dias[Math.floor(dias.length/2)];
+        const mais30=dias.filter(d=>d>30).length/dias.length*100;
+        el.textContent=`${Math.round(media).toLocaleString('pt-BR')} dias`;
+        lg.textContent=`Média · mediana ${mediana.toLocaleString('pt-BR')} d · ${mais30.toLocaleString('pt-BR',{maximumFractionDigits:1})}% há mais de 30 dias.`;
+      }
+    }
+  }
   // Pendentes: legenda com o % do backlog com prazo de SLA vencido (todos os anos)
   if(vencidosRows.length) document.getElementById('k-pendentes-legend').textContent=
     `Todos os anos · ${(pctVencido*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% com prazo vencido. Clique pra ver.`;
@@ -3132,7 +3155,7 @@ function abrirExpansao(chave){
   openDetailModal(e.t,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows,{ordenar:e.ordenar,acoes:e.acoes});
 }
 (function colocarSetas(){
-  const mapa={'k-abertos':'abertos','k-resolvidos':'resolvidos','k-media-acoes':'media','k-clientes':'clientes','k-pendentes':'pendentes','k-sla-cumprido':'sla','k-backlog-vencido':'vencido',
+  const mapa={'k-aging':'aging','k-abertos':'abertos','k-resolvidos':'resolvidos','k-media-acoes':'media','k-clientes':'clientes','k-pendentes':'pendentes','k-sla-cumprido':'sla','k-backlog-vencido':'vencido',
     'classChart':'classe','trendVolChart':'tendencia','agingChart':'aging','teamChart':'equipe','urgChart':'urgencia','clientChart':'topclientes','respChart':'topresp','tbl-equipes-vencido':'equipesven',
     'k-reabertura':'reabertura','k-fcr':'fcr','slaUrgChart':'slaurg'};
   Object.entries(mapa).forEach(([id,chave])=>{
@@ -3149,11 +3172,11 @@ function abrirExpansao(chave){
 // ── Ajuda "!" em cada card: o que é e como é calculado ────────────────
 const FILTROS_TXT='Respeita os filtros do topo (equipe, responsável, cliente, serviço, classificação, status, ano e mês).';
 const INFO_CARDS={
-  'k-abertos':{t:'Tickets abertos',
+  'k-abertos':{t:'Abertos',
     o:'Quantidade de tickets criados no período.',
     c:['Conta os tickets cuja data de criação cai no Ano/Mês filtrados — estejam ainda em aberto ou já resolvidos.','Tickets cancelados ficam de fora.','Só entram tickets a partir do ano inicial da janela de dados carregada.'],
     obs:FILTROS_TXT},
-  'k-resolvidos':{t:'Tickets resolvidos',
+  'k-resolvidos':{t:'Resolvidos',
     o:'Quantidade de tickets com status finalizado no período.',
     c:['Status Resolvido ou Fechado (Resolved/Closed).','O Ano/Mês vale para a data de RESOLUÇÃO, não a de abertura: um ticket aberto em 2025 e resolvido em 2026 conta como resolvido de 2026.','Taxa de resolução (legenda) = resolvidos ÷ tickets abertos do período. Pode passar de 100% quando se resolvem tickets criados antes do período.'],
     obs:FILTROS_TXT},
@@ -3163,11 +3186,15 @@ const INFO_CARDS={
   'k-clientes':{t:'Clientes únicos',
     o:'Quantidade de organizações diferentes que abriram tickets no período.',
     c:['Conta organizações distintas entre os tickets criados no período (pelo cadastro de organização do ticket).','Tickets sem organização não entram na contagem.']},
-  'k-pendentes':{t:'Tickets pendentes',
+  'k-aging':{t:'Aging',
+    o:'Tempo de vida dos chamados em aberto: quantos dias, em média, os pendentes estão abertos.',
+    c:['Dias corridos desde a abertura até hoje, de cada chamado pendente (os mesmos do card Pendentes: todos os anos, com os demais filtros).','Valor do card = média; a legenda traz a mediana (metade dos pendentes está abaixo dela) e o % com mais de 30 dias.','Clique em expandir para ver a lista, do mais antigo para o mais novo.'],
+    obs:FILTROS_TXT},
+  'k-pendentes':{t:'Pendentes',
     o:'Tickets que ainda estão em aberto.',
     c:['Todo ticket que não está finalizado (Resolvido/Fechado) nem cancelado.','Sempre o backlog real, de todos os anos: não segue o filtro de Ano/Mês (os demais filtros valem).','Clique no card para ver a lista.'],
     obs:FILTROS_TXT},
-  'k-sla-cumprido':{t:'SLA cumprido (resolvidos)',
+  'k-sla-cumprido':{t:'SLA',
     o:'Percentual de tickets resolvidos dentro da meta da própria urgência (régua do Hub, a mesma da Evolução mensal).',
     c:['Tempo de solução líquido: só a janela de atendimento da política de SLA, sem fins de semana, feriados e tempo em pausa (Configurações → SLA e horas). Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Só classificação Suporte Técnico e equipes de suporte (nome da equipe com "Suporte"), mais a exceção Analytics - B.I.','Ficam de fora chamados com cliente VIASOFT CORONEL VIVIDA, MP AGROTECH ou AD TECH, e chamados em que a VIASOFT INFORMATICA LTDA é o único cliente (sem cliente de fora da Viasoft).','Cumprido = tempo líquido menor ou igual à meta da urgência.','% = cumpridos ÷ elegíveis resolvidos no período (urgência Crítica/Alta/Média/Baixa).']},
   'k-backlog-vencido':{t:'Backlog já vencido',
@@ -3176,7 +3203,7 @@ const INFO_CARDS={
   'k-reabertura':{t:'Taxa de reabertura',
     o:'Quanto das resoluções voltou a ser reaberto.',
     c:['Tickets resolvidos no período que têm data de reabertura ÷ total de resolvidos no período.']},
-  'k-fcr':{t:'Resolução no 1º contato (FCR)',
+  'k-fcr':{t:'FCR (resolução no 1º contato)',
     o:'Percentual de tickets resolvidos com uma única resposta ao cliente.',
     c:['Resolvidos no período com exatamente 1 ação pública (visível ao cliente) ÷ total de resolvidos.','Notas internas não entram na conta.']},
   'classChart':{t:'Classificação — ranking abertos x fechados',
