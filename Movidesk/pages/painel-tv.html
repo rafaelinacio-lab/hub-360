@@ -170,6 +170,83 @@
   .dias-corridos { display: block; font-size: 11px; font-weight: 600; color: var(--t3); line-height: 1.1; }
   /* Visão TV (link aberto na TV): só os quadros em tela cheia + bolinhas; sem título, filtros e nota (erro aparece) */
   body.modo-tv .tv-head, body.modo-tv .filtro-bar, body.modo-tv #link-tv-box, body.modo-tv #tv-updated:not(.erro) { display: none !important; }
+  /* ── Visão TV: leitura a 3–4 m. Tamanhos em vh (servem para TV 1080p e 768p); só com body.modo-tv ── */
+  html body.tv-page.modo-tv { padding: 2.2vh 1.6vw; }
+  body.modo-tv .container { max-width: none; }
+  body.modo-tv .chart-sub, body.modo-tv .slr-nota, body.modo-tv .slr-per { display: none !important; }
+  body.modo-tv .leg-fixa { font-size: clamp(14px, 2.2vh, 26px); gap: 2vw; margin: 0 0 1.4vh; }
+  body.modo-tv .leg-fixa i { width: clamp(10px, 1.8vh, 20px); height: clamp(10px, 1.8vh, 20px); }
+  body.modo-tv th.ord-th::after { content: none !important; }
+  body.modo-tv .tv-slide { gap: 1.6vh; }
+  html[data-ui="v2"] body.modo-tv .tv-slide > .chart-panel, html[data-ui="v2"] body.modo-tv .tv-slide > .data-panel { padding: 2.6vh 2vw; border-radius: 22px; }
+  html body.tv-page.modo-tv .chart-panel .chart-title, html body.tv-page.modo-tv .data-panel .chart-title, body.modo-tv .table-title {
+    font-size: clamp(22px, 3.3vh, 36px); line-height: 1.15; margin: 0 0 1.6vh; letter-spacing: -.01em; }
+  body.modo-tv #tv-table-count { font-size: .62em !important; }
+  /* Resumo: 2 + 3 cards, cada faixa com ~metade da altura, números enormes */
+  body.modo-tv .tv-slide-resumo { justify-content: stretch; gap: 1.2vh; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-titulo { font-size: clamp(14px, 2.1vh, 24px); margin: .4vh 4px 0; letter-spacing: .1em; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto { flex: 1 1 0; min-height: 0; gap: 1.6vh 1.2vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card { padding: 2.6vh 2vw; align-content: center; grid-template-columns: 1fr; grid-template-areas: "lab" "val" "leg"; gap: 1.2vh; border-radius: 22px; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card .label { font-size: clamp(16px, 2.6vh, 30px); gap: 1vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .kpi-ico { width: clamp(30px, 4.6vh, 52px); height: clamp(30px, 4.6vh, 52px); border-radius: 14px; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .kpi-ico svg { width: 55%; height: 55%; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card .value,
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card .value.bad { font-size: clamp(56px, 13vh, 150px); line-height: 1; letter-spacing: -.03em; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .kpi-foot .legend { font-size: clamp(15px, 2.4vh, 28px); line-height: 1.25; color: var(--t2); }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card.versus { justify-content: center; gap: 2vh; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-corpo { gap: 1.4vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado { flex-wrap: wrap; align-items: baseline; gap: .4vh .8vw; padding: .6vh .6vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado b { font-size: clamp(52px, 11vh, 128px); line-height: 1; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado span { font-size: clamp(15px, 2.4vh, 28px); }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado em { font-size: clamp(18px, 3vh, 36px); margin-left: 0; flex-basis: 100%; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-x { font-size: clamp(22px, 4vh, 44px); }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-barra { height: clamp(10px, 1.6vh, 18px); }
+  /* Situação do prazo: rosca e legenda grandes, juntas e centralizadas */
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-row { justify-content: center; gap: 4vw; }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-row .chart-wrap { width: min(66vh, 640px) !important; height: min(66vh, 640px) !important; }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg { flex: 0 1 auto; min-width: min(46vw, 760px); }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg li { font-size: clamp(18px, 3.4vh, 38px); padding: 1.4vh 1vw; gap: 1.2vw; }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg i { width: clamp(14px, 2.4vh, 26px); height: clamp(14px, 2.4vh, 26px); }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg .v { color: var(--t1); font-weight: 800; }
+  /* Tabelas (SLA por urgência, chamados pendentes, SLA por analista) */
+  body.modo-tv .tv-slide table { font-size: clamp(14px, 2.1vh, 24px); }
+  body.modo-tv .tv-slide th, body.modo-tv .tv-slide .slr-tab th { font-size: clamp(11px, 1.45vh, 17px); padding: 1.2vh .8vw; }
+  body.modo-tv .tv-slide td { padding: 1.5vh .8vw; }
+  body.modo-tv .tv-slide th { white-space: normal; line-height: 1.15; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(1) { width: 8% !important; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(4) { width: 13% !important; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(5), body.modo-tv .tv-slide .table-wrap col:nth-child(6), body.modo-tv .tv-slide .table-wrap col:nth-child(7) { width: 8% !important; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(8), body.modo-tv .tv-slide .table-wrap col:nth-child(9) { width: 11% !important; }
+  body.modo-tv .slr-nome { white-space: normal; min-width: 0; line-height: 1.15; }
+  body.modo-tv .slr-sla, body.modo-tv .slr-pend, body.modo-tv .slr-imp, body.modo-tv .slr-meu { min-width: 0; }
+  body.modo-tv .tv-slide .badge { font-size: clamp(12px, 1.7vh, 20px); padding: .5vh .9vw; }
+  body.modo-tv .tv-slide .dias-corridos { font-size: clamp(11px, 1.4vh, 16px); }
+  body.modo-tv #urg-lista .slr-tab { font-size: clamp(18px, 3.2vh, 36px); }
+  body.modo-tv #urg-lista .slr-tab td { padding: 3.4vh 1vw; }
+  body.modo-tv #urg-lista .slr-barra { height: clamp(12px, 2.4vh, 26px); }
+  body.modo-tv .slr-resumo { font-size: clamp(14px, 2vh, 22px); margin: 0 0 1.6vh; gap: 1vh 2.4vw; }
+  body.modo-tv .slr-resumo b { font-size: clamp(22px, 3.6vh, 40px); }
+  body.modo-tv .slr-tab td { padding: 1.6vh .8vw; }
+  body.modo-tv .slr-nome { font-size: clamp(15px, 2.2vh, 24px); gap: .8vw; }
+  body.modo-tv .slr-av { width: clamp(30px, 4.2vh, 46px); height: clamp(30px, 4.2vh, 46px); font-size: clamp(11px, 1.5vh, 16px); }
+  body.modo-tv .slr-sla .pct { font-size: clamp(20px, 3.2vh, 36px); }
+  body.modo-tv .slr-sla .det, body.modo-tv .slr-imp .b, body.modo-tv .slr-meu .b { font-size: clamp(12px, 1.7vh, 19px); }
+  body.modo-tv .slr-barra { height: clamp(9px, 1.4vh, 15px); }
+  body.modo-tv .slr-pend b.t { font-size: clamp(20px, 3vh, 34px); }
+  body.modo-tv .slr-chip { font-size: clamp(12px, 1.7vh, 19px); padding: .3vh .7vw; }
+  body.modo-tv .slr-imp .a, body.modo-tv .slr-meu .a { font-size: clamp(17px, 2.6vh, 30px); }
+  /* Bolinhas e rótulo do quadro maiores */
+  body.modo-tv .tv-bolhas { padding: 1vh 1.2vw; gap: .8vw; bottom: 1.6vh; right: 1.6vw; }
+  body.modo-tv .tv-bolhas .rot { font-size: clamp(13px, 1.9vh, 22px); }
+  body.modo-tv .tv-bolha { width: clamp(12px, 1.8vh, 20px); height: clamp(12px, 1.8vh, 20px); }
+  body.modo-tv .tv-bolha.ativa { width: clamp(34px, 5vh, 56px); }
+  body.modo-tv .tv-pausa { font-size: clamp(14px, 2vh, 22px); }
+  /* Impacto no SLA do próprio analista (vale na tela normal e na TV) */
+  .slr-meu { display:grid; gap:4px; min-width:200px; }
+  .slr-meu .a { font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .slr-meu .a.down { color:var(--danger,#b3263a); } .slr-meu .a.up { color:var(--success,#0b7a55); } .slr-meu .a.zero { color:var(--t3); }
+  .slr-meu .l { display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap; }
+  .slr-meu .b { font-size:12px; color:var(--t3); }
   @media (max-width: 760px) { body { padding: 14px; } .tv-head h1 { font-size: 24px; } .tv-page .stat-card .value { font-size: 44px; } }
 </style>
 <link rel="stylesheet" href="../css/v2.css">
@@ -318,7 +395,7 @@
         </div>
         <div class="slr-resumo" id="slr-resumo"></div>
         <div class="rolagem slr-scroll" id="slr-lista"><p class="imp-vazio">Carregando…</p></div>
-        <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo.</p>
+        <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo. Impacto no SLA dele = quanto o SLA do próprio analista desce se os pendentes vencidos fecharem fora do prazo, e sobe se os pendentes no prazo fecharem no prazo; pausados e sem prazo ficam fora da conta.</p>
       </div>
     </div>
   </div>
@@ -351,6 +428,9 @@ async function api(ep,timeoutMs=60000){
   } finally { clearTimeout(t); }
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+// Visão TV (body.modo-tv): tamanho em px proporcional à altura da tela (vh), entre um mínimo e um máximo.
+const ehTV=()=>document.body.classList.contains('modo-tv');
+const tvPx=(vh,min,max)=>Math.round(Math.max(min,Math.min(max,window.innerHeight*vh/100)));
 function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
 
 const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
@@ -516,10 +596,11 @@ async function loadPainelTV(){
     if(_verticalSlug&&!_verticalNome){ const r=_rowsAll.find(x=>slugV(servico1(x))===_verticalSlug); if(r) _verticalNome=servico1(r); }
     _hojeAll=resp.hoje||[];
     aplicarFiltro();
-    render();
+    // mostra e ajusta a altura ANTES de desenhar: na TV os gráficos ocupam a altura medida do quadro
     document.getElementById('tv-content').style.display='block';
     document.getElementById('tv-updated').classList.remove('erro');
     if(typeof ajustarAlturaCarrossel==='function') ajustarAlturaCarrossel();
+    render();
     await carregarFrescor();
     atualizarNota();
     carregarSlaResponsaveis();
@@ -563,8 +644,9 @@ function donutTv(id,itens){
   const centro={id:'centroRosca',afterDraw(ch){
     const {ctx,chartArea:a}=ch, x=(a.left+a.right)/2, y=(a.top+a.bottom)/2;
     ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle=t1; ctx.font='800 34px Manrope,system-ui,sans-serif'; ctx.fillText(total.toLocaleString('pt-BR'),x,y-8);
-    ctx.fillStyle=t3; ctx.font='600 13px Manrope,system-ui,sans-serif'; ctx.fillText('pendentes',x,y+20); ctx.restore(); }};
+    const fN=ehTV()?tvPx(9,34,100):34, fL=ehTV()?tvPx(2.6,13,30):13;
+    ctx.fillStyle=t1; ctx.font=`800 ${fN}px Manrope,system-ui,sans-serif`; ctx.fillText(total.toLocaleString('pt-BR'),x,y-fL*.6);
+    ctx.fillStyle=t3; ctx.font=`600 ${fL}px Manrope,system-ui,sans-serif`; ctx.fillText('pendentes',x,y+fN*.55); ctx.restore(); }};
   _prazoChart=new Chart(cv,{type:'doughnut',
     data:{labels:itens.map(i=>i.label),datasets:[{data:itens.map(i=>i.valor),backgroundColor:itens.map(i=>i.cor),borderWidth:0,borderRadius:10,spacing:3}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'76%',plugins:{legend:{display:false}},
@@ -579,24 +661,27 @@ function renderTeamChart(){
   });
   const entries=Object.entries(porEquipe).sort((a,b)=>b[1]-a[1]).slice(0,30);
   const cv=document.getElementById('teamChart'), wrap=cv.parentElement;
-  wrap.style.height=Math.max(220,entries.length*38+24)+'px';
+  const tv=ehTV(), fTick=tv?tvPx(2.5,15,30):14, fVal=tv?tvPx(2.8,15,32):14;
+  // TV: as barras ocupam a altura do quadro (espessura com teto); com muitas equipes, a lista rola sozinha
+  const alturaUtil=tv?(wrap.parentElement.clientHeight||0)-6:0;
+  wrap.style.height=(tv?Math.max(alturaUtil,entries.length*tvPx(6.5,44,76)):Math.max(220,entries.length*38+24))+'px';
   const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2');
   const valores={id:'valoresBarras',afterDatasetsDraw(ch){
-    const c=ch.ctx; c.save(); c.font='800 14px Manrope,system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=cs('--t1');
+    const c=ch.ctx; c.save(); c.font=`800 ${fVal}px Manrope,system-ui,sans-serif`; c.textBaseline='middle'; c.fillStyle=cs('--t1');
     ch.getDatasetMeta(0).data.forEach((b,i)=>c.fillText(Number(entries[i][1]).toLocaleString('pt-BR'),b.x+8,b.y)); c.restore(); }};
   if(_teamChart) _teamChart.destroy();
   _teamChart=new Chart(cv, {
     type: 'bar',
-    data: { labels: entries.map(e=>e[0]), datasets: [{ data: entries.map(e=>e[1]), backgroundColor: '#ff8a2b', borderRadius: 8, barPercentage: .7, categoryPercentage: .85 }] },
+    data: { labels: entries.map(e=>e[0]), datasets: [{ data: entries.map(e=>e[1]), backgroundColor: '#ff8a2b', borderRadius: 8, barPercentage: .7, categoryPercentage: .85, maxBarThickness: tv?tvPx(6,30,72):undefined }] },
     plugins: [valores],
     options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { right: 48 } },
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { right: tv?fVal*4:48 } },
       onClick: (e, els) => { if (els.length) abrirModal({ equipe: entries[els[0].index][0] }); },
       onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
       plugins: { legend: { display: false } },
       scales: {
         x: { display: false, beginAtZero: true },
-        y: { grid: { display: false }, border: { display: false }, ticks: { color: t2, font: { size: 14, weight: '700' } } }
+        y: { grid: { display: false }, border: { display: false }, ticks: { color: t2, font: { size: fTick, weight: '700' } } }
       }
     }
   });
@@ -658,20 +743,22 @@ function renderPessoaChart(){
   const maxSemDono=Math.max(0,...nomes.filter(semDono).map(n=>por[n].t));
   const escalaMax=maxSemDono>maxPessoas*1.25?Math.ceil(maxPessoas*1.2):undefined;   // só corta se for realmente discrepante
   const cv=document.getElementById('pessoaChart'), wrap=document.getElementById('pessoaWrap');
-  wrap.style.height=Math.max(220,nomes.length*34+30)+'px';
+  const tv=ehTV(), fTick=tv?tvPx(2.2,14,26):13, fVal=tv?tvPx(2.4,14,28):14;
+  const alturaUtil=tv?(wrap.parentElement.clientHeight||0)-6:0;
+  wrap.style.height=(tv?Math.max(alturaUtil,nomes.length*tvPx(5,36,58)):Math.max(220,nomes.length*34+30))+'px';
   const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2'), t1=cs('--t1');
   const defs=[['Vencido','#ee6f82'],['Pausado','#f2b24a'],['Sem Prazo','#a6adbf'],['No Prazo','#2fbf8a']];
-  const total={id:'totalPessoa',afterDatasetsDraw(ch){ const c=ch.ctx; c.save(); c.font='800 14px Manrope,system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=t1;
+  const total={id:'totalPessoa',afterDatasetsDraw(ch){ const c=ch.ctx; c.save(); c.font=`800 ${fVal}px Manrope,system-ui,sans-serif`; c.textBaseline='middle'; c.fillStyle=t1;
     const last=ch.getDatasetMeta(ch.data.datasets.length-1).data, dir=ch.chartArea.right;
     last.forEach((b,i)=>{ const cortada=escalaMax&&por[nomes[i]].t>escalaMax; c.fillText((cortada?'▸ ':'')+por[nomes[i]].t.toLocaleString('pt-BR'),Math.min(b.x,dir)+8,b.y); }); c.restore(); }};
   if(_pessoaChart) _pessoaChart.destroy();
   _pessoaChart=new Chart(cv,{type:'bar',
-    data:{labels:nomes.map(rotuloPessoa),datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9}))},
+    data:{labels:nomes.map(rotuloPessoa),datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9,maxBarThickness:tv?tvPx(4,22,44):undefined}))},
     plugins:[total],
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48}},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:tv?fVal*3.5:48}},
       onClick:(e,els)=>{ if(els.length) abrirModal({pessoa:nomes[els[0].index],prazo:defs[els[0].datasetIndex][0]}); },
       onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },plugins:{legend:{display:false}},
-      scales:{x:{display:false,stacked:true,beginAtZero:true,max:escalaMax},y:{stacked:true,grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:13,weight:'700'}}}}}});
+      scales:{x:{display:false,stacked:true,beginAtZero:true,max:escalaMax},y:{stacked:true,grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:fTick,weight:'700'}}}}}});
 }
 function renderUrgencia(){
   const por={};
@@ -760,8 +847,10 @@ document.querySelectorAll('[data-card]').forEach(el=>{ el.setAttribute('role','b
 
 function renderTable(){
   const tbody=document.getElementById('tv-table-body');
-  const top=[..._rows].sort((a,b)=>idadeMs(b)-idadeMs(a));
-  const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=`(${top.length.toLocaleString('pt-BR')} chamados)`;
+  const todos=[..._rows].sort((a,b)=>idadeMs(b)-idadeMs(a));
+  // TV: só os 40 mais antigos (a lista rola sozinha; os 300+ não caberiam no tempo do quadro)
+  const LIM_TV=40, top=ehTV()?todos.slice(0,LIM_TV):todos;
+  const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=top.length<todos.length?`(${top.length} mais antigos de ${todos.length.toLocaleString('pt-BR')})`:`(${todos.length.toLocaleString('pt-BR')} chamados)`;
   tbody.innerHTML=top.length?top.map(linhaHtml).join(''):`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`;
   if(_modalSel) abrirModal(_modalSel);   // atualização automática: mantém o modal aberto com dados novos
 }
@@ -811,7 +900,21 @@ function renderSlaResponsaveis(rows,per){
   const lista=document.getElementById('slr-lista');
   if(!itens.length){ lista.innerHTML='<p class="imp-vazio">Nenhum chamado de Suporte Técnico neste filtro.</p>'; return; }
   const corPct=p=>p==null?'var(--t3)':p>=90?'var(--success)':p>=80?'var(--warning)':'var(--danger)';
-  lista.innerHTML=`<table class="slr-tab"><thead><tr><th>Analista</th><th>SLA (resolvidos)</th><th>Pendentes</th><th>Impacto no SLA do time</th></tr></thead><tbody>`+
+  // Impacto no SLA DO ANALISTA: d dentro, f fora (resolvidos com prazo), v vencidos e np no prazo (pendentes).
+  // ▼ se os vencidos fecharem fora: d/(d+f+v); ▲ se os no prazo fecharem no prazo: (d+np)/(d+f+np). Pausados ficam fora.
+  const meuImpacto=r=>{
+    const d=r.dentro, tot=r.dentro+r.fora, v=r.vencidos||0, np=r.no_prazo||0;
+    const base=tot?d/tot*100:null;
+    const desce=v?(d/(tot+v)*100-(base??0)):0, sobe=np?((d+np)/(tot+np)*100-(base??0)):0;
+    const pl=(n,s,p)=>`${n} ${n>1?p:s}`;
+    if(base==null) return '<span class="b">sem resolvidos com prazo no período</span>';
+    const tv=ehTV();
+    const linha=(cls,txt,det)=>`<div class="l"><span class="a ${cls}">${txt}</span><span class="b">${det}</span></div>`;
+    return (v?linha('down',`▼ −${fmt(Math.abs(desce))} pp`,tv?pl(v,'vencido','vencidos'):`se ${pl(v,'vencido fechar','vencidos fecharem')} fora do prazo`)
+             :linha('zero','▼ 0,0 pp','sem vencidos'))
+      +(np?linha('up',`▲ +${fmt(sobe)} pp`,tv?pl(np,'no prazo','no prazo'):`se ${pl(np,'no prazo fechar','no prazo fecharem')} no prazo`):'');
+  };
+  lista.innerHTML=`<table class="slr-tab"><thead><tr><th>Analista</th><th>SLA (resolvidos)</th><th>Pendentes</th><th>Impacto no SLA dele</th><th>Impacto no SLA do time</th></tr></thead><tbody>`+
     itens.map(r=>`<tr data-resp="${escAttr(r.responsavel)}" style="cursor:pointer" title="Ver os pendentes deste analista">
       <td><div class="slr-nome"><span class="slr-av" style="background:${corAvatar(r.responsavel)}">${esc(iniciais(r.responsavel))}</span>${esc(r.responsavel)}</div></td>
       <td><div class="slr-sla">
@@ -824,8 +927,9 @@ function renderSlaResponsaveis(rows,per){
         ${r.pausados?`<span class="slr-chip w">${r.pausados} pausado${r.pausados>1?'s':''}</span>`:''}
         ${r.sem_prazo?`<span class="slr-chip n">${r.sem_prazo} sem prazo</span>`:''}
         ${!r.pendentes?'<span class="slr-chip n">nenhum</span>':''}</div></td>
+      <td><div class="slr-meu">${meuImpacto(r)}</div></td>
       <td><div class="slr-imp"><span class="a ${r.impReal<0.05?'zero':''}">${r.impReal<0.05?'0,0 pp':'−'+fmt(r.impReal)+' pp'}</span>
-        <span class="b">${r.vencidos?`e mais −${fmt(r.impVenc)} pp se ${r.vencidos>1?`os ${r.vencidos} vencidos fecharem`:'o vencido fechar'} fora do prazo`:'sem vencidos que pesem'}</span></div></td>
+        <span class="b">${r.vencidos?(ehTV()?`e mais −${fmt(r.impVenc)} pp com os vencidos`:`e mais −${fmt(r.impVenc)} pp se ${r.vencidos>1?`os ${r.vencidos} vencidos fecharem`:'o vencido fechar'} fora do prazo`):'sem vencidos que pesem'}</span></div></td>
     </tr>`).join('')+`</tbody></table>`;
   document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}${_equipeSel?` — equipe "${_equipeSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.`;
 }
@@ -889,14 +993,37 @@ function irPara(i,manual){
   atualizarBolhas();
   if(manual) agendarCarrossel();   // mexeu no controle/bolinha: o tempo do quadro recomeça
 }
-function agendarCarrossel(){
-  clearInterval(CARR.timer);
-  CARR.timer=setInterval(()=>{
-    if(CARR.pausado||document.getElementById('tv-modal').style.display==='flex') return;   // não troca com a lista aberta
-    irPara(CARR.atual+1,false);
-  },CARR.seg*1000);
+// TV: quadro com lista maior que a tela rola sozinho (pausa de 4 s no topo, desce em até 45 s, pausa de 4 s no fim) e
+// fica na tela o tempo necessário para isso (no mínimo CARR.seg). Fora da TV, quem rola é a pessoa.
+const ROL={raf:0};
+const rolagemDo=sl=>[...sl.el.querySelectorAll('.rolagem,.table-wrap')].find(e=>e.scrollHeight>e.clientHeight+4)||null;
+const tempoRolar=r=>Math.min(45000,Math.max(6000,(r.scrollHeight-r.clientHeight)/70*1000));   // ~70 px/s
+function duracaoSlide(sl){ const r=ehTV()&&rolagemDo(sl); return r?Math.max(CARR.seg*1000,8000+tempoRolar(r)):CARR.seg*1000; }
+function iniciarRolagem(sl){
+  cancelAnimationFrame(ROL.raf);
+  CARR.slides.forEach(x=>x.el.querySelectorAll('.rolagem,.table-wrap').forEach(e=>{ e.scrollTop=0; }));
+  const r=ehTV()&&rolagemDo(sl); if(!r) return;
+  const dur=tempoRolar(r); let t0=performance.now()+4000, ult=performance.now();
+  const passo=t=>{
+    if(CARR.pausado) t0+=t-ult;   // pausado: a rolagem também para
+    ult=t;
+    const k=Math.min(1,Math.max(0,(t-t0)/dur));
+    r.scrollTop=k*(r.scrollHeight-r.clientHeight);
+    if(k<1) ROL.raf=requestAnimationFrame(passo);
+  };
+  ROL.raf=requestAnimationFrame(passo);
 }
-function alternarPausa(){ CARR.pausado=!CARR.pausado; atualizarBolhas(); if(!CARR.pausado) agendarCarrossel(); }
+function agendarCarrossel(){
+  clearTimeout(CARR.timer);
+  const sl=CARR.slides[CARR.atual]; if(!sl) return;
+  iniciarRolagem(sl);
+  const tick=()=>{
+    if(CARR.pausado||document.getElementById('tv-modal').style.display==='flex'){ CARR.timer=setTimeout(tick,2000); return; }   // não troca com a lista aberta
+    irPara(CARR.atual+1,true);
+  };
+  CARR.timer=setTimeout(tick,duracaoSlide(sl));
+}
+function alternarPausa(){ CARR.pausado=!CARR.pausado; atualizarBolhas(); if(!CARR.pausado){ clearTimeout(CARR.timer); CARR.timer=setTimeout(()=>irPara(CARR.atual+1,true),CARR.seg*1000); } }   // pausado: timer e rolagem esperam; ao retomar, o quadro fica mais CARR.seg
 // Teclas do controle da TV (os navegadores de Smart TV mandam setas; alguns também Canal +/−, mídia e OK=Enter).
 document.addEventListener('keydown',e=>{
   if(document.getElementById('tv-modal').style.display==='flex') return;          // lista aberta: teclas são dela
