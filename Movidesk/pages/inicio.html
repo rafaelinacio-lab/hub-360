@@ -91,6 +91,9 @@ svg{display:block;flex:none}
 @media (max-width:760px){.grid.g5,.grid.g6{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.g5 > .card:last-child{grid-column:span 2}}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 20px 16px;box-shadow:var(--sh-sm);
   display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.clicavel{cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+.card.clicavel:hover{transform:translateY(-2px);box-shadow:var(--sh-md,0 8px 22px rgba(0,0,0,.12));border-color:var(--t3)}
+.card.clicavel:focus-visible{outline:2px solid var(--t2);outline-offset:2px}
 .card .lbl{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;color:var(--t2)}
 .ico{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--surface-mid);color:var(--t2)}
 .card .val{font-family:'Manrope',sans-serif;font-weight:800;font-size:36px;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
@@ -319,9 +322,11 @@ function renderMeu(d){
   if (Array.isArray(m.porEquipe) && m.porEquipe.length > 1) {
     el.innerHTML = `<div class="sec-head"><div><h2>Seu resumo</h2><p>Os chamados atribuídos a você, por equipe (${m.porEquipe.length} equipes)</p></div></div>`
       + m.porEquipe.map((x) => `<p style="margin:14px 0 8px;font-weight:600">${esc(x.equipe)}</p>${cartoes(x)}`).join('');
+    tornarClicaveis(el);
     return;
   }
   el.innerHTML = `<div class="sec-head"><div><h2>Seu resumo</h2><p>Os chamados atribuídos a você</p></div></div>${cartoes(m)}`;
+  tornarClicaveis(el);
 }
 
 function renderEquipe(d){
@@ -342,6 +347,7 @@ function renderEquipe(d){
         <div class="vs-bar" aria-hidden="true"><i class="a" style="width:${pa}%"></i><i class="f" style="width:${100 - pa}%"></i></div></div>
       ${card(I.escudo, 'SLA do mês', pct(q.slaMes), (num(q.baseSlaMes) > 0) ? `sobre ${nf(q.baseSlaMes)} resolvidos com meta` : 'ainda sem resolvidos com meta', 'orange', deltaPp(q.slaMes, q.slaMesAnterior))}
     </div>`;
+  tornarClicaveis(el);
   el.querySelectorAll('[data-esc]').forEach((b) => b.addEventListener('click', () => trocarEscopo(b.dataset.esc)));
 }
 
@@ -374,6 +380,14 @@ function renderExtras(d){
   el.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => navegar(b.dataset.aba)));
 }
 
+// Cards do resumo abrem o Dashboard (clique ou Enter/Espaço). Só vale dentro do shell, que confere se o perfil vê a aba.
+function tornarClicaveis(el){
+  el.querySelectorAll('.card').forEach((c) => {
+    c.classList.add('clicavel'); c.setAttribute('role', 'button'); c.tabIndex = 0; c.title = 'Abrir o Dashboard';
+    c.addEventListener('click', () => navegar('dashboard'));
+    c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); navegar('dashboard'); } });
+  });
+}
 // Abre a aba no shell (index.html): a página embutida avisa o pai, que valida e navega.
 function navegar(aba){
   try { if (window.parent && window.parent !== window) window.parent.postMessage({ tipo: 'navegar', view: aba }, location.origin); } catch (_) {}
