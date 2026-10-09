@@ -277,9 +277,13 @@ router.get('/frescor-tv', acessoPainelTv, async (req, res) => {
 // Saldo de horas técnicas (crédito da Política de SLA) por organização, para o Painel Geral mostrar ao lado do cliente.
 router.get('/horas-tecnicas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
-    const saldos = await require('../utils/slaHorasCore').saldosPorCliente();
+    const core = require('../utils/slaHorasCore');
+    const saldos = await core.saldosPorCliente();
+    // escopo por vertical: só os clientes com chamado da vertical do usuário (admin e perfil sem vertical: todos, sem consulta extra)
+    const esc = await escopoVertical(req.user.id);
+    const ids = esc.filtrar ? (await core.orgsDoEscopo(esc)).ids : null;
     const out = {};
-    for (const [id, s] of Object.entries(saldos)) if (s.disponivel > 0 || s.concedido > 0) out[id] = { h: s.disponivel, c: s.concedido, u: s.usado, e: s.expirado, v: s.aVencer ? s.aVencer.validade : null, vh: s.aVencer ? s.aVencer.horas : 0, l: s.creditos || [] };
+    for (const [id, s] of Object.entries(saldos)) if ((!ids || ids.has(String(id))) && (s.disponivel > 0 || s.concedido > 0)) out[id] = { h: s.disponivel, c: s.concedido, u: s.usado, e: s.expirado, v: s.aVencer ? s.aVencer.validade : null, vh: s.aVencer ? s.aVencer.horas : 0, l: s.creditos || [] };
     res.json({ saldos: out });
   } catch (e) {
     if (e.code === '42P01') return res.json({ saldos: {} });

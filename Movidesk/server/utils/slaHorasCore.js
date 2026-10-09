@@ -39,6 +39,7 @@ async function carregarChamados(competencia, cfg) {
   const fim = `${prox}-01T00:00:00-03:00`;
   const tk = (await db.query(`
     SELECT t.ticket_id::text AS id, t.subject, t.createddate AS criado_em, COALESCE(t.resolved_in, t.closed_in) AS encerrado_em, t.urgency AS urgencia,
+           t.service_full AS servico, t.ownerteam AS equipe,   -- só para o escopo de vertical (utils/verticalScope.js); não entram na apuração
            o.organizacao_id, COALESCE(NULLIF(btrim(o.organizacao_nome), ''), 'Sem organização') AS organizacao_nome
       FROM silver.ticket t
       JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
@@ -236,4 +237,30 @@ async function saldosPorCliente() {
   return out;
 }
 const invalidarSaldos = () => { _saldosCache = { em: 0, valor: null }; };
-module.exports = { repararAutores, estadoReparo, prepararTabelas, lerConfig, lerConfigEmCache, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, lerStatus, primeiroDiaSeguinte };
+
+// ── Escopo por vertical (regra única dos painéis) ─────────────────────────────────────────────────────────
+// A apuração e os créditos são POR CLIENTE (cumprimento global do cliente): nada é recalculado por vertical. O que se filtra é
+// QUAIS CLIENTES o usuário enxerga — quem tem vertical atribuída vê só os clientes com ao menos um chamado cuja vertical
+// (1º nível do serviço; sem serviço, equipe que contém o nome) pertence ao escopo, com os números oficiais e completos.
+// `esc` = resultado de escopoVertical(). Devolve { ids:Set(organizacao_id), nomes:Set(nome sem acento) }. Cache de 2 min por escopo.
+const _escopoOrgs = new Map();
+const TR_ACENTO = (x) => `translate(lower(${x}), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc')`;
+async function orgsDoEscopo(esc) {
+  const vs = require('./verticalScope');
+  const alvos = [...new Set(((esc && esc.verticais) || []).map(vs.norm).filter(Boolean))].sort();
+  if (!alvos.length) return { ids: new Set(), nomes: new Set() };
+  const chave = alvos.join('|'), hit = _escopoOrgs.get(chave);
+  if (hit && Date.now() - hit.em < 2 * 60 * 1000) return hit.v;
+  const r = await db.query(`
+    SELECT DISTINCT o.organizacao_id::text AS id, o.organizacao_nome AS nome
+      FROM silver.ticket t JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
+     WHERE o.organizacao_id IS NOT NULL
+       AND (${TR_ACENTO(`btrim(split_part(coalesce(t.service_full, ''), ' > ', 1))`)} = ANY($1::text[])
+            OR (btrim(split_part(coalesce(t.service_full, ''), ' > ', 1)) = ''
+                AND EXISTS (SELECT 1 FROM unnest($1::text[]) v WHERE ${TR_ACENTO(`coalesce(t.ownerteam, '')`)} LIKE '%' || v || '%')))`, [alvos]);
+  const v = { ids: new Set(r.rows.map((x) => x.id)), nomes: new Set(r.rows.map((x) => P.semAcento(x.nome)).filter(Boolean)) };
+  if (_escopoOrgs.size >= 20) _escopoOrgs.delete(_escopoOrgs.keys().next().value);
+  _escopoOrgs.set(chave, { em: Date.now(), v });
+  return v;
+}
+module.exports = { repararAutores, estadoReparo, prepararTabelas, lerConfig, lerConfigEmCache, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, orgsDoEscopo, lerStatus, primeiroDiaSeguinte };
