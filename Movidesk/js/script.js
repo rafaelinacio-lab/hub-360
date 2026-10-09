@@ -20,6 +20,7 @@ const URL_PARAMS = new URLSearchParams(window.location.search);
 const LEGACY_VIEW = URL_PARAMS.get('legacyView') || '';
 const EMBED_MODE = !LEGACY_VIEW;
 const EMBED_PAGE_ROUTES = {
+    inicio: 'pages/inicio.html',
     dashboard: 'pages/dashboard.html',
     chamados: 'pages/curadoria.html',
     configuracoes: 'pages/configuracoes.html',
@@ -41,6 +42,7 @@ const PERSIANA_MIN_MS = 450;
 let _persianaAtiva = false, _persianaVigia = 0, _persianaT0 = 0;
 function persianaAbrir() { _persianaAtiva = false; clearTimeout(_persianaVigia); if (window.HubModload) window.HubModload.hide(); }
 function playTabIconTransition(view) {
+    if (window.HubModload && window.HubModload.NAMES && !window.HubModload.NAMES.inicio) window.HubModload.NAMES.inicio = 'Início';   // nome na persiana
     if (!window.HubModload || !window.HubModload.show(view, PERSIANA_MIN_MS)) return;
     _persianaAtiva = true; _persianaT0 = Date.now();
     clearTimeout(_persianaVigia);
@@ -108,6 +110,13 @@ function loadEmbeddedPage(view) {
 window.addEventListener('message', (ev) => {
     const frame = document.getElementById('embeddedPageFrame');
     if (!frame || ev.source !== frame.contentWindow || ev.origin !== location.origin) return;
+    // Tela Início: o atalho pede para abrir uma aba. Só abre aba que existe e cujo botão do menu está visível ao perfil.
+    if (ev.data && ev.data.tipo === 'navegar') {
+        const view = String(ev.data.view || '').trim().toLowerCase();
+        const btn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
+        if (EMBED_PAGE_ROUTES[view] && btn && btn.style.display !== 'none') navigateTo(view);
+        return;
+    }
     if (!ev.data || ev.data.tipo !== 'hub360:menu-oculto') return;
     document.body.classList.toggle('nav-oculta', !!ev.data.oculto);
 });
@@ -702,8 +711,18 @@ async function initializeApp() {
         });
         initTopbarHoverPill();
 
+        // Primeira abertura da sessão (logo após o login): tela Início, inclusive para guest. Nas recargas seguintes da
+        // mesma sessão vale a última aba (guest volta ao Dashboard, a única que ele acessa).
+        // A flag guarda o token da sessão: um novo login (token novo) volta a abrir no Início mesmo na mesma aba.
+        let primeiraAbertura = false;
+        try {
+            const marca = localStorage.getItem('token') || 'sem-token';
+            primeiraAbertura = sessionStorage.getItem('hubInicioAberto') !== marca;
+            sessionStorage.setItem('hubInicioAberto', marca);
+        } catch (_) {}
         const savedView = localStorage.getItem('activeEmbeddedView') || 'dashboard';
-        const startView = (isCurrentUserGuest() || !EMBED_PAGE_ROUTES[savedView]) ? 'dashboard' : savedView;
+        const startView = primeiraAbertura ? 'inicio'
+            : ((isCurrentUserGuest() || !EMBED_PAGE_ROUTES[savedView]) ? 'dashboard' : savedView);
         navigateTo(startView);
 
         const logoutBtn = document.getElementById('logoutBtn');
