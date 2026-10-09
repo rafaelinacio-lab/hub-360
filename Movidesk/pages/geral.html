@@ -2268,42 +2268,34 @@ function renderImpactoGrupos(){
 // % de tickets resolvidos no mês cujo tempo de solução líquido ficou dentro da
 // meta da própria urgência (META_SOLUCAO_H). Só entram tickets com urgência
 // Crítica/Alta/Média/Baixa ("elegíveis"). Mesmo tempo da análise de impacto.
-let _slaEvoSeq=0;
+let _slaEvoSeq=0, _slaEvoDados=null;
 async function renderSlaEvolucao(rows){
   const seq=++_slaEvoSeq;
   const status=document.getElementById('sla-evo-status');
   const kpis=document.getElementById('sla-evo-kpis');
   const ult=document.getElementById('sla-evo-ult');
   if(!kpis||!ult) return;
-  // Segue o filtro de Ano/Mês: com "Setembro" marcado, só setembro (Último/Melhor mês e Base são do período filtrado).
-  // A variação "vs. mês anterior" compara com o mês de calendário anterior ao último exibido, mesmo fora do filtro.
-  const mesesFil=getMsValues('f-month').map(Number);
-  const chaves=mesesDoPeriodo(bucketPorMes(rows)).filter(mk=>!mesesFil.length||mesesFil.includes(Number(mk.slice(5,7))));
-  const mesAnt=mk=>{ const [y,m]=mk.split('-').map(Number); return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`; };
-  const chaveAnt=chaves.length?mesAnt(chaves[chaves.length-1]):null;
-  const noPeriodo=new Set(chaveAnt?[...chaves,chaveAnt]:chaves);
-  const elegiveis=rows.filter(r=>r.resolvido_em&&isResolvido(r)&&metaDe(r)!=null&&noPeriodo.has(monthKeyOf(r.resolvido_em)));
-  if(!elegiveis.length){
-    destroyChart('slaEvoChart'); kpis.innerHTML='';
-    ult.innerHTML='<span class="tv-eyebrow" style="margin:0">Último mês</span><b>—</b><small></small>';
-    if(status) status.textContent='Nenhum ticket elegível resolvido no período filtrado.';
-    return;
-  }
-  if(elegiveis.some(r=>!(r.ticket_id in _impactoMinutos)) && status) status.textContent='Calculando o tempo de solução líquido dos tickets…';
-  try{ await buscarMinutosLiquidos(elegiveis.map(r=>r.ticket_id)); }
-  catch(e){ if(seq===_slaEvoSeq&&status) status.textContent=`Não foi possível calcular o SLA: ${e.message}`; return; }
+  // Não segue os filtros: sempre os ÚLTIMOS 12 MESES (mês atual + 11), calculados no servidor (GET /geral/sla-evolucao),
+  // inclusive meses fora do ano carregado na tela. Só a vertical do perfil limita. A resposta fica 60 s em memória.
+  let evo;
+  try{
+    if(_slaEvoDados&&Date.now()-_slaEvoDados.em<60000) evo=_slaEvoDados.v;
+    else { if(status) status.textContent='Calculando a evolução dos últimos 12 meses…'; evo=await api('/geral/sla-evolucao',120000); _slaEvoDados={em:Date.now(),v:evo}; }
+  }catch(e){ if(seq===_slaEvoSeq&&status) status.textContent=`Não foi possível calcular o SLA: ${e.message}`; return; }
   if(seq!==_slaEvoSeq) return;
   if(status) status.textContent='';
-
+  const chaves=(evo.meses||[]).map(m=>m.mk);
+  const mesAnt=mk=>{ const [y,m]=mk.split('-').map(Number); return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`; };
+  if(!chaves.length){
+    destroyChart('slaEvoChart'); kpis.innerHTML='';
+    ult.innerHTML='<span class="tv-eyebrow" style="margin:0">Último mês</span><b>—</b><small></small>';
+    if(status) status.textContent='Sem chamados elegíveis resolvidos nos últimos 12 meses.';
+    return;
+  }
+  const linhasPorId={};
+  (evo.linhas||[]).forEach(r=>{ linhasPorId[r.ticket_id]=r; if(!(r.ticket_id in _rowsById)) _rowsById[r.ticket_id]=r; });
   const porMes={};
-  noPeriodo.forEach(mk=>{ porMes[mk]={dentro:0,total:0,fora:[]}; });
-  elegiveis.forEach(r=>{
-    const min=_impactoMinutos[r.ticket_id];
-    if(min==null) return;
-    const b=porMes[monthKeyOf(r.resolvido_em)];
-    b.total++;
-    if(min/60<=metaDe(r)) b.dentro++; else b.fora.push(r);
-  });
+  evo.meses.forEach(m=>{ porMes[m.mk]={dentro:m.dentro,total:m.total,fora:(m.fora||[]).map(id=>linhasPorId[id]).filter(Boolean)}; });
   const pct=chaves.map(mk=>porMes[mk].total?porMes[mk].dentro/porMes[mk].total*100:null);
   const comDado=chaves.map((mk,i)=>i).filter(i=>pct[i]!=null);
   if(!comDado.length){ destroyChart('slaEvoChart'); kpis.innerHTML=''; if(status) status.textContent='Sem dados de resolução para calcular o SLA.'; return; }
@@ -2316,7 +2308,7 @@ async function renderSlaEvolucao(rows){
 
   const [y0,m0]=chaves[0].split('-').map(Number);
   document.getElementById('sla-evo-sub').textContent=
-    `Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência (tempo de solução líquido em horas úteis), a partir de ${new Date(y0,m0-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}.`;
+    `Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência (tempo de solução líquido em horas úteis) — sempre os últimos 12 meses, sem depender dos filtros (desde ${new Date(y0,m0-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}).`;
   ult.innerHTML=`<span class="tv-eyebrow" style="margin:0">Último mês</span><b>${fmtP(pct[iU])}</b><small class="${dpp==null||dpp===0?'':dpp>0?'tv-bom':'tv-ruim'}">${dpp==null?'sem mês anterior':`${dpp>0?'↑ +':dpp<0?'↓ −':'→ '}${Math.abs(dpp).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp vs. mês anterior`}</small>`;
   kpis.innerHTML=
     `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Competências</span><b>${comDado.length}</b><small>meses com tickets elegíveis</small></div>`+

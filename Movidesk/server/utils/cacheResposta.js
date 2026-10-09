@@ -51,7 +51,7 @@ async function responder(req, res, chave, ttlMs, produzir) {
 // Os dados continuam sempre corretos: a invalidação por gravação segue valendo, só passa a ser refeita antes do próximo pedido.
 const USO_MS = 30 * 60 * 1000, CICLO_MS = 45 * 1000, FOLGA_MS = 20 * 1000;
 const registro = new Map();   // chave -> { ttlMs, produzir, ultimoUso }
-const AQUECIVEL = /^(geral:(?!todos)|pendentes)/;   // histórico completo e filtros avulsos (sla-resp…) não são refeitos sozinhos
+const AQUECIVEL = /^(geral:(?!todos)|pendentes|sla-evo:)/;   // histórico completo e filtros avulsos (sla-resp…) não são refeitos sozinhos
 function registrar(chave, ttlMs, produzir, usar = true) {
   if (!AQUECIVEL.test(chave)) return;
   const r = registro.get(chave);
