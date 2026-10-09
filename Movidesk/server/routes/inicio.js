@@ -136,7 +136,7 @@ async function carregarAbertos() {
   const r = await db.query(`
     SELECT t.ticket_id::text AS ticket_id, t.createddate AS criado_em, t.status AS status_movidesk, t.basestatus AS basestatus, t.urgency AS urgencia,
            t.ownerteam AS equipe, btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) AS servico,
-           COALESCE(NULLIF(t.owner_team, ''), t.ownerteam, '') AS equipe_escopo, lower(COALESCE(t.owneremail, '')) AS dono,
+           COALESCE(NULLIF(t.owner_team, ''), t.ownerteam, '') AS equipe_escopo, COALESCE(t.owner_id::text, '') AS dono,
            cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS sla_fora_cliente
       FROM silver.ticket t ${CLASSIF_JOIN} ${slaHub.sqlLateralClienteFora('t')}
      WHERE t.basestatus NOT IN (${FECHADOS_SQL})`);
@@ -166,7 +166,7 @@ async function foraSlaDe(ids) {
 async function carregarResolvidos(agoraMs) {
   const mes = new Date(inicioDoMes(agoraMs)), ant = new Date(inicioDoMes(agoraMs, -1));
   const hoje0 = new Date(`${diaDe(agoraMs)}T00:00:00-03:00`), hoje1 = new Date(hoje0.getTime() + 86400000);
-  const svc = `btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1))`, eq = `COALESCE(NULLIF(t.owner_team, ''), t.ownerteam, '')`, dono = `lower(COALESCE(t.owneremail, ''))`;
+  const svc = `btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1))`, eq = `COALESCE(NULLIF(t.owner_team, ''), t.ownerteam, '')`, dono = `COALESCE(t.owner_id::text, '')`;   // responsável pelo ID (o e-mail vem vazio/desatualizado em muitos chamados)
   const [sla, simples, fechados] = await Promise.all([
     // SLA (régua do Hub): chamados de Suporte Técnico com tempo líquido guardado (utils/slaLiquido.js), resolvidos desde o mês anterior
     db.query(`
@@ -257,12 +257,19 @@ function resumoEquipe(G, esc, alvos) {
     },
   };
 }
+// IDs de responsável (owner_id do Movidesk) do usuário: achados pelo e-mail em qualquer chamado dele; em cache 10 min.
+async function donoIds(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return [];
+  return comCache(`donoIds:${e}`, 10 * 60 * 1000, async () => (await db.query(
+    `SELECT DISTINCT owner_id::text AS id FROM silver.ticket WHERE lower(owneremail) = $1 AND owner_id IS NOT NULL`, [e])).rows.map((x) => x.id));
+}
 // Resumo DELE (também da base global: pelo e-mail do RESPONSÁVEL, sem filtrar pelo nome da equipe). Se ele atende chamados de mais
 // de uma equipe, vem também `porEquipe` com a visão de cada uma.
-function resumoDele(G, email, agoraMs) {
-  const e = String(email || '').toLowerCase();
-  const pend = e ? G.abertos.rows.filter((x) => x.dono === e) : [];
-  const res = e ? G.resolvidos.filter((g) => g.dono === e) : [];
+function resumoDele(G, ids, agoraMs) {
+  const meus = new Set(ids || []);
+  const pend = meus.size ? G.abertos.rows.filter((x) => meus.has(x.dono)) : [];
+  const res = meus.size ? G.resolvidos.filter((g) => meus.has(g.dono)) : [];
   const calc = (p, r) => {
     const mes = { base: soma(r, 'baseP', (g) => g.periodo === 'mes'), dentro: soma(r, 'dentroP', (g) => g.periodo === 'mes') };
     const ant = { base: soma(r, 'baseP', (g) => g.periodo === 'ant'), dentro: soma(r, 'dentroP', (g) => g.periodo === 'ant') };
@@ -284,16 +291,16 @@ function resumoDele(G, email, agoraMs) {
 
 // O que mudou desde a última visita: 1 consulta de contagens + o SLA do mês como estava na última visita (parte da tabela
 // pequena ticket_sla_liquido); os vencidos novos saem dos pendentes já carregados.
-async function mudancas(email, esc, alvos, G, equipe, agoraMs, anteriorMs) {
+async function mudancas(ids, esc, alvos, G, equipe, agoraMs, anteriorMs) {
   if (anteriorMs == null) return null;
-  const desde = new Date(anteriorMs), e = String(email || '').toLowerCase();
-  const params = alvos ? [desde, e, alvos] : [desde, e];
+  const desde = new Date(anteriorMs);
+  const params = alvos ? [desde, ids, alvos] : [desde, ids];
   const escSql = alvos ? ` AND ${sqlVertical('t', 3)}` : '';
   const [cont, slaAntes] = await Promise.all([
     db.query(`
       SELECT COUNT(*) FILTER (WHERE t.createddate > $1 AND cf.valor_texto = 'Suporte Técnico'${escSql})::int AS novos_equipe,
              COUNT(*) FILTER (WHERE t.resolved_in > $1 AND t.basestatus IN (${RESOLVIDOS_SQL}) AND cf.valor_texto = 'Suporte Técnico'${escSql})::int AS resolvidos_equipe,
-             COUNT(*) FILTER (WHERE t.createddate > $1 AND lower(t.owneremail) = $2)::int AS minha_fila
+             COUNT(*) FILTER (WHERE t.createddate > $1 AND t.owner_id::text = ANY($2::text[]))::int AS minha_fila
         FROM silver.ticket t ${CLASSIF_JOIN} WHERE t.createddate > $1 OR t.resolved_in > $1`, params),
     anteriorMs >= inicioDoMes(agoraMs) ? slaAteInstante(alvos, anteriorMs, agoraMs) : Promise.resolve(null),
   ]);
@@ -369,7 +376,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const visita = await secao('visita', () => calcularVisita(userId, agoraMs)) || { primeira: true, anterior: null, anteriorMs: null, diasDesde: null, sequencia: 1, ultimaAba: null };
     const G = await secao('base', () => globais(agoraMs));
-    const meuR = G ? await secao('meu', async () => resumoDele(G, u.email, agoraMs)) : null;
+    const meusIds = await secao('donoIds', () => donoIds(u.email)) || [];
+    const meuR = G ? await secao('meu', async () => resumoDele(G, meusIds, agoraMs)) : null;
     const equipeR = G ? await secao('equipe', async () => resumoEquipe(G, esc, alvos)) : null;
     const meu = meuR ? meuR.resumo : null;
 
@@ -389,7 +397,7 @@ router.get('/', authMiddleware, async (req, res) => {
     });
     const [atalhos, desde] = await Promise.all([
       secao('atalhos', () => atalhosDe(userId, papel)),
-      equipeR ? secao('desde', () => mudancas(u.email, esc, alvos, G, equipeR, agoraMs, visita.anteriorMs)) : null,
+      equipeR ? secao('desde', () => mudancas(meusIds, esc, alvos, G, equipeR, agoraMs, visita.anteriorMs)) : null,
     ]);
     const equipe = equipeR ? { rotulo: usarHub ? 'Todas as verticais' : verticais.join(', '), escopo: usarHub ? 'hub' : 'equipe', ...equipeR.resumo } : null;
     const sd = await pSaudacao;
