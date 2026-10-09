@@ -1479,16 +1479,19 @@ function renderCuradoriaGeralView() {
             <td class="py-2 px-3">${escapeHtml(o.seniorityLabel)}</td>
         </tr>`).join('');
 
-    const distributionList = (obj) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
+    // total (opcional): mostra "n · x%" — a parte de cada item no total (chamados ou atendentes do escopo).
+    const pctDe = (n, total) => total ? `${(n / total * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : '';
+    const comPct = (n, total) => total ? `${n} · ${pctDe(n, total)}` : `${n}`;
+    const distributionList = (obj, total) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
         <div class="flex justify-between items-center py-1.5 border-b border-outline-variant/20">
             <span class="text-sm">${escapeHtml(label)}</span>
-            <span class="text-sm font-bold">${count}</span>
+            <span class="text-sm font-bold">${comPct(count, total)}</span>
         </div>`).join('') || '<p class="text-on-surface-variant text-sm">Sem dados</p>';
 
-    const distributionPills = (obj) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
+    const distributionPills = (obj, total) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
         <div class="flex justify-between items-center gap-3">
             <span class="inline-flex items-center px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-medium">${escapeHtml(label)}</span>
-            <span class="inline-flex items-center justify-center min-w-[3rem] px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-semibold">${count}</span>
+            <span class="inline-flex items-center justify-center min-w-[3rem] px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-semibold">${comPct(count, total)}</span>
         </div>`).join('') || '<p class="text-on-surface-variant text-sm">Sem dados</p>';
 
     const slaColorStyle = t.teamSlaComplianceRate == null ? '' : t.teamSlaComplianceRate >= 90 ? 'color:#22c55e' : t.teamSlaComplianceRate >= 70 ? 'color:#f59e0b' : 'color:#ef4444';
@@ -1550,19 +1553,19 @@ function renderCuradoriaGeralView() {
         <div class="col-span-12 lg:col-span-4 grid grid-cols-1 gap-6">
             <div class="bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
                 <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Senioridade da Equipe</h3>
-                ${distributionList(t.seniorityCount)}
+                ${distributionList(t.seniorityCount, t.totalAtendentes)}
             </div>
             <div class="bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
                 <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Urgência dos Chamados</h3>
-                <div class="space-y-2.5">${distributionPills(t.urgenciaCount)}</div>
+                <div class="space-y-2.5">${distributionPills(t.urgenciaCount, t.totalChamados)}</div>
             </div>
         </div>
 
         <div class="col-span-12 lg:col-span-6 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
             <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Foco de Atendimento da Equipe</h3>
             <div class="space-y-4">
-                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Causa Mais Comum</span><span class="font-semibold">${t.causaMais ? escapeHtml(t.causaMais[0]) + ' (' + t.causaMais[1] + ' chamados)' : 'Sem dados'}</span></div>
-                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Módulo Mais Atendido</span><span class="font-semibold">${t.moduloMais ? escapeHtml(t.moduloMais[0]) + ' (' + t.moduloMais[1] + ' chamados)' : 'Sem dados'}</span></div>
+                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Causa Mais Comum</span><span class="font-semibold">${t.causaMais ? escapeHtml(t.causaMais[0]) + ' (' + t.causaMais[1] + ' chamados' + (t.totalChamados ? ' · ' + pctDe(t.causaMais[1], t.totalChamados) + ' do total' : '') + ')' : 'Sem dados'}</span></div>
+                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Módulo Mais Atendido</span><span class="font-semibold">${t.moduloMais ? escapeHtml(t.moduloMais[0]) + ' (' + t.moduloMais[1] + ' chamados' + (t.totalChamados ? ' · ' + pctDe(t.moduloMais[1], t.totalChamados) + ' do total' : '') + ')' : 'Sem dados'}</span></div>
             </div>
         </div>
 
@@ -2287,10 +2290,21 @@ function competenciaBadgeMeta(pct, count) {
 
 // Enriquece o card com dados da IA após renderização inicial
 // ── Renderiza cards de competências (compartilhado pelo render inicial e pelo enrich da IA)
+// Total de chamados no mesmo escopo do modal de competência (equipe no período da Visão Geral, ou o atendente aberto).
+function competenciaTotalEscopo(scope) {
+    if (scope === 'team') return filterRowsByPeriod(allRows, document.getElementById('curadoriaPeriodFilter')?.value || 'month').length;
+    return currentOwner ? allRows.filter(r => r.owner === currentOwner).length : 0;
+}
+
 function renderSingleCompCard(c, idx, catCount, aiResult, isLoading, scope = 'owner') {
     const count = catCount[c.key] || 0;
     const maxCat = Math.max(...PERF_CATEGORIES.map(x => (catCount[x.key]||0)), 1);
+    // pct = relativo à competência mais frequente: só para a régua da barra e o selo (critério de competenciaBadgeMeta).
+    // O número mostrado é "% dos chamados" (count ÷ chamados do escopo), o mesmo do modal — antes o relativo aparecia
+    // aqui e parecia ser % dos chamados.
     const pct = count > 0 ? Math.round((count / maxCat) * 100) : 0;
+    const totalEscopo = competenciaTotalEscopo(scope);
+    const pctChamados = totalEscopo ? Math.round((count / totalEscopo) * 100) : null;
     const { accentColor, bgColor, badgeLabel } = competenciaBadgeMeta(pct, count);
     const avgPct = !isLoading ? (aiResult?.[c.key]?.avgPct || 0) : 0;
     const evidenceHtml = (avgPct > 0)
@@ -2317,7 +2331,7 @@ function renderSingleCompCard(c, idx, catCount, aiResult, isLoading, scope = 'ow
             <div class="comp-card-bar-track">
                 <div class="comp-card-bar-fill" style="width:0%;background:${accentColor}" ${!isLoading ? `data-bar-width="${pct}"` : ''}></div>
             </div>
-            <span class="comp-card-pct" style="color:${accentColor}">${!isLoading && count > 0 ? pct+'%' : '—'}</span>
+            <span class="comp-card-pct" style="color:${accentColor}" title="% dos chamados${scope === 'team' ? ' da equipe' : ' do atendente'} em que a competência apareceu (a barra é relativa à competência mais frequente)">${!isLoading && count > 0 && pctChamados != null ? pctChamados+'% dos chamados' : '—'}</span>
         </div>
         <div class="comp-card-footer">
             <span class="comp-card-count">${count > 0 ? count+' chamado'+(count!==1?'s':'') : 'não identificado'}</span>
@@ -2522,6 +2536,7 @@ function renderFocusCard(owner, rows) {
                 <div>
                     <span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Causa Mais Atendida</span>
                     <span class="font-body-md text-body-md text-primary font-semibold ${causaMais?'group-hover:underline':''}">${causaMais?escapeHtml(causaMais[0]):'Sem dados'}</span>
+                    ${causaMais&&ownerRows.length?`<span class="block text-xs text-on-surface-variant mt-0.5">${(causaMais[1]/ownerRows.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos chamados</span>`:''}
                 </div>
             </div>
             <div class="flex gap-4 items-start ${moduloMais?'cursor-pointer group':''}" ${moduloMais?`onclick="${moduloOnclick}"`:''} title="${moduloMais?'Ver todos os módulos atendidos':''}">
@@ -2529,6 +2544,7 @@ function renderFocusCard(owner, rows) {
                 <div>
                     <span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Módulo Mais Atendido</span>
                     <span class="font-body-md text-body-md text-primary font-semibold ${moduloMais?'group-hover:underline':''}">${moduloMais?escapeHtml(moduloMais[0]):'Sem dados'}</span>
+                    ${moduloMais&&ownerRows.length?`<span class="block text-xs text-on-surface-variant mt-0.5">${(moduloMais[1]/ownerRows.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos chamados</span>`:''}
                 </div>
             </div>
         </div>
@@ -2718,7 +2734,7 @@ function renderSatisfactionCard(owner, rows) {
     const distHtml = [5, 4, 3, 2, 1].filter(n => distCount[n]).map(n => `
         <div class="flex items-center justify-between text-sm py-1 px-1 -mx-1 rounded cursor-pointer hover:bg-surface-container-low transition-colors" onclick="showSatisfactionModal(${n}, '${escapeHtml(owner)}')">
             <span>${SURVEY_NOTA_LABELS[n]}</span>
-            <span class="font-bold">${distCount[n]}</span>
+            <span class="font-bold">${distCount[n]} <span class="font-normal text-on-surface-variant">(${(distCount[n] / withSurvey.length * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)</span></span>
         </div>`).join('');
 
     const comments = withSurvey
@@ -3033,7 +3049,8 @@ function renderAnalysisCard(owner, rows) {
     const totalPositive=positiveCats.reduce((s,c)=>s+a.catCount[c.key],0);
     const compCards=PERF_CATEGORIES.map((c,idx)=>renderSingleCompCard(c,idx,a.catCount,null,true)).join('');
     const diffBadge=diffCount===0?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900 text-green-300">Nenhuma</span>`:diffCount<=2?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">${diffCount} ocorrência${diffCount>1?'s':''}</span>`:`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-900 text-red-300">${diffCount} ocorrências</span>`;
-    const diffPct=Math.round((diffCount/Math.max(totalPositive,1))*100);
+    // % das menções = dificuldades ÷ (dificuldades + menções positivas); antes dividia só pelas positivas (podia passar de 100%)
+    const diffPct=Math.round((diffCount/Math.max(diffCount+totalPositive,1))*100);
     const posHtml=a.positiveEvidenceDisplay.length?a.positiveEvidenceDisplay.map(g=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(g.reason)}${g.count>1?` <span class="text-xs text-on-surface-variant">(${g.count} chamados)</span>`:''}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
     const gapHtml=a.gapEvidenceDisplay.length?a.gapEvidenceDisplay.map(g=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-red-600">warning</span><span>${escapeHtml(g.reason)}${g.count>1?` <span class="text-xs text-on-surface-variant">(${g.count} chamados)</span>`:''}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem lacunas identificadas</li>';
     return `<div id="curadoria-analysis-card" class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">

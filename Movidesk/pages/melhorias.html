@@ -172,7 +172,7 @@ html[data-ui="v2"] .mel-side{display:flex;flex-direction:column;gap:20px;positio
 html[data-ui="v2"] .card{background:var(--surface);border-radius:20px;box-shadow:var(--shadow-card);padding:22px 24px}
 html[data-ui="v2"] .card h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.01em}
 html[data-ui="v2"] .card .sub2{margin:2px 0 16px;color:var(--t3);font-size:12.5px;font-weight:600}
-html[data-ui="v2"] .road{display:grid;grid-template-columns:132px minmax(0,1fr) 28px;align-items:center;gap:12px;width:100%;padding:8px 4px;border:0;border-radius:10px;background:transparent;color:var(--t1);text-align:left;cursor:pointer;font-size:13px;font-weight:700}
+html[data-ui="v2"] .road{display:grid;grid-template-columns:132px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:8px 4px;border:0;border-radius:10px;background:transparent;color:var(--t1);text-align:left;cursor:pointer;font-size:13px;font-weight:700}
 html[data-ui="v2"] .road:hover{background:var(--surface-low)}
 html[data-ui="v2"] .road .tr{height:9px;border-radius:999px;background:var(--surface-low);overflow:hidden}
 html[data-ui="v2"] .road .tr i{display:block;height:100%;border-radius:999px;background:var(--brand)}
@@ -306,7 +306,8 @@ function desenhar(){
   // barra lateral: roadmap por status + quantos apoios o usuário deu
   const total=Object.values(S.cont).reduce((a,b)=>a+b,0)||1, maxN=Math.max(1,...ordem.map(k=>S.cont[k]||0));
   const meus=S.lista.filter(m=>m.eu_votei).length;
-  $('melSide').innerHTML=`<section class="card"><h3>Roadmap</h3><p class="sub2">Sugestões por etapa · ${total===1&&!Object.keys(S.cont).length?0:total} no total</p>${ordem.map(k=>`<button type="button" class="road" data-st="${k}" aria-pressed="${S.status===k}"><span class="n">${esc(CFG.status[k])}</span><div class="tr"><i style="width:${((S.cont[k]||0)/maxN*100).toFixed(1)}%;background:${COR_ST[k]||'var(--brand)'}"></i></div><span class="v">${S.cont[k]||0}</span></button>`).join('')}</section>
+  const somaCont=Object.values(S.cont).reduce((a,b)=>a+b,0);   // "n · x%": parte de cada etapa no total (a barra segue relativa à maior)
+  $('melSide').innerHTML=`<section class="card"><h3>Roadmap</h3><p class="sub2">Sugestões por etapa · ${total===1&&!Object.keys(S.cont).length?0:total} no total</p>${ordem.map(k=>`<button type="button" class="road" data-st="${k}" aria-pressed="${S.status===k}"><span class="n">${esc(CFG.status[k])}</span><div class="tr"><i style="width:${((S.cont[k]||0)/maxN*100).toFixed(1)}%;background:${COR_ST[k]||'var(--brand)'}"></i></div><span class="v">${S.cont[k]||0}${somaCont?` <small style="font-weight:600">· ${((S.cont[k]||0)/somaCont*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</small>`:''}</span></button>`).join('')}</section>
     <section class="card inv"><div class="topoi"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></span>Seus apoios</div><div class="big">${meus}<small> sugestões</small></div><p>${S.status||S.area||S.tipo||S.q||S.meus?'Entre as sugestões da lista atual que você apoiou.':'Sugestões que você apoiou. Clique no número de cada cartão para apoiar ou remover.'}</p></section>`;
   if(!S.lista.length){ $('conteudo').innerHTML='<div class="vazio">Nenhuma sugestão encontrada. Seja o primeiro: clique em “Nova sugestão”.</div>'; return; }
   if(S.vista==='lista') $('conteudo').innerHTML=`<div class="lista">${S.lista.map(cartao).join('')}</div>`;
