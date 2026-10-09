@@ -11,6 +11,18 @@ const ALLOWED_VERTICALS = [
   'Supermercados','Tecnologia','Viabot','Voors'
 ];
 
+// Vertical pode ser uma LISTA ("Agronegócio; Construshow"): a tela marca várias e verticalScope.js também lê assim
+// (separador ; ou |). Valida cada uma contra ALLOWED_VERTICALS (sem diferenciar maiúscula/acento) e devolve a lista
+// normalizada ("A; B") ou { invalidas: [...] }.
+const semAcentoV = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+function normalizarVerticais(entrada) {
+  const itens = [...new Set(String(entrada == null ? '' : entrada).split(/[;|]/).map((x) => x.trim()).filter(Boolean))];
+  const porChave = new Map(ALLOWED_VERTICALS.map((v) => [semAcentoV(v), v]));
+  const invalidas = itens.filter((x) => !porChave.has(semAcentoV(x)));
+  if (invalidas.length) return { invalidas };
+  return { lista: itens.map((x) => porChave.get(semAcentoV(x))).join('; ') };
+}
+
 // GET /api/pessoas
 router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
@@ -47,8 +59,9 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
     return res.status(400).json({ error: 'Email, nome, perfil e vertical são obrigatórios' });
   if (!validateEmail(email))
     return res.status(400).json({ error: 'Email inválido' });
-  if (!ALLOWED_VERTICALS.includes(vertical))
-    return res.status(400).json({ error: 'Vertical inválida' });
+  const vert = normalizarVerticais(vertical);
+  if (vert.invalidas || !vert.lista)
+    return res.status(400).json({ error: `Vertical inválida${vert.invalidas ? ': ' + vert.invalidas.join(', ') : ''}` });
 
   try {
     const roleResult = await db.query('SELECT id FROM roles WHERE name = $1', [role]);
@@ -60,7 +73,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
     const insertResult = await db.query(
       `INSERT INTO users (email, name, vertical, role_id, is_active, first_access)
        VALUES ($1, $2, $3, $4, TRUE, FALSE) RETURNING id`,
-      [email.toLowerCase().trim(), name.trim(), vertical.trim(), roleRow.id]
+      [email.toLowerCase().trim(), name.trim(), vert.lista, roleRow.id]
     );
 
     return res.status(201).json({
@@ -68,7 +81,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
       email: email.toLowerCase().trim(),
       name: name.trim(),
       role,
-      vertical: vertical.trim()
+      vertical: vert.lista
     });
   } catch (err) {
     if (err.message?.includes('unique') || err.message?.includes('duplicate')) {
@@ -90,8 +103,10 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
 
   if (email !== undefined && !validateEmail(email))
     return res.status(400).json({ error: 'Email inválido' });
-  if (vertical !== undefined && !ALLOWED_VERTICALS.includes(vertical))
-    return res.status(400).json({ error: 'Vertical inválida' });
+  // vazio é permitido (admin não precisa de vertical); a tela já exige uma para os demais perfis
+  const vert = vertical !== undefined ? normalizarVerticais(vertical) : null;
+  if (vert && vert.invalidas)
+    return res.status(400).json({ error: `Vertical inválida: ${vert.invalidas.join(', ')}` });
 
   try {
     let roleId = null;
@@ -110,7 +125,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
     if (name !== undefined)     { fields.push(`name = $${idx++}`);      values.push(name.trim()); }
     if (roleId !== null)        { fields.push(`role_id = $${idx++}`);   values.push(roleId); }
     if (is_active !== undefined){ fields.push(`is_active = $${idx++}`); values.push(Boolean(is_active)); }
-    if (vertical !== undefined) { fields.push(`vertical = $${idx++}`);  values.push((vertical || '').trim()); }
+    if (vertical !== undefined) { fields.push(`vertical = $${idx++}`);  values.push(vert.lista || ''); }
     fields.push('updated_at = NOW()');
     values.push(id);
 
