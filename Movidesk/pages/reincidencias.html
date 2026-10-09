@@ -180,7 +180,7 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
       <select id="gClassif" aria-label="Classificação"><option value="suporte">Suporte Técnico</option><option value="todas">Todas as classificações</option></select>
       <input type="search" id="gCliente" placeholder="Cliente…" aria-label="Filtrar por cliente">
       <span class="sep"></span><span id="gChips" style="display:contents"></span>
-      <span class="sp"></span><span class="meta" id="gFrescor"></span>
+      <span class="sp"></span>
       <button class="btn" id="gLimpar" type="button">Limpar filtros</button>
     </div>
     <div class="aviso" id="gAviso" role="status"></div>
@@ -309,7 +309,6 @@ function gDesenhar(){
       ${gRank('Equipes com mais reincidência',d.equipes,{tipo:'equipe',cor:'vd',nome:x=>x.equipe,sub:x=>`${pc(x.reinc,x.n)}% dos ${nf(x.n)} chamados`,legenda:'Equipe responsável pelo chamado. Clique para ver os chamados.'})}
     </div>`;
   $('gResultado').innerHTML=h; gChips();
-  $('gFrescor').textContent=`Calculado ${ha(d.geradoEm)}${d.cache?' (em cache, até 10 min)':''}`;
   const sa=$('gAno'); if(sa.options.length<=1||sa.dataset.n!==String(d.anos.length)){ sa.innerHTML='<option value="">Todos os anos</option>'+d.anos.map(a=>`<option>${a}</option>`).join(''); sa.dataset.n=String(d.anos.length); }
   sa.value=f.ano?String(f.ano):'';
   const se=$('gEquipe'); if(se.dataset.n!==String(d.equipesLista.length)){ se.innerHTML='<option value="">Todas as equipes</option>'+d.equipesLista.map(e=>`<option>${esc(e)}</option>`).join(''); se.dataset.n=String(d.equipesLista.length); }
