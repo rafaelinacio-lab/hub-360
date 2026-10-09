@@ -309,6 +309,9 @@ router.get('/geral', requireLeitura, async (req, res) => {
         (SELECT COALESCE(json_agg(x ORDER BY x.mes), '[]') FROM (SELECT to_char(createddate AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') AS mes, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc,
                 count(DISTINCT cliente) FILTER (WHERE rn)::int AS clientes FROM fc GROUP BY 1) x) AS mensal,
         (SELECT COALESCE(json_agg(x ORDER BY x.reinc DESC), '[]') FROM (SELECT equipe, count(*)::int AS n, count(*) FILTER (WHERE rn)::int AS reinc FROM fc GROUP BY equipe HAVING count(*) FILTER (WHERE rn) > 0 ORDER BY 3 DESC LIMIT 10) x) AS equipes,
+        (SELECT json_build_object('d3', count(*) FILTER (WHERE rn AND d <= 3), 'd7', count(*) FILTER (WHERE rn AND d > 3 AND d <= 7),
+                'd15', count(*) FILTER (WHERE rn AND d > 7 AND d <= 15), 'd30', count(*) FILTER (WHERE rn AND d > 15 AND d <= 30), 'd60', count(*) FILTER (WHERE rn AND d > 30))
+           FROM (SELECT rn, extract(epoch from (createddate - fim_ant)) / 86400 AS d FROM f) z) AS faixas,
         '[]'::json AS anos, '[]'::json AS equipesLista`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows[0];
     // Motivos e clientes: o motivo vem do CONTEÚDO (assunto, ações e explicação da IA), com o campo Módulo/Rotina só de apoio.
@@ -321,7 +324,7 @@ router.get('/geral', requireLeitura, async (req, res) => {
     const truncado = rnRows.length > RN_MAX;
     const agreg = await agregarMotivos(rnRows.slice(0, RN_MAX));
     r.kpi.motivosAfetados = agreg.motivosDistintos;
-    const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, anual: r.anual, mensal: r.mensal, motivos: agreg.motivos, clientes: agreg.clientes, equipes: r.equipes, motivosTruncado: truncado,
+    const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, faixas: r.faixas, anual: r.anual, mensal: r.mensal, motivos: agreg.motivos, clientes: agreg.clientes, equipes: r.equipes, motivosTruncado: truncado,
       ...(await listasFiltro()), geradoEm: new Date().toISOString() };
     if (geralCache.size > 60) geralCache.clear();
     geralCache.set(chave, { em: Date.now(), dados });
