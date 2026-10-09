@@ -36,6 +36,7 @@ function obter(chave, ttlMs, produzir) {
 }
 
 async function responder(req, res, chave, ttlMs, produzir) {
+  registrar(chave, ttlMs, produzir);
   const { json, gz } = await obter(chave, ttlMs, produzir);
   res.set({ 'Content-Type': 'application/json; charset=utf-8', Vary: 'Accept-Encoding', 'Cache-Control': 'no-cache', 'X-Hub-Tamanho': String(json.length) });
   if (/\bgzip\b/i.test(req.headers['accept-encoding'] || '')) {
@@ -45,4 +46,36 @@ async function responder(req, res, chave, ttlMs, produzir) {
   return res.send(json);
 }
 
-module.exports = { responder, marcarAlterado };
+// ── Aquecimento: recarrega em segundo plano o que está velho (expirou ou foi invalidado por uma gravação) enquanto a chave
+// foi usada nos últimos 30 min. Assim quem abre a tela quase sempre pega a resposta pronta, sem esperar a consulta pesada.
+// Os dados continuam sempre corretos: a invalidação por gravação segue valendo, só passa a ser refeita antes do próximo pedido.
+const USO_MS = 30 * 60 * 1000, CICLO_MS = 45 * 1000, FOLGA_MS = 20 * 1000;
+const registro = new Map();   // chave -> { ttlMs, produzir, ultimoUso }
+const AQUECIVEL = /^(geral:(?!todos)|pendentes)/;   // histórico completo e filtros avulsos (sla-resp…) não são refeitos sozinhos
+function registrar(chave, ttlMs, produzir, usar = true) {
+  if (!AQUECIVEL.test(chave)) return;
+  const r = registro.get(chave);
+  registro.set(chave, { ttlMs, produzir, ultimoUso: usar ? Date.now() : (r ? r.ultimoUso : Date.now()) });
+}
+let aquecendo = false;
+async function aquecerCiclo() {
+  if (aquecendo) return;
+  aquecendo = true;
+  try {
+    for (const [chave, r] of [...registro]) {
+      if (Date.now() - r.ultimoUso > USO_MS) { registro.delete(chave); continue; }
+      const e = store.get(chave);
+      const velho = !e || e.versao !== versao || Date.now() - e.em >= r.ttlMs - FOLGA_MS;
+      if (!velho) continue;
+      try { await obter(chave, r.ttlMs, r.produzir); } catch (err) { console.warn(`[cache] aquecimento de "${chave.slice(0, 60)}" falhou:`, err.message); }
+    }
+  } finally { aquecendo = false; }
+}
+setInterval(aquecerCiclo, CICLO_MS).unref();
+// Aquece uma chave já no início (ex.: ~25 s depois de o servidor subir)
+function aquecer(chave, ttlMs, produzir) {
+  registrar(chave, ttlMs, produzir);
+  return obter(chave, ttlMs, produzir).catch((err) => console.warn('[cache] aquecimento inicial falhou:', err.message));
+}
+
+module.exports = { responder, marcarAlterado, aquecer };
