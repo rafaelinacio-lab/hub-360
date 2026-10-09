@@ -61,6 +61,14 @@ function isCurrentUserAdmin() {
     return String(_currentUser?.role || '').toLowerCase() === 'admin';
 }
 
+// Botões só para admin ("Conferir com o Movidesk" no Dashboard): nascem escondidos no HTML e aparecem aqui.
+// O servidor também recusa quem não é admin (routes/dashboard-conferencia.js), então esconder é só conveniência.
+function aplicarPapelBotoes() {
+    const b = document.getElementById('btnConferir');
+    if (b) b.hidden = !isCurrentUserAdmin();
+}
+document.addEventListener('DOMContentLoaded', () => { try { aplicarPapelBotoes(); } catch (_) {} });
+
 // "guest" = logou via SSO com um e-mail @dominio válido mas sem cadastro (ou
 // sem perfil atribuído) em Pessoas — só pode ver a Dashboard (acompanhamento
 // de chamados). Assim que um admin atribuir um perfil real em Pessoas, o
@@ -86,12 +94,14 @@ async function loadCurrentUser() {
         if (!res.ok) return null;
         _currentUser = await res.json();
         renderSidebarUser();
+        aplicarPapelBotoes();
         return _currentUser;
     } catch {
         try {
             const raw = localStorage.getItem('user');
             if (raw) _currentUser = JSON.parse(raw);
         } catch {}
+        aplicarPapelBotoes();
         return _currentUser;
     }
 }

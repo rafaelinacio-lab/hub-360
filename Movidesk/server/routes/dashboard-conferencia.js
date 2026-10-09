@@ -14,13 +14,13 @@ const router = express.Router();
 router.use(authMiddleware);
 
 const ATIVOS = ['New', 'InAttendance', 'Stopped', 'InProgress'];
-const ROLES = ['admin', 'supervisor', 'atendente'];
+const ROLES = ['admin'];   // só admin confere/corrige com o Movidesk (antes: também supervisor e atendente)
 const limite = rateLimit({ name: 'dashboard/conferencia', windowMs: 10 * 60 * 1000, max: 8 });
 
 router.post('/', limite, async (req, res) => {
   try {
     const papel = (await db.query(`SELECT r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0]?.name;
-    if (!ROLES.includes(papel)) return res.status(403).json({ error: 'Seu perfil não pode conferir chamados.' });
+    if (!ROLES.includes(papel)) return res.status(403).json({ error: 'Só administradores podem conferir chamados com o Movidesk.' });
     const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : []).map((x) => Number(String(x).replace(/\D/g, ''))).filter((n) => Number.isInteger(n) && n > 0))];
     if (!ids.length) return res.status(400).json({ error: 'Nenhum chamado para conferir.' });
     if (ids.length > 300) return res.status(400).json({ error: 'Máximo de 300 chamados por conferência.' });
