@@ -167,6 +167,8 @@
   .tv-bolha.ativa { width: 34px; opacity: 1; background: var(--brand-text, #6ea8fe); }
   .tv-bolha:focus-visible, .tv-pausa:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
   .tv-pausa { border: none; background: none; color: var(--t2); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px 0 4px; }
+  /* Visão TV (link aberto na TV): só os quadros em tela cheia + bolinhas; sem título, filtros e nota (erro aparece) */
+  body.modo-tv .tv-head, body.modo-tv .filtro-bar, body.modo-tv #link-tv-box, body.modo-tv #tv-updated:not(.erro) { display: none !important; }
   @media (max-width: 760px) { body { padding: 14px; } .tv-head h1 { font-size: 24px; } .tv-page .stat-card .value { font-size: 44px; } }
 </style>
 <link rel="stylesheet" href="../css/v2.css">
@@ -506,12 +508,14 @@ async function loadPainelTV(){
     aplicarFiltro();
     render();
     document.getElementById('tv-content').style.display='block';
+    document.getElementById('tv-updated').classList.remove('erro');
     if(typeof ajustarAlturaCarrossel==='function') ajustarAlturaCarrossel();
     await carregarFrescor();
     atualizarNota();
     carregarSlaResponsaveis();
   } catch(e){
     document.getElementById('tv-content').style.display='none';
+    document.getElementById('tv-updated').classList.add('erro');
     document.getElementById('tv-updated').innerHTML=`<span style="color:var(--danger)">Erro ao carregar: ${esc(e.message)}</span>`;
   }
 }
@@ -896,6 +900,9 @@ document.addEventListener('keydown',e=>{
   else if(anterior){ e.preventDefault(); irPara(CARR.atual-1,true); }
   else if(pausa){ e.preventDefault(); alternarPausa(); }
 },true);
+// Visão TV: aberto sem login (link da TV), ou com ?vertical= / ?tv=1 na URL. ?tv=0 força a tela completa com filtros.
+const MODO_TV=_qs.get('tv')==='0'?false:(_qs.get('tv')==='1'||_qs.has('vertical')||!!CHAVE_TV||!tok());
+if(MODO_TV) document.body.classList.add('modo-tv');
 montarCarrossel();
 updateClock();
 setInterval(updateClock,30000);

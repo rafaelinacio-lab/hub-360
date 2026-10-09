@@ -201,13 +201,18 @@ async function lerChaveTv(criar = false) {
   return _chaveTv;
 }
 const iguais = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
-// Libera com a chave da TV; sem ela, cai no login normal + permissão da aba.
+// Painel TV PÚBLICO (decisão do usuário em 09/10/2026, "por enquanto"): sem login e sem chave, qualquer um com o
+// endereço vê pendentes, clientes e responsáveis. Para voltar a exigir chave/login: PAINEL_TV_PUBLICO=0 no .env.
+const PAINEL_TV_PUBLICO = process.env.PAINEL_TV_PUBLICO !== '0';
+// Libera com a chave da TV; sem ela, login normal + permissão da aba (ou livre, com o painel público).
 const acessoPainelTv = async (req, res, next) => {
   const k = String(req.query.k || '');
   if (k) {
     try { if (iguais(k, await lerChaveTv())) return next(); } catch (_) { /* cai para o login */ }
-    return res.status(401).json({ error: 'Link da TV inválido ou renovado' });
+    if (!PAINEL_TV_PUBLICO) return res.status(401).json({ error: 'Link da TV inválido ou renovado' });
+    return next();
   }
+  if (PAINEL_TV_PUBLICO && !req.headers.authorization) return next();
   authMiddleware(req, res, (err) => err ? next(err) : requireTabAccess('paineltv')(req, res, next));
 };
 router.get('/tv-chave', authMiddleware, requireRole('admin'), async (req, res) => {
