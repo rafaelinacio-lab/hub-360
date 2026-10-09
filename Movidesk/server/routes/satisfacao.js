@@ -67,10 +67,17 @@ router.get('/', authMiddleware, requireTabAccess('satisfacao'), async (req, res)
           (t.owner_name IS NULL AND inferido.nome IS NOT NULL) AS responsavel_inferido,
           t.ownerteam AS equipe, t.service_full AS servico, t.urgency AS urgencia,
           t.status AS status,
-          s.nota, s.comentario, s.respondido_em, quem.nome AS respondido_por
+          s.nota, s.comentario, s.respondido_em, quem.nome AS respondido_por,
+          cl.valor_texto AS classificacao
         FROM silver.ticket_satisfacao s
         JOIN silver.ticket t ON t.ticket_id = s.ticket_id
         ${ORG_JOIN}
+        -- Classificação do chamado (campo 23946), um valor só por chamado — filtro "Classificação" da tela (padrão Suporte Técnico)
+        LEFT JOIN LATERAL (
+          SELECT cf.valor_texto FROM silver.ticket_campo_customizado cf
+          WHERE cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946 AND NULLIF(btrim(cf.valor_texto), '') IS NOT NULL
+          ORDER BY cf.item_ordem LIMIT 1
+        ) cl ON true
         LEFT JOIN silver.ticket_cliente quem
           ON quem.ticket_id = t.ticket_id AND quem.cliente_id = s.respondido_por_id
         ${RESPONSAVEL_INFERIDO_LATERAL}

@@ -413,6 +413,13 @@ body.modal-open{overflow:hidden}
         </button>
         <div class="ms-drop"></div>
       </div>
+      <div class="multi-sel" id="f-class">
+        <button class="ms-btn" type="button" onclick="toggleMs(this)">
+          <span class="ms-lbl">Classificação: todos</span>
+          <span class="sym ms-arrow">expand_more</span>
+        </button>
+        <div class="ms-drop"></div>
+      </div>
       <div class="multi-sel" id="f-nota">
         <button class="ms-btn" type="button" onclick="toggleMs(this)">
           <span class="ms-lbl">Nota: todos</span>
@@ -1106,6 +1113,15 @@ function aplicarMesPadrao(){
   const chk=document.querySelector(`#f-month .ms-drop input[value="${new Date().getMonth()+1}"]`);
   if(chk){ chk.checked=true; updateMsLabel('f-month','Mês: todos'); }
 }
+// Ao abrir, a Classificação já vem em "Suporte Técnico" (pedido do usuário, 09/10/2026). Só na primeira montagem.
+let _classePadraoAplicado=false;
+function aplicarClassePadrao(){
+  if(_classePadraoAplicado) return;
+  _classePadraoAplicado=true;
+  if(getMsValues('f-class').length) return;
+  const chk=[...document.querySelectorAll('#f-class .ms-drop input')].find(i=>i.value==='Suporte Técnico');
+  if(chk){ chk.checked=true; updateMsLabel('f-class','Classificação: todos'); }
+}
 let _anoPadraoAplicado=false;
 function aplicarAnoPadrao(){
   if(_anoPadraoAplicado) return;
@@ -1124,6 +1140,8 @@ function buildFilterOptions(){
   fill('f-equipe','Equipe',_rows.map(r=>r.equipe));
   fill('f-org','Cliente',_rows.map(r=>r.organizacao));
   fill('f-resp','Responsável',_rows.map(r=>r.responsavel));
+  fill('f-class','Classificação',_rows.map(r=>r.classificacao));
+  aplicarClassePadrao();
   populateMs('f-nota',[5,4,3,2,1].map(n=>({v:n,l:NOTA_LABELS[n]})),'Nota: todos',render);
 
   const years=[...new Set(_rows.map(r=>r.respondido_em?new Date(r.respondido_em).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
@@ -1139,6 +1157,7 @@ function getFilteredRows(semData){
   const equipeFils=getMsValues('f-equipe');
   const orgFils=getMsValues('f-org');
   const respFils=getMsValues('f-resp');
+  const classFils=getMsValues('f-class');
   const notaFils=getMsValues('f-nota').map(Number);
   const yearFils=getMsValues('f-year').map(Number);
   const monthFils=getMsValues('f-month').map(Number);
@@ -1148,6 +1167,7 @@ function getFilteredRows(semData){
     if(equipeFils.length&&!equipeFils.includes(r.equipe)) return false;
     if(orgFils.length&&!orgFils.includes(r.organizacao)) return false;
     if(respFils.length&&!respFils.includes(r.responsavel)) return false;
+    if(classFils.length&&!classFils.includes(r.classificacao)) return false;
     if(notaFils.length&&!notaFils.includes(Number(r.nota))) return false;
     if(!semData&&(yearFils.length||monthFils.length)){
       if(!r.respondido_em) return false;
