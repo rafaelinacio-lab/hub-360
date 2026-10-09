@@ -1494,7 +1494,7 @@ function renderCuradoriaGeralView() {
             <span class="inline-flex items-center justify-center min-w-[3rem] px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-semibold">${comPct(count, total)}</span>
         </div>`).join('') || '<p class="text-on-surface-variant text-sm">Sem dados</p>';
 
-    const slaColorStyle = t.teamSlaComplianceRate == null ? '' : t.teamSlaComplianceRate >= 90 ? 'color:#22c55e' : t.teamSlaComplianceRate >= 70 ? 'color:#f59e0b' : 'color:#ef4444';
+    const slaColorStyle = t.teamSlaComplianceRate == null ? '' : t.teamSlaComplianceRate >= 90 ? 'color:#22c55e' : 'color:#ef4444';
 
     mount.innerHTML = `
         <div class="col-span-12 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-2">

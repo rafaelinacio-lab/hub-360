@@ -7,7 +7,7 @@ const shPct = (p) => (p == null ? '—' : `${Number(p).toLocaleString('pt-BR', {
 const shMin = (m) => (m == null ? '—' : m >= 60 ? `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}` : `${Math.round(m)}min`);
 const shData = (v) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—');
 const shDataHora = (v) => (v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
-const shCorPct = (p) => (p == null ? 'var(--t3)' : p >= 90 ? '#10b981' : p >= 80 ? '#f59e0b' : '#ef4444');
+const shCorPct = (p) => (p == null ? 'var(--t3)' : p >= 90 ? '#10b981' : '#ef4444');
 const shPlano = { padrao: 'Padrão', premium: 'Premium' };
 
 async function shApi(caminho, metodo = 'GET', corpo) {

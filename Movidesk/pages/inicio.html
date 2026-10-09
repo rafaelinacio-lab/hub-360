@@ -275,6 +275,9 @@ function deltaPp(atual, anterior){
   if (a == null || b == null) return '';
   return fmtDelta(a - b, `Contra o mês anterior (${pct(b)})`);
 }
+const META_SLA = 90;   // meta de SLA do Hub, em tudo: 90%
+const tomSla = (v) => { const n = num(v); return n == null ? 'orange' : (n >= META_SLA ? 'good' : 'bad'); };
+const subSla = (base, extra) => `${base}<br><b>Meta ${META_SLA}%</b>${extra || ''}`;
 const card = (ico, rotulo, valor, sub, tom = '', extra = '', classe = '') =>
   `<div class="card ${tom ? 'tone-' + tom : ''} ${classe}"><div class="lbl"><span class="ico">${ico}</span>${esc(rotulo)}</div><div class="val-row"><div class="val">${valor}</div>${extra}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
 
@@ -316,7 +319,7 @@ function renderMeu(d){
       ${card(I.relogio, 'Vencem hoje', nf(vh), vh ? 'resolva ou renegocie hoje' : 'nada vence hoje', vh ? 'warn' : '')}
       ${card(I.pausa, 'Pausados', nf(x.pausados || 0), 'aguardando retorno do cliente ou terceiro', '')}
       ${card(I.check, 'Resolvidos no mês', nf(x.resolvidosMes || 0), 'neste mês', 'good')}
-      ${card(I.escudo, 'SLA do mês', pct(x.slaMes), (num(x.baseSlaMes) > 0) ? `sobre ${nf(x.baseSlaMes)} resolvido${x.baseSlaMes === 1 ? '' : 's'} com meta${x.baseSlaMovidesk > 0 ? ` (${nf(x.baseSlaMovidesk)} pelo SLA do Movidesk)` : ''}` : 'ainda sem resolvidos com meta', 'orange', deltaPp(x.slaMes, x.slaMesAnterior))}
+      ${card(I.escudo, 'SLA do mês', pct(x.slaMes), subSla((num(x.baseSlaMes) > 0) ? `sobre ${nf(x.baseSlaMes)} resolvido${x.baseSlaMes === 1 ? '' : 's'}${x.baseSlaMovidesk > 0 ? ` (${nf(x.baseSlaMovidesk)} pelo SLA do Movidesk)` : ''}` : 'ainda sem resolvidos no mês', num(x.slaMes) != null ? (x.slaMes >= META_SLA ? ' · atingida' : ` · faltam ${nf(META_SLA - x.slaMes, 1)} pp`) : ''), tomSla(x.slaMes), deltaPp(x.slaMes, x.slaMesAnterior))}
     </div>`;
   };
   if (Array.isArray(m.porEquipe) && m.porEquipe.length > 1) {
@@ -345,7 +348,7 @@ function renderEquipe(d){
       <div class="card span2"><div class="lbl"><span class="ico">${I.setas}</span>Entraram × fecharam hoje</div>
         <div class="versus"><div class="lado ab"><b>${nf(ab)}</b><span>entraram${tot ? ` · ${pa}%` : ''}</span></div><div class="x">×</div><div class="lado fe"><b>${nf(fe)}</b><span>fecharam${tot ? ` · ${100 - pa}%` : ''}</span></div></div>
         <div class="vs-bar" aria-hidden="true"><i class="a" style="width:${pa}%"></i><i class="f" style="width:${100 - pa}%"></i></div></div>
-      ${card(I.escudo, 'SLA do mês', pct(q.slaMes), (num(q.baseSlaMes) > 0) ? `sobre ${nf(q.baseSlaMes)} resolvidos com meta${q.baseSlaMovidesk > 0 ? ` (${nf(q.baseSlaMovidesk)} pelo SLA do Movidesk)` : ''}` : 'ainda sem resolvidos com meta', 'orange', deltaPp(q.slaMes, q.slaMesAnterior))}
+      ${card(I.escudo, 'SLA do mês', pct(q.slaMes), subSla((num(q.baseSlaMes) > 0) ? `sobre ${nf(q.baseSlaMes)} resolvidos${q.baseSlaMovidesk > 0 ? ` (${nf(q.baseSlaMovidesk)} pelo SLA do Movidesk)` : ''}` : 'ainda sem resolvidos no mês', num(q.slaMes) != null ? (q.slaMes >= META_SLA ? ' · atingida' : ` · faltam ${nf(META_SLA - q.slaMes, 1)} pp`) : ''), tomSla(q.slaMes), deltaPp(q.slaMes, q.slaMesAnterior))}
     </div>`;
   tornarClicaveis(el);
   el.querySelectorAll('[data-esc]').forEach((b) => b.addEventListener('click', () => trocarEscopo(b.dataset.esc)));
