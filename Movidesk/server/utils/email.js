@@ -35,7 +35,7 @@ async function carregar(forcar = false) {
 const configurado = (cfg) => !!(cfg.user && cfg.pass);
 
 async function salvar({ host, port, user, pass, from, publicUrl }) {
-  const grava = async (k, v) => db.query(`INSERT INTO config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, encryptedAt = CURRENT_TIMESTAMP`, [k, v]);
+  const grava = async (k, v) => db.query(`INSERT INTO config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [k, v]);
   const apaga = async (k) => db.query(`DELETE FROM config WHERE key = $1`, [k]);
   for (const [k, v] of [['email_host', host], ['email_port', port], ['email_user', user], ['email_from', from], ['email_public_url', publicUrl]]) {
     const t = String(v == null ? '' : v).trim();
