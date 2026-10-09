@@ -661,11 +661,13 @@ router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
     const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.desde || '')) ? String(req.query.desde) : padrao;
     const servico = String(req.query.servico || '').trim().slice(0, 300);
     const equipe = String(req.query.equipe || '').trim().slice(0, 300);
-    const chave = `sla-resp:${desde}:${servico}:${equipe}`;
+    const vertical = String(req.query.vertical || '').trim().slice(0, 200);   // serviço de 1º nível (Painel TV ?vertical=)
+    const chave = `sla-resp:${desde}:${servico}:${equipe}:${vertical}`;
     await cacheResposta.responder(req, res, chave, CACHE_PAINEL_MS, async () => {
       const params = [desde];
       let filtroServico = '';
       if (servico) { params.push(servico); filtroServico = ` AND t.service_full = $${params.length}`; }
+      if (vertical) { params.push(vertical); filtroServico += ` AND btrim(split_part(t.service_full, '>', 1)) = $${params.length}`; }
       if (equipe) { params.push(equipe === 'Não informado' ? '' : equipe); filtroServico += ` AND COALESCE(NULLIF(btrim(t.ownerteam), ''), '') = $${params.length}`; }
       const r = await db.query(`
         WITH b AS (

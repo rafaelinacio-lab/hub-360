@@ -394,12 +394,19 @@ const semAcentoMin=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,
 // painel-tv.html?servico=Nome&equipe=Nome&classificacao=Nome). Sem escolha = tudo.
 const CHAVES={servico:'painelTvServico',equipe:'painelTvEquipe',classe:'painelTvClasse',resp:'painelTvResp',cli:'painelTvCliente'};
 const PARAM_URL={servico:'servico',equipe:'equipe',classe:'classificacao',resp:'responsavel',cli:'cliente'};
+// Pré-configurado (pedido do usuário, 09/10/2026): classificação padrão = Suporte Técnico. Com filtro na URL (ex.:
+// ?vertical=agrotitan), a URL define a tela e o que ficou salvo no navegador da TV é ignorado.
+const _qs=new URLSearchParams(location.search);
+const URL_FIXA=['vertical',...Object.values(PARAM_URL)].some(p=>_qs.has(p));
+const PADRAO_FILTRO={classe:'Suporte Técnico'};
 function lerSalvo(c){
   try{
-    const u=new URLSearchParams(location.search).get(PARAM_URL[c]);
+    const u=_qs.get(PARAM_URL[c]);
     if(u!==null) return u;
-    return localStorage.getItem(CHAVES[c])||'';
-  }catch(_){ return ''; }
+    if(URL_FIXA) return PADRAO_FILTRO[c]||'';
+    const salvo=localStorage.getItem(CHAVES[c]);
+    return salvo!==null?salvo:(PADRAO_FILTRO[c]||'');
+  }catch(_){ return PADRAO_FILTRO[c]||''; }
 }
 function salvar(c,v){ try{ localStorage.setItem(CHAVES[c],v); }catch(_){} }
 let _servicoSel=lerSalvo('servico'), _equipeSel=lerSalvo('equipe'), _classeSel=lerSalvo('classe'), _respSel=lerSalvo('resp'), _cliSel=lerSalvo('cli');
@@ -413,7 +420,18 @@ const respDe=r=>(r.responsavel||'').trim()||'Não atribuído';
 const cliDe=r=>(r.organizacao||r.cliente_nome||'').trim()||'Não informado';
 const casaResp=r=>!_respSel||respDe(r)===_respSel;
 const casaCli=r=>!_cliSel||cliDe(r)===_cliSel;
-const casaTodos=r=>casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&casaResp(r)&&casaCli(r);
+// ?vertical=<nome> = serviço de 1º nível do chamado ("Agronegócio > …"). Aceita o nome do serviço ou do produto, sem
+// diferenciar acento/maiúscula/hífen: agrotitan → Agronegócio, petroshow → Combustíveis, talentrh → Sistema para RH…
+const slugV=t=>semAcentoMin(t).replace(/[^a-z0-9]+/g,' ').trim();
+const VERTICAL_ALIAS={'agrotitan':'agronegocio','agro':'agronegocio','petroshow':'combustiveis','talentrh':'sistema para rh',
+  'talent rh':'sistema para rh','talent':'sistema para rh','rh':'sistema para rh','viasuper':'supermercados','fisco':'fisco contabil',
+  'servicos fiscais':'fisco contabil','fiscal':'fisco contabil','oracle':'oracle cloud','bi':'analytics b i','analytics':'analytics b i',
+  'automacao':'automacao comercial','fazendas':'agrotitan fazendas','internos':'sistemas internos'};
+const _verticalSlug=(()=>{ const v=slugV(_qs.get('vertical')||''); return VERTICAL_ALIAS[v]||v; })();
+const servico1=r=>String(r.servico||'').split('>')[0].trim();
+const casaVertical=r=>!_verticalSlug||slugV(servico1(r))===_verticalSlug;
+let _verticalNome='';   // nome real do serviço de 1º nível (para o servidor e a nota)
+const casaTodos=r=>casaVertical(r)&&casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&casaResp(r)&&casaCli(r);
 function contar(rows,fn){ const c={}; rows.forEach(r=>{ const k=fn(r); if(k) c[k]=(c[k]||0)+1; }); return c; }
 function preencher(id,todos,cont,sel){
   const el=document.getElementById(id);
@@ -423,7 +441,7 @@ function preencher(id,todos,cont,sel){
 }
 // Cada filtro mostra as contagens considerando os outros dois.
 function montarOpcoes(){
-  const sem=(...fora)=>_rowsAll.filter(r=>[['servico',casaServico],['classe',casaClasse],['equipe',casaEquipe],['resp',casaResp],['cli',casaCli]].every(([k,f])=>fora.includes(k)||f(r)));
+  const sem=(...fora)=>_rowsAll.filter(r=>casaVertical(r)&&[['servico',casaServico],['classe',casaClasse],['equipe',casaEquipe],['resp',casaResp],['cli',casaCli]].every(([k,f])=>fora.includes(k)||f(r)));
   preencher('f-servico','Todos os serviços',contar(sem('servico'),r=>(r.servico||'').trim()),_servicoSel);
   preencher('f-classe','Todas as classificações',contar(sem('classe'),classeDe),_classeSel);
   preencher('f-equipe','Todas as equipes',contar(sem('equipe'),equipeDe),_equipeSel);
@@ -444,7 +462,7 @@ async function carregarFrescor(){
   }catch(_){ /* mantém o último valor */ }
 }
 function atualizarNota(){
-  const filtro=(_servicoSel?` — serviço "${_servicoSel}"`:'')+(_classeSel?` — classificação "${_classeSel}"`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'')+(_respSel?` — responsável "${_respSel}"`:'')+(_cliSel?` — cliente "${_cliSel}"`:'');
+  const filtro=(_verticalSlug?` — vertical "${_verticalNome||_qs.get('vertical')}"`:'')+(_servicoSel?` — serviço "${_servicoSel}"`:'')+(_classeSel?` — classificação "${_classeSel}"`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'')+(_respSel?` — responsável "${_respSel}"`:'')+(_cliSel?` — cliente "${_cliSel}"`:'');
   document.getElementById('tv-updated').textContent=`Dados atualizados em ${_dadosEm||'—'} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
 }
 function refiltrar(){ aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis(); }
@@ -464,7 +482,7 @@ document.getElementById('f-limpar').addEventListener('click',()=>{
   if(CHAVE_TV||!tok()) return;
   let chave; try{ chave=(await api('/geral/tv-chave',15000)).chave; }catch(_){ return; }
   const btn=document.getElementById('f-link'), box=document.getElementById('link-tv-box'), inp=document.getElementById('link-tv-url');
-  const url=c=>`${location.origin}${location.pathname}?k=${c}`;
+  const url=c=>`${location.origin}${location.pathname}?k=${c}${_qs.get('vertical')?`&vertical=${encodeURIComponent(_qs.get('vertical'))}`:''}`;
   btn.style.display='';
   btn.addEventListener('click',()=>{ inp.value=url(chave); box.style.display=box.style.display==='flex'?'none':'flex'; });
   document.getElementById('link-copiar').addEventListener('click',async e=>{ inp.select(); try{ await navigator.clipboard.writeText(inp.value); e.target.textContent='Copiado!'; setTimeout(()=>e.target.textContent='Copiar',1500); }catch(_){ document.execCommand('copy'); } });
@@ -483,6 +501,7 @@ async function loadPainelTV(){
   try{
     const resp=await api('/geral/pendentes',60000);
     _rowsAll=(resp.rows||[]).filter(isAberto);
+    if(_verticalSlug&&!_verticalNome){ const r=_rowsAll.find(x=>slugV(servico1(x))===_verticalSlug); if(r) _verticalNome=servico1(r); }
     _hojeAll=resp.hoje||[];
     aplicarFiltro();
     render();
@@ -751,7 +770,7 @@ async function carregarSlaResponsaveis(){
   const sel=document.getElementById('slr-periodo');
   const per=sel.value, seq=++_slaSeq, lista=document.getElementById('slr-lista');
   try{
-    const q=`?desde=${desdeDoPeriodo(per)}${_servicoSel?`&servico=${encodeURIComponent(_servicoSel)}`:''}${_equipeSel?`&equipe=${encodeURIComponent(_equipeSel)}`:''}`;
+    const q=`?desde=${desdeDoPeriodo(per)}${_verticalSlug?`&vertical=${encodeURIComponent(_verticalNome||_qs.get('vertical'))}`:''}${_servicoSel?`&servico=${encodeURIComponent(_servicoSel)}`:''}${_equipeSel?`&equipe=${encodeURIComponent(_equipeSel)}`:''}`;
     const resp=await api('/geral/sla-responsaveis'+q,60000);
     if(seq!==_slaSeq) return;
     renderSlaResponsaveis(resp.rows||[],per);
