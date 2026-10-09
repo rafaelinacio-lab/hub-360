@@ -83,6 +83,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/css', express.static(path.join(__dirname, '../css')));
 app.use('/js', express.static(path.join(__dirname, '../js')));
 app.use('/pages', express.static(path.join(__dirname, '../pages')));
+app.use('/img', express.static(path.join(__dirname, '../img'), { maxAge: '7d', setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin') }));   // imagens públicas (cabeçalho do e-mail de boas-vindas)
 // admin/ só tem index.html, já servido explicitamente pela rota GET /admin
 // abaixo — não precisa de mount estático (e evitamos o redirect /admin → /admin/
 // que express.static faria ao servir um diretório pelo path exato do mount).
