@@ -128,7 +128,7 @@ input,select{font-family:inherit}
 .topbar.oculto{transform:translateY(-100%)}
 .topbar-in{
   display:flex;align-items:center;gap:12px;height:56px;
-  max-width:min(2200px,96vw);margin:0 auto;
+  max-width:none;margin:0 auto;
 }
 .topbar-logo{
   display:flex;align-items:center;gap:7px;
@@ -149,7 +149,7 @@ input,select{font-family:inherit}
 /* ─── Filter bar ─────────────────────────────────────────────────────── */
 .topbar-filters{
   display:flex;align-items:center;gap:8px;
-  padding:14px 0 16px;max-width:min(2200px,96vw);margin:0 auto;
+  padding:14px 0 16px;max-width:none;margin:0 auto;
   flex-wrap:wrap;
 }
 
@@ -263,9 +263,7 @@ input,select{font-family:inherit}
 
 /* Faixa de KPIs do topo com 9 cards (Aging e Tempo em pausa ao lado de Pendentes): 9 colunas em tela larga,
    3 × 3 nas médias (em vez de 4+4+1), 2 no celular */
-html[data-ui="v2"] .kpi-grid.k9, .kpi-grid.k9 { grid-template-columns: repeat(9, minmax(0,1fr)); }
-@media (max-width:1500px){ html[data-ui="v2"] .kpi-grid.k9, .kpi-grid.k9 { grid-template-columns: repeat(3, minmax(0,1fr)); } }
-@media (max-width:760px){ html[data-ui="v2"] .kpi-grid.k9, .kpi-grid.k9 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+/* (k9 agora usa a grade automática do v2.css) */
 /* ─── Evolução mensal do atingimento do SLA ─────────────────────────── */
 .sl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px}
 .sl-ult{min-width:190px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-low);text-align:right}
@@ -437,18 +435,17 @@ html[data-ui="v2"] .kpi-grid.k9, .kpi-grid.k9 { grid-template-columns: repeat(9,
 #temas-lista::-webkit-scrollbar{display:block;width:8px}
 #temas-lista::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:999px}
 /* ═══ Dashboard ═══════════════════════════════════════════════════════ */
-.dash-wrap{max-width:min(2200px,96vw);margin:0 auto;padding:22px 24px 56px;width:100%}
+.dash-wrap{max-width:none;margin:0 auto;padding:22px 24px 56px;width:100%}
 .section-label{
   font-size:11.5px;color:var(--t3);text-transform:uppercase;
   letter-spacing:.06em;font-weight:700;margin:30px 0 11px;
 }
 .section-label:first-child{margin-top:2px}
 
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:14px}
+.grid-5{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:14px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:1100px){.grid-5{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:980px){
   .grid-3,.grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
