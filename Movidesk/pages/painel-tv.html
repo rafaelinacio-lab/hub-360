@@ -167,6 +167,7 @@
   .tv-bolha.ativa { width: 34px; opacity: 1; background: var(--brand-text, #6ea8fe); }
   .tv-bolha:focus-visible, .tv-pausa:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
   .tv-pausa { border: none; background: none; color: var(--t2); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px 0 4px; }
+  .dias-corridos { display: block; font-size: 11px; font-weight: 600; color: var(--t3); line-height: 1.1; }
   /* Visão TV (link aberto na TV): só os quadros em tela cheia + bolinhas; sem título, filtros e nota (erro aparece) */
   body.modo-tv .tv-head, body.modo-tv .filtro-bar, body.modo-tv #link-tv-box, body.modo-tv #tv-updated:not(.erro) { display: none !important; }
   @media (max-width: 760px) { body { padding: 14px; } .tv-head h1 { font-size: 24px; } .tv-page .stat-card .value { font-size: 44px; } }
@@ -280,16 +281,16 @@
     <div class="hrow c-1">
       <div class="data-panel danger">
         <p class="table-title">Chamados pendentes — do mais antigo ao mais novo <span id="tv-table-count" style="color:var(--t3);font-weight:700;font-size:15px"></span></p>
-        <p class="chart-sub">Todos os pendentes do filtro, ordenados pelo tempo em aberto (dias; menos de 1 dia aparece em horas); role a tabela para ver o restante. "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
+        <p class="chart-sub">Todos os pendentes do filtro, do mais antigo ao mais novo. "Horas de SLA" = tempo em aberto contado só no horário de atendimento, sem fins de semana, feriados e pausas (aguardando cliente/terceiro); o número menor embaixo são os dias corridos. Role a tabela para ver o restante. "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
         <div class="table-wrap">
           <table>
             <colgroup>
-              <col style="width:6%"><col style="width:13%"><col style="width:22%"><col style="width:14%"><col style="width:7%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
+              <col style="width:6%"><col style="width:13%"><col style="width:20%"><col style="width:14%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
             </colgroup>
             <thead>
               <tr>
                 <th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th>
-                <th class="num">Tempo aberto</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th>
+                <th class="num">Horas de SLA</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th>
                 <th class="center">Status real</th><th class="center">Status prazo</th>
               </tr>
             </thead>
@@ -366,6 +367,15 @@ function tempoAberto(r){
   if(ms>=86400000) return Math.floor(ms/86400000).toLocaleString('pt-BR');
   if(ms>=3600000) return `${Math.floor(ms/3600000)} h`;
   return `${Math.max(1,Math.floor(ms/60000))} min`;
+}
+// Tempo aberto em HORAS DE SLA (sla_aberto_min, servidor): horário de atendimento, sem fins de semana, feriados e
+// pausas. Em destaque as horas de SLA; os dias corridos ficam pequenos embaixo (contexto). Sem o campo: texto antigo.
+function horasSlaAberto(r){
+  if(r.sla_aberto_min==null) return tempoAberto(r);
+  const h=Number(r.sla_aberto_min)/60;
+  const txt=`${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h`;
+  const d=idadeMs(r)>=86400000?`<small class="dias-corridos">${Math.floor(idadeMs(r)/86400000).toLocaleString('pt-BR')} d</small>`:'';
+  return txt+d;
 }
 function ticketUrl(id){ return `https://viasoft.movidesk.com/Ticket/Edit/${id}`; }
 // "Sem retorno" conta só AÇÕES PÚBLICAS (visíveis ao cliente, is_public=true
@@ -708,7 +718,7 @@ const tituloDe=sp=>{
 };
 function linhaHtml(r){
   const link=`<a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a>`;
-  const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||r.cliente_nome||'')}">${esc(r.organizacao||r.cliente_nome||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num" title="${escAttr(fmtDataHora(r.criado_em))}">${tempoAberto(r)}</td>`;
+  const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||r.cliente_nome||'')}">${esc(r.organizacao||r.cliente_nome||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num" title="${escAttr(fmtDataHora(r.criado_em)+(r.sla_aberto_min!=null?` · ${(Number(r.sla_aberto_min)/60).toLocaleString('pt-BR',{maximumFractionDigits:1})} h de SLA (horário de atendimento, sem fins de semana, feriados e pausas)`:''))}">${horasSlaAberto(r)}</td>`;
   const st=r.status_movidesk||r.base_status||'—';
   if(r._hoje) return `<tr>${base}<td class="num">—</td><td class="num">—</td><td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
   const sp=statusPrazoDe(r), bc=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
@@ -720,8 +730,8 @@ function linhaHtml(r){
   const celula=(v,dica)=>semAcoes?`<td class="num" style="color:var(--t3)" title="Ações do chamado ainda sendo carregadas">…</td>`:`<td class="num danger-num" ${dica?`title="${escAttr(dica)}"`:''}>${v!=null?v:'—'}</td>`;
   return `<tr>${base}${celula(dA,nuncaA?'A equipe ainda não respondeu publicamente: contado desde a abertura':'')}${celula(dC,dC==null?'O cliente não enviou mensagem pública':'')}<td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp)}</span></td></tr>`;
 }
-const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th><th class="num">Tempo aberto</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th><th class="center">Status real</th><th class="center">Status prazo</th></tr></thead>';
-const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:22%"><col style="width:14%"><col style="width:7%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';
+const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th><th class="num">Horas de SLA</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th><th class="center">Status real</th><th class="center">Status prazo</th></tr></thead>';
+const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:20%"><col style="width:14%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';
 // Modal com a lista de chamados do card/urgência clicado.
 let _modalSel=null;
 function abrirModal(sp){
