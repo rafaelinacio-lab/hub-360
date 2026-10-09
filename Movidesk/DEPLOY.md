@@ -50,6 +50,7 @@ Preencha (ver comentários no próprio `.env.example` pra detalhes de cada um):
 - `PHOTOS_DIRS` — pasta(s) com as fotos oficiais das pessoas (`email_dominio.jpg`), separadas por `;`. Dentro do container precisa ser um caminho montado como volume (ver `docker-compose.yml`). Sem ela, os avatares usam a foto do Google ou as iniciais.
 - `DATALAKE_API_URL`/`DATALAKE_API_TOKEN` — apidatalake (perfil `painel-sla`); ver [[project_apidatalake_vm_access]]
 - `GOOGLE_CLIENT_ID`/`ALLOWED_DOMAIN` — SSO Google
+- `SMTP_USER`/`SMTP_PASS`/`SMTP_FROM` (+ `SMTP_HOST`/`SMTP_PORT`, `PUBLIC_URL`) — e-mail de boas-vindas ao cadastrar pessoa; opcional (sem eles o cadastro não envia e-mail)
 - `JIRA_DATA_DIR` — já vem correto (`../Jira`) se o clone manteve a estrutura padrão
 
 ## 4. Build e subir o container

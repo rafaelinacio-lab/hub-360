@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../db/remote');
 const { validateEmail } = require('../utils/auth');
 const { authMiddleware, requireRole } = require('./auth');
+const { enviarBoasVindas } = require('../utils/emailBoasVindas');
+const { rateLimit } = require('../utils/rateLimit');
 
 const ALLOWED_VERTICALS = [
   'Agronegócio','Agrotitan Fazendas','Analytics - B.I','Automação Comercial',
@@ -77,12 +79,16 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
       [email.toLowerCase().trim(), name.trim(), vert.lista || null, roleRow.id]
     );
 
+    // E-mail de boas-vindas com o link e o passo a passo. Falha no envio não desfaz o cadastro: só é informada.
+    const env = await enviarBoasVindas({ nome: name.trim(), email: email.toLowerCase().trim(), perfil: role, verticais: vert.lista });
+
     return res.status(201).json({
       id: insertResult.rows[0]?.id,
       email: email.toLowerCase().trim(),
       name: name.trim(),
       role,
-      vertical: vert.lista
+      vertical: vert.lista,
+      emailBoasVindas: env.ok ? 'enviado' : env.motivo
     });
   } catch (err) {
     if (err.message?.includes('unique') || err.message?.includes('duplicate')) {
@@ -90,6 +96,23 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
     }
     console.error('POST /pessoas error:', err.message);
     return res.status(500).json({ error: 'Erro ao criar usuário' });
+  }
+});
+
+// POST /api/pessoas/:id/reenviar-boas-vindas — reenvia o e-mail de boas-vindas (admin)
+const reenvioLimiter = rateLimit({ name: 'pessoas/boas-vindas', windowMs: 10 * 60 * 1000, max: 20, keyFn: (req) => `u:${req.user && req.user.id}` });
+router.post('/:id/reenviar-boas-vindas', authMiddleware, requireRole('admin'), reenvioLimiter, async (req, res) => {
+  try {
+    const r = await db.query(`SELECT u.email, u.name, u.vertical, u.is_active, r.name AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.params.id]);
+    const u = r.rows[0];
+    if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
+    if (!u.is_active) return res.status(400).json({ error: 'Usuário desativado: ative antes de reenviar.' });
+    const env = await enviarBoasVindas({ nome: u.name, email: u.email, perfil: u.role, verticais: u.vertical });
+    if (!env.ok) return res.status(env.motivo === 'nao_configurado' ? 503 : 502).json({ error: env.motivo === 'nao_configurado' ? 'Envio de e-mail não configurado no servidor (SMTP_USER/SMTP_PASS).' : 'Não foi possível enviar o e-mail agora.' });
+    return res.json({ ok: true, para: u.email });
+  } catch (err) {
+    console.error('POST /pessoas/:id/reenviar-boas-vindas error:', err.message);
+    return res.status(500).json({ error: 'Erro ao reenviar o e-mail' });
   }
 });
 

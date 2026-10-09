@@ -131,6 +131,7 @@ function pessoasRenderTable(users) {
             <td>
                 <div class="pt-actions">
                     <button class="pt-btn pt-btn-edit" onclick="pessoasOpenEdit(${u.id})" title="Editar">✏️</button>
+                    <button class="pt-btn" onclick="pessoasReenviarBoasVindas(${u.id}, '${escapeHtml(u.name)}')" title="Reenviar e-mail de boas-vindas">✉️</button>
                     <button class="pt-btn pt-btn-reset" onclick="pessoasRevogarSessoes(${u.id}, '${escapeHtml(u.name)}')" title="Encerrar sessões ativas">🔒</button>
                     <button class="pt-btn ${u.is_active ? 'pt-btn-deact' : 'pt-btn-act'}"
                         onclick="pessoasToggleAtivo(${u.id}, ${u.is_active})"
@@ -226,7 +227,10 @@ async function pessoasSubmit(e) {
             data = await res.json();
             if (!res.ok) { pmShowError(data.error || 'Erro ao criar.'); return; }
             pessoasCloseModal();
-            alert(`Usuário criado. Ele(a) já pode entrar com a conta Google ${data.email}.`);
+            const msgEmail = data.emailBoasVindas === 'enviado' ? ' Enviamos o e-mail de boas-vindas com o link de acesso.'
+                : data.emailBoasVindas === 'nao_configurado' ? ' O e-mail de boas-vindas NÃO foi enviado: o envio de e-mail ainda não está configurado no servidor.'
+                : ' Não foi possível enviar o e-mail de boas-vindas agora; use o botão ✉️ para reenviar.';
+            alert(`Usuário criado. Ele(a) já pode entrar com a conta Google ${data.email}.${msgEmail}`);
         } else {
             // Editar
             const body = { email, name, role, is_active: active === '1', vertical };
@@ -295,6 +299,19 @@ async function pessoasDelete(id, nome) {
             return;
         }
         pessoasLoad();
+    } catch (err) {
+        alert(`Erro de conexão: ${err.message}`);
+    }
+}
+
+// ─── Reenviar e-mail de boas-vindas ──
+async function pessoasReenviarBoasVindas(id, nome) {
+    if (!confirm(`Reenviar o e-mail de boas-vindas para "${nome}"?`)) return;
+    try {
+        const res = await fetch(`${PESSOAS_API}/${id}/reenviar-boas-vindas`, { method: 'POST', headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(data.error || 'Erro ao reenviar o e-mail.'); return; }
+        alert(`E-mail enviado para ${data.para}.`);
     } catch (err) {
         alert(`Erro de conexão: ${err.message}`);
     }
