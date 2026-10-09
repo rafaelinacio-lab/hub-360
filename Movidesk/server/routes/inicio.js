@@ -137,6 +137,7 @@ async function carregarAbertos() {
     SELECT t.ticket_id::text AS ticket_id, t.createddate AS criado_em, t.status AS status_movidesk, t.basestatus AS basestatus, t.urgency AS urgencia,
            t.ownerteam AS equipe, btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) AS servico,
            COALESCE(NULLIF(t.owner_team, ''), t.ownerteam, '') AS equipe_escopo, COALESCE(t.owner_id::text, '') AS dono,
+           COALESCE(t.sla_solution_date, t.slasolutiondate) AS sla_mdk, COALESCE(t.slasolutiondateispaused, false) AS sla_mdk_pausado,
            cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS sla_fora_cliente
       FROM silver.ticket t ${CLASSIF_JOIN} ${slaHub.sqlLateralClienteFora('t')}
      WHERE t.basestatus NOT IN (${FECHADOS_SQL})`);
@@ -167,7 +168,7 @@ async function carregarResolvidos(agoraMs) {
   const mes = new Date(inicioDoMes(agoraMs)), ant = new Date(inicioDoMes(agoraMs, -1));
   const hoje0 = new Date(`${diaDe(agoraMs)}T00:00:00-03:00`), hoje1 = new Date(hoje0.getTime() + 86400000);
   const svc = `btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1))`, eq = `COALESCE(NULLIF(t.owner_team, ''), t.ownerteam, '')`, dono = `COALESCE(t.owner_id::text, '')`;   // responsável pelo ID (o e-mail vem vazio/desatualizado em muitos chamados)
-  const [sla, simples, fechados] = await Promise.all([
+  const [sla, simples, fechados, mdk] = await Promise.all([
     // SLA (régua do Hub): chamados de Suporte Técnico com tempo líquido guardado (utils/slaLiquido.js), resolvidos desde o mês anterior
     db.query(`
       SELECT t.ticket_id::text AS id, ${svc} AS servico, ${eq} AS equipe, ${dono} AS dono, (t.resolved_in >= $1) AS no_mes, s.minutos, ${slaHub.sqlMetaH('t.urgency')} AS meta, ${slaHub.sqlEquipeConta('t.ownerteam')} AS conta_eq
@@ -180,12 +181,17 @@ async function carregarResolvidos(agoraMs) {
     // fechados hoje (Suporte Técnico)
     db.query(`SELECT ${svc} AS servico, ${eq} AS equipe, COUNT(*)::int AS n FROM silver.ticket t ${CLASSIF_JOIN}
                WHERE COALESCE(t.resolved_in, t.closed_in) >= $1 AND COALESCE(t.resolved_in, t.closed_in) < $2 AND cf.valor_texto = 'Suporte Técnico' GROUP BY 1, 2`, [hoje0, hoje1]),
+    // SLA do MOVIDESK (prazo de solução do próprio chamado): usado na visão pessoal para o que a régua do Hub não conta
+    db.query(`SELECT t.ticket_id::text AS id, ${svc} AS servico, ${eq} AS equipe, ${dono} AS dono, (t.resolved_in >= $1) AS no_mes,
+                     (t.resolved_in <= COALESCE(t.sla_solution_date, t.slasolutiondate)) AS dentro
+                FROM silver.ticket t WHERE t.resolved_in >= $2 AND t.basestatus IN (${RESOLVIDOS_SQL})
+                 AND COALESCE(t.sla_solution_date, t.slasolutiondate) IS NOT NULL`, [mes, ant]),
   ]);
   await foraSlaDe(sla.rows.map((x) => x.id));
   const grupos = new Map();   // (servico|equipe|dono|periodo) -> linha agregada
   const linha = (g, periodo) => {
     const k = `${g.servico}|${g.equipe}|${g.dono || ''}|${periodo}`;
-    if (!grupos.has(k)) grupos.set(k, { servico: g.servico, equipe: g.equipe, dono: g.dono || '', periodo, resolvidos: 0, fecharam: 0, base: 0, dentro: 0, baseP: 0, dentroP: 0 });
+    if (!grupos.has(k)) grupos.set(k, { servico: g.servico, equipe: g.equipe, dono: g.dono || '', periodo, resolvidos: 0, fecharam: 0, base: 0, dentro: 0, baseP: 0, dentroP: 0, baseM: 0, dentroM: 0 });
     return grupos.get(k);
   };
   for (const x of sla.rows) {
@@ -194,6 +200,12 @@ async function carregarResolvidos(agoraMs) {
     const ok = x.minutos / 60 <= x.meta;
     l.baseP++; if (ok) l.dentroP++;                  // visão pessoal: todas as equipes do responsável
     if (x.conta_eq) { l.base++; if (ok) l.dentro++; } // equipe: só equipes de suporte (régua do Hub)
+  }
+  const contadosHub = new Set(sla.rows.filter((x) => !_foraSla.get(x.id)).map((x) => x.id));   // já entram pela régua do Hub
+  for (const x of mdk.rows) {
+    if (contadosHub.has(x.id)) continue;
+    const l = linha(x, x.no_mes ? 'mes' : 'ant');
+    l.baseM++; if (x.dentro) l.dentroM++;
   }
   for (const x of simples.rows) linha(x, x.no_mes ? 'mes' : 'ant').resolvidos += x.n;
   for (const x of fechados.rows) linha({ ...x, dono: '' }, 'hoje').fecharam += x.n;
@@ -271,18 +283,26 @@ function resumoDele(G, ids, agoraMs) {
   const pend = meus.size ? G.abertos.rows.filter((x) => meus.has(x.dono)) : [];
   const res = meus.size ? G.resolvidos.filter((g) => meus.has(g.dono)) : [];
   const calc = (p, r) => {
-    const mes = { base: soma(r, 'baseP', (g) => g.periodo === 'mes'), dentro: soma(r, 'dentroP', (g) => g.periodo === 'mes') };
-    const ant = { base: soma(r, 'baseP', (g) => g.periodo === 'ant'), dentro: soma(r, 'dentroP', (g) => g.periodo === 'ant') };
+    // SLA do mês: régua do Hub onde ela vale; no resto (cliente interno, equipe fora da régua…) o prazo do Movidesk
+    const periodo = (per) => ({ base: soma(r, 'baseP', (g) => g.periodo === per) + soma(r, 'baseM', (g) => g.periodo === per),
+      dentro: soma(r, 'dentroP', (g) => g.periodo === per) + soma(r, 'dentroM', (g) => g.periodo === per) });
+    const mes = periodo('mes'), ant = periodo('ant');
     const sla = p.map((x) => ({ ...x, sla_hub: x.sla_hub_pessoal, sla_meta_h: x.sla_meta_h_pessoal }));
+    // abertos fora da régua do Hub com prazo no Movidesk: vencido se o prazo passou; vence hoje se cai hoje (Brasília)
+    const fimDoDia = new Date(`${diaDe(agoraMs)}T23:59:59-03:00`).getTime();
+    const mdk = p.filter((x) => x.sla_hub_pessoal === 'fora' && x.sla_mdk && !x.sla_mdk_pausado && x.basestatus !== 'Stopped');
+    const mdkVenc = contar(mdk, (x) => new Date(x.sla_mdk).getTime() < agoraMs);
+    const mdkHoje = contar(mdk, (x) => { const t = new Date(x.sla_mdk).getTime(); return t >= agoraMs && t <= fimDoDia; });
     return {
       abertos: contar(p, (x) => x.basestatus === 'New'),   // "Abertos" do cartão = só os Novos
-      vencidos: contar(sla, (x) => x.sla_hub === 'vencido'), vencemHoje: vencemHoje(sla, G.abertos.cfg, agoraMs),
+      vencidos: contar(sla, (x) => x.sla_hub === 'vencido') + mdkVenc, vencemHoje: vencemHoje(sla, G.abertos.cfg, agoraMs) + mdkHoje,
       pausados: contar(p, (x) => x.basestatus === 'Stopped'), resolvidosMes: soma(r, 'resolvidos', (g) => g.periodo === 'mes'),
       slaMes: pctDe(mes.dentro, mes.base), slaMesAnterior: pctDe(ant.dentro, ant.base), baseSlaMes: mes.base,
+      baseSlaMovidesk: soma(r, 'baseM', (g) => g.periodo === 'mes'),
     };
   };
   const resumo = calc(pend, res);
-  resumo.vinculado = pend.length > 0 || res.some((g) => g.resolvidos > 0 || g.baseP > 0);
+  resumo.vinculado = pend.length > 0 || res.some((g) => g.resolvidos > 0 || g.baseP > 0 || g.baseM > 0);
   const eqDe = (x) => x.equipe_escopo || x.equipe || '';
   const nomes = [...new Set([...pend.map(eqDe), ...res.map((g) => g.equipe || '')].filter(Boolean))].sort();
   if (nomes.length > 1) resumo.porEquipe = nomes.map((n) => ({ equipe: n, ...calc(pend.filter((x) => eqDe(x) === n), res.filter((g) => (g.equipe || '') === n)) }));

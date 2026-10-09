@@ -316,7 +316,7 @@ function renderMeu(d){
       ${card(I.relogio, 'Vencem hoje', nf(vh), vh ? 'resolva ou renegocie hoje' : 'nada vence hoje', vh ? 'warn' : '')}
       ${card(I.pausa, 'Pausados', nf(x.pausados || 0), 'aguardando retorno do cliente ou terceiro', '')}
       ${card(I.check, 'Resolvidos no mês', nf(x.resolvidosMes || 0), 'neste mês', 'good')}
-      ${card(I.escudo, 'SLA do mês', pct(x.slaMes), (num(x.baseSlaMes) > 0) ? `sobre ${nf(x.baseSlaMes)} resolvido${x.baseSlaMes === 1 ? '' : 's'} com meta` : 'ainda sem resolvidos com meta', 'orange', deltaPp(x.slaMes, x.slaMesAnterior))}
+      ${card(I.escudo, 'SLA do mês', pct(x.slaMes), (num(x.baseSlaMes) > 0) ? `sobre ${nf(x.baseSlaMes)} resolvido${x.baseSlaMes === 1 ? '' : 's'} com meta${x.baseSlaMovidesk > 0 ? ` (${nf(x.baseSlaMovidesk)} pelo SLA do Movidesk)` : ''}` : 'ainda sem resolvidos com meta', 'orange', deltaPp(x.slaMes, x.slaMesAnterior))}
     </div>`;
   };
   if (Array.isArray(m.porEquipe) && m.porEquipe.length > 1) {
