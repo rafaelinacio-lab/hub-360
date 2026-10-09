@@ -4293,6 +4293,15 @@ body.legacy-view-mode .app-wrapper {
     justify-content: center;
 }
 
+.pt-btn.pt-btn-texto {
+    width: auto;
+    padding: 0 10px;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
 .pt-btn:hover {
     transform: scale(1.1);
     background: var(--border);
