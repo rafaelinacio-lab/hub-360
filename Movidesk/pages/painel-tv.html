@@ -496,7 +496,9 @@ function donutTv(id,itens){
   if(_prazoChart){ _prazoChart.destroy(); _prazoChart=null; }
   const total=itens.reduce((a,i)=>a+i.valor,0);
   const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  if(leg) leg.innerHTML=itens.map(i=>`<li data-prazo="${escAttr(i.chave||'')}" style="cursor:pointer" title="Ver os chamados"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+  // legenda: "n · x%" (fatia ÷ total de pendentes)
+  const pctFatia=v=>total?` · ${(v/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:'';
+  if(leg) leg.innerHTML=itens.map(i=>`<li data-prazo="${escAttr(i.chave||'')}" style="cursor:pointer" title="Ver os chamados"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}${pctFatia(i.valor)}</span></li>`).join('');
   if(!total) return;
   const t1=cs('--t1'), t3=cs('--t3');
   const centro={id:'centroRosca',afterDraw(ch){
@@ -574,7 +576,9 @@ function renderHoje(vencidosRows){
   document.getElementById('card-versus').classList.toggle('bom',fechados>=abertos);
   const crit=_rows.filter(ehCritico);
   set('k-criticos',crit.length,crit.length?`${(crit.length/Math.max(_rows.length,1)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes.`:'Nenhum chamado crítico em aberto.');
-  set('k-criticos-venc',crit.filter(isVencido).length);
+  // % dos críticos pendentes que já venceram (sem críticos, mantém o texto padrão)
+  const critVenc=crit.filter(isVencido).length;
+  set('k-criticos-venc',critVenc,crit.length?`${(critVenc/crit.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos críticos.`:'Críticos com prazo de SLA passado.');
 }
 // Quem aparece na barra: o responsável; sem responsável mas com equipe, "Não atribuído · <equipe>"; sem nenhum dos dois, só "Não atribuído".
 const SEM_DONO='Não atribuído';

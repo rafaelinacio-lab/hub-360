@@ -319,7 +319,7 @@ async function carregarKpis(){
     $('kpis').innerHTML=
       c('Incidentes ativos',k.totalAtivos,`P1: ${p[1]||0} · P2: ${p[2]||0} · P3: ${p[3]||0} · P4: ${p[4]||0}`,(p[1]||0)>0)+
       c('Graves ativos',k.gravesAtivos,'em tratamento',k.gravesAtivos>0)+
-      c('Com meta estourada',k.comMetaEstourada,'entre os ativos',k.comMetaEstourada>0)+
+      c('Com meta estourada',k.comMetaEstourada,k.totalAtivos?`${(k.comMetaEstourada/k.totalAtivos*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos ativos`:'entre os ativos',k.comMetaEstourada>0)+
       c('MTTA (30 dias)',k.mttaMin==null?'—':dur(k.mttaMin),'tempo até reconhecer')+
       c('MTTR (30 dias)',k.mttrMin==null?'—':dur(k.mttrMin),'tempo até resolver')+
       c('Pós-incidente pendente',pm.total,'resolvidos graves/P1/P2 sem análise',pm.total>0)+

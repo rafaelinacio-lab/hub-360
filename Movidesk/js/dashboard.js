@@ -252,15 +252,19 @@ function updateSummaryCards(tickets) {
     setW('slaBarLate', pct(counts.overdue));
     const fmtPctBr = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    setTxt('pctNew', fmtPctBr(totalTk ? (counts.New / (total || 1)) * 100 : 0));
-    setTxt('pctInAtt', fmtPctBr(totalTk ? (counts.InAttendance / (total || 1)) * 100 : 0));
-    setTxt('pctStopped', fmtPctBr(totalTk ? (counts.Stopped / (total || 1)) * 100 : 0));
+    // Todos os "do total" usam o mesmo denominador (todos os chamados em tela) — antes Novos/Em atendimento/Aguardando
+    // dividiam só por New+InAttendance+Stopped e os de prazo por todos, e os números não fechavam entre si.
+    setTxt('pctNew', fmtPctBr(pct(counts.New)));
+    setTxt('pctInAtt', fmtPctBr(pct(counts.InAttendance)));
+    setTxt('pctStopped', fmtPctBr(pct(counts.Stopped)));
     document.getElementById('pctOnTime').textContent = fmtPctBr(pct(counts.onTime));
     document.getElementById('pctOverdue').textContent = fmtPctBr(pct(counts.overdue));
     const bar = document.getElementById('slaBar');
     if (bar) bar.setAttribute('aria-label', `SLA: ${counts.onTime} no prazo, ${outros} pausados ou sem prazo, ${counts.overdue} atrasados`);
     const leg = document.getElementById('slaBarLegend');
-    if (leg) leg.innerHTML = `<span><i style="background:var(--red-mid)"></i>Atrasado <b>${counts.overdue}</b></span><span><i style="background:var(--hint)"></i>Pausado ou sem prazo <b>${outros}</b></span><span><i style="background:var(--grn-mid)"></i>No prazo <b>${counts.onTime}</b></span>`;
+    // legenda com "n · x%" de cada faixa (÷ todos os chamados em tela)
+    const nPct = (n) => `<b>${n}</b> · ${fmtPctBr(pct(n))}`;
+    if (leg) leg.innerHTML = `<span><i style="background:var(--red-mid)"></i>Atrasado ${nPct(counts.overdue)}</span><span><i style="background:var(--hint)"></i>Pausado ou sem prazo ${nPct(outros)}</span><span><i style="background:var(--grn-mid)"></i>No prazo ${nPct(counts.onTime)}</span>`;
     // Título do Dashboard: os dois números que importam
     const ttl = document.getElementById('dshTitulo');
     if (ttl) ttl.innerHTML = `${total} chamado${total === 1 ? '' : 's'} em aberto${counts.overdue ? `, <span class="dsh-late">${counts.overdue} fora do prazo</span>` : ''}`;
@@ -950,7 +954,7 @@ function updateAttendantsList(attendantMap) {
                 <span class="ag-cnt"><b class="cnt">${d.count}</b><small>chamado${d.count === 1 ? '' : 's'}</small></span>
             </span>
             <span class="load" role="img" aria-label="${d.count} chamados">${seg}</span>
-            <span class="ag-stats">${chip('r', d.late, 'atrasado', 'atrasados')}${chip('y', d.paused, 'pausado', 'pausados')}${chip('g', ok, 'em dia', 'em dia')}</span>
+            <span class="ag-stats">${chip('r', d.late, d.count ? `atrasado (${Math.round((d.late / d.count) * 100)}%)` : 'atrasado', d.count ? `atrasados (${Math.round((d.late / d.count) * 100)}%)` : 'atrasados')}${chip('y', d.paused, 'pausado', 'pausados')}${chip('g', ok, 'em dia', 'em dia')}</span>
         </button>`;
     }).join('') || '<p style="color: var(--muted);">Nenhum atendente</p>';
     container.querySelectorAll('.ag').forEach(btn => btn.addEventListener('click', () => {
