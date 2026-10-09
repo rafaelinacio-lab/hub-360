@@ -148,7 +148,7 @@ async function executar(entrada, usuario) {
       SELECT t.ticket_id::bigint AS id, t.subject, t.status, t.createddate, t.ownerteam, split_part(t.service_full, ' > ', 1) AS servico,
              COALESCE(NULLIF(o.organizacao_nome,''), t.clientorganization, 'Cliente não identificado') AS cliente
         FROM silver.ticket t LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id::bigint
-       WHERE t.createddate >= NOW() - make_interval(days => $1::int) ${filtro}
+       WHERE t.createddate >= NOW() - make_interval(days => $1::int) AND ${NAO_SISTEMAS_INTERNOS('t')} ${filtro}
        ORDER BY t.createddate DESC LIMIT $2`, params)).rows;
     if (tks.length < 3) throw new IaError(400,  `Só há ${tks.length} chamado(s) nesse período${servico ? ' e serviço' : ''}: amplie o período para comparar.`);
     const ids = tks.map((t) => Number(t.id));
@@ -243,6 +243,14 @@ router.get('/painel', requireLeitura, async (req, res) => {
 // O banco só escolhe os candidatos (mesmo cliente + anterior encerrado até 60 dias antes, de qualquer módulo); o veredito fica em public.reincidencia_par.
 // A janela "Voltou em até N dias" da tela filtra o veredito pelo intervalo real entre o encerramento do anterior e a abertura do novo.
 // Data de encerramento: resolved_in/closed_in e, nos chamados antigos (que não trazem esses campos), a data da última ação de chamados já fechados.
+// Reincidências NÃO puxa chamados de Sistemas Internos (pedido do usuário, 09/10/2026): vertical = 1º nível do serviço e,
+// sem serviço, a equipe. Vale para a base do painel, para os candidatos da análise da IA (inclusive os chamados anteriores
+// usados na comparação) e para a lista de equipes do filtro. `a` = alias da tabela silver.ticket ('' sem alias).
+const NAO_SISTEMAS_INTERNOS = (a = 't') => {
+  const c = (col) => (a ? `${a}.${col}` : col);
+  return `NOT (lower(btrim(split_part(COALESCE(${c('service_full')}, ''), ' > ', 1))) = 'sistemas internos'
+    OR (COALESCE(btrim(${c('service_full')}), '') = '' AND lower(COALESCE(NULLIF(${c('owner_team')}, ''), NULLIF(${c('ownerteam')}, ''), '')) LIKE '%sistemas internos%'))`;
+};
 const GERAL_CTE = `
 WITH cf AS (
         SELECT ticket_id,
@@ -260,7 +268,7 @@ WITH cf AS (
                NULLIF(trim(cf.modulo),'') AS modulo_campo, NULLIF(trim(cf.causa),'') AS causa_campo,
                COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
           FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
-         WHERE ($5 = '' OR cf.classif = $5)/*VERT*/
+         WHERE ($5 = '' OR cf.classif = $5) AND /*SI*/ /*VERT*/
            AND ($2::int IS NULL OR (t.createddate >= make_date($2::int,1,1) AND t.createddate < make_date($2::int+1,1,1)))),
       c AS (SELECT *, (cliente IS NOT NULL) AS classificado FROM b),
       f AS (
@@ -272,7 +280,7 @@ WITH cf AS (
       fc AS (SELECT * FROM f WHERE classificado)
 `;
 // A mesma consulta com o escopo de vertical (parâmetro $vp = nomes normalizados da vertical); sem escopo, não muda nada.
-const cteGeral = (vp) => GERAL_CTE.replace('/*VERT*/', vp ? ` AND ${sqlVertical('t', vp)}` : '');
+const cteGeral = (vp) => GERAL_CTE.replace('/*SI*/', NAO_SISTEMAS_INTERNOS('t')).replace('/*VERT*/', vp ? ` AND ${sqlVertical('t', vp)}` : '');
 // ── Motivo de cada reincidência ───────────────────────────────────────────
 // Não depende só do campo Módulo/Rotina: o tema sai do texto do chamado (assunto, as primeiras ações e a explicação da IA
 // sobre por que é o mesmo problema), com o dicionário de palavras-chave de server/data/temas-chamados.json.
@@ -340,8 +348,8 @@ async function listasFiltro(esc) {                                       // anos
   const [a, e] = await Promise.all([
     consultaLimitada(`SELECT DISTINCT extract(year from createddate)::int AS ano FROM silver.ticket WHERE createddate IS NOT NULL ORDER BY 1`, [], 30),
     esc.filtrar
-      ? consultaLimitada(`SELECT COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS e FROM silver.ticket t WHERE t.createddate >= NOW() - INTERVAL '3 years' AND ${sqlVertical('t', 1)} GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [alvosDe(esc)], 30)
-      : consultaLimitada(`SELECT COALESCE(NULLIF(owner_team,''), NULLIF(ownerteam,''), 'Sem equipe') AS e FROM silver.ticket WHERE createddate >= NOW() - INTERVAL '3 years' GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [], 30)]);
+      ? consultaLimitada(`SELECT COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS e FROM silver.ticket t WHERE t.createddate >= NOW() - INTERVAL '3 years' AND ${NAO_SISTEMAS_INTERNOS('t')} AND ${sqlVertical('t', 1)} GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [alvosDe(esc)], 30)
+      : consultaLimitada(`SELECT COALESCE(NULLIF(owner_team,''), NULLIF(ownerteam,''), 'Sem equipe') AS e FROM silver.ticket WHERE createddate >= NOW() - INTERVAL '3 years' AND ${NAO_SISTEMAS_INTERNOS('')} GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [], 30)]);
   const v = { anos: a.rows.map((x) => x.ano), equipesLista: e.rows.map((x) => x.e).sort() };
   if (listasCache.size > 40) listasCache.clear();
   listasCache.set(chave, { em: Date.now(), v }); return v;
@@ -463,7 +471,7 @@ async function candidatosPendentes(limite) {
                   COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
                   COALESCE(NULLIF(trim(cf.modulo),''), NULLIF(trim(cf.causa),'')) AS modulo
              FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
-            WHERE cf.classif = 'Suporte Técnico'),
+            WHERE cf.classif = 'Suporte Técnico' AND ${NAO_SISTEMAS_INTERNOS('t')}),
          pend AS (SELECT n.* FROM b n WHERE n.cliente IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.reincidencia_par v WHERE v.ticket_id = n.id) ORDER BY n.createddate DESC LIMIT $4),
          pares AS (
            SELECT n.id AS tid, n.createddate AS cd, p.id AS pid, p.fim AS pfim, (p.modulo IS NOT NULL AND p.modulo = n.modulo) AS mesmo_modulo,

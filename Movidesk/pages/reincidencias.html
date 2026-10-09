@@ -167,12 +167,10 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 <body>
 <div class="page">
   <div class="topo">
-    <div><h1>Painel de Reincidências</h1>
-      <p>O mesmo problema voltando para o mesmo cliente. A IA lê o contexto e as ações dos chamados e só entram os casos de confiança alta; o motivo vem do conteúdo, não só do campo Módulo/Rotina.</p></div>
+    <div><h1>Painel de Reincidências</h1></div>
     <div class="sp"></div>
       </div>
   <div id="vGeral">
-    <p class="vg-nota" id="vgNota"></p>
     <div class="barra">
       <span class="fl">Filtros</span>
       <label class="meta" for="gAno">Ano</label><select id="gAno"><option value="">Todos os anos</option></select>
@@ -312,8 +310,6 @@ function gDesenhar(){
     </div>`;
   $('gResultado').innerHTML=h; gChips();
   $('gFrescor').textContent=`Calculado ${ha(d.geradoEm)}${d.cache?' (em cache, até 10 min)':''}`;
-  $('vgNota').innerHTML=`Um chamado é <b>reincidente</b> quando a <b>IA</b>, lendo o <b>contexto e as ações</b> dele e dos chamados anteriores do mesmo cliente (encerrados até ${f.dias} dias antes), conclui com <b>confiança alta</b> que é o <b>mesmo problema</b> voltando. `+
-    `O motivo é lido no assunto, nas ações e na explicação da IA; o módulo/rotina é só apoio. Só entram na taxa os chamados já analisados pela IA (veja a cobertura abaixo).`;
   const sa=$('gAno'); if(sa.options.length<=1||sa.dataset.n!==String(d.anos.length)){ sa.innerHTML='<option value="">Todos os anos</option>'+d.anos.map(a=>`<option>${a}</option>`).join(''); sa.dataset.n=String(d.anos.length); }
   sa.value=f.ano?String(f.ano):'';
   const se=$('gEquipe'); if(se.dataset.n!==String(d.equipesLista.length)){ se.innerHTML='<option value="">Todas as equipes</option>'+d.equipesLista.map(e=>`<option>${esc(e)}</option>`).join(''); se.dataset.n=String(d.equipesLista.length); }
