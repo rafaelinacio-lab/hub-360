@@ -37,7 +37,7 @@ Reincidências (IA), Curadoria, Ouvidoria, GCC, Satisfação, Jira e Configuraç
 
 ## Permissões
 - Perfis: `admin`, `supervisor`, `atendente`, `guest`. Abas liberadas por perfil em Configurações → Acesso (`role_tab_permissions`, `TAB_PERMISSION_TABS` em `routes/config.js`). Escrita (Central, Incidentes) só admin/supervisor/atendente.
-- Dashboard filtra pela equipe/vertical do usuário logado (`escopoEquipe` em `utils/movideskPeople.js`).
+- **Verticais:** todo painel respeita as verticais atribuídas ao perfil em Pessoas (`users.vertical`, lista `A; B`); perfil sem vertical vê tudo; admin vê tudo; Painel TV público não é filtrado (usa `?vertical=`). Regra e helpers em `server/utils/verticalScope.js` (`escopoVertical`, `filtrarLinhas`, `pertence`); o Dashboard usa `escopoEquipe` (`utils/movideskPeople.js`). Rota nova que devolve chamados precisa aplicar o escopo (depois do cache, se houver).
 
 ## Convenções de código
 - Siga o estilo do arquivo vizinho (comentários em português, nomes em português no domínio). Não adicione dependências sem necessidade.

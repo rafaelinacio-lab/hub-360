@@ -214,7 +214,7 @@ async function pessoasSubmit(e) {
         if (!id) {
             // Criar
             if (!email) { pmShowError('E-mail é obrigatório.'); return; }
-            if (!vertical && role !== 'admin') { pmShowError('Marque pelo menos uma vertical (administrador não precisa).'); return; }
+            // vertical é opcional: sem nenhuma, o perfil vê todas as verticais em todos os painéis
             res = await fetch(PESSOAS_API, {
                 method: 'POST',
                 headers: {

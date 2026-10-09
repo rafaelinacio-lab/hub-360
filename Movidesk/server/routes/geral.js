@@ -23,6 +23,8 @@ const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
 const { parseData } = require('../utils/sla');
+const { hashSessionToken } = require('../utils/auth');
+const { escopoVertical, pertence, norm: normV } = require('../utils/verticalScope');
 // Tempo de solução líquido do Painel Geral = mesma régua da política de SLA (Configurações → SLA e horas): só a janela de
 // atendimento, sem fim de semana, sem feriados cadastrados e sem o tempo em status de pausa (aguardando cliente/terceiro/
 // validação…). Pedido do usuário, 08/10/2026 — antes usava utils/sla.js (07:45–12:00/13:30–18:00, sem feriados).
@@ -102,6 +104,28 @@ const LIST_SELECT = `
 // vez transporta dezenas de MB de JSON e estoura o timeout do frontend
 // (90s), mesmo com os joins todos indexados (medido em produção em
 // 22/09/2026: a query em si roda rápido, o volume que não cabe). Por padrão
+// ── Escopo de vertical do perfil (regra única dos painéis: utils/verticalScope.js) ───────────────────────────────
+// Perfil com vertical atribuída em Pessoas vê só os chamados dessa(s) vertical(is); perfil SEM vertical e admin veem tudo;
+// quem não tem req.user (Painel TV público, sem login) não é filtrado — a URL ?vertical= escolhe a vertical na tela.
+// Devolve o escopo quando há filtro a aplicar, ou null. Se a leitura falhar o erro SOBE (500): melhor do que mostrar tudo.
+async function escopoDoRequest(req) {
+  if (!req.user || !req.user.id) return null;
+  const e = await escopoVertical(req.user.id);
+  return e.filtrar ? e : null;
+}
+// Sufixo da chave de cache: o cache (utils/cacheResposta) é compartilhado entre usuários, então cada escopo tem a sua
+// chave e nunca recebe a resposta de outro (nem do completo).
+const chaveEscopo = (esc) => (esc ? ':v=' + esc.verticais.map(normV).sort().join('|') : '');
+// Vertical do chamado = 1º nível do serviço; a equipe só decide quando o chamado está sem serviço.
+const linhaNoEscopo = (esc, r) => !esc || pertence(esc.verticais, { servico: r.servico, equipe: r.servico ? null : r.equipe });
+const filtrarEscopo = (esc, linhas) => (esc ? (linhas || []).filter((r) => linhaNoEscopo(esc, r)) : linhas);
+// Rotas que recebem uma lista de ids do navegador: devolve só os ids que pertencem ao escopo.
+async function idsNoEscopo(esc, ids) {
+  if (!esc || !ids.length) return ids;
+  const r = await db.query(`SELECT ticket_id::text AS id, service_full AS servico, ownerteam AS equipe FROM silver.ticket WHERE ticket_id = ANY($1::bigint[])`, [ids]);
+  return r.rows.filter((x) => linhaNoEscopo(esc, x)).map((x) => x.id);
+}
+
 // limita a janela ao ano vigente (1º de janeiro até agora); ?todos=1 busca
 // tudo (uso explícito e consciente, via botão "Carregar histórico completo"
 // no frontend) e ?desde=YYYY-MM-DD permite uma janela customizada.
@@ -127,12 +151,13 @@ router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) =
       }
     }
 
-    await cacheResposta.responder(req, res, `geral:${todos ? 'todos' : (desde || 'ano')}`, CACHE_PAINEL_MS, async () => {
+    const esc = await escopoDoRequest(req);
+    await cacheResposta.responder(req, res, `geral:${todos ? 'todos' : (desde || 'ano')}${chaveEscopo(esc)}`, CACHE_PAINEL_MS, async () => {
       const result = await db.query(
         `${LIST_SELECT} ${whereClause} ORDER BY t.createddate DESC`,
         params
       );
-      return { rows: result.rows || [], janela: todos ? null : (desde || 'ano-vigente') };
+      return { rows: filtrarEscopo(esc, result.rows || []), janela: todos ? null : (desde || 'ano-vigente') };
     });
   } catch (error) {
     // 42P01 = undefined_table (silver.* ainda não existe, primeira carga) —
@@ -206,7 +231,16 @@ const acessoPainelTv = async (req, res, next) => {
     if (!PAINEL_TV_PUBLICO) return res.status(401).json({ error: 'Link da TV inválido ou renovado' });
     return next();
   }
-  if (PAINEL_TV_PUBLICO && !req.headers.authorization) return next();
+  if (PAINEL_TV_PUBLICO) {
+    // Sem token, ou com um token que o navegador guardou e já expirou/foi revogado: abre como anônimo (antes a TV dava
+    // 401 "Sessão inválida"). Sessão válida segue o fluxo normal, com a permissão da aba e o escopo da vertical do usuário.
+    const token = String(req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return next();
+    let valida = false;
+    try { valida = (await db.query(`SELECT 1 FROM sessions WHERE token = $1 AND expires_at > NOW()`, [hashSessionToken(token)])).rows.length > 0; }
+    catch (_) { valida = false; }
+    if (!valida) return next();
+  }
   authMiddleware(req, res, (err) => err ? next(err) : requireTabAccess('paineltv')(req, res, next));
 };
 router.get('/tv-chave', authMiddleware, requireRole('admin'), async (req, res) => {
@@ -267,14 +301,16 @@ async function eventosDosTickets(ids) {
 router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
-    await cacheResposta.responder(req, res, 'pendentes', CACHE_PAINEL_MS, async () => {
+    const esc = await escopoDoRequest(req);
+    await cacheResposta.responder(req, res, 'pendentes' + chaveEscopo(esc), CACHE_PAINEL_MS, async () => {
       const result = await db.query(`
         SELECT p.*, ap.ultima_publica_agente, ap.ultima_publica_cliente
         FROM (${LIST_SELECT} WHERE t.basestatus NOT IN (${closedList})) p
         ${LAST_PUBLIC_ACTION_JOIN}
         ORDER BY p.criado_em DESC
       `);
-      const rows = result.rows || [];
+      // escopo da vertical já aqui: o enriquecimento abaixo (organização, régua do Hub) só roda para o que o perfil vê
+      const rows = filtrarEscopo(esc, result.rows || []);
       // Chamados recém-carregados ainda não entraram em silver.ticket_organizacao (ela é refeita a cada 30 min):
       // para os pendentes sem organização, usa direto o cliente do chamado (mesma heurística da materialização).
       const semOrg = rows.filter(r => !r.organizacao).map(r => r.ticket_id).filter(id => /^\d{1,18}$/.test(String(id)));
@@ -344,7 +380,7 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
            WHERE (t.createddate >= now() - interval '2 days' OR t.resolved_in >= now() - interval '2 days' OR t.closed_in >= now() - interval '2 days')
              AND ((t.createddate AT TIME ZONE 'America/Sao_Paulo')::date = (now() AT TIME ZONE 'America/Sao_Paulo')::date
                OR (COALESCE(t.resolved_in, t.closed_in) AT TIME ZONE 'America/Sao_Paulo')::date = (now() AT TIME ZONE 'America/Sao_Paulo')::date)`);
-        hoje = h.rows || [];
+        hoje = filtrarEscopo(esc, h.rows || []);
       } catch (e) { console.warn('[geral] movimento do dia falhou:', e.message); }
       return { rows, hoje };
     });
@@ -489,13 +525,15 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
 // Body: { ids: ["123", ...] } (até 3000). Resposta: { minutos: { "123": 372, ... } }
 const SLA_LIQUIDO_MAX_IDS = 3000;
 router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
-  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+  let ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
   if (!ids.length) return res.json({ minutos: {} });
   if (ids.length > SLA_LIQUIDO_MAX_IDS) {
     return res.status(400).json({ error: `Máximo de ${SLA_LIQUIDO_MAX_IDS} tickets por chamada` });
   }
   try {
+    ids = await idsNoEscopo(await escopoDoRequest(req), ids);   // só o que o perfil pode ver (vertical)
+    if (!ids.length) return res.json({ minutos: {} });
     const [tRes, aRes] = await Promise.all([
       db.query(
         `SELECT ticket_id::varchar AS id, createddate AS criado_em, resolved_in AS resolvido_em
@@ -540,12 +578,14 @@ router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async 
 const CF_INICIO_IMPLANTACAO = Number(process.env.CF_INICIO_IMPLANTACAO_ID) || 250810;
 const CF_VALOR_ORCAMENTO = Number(process.env.CF_VALOR_ORCAMENTO_ID) || 26105;
 router.post('/campos-analytics', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
-  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+  let ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
   if (ids.length > 3000) return res.status(400).json({ error: 'Máximo de 3000 tickets por chamada' });
   const base = { campos: {}, orcamentoConfigurado: !!CF_VALOR_ORCAMENTO };
   if (!ids.length) return res.json(base);
   try {
+    ids = await idsNoEscopo(await escopoDoRequest(req), ids);   // só o que o perfil pode ver (vertical)
+    if (!ids.length) return res.json(base);
     const campos = [CF_INICIO_IMPLANTACAO, CF_VALOR_ORCAMENTO].filter(Boolean);
     const r = await db.query(
       `SELECT ticket_id::text AS id, custom_field_id::bigint AS campo, valor_texto
@@ -575,12 +615,13 @@ const TEMAS_CHARS_POR_ACAO = 1500;
 const TEMAS_TTL_MS = 6 * 3600 * 1000;
 const _cacheTemas = new Map();    // ticket_id -> { tema, ate }
 router.post('/temas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
-  const ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
+  let ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
   if (ids.length > TEMAS_MAX_IDS) {
     return res.status(400).json({ error: `Máximo de ${TEMAS_MAX_IDS} tickets por chamada` });
   }
   try {
+    ids = await idsNoEscopo(await escopoDoRequest(req), ids);   // só o que o perfil pode ver (vertical)
     const agora = Date.now();
     const temas = {};
     const faltam = [];
@@ -626,10 +667,38 @@ router.post('/temas', authMiddleware, requireTabAccess('movidesk'), async (req, 
 // Resposta: { causas:[texto,…], itens:[[ticket_id, índice_da_causa],…] }
 const CAUSAS_TTL_MS = 10 * 60 * 1000;
 let _causasBase = null;   // { ate, dados }
+const _causasEscopo = new Map();   // chaveEscopo -> { ate, dados } (base já filtrada pela vertical do perfil)
+// Recorta a base da Curadoria para o escopo: só os chamados da vertical e só as causas que sobraram (reindexadas),
+// para não vazar nem o texto de causas de outras verticais.
+async function causasDoEscopo(esc, dados) {
+  const permitidos = new Set();
+  const ids = dados.itens.map((x) => x[0]).filter((id) => /^\d{1,18}$/.test(String(id)));
+  for (let i = 0; i < ids.length; i += 20000) {
+    const r = await db.query(`SELECT ticket_id::text AS id, service_full AS servico, ownerteam AS equipe FROM silver.ticket WHERE ticket_id = ANY($1::bigint[])`, [ids.slice(i, i + 20000)]);
+    for (const x of r.rows) if (linhaNoEscopo(esc, x)) permitidos.add(x.id);
+  }
+  const novoIndice = new Map(), causas = [], itens = [];
+  for (const [id, idx] of dados.itens) {
+    if (!permitidos.has(String(id))) continue;
+    if (!novoIndice.has(idx)) { novoIndice.set(idx, causas.length); causas.push(dados.causas[idx]); }
+    itens.push([id, novoIndice.get(idx)]);
+  }
+  return { causas, itens };
+}
 const _chaveCausa = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.;:\s]+$/, '');
 router.get('/causas', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
-    if (_causasBase && _causasBase.ate > Date.now()) return res.json(_causasBase.dados);
+    const esc = await escopoDoRequest(req);
+    // devolve a base (inteira ou recortada pelo escopo do perfil), com o cache certo para cada caso
+    const entregar = async (dados) => {
+      if (!esc) return res.json(dados);
+      const chave = chaveEscopo(esc), c = _causasEscopo.get(chave);
+      if (c && c.ate > Date.now() && c.base === dados) return res.json(c.dados);
+      const recorte = await causasDoEscopo(esc, dados);
+      _causasEscopo.set(chave, { ate: Date.now() + CAUSAS_TTL_MS, base: dados, dados: recorte });
+      return res.json(recorte);
+    };
+    if (_causasBase && _causasBase.ate > Date.now()) return entregar(_causasBase.dados);
     // Confere quais colunas existem neste banco (a Curadoria cria colunas aos poucos), em vez de assumir.
     const cols = new Set(((await db.queryDatabase('movidesk_curadoria',
       `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'curadoria_chamados'`)).rows || []).map((x) => x.column_name));
@@ -655,7 +724,7 @@ router.get('/causas', authMiddleware, requireTabAccess('movidesk'), async (req, 
     const causas = variantes.map((m) => [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]);
     const dados = { causas, itens };
     _causasBase = { ate: Date.now() + CAUSAS_TTL_MS, dados };
-    res.json(dados);
+    return entregar(dados);
   } catch (error) {
     console.error('Erro ao ler as causas da Curadoria:', error.message);
     const m = String(error.message || '');
@@ -681,7 +750,8 @@ router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
     const servico = String(req.query.servico || '').trim().slice(0, 300);
     const equipe = String(req.query.equipe || '').trim().slice(0, 300);
     const vertical = String(req.query.vertical || '').trim().slice(0, 200);   // serviço de 1º nível (Painel TV ?vertical=)
-    const chave = `sla-resp:${desde}:${servico}:${equipe}:${vertical}`;
+    const esc = await escopoDoRequest(req);   // perfil com vertical: só os chamados dela (a TV pública não é filtrada)
+    const chave = `sla-resp:${desde}:${servico}:${equipe}:${vertical}${chaveEscopo(esc)}`;
     await cacheResposta.responder(req, res, chave, CACHE_PAINEL_MS, async () => {
       const params = [desde];
       let filtroServico = '';
@@ -697,7 +767,7 @@ router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
                (t.basestatus IN (${FECHADOS_SQL})) AS resolvido,
                (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado')) AS pendente,
                t.createddate AS criado_em, t.status AS status_movidesk, t.urgency AS urgencia, t.ownerteam AS equipe,
-               cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS sla_fora_cliente,
+               t.service_full AS servico, cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS sla_fora_cliente,
                CASE WHEN sl.resolvido_em = t.resolved_in THEN sl.minutos END AS minutos
           FROM silver.ticket t
           JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
@@ -705,7 +775,7 @@ router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
           LEFT JOIN silver.ticket_sla_liquido sl ON sl.ticket_id = t.ticket_id
          WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = '${CLASSIFICACAO_SLA}'${filtroServico}
            AND (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado') OR (t.basestatus IN (${FECHADOS_SQL}) AND t.resolved_in >= $1::date))`, params);
-      const linhas = r.rows || [];
+      const linhas = filtrarEscopo(esc, r.rows || []);
       const pend = linhas.filter(x => x.pendente);
       if (pend.length) slaHub.marcarPendentes(pend, await eventosDosTickets(pend.map(x => x.ticket_id)), await configSla());
       const por = new Map();
@@ -739,6 +809,8 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('movidesk'), async (re
     const result = await db.query(`${LIST_SELECT} WHERE t.ticket_id = $1`, [ticketId]);
     const row = result.rows?.[0];
     if (!row) return res.status(404).json({ error: 'Ticket não encontrado' });
+    // chamado de outra vertical: 404 (não revela que existe)
+    if (!linhaNoEscopo(await escopoDoRequest(req), row)) return res.status(404).json({ error: 'Ticket não encontrado' });
     res.json(row);
   } catch (error) {
     console.error('Erro ao buscar ticket do painel geral:', error);
@@ -751,6 +823,11 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('movidesk'), a
   const ticketId = String(req.params.ticketId).trim();
   if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
   try {
+    const esc = await escopoDoRequest(req);
+    if (esc) {
+      const t = (await db.query(`SELECT service_full AS servico, ownerteam AS equipe FROM silver.ticket WHERE ticket_id::text = $1`, [ticketId])).rows[0];
+      if (!t || !linhaNoEscopo(esc, t)) return res.status(404).json({ error: 'Chamado não encontrado na sua vertical' });
+    }
     const [acaoRes, cfRes] = await Promise.all([
       db.query(
         `SELECT acao_id AS id, tipo AS type, descricao AS description,

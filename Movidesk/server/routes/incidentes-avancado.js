@@ -14,12 +14,30 @@ const cfg = require('../utils/aiSettings');
 const { chamarIA, REGRAS, dados, limitar } = require('../utils/ai');
 const { MovideskError, movidesk, agenteDoUsuario } = require('../utils/movideskPeople');
 const correl = require('../utils/correlacao');
+const { filtrarLinhas } = require('../utils/verticalScope');
 const base = require('./incidentes');
 
 const H = base.helpers;
-const { requireLeitura, exigirEscrita, evento, idValido, erro, codigoDe, listaTickets } = H;
+const { requireLeitura, exigirEscrita, evento, idValido, erro, codigoDe, listaTickets, visiveis, guardaIncidente } = H;
 const router = express.Router();
 router.use(authMiddleware);
+
+// Escopo por vertical (regra única dos painéis; ver visiveis() em routes/incidentes.js): incidente fora da vertical = 404
+// em TODA rota com :id/:iid; problemas valem pelos incidentes ligados a eles.
+router.param('id', guardaIncidente);
+router.param('iid', guardaIncidente);
+router.param('pid', async (req, res, next, valor) => {
+  try {
+    const n = idValido(valor);
+    const v = await visiveis(req);
+    if (!n || !v.ids) return next();
+    const p = (await db.query(`SELECT p.criado_por, ARRAY(SELECT x.incidente_id FROM public.problema_incidente x WHERE x.problema_id = p.id) AS incs
+                                 FROM public.problema p WHERE p.id = $1`, [n])).rows[0];
+    if (!p) return next();                     // não existe: o handler responde 404
+    if (!(p.incs.length ? p.incs.some(v.tem) : p.criado_por === req.user.id)) return res.status(404).json({ error: 'Problema não encontrado' });
+    next();
+  } catch (e) { erro(res, e); }
+});
 
 const ACAO_ORIGEM = Number(process.env.MOVIDESK_ACTION_ORIGIN || 9);
 const ACAO_TIPO = { interna: 1, publica: 2 };
@@ -73,7 +91,8 @@ async function candidatos(horas, extra = '', params = []) {
 router.get('/sugestoes', requireLeitura, async (req, res) => {
   try {
     const horas = num(req.query.horas, 1, 72, 12), minTickets = num(req.query.min, 2, 30, 3), minClientes = num(req.query.clientes, 1, 20, 2);
-    const grupos = correl.agrupar(await candidatos(horas), { minTickets, minClientes }).slice(0, 12)
+    const { esc } = await visiveis(req);       // só chamados da vertical do perfil (serviço de 1º nível)
+    const grupos = correl.agrupar(filtrarLinhas(await candidatos(horas), esc, (c) => ({ servico: c.servico })), { minTickets, minClientes }).slice(0, 12)
       .map((g) => ({ ...g, ...correl.sugerirNiveis(g) }));
     res.json({ horas, minTickets, minClientes, sugestoes: grupos });
   } catch (e) { erro(res, e); }
@@ -98,7 +117,8 @@ router.get('/:id/relacionados', requireLeitura, async (req, res) => {
     if (inc.status === 'fechado') return res.json({ relacionados: [] });
     const meus = (await db.query(`SELECT t.subject AS assunto FROM public.incidente_ticket it JOIN silver.ticket t ON t.ticket_id::bigint = it.ticket_id WHERE it.incidente_id = $1`, [id])).rows;
     const horas = Math.min(72, Math.max(6, Math.ceil((Date.now() - new Date(inc.aberto_em).getTime()) / 3600000) + 6));
-    const lista = correl.relacionados(inc, meus, await candidatos(horas));
+    const { esc } = await visiveis(req);
+    const lista = correl.relacionados(inc, meus, filtrarLinhas(await candidatos(horas), esc, (c) => ({ servico: c.servico })));
     res.json({ relacionados: lista.map((c) => ({ id: c.id, assunto: limitar(c.assunto, 160), cliente: c.cliente, status: c.status, score: c.score, mesmoServico: c.mesmoServico, criadoEm: c.criadoEm })) });
   } catch (e) { erro(res, e); }
 });
@@ -166,11 +186,13 @@ const pmDoBanco = (r) => ({ resumo: r.resumo || '', impacto: r.impacto || '', ca
 // incidentes que exigem pós-incidente (graves ou P1/P2, já resolvidos) e ainda não têm o documento publicado
 router.get('/posmortem/pendentes', requireLeitura, async (req, res) => {
   try {
+    const v = await visiveis(req);
     const r = await db.query(`
       SELECT i.id, i.titulo, i.prioridade, i.grave, i.resolvido_em FROM public.incidente i
        LEFT JOIN public.incidente_posmortem p ON p.incidente_id = i.id
        WHERE i.status IN ('resolvido','fechado') AND (i.grave OR i.prioridade <= 2) AND COALESCE(p.status,'') <> 'publicado'
-       ORDER BY i.resolvido_em DESC NULLS LAST LIMIT 100`);
+         AND ($1::int[] IS NULL OR i.id = ANY($1::int[]))
+       ORDER BY i.resolvido_em DESC NULLS LAST LIMIT 100`, [v.ids]);
     res.json({ total: r.rows.length, incidentes: r.rows.map((x) => ({ ...x, codigo: codigoDe(x.id) })) });
   } catch (e) { erro(res, e); }
 });
@@ -253,7 +275,13 @@ router.get('/problemas', requireLeitura, async (req, res) => {
     const r = await db.query(`
       SELECT p.*, u.name AS responsavel_nome, (SELECT COUNT(*) FROM public.problema_incidente x WHERE x.problema_id = p.id)::int AS n_incidentes
         FROM public.problema p LEFT JOIN users u ON u.id = p.responsavel_id ${escopo} ORDER BY p.atualizado_em DESC LIMIT 300`);
-    res.json({ problemas: r.rows.map(fmtProblema), status: STATUS_PROBLEMA, rotulos: ROTULO_PROBLEMA });
+    let linhas = r.rows;
+    const v = await visiveis(req);
+    if (v.ids && linhas.length) {              // problema visível = algum incidente ligado visível (ou, sem incidentes, criado por quem vê)
+      const lig = new Map((await db.query(`SELECT problema_id, ARRAY_AGG(incidente_id) AS incs FROM public.problema_incidente WHERE problema_id = ANY($1::int[]) GROUP BY 1`, [linhas.map((p) => p.id)])).rows.map((x) => [x.problema_id, x.incs]));
+      linhas = linhas.filter((p) => (lig.has(p.id) ? lig.get(p.id).some(v.tem) : p.criado_por === req.user.id));
+    }
+    res.json({ problemas: linhas.map(fmtProblema), status: STATUS_PROBLEMA, rotulos: ROTULO_PROBLEMA });
   } catch (e) { erro(res, e); }
 });
 router.get('/problemas/:pid', requireLeitura, async (req, res) => {
@@ -263,12 +291,15 @@ router.get('/problemas/:pid', requireLeitura, async (req, res) => {
     const p = (await db.query(`SELECT p.*, u.name AS responsavel_nome FROM public.problema p LEFT JOIN users u ON u.id = p.responsavel_id WHERE p.id = $1`, [pid])).rows[0];
     if (!p) return res.status(404).json({ error: 'Problema não encontrado' });
     const inc = (await db.query(`SELECT i.id, i.titulo, i.status, i.prioridade, i.aberto_em FROM public.problema_incidente x JOIN public.incidente i ON i.id = x.incidente_id WHERE x.problema_id = $1 ORDER BY i.aberto_em DESC`, [pid])).rows;
-    res.json({ problema: fmtProblema(p), incidentes: inc.map((i) => ({ ...i, codigo: codigoDe(i.id) })) });
+    const v = await visiveis(req);
+    res.json({ problema: fmtProblema(p), incidentes: inc.filter((i) => v.tem(i.id)).map((i) => ({ ...i, codigo: codigoDe(i.id) })) });
   } catch (e) { erro(res, e); }
 });
 async function vincularIncidentes(pid, ids, req) {
   const ok = [];
+  const v = await visiveis(req);
   for (const iid of ids) {
+    if (!v.tem(iid)) continue;                 // quem tem filtro de vertical só liga incidentes que enxerga
     const existe = (await db.query(`SELECT 1 FROM public.incidente WHERE id = $1`, [iid])).rows[0];
     if (!existe) continue;
     const r = await db.query(`INSERT INTO public.problema_incidente (problema_id, incidente_id) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING incidente_id`, [pid, iid]);

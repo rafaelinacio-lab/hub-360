@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
 const { requireTabAccess } = require('./config');
+const { escopoVertical, filtrarLinhas, pertence } = require('../utils/verticalScope');
 
 // public.ouvidoria fica em movidesk_tickets.
 // silver.* fica em movidesk_painel (banco principal do app).
@@ -16,6 +17,20 @@ const CF_CLASSIFICACAO  = 23946; // Classificação de Ticket
 const CF_TIPO_MANIFESTO = 22000; // Tipo de Manifesto
 const CF_MANIFESTO_PROC = 22003; // Manifesto Procedente
 const CF_MANIFESTO_DIR  = 38595; // Manifesto direcionado a
+
+// Escopo por vertical (regra única dos painéis): perfil com vertical atribuída em Pessoas vê só as manifestações do(s)
+// serviço(s) dela (1º nível do serviço do chamado; a equipe só decide quando o chamado está sem serviço); admin e perfil
+// sem vertical veem tudo. O detalhe e as ações de outra vertical respondem 404, sem revelar que existe.
+async function garantirVertical(req, res, ticketId) {
+  const esc = await escopoVertical(req.user.id);
+  if (!esc.filtrar) return true;
+  const r = await db.query(
+    `SELECT service_full AS servico, ownerteam AS equipe FROM silver.ticket WHERE ticket_id::text = $1`, [ticketId]
+  ).then((x) => x.rows[0]).catch(() => null);
+  if (r && pertence(esc.verticais, { servico: r.servico, equipe: r.servico ? null : r.equipe })) return true;
+  res.status(404).json({ error: 'Manifestação não encontrada' });
+  return false;
+}
 
 // ===== GET /ouvidoria =====
 router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) => {
@@ -35,6 +50,7 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
         t.resolved_in   AS resolvido_em,
         t.owner_name    AS responsavel,
         t.service_full  AS servico,
+        t.ownerteam     AS equipe,
         t.sla_solution_date AS sla_solucao
       FROM silver.ticket t
       JOIN silver.ticket_campo_customizado cf_class
@@ -57,10 +73,11 @@ router.get('/', authMiddleware, requireTabAccess('ouvidoria'), async (req, res) 
       ) tc ON true
       GROUP BY t.ticket_id, tc.organizacao_nome, tc.organizacao_id,
                t.subject, t.createddate, t.status, t.basestatus, t.resolved_in,
-               t.owner_name, t.service_full, t.sla_solution_date
+               t.owner_name, t.service_full, t.ownerteam, t.sla_solution_date
       ORDER BY t.createddate DESC
     `);
-    res.json(result.rows || []);
+    const esc = await escopoVertical(req.user.id);
+    res.json(filtrarLinhas(result.rows || [], esc, (r) => ({ servico: r.servico, equipe: r.servico ? null : r.equipe })));
   } catch (error) {
     // Se as tabelas silver.* ainda não existem (datalake não carregado), retorna vazio
     if (error.message && (error.message.includes('does not exist') || error.message.includes('não existe'))) {
@@ -78,6 +95,7 @@ router.get('/:ticketId', authMiddleware, requireTabAccess('ouvidoria'), async (r
   if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
 
   try {
+    if (!(await garantirVertical(req, res, ticketId))) return;
     const result = await db.query(`
       SELECT
         t.ticket_id::varchar                                                         AS ticket_id,
@@ -136,6 +154,7 @@ router.get('/:ticketId/actions', authMiddleware, requireTabAccess('ouvidoria'), 
   const ticketId = String(req.params.ticketId).trim();
   if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
   try {
+    if (!(await garantirVertical(req, res, ticketId))) return;
     const [acaoRes, cfRes] = await Promise.all([
       db.query(
         `SELECT acao_id AS id, tipo AS type, descricao AS description,

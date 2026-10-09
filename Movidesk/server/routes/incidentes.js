@@ -13,6 +13,7 @@ const { authMiddleware } = require('./auth');
 const { rateLimit, rateLimitDinamico } = require('../utils/rateLimit');
 const cfg = require('../utils/aiSettings');
 const { chamarIA, configurada: iaConfigurada, IaError, REGRAS, dados, limitar, dataBr } = require('../utils/ai');
+const { escopoVertical, pertence } = require('../utils/verticalScope');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -130,6 +131,41 @@ function erro(res, e) {
   return res.status(500).json({ error: e.message || 'Erro inesperado' });
 }
 
+// ── escopo por vertical (regra única dos painéis, 09/10/2026) ───────────────
+// Perfil com vertical atribuída em Pessoas vê só os incidentes da(s) vertical(is) dele; admin e perfil SEM vertical veem
+// todos. Vertical do incidente = 1º nível do `servico`; sem serviço informado, vale a dos chamados vinculados (basta um
+// pertencer). Quem CRIOU o incidente sempre o vê (senão o incidente aberto sem serviço sumiria da tela de quem o abriu).
+// Devolve { esc, ids, tem(id), eCriador }: ids = null quando não há filtro.
+async function incidentesVisiveis(req) {
+  const esc = await escopoVertical(req.user.id);
+  if (!esc.filtrar) return { esc, ids: null, tem: () => true };
+  const r = await db.query(`
+    SELECT i.id, i.servico, i.criado_por, ARRAY_REMOVE(ARRAY_AGG(DISTINCT t.service_full), NULL) AS servicos_tickets
+      FROM public.incidente i
+      LEFT JOIN public.incidente_ticket it ON it.incidente_id = i.id
+      LEFT JOIN silver.ticket t ON t.ticket_id = it.ticket_id
+     GROUP BY i.id, i.servico, i.criado_por`);
+  const ids = r.rows.filter((x) => x.criado_por === req.user.id
+    || (String(x.servico || '').trim() ? pertence(esc.verticais, { servico: x.servico }) : (x.servicos_tickets || []).some((s) => pertence(esc.verticais, { servico: s })))).map((x) => x.id);
+  const set = new Set(ids);
+  return { esc, ids, tem: (id) => set.has(Number(id)) };
+}
+// um cálculo por requisição (a guarda do :id e o handler usam o mesmo)
+async function visiveis(req) {
+  if (!req._incVis) req._incVis = await incidentesVisiveis(req);
+  return req._incVis;
+}
+// Guarda de TODA rota com :id/:iid — leitura e escrita: incidente fora da vertical = 404 (não revela que existe).
+async function guardaIncidente(req, res, next, valor) {
+  try {
+    const n = idValido(valor);
+    if (!n) return next();                     // número inválido: o handler responde 400
+    if (!(await visiveis(req)).tem(n)) return res.status(404).json({ error: 'Incidente não encontrado' });
+    next();
+  } catch (e) { erro(res, e); }
+}
+router.param('id', guardaIncidente);
+
 // Estado das metas de SLA do incidente (em minutos) — usado pela lista e pelo detalhe.
 function slaDoIncidente(i) {
   const meta = METAS[i.prioridade] || METAS[3];
@@ -172,7 +208,9 @@ router.get('/servicos', requireLeitura, async (req, res) => {
          GROUP BY 1 HAVING COUNT(*) >= 3 ORDER BY 2 DESC LIMIT 200`);
       cacheServicos = { ate: Date.now() + 10 * 60 * 1000, lista: r.rows.map((x) => x.s).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt')) };
     }
-    res.json({ servicos: cacheServicos.lista });
+    // o cache é compartilhado: o filtro por vertical entra DEPOIS dele
+    const esc = await escopoVertical(req.user.id);
+    res.json({ servicos: esc.filtrar ? cacheServicos.lista.filter((s) => pertence(esc.verticais, { servico: s })) : cacheServicos.lista });
   } catch (e) { erro(res, e); }
 });
 
@@ -188,14 +226,16 @@ router.get('/responsaveis', requireLeitura, async (req, res) => {
 // Indicadores: ativos por prioridade, graves, MTTA/MTTR e cumprimento de meta (últimos 30 dias).
 router.get('/metricas', requireLeitura, async (req, res) => {
   try {
+    const v = await visiveis(req);
+    const AND_ID = v.ids ? ' AND id = ANY($1::int[])' : '', P = v.ids ? [v.ids] : [];   // só os incidentes da vertical
     const ativos = await db.query(`
       SELECT prioridade, COUNT(*)::int AS n, COUNT(*) FILTER (WHERE grave)::int AS graves
-        FROM public.incidente WHERE status NOT IN ('resolvido','fechado') GROUP BY 1 ORDER BY 1`);
-    const lista = await db.query(`SELECT * FROM public.incidente WHERE status NOT IN ('resolvido','fechado')`);
+        FROM public.incidente WHERE status NOT IN ('resolvido','fechado')${AND_ID} GROUP BY 1 ORDER BY 1`, P);
+    const lista = await db.query(`SELECT * FROM public.incidente WHERE status NOT IN ('resolvido','fechado')${AND_ID}`, P);
     const estourados = lista.rows.map(slaDoIncidente).filter((s) => s.reconhecer.estado === 'estourado' || s.resolver.estado === 'estourado').length;
     const janela = await db.query(`
       SELECT prioridade, aberto_em, reconhecido_em, resolvido_em FROM public.incidente
-       WHERE aberto_em >= NOW() - INTERVAL '30 days'`);
+       WHERE aberto_em >= NOW() - INTERVAL '30 days'${AND_ID}`, P);
     const med = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
     const mtta = [], mttr = []; let okA = 0, totA = 0, okR = 0, totR = 0;
     for (const i of janela.rows) {
@@ -227,7 +267,8 @@ router.get('/por-ticket/:ticketId', requireLeitura, async (req, res) => {
   try {
     const r = await db.query(`
       SELECT i.* FROM public.incidente_ticket it JOIN public.incidente i ON i.id = it.incidente_id WHERE it.ticket_id = $1`, [tid]);
-    res.json({ incidente: r.rows[0] ? formatarIncidente(r.rows[0]) : null });
+    const inc = r.rows[0] && (await visiveis(req)).tem(r.rows[0].id) ? r.rows[0] : null;   // fora da vertical: como se não houvesse
+    res.json({ incidente: inc ? formatarIncidente(inc) : null });
   } catch (e) { erro(res, e); }
 });
 
@@ -241,6 +282,8 @@ router.get('/', requireLeitura, async (req, res) => {
     else if (escopo === 'encerrados') where.push(`i.status IN ('resolvido','fechado')`);
     if (req.query.grave === '1') where.push('i.grave = TRUE');
     if (req.query.servico) { params.push(String(req.query.servico)); where.push(`i.servico = $${params.length}`); }
+    const v = await visiveis(req);
+    if (v.ids) { params.push(v.ids); where.push(`i.id = ANY($${params.length}::int[])`); }   // só os incidentes da vertical
     const q = String(req.query.q || '').trim();
     if (q) {
       params.push(`%${q.toLowerCase()}%`);
@@ -549,7 +592,7 @@ router.delete('/:id/tickets/:ticketId', requireLeitura, exigirEscrita, async (re
   } catch (e) { erro(res, e); }
 });
 
-router.helpers = { requireLeitura, exigirEscrita, evento, idValido, erro, codigoDe, formatarIncidente, contextoDoIncidente, garantirTabelas, listaTickets, IaError, erroIA, recursoLigado, limiteIA };
+router.helpers = { requireLeitura, exigirEscrita, evento, idValido, erro, codigoDe, formatarIncidente, contextoDoIncidente, garantirTabelas, listaTickets, IaError, erroIA, recursoLigado, limiteIA, visiveis, guardaIncidente };
 
 module.exports = router;
 module.exports.prioridadeDe = prioridadeDe;

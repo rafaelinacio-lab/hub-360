@@ -24,6 +24,9 @@ async function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Token não fornecido' });
 
+  // Só a consulta da sessão fica no try: o next() vai FORA, senão um erro de qualquer rota seguinte (ex.: lendo a
+  // vertical do usuário) saía rotulado como "Erro ao verificar sessão". O log agora traz a rota e o código do erro.
+  let session;
   try {
     const result = await db.query(
       `SELECT s.*, u.id as uid, u.email, u.role_id
@@ -32,16 +35,16 @@ async function authMiddleware(req, res, next) {
        WHERE s.token = $1 AND s.expires_at > NOW()`,
       [hashSessionToken(token)]
     );
-    const session = result.rows[0];
-    if (!session) return res.status(401).json({ error: 'Sessão inválida ou expirada' });
-
-    req.user = { id: session.uid, email: session.email, roleId: session.role_id };
-    req.sessionToken = token;
-    next();
+    session = result.rows[0];
   } catch (err) {
-    console.error('authMiddleware error:', err.message);
+    console.error(`authMiddleware error (consulta da sessão) ${req.method} ${String(req.originalUrl || '').split('?')[0]}:`, err.code || '', err.message);
     return res.status(500).json({ error: 'Erro ao verificar sessão' });
   }
+  if (!session) return res.status(401).json({ error: 'Sessão inválida ou expirada' });
+
+  req.user = { id: session.uid, email: session.email, roleId: session.role_id };
+  req.sessionToken = token;
+  return next();
 }
 
 function requireRole(...allowedRoles) {

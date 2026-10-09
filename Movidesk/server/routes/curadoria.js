@@ -5,6 +5,7 @@ const { authMiddleware, requireRole } = require('./auth');
 const { decryptToken } = require('../utils/crypto');
 const datalake = require('../utils/datalakeClient');
 const { rateLimit } = require('../utils/rateLimit');
+const { escopoVertical, norm } = require('../utils/verticalScope');
 const {
   getToken, getCuradoriaPromptAnalise, getCuradoriaQueryConfig,
   getCuradoriaMovideskConfig, sanitizeRawWhere,
@@ -197,6 +198,30 @@ function ensureSlaEstouroColumn() {
   return slaEstouroColumnReady;
 }
 
+// ── Escopo por vertical (regra única dos painéis) ─────────────────────────────────────────────────────────────
+// Perfil com vertical atribuída em Pessoas vê só os chamados do(s) serviço(s) dela; admin e perfil sem vertical veem tudo.
+// curadoria_chamados quase não traz serviço/equipe (nulos em ~100% das linhas em 09/10/2026), então a vertical vem de
+// silver.ticket: 1º nível do serviço do chamado (a equipe só decide quando não há serviço), mesma regra do pertence()
+// de utils/verticalScope.js, comparando sem acento e sem diferenciar maiúscula. Os ids permitidos ficam em cache de
+// vertical só é conferida para os chamados que a Curadoria já tem (nada de listar todos os ids de uma vertical).
+const SEM_ACENTO_SQL = (x) => `lower(translate(${x}, 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇáàâãäéèêëíìîïóòôõöúùûüç', 'AAAAAEEEEIIIIOOOOOUUUUCaaaaaeeeeiiiiooooouuuuc'))`;
+function sqlVertical(alias, p) {
+  const n1 = `btrim(split_part(${alias}.service_full, ' > ', 1))`;
+  const eq = `COALESCE(NULLIF(${alias}.owner_team, ''), ${alias}.ownerteam, '')`;
+  return `(${SEM_ACENTO_SQL(n1)} = ANY($${p}::text[]) OR (COALESCE(btrim(${alias}.service_full), '') = '' AND EXISTS (SELECT 1 FROM unnest($${p}::text[]) v WHERE v <> '' AND strpos(${SEM_ACENTO_SQL(eq)}, v) > 0)))`;
+}
+// Dos ids recebidos, devolve o conjunto dos que estão no escopo (em lotes; consulta indexada por ticket_id).
+async function idsEmEscopo(ids, esc) {
+  const alvos = [...new Set(esc.verticais.map(norm).filter(Boolean))].sort();
+  const lista = [...new Set((ids || []).map(Number).filter(Number.isFinite))];
+  const ok = new Set();
+  for (let i = 0; i < lista.length; i += 20000) {
+    const r = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE t.ticket_id = ANY($1::bigint[]) AND ${sqlVertical('t', 2)}`, [lista.slice(i, i + 20000), alvos]);
+    r.rows.forEach((x) => ok.add(Number(x.id)));
+  }
+  return ok;
+}
+
 router.get('/', authMiddleware, requireTabAccess('chamados'), async (req, res) => {
   try {
     await ensureCompetenciasColumn();
@@ -215,14 +240,29 @@ router.get('/', authMiddleware, requireTabAccess('chamados'), async (req, res) =
     const orderDir = listagemCfg.guided.orderDir === 'ASC' ? 'ASC' : 'DESC';
     const limit = Number.isFinite(listagemCfg.guided.limit) ? listagemCfg.guided.limit : 2000;
 
+    // Escopo: o filtro vale ANTES do LIMIT, para quem tem vertical ver até `limit` chamados dela (e não só a fatia dela
+    // dentro dos `limit` mais recentes de todos): 1) ids que a lista teria (só ticket_id, leve); 2) quais deles estão no
+    // escopo; 3) linhas completas dos primeiros `limit` permitidos, na mesma ordem.
+    const esc = await escopoVertical(req.user.id);
+    let filtroVertical = '', paramsVertical = [];
+    if (esc.filtrar) {
+      const candidatos = (await db.queryDatabase('movidesk_curadoria',
+        `SELECT ticket_id FROM public.curadoria_chamados WHERE (${whereClause}) ORDER BY ticket_id ${orderDir}`)).rows.map((r) => Number(r.ticket_id));
+      const ok = await idsEmEscopo(candidatos, esc);
+      const escolhidos = candidatos.filter((id) => ok.has(id)).slice(0, limit);
+      if (!escolhidos.length) return res.json([]);
+      filtroVertical = ' AND ticket_id = ANY($1::bigint[])';
+      paramsVertical = [escolhidos];
+    }
     const result = await db.queryDatabase(
       'movidesk_curadoria',
       `SELECT
         ${CURADORIA_COLUMNS.join(',\n        ')}
       FROM public.curadoria_chamados
-      WHERE ${whereClause}
+      WHERE ${esc.filtrar ? `(${whereClause})` : whereClause}${filtroVertical}
       ORDER BY ticket_id ${orderDir}
-      LIMIT ${limit}`
+      LIMIT ${limit}`,
+      paramsVertical
     );
 
     const rows = result.rows || [];
@@ -256,9 +296,15 @@ router.post('/competencias', authMiddleware, requireTabAccess('chamados'), async
   try {
     await ensureCompetenciasColumn();
 
+    // Quem tem vertical só grava competências de chamados da própria vertical (os demais ids são ignorados)
+    const esc = await escopoVertical(req.user.id);
+    const permitidos = esc.filtrar ? await idsEmEscopo(updates.map((u) => u && u.ticket_id), esc) : null;
+    let gravados = 0;
+
     for (const item of updates) {
       const ticketId = Number(item?.ticket_id);
       if (!Number.isFinite(ticketId)) continue;
+      if (permitidos && !permitidos.has(ticketId)) continue;
       const competencias = item?.competencias && typeof item.competencias === 'object' ? item.competencias : {};
 
       await db.queryDatabase(
@@ -266,9 +312,10 @@ router.post('/competencias', authMiddleware, requireTabAccess('chamados'), async
         `UPDATE public.curadoria_chamados SET competencias = $1 WHERE ticket_id = $2`,
         [JSON.stringify(competencias), ticketId]
       );
+      gravados++;
     }
 
-    return res.json({ updated: updates.length });
+    return res.json({ updated: permitidos ? gravados : updates.length });
   } catch (error) {
     console.error('Erro ao salvar competências:', error);
     return res.status(500).json({ error: 'Erro ao salvar competências' });

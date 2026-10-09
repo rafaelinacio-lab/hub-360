@@ -132,8 +132,7 @@ sem abrir o Movidesk (`routes/ticket-workspace.js`, `js/ticket-workspace.js`).
 usuário logado (`utils/movideskPeople.js → escopoEquipe`). A equipe é a **vertical** cadastrada
 em Pessoas; um chamado entra se a equipe dele contém o nome da vertical (ex.: "Sistemas Internos"
 casa com "VIASOFT - Sistemas Internos") ou se o serviço de 1º nível é essa vertical. Só se a
-vertical estiver vazia vale o cadastro de equipes do Movidesk e, depois, o histórico dos últimos
-90 dias. Sem nenhuma das opções, não filtra e a tela avisa. Admin e supervisor podem alternar para "Todas as equipes" (`?equipe=todas`);
+vertical estiver vazia não filtra (regra única de vertical, abaixo; antes caía no cadastro de equipes do Movidesk). Admin e supervisor podem alternar para "Todas as equipes" (`?equipe=todas`);
 atendente fica sempre na própria equipe. A aba Movidesk (`?scope=all`) não é filtrada.
 `GET /api/tickets/minha-equipe` informa as equipes e se o usuário pode ver todas.
 
@@ -241,9 +240,16 @@ O admin tem o botão "Copiar briefing de desenvolvimento" (texto pronto para col
 
 ## Escopo por vertical (GCC e Satisfação)
 
-`server/utils/verticalScope.js`: `admin` vê tudo; os demais perfis veem só a vertical definida em Pessoas (`users.vertical`). Casa (sem acento/maiúsculas) por
-campo "vertical" (GCC, real ou inferida), 1º nível do serviço ou, na Satisfação, equipe que contém a vertical. Sem vertical definida: nada é exibido e as telas avisam
-(`GET /api/escopo-vertical`). Os detalhes do GCC (`/:ticketId`, `/actions`) também checam, para não abrir chamado de outra vertical pelo número.
+## Regra única de vertical (todos os painéis)
+
+**Todo painel respeita as verticais atribuídas ao perfil em Pessoas (`users.vertical`); perfil SEM vertical vê TUDO** (decisão de 09/10/2026; antes GCC/Satisfação não mostravam nada
+sem vertical). **Admin vê tudo**, mesmo com vertical atribuída (os admins de hoje têm "Sistemas Internos"). Painel TV aberto sem login (público) não é filtrado: ali a vertical vem da URL (`?vertical=`).
+`server/utils/verticalScope.js`: `escopoVertical(userId)` → `{ filtrar, verticais, vertical }` (`verticais` já traz os nomes equivalentes, ex.: Agronegócio+Agrotitan, editável em Configurações → Acesso);
+`pertence(verticais, { vertical, servico, equipe })` e `filtrarLinhas(linhas, esc, campos)` aplicam. Casa (sem acento/maiúsculas) por campo "vertical" (GCC, real ou inferida), 1º nível do serviço ou, quando o
+chamado não tem serviço, equipe que contém a vertical. O filtro vale só para o que é DEVOLVIDO ao usuário (rotinas do servidor não são limitadas) e, em rotas com cache compartilhado, é aplicado DEPOIS do cache.
+Detalhes por id (GCC `/:ticketId`, `/actions` etc.) respondem 404 para chamado fora da vertical, sem revelar que existe. `GET /api/escopo-vertical` informa a vertical em uso.
+
+## Escopo por vertical (GCC e Satisfação)
 
 Um usuário pode participar de **várias verticais**: `users.vertical` guarda a lista separada por `;` (ex.: `Agro; Construshow`). Pessoas edita com caixas de seleção;
 `verticalScope.listaVerticais`/`escopoVertical`, `escopoEquipe` (Dashboard) e o filtro de supervisor em `tickets.js` aceitam a lista. Valores antigos (uma só vertical) continuam válidos.

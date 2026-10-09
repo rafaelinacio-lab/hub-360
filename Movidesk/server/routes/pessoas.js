@@ -55,12 +55,13 @@ router.get('/roles', authMiddleware, requireRole('admin'), async (req, res) => {
 router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
   const { email, name, role, vertical } = req.body;
 
-  if (!email || !name || !role || !vertical)
-    return res.status(400).json({ error: 'Email, nome, perfil e vertical são obrigatórios' });
+  // vertical é opcional: sem nenhuma, o perfil vê todas as verticais em todos os painéis (regra única, verticalScope.js)
+  if (!email || !name || !role)
+    return res.status(400).json({ error: 'Email, nome e perfil são obrigatórios' });
   if (!validateEmail(email))
     return res.status(400).json({ error: 'Email inválido' });
   const vert = normalizarVerticais(vertical);
-  if (vert.invalidas || !vert.lista)
+  if (vert.invalidas)
     return res.status(400).json({ error: `Vertical inválida${vert.invalidas ? ': ' + vert.invalidas.join(', ') : ''}` });
 
   try {
@@ -73,7 +74,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
     const insertResult = await db.query(
       `INSERT INTO users (email, name, vertical, role_id, is_active, first_access)
        VALUES ($1, $2, $3, $4, TRUE, FALSE) RETURNING id`,
-      [email.toLowerCase().trim(), name.trim(), vert.lista, roleRow.id]
+      [email.toLowerCase().trim(), name.trim(), vert.lista || null, roleRow.id]
     );
 
     return res.status(201).json({

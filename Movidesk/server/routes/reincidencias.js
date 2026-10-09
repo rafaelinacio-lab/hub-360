@@ -10,6 +10,7 @@ const db = require('../db/remote');
 const { requireTabAccess } = require('./config');
 const { authMiddleware } = require('./auth');
 const { rateLimit } = require('../utils/rateLimit');
+const { escopoVertical, norm } = require('../utils/verticalScope');
 const cfg = require('../utils/aiSettings');
 const { chamarIA, configurada: iaConfigurada, IaError, REGRAS, dados, conversaEmTexto, limitar, semHtml } = require('../utils/ai');
 
@@ -40,6 +41,19 @@ async function consultaLimitada(sql, params, segundos = 45) {
     catch (e) { await cl.query('ROLLBACK').catch(() => {}); if (e && e.code === '57014') e.message = 'A consulta demorou demais e foi cancelada para não travar o sistema. Tente filtrar por ano ou cliente.'; throw e; }
   });
 }
+// ── Escopo por vertical (regra única dos painéis) ─────────────────────────────────────────────────────────────
+// Perfil com vertical atribuída em Pessoas vê só os chamados do(s) serviço(s) dela; admin e perfil sem vertical veem
+// tudo. Mesma regra do pertence() de utils/verticalScope.js: 1º nível do serviço do chamado (a equipe só decide quando
+// não há serviço), sem acento e sem diferenciar maiúscula. O filtro entra na própria consulta (visão geral) e as
+// chaves de cache incluem o escopo, para nunca misturar resultado completo e filtrado entre usuários.
+const SEM_ACENTO_SQL = (x) => `lower(translate(${x}, 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇáàâãäéèêëíìîïóòôõöúùûüç', 'AAAAAEEEEIIIIOOOOOUUUUCaaaaaeeeeiiiiooooouuuuc'))`;
+function sqlVertical(alias, p) {
+  const n1 = `btrim(split_part(${alias}.service_full, ' > ', 1))`;
+  const eq = `COALESCE(NULLIF(${alias}.owner_team, ''), ${alias}.ownerteam, '')`;
+  return `(${SEM_ACENTO_SQL(n1)} = ANY($${p}::text[]) OR (COALESCE(btrim(${alias}.service_full), '') = '' AND EXISTS (SELECT 1 FROM unnest($${p}::text[]) v WHERE v <> '' AND strpos(${SEM_ACENTO_SQL(eq)}, v) > 0)))`;
+}
+const alvosDe = (esc) => [...new Set(esc.verticais.map(norm).filter(Boolean))].sort();
+const chaveEscopo = (esc) => (esc.filtrar ? alvosDe(esc).join('|') : '');
 const erro = (res, e) => (e instanceof IaError ? res.status(e.status).json({ error: e.message }) : (console.error('[reincidencias]', e), res.status(500).json({ error: e.message || 'Erro inesperado' })));
 const num = (v, min, max, pad) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : pad; };
 const CONF = ['Alta', 'Média', 'Baixa'];
@@ -55,8 +69,51 @@ router.get('/config', requireLeitura, async (req, res) => {
   } catch (e) { erro(res, e); }
 });
 
+// Análises salvas (rotas antigas: a tela atual usa só a visão geral) cobrem TODOS os chamados e carregam id/cliente/assunto
+// de cada um. Quem tem vertical recebe a análise filtrada pelos chamados da vertical dela (grupos com menos de 2 chamados
+// — ou menos clientes que o mínimo sistêmico — somem); a taxa sobre o total analisado fica sem valor (o total é do conjunto
+// inteiro, não do escopo).
+async function idsEmEscopo(ids, esc) {
+  const lista = [...new Set(ids.map(Number).filter(Number.isFinite))];
+  if (!lista.length) return new Set();
+  const r = await db.query(`SELECT t.ticket_id::bigint AS id FROM silver.ticket t WHERE t.ticket_id = ANY($1::bigint[]) AND ${sqlVertical('t', 2)}`, [lista, alvosDe(esc)]);
+  return new Set(r.rows.map((x) => Number(x.id)));
+}
+async function filtrarAnalise(a, esc) {
+  if (!esc.filtrar || !a) return a;
+  const res = a.resultado || {};
+  const ids = [];
+  (res.dimensao0 || []).forEach((x) => ids.push(x.id));
+  (res.dimensaoA || []).forEach((g) => (g.tickets || []).forEach((t) => ids.push(t.id)));
+  (res.dimensaoB || []).forEach((g) => { (g.tickets || []).forEach((t) => ids.push(t.id)); (g.clientes || []).forEach((c) => ids.push(c.ticketId)); });
+  const ok = await idsEmEscopo(ids, esc);
+  const minCli = Number(a.parametros && a.parametros.minClientes) || 2;
+  const dimensao0 = (res.dimensao0 || []).filter((x) => ok.has(Number(x.id)));
+  const dimensaoA = (res.dimensaoA || []).map((g) => {
+    const tickets = (g.tickets || []).filter((t) => ok.has(Number(t.id)));
+    return tickets.length >= 2 ? { ...g, tickets, periodo: [tickets[0].data, tickets[tickets.length - 1].data] } : null;
+  }).filter(Boolean);
+  const dimensaoB = (res.dimensaoB || []).map((g) => {
+    const tickets = (g.tickets || []).filter((t) => ok.has(Number(t.id)));
+    const clientes = (g.clientes || []).filter((c) => ok.has(Number(c.ticketId)));
+    return clientes.length >= minCli ? { ...g, tickets, clientes, nClientes: clientes.length } : null;
+  }).filter(Boolean);
+  return { ...a, n_tickets: null, resultado: { ...res, dimensao0, dimensaoA, dimensaoB } };
+}
+
 router.get('/', requireLeitura, async (req, res) => {
   try {
+    const esc = await escopoVertical(req.user.id);
+    if (esc.filtrar) {
+      const rows = (await db.query(`SELECT id, criado_por_nome, criado_em, parametros, n_tickets, resultado FROM public.reincidencia_analise ORDER BY id DESC LIMIT 30`)).rows;
+      const analises = [];
+      for (const x of rows) {
+        const f = await filtrarAnalise(x, esc);
+        analises.push({ id: f.id, criado_por_nome: f.criado_por_nome, criado_em: f.criado_em, parametros: f.parametros, n_tickets: f.n_tickets,
+          d0: f.resultado.dimensao0.length, da: f.resultado.dimensaoA.length, db: f.resultado.dimensaoB.length });
+      }
+      return res.json({ analises });
+    }
     const r = await db.query(`SELECT id, criado_por_nome, criado_em, parametros, n_tickets,
         COALESCE(jsonb_array_length(resultado->'dimensao0'),0) AS d0, COALESCE(jsonb_array_length(resultado->'dimensaoA'),0) AS da, COALESCE(jsonb_array_length(resultado->'dimensaoB'),0) AS db
       FROM public.reincidencia_analise ORDER BY id DESC LIMIT 30`);
@@ -69,7 +126,7 @@ router.get('/:id(\\d+)', requireLeitura, async (req, res) => {
   try {
     const r = (await db.query(`SELECT * FROM public.reincidencia_analise WHERE id = $1`, [id])).rows[0];
     if (!r) return res.status(404).json({ error: 'Análise não encontrada' });
-    res.json({ analise: r });
+    res.json({ analise: await filtrarAnalise(r, await escopoVertical(req.user.id)) });
   } catch (e) { erro(res, e); }
 });
 
@@ -148,6 +205,8 @@ router.post('/analisar', requireLeitura, limite, async (req, res) => {
   try {
     const papel = (await db.query(`SELECT r.name, u.name AS nome FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user.id])).rows[0];
     if (!papel || !ROLES.includes(papel.name)) return res.status(403).json({ error: 'Seu perfil pode ver o painel, mas não gerar novas análises.' });
+    // a análise em lote lê e devolve chamados de TODAS as verticais e fica salva para os demais usuários
+    if ((await escopoVertical(req.user.id)).filtrar) return res.status(403).json({ error: 'Esta análise cobre todas as verticais; perfis com vertical atribuída usam a visão geral, já filtrada para a sua vertical.' });
     res.json({ analise: await executar(req.body || {}, { id: req.user.id, nome: papel.nome || req.user.email, email: req.user.email }) });
   } catch (e) { erro(res, e); }
 });
@@ -162,7 +221,9 @@ const taxaDe = (r, n) => {
 };
 router.get('/painel', requireLeitura, async (req, res) => {
   try {
-    const rows = (await db.query(`SELECT id, criado_por_nome, criado_em, parametros, n_tickets, resultado FROM public.reincidencia_analise ORDER BY id DESC LIMIT 40`)).rows;
+    const esc = await escopoVertical(req.user.id);
+    let rows = (await db.query(`SELECT id, criado_por_nome, criado_em, parametros, n_tickets, resultado FROM public.reincidencia_analise ORDER BY id DESC LIMIT 40`)).rows;
+    if (esc.filtrar) rows = await Promise.all(rows.map((x) => filtrarAnalise(x, esc)));
     const serie = rows.map((x) => ({ id: x.id, criado_em: x.criado_em, dias: x.parametros.dias, servico: x.parametros.servico || null, n: x.n_tickets,
       d0: (x.resultado.dimensao0 || []).length, da: (x.resultado.dimensaoA || []).length, db: (x.resultado.dimensaoB || []).length, ...taxaDe(x.resultado, x.n_tickets) })).reverse();
     const atual = rows[0] || null;
@@ -199,7 +260,7 @@ WITH cf AS (
                NULLIF(trim(cf.modulo),'') AS modulo_campo, NULLIF(trim(cf.causa),'') AS causa_campo,
                COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS equipe
           FROM silver.ticket t LEFT JOIN cf ON cf.ticket_id = t.ticket_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
-         WHERE ($5 = '' OR cf.classif = $5)
+         WHERE ($5 = '' OR cf.classif = $5)/*VERT*/
            AND ($2::int IS NULL OR (t.createddate >= make_date($2::int,1,1) AND t.createddate < make_date($2::int+1,1,1)))),
       c AS (SELECT *, (cliente IS NOT NULL) AS classificado FROM b),
       f AS (
@@ -210,6 +271,8 @@ WITH cf AS (
            AND ($4 = '' OR c.cliente ILIKE '%' || $4 || '%')),
       fc AS (SELECT * FROM f WHERE classificado)
 `;
+// A mesma consulta com o escopo de vertical (parâmetro $vp = nomes normalizados da vertical); sem escopo, não muda nada.
+const cteGeral = (vp) => GERAL_CTE.replace('/*VERT*/', vp ? ` AND ${sqlVertical('t', vp)}` : '');
 // ── Motivo de cada reincidência ───────────────────────────────────────────
 // Não depende só do campo Módulo/Rotina: o tema sai do texto do chamado (assunto, as primeiras ações e a explicação da IA
 // sobre por que é o mesmo problema), com o dicionário de palavras-chave de server/data/temas-chamados.json.
@@ -269,14 +332,19 @@ async function agregarMotivos(rnRows) {
 
 
 const JANELAS = [7, 15, 30, 60];
-let listasCache = null;
-async function listasFiltro() {                                          // anos e equipes dos filtros: consulta leve, cache de 1 h
-  if (listasCache && Date.now() - listasCache.em < 3600000) return listasCache.v;
+const listasCache = new Map();                                            // chave do escopo ('' = tudo) -> { em, v }
+async function listasFiltro(esc) {                                       // anos e equipes dos filtros: consulta leve, cache de 1 h POR ESCOPO
+  const chave = chaveEscopo(esc);
+  const c = listasCache.get(chave);
+  if (c && Date.now() - c.em < 3600000) return c.v;
   const [a, e] = await Promise.all([
     consultaLimitada(`SELECT DISTINCT extract(year from createddate)::int AS ano FROM silver.ticket WHERE createddate IS NOT NULL ORDER BY 1`, [], 30),
-    consultaLimitada(`SELECT COALESCE(NULLIF(owner_team,''), NULLIF(ownerteam,''), 'Sem equipe') AS e FROM silver.ticket WHERE createddate >= NOW() - INTERVAL '3 years' GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [], 30)]);
+    esc.filtrar
+      ? consultaLimitada(`SELECT COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS e FROM silver.ticket t WHERE t.createddate >= NOW() - INTERVAL '3 years' AND ${sqlVertical('t', 1)} GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [alvosDe(esc)], 30)
+      : consultaLimitada(`SELECT COALESCE(NULLIF(owner_team,''), NULLIF(ownerteam,''), 'Sem equipe') AS e FROM silver.ticket WHERE createddate >= NOW() - INTERVAL '3 years' GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [], 30)]);
   const v = { anos: a.rows.map((x) => x.ano), equipesLista: e.rows.map((x) => x.e).sort() };
-  listasCache = { em: Date.now(), v }; return v;
+  if (listasCache.size > 40) listasCache.clear();
+  listasCache.set(chave, { em: Date.now(), v }); return v;
 }
 const emAndamento = new Map();                                           // mesma combinação de filtros: reaproveita a consulta em curso
 const geralCache = new Map();                                            // chave dos filtros -> { em, dados }
@@ -288,7 +356,8 @@ router.get('/geral', requireLeitura, async (req, res) => {
     const equipe = String(req.query.equipe || '').trim().slice(0, 120);
     const busca = String(req.query.cliente || '').trim().slice(0, 120);
     const classif = req.query.classif === 'todas' ? '' : 'Suporte Técnico';
-    const chave = JSON.stringify([dias, ano, equipe, busca.toLowerCase(), classif]);
+    const esc = await escopoVertical(req.user.id);
+    const chave = JSON.stringify([dias, ano, equipe, busca.toLowerCase(), classif, chaveEscopo(esc)]);   // o escopo entra na chave dos DOIS caches
     const c = geralCache.get(chave);
     if (c && Date.now() - c.em < GERAL_TTL) return res.json({ ...c.dados, cache: true });
     if (emAndamento.has(chave)) { try { return res.json({ ...(await emAndamento.get(chave)), cache: true }); } catch (e) { return erro(res, e); } }
@@ -296,8 +365,9 @@ router.get('/geral', requireLeitura, async (req, res) => {
     emAndamento.get(chave).catch(() => {});
     const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
     const campos = [...new Set([...mods, 148916, 23946])];
+    const vert = esc.filtrar ? [alvosDe(esc)] : [], vp = esc.filtrar ? 8 : 0;
     const r = (await consultaLimitada(`
-      ${GERAL_CTE}
+      ${cteGeral(vp)}
       SELECT
         (SELECT json_build_object('total', count(*), 'classificados', count(*) FILTER (WHERE classificado), 'semMotivo', count(*) FILTER (WHERE NOT classificado),
                 'reincidentes', count(*) FILTER (WHERE rn), 'clientes', count(DISTINCT cliente) FILTER (WHERE classificado), 'clientesAfetados', count(DISTINCT cliente) FILTER (WHERE rn),
@@ -313,19 +383,19 @@ router.get('/geral', requireLeitura, async (req, res) => {
                 'd15', count(*) FILTER (WHERE rn AND d > 7 AND d <= 15), 'd30', count(*) FILTER (WHERE rn AND d > 15 AND d <= 30), 'd60', count(*) FILTER (WHERE rn AND d > 30))
            FROM (SELECT rn, extract(epoch from (createddate - fim_ant)) / 86400 AS d FROM f) z) AS faixas,
         '[]'::json AS anos, '[]'::json AS equipesLista`,
-      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows[0];
+      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...vert])).rows[0];
     // Motivos e clientes: o motivo vem do CONTEÚDO (assunto, ações e explicação da IA), com o campo Módulo/Rotina só de apoio.
     const rnRows = (await consultaLimitada(`
-      ${GERAL_CTE}
+      ${cteGeral(vp)}
       SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.cliente, f.equipe, f.explicacao, f.modulo_campo, f.causa_campo, p.subject AS anterior_assunto
         FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id
        WHERE f.classificado AND f.rn ORDER BY f.createddate DESC LIMIT ${RN_MAX + 1}`,
-      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos])).rows;
+      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...vert])).rows;
     const truncado = rnRows.length > RN_MAX;
     const agreg = await agregarMotivos(rnRows.slice(0, RN_MAX));
     r.kpi.motivosAfetados = agreg.motivosDistintos;
     const dados = { filtros: { dias, ano, equipe, cliente: busca, classif: classif || 'todas' }, kpi: r.kpi, faixas: r.faixas, anual: r.anual, mensal: r.mensal, motivos: agreg.motivos, clientes: agreg.clientes, equipes: r.equipes, motivosTruncado: truncado,
-      ...(await listasFiltro()), geradoEm: new Date().toISOString() };
+      ...(await listasFiltro(esc)), geradoEm: new Date().toISOString() };
     if (geralCache.size > 60) geralCache.clear();
     geralCache.set(chave, { em: Date.now(), dados });
     liberar(dados); emAndamento.delete(chave);
@@ -352,17 +422,19 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
     else if (tipo === 'ano' && /^\d{4}$/.test(valor)) { cond = 'classificado AND rn AND extract(year from createddate)::int = $8::int'; extra = [valor]; }
     else if (tipo === 'mes' && /^\d{4}-\d{2}$/.test(valor)) { cond = "classificado AND rn AND to_char(createddate AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') = $8"; extra = [valor]; }
     else return res.status(400).json({ error: 'Detalhe inválido' });
+    const esc = await escopoVertical(req.user.id);
     const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
     const campos = [...new Set([...mods, 148916, 23946])];
+    const vert = esc.filtrar ? [alvosDe(esc)] : [], vp = esc.filtrar ? 8 + extra.length : 0;   // o escopo vai depois do $8 opcional do detalhe
     const r = await consultaLimitada(`
-      ${GERAL_CTE}
+      ${cteGeral(vp)}
       SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.status, f.cliente, f.equipe, f.createddate AS criado_em, f.ant_id AS anterior, p.subject AS anterior_assunto,
              f.fim_ant AS anterior_fim, round((extract(epoch from (f.createddate - f.fim_ant)) / 86400)::numeric, 1) AS dias_entre,
              f.rn AS reincidente, f.explicacao, f.confianca, (f.reopened_in IS NOT NULL) AS reaberto, f.classificado,
              f.modulo_campo, f.causa_campo
         FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id
        WHERE ${cond.replace(/\b(rn|classificado|cliente|equipe|createddate|reopened_in)\b/g, 'f.$1')} ORDER BY f.createddate DESC LIMIT ${tipo === 'motivo' ? RN_MAX + 1 : 501}`,
-      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...extra]);
+      [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...extra, ...vert]);
     // motivo pelo conteúdo do chamado (e só então o filtro por motivo)
     const dado = await motivosDe(r.rows);
     let linhas = r.rows.map((c) => { const m = dado(c.ticket_id); return { ...c, motivo: m.motivo, modulo: m.campo || null }; });

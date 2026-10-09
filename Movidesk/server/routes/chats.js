@@ -19,6 +19,7 @@ const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware, requireRole } = require('./auth');
 const { requireTabAccess, getToken } = require('./config');
+const { escopoVertical, pertence } = require('../utils/verticalScope');
 
 const MOVI_TICKETS = 'https://apimovidesk.viasoftcloud.com.br/public/v1/tickets';
 const SELECT = ['id', 'origin', 'createdDate', 'lastUpdate', 'status', 'baseStatus', 'ownerTeam', 'serviceFull', 'chatWidget', 'chatGroup', 'chatTalkTime', 'chatWaitingTime'].join(',');
@@ -188,6 +189,22 @@ if (process.env.CHATS_SYNC !== '0') {
   setTimeout(() => { rotina(); setInterval(rotina, INTERVALO_S * 1000).unref(); setInterval(expurgarSnapshots, 24 * 3600 * 1000).unref(); }, 45 * 1000).unref();
 }
 
+// ── escopo por vertical (regra única dos painéis, 09/10/2026) ──────────────
+// Perfil com vertical atribuída em Pessoas vê só os chats da(s) vertical(is) dele; admin e perfil SEM vertical veem todos.
+// Vertical do chat = 1º nível do serviço (hub_chat.servico); sem serviço, vale a equipe. Como o resumo agrega em SQL, o
+// filtro vira uma condição comum (`E`) montada com os nomes que existem na tabela e que `pertence` aceita — os nomes vêm
+// do próprio banco e entram escapados. Devolve { filtrar, E } (E = 'TRUE' sem filtro).
+async function escopoChats(req) {
+  const esc = await escopoVertical(req.user.id);
+  if (!esc.filtrar) return { filtrar: false, E: 'TRUE' };
+  const r = await db.query(`SELECT DISTINCT NULLIF(btrim(split_part(servico, ' > ', 1)), '') AS s, NULLIF(btrim(equipe), '') AS e FROM public.hub_chat`);
+  const servicos = [...new Set(r.rows.filter((x) => x.s && pertence(esc.verticais, { servico: x.s })).map((x) => x.s))];
+  const equipes = [...new Set(r.rows.filter((x) => !x.s && x.e && pertence(esc.verticais, { equipe: x.e })).map((x) => x.e))];
+  const lista = (a) => (a.length ? `ARRAY[${a.map((v) => `'${String(v).replace(/'/g, "''")}'`).join(',')}]::text[]` : 'ARRAY[]::text[]');
+  const prim = `NULLIF(btrim(split_part(servico, ' > ', 1)), '')`;
+  return { filtrar: true, E: `(${prim} = ANY(${lista(servicos)}) OR (${prim} IS NULL AND btrim(equipe) = ANY(${lista(equipes)})))` };
+}
+
 // ── rotas ─────────────────────────────────────────────────────────────────
 router.use(authMiddleware);
 
@@ -210,6 +227,7 @@ router.get('/resumo', requireTabAccess('movidesk'), async (req, res) => {
   const janela = JANELAS_ATIVO.includes(parseInt(req.query.janela, 10)) ? parseInt(req.query.janela, 10) : JANELA_PADRAO_MIN;
   try {
     await garantirTabela();
+    const { filtrar, E } = await escopoChats(req);
     const dia = `(criado_em AT TIME ZONE '${TZ}')`;
     const hoje = `${dia}::date = (NOW() AT TIME ZONE '${TZ}')::date`;
     const fim = `base_status IN ('Resolved','Closed')`;
@@ -217,40 +235,41 @@ router.get('/resumo', requireTabAccess('movidesk'), async (req, res) => {
     const ativoSql = ativo.sql, paramsAtivo = ativo.params;
     const [vivo, antigos, grupoHoje, geralHoje, porDia, porHora, recentes, meta, ativos, porAtendente, porServico, abertos24, snapshots] = await Promise.all([
       db.query(`SELECT COALESCE(grupo, 'Sem grupo') AS grupo, COALESCE(status, base_status) AS status, count(*)::int AS n, min(criado_em) AS mais_antigo
-                  FROM public.hub_chat WHERE ${ativoSql} GROUP BY 1, 2 ORDER BY 1, 2`, paramsAtivo),
-      db.query(`SELECT count(*)::int AS n FROM public.hub_chat WHERE base_status = ANY($1::text[]) AND criado_em < NOW() - INTERVAL '24 hours'`, [ABERTOS]),
+                  FROM public.hub_chat WHERE ${ativoSql} AND ${E} GROUP BY 1, 2 ORDER BY 1, 2`, paramsAtivo),
+      db.query(`SELECT count(*)::int AS n FROM public.hub_chat WHERE base_status = ANY($1::text[]) AND criado_em < NOW() - INTERVAL '24 hours' AND ${E}`, [ABERTOS]),
       db.query(`SELECT COALESCE(grupo, 'Sem grupo') AS grupo, count(*)::int AS total,
                        count(*) FILTER (WHERE ${fim})::int AS encerrados,
                        round(avg(tempo_espera) FILTER (WHERE tempo_espera IS NOT NULL))::int AS espera_media,
                        round(avg(tempo_conversa) FILTER (WHERE tempo_conversa IS NOT NULL))::int AS conversa_media
-                  FROM public.hub_chat WHERE ${hoje} GROUP BY 1 ORDER BY total DESC`),
+                  FROM public.hub_chat WHERE ${hoje} AND ${E} GROUP BY 1 ORDER BY total DESC`),
       db.query(`SELECT count(*)::int AS total, count(*) FILTER (WHERE ${fim})::int AS encerrados,
                        round(avg(tempo_espera) FILTER (WHERE tempo_espera IS NOT NULL))::int AS espera_media,
                        round((percentile_cont(0.9) WITHIN GROUP (ORDER BY tempo_espera) FILTER (WHERE tempo_espera IS NOT NULL))::numeric)::int AS espera_p90,
                        round(avg(tempo_conversa) FILTER (WHERE tempo_conversa IS NOT NULL))::int AS conversa_media,
                        count(*) FILTER (WHERE tempo_espera IS NOT NULL)::int AS com_espera
-                  FROM public.hub_chat WHERE ${hoje}`),
+                  FROM public.hub_chat WHERE ${hoje} AND ${E}`),
       db.query(`SELECT to_char(${dia}::date, 'YYYY-MM-DD') AS dia, count(*)::int AS total,
                        round(avg(tempo_espera) FILTER (WHERE tempo_espera IS NOT NULL))::int AS espera_media,
                        round(avg(tempo_conversa) FILTER (WHERE tempo_conversa IS NOT NULL))::int AS conversa_media
-                  FROM public.hub_chat WHERE criado_em >= NOW() - ($1::int * INTERVAL '1 day') GROUP BY 1 ORDER BY 1`, [dias]),
+                  FROM public.hub_chat WHERE criado_em >= NOW() - ($1::int * INTERVAL '1 day') AND ${E} GROUP BY 1 ORDER BY 1`, [dias]),
       db.query(`SELECT EXTRACT(HOUR FROM ${dia})::int AS hora, count(*)::int AS total,
                        count(DISTINCT ${dia}::date)::int AS dias
-                  FROM public.hub_chat WHERE criado_em >= NOW() - ($1::int * INTERVAL '1 day') GROUP BY 1 ORDER BY 1`, [dias]),
+                  FROM public.hub_chat WHERE criado_em >= NOW() - ($1::int * INTERVAL '1 day') AND ${E} GROUP BY 1 ORDER BY 1`, [dias]),
       db.query(`SELECT ticket_id::text AS id, criado_em, COALESCE(status, base_status) AS status, base_status, COALESCE(grupo, 'Sem grupo') AS grupo, widget, tempo_espera, tempo_conversa
-                  FROM public.hub_chat ORDER BY criado_em DESC NULLS LAST LIMIT 40`),
-      db.query(`SELECT count(*)::int AS total, max(coletado_em) AS ultima_coleta, min(criado_em) AS desde FROM public.hub_chat`),
+                  FROM public.hub_chat WHERE ${E} ORDER BY criado_em DESC NULLS LAST LIMIT 40`),
+      db.query(`SELECT count(*)::int AS total, max(coletado_em) AS ultima_coleta, min(criado_em) AS desde FROM public.hub_chat WHERE ${E}`),
       db.query(`SELECT ticket_id::text AS id, criado_em, atualizado_em, COALESCE(status, base_status) AS status, COALESCE(grupo, 'Sem grupo') AS grupo, origem, atendente, cliente, organizacao, servico
-                  FROM public.hub_chat WHERE ${ativoSql} ORDER BY grupo, criado_em ASC LIMIT 300`, paramsAtivo),
-      db.query(`SELECT COALESCE(atendente, 'Sem atendente') AS nome, count(*)::int AS n FROM public.hub_chat WHERE ${ativoSql} GROUP BY 1 ORDER BY n DESC, nome`, paramsAtivo),
-      db.query(`SELECT COALESCE(servico, 'Sem serviço') AS nome, count(*)::int AS n FROM public.hub_chat WHERE ${ativoSql} GROUP BY 1 ORDER BY n DESC, nome LIMIT 20`, paramsAtivo),
-      db.query(`SELECT count(*)::int AS n FROM public.hub_chat WHERE base_status = ANY($1::text[]) AND criado_em >= NOW() - INTERVAL '24 hours'`, [ABERTOS]),
+                  FROM public.hub_chat WHERE ${ativoSql} AND ${E} ORDER BY grupo, criado_em ASC LIMIT 300`, paramsAtivo),
+      db.query(`SELECT COALESCE(atendente, 'Sem atendente') AS nome, count(*)::int AS n FROM public.hub_chat WHERE ${ativoSql} AND ${E} GROUP BY 1 ORDER BY n DESC, nome`, paramsAtivo),
+      db.query(`SELECT COALESCE(servico, 'Sem serviço') AS nome, count(*)::int AS n FROM public.hub_chat WHERE ${ativoSql} AND ${E} GROUP BY 1 ORDER BY n DESC, nome LIMIT 20`, paramsAtivo),
+      db.query(`SELECT count(*)::int AS n FROM public.hub_chat WHERE base_status = ANY($1::text[]) AND criado_em >= NOW() - INTERVAL '24 hours' AND ${E}`, [ABERTOS]),
       db.query(`SELECT ts, ativos, abertos FROM public.hub_chat_snapshot WHERE grupo = '*' AND ts >= NOW() - INTERVAL '24 hours' ORDER BY ts`),
     ]);
     res.json({
       dias, vivo: vivo.rows, abertosAntigos: antigos.rows[0].n, grupoHoje: grupoHoje.rows, hoje: geralHoje.rows[0],
       porDia: porDia.rows, porHora: porHora.rows, recentes: recentes.rows, meta: meta.rows[0], ativos: ativos.rows,
-      janela, abertos24: abertos24.rows[0].n, porAtendente: porAtendente.rows, porServico: porServico.rows, snapshots: snapshots.rows,
+      janela, abertos24: abertos24.rows[0].n, porAtendente: porAtendente.rows, porServico: porServico.rows,
+      snapshots: filtrar ? [] : snapshots.rows,   // a foto de 24 h (hub_chat_snapshot) é da operação inteira, por grupo de chat: sem vertical, some para quem tem filtro
       job: { rodando: job.rodando, ultimaOk: job.ultimaOk, msg: job.ultimaMsg }, agora: new Date().toISOString(),
     });
   } catch (e) {
@@ -268,4 +287,5 @@ router.post('/sincronizar', requireRole('admin'), async (req, res) => {
   res.json({ iniciado: true, dias });
 });
 
+router.escopoChats = escopoChats;   // usado nos testes do escopo por vertical
 module.exports = router;

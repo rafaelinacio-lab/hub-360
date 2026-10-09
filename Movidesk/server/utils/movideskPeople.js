@@ -131,9 +131,11 @@ async function escopoEquipe(user, queroTodas) {
   const r = await db.query(`SELECT u.name, u.vertical, r.name AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [user.id]);
   const { name, role, vertical } = r.rows[0] || {};
   const lista = String(vertical == null ? '' : vertical).split(/[;|]/).map((x) => x.trim()).filter(Boolean);   // várias verticais
+  // Sem vertical atribuída em Pessoas = sem filtro (regra única dos painéis, 09/10/2026); antes caía no cadastro de
+  // equipes do Movidesk e filtrava pela equipe do agente.
   const info = lista.length
     ? { equipes: [...new Set(lista)], origem: 'vertical' }
-    : await equipesDoUsuario(user.email, name);
+    : { equipes: [], origem: 'sem-vertical' };
   const podeVerTodas = ['admin', 'supervisor'].includes(role);
   const filtrar = info.equipes.length > 0 && !(queroTodas && podeVerTodas);
   return { equipes: info.equipes, origem: info.origem, podeVerTodas, filtrar, role };

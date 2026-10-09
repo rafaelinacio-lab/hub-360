@@ -23,6 +23,10 @@ async function lerAliases() {
 const limparAliases = () => { _al = { ate: 0, mapa: null }; };
 const primeiroNivel = (s) => String(s || '').split(' > ')[0];
 
+// REGRA ÚNICA DOS PAINÉIS (pedido do usuário, 09/10/2026): todo painel respeita as verticais atribuídas ao perfil em
+// Pessoas; perfil SEM vertical vê TUDO (antes não via nada); admin também vê tudo. Cada rota aplica `filtrarLinhas`
+// (ou `pertence`) com os campos que tiver — vertical, serviço (1º nível) e/ou equipe — usando `esc.verticais`, que já
+// inclui os nomes equivalentes (Agronegócio = Agrotitan, editável em Configurações → Acesso).
 async function escopoVertical(userId) {
   const r = (await db.query(`SELECT r.name AS papel, u.vertical FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [userId])).rows[0] || {};
   const proprias = listaVerticais(r.vertical);
@@ -30,7 +34,15 @@ async function escopoVertical(userId) {
   const porNome = new Map(Object.entries(mapa).map(([k, v]) => [norm(k), v]));
   // para comparar com os dados, cada vertical vale também pelos nomes equivalentes
   const verticais = [...new Set(proprias.flatMap((v) => [v, ...(porNome.get(norm(v)) || [])]))];
-  return { papel: r.papel || null, verticais, vertical: proprias.length ? proprias.join(', ') : null, filtrar: r.papel !== 'admin', semVertical: r.papel !== 'admin' && !proprias.length };
+  // semVertical fica sempre false (campo mantido porque as telas ainda o leem): sem vertical = sem filtro
+  return { papel: r.papel || null, verticais, vertical: proprias.length ? proprias.join(', ') : null, filtrar: r.papel !== 'admin' && proprias.length > 0, semVertical: false };
+}
+
+// Aplica o escopo a uma lista: `campos(linha)` devolve { vertical, servico, equipe } do que a linha tiver.
+// Sem filtro (admin ou sem vertical) devolve a lista inteira.
+function filtrarLinhas(linhas, esc, campos) {
+  if (!esc || !esc.filtrar) return linhas;
+  return (linhas || []).filter((l) => pertence(esc.verticais, campos(l) || {}));
 }
 
 // Um item pertence à vertical se o campo "vertical" ou o 1º nível do serviço bate (sem acento/maiúsculas),
@@ -48,4 +60,4 @@ function pertence(verticais, { vertical: v, servico, equipe } = {}) {
   });
 }
 
-module.exports = { lerAliases, limparAliases, ALIASES_PADRAO, escopoVertical, pertence, norm, primeiroNivel, listaVerticais };
+module.exports = { lerAliases, limparAliases, ALIASES_PADRAO, escopoVertical, filtrarLinhas, pertence, norm, primeiroNivel, listaVerticais };
