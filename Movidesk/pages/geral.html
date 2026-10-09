@@ -840,8 +840,8 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-1">
       <div class="chart-panel">
       <p class="tv-eyebrow">Análise de urgência</p>
-      <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal por urgência</p>
-      <p class="chart-sub" style="text-align:left;margin:0 0 10px">Tickets abertos em cada mês (data de criação), por urgência. Passe sobre um mês para comparar com o anterior.</p>
+      <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal por urgência: SLA e horas</p>
+      <p class="chart-sub" style="text-align:left;margin:0 0 10px">SLA cumprido (%) e tempo médio de solução em horas úteis de cada urgência, por mês de resolução. Passe sobre um mês para comparar com o anterior.</p>
       <div class="tv-legend" id="urgtrend-legend" style="justify-content:flex-end"></div>
       <div class="chart-wrap" style="height:340px"><canvas id="urgTrendChart"></canvas><div class="tv-tip" id="urgtrend-tip"></div></div>
     </div>
@@ -2511,6 +2511,9 @@ function abrirCausa(i){
 
 // ── Evolução mensal por urgência (volume de tickets abertos no mês) ───
 const URGENCIAS_TREND=['Crítica','Alta','Média','Baixa'];
+// SLA % (régua do Hub, mesma do card SLA) e horas médias de solução por urgência, mês a mês pela data de RESOLUÇÃO
+// (pedido do usuário, 09/10/2026: "colocar hora e trocar quantidade por SLA"). Tempos que faltam são buscados no
+// fim do render() (slaHub registra em _slaFaltam) e o gráfico se redesenha sozinho.
 function renderUrgTrendChart(rows){
   destroyChart('urgTrendChart');
   const col=chartColors();
@@ -2519,16 +2522,28 @@ function renderUrgTrendChart(rows){
   if(!chaves.length){ if(leg) leg.innerHTML=''; return; }
   const cores={'Crítica':'#f87171','Alta':col.orange,'Média':col.green,'Baixa':document.documentElement.classList.contains('dark')?'#60a5fa':'#2563eb'};
   const labels=chaves.map(rotuloMesCurto);
-  const conta={};  // `${mes}|${urgência}` -> tickets criados no mês
+  const grupos={};  // `${mês da resolução}|${urgência}` -> resolvidos
   rows.forEach(r=>{
-    if(!r.criado_em||!URGENCIAS_TREND.includes(r.urgencia)) return;
-    const k=monthKeyOf(r.criado_em)+'|'+r.urgencia;
-    conta[k]=(conta[k]||0)+1;
+    if(!r.resolvido_em||!URGENCIAS_TREND.includes(r.urgencia)) return;
+    const k=monthKeyOf(r.resolvido_em)+'|'+r.urgencia;
+    (grupos[k]=grupos[k]||[]).push(r);
   });
-  const val=(mk,u)=>conta[mk+'|'+u]||0;
-  const dados=URGENCIAS_TREND.map(u=>chaves.map(mk=>val(mk,u)));
-  if(leg) leg.innerHTML=URGENCIAS_TREND.map((u,i)=>
-    `<span class="tv-pill"><i style="background:${cores[u]}"></i>${u} <small>${dados[i].reduce((a,b)=>a+b,0).toLocaleString('pt-BR')}</small></span>`).join('');
+  // {pct, horas, n, ok} de uma lista de resolvidos: SLA pela régua do Hub; horas = média do tempo líquido (h úteis)
+  const medir=l=>{
+    const x=slaHub(l||[]);
+    const comTempo=(l||[]).filter(r=>elegivelSla(r)&&temMinutosSla(r));
+    const horas=comTempo.length?comTempo.reduce((a,r)=>a+_impactoMinutos[r.ticket_id],0)/comTempo.length/60:null;
+    return {pct:x.total?x.ok/x.total*100:null,horas,n:x.total,ok:x.ok};
+  };
+  const cel=(mk,u)=>medir(grupos[mk+'|'+u]);
+  const tab=URGENCIAS_TREND.map(u=>chaves.map(mk=>cel(mk,u)));
+  const dados=tab.map(l=>l.map(c=>c.pct));
+  const fmtH=h=>h==null?'—':`${h.toLocaleString('pt-BR',{maximumFractionDigits:1})}h`;
+  const fmtP=p=>p==null?'—':`${p.toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+  if(leg) leg.innerHTML=URGENCIAS_TREND.map(u=>{
+    const tot=medir(chaves.flatMap(mk=>grupos[mk+'|'+u]||[]));
+    return `<span class="tv-pill" title="${tot.ok.toLocaleString('pt-BR')} de ${tot.n.toLocaleString('pt-BR')} elegíveis dentro da meta"><i style="background:${cores[u]}"></i>${u} <small>${fmtP(tot.pct)} · ${fmtH(tot.horas)}</small></span>`;
+  }).join('');
 
   const tipEl=document.getElementById('urgtrend-tip');
   const externo=({chart,tooltip})=>{
@@ -2537,15 +2552,15 @@ function renderUrgTrendChart(rows){
     const i=tooltip.dataPoints[0].dataIndex, mk=chaves[i], ant=mesAnteriorKey(mk);
     tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.14em">${labels[i].toUpperCase()}</div>`+
       URGENCIAS_TREND.map(u=>{
-        const v=val(mk,u), a=val(ant,u), d=v-a, pct=a?d/a*100:null;
-        const sinal=d>0?'+':d<0?'−':'', dir=d>0?'↑':d<0?'↓':'→';
-        const cls=d===0?'neutro':d>0?'ruim':'bom';
-        const txt=d===0?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
-        const pctTxt=pct===null?(v?'novo':'—'):`${sinal}${fmtNum1(Math.abs(pct))}%`;
+        const c=cel(mk,u), a=cel(ant,u);
+        const d=c.pct!=null&&a.pct!=null?c.pct-a.pct:null;
+        const cls=d==null||Math.abs(d)<0.05?'neutro':d>0?'bom':'ruim';
+        const txt=d==null?(c.pct==null?'Sem elegíveis':'Sem mês anterior'):Math.abs(d)<0.05?'Estável':d>0?'Acima do mês anterior':'Abaixo do mês anterior';
+        const dTxt=d==null?'':`${d>0?'↑ +':d<0?'↓ −':'→ '}${fmtNum1(Math.abs(d))} pp vs. mês anterior`;
         return `<div class="tv-tip-blk">
-          <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cores[u]}">${u}</span><span class="tv-tip-val">${v.toLocaleString('pt-BR')} · ${pctTxt}</span></div>
-          <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${a.toLocaleString('pt-BR')}</span></div>
-          <div class="tv-tip-sub"><span>${v.toLocaleString('pt-BR')} ticket${v===1?'':'s'}</span><span class="${d===0?'':d>0?'tv-ruim':'tv-bom'}">${dir} ${sinal}${Math.abs(d).toLocaleString('pt-BR')} ticket${Math.abs(d)===1?'':'s'} vs. mês anterior</span></div>
+          <div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cores[u]}">${u}</span><span class="tv-tip-val">SLA ${fmtP(c.pct)} · ${fmtH(c.horas)}</span></div>
+          <div class="tv-tip-sub"><span class="tv-badge ${cls}">● ${txt}</span><span>Mês anterior: ${fmtP(a.pct)} · ${fmtH(a.horas)}</span></div>
+          <div class="tv-tip-sub"><span>${c.ok.toLocaleString('pt-BR')} de ${c.n.toLocaleString('pt-BR')} elegíve${c.n===1?'l':'is'} na meta · média ${fmtH(c.horas)} úteis</span><span class="${cls==='bom'?'tv-bom':cls==='ruim'?'tv-ruim':''}">${dTxt}</span></div>
         </div>`;
       }).join('');
     const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
@@ -2559,7 +2574,7 @@ function renderUrgTrendChart(rows){
   _charts.urgTrendChart=new Chart(document.getElementById('urgTrendChart'),{
     type:'line',
     data:{ labels, datasets:URGENCIAS_TREND.map((u,i)=>({
-      label:u,data:dados[i],borderColor:cores[u],backgroundColor:cores[u],fill:false,tension:.4,borderWidth:2.5,
+      label:u,data:dados[i],borderColor:cores[u],backgroundColor:cores[u],fill:false,tension:.4,borderWidth:2.5,spanGaps:true,
       pointRadius:4,pointHoverRadius:7,pointBackgroundColor:surface,pointBorderColor:cores[u],pointBorderWidth:2,
       pointHoverBackgroundColor:cores[u],pointHitRadius:12,
     })) },
@@ -2568,7 +2583,7 @@ function renderUrgTrendChart(rows){
       layout:{padding:{top:6,right:12}},
       plugins:{ legend:{display:false}, tooltip:{enabled:false,external:externo} },
       scales:{
-        y:{beginAtZero:true,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
+        y:{min:0,max:100,grid:{color:col.border},border:{display:false},ticks:{color:col.t3,callback:v=>v+'%'}},
         x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},callback:(v,i)=>labels[i].toUpperCase()}},
       },
       interaction:{mode:'index',intersect:false},
@@ -2577,8 +2592,9 @@ function renderUrgTrendChart(rows){
         const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},false);
         if(!hit.length) return;
         const {index:idx,datasetIndex:di}=hit[0], m=chaves[idx], u=URGENCIAS_TREND[di];
-        const matched=rows.filter(r=>r.urgencia===u&&r.criado_em&&monthKeyOf(r.criado_em)===m);
-        openDetailModal(`Urgência ${u}: ${labels[idx]}`,`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
+        const matched=(grupos[m+'|'+u]||[]).filter(elegivelSla);
+        const c=cel(m,u);
+        openDetailModal(`Urgência ${u}: ${labels[idx]} (resolvidos)`,`${matched.length} elegíve${matched.length===1?'l':'is'} · SLA ${fmtP(c.pct)} · média ${fmtH(c.horas)}`,matched);
       },
     }
   });
@@ -2928,13 +2944,16 @@ function renderRespChart(rows){
   const mx=Math.max(1,..._respLista.map(([,v])=>v.criados));
   const nfm=n=>Number(n||0).toLocaleString('pt-BR');
   const corSla=v=>v>=90?cssVar('--green'):v>=70?'#fbbf24':cssVar('--orange');
-  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n">Abertos</th><th class="n">Resolvidos</th><th class="n" title="Resolvidos no período que foram reabertos (mesma regra da taxa de reabertura)">Reabertos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
+  // "n · x%": participação no total do período (abertos ÷ abertos do período; resolvidos ÷ resolvidos do período)
+  const totAb=rows.length, totRs=_rowsResolv.length;
+  const comPct=(n,tot)=>`<b>${nfm(n)}</b>${tot?` <small style="color:var(--t3);font-weight:600">· ${((n||0)/tot*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</small>`:''}`;
+  box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n" title="Abertos no período · % do total de abertos">Abertos</th><th class="n" title="Resolvidos no período · % do total de resolvidos">Resolvidos</th><th class="n" title="Resolvidos no período que foram reabertos (mesma regra da taxa de reabertura)">Reabertos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
     _respLista.map(([n,v],i)=>{
       const pct=v.comPrazo?(v.noPrazo||0)/v.comPrazo*100:null;
       return `<tr tabindex="0" role="button" data-n="${escAttr(n)}" class="${_respFixo===n?'fixo':''}" aria-label="Detalhe de ${escAttr(n)}">
         <td><span class="rsp-rank">${i+1}</span></td>
         <td><div class="rsp-nome">${esc(n)}</div><div class="rsp-barra"><i style="width:${Math.max(3,v.criados/mx*100)}%"></i></div></td>
-        <td class="n"><b>${nfm(v.criados)}</b></td><td class="n">${nfm(v.resolvidos)}</td>
+        <td class="n">${comPct(v.criados,totAb)}</td><td class="n">${comPct(v.resolvidos,totRs).replace(/^<b>|<\/b>/g,'')}</td>
         <td class="n" title="${v.resolvidos?`${((v.reabertos||0)/v.resolvidos*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos resolvidos`:'sem resolvidos no período'}" style="${v.reabertos?'color:var(--orange);font-weight:700':''}">${nfm(v.reabertos)}</td>
         <td class="n">${pct==null?'<span style="color:var(--t3)">—</span>':`<div class="rsp-sla"><span>${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span><span class="trilho"><i style="width:${pct}%;background:${corSla(pct)}"></i></span></div>`}</td>
         <td class="n">${nfm(v.pend)}</td><td class="n" title="${v.pend?`${((v.venc||0)/v.pend*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes`:'sem pendentes'}" style="${v.venc?'color:var(--orange);font-weight:700':''}">${nfm(v.venc)}</td></tr>`;
@@ -3255,9 +3274,9 @@ const INFO_CARDS={
   'trendVolChart':{t:'Evolução mensal: abertos vs resolvidos',
     o:'Quantos tickets entraram e quantos foram resolvidos em cada mês, e como a carteira de tickets em aberto evoluiu.',
     c:['Abertos = tickets criados no mês (data de criação).','Resolvidos = tickets finalizados no mês (data de resolução).','Saldo acumulado = carteira: tickets criados até o fim do mês e ainda não resolvidos naquela data (inclui os abertos antes do período exibido).','Período: o ano filtrado (de janeiro em diante) ou os últimos 12 meses com dados.','O tooltip compara cada série com o mês anterior (valor, variação em % e em tickets) e mostra o saldo do mês e a taxa de resolução (resolvidos ÷ abertos).','Clique num ponto para ver os tickets daquela série e mês.']},
-  'urgTrendChart':{t:'Evolução mensal por urgência',
-    o:'Volume de tickets abertos em cada mês, separado por urgência.',
-    c:['Uma linha por urgência (Crítica, Alta, Média, Baixa) com os tickets criados no mês.','Tickets sem uma dessas quatro urgências não aparecem.','O tooltip compara cada urgência com o mês anterior (tickets e %).']},
+  'urgTrendChart':{t:'Evolução mensal por urgência: SLA e horas',
+    o:'SLA cumprido (%) e tempo médio de solução (horas úteis) de cada urgência, mês a mês.',
+    c:['Uma linha por urgência (Crítica, Alta, Média, Baixa) com o SLA cumprido dos resolvidos no mês (data de resolução), pela mesma régua do card SLA.','Horas = média do tempo de solução líquido (janela de atendimento, sem fins de semana, feriados e pausas).','Só entram os elegíveis ao SLA (Suporte Técnico, equipes de suporte, sem os clientes excluídos).','As pílulas mostram o SLA e as horas médias do período inteiro; o tooltip compara com o mês anterior em pontos percentuais.']},
   'sla-evo-panel':{t:'Evolução mensal do atingimento do SLA',
     o:'Percentual de tickets resolvidos dentro da meta da própria urgência, mês a mês.',
     c:['Tempo de solução líquido = da abertura à resolução, só na janela de atendimento da política de SLA (hoje seg-sex, 08:30-12:00 e 13:30-18:00, horário de Brasília), sem fins de semana, sem feriados e sem o tempo em pausa (aguardando cliente/terceiro/validação, em atendimento - desenvolvimento). Janela, feriados e pausas: Configurações → SLA e horas.','Metas: Crítica 4h, Alta 8h, Média 16h, Baixa 24h.','Elegíveis = tickets resolvidos no mês com urgência Crítica/Alta/Média/Baixa, de Suporte Técnico, equipes de suporte e sem os clientes excluídos (mesma regra do card SLA cumprido).','% do mês = elegíveis dentro da meta ÷ elegíveis do mês.','Cartão "Último mês" mostra a variação em pontos percentuais (pp) contra o mês anterior com dados. Clique num ponto para ver os tickets fora da meta.']},
