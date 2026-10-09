@@ -36,7 +36,7 @@ html.dark{
 *::-webkit-scrollbar{display:none;width:0;height:0}
 body{margin:0;background:var(--bg);color:var(--t1);font-family:Inter,system-ui,sans-serif;font-size:14px}
 button,input,select,textarea{font:inherit;color:inherit}
-.page{padding:20px 24px 40px;max-width:1400px;margin:0 auto}
+.page{padding:20px 24px 40px;max-width:min(2200px,96vw);margin:0 auto}
 .topo{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .topo h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
 .topo p{margin:2px 0 0;color:var(--t3);font-size:13px;max-width:680px}
@@ -116,7 +116,7 @@ html[data-ui="v2"]{
   --sh:var(--shadow-pop);
 }
 html[data-ui="v2"] body{font-family:"Manrope",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-html[data-ui="v2"] .page{max-width:1480px;padding:24px 24px 56px}
+html[data-ui="v2"] .page{max-width:min(2200px,96vw);padding:24px 24px 56px}
 html[data-ui="v2"] .topo{align-items:center;gap:14px 18px;margin-bottom:22px}
 html[data-ui="v2"] .topo h1{font-size:34px;font-weight:800;letter-spacing:-.02em}
 html[data-ui="v2"] .topo p{color:var(--t2);font-size:14px;font-weight:600;line-height:1.5;max-width:720px;margin-top:4px}
