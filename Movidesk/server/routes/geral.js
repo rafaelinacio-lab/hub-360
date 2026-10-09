@@ -812,6 +812,50 @@ router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
   }
 });
 
+// ===== GET /geral/sla-evolucao =====
+// "Evolução mensal do atingimento do SLA": SEMPRE os últimos 12 meses (mês atual + 11 anteriores, Brasília), sem
+// depender dos filtros nem da janela de anos carregada na tela. Mesma régua do Hub (elegível = Suporte Técnico, equipe de
+// suporte, cliente que conta, urgência com meta; dentro = tempo líquido ≤ meta). Respeita a vertical do perfil.
+// Devolve por mês { mk, dentro, total, fora: [ids] } e as linhas completas (formato da lista) só dos chamados fora da meta.
+router.get('/sla-evolucao', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const esc = await escopoDoRequest(req);
+    await cacheResposta.responder(req, res, 'sla-evo:12' + chaveEscopo(esc), CACHE_PAINEL_MS, async () => {
+      const b = new Date(Date.now() - 3 * 3600 * 1000);   // relógio de Brasília em campos UTC
+      const meses = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth() - i, 1));
+        meses.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+      }
+      const inicio = new Date(`${meses[0]}-01T00:00:00-03:00`);
+      const r = await db.query(`
+        SELECT t.ticket_id::text AS ticket_id, to_char(t.resolved_in AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') AS mk,
+               t.urgency AS urgencia, t.ownerteam AS equipe, t.service_full AS servico, cf.valor_texto AS classificacao,
+               COALESCE(cl.fora_sla, false) AS sla_fora_cliente, sl.minutos
+          FROM silver.ticket t
+          JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
+          JOIN silver.ticket_sla_liquido sl ON sl.ticket_id = t.ticket_id AND sl.resolvido_em = t.resolved_in AND sl.minutos IS NOT NULL
+          ${slaHub.sqlLateralClienteFora('t')}
+         WHERE t.resolved_in >= $1 AND t.basestatus IN (${FECHADOS_SQL})
+           AND translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = '${CLASSIFICACAO_SLA}'`, [inicio]);
+      const por = new Map(meses.map((mk) => [mk, { mk, dentro: 0, total: 0, fora: [] }]));
+      for (const x of filtrarEscopo(esc, r.rows || [])) {
+        const o = por.get(x.mk);
+        if (!o || !slaHub.elegivel(x)) continue;
+        o.total++;
+        if (x.minutos / 60 <= slaHub.metaDe(x.urgencia)) o.dentro++; else o.fora.push(x.ticket_id);
+      }
+      const ids = [...por.values()].flatMap((o) => o.fora);
+      const linhas = ids.length ? (await db.query(`${LIST_SELECT} WHERE t.ticket_id = ANY($1::bigint[])`, [ids])).rows : [];
+      return { meses: [...por.values()], linhas };
+    });
+  } catch (error) {
+    if (error.code === '42P01') return res.json({ meses: [], linhas: [] });
+    console.error('Erro ao calcular a evolução mensal do SLA:', error.message);
+    res.status(500).json({ error: 'Erro ao calcular a evolução mensal do SLA' });
+  }
+});
+
 router.get('/:ticketId', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   const ticketId = String(req.params.ticketId).trim();
   if (!ticketId) return res.status(400).json({ error: 'ticket_id inválido' });
