@@ -8,6 +8,7 @@ const { authMiddleware, requireRole } = require('./auth');
 const datalake = require('../utils/datalakeClient');
 const { rateLimit } = require('../utils/rateLimit');
 const { escopoEquipe, filtrarPorEquipes } = require('../utils/movideskPeople');
+const { escopoVertical, pertence, norm: normV } = require('../utils/verticalScope');
 
 // Todas as rotas de /api/tickets exigem sessão válida. Antes dava pra chamar
 // sem token e o perfil (e a vertical) vinha de ?viewerRole=/?viewerVertical=,
@@ -34,7 +35,8 @@ const TICKETS_CACHE_TTL_MS = Number(process.env.TICKETS_CACHE_TTL_MS) || 60 * 10
 const ticketsResponseCache = new Map();
 
 function getViewerCacheKey(viewer, resource) {
-  return `${resource}:${viewer.role || 'unknown'}:${viewer.vertical || ''}`;
+  // escKey = escopo duro de vertical (regra única dos painéis): nunca servir a resposta de um escopo a outro
+  return `${resource}:${viewer.role || 'unknown'}:${viewer.vertical || ''}:${viewer.escKey || ''}`;
 }
 
 function getCachedResponse(key) {
@@ -653,10 +655,45 @@ async function resolveViewerContext(req) {
     );
     const row = rows[0] || {};
     const verticais = String(row.vertical || '').split(/[;|]/).map((x) => x.trim()).filter(Boolean);
-    return { role: row.role || null, vertical: verticais.length ? verticais.join('; ') : null, verticais };
+    const esc = await escopoVertical(req.user.id);
+    return { role: row.role || null, vertical: verticais.length ? verticais.join('; ') : null, verticais, esc, escKey: chaveEscopo(esc) };
   } catch (err) {
     console.error('resolveViewerContext error:', err.message);
-    return { role: null, vertical: null, verticais: [] };
+    // sem escopo confiável não mostramos tudo: falha fechada
+    const esc = { filtrar: true, verticais: [] };
+    return { role: null, vertical: null, verticais: [], esc, escKey: chaveEscopo(esc) };
+  }
+}
+
+// ── Regra única de vertical (utils/verticalScope.js) ─────────────────────────
+// Perfil com vertical atribuída em Pessoas só vê chamados dela; admin e perfil SEM vertical veem tudo.
+// Vertical do chamado = 1º nível do serviço; a equipe só decide quando o chamado não tem serviço.
+const chaveEscopo = (esc) => (esc && esc.filtrar ? `v=${[...(esc.verticais || [])].map(normV).sort().join('|')}` : 'v=*');
+const noEscopo = (esc, { servico, equipe } = {}) => !esc.filtrar || pertence(esc.verticais, { servico, equipe: servico ? null : equipe });
+const SQL_SEM_ACENTO = (expr) => `translate(lower(${expr}), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc')`;
+// Condição equivalente em SQL sobre silver.ticket (alias t); empilha o parâmetro em `params`.
+function sqlEscopo(esc, params, t = 't') {
+  if (!esc.filtrar) return null;
+  params.push((esc.verticais || []).map(normV).filter(Boolean));
+  const n = params.length;
+  return `(${SQL_SEM_ACENTO(`btrim(split_part(COALESCE(${t}.service_full, ''), ' > ', 1))`)} = ANY($${n}::text[])
+     OR (btrim(COALESCE(${t}.service_full, '')) = '' AND EXISTS (SELECT 1 FROM unnest($${n}::text[]) a
+          WHERE ${SQL_SEM_ACENTO(`COALESCE(${t}.ownerteam, '')`)} LIKE '%' || a || '%')))`;
+}
+// Rotas por id: quem tem filtro só abre chamado da própria vertical. Responde 404 (não revela que existe); sem a
+// linha em silver.ticket não dá para provar o escopo, então também 404. Admin/sem vertical: nenhuma consulta extra.
+async function exigirChamadoNoEscopo(req, res, next) {
+  try {
+    const viewer = await resolveViewerContext(req);
+    if (!viewer.esc.filtrar) return next();
+    const id = String(req.params.id || '').replace(/\D/g, '');
+    const r = id ? await db.query(`SELECT service_full, ownerteam FROM silver.ticket WHERE ticket_id = $1::bigint`, [id]) : { rows: [] };
+    const row = r.rows[0];
+    if (row && noEscopo(viewer.esc, { servico: row.service_full, equipe: row.ownerteam })) return next();
+    return res.status(404).json({ error: 'Chamado não encontrado na sua vertical' });
+  } catch (err) {
+    console.error('[tickets] checagem de vertical falhou:', err.message);
+    return res.status(500).json({ error: 'Erro ao verificar a vertical do chamado' });
   }
 }
 
@@ -1114,10 +1151,8 @@ async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewe
     where.push(`(EXISTS (SELECT 1 FROM unnest($${params.length}::text[]) a WHERE lower(t.ownerteam) LIKE '%' || a || '%')
                  OR lower(split_part(t.service_full, ' > ', 1)) = ANY($${params.length}::text[]))`);
   }
-  if (viewer.role === 'supervisor') {
-    params.push((viewer.verticais || []).map((v) => v.toLowerCase()));
-    where.push(`lower(split_part(t.service_full, ' > ', 1)) = ANY($${params.length}::text[])`);
-  }
+  const condEscopo = sqlEscopo(viewer.esc, params);
+  if (condEscopo) where.push(condEscopo);
   // Classificação do Dashboard: Suporte Técnico (campo 23946) por padrão, ou a que estiver
   // nas Condições do Movidesk. Compara sem acento e sem diferença de maiúsculas.
   const cfId = String(conditions.customFieldId || process.env.CF_CLASSIFICACAO || 23946);
@@ -1299,9 +1334,10 @@ function fetchActiveTicketsFromLocalDb(viewer, includeAll) {
     if (!includeAll) {
       whereClauses.push(`baseStatus IN ('New', 'InAttendance', 'Stopped', 'InProgress')`);
     }
-    if (viewer.role === 'supervisor') {
-      whereClauses.push(`serviceFirstLevel IN (${viewer.verticais.map(() => '?').join(',')})`);
-      params.push(...viewer.verticais);
+    if (viewer.esc.filtrar) {
+      const alvos = viewer.esc.verticais.length ? viewer.esc.verticais : ['__sem_vertical__'];
+      whereClauses.push(`serviceFirstLevel IN (${alvos.map(() => '?').join(',')})`);
+      params.push(...alvos);
     }
     if (whereClauses.length) {
       query += ` WHERE ${whereClauses.join(' AND ')}`;
@@ -1323,10 +1359,12 @@ function fetchActiveTicketsFromLocalDb(viewer, includeAll) {
 router.get('/', requireTicketsAccess, async (req, res) => {
   const viewer = await resolveViewerContext(req);
   const includeAll = req.query.scope === 'all';
-  // Dashboard (só ativos): mostra os chamados da(s) equipe(s) de quem está logado. A aba
-  // Movidesk (scope=all) continua com o universo completo.
+  // Dashboard (só ativos): visão padrão pelas equipes/verticais de quem está logado (admin pode alternar com
+  // ?equipe=todas). Quem tem vertical atribuída (não admin) tem o ESCOPO DURO abaixo (viewer.esc) em tudo — aba
+  // Movidesk (scope=all) incluída — e ?equipe=todas não o levanta. Com o escopo duro, a visão por equipe é dispensada
+  // (mesma definição de vertical nas duas telas: serviço de 1º nível; equipe só sem serviço).
   let equipesDoUsuario = null;
-  if (!includeAll) {
+  if (!includeAll && !viewer.esc.filtrar) {
     try {
       const esc = await escopoEquipe(req.user, req.query.equipe === 'todas');
       if (esc.filtrar) equipesDoUsuario = esc.equipes;
@@ -1338,11 +1376,6 @@ router.get('/', requireTicketsAccess, async (req, res) => {
   const cacheKey = getViewerCacheKey(viewer, (includeAll ? 'tickets:all' : 'tickets:active') + sufixoEquipe);
   const cachedTickets = getCachedResponse(cacheKey);
   if (cachedTickets) return res.json(cachedTickets);
-
-  // Regra solicitada: supervisor visualiza apenas os chamados da vertical dele.
-  if (viewer.role === 'supervisor' && !viewer.vertical) {
-    return res.json([]);
-  }
 
   let rows;
   try {
@@ -1368,9 +1401,7 @@ router.get('/', requireTicketsAccess, async (req, res) => {
     if (!includeAll) {
       candidates = candidates.filter((r) => ACTIVE_BASE_STATUSES.includes(r.basestatus));
     }
-    if (viewer.role === 'supervisor') {
-      candidates = candidates.filter((r) => viewer.verticais.includes(r.servicefirstlevel || ''));
-    }
+    candidates = candidates.filter((r) => noEscopo(viewer.esc, { servico: r.servicefirstlevel, equipe: r.owner_team ?? r.ownerteam }));
     candidates = filtrarPorEquipes(candidates, equipesDoUsuario, (r) => r.owner_team ?? r.ownerteam, (r) => r.servicefirstlevel);
     candidates = await filterByCustomFieldCondition(candidates, conditions);
     candidates.sort((a, b) => new Date(b.createddate || 0) - new Date(a.createddate || 0));
@@ -1384,6 +1415,7 @@ router.get('/', requireTicketsAccess, async (req, res) => {
     console.warn('[tickets] apidatalake indisponível em GET /, usando fallback do banco local:', error.message);
     try {
       rows = await fetchActiveTicketsFromLocalDb(viewer, includeAll);
+      rows = rows.filter((r) => noEscopo(viewer.esc, { servico: r.serviceFirstLevel ?? r.servicefirstlevel, equipe: r.owner_team ?? r.ownerTeam ?? r.ownerteam }));
       rows = filtrarPorEquipes(rows, equipesDoUsuario, (r) => r.owner_team ?? r.ownerTeam ?? r.ownerteam, (r) => r.serviceFirstLevel ?? r.servicefirstlevel);
     } catch (dbErr) {
       return res.status(500).json({ error: 'Erro ao buscar tickets' });
@@ -1400,9 +1432,10 @@ function distinctNonEmpty(values) {
 async function fetchFiltersFromLocalDb(viewer) {
   let where = '';
   const params = [];
-  if (viewer.role === 'supervisor') {
-    where = `WHERE serviceFirstLevel IN (${viewer.verticais.map(() => '?').join(',')})`;
-    params.push(...viewer.verticais);
+  if (viewer.esc.filtrar) {
+    const alvos = viewer.esc.verticais.length ? viewer.esc.verticais : ['__sem_vertical__'];
+    where = `WHERE serviceFirstLevel IN (${alvos.map(() => '?').join(',')})`;
+    params.push(...alvos);
   }
 
   const distinctValues = async (column) => {
@@ -1449,12 +1482,16 @@ async function fetchFiltersFromLocalDb(viewer) {
 // que a rota `GET /` de fato mostra depois de aplicar o filtro de customField.
 // SLA do time no mês (Suporte Técnico, resolvidos com prazo): base para mostrar nos chamados do Dashboard o impacto de cada um no SLA.
 // dentro = resolvido até o prazo; fora = resolvido depois do prazo. Mesma regra do "SLA individual" do Painel TV.
-let _slaTimeCache = { em: 0, valor: null };
+const _slaTimeCache = new Map();   // por escopo de vertical
 router.get('/sla-time', requireTicketsAccess, async (req, res) => {
   try {
-    if (_slaTimeCache.valor && Date.now() - _slaTimeCache.em < 5 * 60 * 1000) return res.json(_slaTimeCache.valor);
+    const viewer = await resolveViewerContext(req);
+    const cacheSla = _slaTimeCache.get(viewer.escKey);
+    if (cacheSla && Date.now() - cacheSla.em < 5 * 60 * 1000) return res.json(cacheSla.valor);
     const hoje = new Date();
     const desde = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1)).toISOString().slice(0, 10);
+    const paramsSla = [desde];
+    const condEscopo = sqlEscopo(viewer.esc, paramsSla);
     const r = await db.query(`
       SELECT COUNT(*) FILTER (WHERE t.resolved_in <= t.sla_solution_date)::int AS dentro,
              COUNT(*) FILTER (WHERE t.resolved_in >  t.sla_solution_date)::int AS fora
@@ -1462,9 +1499,10 @@ router.get('/sla-time', requireTicketsAccess, async (req, res) => {
         JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946
        WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = 'suporte tecnico'
          AND t.basestatus IN ('Resolved','Closed','Resolvido','Fechado')
-         AND t.sla_solution_date IS NOT NULL AND t.resolved_in >= $1::date`, [desde]);
-    _slaTimeCache = { em: Date.now(), valor: { desde, dentro: r.rows[0].dentro, fora: r.rows[0].fora } };
-    res.json(_slaTimeCache.valor);
+         AND t.sla_solution_date IS NOT NULL AND t.resolved_in >= $1::date${condEscopo ? ` AND ${condEscopo}` : ''}`, paramsSla);
+    const valorSla = { desde, dentro: r.rows[0].dentro, fora: r.rows[0].fora };
+    _slaTimeCache.set(viewer.escKey, { em: Date.now(), valor: valorSla });
+    res.json(valorSla);
   } catch (e) {
     if (e.code === '42P01') return res.json({ dentro: 0, fora: 0 });
     console.error('[tickets] sla-time:', e.message);
@@ -1478,17 +1516,12 @@ router.get('/filters', requireTicketsAccess, async (req, res) => {
   const cachedFilters = getCachedResponse(cacheKey);
   if (cachedFilters) return res.json(cachedFilters);
 
-  if (viewer.role === 'supervisor' && !viewer.vertical) {
-    return res.json(cacheResponse(cacheKey, { equipes: [], responsaveis: [], servicos: [], clientes: [], classificacoes: [], statuses: [] }));
-  }
-
   let payload;
   try {
     const conditions = await getConditionsPromise();
     let candidates = await fetchCandidateTicketsFromDatalake(conditions);
-    if (viewer.role === 'supervisor') {
-      candidates = candidates.filter((r) => viewer.verticais.includes(r.servicefirstlevel || ''));
-    }
+    // as listas do filtro só trazem valores de chamados do escopo da vertical
+    candidates = candidates.filter((r) => noEscopo(viewer.esc, { servico: r.servicefirstlevel, equipe: r.owner_team ?? r.ownerteam }));
     const blankStatus = candidates.some((r) => !r.basestatus || !String(r.basestatus).trim());
     const statusValues = distinctNonEmpty(candidates.map((r) => r.basestatus));
     payload = {
@@ -1532,9 +1565,10 @@ function fetchPastTicketsFromLocalDb(viewer) {
       WHERE baseStatus NOT IN ('New', 'InAttendance', 'Stopped', 'InProgress')
     `;
     const params = [];
-    if (viewer.role === 'supervisor') {
-      query += ` AND serviceFirstLevel IN (${viewer.verticais.map(() => '?').join(',')})`;
-      params.push(...viewer.verticais);
+    if (viewer.esc.filtrar) {
+      const alvos = viewer.esc.verticais.length ? viewer.esc.verticais : ['__sem_vertical__'];
+      query += ` AND serviceFirstLevel IN (${alvos.map(() => '?').join(',')})`;
+      params.push(...alvos);
     }
     query += ` ORDER BY createdDate DESC LIMIT 100`;
 
@@ -1550,18 +1584,13 @@ function fetchPastTicketsFromLocalDb(viewer) {
 // por consistência com o resto do arquivo, mas não é prioridade de teste.
 router.get('/past', requireTicketsAccess, async (req, res) => {
   const viewer = await resolveViewerContext(req);
-  if (viewer.role === 'supervisor' && !viewer.vertical) {
-    return res.json([]);
-  }
 
   let rows;
   try {
     const conditions = await getConditionsPromise();
     let candidates = await fetchCandidateTicketsFromDatalake(conditions);
     candidates = candidates.filter((r) => !ACTIVE_BASE_STATUSES.includes(r.basestatus));
-    if (viewer.role === 'supervisor') {
-      candidates = candidates.filter((r) => viewer.verticais.includes(r.servicefirstlevel || ''));
-    }
+    candidates = candidates.filter((r) => noEscopo(viewer.esc, { servico: r.servicefirstlevel, equipe: r.owner_team ?? r.ownerteam }));
     candidates.sort((a, b) => new Date(b.createddate || 0) - new Date(a.createddate || 0));
     rows = candidates.slice(0, 100).map(datalakeRowToTicketShape);
   } catch (error) {
@@ -1599,7 +1628,7 @@ function fetchTicketByIdFromLocalDb(id) {
 // cada 10-60min), enquanto o banco local pode já ter uma cópia mais recente
 // via scripts/sync-movidesk.js. Qualquer outro erro (config ausente,
 // token/escopo inválido) propaga como 502 em vez de cair no banco local.
-router.get('/:id', requireTicketsAccess, async (req, res) => {
+router.get('/:id', requireTicketsAccess, exigirChamadoNoEscopo, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1661,7 +1690,7 @@ function fetchTicketForExecutiveSummaryFromLocalDb(id) {
 // comentário acima de inferTicketContext), sem heurística: tipo/origem da
 // ação já vêm como os códigos numéricos reais do Movidesk.
 const aiSummaryLimiter = rateLimit({ name: 'tickets/executive-summary', windowMs: 10 * 60 * 1000, max: 30 });
-router.post('/:id/executive-summary', requireTabAccess('chamados'), aiSummaryLimiter, async (req, res) => {
+router.post('/:id/executive-summary', requireTabAccess('chamados'), exigirChamadoNoEscopo, aiSummaryLimiter, async (req, res) => {
   const { id } = req.params;
   try {
     let ticket;
@@ -2035,7 +2064,7 @@ function emptySlaResult(id, abertura, motivo) {
 // em GET /:id e no resumo executivo) e adapta pro shape que
 // calcularSLAPrimeiroContato() espera (ver nativeRowToTicketShape) — sem
 // heurística, tipo/origem da ação já vêm como os códigos numéricos reais.
-router.get('/:id/sla', requireTicketsAccess, async (req, res) => {
+router.get('/:id/sla', requireTicketsAccess, exigirChamadoNoEscopo, async (req, res) => {
   const { id } = req.params;
 
   try {

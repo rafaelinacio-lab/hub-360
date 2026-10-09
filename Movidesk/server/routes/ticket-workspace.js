@@ -15,6 +15,7 @@ const { requireTabAccess } = require('./config');
 const fetchNode = require('node-fetch');
 const { tokenMovidesk, MovideskError, movidesk, agenteDoUsuario, listaAgentes, escopoEquipe } = require('../utils/movideskPeople');
 const { authMiddleware } = require('./auth');
+const { escopoVertical, pertence } = require('../utils/verticalScope');
 const { rateLimit, rateLimitDinamico } = require('../utils/rateLimit');
 const cfg = require('../utils/aiSettings');
 const { chamarIA, configurada: iaConfigurada, IaError, REGRAS, dados, conversaEmTexto, limitar, dataBr } = require('../utils/ai');
@@ -34,6 +35,26 @@ const limiteEscrita = rateLimit({ name: 'tickets/workspace-write', windowMs: 10 
 async function papelDoUsuario(userId) {
   const r = await db.query(`SELECT r.name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1`, [userId]);
   return r.rows[0]?.name || null;
+}
+
+// Regra única de vertical: quem tem vertical atribuída em Pessoas (e não é admin) só abre ou age em chamado da própria
+// vertical — vale para a leitura E para as ações de escrita no Movidesk (responder, nota, status, responsável, IA).
+// Vertical do chamado = 1º nível do serviço (equipe só sem serviço), lida de silver.ticket ANTES de qualquer chamada ao
+// Movidesk. Sem a linha no banco não dá para provar o escopo, então também recusa. Admin e perfil SEM vertical: sem
+// nenhuma consulta extra. Leitura = 404 (não revela que existe); escrita = 403.
+async function exigirChamadoNoEscopo(req, res, next) {
+  try {
+    const esc = await escopoVertical(req.user.id);
+    if (!esc.filtrar) return next();
+    const id = idValido(req.params.id);
+    let linha = null;
+    if (id) linha = (await db.query(`SELECT service_full, ownerteam FROM silver.ticket WHERE ticket_id = $1::bigint`, [id])).rows[0];
+    if (linha && pertence(esc.verticais, { servico: linha.service_full, equipe: linha.service_full ? null : linha.ownerteam })) return next();
+    return res.status(req.method === 'GET' ? 404 : 403).json({ error: 'Chamado fora da sua vertical' });
+  } catch (e) {
+    console.error('[workspace] checagem de vertical falhou:', e.message);
+    return res.status(500).json({ error: 'Erro ao verificar a vertical do chamado' });
+  }
 }
 
 async function exigirEscrita(req, res, next) {
@@ -234,7 +255,7 @@ async function lerTicketAoVivo(id) {
 // Só aceita endereços do próprio Movidesk, para não virar um proxy aberto.
 const HOST_ARQUIVOS = process.env.MOVIDESK_FILE_HOST || 'https://viasoft.movidesk.com';
 const hostPermitido = (h) => /(^|\.)movidesk\.com$/i.test(h) || h === new URL(HOST_ARQUIVOS).hostname || h === new URL(process.env.MOVIDESK_WRITE_API || 'https://apimovidesk.viasoftcloud.com.br').hostname;
-router.get('/:id/workspace/arquivo', requireLeitura, async (req, res) => {
+router.get('/:id/workspace/arquivo', requireLeitura, exigirChamadoNoEscopo, async (req, res) => {
   const id = idValido(req.params.id);
   const bruto = String(req.query.u || '').trim();
   if (!id || !bruto) return res.status(400).json({ error: 'Arquivo inválido' });
@@ -279,7 +300,7 @@ router.get('/:id/workspace/arquivo', requireLeitura, async (req, res) => {
   } catch (e) { erroParaResposta(res, e); }
 });
 
-router.get('/:id/workspace', requireLeitura, async (req, res) => {
+router.get('/:id/workspace', requireLeitura, exigirChamadoNoEscopo, async (req, res) => {
   const id = idValido(req.params.id);
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   try {
@@ -314,7 +335,7 @@ router.get('/workspace/ia/status', requireLeitura, async (req, res) => {
   res.json({ configurada: await iaConfigurada().catch(() => false), recursos: { resposta: S.resposta.ativo, corrigir: S.corrigir.ativo, cliente: S.cliente.ativo }, tomPadrao: S.resposta.tomPadrao });
 });
 
-router.post('/:id/workspace/ia/resposta', requireLeitura, exigirEscrita, recursoLigado('resposta'), limiteIA, async (req, res) => {
+router.post('/:id/workspace/ia/resposta', requireLeitura, exigirChamadoNoEscopo, exigirEscrita, recursoLigado('resposta'), limiteIA, async (req, res) => {
   const id = idValido(req.params.id);
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   const S = await cfg.obter(), C = S.resposta;
@@ -352,7 +373,7 @@ ${conversaEmTexto(t.acoes, C.contextoCaracteres)}`)}`;
   } catch (e) { erroIA(res, e); }
 });
 
-router.post('/:id/workspace/ia/corrigir', requireLeitura, exigirEscrita, recursoLigado('corrigir'), limiteIA, async (req, res) => {
+router.post('/:id/workspace/ia/corrigir', requireLeitura, exigirChamadoNoEscopo, exigirEscrita, recursoLigado('corrigir'), limiteIA, async (req, res) => {
   const texto = String(req.body?.texto || '');
   if (!texto.trim()) return res.status(400).json({ error: 'Escreva o texto antes de corrigir.' });
   const S = await cfg.obter(), C = S.corrigir;
@@ -403,7 +424,7 @@ async function historicoDaOrganizacao(ticketId, C) {
   return h;
 }
 
-router.post('/:id/workspace/ia/cliente', requireLeitura, exigirEscrita, recursoLigado('cliente'), limiteIA, async (req, res) => {
+router.post('/:id/workspace/ia/cliente', requireLeitura, exigirChamadoNoEscopo, exigirEscrita, recursoLigado('cliente'), limiteIA, async (req, res) => {
   const id = idValido(req.params.id);
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   try {
@@ -443,7 +464,7 @@ ${conversaEmTexto(t.acoes, C.contextoCaracteres)}`) + '\n\n' + dados('HISTORICO'
 });
 
 // Nota interna ou resposta ao cliente.
-router.post('/:id/workspace/acao', requireLeitura, exigirEscrita, limiteEscrita, async (req, res) => {
+router.post('/:id/workspace/acao', requireLeitura, exigirChamadoNoEscopo, exigirEscrita, limiteEscrita, async (req, res) => {
   const id = idValido(req.params.id);
   const tipo = req.body?.tipo;
   const texto = String(req.body?.texto || '').trim();
@@ -515,7 +536,7 @@ async function statusNaoMudou(id, status) {
   return null;
 }
 
-router.post('/:id/workspace/status', requireLeitura, exigirEscrita, limiteEscrita, async (req, res) => {
+router.post('/:id/workspace/status', requireLeitura, exigirChamadoNoEscopo, exigirEscrita, limiteEscrita, async (req, res) => {
   const id = idValido(req.params.id);
   const status = String(req.body?.status || '').trim();
   const justificativa = String(req.body?.justificativa || '').trim();
@@ -539,7 +560,7 @@ router.post('/:id/workspace/status', requireLeitura, exigirEscrita, limiteEscrit
 });
 
 // Troca de responsável.
-router.post('/:id/workspace/responsavel', requireLeitura, exigirEscrita, limiteEscrita, async (req, res) => {
+router.post('/:id/workspace/responsavel', requireLeitura, exigirChamadoNoEscopo, exigirEscrita, limiteEscrita, async (req, res) => {
   const id = idValido(req.params.id);
   const paraMim = req.body?.paraMim === true;
   let novoId = String(req.body?.responsavelId || '').trim();
