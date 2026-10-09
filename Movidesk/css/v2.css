@@ -227,15 +227,17 @@ html[data-ui="v2"] .donut-leg .n { flex: 1; min-width: 0; white-space: nowrap; o
 html[data-ui="v2"] .donut-leg .v { flex: none; color: var(--t2); font-variant-numeric: tabular-nums; }
 html[data-ui="v2"] .kpi-spark:empty { display: none; }
 
-/* grade dos KPIs: 7 numa linha em telas largas, 4 + 3 em médias, 2 em estreitas */
-html[data-ui="v2"] .kpi-grid { display: grid; gap: 16px; grid-template-columns: repeat(7, minmax(0,1fr)); }
-@media (max-width:1400px){ html[data-ui="v2"] .kpi-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
-html[data-ui="v2"] .kpi-grid.k4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
-@media (max-width:1000px){ html[data-ui="v2"] .kpi-grid.k4 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-@media (max-width:760px){ html[data-ui="v2"] .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+/* grade dos KPIs: o número de colunas se ajusta sozinho à largura do monitor (cada card tem no mínimo ~200 px).
+   O Painel TV (body.tv-page) mantém as suas próprias colunas. */
+html[data-ui="v2"] body:not(.tv-page) .kpi-grid,
+html[data-ui="v2"] body:not(.tv-page) .kpi-grid.k4,
+html[data-ui="v2"] body:not(.tv-page) .kpi-grid.k9 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+html[data-ui="v2"] .kpi-grid > .stat-card { min-width: 0; overflow: hidden; }
+html[data-ui="v2"] .kpi-grid .kpi-main { min-width: 0; }
+html[data-ui="v2"] .kpi-grid .kpi-spark { flex: 0 1 auto; min-width: 0; max-width: 46%; overflow: hidden; }
 html[data-ui="v2"] .kpi-grid .stat-card { padding: 16px 16px 14px; }
 html[data-ui="v2"] .kpi-grid .stat-card .value { font-size: 30px; line-height: 34px; }
-html[data-ui="v2"] .kpi-grid .kpi-spark svg { width: 64px; height: 30px; }
+html[data-ui="v2"] .kpi-grid .kpi-spark svg { width: 100%; max-width: 64px; height: 30px; }
 html[data-ui="v2"] .kpi-grid .kpi-ico { width: 34px; height: 34px; border-radius: 12px; }
 html[data-ui="v2"] .kpi-grid .sla-ring { width: 46px; height: 46px; }
 
