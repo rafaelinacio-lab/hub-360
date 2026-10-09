@@ -715,15 +715,22 @@ const STOPWORDS_PT=new Set([
   'pelas','num','numa','nem','mas','ou','também','então','aqui','ali','lá','cada','todo',
   'toda','todos','todas','outro','outra','outros','outras','qual','quais','sobre','entre',
   'após','sob','perante','durante','um','dois','duas','tres','três','the','and','is',
-]);
+  // verbos/pronomes muito comuns e ruído típico de atendimento
+  'são','era','eram','estou','estamos','sou','somos','seja','sejam','fosse','tenho','temos','tive','teve','fez','faz',
+  'fazer','pode','podem','poder','deve','ser','sido','estar','ficou','fica','me','mim','te','lhe','lhes','nosso','nossa',
+  'nossos','nossas','dele','dela','deles','delas','quem','qualquer','tudo','nada','algo','alguém','aquele','aquela',
+  'aquilo','assim','bem','tão','tanto','agora','hoje','ontem','sempre','nunca','vez','vezes','ok','obrigado','obrigada',
+  'obrigados','bom','boa','dia','dias','tarde','noite','att','atenciosamente','olá','oi','prezado','prezada','pra','pro',
+  'pq','vc','vcs','tb','tbm','etc',
+].map(w=>w.normalize('NFD').replace(/[\u0300-\u036f]/g,'')));   // comparação sem acento
 function tokenizeComments(rows){
   const counts={};
   rows.forEach(r=>{
     const texto=(r.comentario||'').toLowerCase();
     const words=texto.match(/\p{L}+/gu)||[];
     words.forEach(w=>{
-      if(w.length<=2) return;
-      if(STOPWORDS_PT.has(w)) return;
+      if(w.length<3) return;                                                        // ignora palavras curtas
+      if(STOPWORDS_PT.has(w.normalize('NFD').replace(/[\u0300-\u036f]/g,''))) return;   // stopword (sem acento)
       counts[w]=(counts[w]||0)+1;
     });
   });
