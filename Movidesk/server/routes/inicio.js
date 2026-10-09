@@ -183,15 +183,15 @@ async function carregarResolvidos(agoraMs) {
                WHERE COALESCE(t.resolved_in, t.closed_in) >= $1 AND COALESCE(t.resolved_in, t.closed_in) < $2 AND cf.valor_texto = 'Suporte Técnico' GROUP BY 1, 2`, [hoje0, hoje1]),
     // SLA do MOVIDESK (prazo de solução do próprio chamado): usado na visão pessoal para o que a régua do Hub não conta
     db.query(`SELECT t.ticket_id::text AS id, ${svc} AS servico, ${eq} AS equipe, ${dono} AS dono, (t.resolved_in >= $1) AS no_mes,
-                     (t.resolved_in <= COALESCE(t.sla_solution_date, t.slasolutiondate)) AS dentro
-                FROM silver.ticket t WHERE t.resolved_in >= $2 AND t.basestatus IN (${RESOLVIDOS_SQL})
+                     (t.resolved_in <= COALESCE(t.sla_solution_date, t.slasolutiondate)) AS dentro, (cf.valor_texto = 'Suporte Técnico') AS st
+                FROM silver.ticket t ${CLASSIF_JOIN} WHERE t.resolved_in >= $2 AND t.basestatus IN (${RESOLVIDOS_SQL})
                  AND COALESCE(t.sla_solution_date, t.slasolutiondate) IS NOT NULL`, [mes, ant]),
   ]);
   await foraSlaDe(sla.rows.map((x) => x.id));
   const grupos = new Map();   // (servico|equipe|dono|periodo) -> linha agregada
   const linha = (g, periodo) => {
     const k = `${g.servico}|${g.equipe}|${g.dono || ''}|${periodo}`;
-    if (!grupos.has(k)) grupos.set(k, { servico: g.servico, equipe: g.equipe, dono: g.dono || '', periodo, resolvidos: 0, fecharam: 0, base: 0, dentro: 0, baseP: 0, dentroP: 0, baseM: 0, dentroM: 0 });
+    if (!grupos.has(k)) grupos.set(k, { servico: g.servico, equipe: g.equipe, dono: g.dono || '', periodo, resolvidos: 0, fecharam: 0, base: 0, dentro: 0, baseP: 0, dentroP: 0, baseM: 0, dentroM: 0, baseMs: 0, dentroMs: 0 });
     return grupos.get(k);
   };
   for (const x of sla.rows) {
@@ -206,6 +206,7 @@ async function carregarResolvidos(agoraMs) {
     if (contadosHub.has(x.id)) continue;
     const l = linha(x, x.no_mes ? 'mes' : 'ant');
     l.baseM++; if (x.dentro) l.dentroM++;
+    if (x.st) { l.baseMs++; if (x.dentro) l.dentroMs++; }   // só Suporte Técnico (visão da equipe)
   }
   for (const x of simples.rows) linha(x, x.no_mes ? 'mes' : 'ant').resolvidos += x.n;
   for (const x of fechados.rows) linha({ ...x, dono: '' }, 'hoje').fecharam += x.n;
@@ -252,13 +253,21 @@ function vencemHoje(rows, cfg, agoraMs) {
 }
 
 // Resumo da EQUIPE (a partir da base global)
-function resumoEquipe(G, esc, alvos) {
+function resumoEquipe(G, esc, alvos, agoraMs) {
   const pend = G.abertos.rows.filter((x) => x.classificacao === 'Suporte Técnico' && noEscopo(esc, alvos, x));
   const res = G.resolvidos.filter((g) => noEscopo(esc, alvos, g));
-  const total = pend.length, vencidos = contar(pend, (x) => x.sla_hub === 'vencido');
-  const mes = { base: soma(res, 'base', (g) => g.periodo === 'mes'), dentro: soma(res, 'dentro', (g) => g.periodo === 'mes') };
-  const ant = { base: soma(res, 'base', (g) => g.periodo === 'ant'), dentro: soma(res, 'dentro', (g) => g.periodo === 'ant') };
-  const pausados = contar(pend, (x) => x.sla_hub === 'pausado'), noPrazo = contar(pend, (x) => x.sla_hub === 'no_prazo');
+  const total = pend.length;
+  // SLA do mês: régua do Hub onde ela vale; no resto (equipe sem "Suporte" no nome, cliente interno…) o prazo do Movidesk
+  const periodo = (per) => ({ base: soma(res, 'base', (g) => g.periodo === per) + soma(res, 'baseMs', (g) => g.periodo === per),
+    dentro: soma(res, 'dentro', (g) => g.periodo === per) + soma(res, 'dentroMs', (g) => g.periodo === per) });
+  const mes = periodo('mes'), ant = periodo('ant');
+  // pendentes fora da régua do Hub que têm prazo no Movidesk: parado = pausado; prazo passado = vencido; senão no prazo
+  const mdk = pend.filter((x) => x.sla_hub === 'fora' && x.sla_mdk);
+  const mdkPaus = contar(mdk, (x) => x.basestatus === 'Stopped' || x.sla_mdk_pausado);
+  const mdkVenc = contar(mdk, (x) => !(x.basestatus === 'Stopped' || x.sla_mdk_pausado) && new Date(x.sla_mdk).getTime() < agoraMs);
+  const mdkPrazo = mdk.length - mdkPaus - mdkVenc;
+  const vencidos = contar(pend, (x) => x.sla_hub === 'vencido') + mdkVenc;
+  const pausados = contar(pend, (x) => x.sla_hub === 'pausado') + mdkPaus, noPrazo = contar(pend, (x) => x.sla_hub === 'no_prazo') + mdkPrazo;
   return {
     pend,
     resumo: {
@@ -266,6 +275,7 @@ function resumoEquipe(G, esc, alvos) {
       pausados, noPrazo, foraSla: total - vencidos - pausados - noPrazo,
       entraramHoje: soma(G.criados.filter((g) => noEscopo(esc, alvos, g)), 'n'), fecharamHoje: soma(res, 'fecharam'),
       slaMes: pctDe(mes.dentro, mes.base), slaMesAnterior: pctDe(ant.dentro, ant.base), baseSlaMes: mes.base,
+      baseSlaMovidesk: soma(res, 'baseMs', (g) => g.periodo === 'mes'),
     },
   };
 }
@@ -398,7 +408,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const G = await secao('base', () => globais(agoraMs));
     const meusIds = await secao('donoIds', () => donoIds(u.email)) || [];
     const meuR = G ? await secao('meu', async () => resumoDele(G, meusIds, agoraMs)) : null;
-    const equipeR = G ? await secao('equipe', async () => resumoEquipe(G, esc, alvos)) : null;
+    const equipeR = G ? await secao('equipe', async () => resumoEquipe(G, esc, alvos, agoraMs)) : null;
     const meu = meuR ? meuR.resumo : null;
 
     // saudação do dia: começa já (só precisa da fila dele) e roda junto com atalhos e "desde a última visita".

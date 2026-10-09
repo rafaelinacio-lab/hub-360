@@ -345,7 +345,7 @@ function renderEquipe(d){
       <div class="card span2"><div class="lbl"><span class="ico">${I.setas}</span>Entraram × fecharam hoje</div>
         <div class="versus"><div class="lado ab"><b>${nf(ab)}</b><span>entraram${tot ? ` · ${pa}%` : ''}</span></div><div class="x">×</div><div class="lado fe"><b>${nf(fe)}</b><span>fecharam${tot ? ` · ${100 - pa}%` : ''}</span></div></div>
         <div class="vs-bar" aria-hidden="true"><i class="a" style="width:${pa}%"></i><i class="f" style="width:${100 - pa}%"></i></div></div>
-      ${card(I.escudo, 'SLA do mês', pct(q.slaMes), (num(q.baseSlaMes) > 0) ? `sobre ${nf(q.baseSlaMes)} resolvidos com meta` : 'ainda sem resolvidos com meta', 'orange', deltaPp(q.slaMes, q.slaMesAnterior))}
+      ${card(I.escudo, 'SLA do mês', pct(q.slaMes), (num(q.baseSlaMes) > 0) ? `sobre ${nf(q.baseSlaMes)} resolvidos com meta${q.baseSlaMovidesk > 0 ? ` (${nf(q.baseSlaMovidesk)} pelo SLA do Movidesk)` : ''}` : 'ainda sem resolvidos com meta', 'orange', deltaPp(q.slaMes, q.slaMesAnterior))}
     </div>`;
   tornarClicaveis(el);
   el.querySelectorAll('[data-esc]').forEach((b) => b.addEventListener('click', () => trocarEscopo(b.dataset.esc)));
