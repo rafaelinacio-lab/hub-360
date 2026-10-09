@@ -35,7 +35,7 @@ const { classificarTexto, listarTemas } = require('../utils/temasChamados');
 const cacheResposta = require('../utils/cacheResposta');
 
 // Cache das listas pesadas do painel (compartilhadas por todos os usuários): vale por 2 min ou até a carga gravar tickets.
-const CACHE_PAINEL_MS = 2 * 60 * 1000;
+const CACHE_PAINEL_MS = 5 * 60 * 1000;   // a carga e as ações na Central invalidam o cache na hora (cacheResposta.marcarAlterado); o aquecimento o refaz antes do próximo pedido
 
 const CF_CLASSIFICACAO = 23946; // Classificação de Ticket
 
@@ -301,6 +301,12 @@ async function eventosDosTickets(ids) {
   for (const a of ac.rows) { if (!ev.has(a.id)) ev.set(a.id, []); ev.get(a.id).push({ em: a.criado_em, status: a.status }); }
   return ev;
 }
+
+// Aquece o Painel Geral (ano vigente, sem filtro de vertical) logo depois de o servidor subir: o primeiro acesso do dia já acha pronto
+setTimeout(() => cacheResposta.aquecer('geral:ano', CACHE_PAINEL_MS, async () => {
+  const r = await db.query(`${LIST_SELECT} WHERE t.createddate >= date_trunc('year', NOW()) OR t.resolved_in >= date_trunc('year', NOW()) ORDER BY t.createddate DESC`);
+  return { rows: r.rows || [], janela: 'ano-vigente' };
+}), 30 * 1000).unref();
 
 router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
