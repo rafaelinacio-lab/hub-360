@@ -587,7 +587,7 @@ body.modal-open{overflow:hidden}
         <p class="panel-title panel-title-exp">Clientes com maior reincidência e procedência Reclamação<button type="button" class="panel-expand" onclick="openExpandModal('reinc')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
-            <thead><tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr></thead>
+            <thead><tr><th>Cliente</th><th class="num">Reclamações</th><th class="num" title="Procedentes e % das reclamações do cliente">Procedentes (%)</th></tr></thead>
             <tbody id="tbl-reincidencia"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
           </table>
         </div>
@@ -748,7 +748,7 @@ body.modal-open{overflow:hidden}
       <div class="dtable-scroll">
         <table class="dtable">
           <thead>
-            <tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr>
+            <tr><th>Cliente</th><th class="num">Reclamações</th><th class="num" title="Procedentes e % das reclamações do cliente">Procedentes (%)</th></tr>
           </thead>
           <tbody id="risco-modal-tbody"></tbody>
         </table>
@@ -758,6 +758,7 @@ body.modal-open{overflow:hidden}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="../js/barras-pct.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
@@ -1690,6 +1691,9 @@ function renderTrendChart(byMes){
 function renderTypeChart(c){
   destroyChart('typeChart');
   const col=chartColors();
+  // % dos classificados (reclamação + elogio + sugestão; "outros" não entram na rosca)
+  const totCls=c.rec+c.elo+c.sug;
+  const pctTipo=v=>totCls?`${(v/totCls*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:'—';
   _charts.typeChart=new Chart(document.getElementById('typeChart'),{
     type:'doughnut',
     data:{
@@ -1698,7 +1702,11 @@ function renderTypeChart(c){
     },
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11}}}},
+      plugins:{
+        legend:{display:true,position:'bottom',labels:{color:col.t2,boxWidth:10,font:{size:11},
+          generateLabels:ch=>Chart.overrides.doughnut.plugins.legend.labels.generateLabels(ch).map(l=>({...l,text:`${l.text} ${Number(ch.data.datasets[0].data[l.index]).toLocaleString('pt-BR')} · ${pctTipo(ch.data.datasets[0].data[l.index])}`}))}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${Number(ctx.raw).toLocaleString('pt-BR')} · ${pctTipo(ctx.raw)} dos classificados`}},
+      },
       cutout:'62%',
       onHover:chartHoverCursor,
       onClick:chartClickHandler('Tipo de manifesto',(r,label)=>tipoKey(rawTipo(r))===TIPO_LABEL_TO_KEY[label]),
@@ -1712,12 +1720,16 @@ function renderAreaChart(rows){
   rows.forEach(r=>{ const a=areaDoServico(r.servico); porArea[a]=(porArea[a]||0)+1; });
   _servEntries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]);
   const entries=_servEntries.slice(0,8);
+  // "n · x%": parte do total de chamados do período (mesmo total do modal de expandir)
+  const bp=barrasPct({total:_servEntries.reduce((a,e)=>a+e[1],0),cor:col.t2,legenda:'do total de chamados'});
   _charts.areaChart=new Chart(document.getElementById('areaChart'),{
     type:'bar',
+    plugins:[bp.plugin],
     data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      layout:{padding:{right:bp.padding}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:bp.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2}}
@@ -1734,12 +1746,16 @@ function renderTopClientChart(rows){
   rows.forEach(r=>{ const o=r.organizacao||'Não informado'; porCliente[o]=(porCliente[o]||0)+1; });
   _cliEntries=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]);
   const entries=_cliEntries.slice(0,10);
+  // "n · x%": parte do total de chamados do período (mesmo total do modal de expandir)
+  const bp=barrasPct({total:_cliEntries.reduce((a,e)=>a+e[1],0),cor:col.t2,legenda:'do total de chamados'});
   _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
     type:'bar',
+    plugins:[bp.plugin],
     data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}] },
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      layout:{padding:{right:bp.padding}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:bp.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2}}
@@ -1759,12 +1775,16 @@ function renderDirecionadoChart(rows){
   });
   _dirEntries=Object.entries(porArea).sort((a,b)=>b[1]-a[1]);
   const entries=_dirEntries.slice(0,10);
+  // "n · x%": parte do total de chamados do período (mesmo total do modal de expandir)
+  const bp=barrasPct({total:_dirEntries.reduce((a,e)=>a+e[1],0),cor:col.t2,legenda:'do total de chamados'});
   _charts.direcionadoChart=new Chart(document.getElementById('direcionadoChart'),{
     type:'bar',
+    plugins:[bp.plugin],
     data:{ labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.purple,borderRadius:4}] },
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      layout:{padding:{right:bp.padding}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:bp.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2}}
@@ -1824,7 +1844,7 @@ function reincRowHtml([org,v]){
     <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
       <td>${esc(org)}</td>
       <td class="num">${v.rec}</td>
-      <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
+      <td class="num${v.proc>0?' bad':''}">${v.proc}${v.rec?` (${(v.proc/v.rec*100).toLocaleString('pt-BR',{maximumFractionDigits:0})}%)`:''}</td>
     </tr>`;
 }
 function renderReincidenciaTable(rows){
@@ -1873,7 +1893,7 @@ function openClientesRiscoModal(){
         <tr class="clickable" onclick="openClienteTicketsModal('${escAttr(org)}')">
           <td>${esc(org)}</td>
           <td class="num">${v.rec}</td>
-          <td class="num${v.proc>0?' bad':''}">${v.proc}</td>
+          <td class="num${v.proc>0?' bad':''}">${v.proc}${v.rec?` (${(v.proc/v.rec*100).toLocaleString('pt-BR',{maximumFractionDigits:0})}%)`:''}</td>
         </tr>`).join('')
     : `<tr class="empty-row"><td colspan="3">Nenhum cliente com reincidência alta no período filtrado.</td></tr>`;
   document.getElementById('risco-modal').classList.add('show');
@@ -1997,7 +2017,7 @@ function openExpandModal(kind){
   const cfg={
     reinc:{
       title:'Clientes com maior reincidência e procedência Reclamação',
-      head:'<tr><th>Cliente</th><th class="num">Reclamações</th><th class="num">Procedentes</th></tr>',
+      head:'<tr><th>Cliente</th><th class="num">Reclamações</th><th class="num" title="Procedentes e % das reclamações do cliente">Procedentes (%)</th></tr>',
       entries:_reincEntries, row:reincRowHtml, cols:3, unit:'cliente',
       empty:'Nenhuma reclamação no período filtrado.',
     },

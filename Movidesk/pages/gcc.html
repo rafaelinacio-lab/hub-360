@@ -564,22 +564,22 @@ body.modal-open{overflow:hidden}
       <div class="stat-card clickable" onclick="openKpiModal('rescTotal')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('rescTotal')}" role="button" tabindex="0">
         <p class="label">Rescisão total</p>
         <p class="value" id="k-resc-total">0</p>
-        <p class="legend">Cancelamento completo do contrato.</p>
+        <p class="legend" id="k-resc-total-legend">Cancelamento completo do contrato.</p>
       </div>
       <div class="stat-card clickable" onclick="openKpiModal('rescParcial')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('rescParcial')}" role="button" tabindex="0">
         <p class="label">Rescisão parcial</p>
         <p class="value" id="k-resc-parcial">0</p>
-        <p class="legend">Redução de módulos ou usuários.</p>
+        <p class="legend" id="k-resc-parcial-legend">Redução de módulos ou usuários.</p>
       </div>
       <div class="stat-card clickable" onclick="openKpiModal('revertidos')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('revertidos')}" role="button" tabindex="0">
         <p class="label">Revertidos</p>
         <p class="value" id="k-revertidos">0</p>
-        <p class="legend">Solicitações de saída evitadas.</p>
+        <p class="legend" id="k-revertidos-legend">Solicitações de saída evitadas.</p>
       </div>
       <div class="stat-card success clickable" onclick="openKpiModal('revertidos')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('revertidos')}" role="button" tabindex="0">
         <p class="label">Taxa de reversão</p>
         <p class="value good" id="k-taxa-reversao">0%</p>
-        <p class="legend">Revertidos ÷ total de solicitações.</p>
+        <p class="legend">Revertidos ÷ solicitações fechadas no período.</p>
       </div>
     </div>
 
@@ -618,11 +618,13 @@ body.modal-open{overflow:hidden}
         <p class="label">MRR protegido</p>
         <p class="value good" id="k-mrr-protegido">R$ 0</p>
         <p class="value-full" id="k-mrr-protegido-full"></p>
+        <p class="legend" id="k-mrr-protegido-legend"></p>
       </div>
       <div class="stat-card danger clickable" onclick="openKpiModal('mrrPerdido')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpiModal('mrrPerdido')}" role="button" tabindex="0">
         <p class="label">MRR perdido</p>
         <p class="value bad" id="k-mrr-perdido">R$ 0</p>
         <p class="value-full" id="k-mrr-perdido-full"></p>
+        <p class="legend" id="k-mrr-perdido-legend"></p>
       </div>
     </div>
 
@@ -707,7 +709,7 @@ body.modal-open{overflow:hidden}
         <p class="panel-title panel-title-exp">Clientes com mais casos e baixa reversão<button type="button" class="panel-expand" onclick="openExpandModal('baixa')" title="Expandir" aria-label="Expandir lista completa"><span class="sym">open_in_full</span></button></p>
         <div class="dtable-wrap">
           <table class="dtable">
-            <thead><tr><th>Cliente</th><th class="num">Casos</th><th class="num">Revertidos</th></tr></thead>
+            <thead><tr><th>Cliente</th><th class="num">Casos</th><th class="num">% reversão</th></tr></thead>
             <tbody id="tbl-baixa-reversao"><tr class="empty-row"><td colspan="3">Carregando…</td></tr></tbody>
           </table>
         </div>
@@ -883,6 +885,7 @@ body.modal-open{overflow:hidden}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="../js/barras-pct.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
@@ -1487,13 +1490,20 @@ function render(){
   const rescParcial=rowsFechados.filter(ehRescisaoParcial).length;
   const revertidos=rowsFechados.filter(isRevertido).length;
   const totalSolic=mostrarAbertosNoTotal?rowsAbertos.length:rowsFechados.length;
-  const taxaReversao=totalSolic?revertidos/totalSolic*100:0;
+  // Reversão só existe em chamado fechado: numerador e denominador na mesma base (fechados), mesmo com o filtro de
+  // Status só em "aberto" (antes dividia os revertidos fechados pelos abertos).
+  const totalFechados=rowsFechados.length;
+  const taxaReversao=totalFechados?revertidos/totalFechados*100:0;
+  const pctFech=n=>totalFechados?` · ${(n/totalFechados*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% das solicitações fechadas.`:'';
   document.getElementById('k-total').textContent=totalSolic.toLocaleString('pt-BR');
   document.getElementById('k-total-legend').textContent=mostrarAbertosNoTotal?'Em aberto, criado no período.':'Fechado no período.';
   document.getElementById('k-resc-total').textContent=rescTotal.toLocaleString('pt-BR');
   document.getElementById('k-resc-parcial').textContent=rescParcial.toLocaleString('pt-BR');
   document.getElementById('k-revertidos').textContent=revertidos.toLocaleString('pt-BR');
   document.getElementById('k-taxa-reversao').textContent=`${taxaReversao.toFixed(1)}%`;
+  document.getElementById('k-resc-total-legend').textContent=`Cancelamento completo do contrato${pctFech(rescTotal)||'.'}`;
+  document.getElementById('k-resc-parcial-legend').textContent=`Redução de módulos ou usuários${pctFech(rescParcial)||'.'}`;
+  document.getElementById('k-revertidos-legend').textContent=`Solicitações de saída evitadas${pctFech(revertidos)||'.'}`;
 
   // ── Operacional ──
   const clientesUnicos=new Set(rowsFull.map(r=>r.organizacao).filter(Boolean)).size;
@@ -1541,6 +1551,11 @@ function render(){
   document.getElementById('k-mrr-protegido-full').textContent=fmtMrrFull(mrrProtegido);
   document.getElementById('k-mrr-perdido').textContent=fmtMrrK(mrrPerdido);
   document.getElementById('k-mrr-perdido-full').textContent=fmtMrrFull(mrrPerdido);
+  // Retenção em R$: do MRR que teve desfecho (protegido + perdido), quanto foi protegido.
+  const mrrTratado=mrrProtegido+mrrPerdido;
+  const pctMrr=v=>(v/mrrTratado*100).toLocaleString('pt-BR',{maximumFractionDigits:1});
+  document.getElementById('k-mrr-protegido-legend').textContent=mrrTratado?`Retenção de ${pctMrr(mrrProtegido)}% do MRR tratado (protegido + perdido).`:'';
+  document.getElementById('k-mrr-perdido-legend').textContent=mrrTratado?`${pctMrr(mrrPerdido)}% do MRR tratado (protegido + perdido).`:'';
 
   _kpiSets={
     total:{title:mostrarAbertosNoTotal?'Chamados em aberto':'Chamados fechados no período',rows:mostrarAbertosNoTotal?rowsAbertos:rowsFechados},
@@ -2010,12 +2025,15 @@ function renderInternoExternoCharts(rows){
   const porInterno=contarPor(rows,r=>(r.cf_24986||'').trim());
   _exp.interno=Object.entries(porInterno).sort((a,b)=>b[1]-a[1]);
   const internoEntries=_exp.interno.slice(0,8);
+  const bpInterno=barrasPct({total:_exp.interno.reduce((a,e)=>a+e[1],0),cor:col.t2,legenda:'do locus interno'});
   _charts.internoChart=new Chart(document.getElementById('internoChart'),{
     type:'bar',
+    plugins:[bpInterno.plugin],
     data:{labels:internoEntries.map(e=>e[0]),datasets:[{data:internoEntries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>internoEntries[items[0].dataIndex][0]}}},
+      layout:{padding:{right:bpInterno.padding}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>internoEntries[items[0].dataIndex][0],label:bpInterno.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5},callback:(val,idx)=>truncLabel(internoEntries[idx][0])}}
@@ -2029,12 +2047,15 @@ function renderInternoExternoCharts(rows){
   const porExterno=contarPor(rows,r=>(r.cf_24523||'').trim());
   _exp.externo=Object.entries(porExterno).sort((a,b)=>b[1]-a[1]);
   const externoEntries=_exp.externo.slice(0,8);
+  const bpExterno=barrasPct({total:_exp.externo.reduce((a,e)=>a+e[1],0),cor:col.t2,legenda:'do locus externo'});
   _charts.externoChart=new Chart(document.getElementById('externoChart'),{
     type:'bar',
+    plugins:[bpExterno.plugin],
     data:{labels:externoEntries.map(e=>e[0]),datasets:[{data:externoEntries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>externoEntries[items[0].dataIndex][0]}}},
+      layout:{padding:{right:bpExterno.padding}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>externoEntries[items[0].dataIndex][0],label:bpExterno.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5},callback:(val,idx)=>truncLabel(externoEntries[idx][0])}}
@@ -2058,15 +2079,18 @@ function renderVerticalCharts(rows){
   const total=rows.length;
   _exp.vertical=Object.entries(porVertical).sort((a,b)=>b[1]-a[1]);
   const vertEntries=_exp.vertical.slice(0,10);
+  const bpVert=barrasPct({total,cor:col.t2,fmt:v=>`${Number(v).toLocaleString('pt-BR')} casos`,legenda:'dos chamados; multisseleção, pode somar mais de 100%'});
   _charts.verticalChart=new Chart(document.getElementById('verticalChart'),{
     type:'bar',
+    plugins:[bpVert.plugin],
     data:{
       labels:vertEntries.map(e=>e[0]),
-      datasets:[{data:vertEntries.map(e=>total?+(e[1]/total*100).toFixed(1):0),backgroundColor:col.orange,borderRadius:4}]
+      datasets:[{data:vertEntries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]
     },
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      layout:{padding:{right:bpVert.padding+20}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:bpVert.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2}}
@@ -2086,12 +2110,16 @@ function renderVerticalCharts(rows){
   });
   _exp.mrrVert=Object.entries(mrrPorVertical).sort((a,b)=>b[1]-a[1]);
   const mrrVertEntries=_exp.mrrVert.slice(0,10);
+  // % do MRR perdido total do período (cada chamado conta uma vez; com mais de uma vertical as barras somam >100%)
+  const bpMrr=barrasPct({total:perdidosRows.reduce((a,r)=>a+mrrPerdidoDe(r),0),cor:col.t2,fmt:fmtMrrK,sufixo:' do MRR perdido'});
   _charts.mrrVerticalChart=new Chart(document.getElementById('mrrVerticalChart'),{
     type:'bar',
+    plugins:[bpMrr.plugin],
     data:{labels:mrrVertEntries.map(e=>e[0]),datasets:[{data:mrrVertEntries.map(e=>Math.round(e[1])),backgroundColor:col.orange,borderRadius:4}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      layout:{padding:{right:bpMrr.padding+70}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:bpMrr.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2}}
@@ -2235,12 +2263,15 @@ function renderModuleChart(rows){
   });
   _exp.modulo=Object.entries(porModulo).sort((a,b)=>b[1]-a[1]);
   const entries=_exp.modulo.slice(0,10);
+  const bpMod=barrasPct({total:rows.length,cor:col.t2,legenda:'dos chamados; multisseleção, pode somar mais de 100%'});
   _charts.moduleChart=new Chart(document.getElementById('moduleChart'),{
     type:'bar',
+    plugins:[bpMod.plugin],
     data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.slate,borderRadius:4}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      layout:{padding:{right:bpMod.padding}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:bpMod.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}
@@ -2256,12 +2287,15 @@ function renderTopClientChart(rows){
   const porCliente=contarPor(rows,r=>r.organizacao||'Não informado');
   _exp.cliente=Object.entries(porCliente).sort((a,b)=>b[1]-a[1]);
   const entries=_exp.cliente.slice(0,10);
+  const bpCli=barrasPct({total:rows.length,cor:col.t2,legenda:'do total de casos'});
   _charts.topClientChart=new Chart(document.getElementById('topClientChart'),{
     type:'bar',
+    plugins:[bpCli.plugin],
     data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:col.orange,borderRadius:4}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      layout:{padding:{right:bpCli.padding}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:bpCli.tooltipLabel}}},
       scales:{
         x:{display:false},
         y:{grid:{display:false},ticks:{color:col.t2,font:{size:10.5}}}

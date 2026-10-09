@@ -499,12 +499,12 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-2">
       <div class="chart-panel rolagem">
         <p class="chart-title">Avaliações por equipe</p>
-        <p class="chart-sub">Quantidade de avaliações recebidas. Clique para ver os chamados.</p>
+        <p class="chart-sub">Quantidade de avaliações recebidas e % do total avaliado. Clique para ver os chamados.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamChart"></canvas></div></div>
       </div>
       <div class="chart-panel danger rolagem">
         <p class="chart-title">Avaliações negativas por equipe</p>
-        <p class="chart-sub">Notas 1 e 2.</p>
+        <p class="chart-sub">Notas 1 e 2. O % é a taxa da equipe: negativas ÷ avaliações que ela recebeu.</p>
         <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:220px"><canvas id="teamNegChart"></canvas></div></div>
       </div>
     </div>
@@ -525,7 +525,7 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-1">
       <div class="chart-panel danger rolagem">
         <p class="chart-title" id="neg-panel-title">Ruim e péssimo</p>
-        <p class="chart-sub">Tendência mensal e quem mais recebeu avaliações negativas.</p>
+        <p class="chart-sub">Tendência mensal e quem mais recebeu avaliações negativas (o % é a taxa de cada um: negativas ÷ avaliações que recebeu).</p>
         <div class="rolagem" style="margin-bottom:18px"><div class="chart-wrap" style="height:190px"><canvas id="negTrendChart"></canvas></div></div>
         <div class="grid-2">
           <div>
@@ -1173,15 +1173,19 @@ function rotuloEm(ch,evt){
   const i=Math.round(ch.scales.y.getValueForPixel(y));
   return i>=0&&i<ch.data.labels.length?i:-1;
 }
-function barChart(id,labels,data,color,drill){
+// pct (opcional): {total} = parte do total (mesmo denominador) ou {base:[…]} = taxa de cada barra (ex.: negativas ÷
+// avaliações daquele item); sufixo vai depois do % e legenda explica no tooltip. Rótulo fica "n · x%".
+function barChart(id,labels,data,color,drill,pct){
   destroyChart(id);
   const ctx=document.getElementById(id);
   if(!ctx) return;
   const wrap=ctx.parentElement; if(wrap) wrap.style.height=Math.max(150,labels.length*34+24)+'px';
   const t2=cssVar('--t2')||'#57554f';
+  const pctDe=i=>{ const b=pct?(Array.isArray(pct.base)?pct.base[i]:pct.total):0; return b?`${(data[i]/b*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%${pct.sufixo||''}`:null; };
+  const rotulo=i=>{ const p=pctDe(i); return Number(data[i]).toLocaleString('pt-BR')+(p?` · ${p}`:''); };
   const valores={id:'valoresBarras',afterDatasetsDraw(ch){
     const c=ch.ctx; c.save(); c.font='700 11px Manrope,system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=t2;
-    ch.getDatasetMeta(0).data.forEach((bar,i)=>c.fillText(Number(data[i]).toLocaleString('pt-BR'),bar.x+6,bar.y)); c.restore(); }};
+    ch.getDatasetMeta(0).data.forEach((bar,i)=>c.fillText(rotulo(i),bar.x+6,bar.y)); c.restore(); }};
   const abrir=i=>{
     if(!drill||i<0||i>=labels.length) return;
     const label=labels[i];
@@ -1192,8 +1196,8 @@ function barChart(id,labels,data,color,drill){
     data:{labels,datasets:[{data,backgroundColor:color,borderRadius:6,barPercentage:.7,categoryPercentage:.85}]},
     plugins:[valores],
     options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:40}},
-      plugins:{legend:{display:false}},
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:pct?(pct.sufixo?150:96):40}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>rotulo(c.dataIndex)+(pct&&pct.legenda?` (${pct.legenda})`:'')}}},
       scales:{ x:{display:false,beginAtZero:true}, y:{grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:11,weight:'600'}}} },
       onClick:(evt,els)=>{ if(els.length) abrir(els[0].index); },
       onHover:(evt,els)=>{ evt.native.target.style.cursor=(drill&&els.length)?'pointer':'default'; },
@@ -1213,7 +1217,7 @@ function donutNovo(id,{itens,rotulo,onClick}){
   const cv=document.getElementById(id), leg=document.getElementById(id+'-leg'); if(!cv) return;
   const lista=itens.filter(i=>i.valor>0), total=lista.reduce((a,i)=>a+i.valor,0);
   if(leg){
-    leg.innerHTML=itens.map(i=>`<li data-l="${escAttr(i.label)}"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}</span></li>`).join('');
+    leg.innerHTML=itens.map(i=>`<li data-l="${escAttr(i.label)}"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}${total?` · ${(i.valor/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:''}</span></li>`).join('');
     leg.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>onClick&&onClick(li.dataset.l)));
   }
   if(!total) return;
@@ -1354,9 +1358,13 @@ function render(){
 
   // ── composição por equipe ──
   const teamTop=topN(rows,r=>r.equipe,RANK_MAX);
-  barChart('teamChart',teamTop.map(([k])=>k),teamTop.map(([,v])=>v),'#ff8a2b',{sourceRows:rows,field:'equipe',fieldLabel:'Equipe'});
+  barChart('teamChart',teamTop.map(([k])=>k),teamTop.map(([,v])=>v),'#ff8a2b',{sourceRows:rows,field:'equipe',fieldLabel:'Equipe'},{total:rows.length,legenda:'do total avaliado'});
+  // Negativas: o % é a TAXA de cada item (negativas ÷ avaliações dele), não a parte das negativas — sem isso equipe grande
+  // sempre parece pior.
+  const avalPor=keyFn=>{ const m={}; rows.forEach(r=>{ const k=keyFn(r); if(k) m[k]=(m[k]||0)+1; }); return m; };
+  const taxaNeg=(top,keyFn)=>{ const m=avalPor(keyFn); return {base:top.map(([k])=>m[k]||0),sufixo:' negativas',legenda:'das avaliações dele'}; };
   const teamNegTop=topN(negativasRows,r=>r.equipe,RANK_MAX);
-  barChart('teamNegChart',teamNegTop.map(([k])=>k),teamNegTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'equipe',fieldLabel:'Equipe'});
+  barChart('teamNegChart',teamNegTop.map(([k])=>k),teamNegTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'equipe',fieldLabel:'Equipe'},taxaNeg(teamNegTop,r=>r.equipe));
 
   // ── ranking geral ──
   const clientTop=topN(rows,r=>r.organizacao,RANK_MAX);
@@ -1387,9 +1395,9 @@ function render(){
   }
 
   const negClientTop=topN(negativasRows,r=>r.organizacao,RANK_MAX);
-  barChart('negClientChart',negClientTop.map(([k])=>k),negClientTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'organizacao',fieldLabel:'Cliente'});
+  barChart('negClientChart',negClientTop.map(([k])=>k),negClientTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'organizacao',fieldLabel:'Cliente'},taxaNeg(negClientTop,r=>r.organizacao));
   const negRespTop=topN(negativasRows,r=>r.responsavel,RANK_MAX);
-  barChart('negRespChart',negRespTop.map(([k])=>k),negRespTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'responsavel',fieldLabel:'Responsável'});
+  barChart('negRespChart',negRespTop.map(([k])=>k),negRespTop.map(([,v])=>v),'#ee6f82',{sourceRows:negativasRows,field:'responsavel',fieldLabel:'Responsável'},taxaNeg(negRespTop,r=>r.responsavel));
 
   // ── tabela de negativas com comentário ──
   const comentadas=negativasRows.filter(r=>(r.comentario||'').trim()).sort((a,b)=>String(b.respondido_em||'').localeCompare(String(a.respondido_em||''))).slice(0,30);
