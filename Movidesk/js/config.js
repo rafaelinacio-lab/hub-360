@@ -882,6 +882,7 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria') { if (typeof loadPipeAnoCount === 'function') loadPipeAnoCount(); loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); loadEnrichCount(); loadEnrichStatus(); }
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
+    if (tab === 'email' && typeof emailCfgCarregar === 'function') emailCfgCarregar();
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
     if (tab === 'tokens' && typeof tokensCarregar === 'function') tokensCarregar();
     if (tab === 'slahoras' && typeof slaHorasCarregar === 'function') slaHorasCarregar();
