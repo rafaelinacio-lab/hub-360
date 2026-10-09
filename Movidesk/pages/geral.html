@@ -1763,12 +1763,17 @@ function igualarAlturaGrid(){
   });
 }
 
-function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePrefix){
+// totais (opcional): {abertos, resolvidos} do período INTEIRO (não só do ranking) — cada barra ganha "n · x%", a parte
+// dela no total da sua série (abertos no total de abertos; resolvidos no total de resolvidos).
+function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePrefix,totais){
   destroyChart(id);
   const col=chartColors();
   const cv=document.getElementById(id);
   const wrap=cv.parentElement;
   if(wrap){ const h=Math.max(210,labels.length*38+56); wrap.style.height=h+'px'; wrap.dataset.h0=h; }
+  const totSerie=[totais&&totais.abertos,totais&&totais.resolvidos];
+  const pctTxt=(v,di)=>totSerie[di]?`${(v/totSerie[di]*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:null;
+  const rotulo=(v,di)=>{ const p=pctTxt(v,di); return Number(v).toLocaleString('pt-BR')+(p?` · ${p}`:''); };
   const valores={
     id:'valoresBarras',
     afterDatasetsDraw(chart){
@@ -1776,7 +1781,7 @@ function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePre
       c.font='600 10.5px system-ui,sans-serif'; c.textBaseline='middle'; c.fillStyle=col.t2;
       chart.data.datasets.forEach((ds,di)=>{
         chart.getDatasetMeta(di).data.forEach((bar,i)=>{
-          c.fillText(Number(ds.data[i]).toLocaleString('pt-BR'),bar.x+6,bar.y);
+          c.fillText(rotulo(ds.data[i],di),bar.x+6,bar.y);
         });
       });
       c.restore();
@@ -1791,9 +1796,10 @@ function layeredBars(id,labels,abertosData,resolvidosData,onClickFilter,titlePre
     ]},
     plugins:[valores],
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{padding:{right:44}},
+      layout:{padding:{right:totais?96:44}},
       interaction:{mode:'nearest',axis:'y',intersect:true},
-      plugins:{ legend:{ display:true, position:'top', labels:{color:col.t2, boxWidth:10, font:{size:11}} } },
+      plugins:{ legend:{ display:true, position:'top', labels:{color:col.t2, boxWidth:10, font:{size:11}} },
+        tooltip:{ callbacks:{ label:ctx=>{ const p=pctTxt(ctx.raw,ctx.datasetIndex); return `${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString('pt-BR')}${p?` (${p} do total de ${ctx.dataset.label.toLowerCase()})`:''}`; } } } },
       scales:{ x:{ display:false, beginAtZero:true }, y:{ grid:{display:false}, ticks:{color:col.t2, font:{size:10.5}} } },
       onHover:chartHoverCursor,
       onClick: clk,
@@ -1827,7 +1833,7 @@ function renderClassChart(rows){
   });
   const entries=Object.entries(porClass).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
   layeredBars('classChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>classificacaoDe(r)===label,'Classificação');
+    (r,label)=>classificacaoDe(r)===label,'Classificação',{abertos:rows.length,resolvidos:rows.filter(isResolvido).length});
 }
 
 // ── tendência ────────────────────────────────────────────────────────
@@ -2555,7 +2561,7 @@ function renderTeamChart(rows){
   });
   const entries=Object.entries(porEquipe).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
   layeredBars('teamChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>(r.equipe||'Não informado')===label,'Equipe');
+    (r,label)=>(r.equipe||'Não informado')===label,'Equipe',{abertos:rows.length,resolvidos:rows.filter(isResolvido).length});
 }
 // Rosca no estilo 2.0: anel fino-grosso com pontas arredondadas, total no centro, legenda clicável ao lado.
 const COR_URG={'Crítica':'#ee6f82','Alta':'#ff8a2b','Média':'#2fbf8a','Baixa':'#4f9cf0','Em branco':'#a6adbf'};
@@ -2615,7 +2621,7 @@ function renderClientChart(rows){
   });
   const entries=Object.entries(porCliente).sort((a,b)=>b[1].abertos-a[1].abertos).slice(0,RANK_MAX);
   layeredBars('clientChart',entries.map(e=>e[0]),entries.map(e=>e[1].abertos),entries.map(e=>e[1].resolvidos),
-    (r,label)=>(r.organizacao||'Não informado')===label,'Cliente');
+    (r,label)=>(r.organizacao||'Não informado')===label,'Cliente',{abertos:rows.length,resolvidos:rows.filter(isResolvido).length});
 }
 // ── Responsáveis por volume: lista + detalhe do mês (hover mostra, clique fixa) ──
 let _respFixo=null;        // colaborador fixado pelo clique
