@@ -1304,9 +1304,20 @@ async function avisarEscopoVertical(){
     const alvo=document.querySelector('header.topbar')||document.body; alvo.insertAdjacentElement(alvo===document.body?'afterbegin':'afterend',d);
   }catch{}
 }
+// Verticais do usuário (com nomes equivalentes, ex.: Agronegócio = Agrotitan); null = sem restrição (admin ou perfil sem vertical).
+// O filtro "Vertical Insatisfação" só oferece estas opções (pedido do usuário, 09/10/2026).
+let _verticaisUsuario=null;
+const semAcentoGcc=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+async function carregarVerticaisUsuario(){
+  try{
+    const r=await fetch(`${API}/escopo-vertical`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'}); if(!r.ok) return;
+    const e=await r.json(); _verticaisUsuario=e.filtrar&&Array.isArray(e.verticais)&&e.verticais.length?new Set(e.verticais.map(semAcentoGcc)):null;
+  }catch(_){ /* sem escopo conhecido: o servidor continua filtrando as linhas */ }
+}
 async function loadGcc(){
   avisarEscopoVertical();
   try{
+    await carregarVerticaisUsuario();
     _rows=await api('/gcc');
     buildFilterOptions();
     render();
@@ -1404,7 +1415,9 @@ function buildFilterOptions(){
     const extras=[...new Set(_rows.flatMap(verticaisDe))]
       .filter(v=>!naLista.has(v)&&v!=='Não informado')
       .sort((a,b)=>a.localeCompare(b,'pt'));
-    const verts=[...VERTICAIS_INSATISFACAO,...extras,'Não informado'];
+    let verts=[...VERTICAIS_INSATISFACAO,...extras,'Não informado'];
+    // quem tem vertical só filtra pelas dela ("Não informado" fica: são chamados dela sem o campo preenchido)
+    if(_verticaisUsuario) verts=verts.filter(v=>v==='Não informado'||_verticaisUsuario.has(semAcentoGcc(v)));
     populateMs('f-vertical',verts.map(v=>({v,l:v})),'Vertical Insatisfação: todas',render);
   }
   populateMs('f-status',[
