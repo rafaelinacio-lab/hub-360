@@ -30,12 +30,15 @@ async function ensureTable() {
       cfg_hash     text NOT NULL,
       calculado_em timestamptz NOT NULL DEFAULT NOW()
     )`);
+  // tempo útil em pausa (aguardando cliente/fornecedor…), para o card "Tempo em pausa" do Painel Geral
+  await db.query(`ALTER TABLE silver.ticket_sla_liquido ADD COLUMN IF NOT EXISTS pausa_min int`);
   _tabelaOk = true;
 }
 
 // Assinatura do que muda o resultado (janela, feriados, pausas): mudou na tela → tudo é recalculado aos poucos.
+// versao: sobe quando o que é gravado muda (v2 = pausa_min), para recalcular todos uma vez.
 const hashCfg = (cfg) => crypto.createHash('md5')
-  .update(JSON.stringify({ janela: cfg.janela, feriados: cfg.feriados.map(f => f.data).sort(), pausas: [...cfg.pausas].sort() }))
+  .update(JSON.stringify({ versao: 2, janela: cfg.janela, feriados: cfg.feriados.map(f => f.data).sort(), pausas: [...cfg.pausas].sort() }))
   .digest('hex');
 
 async function calcularLote(ids, cfg, hash) {
@@ -49,19 +52,20 @@ async function calcularLote(ids, cfg, hash) {
     if (!eventos.has(x.id)) eventos.set(x.id, []);
     eventos.get(x.id).push({ em: x.criado_em, status: x.status });
   }
-  const linhas = t.rows.filter(r => r.createddate && r.resolved_in).map(r => ({
-    id: r.id, min: P.minutosLiquidos(r.createddate, r.resolved_in, eventos.get(r.id) || [], cfg),
-  }));
+  const linhas = t.rows.filter(r => r.createddate && r.resolved_in).map(r => {
+    const ev = eventos.get(r.id) || [];
+    return { id: r.id, min: P.minutosLiquidos(r.createddate, r.resolved_in, ev, cfg), pausa: P.minutosPausados(r.createddate, r.resolved_in, ev, cfg) };
+  });
   if (!linhas.length) return 0;
   // resolvido_em sai direto de silver.ticket (microssegundos): o Date do JS corta em milissegundos e a comparação
   // "calculado para esta resolução" (aqui e no Painel Geral) nunca batia.
   await db.query(`
-    INSERT INTO silver.ticket_sla_liquido (ticket_id, minutos, resolvido_em, cfg_hash, calculado_em)
-    SELECT u.id, u.min, t.resolved_in, $3, NOW()
-      FROM unnest($1::bigint[], $2::int[]) AS u(id, min) JOIN silver.ticket t ON t.ticket_id = u.id
-    ON CONFLICT (ticket_id) DO UPDATE SET minutos = EXCLUDED.minutos, resolvido_em = EXCLUDED.resolvido_em,
-      cfg_hash = EXCLUDED.cfg_hash, calculado_em = EXCLUDED.calculado_em`,
-  [linhas.map(l => l.id), linhas.map(l => l.min), hash]);
+    INSERT INTO silver.ticket_sla_liquido (ticket_id, minutos, pausa_min, resolvido_em, cfg_hash, calculado_em)
+    SELECT u.id, u.min, u.pausa, t.resolved_in, $4, NOW()
+      FROM unnest($1::bigint[], $2::int[], $3::int[]) AS u(id, min, pausa) JOIN silver.ticket t ON t.ticket_id = u.id
+    ON CONFLICT (ticket_id) DO UPDATE SET minutos = EXCLUDED.minutos, pausa_min = EXCLUDED.pausa_min,
+      resolvido_em = EXCLUDED.resolvido_em, cfg_hash = EXCLUDED.cfg_hash, calculado_em = EXCLUDED.calculado_em`,
+  [linhas.map(l => l.id), linhas.map(l => l.min), linhas.map(l => l.pausa), hash]);
   return linhas.length;
 }
 

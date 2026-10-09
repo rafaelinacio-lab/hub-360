@@ -117,6 +117,11 @@ function minutosLiquidos(inicio, fim, eventos, cfg) {
   return total;
 }
 
+// Minutos úteis em pausa (aguardando cliente/fornecedor… — status de cfg.pausas): o tempo útil total menos o líquido.
+function minutosPausados(inicio, fim, eventos, cfg) {
+  return Math.max(0, minutosUteis(inicio, fim, cfg) - minutosLiquidos(inicio, fim, eventos, cfg));
+}
+
 // ── Um chamado: marcos e se ficou dentro do SLA ───────────────────────────────
 // c: { criadoEm, resolvidoEm, urgencia, eventos, primeiraRespostaEm|null, contornoEm|null }
 function avaliarChamado(c, plano, cfg) {
@@ -189,4 +194,4 @@ function saldoExtrato(lancamentos, hoje = new Date()) {
 }
 const somaMeses = (data, n) => { const d = new Date(data); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); };
 
-module.exports = { PADRAO, SEVERIDADES, normalizar, minutosUteis, minutosLiquidos, avaliarChamado, apurarCliente, faixaCredito, saldoExtrato, somaMeses, sevDe, semAcento };
+module.exports = { PADRAO, SEVERIDADES, normalizar, minutosUteis, minutosLiquidos, minutosPausados, avaliarChamado, apurarCliente, faixaCredito, saldoExtrato, somaMeses, sevDe, semAcento };

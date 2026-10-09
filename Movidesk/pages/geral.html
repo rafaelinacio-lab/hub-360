@@ -261,10 +261,11 @@ input,select{font-family:inherit}
 .imp-pos{color:#f87171}.imp-neg{color:var(--green)}
 .imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
 
-/* Faixa de KPIs do topo com 8 cards (Aging entrou ao lado de Pendentes) */
-html[data-ui="v2"] .kpi-grid.k8, .kpi-grid.k8 { grid-template-columns: repeat(8, minmax(0,1fr)); }
-@media (max-width:1400px){ html[data-ui="v2"] .kpi-grid.k8, .kpi-grid.k8 { grid-template-columns: repeat(4, minmax(0,1fr)); } }
-@media (max-width:760px){ html[data-ui="v2"] .kpi-grid.k8, .kpi-grid.k8 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+/* Faixa de KPIs do topo com 9 cards (Aging e Tempo em pausa ao lado de Pendentes): 9 colunas em tela larga,
+   3 × 3 nas médias (em vez de 4+4+1), 2 no celular */
+html[data-ui="v2"] .kpi-grid.k9, .kpi-grid.k9 { grid-template-columns: repeat(9, minmax(0,1fr)); }
+@media (max-width:1500px){ html[data-ui="v2"] .kpi-grid.k9, .kpi-grid.k9 { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width:760px){ html[data-ui="v2"] .kpi-grid.k9, .kpi-grid.k9 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 /* ─── Evolução mensal do atingimento do SLA ─────────────────────────── */
 .sl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px}
 .sl-ult{min-width:190px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-low);text-align:right}
@@ -385,7 +386,8 @@ html[data-ui="v2"] .kpi-grid.k8, .kpi-grid.k8 { grid-template-columns: repeat(8,
 .pico{display:grid;grid-template-columns:34px repeat(13,minmax(0,1fr));gap:4px;align-items:center;font-size:11px;color:var(--t3);font-weight:700}
 .pico .h{text-align:center}
 .pico .d{padding-right:4px}
-.pico .c{height:30px;border-radius:8px;border:0;padding:0;cursor:pointer;background:var(--surface-low)}
+.pico .c{height:30px;border-radius:8px;border:0;padding:0;cursor:pointer;background:var(--surface-low);font-size:10.5px;font-weight:700;line-height:30px;color:var(--t1);font-variant-numeric:tabular-nums}
+.pico .c.forte{color:#fff}
 .pico .c:hover{outline:2px solid var(--brand,var(--orange));outline-offset:1px}
 /* chamados recentes */
 .rec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
@@ -719,7 +721,7 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="geral-dash">
     <p class="section-label">Totais do período</p>
-    <div class="kpi-grid k8">
+    <div class="kpi-grid k9">
       <div data-tone="orange" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg></span>Abertos</p>
         <div class="kpi-main"><p class="value" id="k-abertos">0</p><span class="kpi-spark" id="sp-abertos"></span></div>
@@ -753,6 +755,11 @@ body.modal-open{overflow:hidden}
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12"/><path d="M7 2c0 5 10 5 10 10S7 17 7 22"/><path d="M17 2c0 5-10 5-10 10s10 5 10 10"/></svg></span>Aging</p>
         <div class="kpi-main"><p class="value bad" id="k-aging">—</p></div>
         <div class="kpi-foot"><p class="legend" id="k-aging-legend">Tempo de vida dos pendentes.</p></div>
+      </div>
+      <div data-tone="yellow" class="stat-card">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg></span>Tempo em pausa</p>
+        <div class="kpi-main"><p class="value" id="k-pausa">—</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-pausa-legend">Aguardando cliente ou fornecedor.</p></div>
       </div>
       <div data-tone="yellow" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span>Taxa de reabertura</p>
@@ -1708,6 +1715,21 @@ function render(){
   const vencidosRows=pendentesRows.filter(isVencido);
   const pctVencido=pendentesRows.length?vencidosRows.length/pendentesRows.length:0;
   document.getElementById('k-sla-cumprido').textContent=slaCard.faltam?'…':slaCard.total?fmtPct(slaCumprido):'—';
+  // Tempo em pausa: horas úteis em status de pausa (política de SLA) por chamado resolvido no período, só os elegíveis
+  // ao SLA; quem vier sem sla_pausa_min (ex.: antes de 2025) fica fora da média.
+  {
+    const hs=resolvidosRows.filter(elegivelSla).filter(r=>r.sla_pausa_min!=null).map(r=>Number(r.sla_pausa_min)/60).sort((a,b)=>a-b);
+    const el=document.getElementById('k-pausa'), lg=document.getElementById('k-pausa-legend');
+    if(el&&lg){
+      const f1=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+      if(!hs.length){ el.textContent='—'; lg.textContent='Nenhum resolvido elegível no período.'; }
+      else{
+        const media=hs.reduce((a,v)=>a+v,0)/hs.length, mediana=hs[Math.floor(hs.length/2)], comPausa=hs.filter(v=>v>0).length/hs.length*100;
+        el.textContent=`${f1(media)}h`;
+        lg.textContent=`Média · mediana ${f1(mediana)}h · ${comPausa.toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos chamados tiveram pausa.`;
+      }
+    }
+  }
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent='';   // sem legenda (pedido do usuário)
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
@@ -2772,7 +2794,8 @@ function renderPico(rows){
   PICO_DIAS.forEach(([d,nome])=>{
     h+=`<span class="d">${nome}</span>`+m[d].map((v,i)=>{
       const pct=Math.round(v/max*100);
-      return `<button type="button" class="c" title="${nome} ${PICO_H0+i}h: ${v.toLocaleString('pt-BR')} abertura${v===1?'':'s'}" style="background:${v?`color-mix(in srgb,var(--brand,var(--orange)) ${Math.max(14,pct)}%,var(--surface-low))`:'var(--surface-low)'}" onclick="picoAbrir(${d},${PICO_H0+i})"></button>`;
+      // número dentro da célula (vazio quando 0); em célula forte o texto fica branco para continuar legível
+      return `<button type="button" class="c${pct>=55?' forte':''}" title="${nome} ${PICO_H0+i}h: ${v.toLocaleString('pt-BR')} abertura${v===1?'':'s'}" style="background:${v?`color-mix(in srgb,var(--brand,var(--orange)) ${Math.max(14,pct)}%,var(--surface-low))`:'var(--surface-low)'}" onclick="picoAbrir(${d},${PICO_H0+i})">${v?v.toLocaleString('pt-BR'):''}</button>`;
     }).join('');
   });
   box.innerHTML=h;
@@ -3202,6 +3225,10 @@ const INFO_CARDS={
   'k-clientes':{t:'Clientes únicos',
     o:'Quantidade de organizações diferentes que abriram tickets no período.',
     c:['Conta organizações distintas entre os tickets criados no período (pelo cadastro de organização do ticket).','Tickets sem organização não entram na contagem.']},
+  'k-pausa':{t:'Tempo em pausa',
+    o:'Quanto tempo, em média, os chamados ficaram parados esperando retorno do cliente ou de fornecedor externo.',
+    c:['Horas úteis (janela de atendimento, sem fim de semana e feriados) em status de pausa — a lista de Configurações → SLA e horas (ex.: Aguardando).','Por chamado resolvido no período, só os que entram no SLA (Suporte Técnico, equipes de suporte, sem os clientes excluídos).','Valor do card = média; a legenda traz a mediana e o % dos chamados que tiveram alguma pausa.'],
+    obs:FILTROS_TXT},
   'k-aging':{t:'Aging',
     o:'Tempo de vida dos chamados em aberto: quantos dias, em média, os pendentes estão abertos.',
     c:['Dias corridos desde a abertura até hoje, de cada chamado pendente (os mesmos do card Pendentes: todos os anos, com os demais filtros).','Valor do card = média; a legenda traz a mediana (metade dos pendentes está abaixo dela) e o % com mais de 30 dias.','Clique em expandir para ver a lista, do mais antigo para o mais novo.'],

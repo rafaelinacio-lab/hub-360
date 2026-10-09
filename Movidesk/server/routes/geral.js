@@ -77,7 +77,8 @@ const LIST_SELECT = `
     COALESCE(ac.publicas, 0)                AS acoes_publicas,
     COALESCE(cl.fora_sla, false)             AS sla_fora_cliente,
     -- tempo de solução líquido já calculado (utils/slaLiquido.js); só vale se foi calculado para esta resolução
-    CASE WHEN sl.resolvido_em = t.resolved_in THEN sl.minutos END AS sla_liquido_min
+    CASE WHEN sl.resolvido_em = t.resolved_in THEN sl.minutos END AS sla_liquido_min,
+    CASE WHEN sl.resolvido_em = t.resolved_in THEN sl.pausa_min END AS sla_pausa_min
   FROM silver.ticket t
   LEFT JOIN silver.ticket_sla_liquido sl ON sl.ticket_id = t.ticket_id
   LEFT JOIN silver.ticket_campo_customizado cf
@@ -316,6 +317,20 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
           });
         } catch (e) { console.warn('[geral] fallback de cliente dos pendentes falhou:', e.message); }
       }
+      // Tempo em aberto em horas de SLA (Painel TV): minutos úteis líquidos da abertura até agora — política de SLA
+      // (janela, sem fim de semana/feriado e sem o tempo em pausa). Ações de todos os pendentes num SELECT só.
+      try {
+        const ids = rows.map(r => r.ticket_id).filter(id => /^\d{1,18}$/.test(String(id)));
+        if (ids.length) {
+          const [cfg, ac] = await Promise.all([configSla(), db.query(
+            `SELECT ticket_id::text AS id, criado_em, status FROM silver.ticket_acao
+              WHERE ticket_id = ANY($1::bigint[]) AND status IS NOT NULL ORDER BY criado_em`, [ids])]);
+          const ev = new Map();
+          for (const a of ac.rows) { if (!ev.has(a.id)) ev.set(a.id, []); ev.get(a.id).push({ em: a.criado_em, status: a.status }); }
+          const agora = new Date();
+          rows.forEach(r => { if (r.criado_em) r.sla_aberto_min = slaPolitica.minutosLiquidos(r.criado_em, agora, ev.get(String(r.ticket_id)) || [], cfg); });
+        }
+      } catch (e) { console.warn('[geral] horas de SLA dos pendentes falharam:', e.message); }
       // Movimento do dia (fuso de Brasília): chamados abertos hoje e resolvidos/fechados hoje, com os campos dos filtros.
       let hoje = [];
       try {
