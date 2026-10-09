@@ -67,6 +67,17 @@ app.use(helmet({
   // trava o popup numa tela branca em accounts.google.com/gsi/transform.
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
 })); // cabeçalhos de segurança HTTP
+app.use(require('compression')());   // gzip de HTML/JS/CSS/JSON: as telas grandes (Jira 287 KB, Geral 224 KB…) descem em ~20% do tamanho
+// Registra as chamadas lentas da API (acima de LENTO_MS, padrão 800 ms) para saber onde otimizar: "[lento] GET /api/... 1234ms"
+const LENTO_MS = Number(process.env.LENTO_MS) || 800;
+app.use('/api', (req, res, next) => {
+  const t0 = process.hrtime.bigint();
+  res.on('finish', () => {
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    if (ms >= LENTO_MS) console.warn(`[lento] ${req.method} ${req.baseUrl}${req.path} ${Math.round(ms)}ms (${res.statusCode})`);
+  });
+  next();
+});
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
@@ -80,9 +91,9 @@ app.use(express.urlencoded({ extended: true }));
 // do repositório (antes era express.static(path.join(__dirname, '../')), que
 // deixava .env, package.json, scripts de debug e a planilha de curadoria
 // baixáveis via HTTP por qualquer um que alcançasse o serviço).
-app.use('/css', express.static(path.join(__dirname, '../css')));
-app.use('/js', express.static(path.join(__dirname, '../js')));
-app.use('/pages', express.static(path.join(__dirname, '../pages')));
+app.use('/css', express.static(path.join(__dirname, '../css'), { maxAge: '2m' }));
+app.use('/js', express.static(path.join(__dirname, '../js'), { maxAge: '2m' }));
+app.use('/pages', express.static(path.join(__dirname, '../pages'), { maxAge: '2m' }));
 app.use('/img', express.static(path.join(__dirname, '../img'), { maxAge: '7d', setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin') }));   // imagens públicas (cabeçalho do e-mail de boas-vindas)
 // admin/ só tem index.html, já servido explicitamente pela rota GET /admin
 // abaixo — não precisa de mount estático (e evitamos o redirect /admin → /admin/
