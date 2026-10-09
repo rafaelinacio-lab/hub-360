@@ -27,6 +27,7 @@ const { parseData } = require('../utils/sla');
 // atendimento, sem fim de semana, sem feriados cadastrados e sem o tempo em status de pausa (aguardando cliente/terceiro/
 // validação…). Pedido do usuário, 08/10/2026 — antes usava utils/sla.js (07:45–12:00/13:30–18:00, sem feriados).
 const slaPolitica = require('../utils/slaPolitica');
+const slaHub = require('../utils/slaRegraHub');   // régua de SLA do Hub (espelha o Painel Geral) — Painel TV
 const { lerConfigEmCache: configSla } = require('../utils/slaHorasCore');
 const { classificarTexto, listarTemas } = require('../utils/temasChamados');
 const cacheResposta = require('../utils/cacheResposta');
@@ -93,15 +94,7 @@ const LIST_SELECT = `
   -- VIVIDA, MP AGROTECH ou AD TECH (no cadastro: "TECH NEGOCIOS"; o regex não pega "GALAAD TECH") e chamados em que
   -- a VIASOFT INFORMATICA LTDA é o cliente sem nenhum cliente de fora da Viasoft. Nome = organização ou, sem ela, o
   -- nome do cliente. Custa ~1 s na consulta do ano (81 mil chamados, medido em 08/10/2026).
-  LEFT JOIN LATERAL (
-    SELECT BOOL_OR(x.n ~ '(VIASOFT CORONEL VIVIDA|MP AGROTECH|TECH NEGOCIOS|(^|[^A-Z])AD ?TECH)')
-        OR (BOOL_OR(x.n LIKE 'VIASOFT INFORMATICA%') AND BOOL_AND(x.n LIKE 'VIASOFT%' OR x.email ILIKE '%@viasoft.com.br')) AS fora_sla
-    FROM (
-      SELECT UPPER(BTRIM(COALESCE(NULLIF(BTRIM(c.organizacao_nome), ''), c.nome, ''))) AS n, c.email
-      FROM silver.ticket_cliente c
-      WHERE c.ticket_id = t.ticket_id
-    ) x
-  ) cl ON true
+  ${slaHub.sqlLateralClienteFora('t')}
 `;
 
 // Sem filtro de equipe/classificação (ao contrário de ouvidoria.js/gcc.js),
@@ -261,6 +254,16 @@ router.get('/horas-tecnicas', authMiddleware, requireTabAccess('movidesk'), asyn
   }
 });
 
+// Mudanças de status (ações) de vários chamados, num SELECT só: Map(id -> [{em, status}]) em ordem.
+async function eventosDosTickets(ids) {
+  const ac = await db.query(
+    `SELECT ticket_id::text AS id, criado_em, status FROM silver.ticket_acao
+      WHERE ticket_id = ANY($1::bigint[]) AND status IS NOT NULL ORDER BY criado_em`, [ids]);
+  const ev = new Map();
+  for (const a of ac.rows) { if (!ev.has(a.id)) ev.set(a.id, []); ev.get(a.id).push({ em: a.criado_em, status: a.status }); }
+  return ev;
+}
+
 router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
@@ -317,20 +320,16 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
           });
         } catch (e) { console.warn('[geral] fallback de cliente dos pendentes falhou:', e.message); }
       }
-      // Tempo em aberto em horas de SLA (Painel TV): minutos úteis líquidos da abertura até agora — política de SLA
-      // (janela, sem fim de semana/feriado e sem o tempo em pausa). Ações de todos os pendentes num SELECT só.
+      // Régua do Hub nos pendentes (Painel TV): sla_aberto_min = minutos úteis líquidos da abertura até agora (política de
+      // SLA: janela, sem fim de semana/feriado/pausa); sla_hub = vencido | pausado | no_prazo | fora (não elegível) e
+      // sla_meta_h = meta da urgência. Ações de todos os pendentes num SELECT só.
       try {
         const ids = rows.map(r => r.ticket_id).filter(id => /^\d{1,18}$/.test(String(id)));
         if (ids.length) {
-          const [cfg, ac] = await Promise.all([configSla(), db.query(
-            `SELECT ticket_id::text AS id, criado_em, status FROM silver.ticket_acao
-              WHERE ticket_id = ANY($1::bigint[]) AND status IS NOT NULL ORDER BY criado_em`, [ids])]);
-          const ev = new Map();
-          for (const a of ac.rows) { if (!ev.has(a.id)) ev.set(a.id, []); ev.get(a.id).push({ em: a.criado_em, status: a.status }); }
-          const agora = new Date();
-          rows.forEach(r => { if (r.criado_em) r.sla_aberto_min = slaPolitica.minutosLiquidos(r.criado_em, agora, ev.get(String(r.ticket_id)) || [], cfg); });
+          const [cfg, ev] = await Promise.all([configSla(), eventosDosTickets(ids)]);
+          slaHub.marcarPendentes(rows, ev, cfg);
         }
-      } catch (e) { console.warn('[geral] horas de SLA dos pendentes falharam:', e.message); }
+      } catch (e) { console.warn('[geral] SLA (régua do Hub) dos pendentes falhou:', e.message); }
       // Movimento do dia (fuso de Brasília): chamados abertos hoje e resolvidos/fechados hoje, com os campos dos filtros.
       let hoje = [];
       try {
@@ -689,28 +688,42 @@ router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
       if (servico) { params.push(servico); filtroServico = ` AND t.service_full = $${params.length}`; }
       if (vertical) { params.push(vertical); filtroServico += ` AND btrim(split_part(t.service_full, '>', 1)) = $${params.length}`; }
       if (equipe) { params.push(equipe === 'Não informado' ? '' : equipe); filtroServico += ` AND COALESCE(NULLIF(btrim(t.ownerteam), ''), '') = $${params.length}`; }
+      // Régua do Hub (espelha o Painel Geral): resolvidos dentro/fora pelo tempo líquido guardado (silver.ticket_sla_liquido,
+      // só se calculado para a resolução atual; sem tempo ou não elegível = resolvidos_sem_prazo) e pendentes classificados
+      // em vencido / pausado / no_prazo / fora (sem_prazo) pelo tempo líquido até agora. Campos da resposta mantidos.
       const r = await db.query(`
-        WITH b AS (
-          SELECT COALESCE(NULLIF(btrim(t.owner_name), ''), 'Não atribuído') AS responsavel,
-                 (t.basestatus IN (${FECHADOS_SQL})) AS resolvido,
-                 (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado')) AS pendente,
-                 t.basestatus AS base, t.resolved_in, t.sla_solution_date AS prazo
-            FROM silver.ticket t
-            JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
-           WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = '${CLASSIFICACAO_SLA}'${filtroServico}
-             AND (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado') OR (t.basestatus IN (${FECHADOS_SQL}) AND t.resolved_in >= $1::date))
-        )
-        SELECT responsavel,
-               COUNT(*) FILTER (WHERE resolvido AND prazo IS NOT NULL AND resolved_in <= prazo)::int AS dentro,
-               COUNT(*) FILTER (WHERE resolvido AND prazo IS NOT NULL AND resolved_in >  prazo)::int AS fora,
-               COUNT(*) FILTER (WHERE resolvido AND prazo IS NULL)::int AS resolvidos_sem_prazo,
-               COUNT(*) FILTER (WHERE pendente)::int AS pendentes,
-               COUNT(*) FILTER (WHERE pendente AND prazo IS NOT NULL AND prazo <  NOW())::int AS vencidos,
-               COUNT(*) FILTER (WHERE pendente AND prazo IS NOT NULL AND prazo >= NOW())::int AS no_prazo,
-               COUNT(*) FILTER (WHERE pendente AND prazo IS NULL AND base = 'Stopped')::int AS pausados,
-               COUNT(*) FILTER (WHERE pendente AND prazo IS NULL AND base IS DISTINCT FROM 'Stopped')::int AS sem_prazo
-          FROM b GROUP BY 1 ORDER BY 1`, params);
-      return { desde, servico: servico || null, equipe: equipe || null, classificacao: 'Suporte Técnico', rows: r.rows || [] };
+        SELECT t.ticket_id::text AS ticket_id,
+               COALESCE(NULLIF(btrim(t.owner_name), ''), 'Não atribuído') AS responsavel,
+               (t.basestatus IN (${FECHADOS_SQL})) AS resolvido,
+               (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado')) AS pendente,
+               t.createddate AS criado_em, t.status AS status_movidesk, t.urgency AS urgencia, t.ownerteam AS equipe,
+               cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS sla_fora_cliente,
+               CASE WHEN sl.resolvido_em = t.resolved_in THEN sl.minutos END AS minutos
+          FROM silver.ticket t
+          JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
+          ${slaHub.sqlLateralClienteFora('t')}
+          LEFT JOIN silver.ticket_sla_liquido sl ON sl.ticket_id = t.ticket_id
+         WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = '${CLASSIFICACAO_SLA}'${filtroServico}
+           AND (t.basestatus NOT IN (${FECHADOS_SQL}, 'Canceled', 'Cancelado') OR (t.basestatus IN (${FECHADOS_SQL}) AND t.resolved_in >= $1::date))`, params);
+      const linhas = r.rows || [];
+      const pend = linhas.filter(x => x.pendente);
+      if (pend.length) slaHub.marcarPendentes(pend, await eventosDosTickets(pend.map(x => x.ticket_id)), await configSla());
+      const por = new Map();
+      const zero = () => ({ dentro: 0, fora: 0, resolvidos_sem_prazo: 0, pendentes: 0, vencidos: 0, no_prazo: 0, pausados: 0, sem_prazo: 0 });
+      for (const x of linhas) {
+        const o = por.get(x.responsavel) || por.set(x.responsavel, zero()).get(x.responsavel);
+        if (x.resolvido) {
+          const meta = slaHub.elegivel(x) ? slaHub.metaDe(x.urgencia) : null;
+          if (meta == null || x.minutos == null) o.resolvidos_sem_prazo++;
+          else if (x.minutos / 60 <= meta) o.dentro++; else o.fora++;
+        } else if (x.pendente) {
+          o.pendentes++;
+          if (x.sla_hub === 'vencido') o.vencidos++; else if (x.sla_hub === 'no_prazo') o.no_prazo++;
+          else if (x.sla_hub === 'pausado') o.pausados++; else o.sem_prazo++;
+        }
+      }
+      const rows = [...por.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt')).map(([responsavel, o]) => ({ responsavel, ...o }));
+      return { desde, servico: servico || null, equipe: equipe || null, classificacao: 'Suporte Técnico', regua: 'hub', rows };
     });
   } catch (error) {
     if (error.code === '42P01') return res.json({ rows: [] });

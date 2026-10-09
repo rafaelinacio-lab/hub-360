@@ -301,7 +301,7 @@
       <div data-tone="red" class="stat-card danger" data-card="vencidos">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Vencidos</p>
         <div class="kpi-main"><p class="value" id="k-vencidos">0</p></div>
-        <div class="kpi-foot"><p class="legend" id="k-vencidos-l">Prazo de SLA já passado.</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-vencidos-l">Passaram da meta de SLA da urgência.</p></div>
       </div>
     </div>
 
@@ -324,7 +324,7 @@
       <div data-tone="red" class="stat-card danger" data-card="criticos-venc">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Críticos vencidos</p>
         <div class="kpi-main"><p class="value" id="k-criticos-venc">0</p></div>
-        <div class="kpi-foot"><p class="legend" id="k-criticos-venc-l">Críticos com prazo de SLA passado.</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-criticos-venc-l">Críticos que passaram da meta de SLA.</p></div>
       </div>
     </div>
 
@@ -337,7 +337,7 @@
       <div class="chart-panel">
         <p class="chart-title">Pendentes por pessoa</p>
         <p class="chart-sub">Chamados em aberto por responsável, separados por situação do prazo.</p>
-        <div class="leg-fixa"><span><i style="background:#ee6f82"></i>Vencido</span><span><i style="background:#f2b24a"></i>Pausado</span><span><i style="background:#a6adbf"></i>Sem prazo</span><span><i style="background:#2fbf8a"></i>No prazo</span></div>
+        <div class="leg-fixa"><span><i style="background:#ee6f82"></i>Vencido</span><span><i style="background:#f2b24a"></i>Pausado</span><span><i style="background:#a6adbf"></i>Fora do SLA</span><span><i style="background:#2fbf8a"></i>No prazo</span></div>
         <div class="rolagem rank-scroll" style="max-height:520px"><div class="chart-wrap" id="pessoaWrap" style="height:240px;"><canvas id="pessoaChart"></canvas></div></div>
       </div>
     </div>
@@ -345,12 +345,12 @@
     <div class="hrow c-2">
       <div class="chart-panel">
         <p class="chart-title">Situação do prazo</p>
-        <p class="chart-sub">Pendentes por situação do SLA.</p>
+        <p class="chart-sub">Pendentes pela régua de SLA do Hub: horas úteis líquidas (sem fim de semana, feriado e pausa) × meta da urgência (Crítica 4h, Alta 8h, Média 16h, Baixa 24h). Fora do SLA = não entra na régua (equipe/cliente/urgência).</p>
         <div class="donut-row"><div class="chart-wrap"><canvas id="prazoChart"></canvas></div><ul class="donut-leg" id="prazoChart-leg"></ul></div>
       </div>
       <div class="chart-panel">
         <p class="chart-title">SLA por urgência</p>
-        <p class="chart-sub">Pendentes de cada urgência e quantos já estão com o prazo vencido.</p>
+        <p class="chart-sub">Pendentes de cada urgência e quantos já passaram da meta de SLA (régua do Hub).</p>
         <div class="rolagem" id="urg-lista" style="max-height:520px"></div>
       </div>
     </div>
@@ -382,7 +382,7 @@
         <div class="slr-head">
           <div>
             <p class="chart-title">SLA individual por analista</p>
-            <p class="chart-sub" id="slr-sub">Suporte Técnico — resolvidos dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.</p>
+            <p class="chart-sub" id="slr-sub">Suporte Técnico — resolvidos dentro e fora da meta (régua do Hub), o que está pendente e quanto cada um pesa no SLA do time.</p>
           </div>
           <label class="slr-per">Período dos resolvidos
             <select id="slr-periodo" aria-label="Período dos resolvidos">
@@ -395,7 +395,7 @@
         </div>
         <div class="slr-resumo" id="slr-resumo"></div>
         <div class="rolagem slr-scroll" id="slr-lista"><p class="imp-vazio">Carregando…</p></div>
-        <p class="slr-nota">Impacto realizado = fora do prazo do analista ÷ resolvidos com prazo do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se todos os pendentes já vencidos dele forem resolvidos depois do prazo. Impacto no SLA dele = quanto o SLA do próprio analista desce se os pendentes vencidos fecharem fora do prazo, e sobe se os pendentes no prazo fecharem no prazo; pausados e sem prazo ficam fora da conta.</p>
+        <p class="slr-nota">Régua de SLA do Hub (a mesma do Painel Geral): só Suporte Técnico, equipes de suporte e sem os clientes excluídos; tempo = horas úteis líquidas (janela de atendimento, sem fins de semana, feriados e pausas); dentro = até a meta da urgência (Crítica 4h, Alta 8h, Média 16h, Baixa 24h). Impacto realizado = fora da meta do analista ÷ resolvidos do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se os pendentes já vencidos dele forem resolvidos depois da meta. Impacto no SLA dele = quanto o SLA do próprio analista desce se os vencidos fecharem fora da meta, e sobe se os no prazo fecharem dentro; pausados e fora do SLA ficam fora da conta.</p>
       </div>
     </div>
   </div>
@@ -437,7 +437,9 @@ const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
 const CANCELADO_STATUSES=['Canceled','Cancelado'];
 function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
 function temPrazo(r){ return !!r.sla_solucao; }
-function isVencido(r){ return temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
+// Régua do Hub (servidor manda r.sla_hub: vencido | pausado | no_prazo | fora — tempo líquido × meta da urgência, só
+// elegíveis); sem o campo (servidor antigo), cai no prazo do Movidesk.
+function isVencido(r){ if(r.sla_hub!==undefined) return r.sla_hub==='vencido'; return temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
 function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
 // Idade do chamado em ms (ordenação exata) e texto: menos de 1 dia mostra horas ("5 h"); menos de 1 hora, minutos.
 const fmtDataHora=v=>{ const d=new Date(v); return isNaN(d)?'':'Aberto em '+d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
@@ -469,6 +471,8 @@ function diasSemRetornoDe(dataStr){
   return Math.floor((Date.now()-new Date(dataStr).getTime())/86400000);
 }
 function statusPrazoDe(r){
+  // Régua do Hub: 'Sem Prazo' = fora do SLA (não elegível ou urgência sem meta) — exibido como "Fora do SLA"
+  if(r.sla_hub!==undefined) return {vencido:'Vencido',pausado:'Pausado',no_prazo:'No Prazo'}[r.sla_hub]||'Sem Prazo';
   // Aguardando (Stopped) sem data: o relógio do SLA está pausado (o Movidesk não informa o prazo enquanto pausa)
   if(!temPrazo(r)) return r.base_status==='Stopped'?'Pausado':'Sem Prazo';
   return isVencido(r)?'Vencido':'No Prazo';
@@ -692,7 +696,7 @@ function renderPrazoChart(){
   const semPrazo=_rows.filter(r=>statusPrazoDe(r)==='Sem Prazo').length;
   const pausado=_rows.filter(r=>statusPrazoDe(r)==='Pausado').length;
   const noPrazo=_rows.filter(r=>statusPrazoDe(r)==='No Prazo').length;
-  donutTv('prazoChart',[{label:'Vencido',chave:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',chave:'Pausado',valor:pausado,cor:'#f2b24a'},{label:'Sem prazo',chave:'Sem Prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',chave:'No Prazo',valor:noPrazo,cor:'#2fbf8a'}]);
+  donutTv('prazoChart',[{label:'Vencido',chave:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',chave:'Pausado',valor:pausado,cor:'#f2b24a'},{label:'Fora do SLA',chave:'Sem Prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',chave:'No Prazo',valor:noPrazo,cor:'#2fbf8a'}]);
 }
 
 
@@ -722,7 +726,7 @@ function renderHoje(vencidosRows){
   set('k-criticos',crit.length,crit.length?`${(crit.length/Math.max(_rows.length,1)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes.`:'Nenhum chamado crítico em aberto.');
   // % dos críticos pendentes que já venceram (sem críticos, mantém o texto padrão)
   const critVenc=crit.filter(isVencido).length;
-  set('k-criticos-venc',critVenc,crit.length?`${(critVenc/crit.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos críticos.`:'Críticos com prazo de SLA passado.');
+  set('k-criticos-venc',critVenc,crit.length?`${(critVenc/crit.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos críticos.`:'Críticos que passaram da meta de SLA.');
 }
 // Quem aparece na barra: o responsável; sem responsável mas com equipe, "Não atribuído · <equipe>"; sem nenhum dos dois, só "Não atribuído".
 const SEM_DONO='Não atribuído';
@@ -753,7 +757,7 @@ function renderPessoaChart(){
     last.forEach((b,i)=>{ const cortada=escalaMax&&por[nomes[i]].t>escalaMax; c.fillText((cortada?'▸ ':'')+por[nomes[i]].t.toLocaleString('pt-BR'),Math.min(b.x,dir)+8,b.y); }); c.restore(); }};
   if(_pessoaChart) _pessoaChart.destroy();
   _pessoaChart=new Chart(cv,{type:'bar',
-    data:{labels:nomes.map(rotuloPessoa),datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Sem prazo':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9,maxBarThickness:tv?tvPx(4,22,44):undefined}))},
+    data:{labels:nomes.map(rotuloPessoa),datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Fora do SLA':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9,maxBarThickness:tv?tvPx(4,22,44):undefined}))},
     plugins:[total],
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:tv?fVal*3.5:48}},
       onClick:(e,els)=>{ if(els.length) abrirModal({pessoa:nomes[els[0].index],prazo:defs[els[0].datasetIndex][0]}); },
@@ -771,13 +775,13 @@ function renderUrgencia(){
     const o=por[u], pct=o.t?o.v/o.t*100:0, cor=pct>=40?'var(--danger)':pct>=20?'var(--warning)':'var(--success)';
     return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" ><td><b>${esc(u)}</b></td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
       <td style="color:${cor};font-weight:800">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
-      <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} sem prazo · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
+      <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} fora do SLA · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
   }).join('')+'</tbody></table>';
 }
 
 const ROTULO_CARD={todos:'Chamados pendentes',vencidos:'Chamados vencidos',criticos:'Chamados críticos pendentes','criticos-venc':'Chamados críticos vencidos','abertos-hoje':'Chamados abertos hoje','fechados-hoje':'Chamados fechados hoje'};
 // spec = { card, urg, equipe, pessoa, prazo }: o que foi clicado (card, urgência, barra de equipe/pessoa, fatia do prazo, analista).
-const prazoRotulo={Vencido:'Vencidos','No Prazo':'No prazo',Pausado:'Pausados (aguardando)','Sem Prazo':'Sem prazo'};
+const prazoRotulo={Vencido:'Vencidos','No Prazo':'No prazo',Pausado:'Pausados (aguardando)','Sem Prazo':'Fora do SLA'};
 function linhasDe(sp){
   const {card,urg,equipe,pessoa,prazo}=sp;
   if(card==='abertos-hoje'||card==='fechados-hoje'){
@@ -815,7 +819,7 @@ function linhaHtml(r){
   let dA=diasSemRetornoDe(r.ultima_publica_agente), dC=diasSemRetornoDe(r.ultima_publica_cliente), nuncaA=false;
   if(!semAcoes&&dA==null){ dA=diasSemRetornoDe(r.criado_em); nuncaA=true; }
   const celula=(v,dica)=>semAcoes?`<td class="num" style="color:var(--t3)" title="Ações do chamado ainda sendo carregadas">…</td>`:`<td class="num danger-num" ${dica?`title="${escAttr(dica)}"`:''}>${v!=null?v:'—'}</td>`;
-  return `<tr>${base}${celula(dA,nuncaA?'A equipe ainda não respondeu publicamente: contado desde a abertura':'')}${celula(dC,dC==null?'O cliente não enviou mensagem pública':'')}<td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp)}</span></td></tr>`;
+  return `<tr>${base}${celula(dA,nuncaA?'A equipe ainda não respondeu publicamente: contado desde a abertura':'')}${celula(dC,dC==null?'O cliente não enviou mensagem pública':'')}<td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp==='Sem Prazo'?'Fora do SLA':sp==='No Prazo'?'No prazo':sp)}</span></td></tr>`;
 }
 const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th><th class="num">Horas de SLA</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th><th class="center">Status real</th><th class="center">Status prazo</th></tr></thead>';
 const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:20%"><col style="width:14%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';
@@ -925,13 +929,13 @@ function renderSlaResponsaveis(rows,per){
         ${r.vencidos?`<span class="slr-chip r">${r.vencidos} vencido${r.vencidos>1?'s':''}</span>`:''}
         ${r.no_prazo?`<span class="slr-chip g">${r.no_prazo} no prazo</span>`:''}
         ${r.pausados?`<span class="slr-chip w">${r.pausados} pausado${r.pausados>1?'s':''}</span>`:''}
-        ${r.sem_prazo?`<span class="slr-chip n">${r.sem_prazo} sem prazo</span>`:''}
+        ${r.sem_prazo?`<span class="slr-chip n">${r.sem_prazo} fora do SLA</span>`:''}
         ${!r.pendentes?'<span class="slr-chip n">nenhum</span>':''}</div></td>
       <td><div class="slr-meu">${meuImpacto(r)}</div></td>
       <td><div class="slr-imp"><span class="a ${r.impReal<0.05?'zero':''}">${r.impReal<0.05?'0,0 pp':'−'+fmt(r.impReal)+' pp'}</span>
         <span class="b">${r.vencidos?(ehTV()?`e mais −${fmt(r.impVenc)} pp com os vencidos`:`e mais −${fmt(r.impVenc)} pp se ${r.vencidos>1?`os ${r.vencidos} vencidos fecharem`:'o vencido fechar'} fora do prazo`):'sem vencidos que pesem'}</span></div></td>
     </tr>`).join('')+`</tbody></table>`;
-  document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}${_equipeSel?` — equipe "${_equipeSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora do prazo, o que está pendente e quanto cada um pesa no SLA do time.`;
+  document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}${_equipeSel?` — equipe "${_equipeSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora da meta (régua do Hub), o que está pendente e quanto cada um pesa no SLA do time.`;
 }
 (function(){
   const sel=document.getElementById('slr-periodo');
