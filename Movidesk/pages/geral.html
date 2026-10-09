@@ -2943,7 +2943,7 @@ function renderRespChart(rows){
   if(_respFixo&&!_respLista.some(([n])=>n===_respFixo)) _respFixo=null;
   const mx=Math.max(1,..._respLista.map(([,v])=>v.criados));
   const nfm=n=>Number(n||0).toLocaleString('pt-BR');
-  const corSla=v=>v>=90?cssVar('--green'):v>=70?'#fbbf24':cssVar('--orange');
+  const corSla=v=>v>=90?cssVar('--green'):cssVar('--orange');   // meta de SLA: 90%
   // "n · x%": participação no total do período (abertos ÷ abertos do período; resolvidos ÷ resolvidos do período)
   const totAb=rows.length, totRs=_rowsResolv.length;
   const comPct=(n,tot)=>`<b>${nfm(n)}</b>${tot?` <small style="color:var(--t3);font-weight:600">· ${((n||0)/tot*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</small>`:''}`;
@@ -3309,7 +3309,7 @@ const INFO_CARDS={
     c:['Barra cinza = tickets criados no período; barra laranja = desses, quantos estão resolvidos.']},
   'respChart':{t:'Responsáveis por volume',
     o:'Os 15 responsáveis com mais tickets abertos no período, com o detalhe de cada um.',
-    c:['Respeita os filtros do topo (equipe, cliente, serviço, classificação, status, ano e mês).','Abertos = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); verde ≥ 90%, amarelo ≥ 70%.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe ao lado; clique para fixar e clique de novo para soltar.','O detalhe usa o MESMO período da lista e compara com o anterior: com Ano e Mês marcados, o mês anterior; só com um Ano, os mesmos meses do ano anterior (se estiverem carregados); nos demais casos não há comparação. Mostra abertos, resolvidos, SLA cumprido total e por urgência (em pontos percentuais) e abertos por urgência.']},
+    c:['Respeita os filtros do topo (equipe, cliente, serviço, classificação, status, ano e mês).','Abertos = tickets criados no período filtrado. Resolvidos = tickets resolvidos no período (pela data de resolução).','SLA cumprido = % dos resolvidos no período, com prazo de solução definido, que foram resolvidos até o prazo (mesma regra do card "SLA cumprido"); meta de 90%: verde a partir de 90%, laranja abaixo.','Pendentes = tickets do colaborador ainda em aberto; Vencidos = pendentes com prazo de SLA já passado.','Passe o mouse (ou use Tab) sobre um colaborador para ver o detalhe ao lado; clique para fixar e clique de novo para soltar.','O detalhe usa o MESMO período da lista e compara com o anterior: com Ano e Mês marcados, o mês anterior; só com um Ano, os mesmos meses do ano anterior (se estiverem carregados); nos demais casos não há comparação. Mostra abertos, resolvidos, SLA cumprido total e por urgência (em pontos percentuais) e abertos por urgência.']},
   'tbl-equipes-vencido':{t:'Backlog vencido por equipe',
     o:'Em quais equipes o backlog pendente está mais atrasado.',
     c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Todas as equipes com pendentes, em ordem alfabética; o % fica em destaque quando passa de 30%.','O filtro “Equipe” do próprio quadro vale só para esta tabela.','Clique numa equipe para ver os tickets vencidos.']},

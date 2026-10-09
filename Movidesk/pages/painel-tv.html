@@ -891,7 +891,7 @@ function renderSlaResponsaveis(rows,per){
   const pendT=rows.reduce((s,r)=>s+r.pendentes,0), vencT=rows.reduce((s,r)=>s+r.vencidos,0);
   const slaT=T?dentroT/T*100:null;
   document.getElementById('slr-resumo').innerHTML=
-    `<span><b style="color:${slaT==null?'inherit':slaT>=90?'var(--success)':slaT>=80?'var(--warning)':'var(--danger)'}">${slaT==null?'—':fmt(slaT)+'%'}</b>SLA do time (${rotuloPeriodo[per]})</span>`+
+    `<span><b style="color:${slaT==null?'inherit':slaT>=90?'var(--success)':'var(--danger)'}">${slaT==null?'—':fmt(slaT)+'%'}</b>SLA do time (${rotuloPeriodo[per]})</span>`+
     `<span><b>${T.toLocaleString('pt-BR')}</b>resolvidos com prazo (${dentroT.toLocaleString('pt-BR')} dentro · ${foraT.toLocaleString('pt-BR')} fora)</span>`+
     `<span><b>${pendT.toLocaleString('pt-BR')}</b>pendentes agora</span>`+
     `<span><b style="color:${vencT?'var(--danger)':'inherit'}">${vencT.toLocaleString('pt-BR')}</b>já vencidos</span>`;
@@ -903,7 +903,7 @@ function renderSlaResponsaveis(rows,per){
   }).filter(r=>r.tot||r.pendentes).sort((a,b)=>b.impTot-a.impTot||b.pendentes-a.pendentes);
   const lista=document.getElementById('slr-lista');
   if(!itens.length){ lista.innerHTML='<p class="imp-vazio">Nenhum chamado de Suporte Técnico neste filtro.</p>'; return; }
-  const corPct=p=>p==null?'var(--t3)':p>=90?'var(--success)':p>=80?'var(--warning)':'var(--danger)';
+  const corPct=p=>p==null?'var(--t3)':p>=90?'var(--success)':'var(--danger)';
   // Impacto no SLA DO ANALISTA: d dentro, f fora (resolvidos com prazo), v vencidos e np no prazo (pendentes).
   // ▼ se os vencidos fecharem fora: d/(d+f+v); ▲ se os no prazo fecharem no prazo: (d+np)/(d+f+np). Pausados ficam fora.
   const meuImpacto=r=>{
