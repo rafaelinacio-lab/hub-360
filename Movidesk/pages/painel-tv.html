@@ -168,6 +168,7 @@
   /* Modo rolagem do navegador da TV Samsung (balão de 4 setas): a rolagem vira "quadro anterior/próximo" */
   html body.tv-page.modo-tv { overflow: visible; }
   html { overflow-x: hidden; }
+  #tv-raiz { position: fixed; inset: 0; overflow: hidden; }   /* o conteúdo fica parado; só a folga invisível (.tv-sentinela) rola */
   .tv-sentinela { position: absolute; top: 0; left: 0; width: 1px; height: calc(100vh + 240px); visibility: hidden; pointer-events: none; }
   .tv-bolhas { position: fixed; right: 24px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 8px;
     padding: 8px 12px; border-radius: 999px; background: var(--surface, rgba(20,24,32,.85)); box-shadow: 0 4px 18px rgba(0,0,0,.28); }
@@ -992,7 +993,7 @@ function montarCarrossel(){
 // O carrossel ocupa da posição dele até o fim da tela (o cabeçalho com filtros pode quebrar linha).
 function ajustarAlturaCarrossel(){
   const cont=document.getElementById('tv-content'); if(!cont) return;
-  const topo=cont.getBoundingClientRect().top+window.scrollY;
+  const topo=cont.getBoundingClientRect().top+(document.getElementById('tv-raiz')?0:window.scrollY);   // na TV o conteúdo está numa camada fixa
   cont.style.height=Math.max(320,window.innerHeight-topo-70)+'px';   // 70 = espaço das bolinhas embaixo
 }
 function atualizarBolhas(){
@@ -1090,6 +1091,10 @@ montarCarrossel();
 // folga de rolagem invisível; rolou para cima/baixo do centro = quadro anterior/próximo, e volta ao centro. A roda do mouse
 // e o gesto de deslizar fazem o mesmo.
 if(MODO_TV){
+  // Prende todo o conteúdo numa camada fixa: a página (folga invisível) rola por baixo sem deslocar nada na tela
+  const raiz=document.createElement('div'); raiz.id='tv-raiz';
+  [...document.body.childNodes].filter(n=>!(n.nodeType===1&&n.tagName==='SCRIPT')).forEach(n=>raiz.appendChild(n));
+  document.body.insertBefore(raiz,document.body.firstChild);
   const sent=document.createElement('div'); sent.className='tv-sentinela'; document.body.appendChild(sent);
   const CENTRO=120; let bloqueio=0, ignorar=false;
   const centrar=()=>{ ignorar=true; window.scrollTo(0,CENTRO); setTimeout(()=>{ ignorar=false; },60); };
