@@ -3105,6 +3105,8 @@ async function refreshGccVerticalInferida() {
   }
 }
 
+// Domínios que não identificam uma organização (e-mail pessoal/provedor, ou a própria Viasoft).
+const DOMINIOS_NAO_ORG = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'yahoo.com.br', 'icloud.com', 'live.com', 'msn.com', 'bol.com.br', 'uol.com.br', 'terra.com.br', 'ig.com.br', 'viasoft.com.br'];
 let _refreshingOrganizacao = false;
 async function refreshTicketOrganizacao() {
   if (_refreshingOrganizacao) return;
@@ -3123,6 +3125,35 @@ async function refreshTicketOrganizacao() {
         atualizado_em    = EXCLUDED.atualizado_em
     `);
     console.log(`[loader] ✔ silver.ticket_organizacao atualizada — ${result.rowCount} ticket(s) (${Date.now() - t0}ms)`);
+    // Cliente que vem do Movidesk sem organização: deduz (1) pela PESSOA — o mesmo cliente_id tem uma única organização em outros
+    // chamados — e, se não houver, (2) pelo DOMÍNIO do e-mail, só quando ele aponta para UMA organização (por id) em >= 2 chamados.
+    // Só abertos/resolvidos; e-mail pessoal e @viasoft.com.br nunca entram pelo domínio. Roda depois do upsert acima (que regrava
+    // vazio) e só preenche o que está vazio — nunca sobrescreve organização real.
+    const ded = await db.query(`
+      WITH pessoa AS (
+        SELECT c.cliente_id::text AS pid, MIN(c.organizacao_id) AS org_id, MIN(c.organizacao_nome) AS org_nome
+          FROM silver.ticket_cliente c
+         WHERE COALESCE(btrim(c.organizacao_nome), '') <> '' AND c.cliente_id IS NOT NULL
+         GROUP BY 1 HAVING COUNT(DISTINCT c.organizacao_id) = 1),
+      mapa AS (
+        SELECT lower(split_part(c.email, '@', 2)) AS dom, MIN(c.organizacao_id) AS org_id, MIN(c.organizacao_nome) AS org_nome
+          FROM silver.ticket_cliente c
+         WHERE COALESCE(btrim(c.organizacao_nome), '') <> '' AND c.email LIKE '%@%'
+           AND lower(split_part(c.email, '@', 2)) <> ALL($1::text[])
+         GROUP BY 1
+        HAVING COUNT(DISTINCT c.organizacao_id) = 1 AND COUNT(DISTINCT c.ticket_id) >= 2),
+      cand AS (
+        SELECT o.ticket_id, COALESCE(p.org_id, m.org_id) AS org_id, COALESCE(p.org_nome, m.org_nome) AS org_nome, (p.pid IS NULL) AS por_dominio
+          FROM silver.ticket_organizacao o
+          JOIN silver.ticket t ON t.ticket_id = o.ticket_id AND t.basestatus IN ('New','InAttendance','Stopped','InProgress','Resolved')
+          JOIN silver.ticket_cliente c ON c.ticket_id = o.ticket_id
+          LEFT JOIN pessoa p ON p.pid = c.cliente_id::text
+          LEFT JOIN mapa m ON m.dom = lower(split_part(c.email, '@', 2))
+         WHERE COALESCE(btrim(o.organizacao_nome), '') = '' AND (p.pid IS NOT NULL OR m.dom IS NOT NULL)),
+      alvo AS (SELECT DISTINCT ON (ticket_id) ticket_id, org_id, org_nome FROM cand ORDER BY ticket_id, por_dominio)
+      UPDATE silver.ticket_organizacao o SET organizacao_id = a.org_id, organizacao_nome = a.org_nome, atualizado_em = NOW()
+        FROM alvo a WHERE o.ticket_id = a.ticket_id`, [DOMINIOS_NAO_ORG]);
+    if (ded.rowCount) console.log(`[loader] ✔ organização deduzida (pessoa/domínio) em ${ded.rowCount} chamado(s)`);
   } catch (e) {
     console.error('[loader] refreshTicketOrganizacao falhou:', e.message);
   } finally {
