@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel operacional — Carrossel TV</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg:#0a1020; --bg2:#0e1629; --painel:#131d33; --borda:#25324d; --t1:#f1f5fb; --t2:#a9b6cc; --t3:#6f7f9b;
+    --venc:#e5586c; --breve:#e9b730; --paus:#8794ad; --prazo:#2fbf8a; --fora:#5b6b88; --azul:#4f9cf0; --marca:#ff8a2b;
+    --u:1vh;   /* unidade de tamanho: acompanha a altura da tela */
+  }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--t1); font-family:'Manrope','Segoe UI',system-ui,sans-serif; overflow:hidden; scrollbar-width:none; }
+  body::-webkit-scrollbar { display:none; }
+  #raiz { position:fixed; inset:0; display:flex; flex-direction:column; background:radial-gradient(120% 90% at 50% 0%, #121c33 0%, var(--bg) 62%); overflow:hidden; }
+  /* cabeçalho fixo */
+  header { flex:none; display:flex; align-items:center; justify-content:space-between; gap:3vw; padding:calc(var(--u)*2.6) 3.2vw calc(var(--u)*2); border-bottom:1px solid var(--borda); }
+  .h-rot { font-size:calc(var(--u)*1.9); font-weight:800; letter-spacing:.2em; color:var(--marca); }
+  .h-tit { font-size:calc(var(--u)*4.6); font-weight:800; line-height:1.1; letter-spacing:-.01em; margin-top:calc(var(--u)*.3); }
+  .h-ctx { font-size:calc(var(--u)*2.3); font-weight:600; color:var(--t2); margin-top:calc(var(--u)*.6); }
+  .h-dir { text-align:right; }
+  .h-hora { font-size:calc(var(--u)*6); font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .h-att { font-size:calc(var(--u)*2); font-weight:600; color:var(--t2); margin-top:calc(var(--u)*.8); }
+  .h-att.velho { color:var(--breve); }
+  /* palco com as telas */
+  main { flex:1; min-height:0; position:relative; padding:calc(var(--u)*3) 3.2vw calc(var(--u)*2); }
+  .slide { position:absolute; inset:calc(var(--u)*3) 3.2vw calc(var(--u)*2); display:flex; flex-direction:column; opacity:0; pointer-events:none; transition:opacity .6s ease; }
+  .slide.ativo { opacity:1; pointer-events:auto; }
+  .s-tit { font-size:calc(var(--u)*5.2); font-weight:800; letter-spacing:.01em; text-transform:uppercase; }
+  .s-sub { font-size:calc(var(--u)*2.5); color:var(--t2); font-weight:500; margin-top:calc(var(--u)*.8); }
+  .s-corpo { flex:1; min-height:0; margin-top:calc(var(--u)*3); display:flex; flex-direction:column; }
+  .painel { background:var(--painel); border:1px solid var(--borda); border-radius:calc(var(--u)*1.4); }
+  .vazio { margin:auto; font-size:calc(var(--u)*3); color:var(--t3); font-weight:600; }
+  /* rodapé fixo */
+  footer { flex:none; display:flex; align-items:center; justify-content:space-between; padding:calc(var(--u)*1.8) 3.2vw calc(var(--u)*2.2); border-top:1px solid var(--borda); font-size:calc(var(--u)*2.1); color:var(--t2); font-weight:600; }
+  .f-bol { display:flex; gap:calc(var(--u)*1); align-items:center; }
+  .f-bol i { width:calc(var(--u)*1.3); height:calc(var(--u)*1.3); border-radius:50%; background:var(--borda); transition:all .3s; display:block; }
+  .f-bol i.a { width:calc(var(--u)*4); border-radius:calc(var(--u)*1); background:var(--marca); }
+  .f-n { font-variant-numeric:tabular-nums; font-weight:800; color:var(--t1); }
+  /* 1 — resumo */
+  .res { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+  .res-n { font-size:calc(var(--u)*26); font-weight:800; line-height:1; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+  .res-l { font-size:calc(var(--u)*4); font-weight:700; letter-spacing:.14em; color:var(--t2); margin-top:calc(var(--u)*1); }
+  .res-grade { display:grid; grid-template-columns:repeat(4,1fr); gap:calc(var(--u)*2); width:100%; margin-top:calc(var(--u)*5); }
+  .res-it { padding:calc(var(--u)*2.2) calc(var(--u)*2); text-align:left; border-left:calc(var(--u)*.7) solid var(--c); }
+  .res-it b { display:block; font-size:calc(var(--u)*7.5); font-weight:800; line-height:1; font-variant-numeric:tabular-nums; color:var(--c); }
+  .res-it span { display:block; font-size:calc(var(--u)*2.4); font-weight:700; color:var(--t2); margin-top:calc(var(--u)*.8); }
+  /* barras horizontais (equipes, responsáveis, urgência, analistas) */
+  .barras { flex:1; display:flex; flex-direction:column; justify-content:space-evenly; gap:calc(var(--u)*1.2); padding:calc(var(--u)*2.4) calc(var(--u)*3); }
+  .linha { display:grid; grid-template-columns:minmax(0,30%) minmax(0,1fr) calc(var(--u)*13); align-items:center; gap:calc(var(--u)*2.4); }
+  .l-nome { font-size:calc(var(--u)*3); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .l-trilho { height:calc(var(--u)*3.6); background:#0b1426; border-radius:calc(var(--u)*.9); display:flex; overflow:hidden; position:relative; }
+  .l-trilho i { display:block; height:100%; }
+  .l-val { font-size:calc(var(--u)*3.6); font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
+  .l-val small { display:block; font-size:calc(var(--u)*1.8); font-weight:600; color:var(--t3); }
+  .legenda { display:flex; gap:calc(var(--u)*3); font-size:calc(var(--u)*2); color:var(--t2); font-weight:600; margin-top:calc(var(--u)*1.4); }
+  .legenda i { display:inline-block; width:calc(var(--u)*1.6); height:calc(var(--u)*1.6); border-radius:calc(var(--u)*.4); margin-right:calc(var(--u)*.8); vertical-align:-.1em; }
+  .meta-linha { position:absolute; top:0; bottom:0; width:3px; background:#fff; opacity:.85; }
+  /* 4 — situação do prazo */
+  .prazo-barra { display:flex; height:calc(var(--u)*9); border-radius:calc(var(--u)*1.4); overflow:hidden; gap:3px; background:var(--bg2); }
+  .prazo-barra i { display:block; height:100%; }
+  .prazo-grade { display:grid; grid-template-columns:repeat(4,1fr); gap:calc(var(--u)*2); margin-top:calc(var(--u)*4); }
+  .prazo-msg { margin-top:calc(var(--u)*4); font-size:calc(var(--u)*3.4); font-weight:700; text-align:center; }
+  /* 6 — lista de atenção */
+  .lista { flex:1; display:flex; flex-direction:column; gap:calc(var(--u)*1.3); }
+  .item { flex:1; display:grid; grid-template-columns:calc(var(--u)*17) minmax(0,1fr) calc(var(--u)*34); align-items:center; gap:calc(var(--u)*2.4); padding:0 calc(var(--u)*3); border-left:calc(var(--u)*.8) solid var(--c); }
+  .i-id { font-size:calc(var(--u)*3.2); font-weight:800; font-variant-numeric:tabular-nums; }
+  .i-cli { font-size:calc(var(--u)*3.2); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .i-cli small { display:block; font-size:calc(var(--u)*2); font-weight:500; color:var(--t3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .i-st { font-size:calc(var(--u)*3); font-weight:800; text-align:right; color:var(--c); }
+  /* páginas dentro de uma tela (listas longas) */
+  .pg { display:none; flex:1; min-height:0; flex-direction:column; }
+  .pg.ativa { display:flex; }
+  .pg-info { align-self:flex-end; font-size:calc(var(--u)*2); color:var(--t3); font-weight:600; margin-top:calc(var(--u)*1); }
+  /* mensagem de erro e controles de ponteiro */
+  #erro { position:fixed; left:50%; top:calc(var(--u)*14); transform:translateX(-50%); background:#3b1520; border:1px solid var(--venc); color:#ffd7de; padding:calc(var(--u)*1.2) calc(var(--u)*2.4); border-radius:calc(var(--u)*1); font-size:calc(var(--u)*2.2); font-weight:700; display:none; z-index:50; }
+  .seta { position:fixed; top:50%; transform:translateY(-50%); z-index:60; width:calc(var(--u)*7); height:calc(var(--u)*15); border:none; border-radius:calc(var(--u)*1.6); background:rgba(15,23,42,.7); color:#fff; font-size:calc(var(--u)*7); line-height:1; cursor:pointer; opacity:0; pointer-events:none; transition:opacity .25s; }
+  .seta.e { left:.8vw; } .seta.d { right:.8vw; } .seta.v { opacity:1; pointer-events:auto; } .seta:hover { background:var(--marca); }
+  .sentinela { position:absolute; top:0; left:0; width:1px; height:calc(100vh + 240px); visibility:hidden; pointer-events:none; }
+  #dbg { position:fixed; right:12px; bottom:12px; z-index:99; background:#000c; color:#fff; font:600 16px/1.4 monospace; padding:10px 14px; border-radius:10px; pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="raiz">
+  <header>
+    <div>
+      <div class="h-rot">SUPORTE VIASOFT</div>
+      <div class="h-tit">Painel operacional</div>
+      <div class="h-ctx" id="h-ctx">Carregando…</div>
+    </div>
+    <div class="h-dir">
+      <div class="h-hora" id="h-hora">--:--</div>
+      <div class="h-att" id="h-att">Atualizando…</div>
+    </div>
+  </header>
+  <main id="palco"></main>
+  <footer>
+    <span id="f-prox">Próxima atualização em —</span>
+    <span class="f-bol" id="f-bol"></span>
+    <span class="f-n" id="f-n">1/7</span>
+  </footer>
+</div>
+<div id="erro"></div>
+<script>
+// ── Configuração (tudo pela URL: a TV roda sem filtros na tela) ───────────────────────────────────────────────
+//   ?vertical=agrotitan   vertical (serviço de 1º nível; aceita apelidos como no Painel TV)
+//   ?equipe=Nome          só uma equipe        ?classificacao=Nome  (padrão Suporte Técnico; "todas" desliga)
+//   ?seg=15               segundos por tela    ?breve=240           "vence em breve" = restam até N min úteis de SLA
+//   ?tela=3               começa na tela 3     ?k=chave             link da TV      ?teclas=1  mostra as teclas do controle
+const Q=new URLSearchParams(location.search), API=`${location.origin}/api`;
+const SEG=Math.max(6,Number(Q.get('seg'))||15), SEG_PAG=Math.max(5,Math.round(SEG*0.8)), BREVE_MIN=Math.max(15,Number(Q.get('breve'))||240);
+const RECARGA_S=60, CHAVE_TV=Q.get('k')||'';
+const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
+const esc=s=>{ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; };
+const nf=n=>Number(n||0).toLocaleString('pt-BR');
+const semAc=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+const slug=t=>semAc(t).replace(/[^a-z0-9]+/g,' ').trim();
+const ALIAS={'agrotitan':'agronegocio','agro':'agronegocio','petroshow':'combustiveis','talentrh':'sistema para rh','talent rh':'sistema para rh','talent':'sistema para rh','rh':'sistema para rh',
+  'viasuper':'supermercados','fisco':'fisco contabil','servicos fiscais':'fisco contabil','fiscal':'fisco contabil','oracle':'oracle cloud','bi':'analytics b i','analytics':'analytics b i',
+  'automacao':'automacao comercial','fazendas':'agrotitan fazendas','internos':'sistemas internos'};
+const VERT=(()=>{ const v=slug(Q.get('vertical')||''); return ALIAS[v]||v; })();
+const EQUIPE=(Q.get('equipe')||'').trim();
+const CLASSE=Q.has('classificacao')?(Q.get('classificacao')||'').trim():'Suporte Técnico';
+const servico1=r=>String(r.servico||'').split('>')[0].trim();
+
+async function api(ep,ms=60000){
+  const c=new AbortController(), t=setTimeout(()=>c.abort(),ms);
+  try{
+    const k=CHAVE_TV?`${ep.includes('?')?'&':'?'}k=${encodeURIComponent(CHAVE_TV)}`:'';
+    const r=await fetch(`${API}${ep}${k}`,{headers:tok()?{Authorization:`Bearer ${tok()}`}:{},signal:c.signal,cache:'no-store'});
+    if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); }
+    return await r.json();
+  }catch(e){ throw e.name==='AbortError'?new Error('Tempo limite excedido'):e; } finally{ clearTimeout(t); }
+}
+
+// ── Dados ──────────────────────────────────────────────────────────────────────────────────────────────────
+const FECHADOS=['Resolved','Closed','Resolvido','Fechado','Canceled','Cancelado'];
+let ROWS=[], ANALISTAS=[], VERT_NOME='', DADOS_EM=null, ULTIMA_OK=0;
+const equipeDe=r=>(r.equipe||'').trim()||'Não informado';
+const respDe=r=>(r.responsavel||'').trim();
+// situação do prazo: vencido | breve | paus | prazo | fora
+function cat(r){
+  const h=r.sla_hub;
+  if(h==='vencido') return 'venc';
+  if(h==='pausado') return 'paus';
+  if(h==='no_prazo'){ const rest=(Number(r.sla_meta_h)||0)*60-(Number(r.sla_aberto_min)||0); return rest<=BREVE_MIN?'breve':'prazo'; }
+  return 'fora';
+}
+const COR={venc:'var(--venc)',breve:'var(--breve)',paus:'var(--paus)',prazo:'var(--prazo)',fora:'var(--fora)'};
+const ROT={venc:'Vencido',breve:'Vence em breve',paus:'Pausado',prazo:'No prazo',fora:'Fora do SLA'};
+const contagem=rows=>{ const c={venc:0,breve:0,paus:0,prazo:0,fora:0}; rows.forEach(r=>c[cat(r)]++); return c; };
+
+async function carregar(){
+  try{
+    const resp=await api('/geral/pendentes',60000);
+    const todos=(resp.rows||[]).filter(r=>!FECHADOS.includes(r.base_status));
+    if(VERT&&!VERT_NOME){ const x=todos.find(r=>slug(servico1(r))===VERT); if(x) VERT_NOME=servico1(x); }
+    ROWS=todos.filter(r=>(!VERT||slug(servico1(r))===VERT)&&(!EQUIPE||equipeDe(r)===EQUIPE)&&(!CLASSE||semAc(CLASSE)==='todas'||semAc((r.classificacao||'').trim()||'Sem classificação')===semAc(CLASSE)));
+    try{ const f=await api('/geral/frescor-tv',15000); DADOS_EM=f.atualizadoEm?new Date(f.atualizadoEm):null; }catch(_){}
+    try{
+      const d=new Date(), desde=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+      const q=`?desde=${desde}${VERT?`&vertical=${encodeURIComponent(VERT_NOME||Q.get('vertical'))}`:''}${EQUIPE?`&equipe=${encodeURIComponent(EQUIPE)}`:''}`;
+      ANALISTAS=(await api('/geral/sla-responsaveis'+q,60000)).rows||[];
+    }catch(_){ ANALISTAS=[]; }
+    ULTIMA_OK=Date.now(); document.getElementById('erro').style.display='none';
+  }catch(e){ const el=document.getElementById('erro'); el.textContent='Não foi possível atualizar: '+e.message+' — mantendo os últimos dados'; el.style.display='block'; }
+  montarTelas(); atualizarCabecalho();
+}
+
+// ── Telas ───────────────────────────────────────────────────────────────────────────────────────────────────
+const TELAS=[
+  {id:'resumo',  tit:'Resumo da fila',          sub:'Quantos chamados estão pendentes agora e em que situação de prazo', fn:telaResumo},
+  {id:'equipes', tit:'Pendentes por equipe',    sub:'Equipes com mais chamados aguardando atendimento',                  fn:telaEquipes},
+  {id:'resp',    tit:'Pendentes por responsável', sub:'Quem concentra a fila, separando o que já venceu',                fn:telaResp},
+  {id:'prazo',   tit:'Situação do prazo',       sub:'A fila está sob controle ou acumulando atrasos?',                   fn:telaPrazo},
+  {id:'urg',     tit:'SLA por urgência',        sub:'Quanto da fila de cada urgência já passou do prazo',                fn:telaUrg},
+  {id:'atencao', tit:'Chamados que exigem atenção', sub:'Vencidos, sem responsável e prestes a vencer',                  fn:telaAtencao},
+  {id:'analista',tit:'SLA individual por analista', sub:'Resolvidos dentro da meta neste mês e pendências de cada pessoa', fn:telaAnalista},
+];
+let ATUAL=Math.min(Math.max(0,(Number(Q.get('tela'))||1)-1),TELAS.length-1), PAUSADO=false, TIMER=0, TIMER_PAG=0, PAG=0;
+const barra=(partes,total)=>`<div class="l-trilho">${partes.filter(p=>p.n>0).map(p=>`<i style="width:${(p.n/Math.max(1,total)*100).toFixed(2)}%;background:${p.cor}"></i>`).join('')}</div>`;
+
+function telaResumo(){
+  const c=contagem(ROWS), n=ROWS.length;
+  const it=(k,l)=>`<div class="painel res-it" style="--c:${COR[k]}"><b>${nf(c[k])}</b><span>${l}</span></div>`;
+  return `<div class="res"><div class="res-n">${nf(n)}</div><div class="res-l">CHAMADOS PENDENTES</div>
+    <div class="res-grade">${it('venc','Vencidos')}${it('breve','Vencem em breve')}${it('paus','Pausados')}${it('prazo','No prazo')}</div></div>`;
+}
+function telaEquipes(){
+  const por={}; ROWS.forEach(r=>{ const k=equipeDe(r); (por[k]=por[k]||[]).push(r); });
+  let lista=Object.entries(por).sort((a,b)=>b[1].length-a[1].length);
+  const topo=lista.slice(0,7), resto=lista.slice(7).flatMap(x=>x[1]);
+  const linhas=topo.map(([k,v])=>({nome:k,rows:v})); if(resto.length) linhas.push({nome:`Demais (${lista.length-7})`,rows:resto});
+  if(!linhas.length) return '<div class="vazio">Nenhum chamado pendente</div>';
+  const max=Math.max(...linhas.map(l=>l.rows.length));
+  return `<div class="painel barras">${linhas.map(l=>{ const v=l.rows.filter(r=>cat(r)==='venc').length;
+    return `<div class="linha"><div class="l-nome" title="${esc(l.nome)}">${esc(l.nome)}</div>${barra([{n:v,cor:COR.venc},{n:l.rows.length-v,cor:'var(--azul)'}],max)}<div class="l-val">${nf(l.rows.length)}<small>${v?nf(v)+' vencido'+(v===1?'':'s'):'sem vencidos'}</small></div></div>`; }).join('')}</div>
+    <div class="legenda"><span><i style="background:var(--azul)"></i>Pendentes</span><span><i style="background:var(--venc)"></i>Vencidos</span></div>`;
+}
+function paginar(itens,porPag){ const pgs=[]; for(let i=0;i<itens.length;i+=porPag) pgs.push(itens.slice(i,i+porPag)); return pgs.length?pgs:[[]]; }
+const comPaginas=(pgs,fn)=>pgs.map((p,i)=>`<div class="pg${i===0?' ativa':''}">${fn(p)}${pgs.length>1?`<div class="pg-info">${i+1} / ${pgs.length}</div>`:''}</div>`).join('');
+function telaResp(){
+  const por={}; ROWS.forEach(r=>{ const k=respDe(r)||'Sem responsável'; (por[k]=por[k]||[]).push(r); });
+  const lista=Object.entries(por).sort((a,b)=>b[1].length-a[1].length);
+  if(!lista.length) return '<div class="vazio">Nenhum chamado pendente</div>';
+  const max=lista[0][1].length;
+  return comPaginas(paginar(lista,8),pg=>`<div class="painel barras">${pg.map(([k,v])=>{ const ven=v.filter(r=>cat(r)==='venc').length;
+    return `<div class="linha"><div class="l-nome" title="${esc(k)}">${esc(k)}</div>${barra([{n:ven,cor:COR.venc},{n:v.length-ven,cor:COR.prazo}],max)}<div class="l-val">${nf(v.length)}<small>${nf(ven)} vencido${ven===1?'':'s'}</small></div></div>`; }).join('')}</div>
+    <div class="legenda"><span><i style="background:var(--venc)"></i>Vencidos</span><span><i style="background:var(--prazo)"></i>Demais</span></div>`);
+}
+function telaPrazo(){
+  const c=contagem(ROWS), n=ROWS.length; if(!n) return '<div class="vazio">Nenhum chamado pendente</div>';
+  const ordem=['venc','breve','paus','prazo','fora'].filter(k=>c[k]>0||k!=='fora');
+  const pctV=c.venc/n*100;
+  const msg=pctV<=5?'Fila sob controle':pctV<=15?'Atenção: atrasos começando a acumular':'Fila com atrasos acumulados';
+  return `<div class="painel" style="padding:calc(var(--u)*3)"><div class="prazo-barra">${ordem.filter(k=>c[k]>0).map(k=>`<i style="width:${(c[k]/n*100).toFixed(2)}%;background:${COR[k]}"></i>`).join('')}</div>
+    <div class="prazo-grade" style="grid-template-columns:repeat(${ordem.length},1fr)">${ordem.map(k=>`<div class="res-it" style="--c:${COR[k]}"><b>${nf(c[k])}</b><span>${ROT[k]} · ${(c[k]/n*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span></div>`).join('')}</div></div>
+    <div class="prazo-msg" style="color:${pctV<=5?'var(--prazo)':pctV<=15?'var(--breve)':'var(--venc)'}">${msg} — ${pctV.toLocaleString('pt-BR',{maximumFractionDigits:1})}% da fila vencida</div>`;
+}
+function telaUrg(){
+  const urgs=['Crítica','Alta','Média','Baixa'];
+  const por=Object.fromEntries(urgs.map(u=>[u,[]])); ROWS.forEach(r=>{ if(por[r.urgencia]) por[r.urgencia].push(r); });
+  if(!ROWS.length) return '<div class="vazio">Nenhum chamado pendente</div>';
+  const max=Math.max(1,...urgs.map(u=>por[u].length));
+  return `<div class="painel barras">${urgs.map(u=>{ const v=por[u], ven=v.filter(r=>cat(r)==='venc').length, p=v.length?ven/v.length*100:0;
+    return `<div class="linha" style="grid-template-columns:minmax(0,18%) minmax(0,1fr) calc(var(--u)*22)"><div class="l-nome">${u}</div>${barra([{n:ven,cor:COR.venc},{n:v.length-ven,cor:'var(--azul)'}],max)}<div class="l-val" style="color:${p>=20?'var(--venc)':p>=8?'var(--breve)':'var(--t1)'}">${p.toLocaleString('pt-BR',{maximumFractionDigits:0})}%<small>${nf(ven)} de ${nf(v.length)} vencidos</small></div></div>`; }).join('')}</div>
+    <div class="legenda"><span><i style="background:var(--venc)"></i>Vencidos</span><span><i style="background:var(--azul)"></i>Demais pendentes</span></div>`;
+}
+function fmtH(min){ min=Math.max(1,Math.round(min)); if(min<60) return `${min} min`; const h=min/60; if(h<24) return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h`; return `${Math.floor(h/24)} d`; }
+const abrev=(t,n=34)=>{ t=String(t||'').trim(); return t.length>n?t.slice(0,n-1)+'…':t; };
+function telaAtencao(){
+  const venc=ROWS.filter(r=>cat(r)==='venc').map(r=>({r,c:'venc',txt:`Vencido há ${fmtH((Number(r.sla_aberto_min)||0)-(Number(r.sla_meta_h)||0)*60)}`,ord:-((Number(r.sla_aberto_min)||0)-(Number(r.sla_meta_h)||0)*60)}));
+  const sem=ROWS.filter(r=>!respDe(r)&&cat(r)!=='venc').map(r=>({r,c:'breve',txt:'Sem responsável',ord:1e9-(Number(r.sla_aberto_min)||0)}));
+  const breve=ROWS.filter(r=>cat(r)==='breve'&&respDe(r)).map(r=>({r,c:'breve',txt:`Vence em ${fmtH((Number(r.sla_meta_h)||0)*60-(Number(r.sla_aberto_min)||0))}`,ord:2e9+((Number(r.sla_meta_h)||0)*60-(Number(r.sla_aberto_min)||0))}));
+  const lista=[...venc.sort((a,b)=>a.ord-b.ord),...sem.sort((a,b)=>a.ord-b.ord),...breve.sort((a,b)=>a.ord-b.ord)].slice(0,18);
+  if(!lista.length) return '<div class="vazio" style="color:var(--prazo)">Nenhum chamado exige atenção agora</div>';
+  return comPaginas(paginar(lista,6),pg=>`<div class="lista">${pg.map(x=>`<div class="painel item" style="--c:${COR[x.c]}"><div class="i-id">#${esc(x.r.ticket_id)}</div><div class="i-cli">${esc(abrev(x.r.organizacao||x.r.cliente_nome||'Não informado'))}<small>${esc(abrev(x.r.assunto||'',60))}</small></div><div class="i-st">${esc(x.txt)}</div></div>`).join('')}</div>`);
+}
+function telaAnalista(){
+  const lista=(ANALISTAS||[]).map(a=>({nome:a.responsavel,dentro:a.dentro||0,fora:a.fora||0,venc:a.vencidos||0,pend:a.pendentes||0})).filter(a=>a.dentro+a.fora>0).sort((a,b)=>(b.dentro+b.fora)-(a.dentro+a.fora));
+  if(!lista.length) return '<div class="vazio">Sem resolvidos com meta neste mês</div>';
+  return comPaginas(paginar(lista,8),pg=>`<div class="painel barras">${pg.map(a=>{ const t=a.dentro+a.fora, p=a.dentro/t*100;
+    return `<div class="linha" style="grid-template-columns:minmax(0,28%) minmax(0,1fr) calc(var(--u)*26)"><div class="l-nome" title="${esc(a.nome)}">${esc(a.nome)}</div><div class="l-trilho"><i style="width:${p.toFixed(1)}%;background:${p>=90?'var(--prazo)':'var(--azul)'}"></i><span class="meta-linha" style="left:90%"></span></div><div class="l-val">${p.toLocaleString('pt-BR',{maximumFractionDigits:0})}%<small>${nf(t)} atendidos${a.venc?` · ${nf(a.venc)} vencido${a.venc===1?'':'s'}`:''}</small></div></div>`; }).join('')}</div>
+    <div class="legenda"><span><i style="background:var(--prazo)"></i>Meta de 90% atingida</span><span><i style="background:var(--azul)"></i>Abaixo da meta</span><span>Linha branca = meta (90%)</span></div>`);
+}
+
+// ── Montagem, carrossel e rodapé ─────────────────────────────────────────────────────────────────────────────
+function montarTelas(){
+  const palco=document.getElementById('palco');
+  palco.innerHTML=TELAS.map((t,i)=>`<section class="slide${i===ATUAL?' ativo':''}" data-i="${i}"><div class="s-tit">${esc(t.tit)}</div><div class="s-sub">${esc(t.sub)}</div><div class="s-corpo">${t.fn()}</div></section>`).join('');
+  document.getElementById('f-bol').innerHTML=TELAS.map((_,i)=>`<i class="${i===ATUAL?'a':''}"></i>`).join('');
+  document.getElementById('f-n').textContent=`${ATUAL+1}/${TELAS.length}`;
+  PAG=0; agendar();
+}
+function nPaginas(){ const s=document.querySelector('.slide.ativo'); return s?s.querySelectorAll('.pg').length:0; }
+function irPara(i,manual){
+  ATUAL=(i+TELAS.length)%TELAS.length;
+  document.querySelectorAll('.slide').forEach((s,k)=>s.classList.toggle('ativo',k===ATUAL));
+  document.querySelectorAll('#f-bol i').forEach((b,k)=>b.classList.toggle('a',k===ATUAL));
+  document.getElementById('f-n').textContent=`${ATUAL+1}/${TELAS.length}`;
+  PAG=0; agendar();
+}
+function agendar(){
+  clearTimeout(TIMER); clearTimeout(TIMER_PAG);
+  const pgs=nPaginas(), dur=pgs>1?pgs*SEG_PAG*1000:SEG*1000;
+  const rodaPag=()=>{ if(pgs<2) return; TIMER_PAG=setTimeout(()=>{ if(!PAUSADO){ PAG=(PAG+1)%pgs; document.querySelectorAll('.slide.ativo .pg').forEach((p,k)=>p.classList.toggle('ativa',k===PAG)); } rodaPag(); },SEG_PAG*1000); };
+  rodaPag();
+  TIMER=setTimeout(function tick(){ if(PAUSADO){ TIMER=setTimeout(tick,2000); return; } irPara(ATUAL+1,false); },dur);
+}
+function atualizarCabecalho(){
+  const partes=[VERT_NOME||(Q.get('vertical')||'Todas as verticais'),EQUIPE||'Todas as equipes'];
+  document.getElementById('h-ctx').textContent=partes.join(' · ');
+}
+function tique(){
+  const d=new Date();
+  document.getElementById('h-hora').textContent=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
+  const em=DADOS_EM||(ULTIMA_OK?new Date(ULTIMA_OK):null), att=document.getElementById('h-att');
+  if(em){ const m=Math.max(0,Math.round((Date.now()-em.getTime())/60000)); att.textContent=m<1?'Atualizado agora':`Atualizado há ${m} min`; att.classList.toggle('velho',m>20); }
+  const falta=Math.max(0,RECARGA_S-Math.round((Date.now()-ULTIMA_OK)/1000));
+  document.getElementById('f-prox').textContent=`Próxima atualização em ${ULTIMA_OK?falta:'—'}s`;
+}
+setInterval(tique,1000); setInterval(carregar,RECARGA_S*1000);
+
+// ── Controle remoto da TV ───────────────────────────────────────────────────────────────────────────────────
+// Setas/Canal/mídia (por nome e por código), OK/play = pausa; setas laterais para o ponteiro; e o "modo rolagem" da TV Samsung
+// (balão de 4 setas): a página tem uma folga invisível e rolar para cima/baixo vira tela anterior/próxima.
+const TK={prox:{k:['ArrowRight','ArrowDown','PageDown','ChannelDown','MediaTrackNext','MediaFastForward'],c:[39,40,34,428,176,417]},
+  ant:{k:['ArrowLeft','ArrowUp','PageUp','ChannelUp','MediaTrackPrevious','MediaRewind'],c:[37,38,33,427,177,412]},
+  paus:{k:['MediaPlayPause','MediaPlay','MediaPause'],c:[10252,179,415,19,413]}};
+const eh=(t,e)=>TK[t].k.includes(e.key)||TK[t].c.includes(e.keyCode||e.which);
+let _kd=false;
+function tecla(e){ if(eh('prox',e)){ e.preventDefault(); irPara(ATUAL+1,true); } else if(eh('ant',e)){ e.preventDefault(); irPara(ATUAL-1,true); } else if(eh('paus',e)||e.key==='Enter'||(e.keyCode||e.which)===13){ e.preventDefault(); PAUSADO=!PAUSADO; document.getElementById('f-prox').style.opacity=PAUSADO?.5:1; } }
+function dbg(t,e){ if(Q.get('teclas')!=='1') return; let d=document.getElementById('dbg'); if(!d){ d=document.createElement('div'); d.id='dbg'; document.body.appendChild(d); } d.textContent=`${t} key=${e.key} code=${e.code||'-'} keyCode=${e.keyCode||e.which||'-'}`; }
+document.addEventListener('keydown',e=>{ _kd=true; dbg('keydown',e); tecla(e); },true);
+document.addEventListener('keyup',e=>{ dbg('keyup',e); if(!_kd) tecla(e); },true);
+(function(){
+  const mk=(c,t,r,fn)=>{ const b=document.createElement('button'); b.type='button'; b.className='seta '+c; b.textContent=t; b.setAttribute('aria-label',r); b.addEventListener('click',fn); document.body.appendChild(b); return b; };
+  const bs=[mk('e','‹','Tela anterior',()=>irPara(ATUAL-1,true)),mk('d','›','Próxima tela',()=>irPara(ATUAL+1,true))];
+  let t=0; const mostrar=()=>{ bs.forEach(b=>b.classList.add('v')); clearTimeout(t); t=setTimeout(()=>bs.forEach(b=>b.classList.remove('v')),4000); };
+  let ux=-1,uy=-1; document.addEventListener('pointermove',e=>{ if(Math.abs(e.clientX-ux)+Math.abs(e.clientY-uy)<4) return; ux=e.clientX; uy=e.clientY; mostrar(); },{passive:true});
+  document.addEventListener('touchstart',mostrar,{passive:true});
+  // modo rolagem da Samsung: o conteúdo fica numa camada fixa (#raiz) e só a folga invisível rola
+  const sent=document.createElement('div'); sent.className='sentinela'; document.body.appendChild(sent);
+  document.documentElement.style.overflowY='auto'; document.body.style.overflow='visible'; document.documentElement.style.overflowX='hidden';
+  const CENTRO=120; let ign=false, lock=0;
+  const centrar=()=>{ ign=true; window.scrollTo(0,CENTRO); setTimeout(()=>{ ign=false; },60); };
+  const nav=d=>{ const a=Date.now(); if(a-lock<700) return; lock=a; irPara(ATUAL+d,true); };
+  window.addEventListener('load',centrar); centrar();
+  window.addEventListener('scroll',()=>{ if(ign) return; const y=window.scrollY; if(Math.abs(y-CENTRO)<4) return; nav(y>CENTRO?1:-1); centrar(); },{passive:true});
+  document.addEventListener('wheel',e=>{ const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY; if(Math.abs(d)<10) return; nav(d>0?1:-1); },{passive:true});
+})();
+try{ window.focus(); }catch(_){}
+tique(); carregar();
+</script>
+</body>
+</html>
