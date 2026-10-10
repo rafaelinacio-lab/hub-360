@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel TV — Tickets Pendentes</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script src="../js/ui-version.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; scrollbar-width: none; -ms-overflow-style: none; }
+  ::-webkit-scrollbar { display: none; }
+  body { font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; padding: 24px; -webkit-font-smoothing: antialiased; }
+  .container { max-width: none; margin: 0 auto; }
+  /* cabeçalho */
+  .tv-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 6px; }
+  .tv-head h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -.02em; }
+  .tv-head .sub { color: var(--t2); font-size: 14px; font-weight: 600; }
+  .tv-head .esp { flex: 1; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; font-weight: 800; font-size: 13px; background: var(--surface); color: var(--t2); box-shadow: var(--shadow-card); }
+  @keyframes pulsa { 50% { opacity: .35; } }
+  .clock { font-size: 20px; font-weight: 800; color: var(--t1); font-variant-numeric: tabular-nums; }
+  .note { font-size: 12.5px; color: var(--t3); margin: 0 0 14px; }
+  .filtro-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 18px; }
+  .filtro-bar label { font-size: 13px; font-weight: 700; color: var(--t2); }
+  .filtro-bar select { background: var(--surface); color: var(--t1); border: 1px solid var(--border-hi); border-radius: 999px; padding: 9px 16px; font: 700 13px/1 "Manrope", system-ui, sans-serif; min-width: 240px; max-width: 520px; }
+  .filtro-bar select:focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .btn-limpar { background: var(--surface); color: var(--t1); border: 1px solid var(--border-hi); border-radius: 999px; padding: 9px 16px; font: 800 13px/1 "Manrope", system-ui, sans-serif; cursor: pointer; }
+  .btn-limpar:hover { background: var(--surface-mid); }
+  .link-tv { display:none; flex-basis:100%; gap:8px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--t2); }
+  .link-tv input { flex:1; min-width:320px; background:var(--surface); color:var(--t1); border:1px solid var(--border-hi); border-radius:999px; padding:9px 16px; font:600 13px/1 "Manrope", system-ui, sans-serif; }
+  .filtro-chip { background: var(--success-soft); color: var(--success); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 800; }
+  /* KPIs grandes (leitura à distância) */
+  .tv-page .stat-card { padding: 22px 24px 20px; }
+  .tv-page .stat-card .label { font-size: 15px; }
+  .tv-page .stat-card .value, .tv-page .stat-card .value.bad { font-size: 56px; line-height: 60px; }
+  .tv-page .kpi-ico { width: 44px; height: 44px; border-radius: 15px; }
+  .tv-page .kpi-ico svg { width: 22px; height: 22px; }
+  .tv-page .kpi-foot .legend { font-size: 13px; }
+  .tv-page .bk-hero .value { font-size: 56px; line-height: 60px; }
+  /* KPIs compactos e clicáveis: duas faixas separadas, com título e espaço entre elas */
+  .kpi-titulo { margin: 18px 2px 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); }
+  .kpi-titulo:first-child { margin-top: 0; }
+  .kpi-grid.compacto { gap: 14px; }
+  html body.tv-page .kpi-grid.compacto .stat-card { padding: 12px 16px; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "lab lab" "val leg"; align-items: end; gap: 6px 14px; min-height: 0; height: auto; margin: 0; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  html body.tv-page .kpi-grid.compacto .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+  html body.tv-page .kpi-grid.compacto .stat-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  html body.tv-page .kpi-grid.compacto .stat-card.sel { outline: 2px solid var(--brand-text, #6ea8fe); outline-offset: 0; }
+  html body.tv-page .kpi-grid.compacto .stat-card .label { grid-area: lab; margin: 0; font-size: 13.5px; gap: 8px; }
+  html body.tv-page .kpi-grid.compacto .kpi-main { grid-area: val; margin: 0; }
+  html body.tv-page .kpi-grid.compacto .kpi-foot { grid-area: leg; margin: 0 0 4px; }
+  html body.tv-page .kpi-grid.compacto .stat-card .value, html body.tv-page .kpi-grid.compacto .stat-card .value.bad { font-size: 36px; line-height: 38px; margin: 0; }
+  html body.tv-page .kpi-grid.compacto .legend { margin: 0; text-align: left; }
+  html body.tv-page .kpi-grid.compacto .kpi-ico { width: 32px; height: 32px; border-radius: 11px; }
+  html body.tv-page .kpi-grid.compacto .kpi-ico svg { width: 17px; height: 17px; }
+  html body.tv-page .kpi-grid.compacto .kpi-foot .legend { font-size: 12px; line-height: 1.3; }
+  html body.tv-page .kpi-grid.compacto [data-tone="blue"] .value { color: var(--brand-text, #6ea8fe); }
+  html body.tv-page .kpi-grid.compacto [data-tone="green"] .value { color: var(--success); }
+  html body.tv-page .kpi-grid.compacto .stat-card.zero .value { color: var(--t3); }
+  .slr-tab tr[data-resp]:hover td, .slr-tab tr[data-urg]:hover td, .donut-leg li[data-prazo]:hover { background: var(--surface-low, rgba(255,255,255,.04)); }
+  .slr-tab tr.sel-linha td { background: var(--surface-mid, rgba(255,255,255,.08)); }
+  .tv-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.62); align-items: center; justify-content: center; padding: 3vh 3vw; }
+  .tv-modal-box { background: var(--surface); border: 1px solid var(--border-hi); border-radius: 22px; width: min(1500px,100%); max-height: 94vh; display: flex; flex-direction: column; padding: 22px 24px; box-shadow: 0 24px 80px rgba(0,0,0,.5); }
+  .tv-modal th { white-space: normal; line-height: 1.2; }
+  /* "Pendentes por equipe" ocupa a altura toda do card (que acompanha o "por pessoa", mais alto): a lista rola dentro dele, sem sobrar espaço vazio */
+  .pnl-preenche { display: flex; flex-direction: column; }
+  html[data-ui="v2"] .pnl-preenche > .rolagem { flex: 1 1 0; min-height: 0; max-height: none; }
+  .tv-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 10px; }
+  html body.tv-page .kpi-grid.compacto .stat-card:not(.versus) { align-content: start; }
+  html body.tv-page .kpi-grid.k3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  html body.tv-page .kpi-grid.k2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  html body.tv-page .kpi-grid.compacto .stat-card.versus { display: flex; flex-direction: column; align-items: stretch; gap: 8px; cursor: default; }
+  html body.tv-page .kpi-grid.compacto .stat-card.versus:hover { transform: none; box-shadow: none; }
+  .vs-corpo { display: flex; align-items: center; gap: 14px; }
+  .vs-lado { flex: 1; display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: 12px; cursor: pointer; transition: background .12s; }
+  .vs-lado:hover { background: var(--surface-low, rgba(255,255,255,.06)); }
+  .vs-lado:focus-visible { outline: 2px solid var(--focus-ring); }
+  .vs-lado b { font-size: 38px; line-height: 40px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .vs-lado.ab b { color: var(--brand-text, #6ea8fe); } .vs-lado.fe b { color: var(--success); }
+  .vs-lado span { font-size: 13px; color: var(--t2); font-weight: 700; }
+  .vs-lado em { margin-left: auto; font-style: normal; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .vs-lado.ab em { color: var(--brand-text, #6ea8fe); } .vs-lado.fe em { color: var(--success); }
+  .leg-fixa { display:flex; gap:16px; flex-wrap:wrap; margin:2px 0 8px; font-size:13px; font-weight:700; color:var(--t2); }
+  .leg-fixa i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+  .vs-x { font-size: 22px; font-weight: 800; color: var(--t3); }
+  .vs-barra { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--border); }
+  .vs-barra i { display: block; height: 100%; transition: width .4s; } #vs-ab { background: #4f9cf0; } #vs-fe { background: #2fbf8a; }
+  html body.tv-page .kpi-grid.compacto .versus .legend { margin: 0; font-size: 12.5px; }
+  .filtro-card { display: none; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 14px; color: var(--t2); }
+  /* painéis */
+  .chart-wrap { position: relative; width: 100%; }
+  .tv-page .chart-panel .chart-title, .tv-page .data-panel .chart-title { font-size: 19px; font-weight: 800; margin: 0 0 2px; }
+  .tv-page .donut-row .chart-wrap { width: 210px; height: 210px; }
+  .tv-page .donut-leg li { font-size: 16px; padding: 9px 6px; cursor: default; }
+  .table-title { font-size: 19px; font-weight: 800; color: var(--t1); margin: 0 0 2px; }
+  .table-wrap { max-height: 56vh; overflow-y: auto; overflow-x: hidden; border-radius: 14px; }
+  table { width: 100%; font-size: 14.5px; border-collapse: collapse; table-layout: fixed; }
+  th { background: var(--surface-mid); text-align: left; color: var(--t3); padding: 12px 10px; font-weight: 800; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; position: sticky; top: 0; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  th:first-child { border-radius: 12px 0 0 12px; } th:last-child { border-radius: 0 12px 12px 0; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  th.center, td.center { text-align: center; }
+  td { padding: 12px 10px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--t1); font-weight: 600; }
+  td.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 800; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge.danger { background: var(--danger-soft); color: var(--danger); }
+  .badge.neutral { background: var(--surface-low); color: var(--t2); }
+  .badge.ok { background: var(--success-soft); color: var(--success); }
+  .badge.warn { background: var(--warning-soft); color: var(--warning); }
+  .danger-num { color: var(--danger); font-weight: 800; }
+  .empty-state { padding: 60px 0; text-align: center; color: var(--t2); font-size: 18px; }
+  .ticket-link { color: var(--brand-text); text-decoration: none; font-weight: 800; }
+  .ticket-link:hover { text-decoration: underline; }
+  .slr-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+  .slr-per { display:grid; gap:4px; font-size:12px; font-weight:700; color:var(--t3); }
+  .slr-per select { height:34px; padding:0 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--t1); font:inherit; font-size:13px; font-weight:600; }
+  .slr-resumo { display:flex; gap:10px 22px; flex-wrap:wrap; margin:14px 0 10px; font-size:13px; color:var(--t2); }
+  .slr-resumo b { color:var(--t1); font-size:20px; font-weight:800; margin-right:6px; letter-spacing:-.02em; }
+  .slr-scroll { max-height:520px; }
+  .slr-tab { width:100%; border-collapse:collapse; font-size:14px; }
+  .slr-tab th { text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--t3); font-weight:700; padding:8px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .slr-tab td { padding:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .slr-tab tr:last-child td { border-bottom:0; }
+  .slr-nome { display:flex; align-items:center; gap:10px; font-weight:700; color:var(--t1); min-width:170px; }
+  .slr-av { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; flex:none; }
+  .slr-sla { display:grid; gap:5px; min-width:200px; }
+  .slr-sla .linha { display:flex; align-items:baseline; gap:8px; }
+  .slr-sla .pct { font-size:20px; font-weight:800; letter-spacing:-.02em; }
+  .slr-sla .det { font-size:12px; color:var(--t3); }
+  .slr-barra { display:flex; height:9px; border-radius:999px; overflow:hidden; background:var(--border); }
+  .slr-barra i { display:block; height:100%; }
+  .slr-pend { display:flex; gap:6px; flex-wrap:wrap; align-items:center; min-width:190px; }
+  .slr-pend b.t { font-size:18px; font-weight:800; margin-right:4px; }
+  .slr-chip { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+  .slr-chip.r { background:var(--danger-soft,#fbe0e4); color:var(--danger,#b3263a); }
+  .slr-chip.g { background:var(--success-soft,#dcf4ea); color:var(--success,#0b7a55); }
+  .slr-chip.w { background:color-mix(in srgb,#f2b24a 18%,transparent); color:#b7791f; }
+  .slr-chip.n { background:var(--surface-low,#f6f2ed); color:var(--t3); }
+  .slr-imp { display:grid; gap:3px; min-width:190px; }
+  .slr-imp .a { font-size:16px; font-weight:800; color:var(--danger,#b3263a); }
+  .slr-imp .a.zero { color:var(--success,#0b7a55); }
+  .slr-imp .b { font-size:12px; color:var(--t3); }
+  .slr-nota { margin:12px 0 0; font-size:11.5px; line-height:1.45; color:var(--t3); }
+  .tv-erro { color: var(--danger); font-weight: 700; }
+  /* ── Carrossel: um quadro por vez em tela cheia, passando sozinho; bolinhas no canto inferior direito ── */
+  html body.tv-page { overflow: hidden; }
+  #tv-content.carrossel { position: relative; }
+  .tv-slide { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden;
+    opacity: 0; visibility: hidden; transition: opacity .6s ease, visibility 0s linear .6s; }
+  .tv-slide.ativo { opacity: 1; visibility: visible; transition: opacity .6s ease; }
+  .tv-slide > .chart-panel, .tv-slide > .data-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: 0; }
+  .tv-slide .rolagem, .tv-slide .table-wrap { flex: 1 1 0; min-height: 0; max-height: none !important; }
+  .tv-slide .donut-row { flex: 1 1 auto; min-height: 0; align-items: center; justify-content: center; }
+  .tv-slide .donut-row .chart-wrap { width: min(58vh, 560px) !important; height: min(58vh, 560px) !important; }
+  .tv-slide-resumo { justify-content: center; }
+  html body.tv-page .tv-slide-resumo .kpi-grid.compacto .stat-card { padding: 22px 26px; }
+  html body.tv-page .tv-slide-resumo .kpi-grid.compacto .stat-card .value,
+  html body.tv-page .tv-slide-resumo .kpi-grid.compacto .stat-card .value.bad { font-size: 64px; line-height: 68px; }
+  html body.tv-page .tv-slide-resumo .kpi-grid.compacto .legend { font-size: 15px; }
+  html body.tv-page .tv-slide-resumo .vs-lado b { font-size: 64px; line-height: 68px; }
+  html body.tv-page .tv-slide-resumo .kpi-titulo { font-size: 16px; }
+  /* Setas grandes nas laterais para o ponteiro do controle (TV Samsung abre o navegador em modo mouse): aparecem ao mover o ponteiro */
+  .tv-seta { position: fixed; top: 50%; transform: translateY(-50%); z-index: 70; width: clamp(56px, 7vh, 96px); height: clamp(96px, 14vh, 180px); border: none; border-radius: 18px;
+    background: rgba(15,23,42,.62); color: #fff; font-size: clamp(34px, 6vh, 72px); line-height: 1; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .25s, background .15s; }
+  .tv-seta.esq { left: 10px; } .tv-seta.dir { right: 10px; }
+  .tv-seta.visivel { opacity: 1; pointer-events: auto; }
+  .tv-seta:hover, .tv-seta:focus-visible { background: var(--brand-text, #ff8a2b); }
+  /* Modo rolagem do navegador da TV Samsung (balão de 4 setas): a rolagem vira "quadro anterior/próximo" */
+  html body.tv-page.modo-tv { overflow: visible; }
+  html { overflow-x: hidden; }
+  #tv-raiz { position: fixed; inset: 0; overflow: hidden; }   /* o conteúdo fica parado; só a folga invisível (.tv-sentinela) rola */
+  .tv-sentinela { position: absolute; top: 0; left: 0; width: 1px; height: calc(100vh + 240px); visibility: hidden; pointer-events: none; }
+  .tv-bolhas { position: fixed; right: 24px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: 999px; background: var(--surface, rgba(20,24,32,.85)); box-shadow: 0 4px 18px rgba(0,0,0,.28); }
+  .tv-bolhas .rot { font-size: 12px; font-weight: 700; color: var(--t2); margin-right: 4px; white-space: nowrap; }
+  .tv-bolha { width: 12px; height: 12px; padding: 0; border: none; border-radius: 999px; background: var(--t3); opacity: .55; cursor: pointer; transition: width .3s, opacity .3s, background .3s; }
+  .tv-bolha:hover { opacity: .9; }
+  .tv-bolha.ativa { width: 34px; opacity: 1; background: var(--brand-text, #6ea8fe); }
+  .tv-bolha:focus-visible, .tv-pausa:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .tv-pausa { border: none; background: none; color: var(--t2); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px 0 4px; }
+  .dias-corridos { display: block; font-size: 11px; font-weight: 600; color: var(--t3); line-height: 1.1; }
+  /* Visão TV (link aberto na TV): só os quadros em tela cheia + bolinhas; sem título, filtros e nota (erro aparece) */
+  body.modo-tv .tv-head, body.modo-tv .filtro-bar, body.modo-tv #link-tv-box, body.modo-tv #tv-updated:not(.erro) { display: none !important; }
+  /* ── Visão TV: leitura a 3–4 m. Tamanhos em vh (servem para TV 1080p e 768p); só com body.modo-tv ── */
+  html body.tv-page.modo-tv { padding: 2.2vh 1.6vw; }
+  body.modo-tv .container { max-width: none; }
+  body.modo-tv .chart-sub, body.modo-tv .slr-nota, body.modo-tv .slr-per { display: none !important; }
+  body.modo-tv .leg-fixa { font-size: clamp(14px, 2.2vh, 26px); gap: 2vw; margin: 0 0 1.4vh; }
+  body.modo-tv .leg-fixa i { width: clamp(10px, 1.8vh, 20px); height: clamp(10px, 1.8vh, 20px); }
+  body.modo-tv th.ord-th::after { content: none !important; }
+  body.modo-tv .tv-slide { gap: 1.6vh; }
+  html[data-ui="v2"] body.modo-tv .tv-slide > .chart-panel, html[data-ui="v2"] body.modo-tv .tv-slide > .data-panel { padding: 2.6vh 2vw; border-radius: 22px; }
+  html body.tv-page.modo-tv .chart-panel .chart-title, html body.tv-page.modo-tv .data-panel .chart-title, body.modo-tv .table-title {
+    font-size: clamp(22px, 3.3vh, 36px); line-height: 1.15; margin: 0 0 1.6vh; letter-spacing: -.01em; }
+  body.modo-tv #tv-table-count { font-size: .62em !important; }
+  /* Resumo: 2 + 3 cards, cada faixa com ~metade da altura, números enormes */
+  body.modo-tv .tv-slide-resumo { justify-content: stretch; gap: 1.2vh; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-titulo { font-size: clamp(14px, 2.1vh, 24px); margin: .4vh 4px 0; letter-spacing: .1em; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto { flex: 1 1 0; min-height: 0; gap: 1.6vh 1.2vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card { padding: 2.6vh 2vw; align-content: center; grid-template-columns: 1fr; grid-template-areas: "lab" "val" "leg"; gap: 1.2vh; border-radius: 22px; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card .label { font-size: clamp(16px, 2.6vh, 30px); gap: 1vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .kpi-ico { width: clamp(30px, 4.6vh, 52px); height: clamp(30px, 4.6vh, 52px); border-radius: 14px; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .kpi-ico svg { width: 55%; height: 55%; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card .value,
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card .value.bad { font-size: clamp(56px, 13vh, 150px); line-height: 1; letter-spacing: -.03em; }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .kpi-foot .legend { font-size: clamp(15px, 2.4vh, 28px); line-height: 1.25; color: var(--t2); }
+  html body.tv-page.modo-tv .tv-slide-resumo .kpi-grid.compacto .stat-card.versus { justify-content: center; gap: 2vh; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-corpo { gap: 1.4vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado { flex-wrap: wrap; align-items: baseline; gap: .4vh .8vw; padding: .6vh .6vw; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado b { font-size: clamp(52px, 11vh, 128px); line-height: 1; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado span { font-size: clamp(15px, 2.4vh, 28px); }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-lado em { font-size: clamp(18px, 3vh, 36px); margin-left: 0; flex-basis: 100%; }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-x { font-size: clamp(22px, 4vh, 44px); }
+  html body.tv-page.modo-tv .tv-slide-resumo .vs-barra { height: clamp(10px, 1.6vh, 18px); }
+  /* Situação do prazo: rosca e legenda grandes, juntas e centralizadas */
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-row { justify-content: center; gap: 4vw; }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-row .chart-wrap { width: min(66vh, 640px) !important; height: min(66vh, 640px) !important; }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg { flex: 0 1 auto; min-width: min(46vw, 760px); }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg li { font-size: clamp(18px, 3.4vh, 38px); padding: 1.4vh 1vw; gap: 1.2vw; }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg i { width: clamp(14px, 2.4vh, 26px); height: clamp(14px, 2.4vh, 26px); }
+  html[data-ui="v2"] body.modo-tv .tv-slide .donut-leg .v { color: var(--t1); font-weight: 800; }
+  /* Tabelas (SLA por urgência, chamados pendentes, SLA por analista) */
+  body.modo-tv .tv-slide table { font-size: clamp(14px, 2.1vh, 24px); }
+  body.modo-tv .tv-slide th, body.modo-tv .tv-slide .slr-tab th { font-size: clamp(11px, 1.45vh, 17px); padding: 1.2vh .8vw; }
+  body.modo-tv .tv-slide td { padding: 1.5vh .8vw; }
+  body.modo-tv .tv-slide th { white-space: normal; line-height: 1.15; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(1) { width: 8% !important; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(4) { width: 13% !important; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(5), body.modo-tv .tv-slide .table-wrap col:nth-child(6), body.modo-tv .tv-slide .table-wrap col:nth-child(7) { width: 8% !important; }
+  body.modo-tv .tv-slide .table-wrap col:nth-child(8), body.modo-tv .tv-slide .table-wrap col:nth-child(9) { width: 11% !important; }
+  body.modo-tv .slr-nome { white-space: normal; min-width: 0; line-height: 1.15; }
+  body.modo-tv .slr-sla, body.modo-tv .slr-pend, body.modo-tv .slr-imp, body.modo-tv .slr-meu { min-width: 0; }
+  body.modo-tv .tv-slide .badge { font-size: clamp(12px, 1.7vh, 20px); padding: .5vh .9vw; }
+  body.modo-tv .tv-slide .dias-corridos { font-size: clamp(11px, 1.4vh, 16px); }
+  body.modo-tv #urg-lista .slr-tab { font-size: clamp(18px, 3.2vh, 36px); }
+  body.modo-tv #urg-lista .slr-tab td { padding: 3.4vh 1vw; }
+  body.modo-tv #urg-lista .slr-barra { height: clamp(12px, 2.4vh, 26px); }
+  body.modo-tv .slr-resumo { font-size: clamp(14px, 2vh, 22px); margin: 0 0 1.6vh; gap: 1vh 2.4vw; }
+  body.modo-tv .slr-resumo b { font-size: clamp(22px, 3.6vh, 40px); }
+  body.modo-tv .slr-tab td { padding: 1.6vh .8vw; }
+  body.modo-tv .slr-nome { font-size: clamp(15px, 2.2vh, 24px); gap: .8vw; }
+  body.modo-tv .slr-av { width: clamp(30px, 4.2vh, 46px); height: clamp(30px, 4.2vh, 46px); font-size: clamp(11px, 1.5vh, 16px); }
+  body.modo-tv .slr-sla .pct { font-size: clamp(20px, 3.2vh, 36px); }
+  body.modo-tv .slr-sla .det, body.modo-tv .slr-imp .b, body.modo-tv .slr-meu .b { font-size: clamp(12px, 1.7vh, 19px); }
+  body.modo-tv .slr-barra { height: clamp(9px, 1.4vh, 15px); }
+  body.modo-tv .slr-pend b.t { font-size: clamp(20px, 3vh, 34px); }
+  body.modo-tv .slr-chip { font-size: clamp(12px, 1.7vh, 19px); padding: .3vh .7vw; }
+  body.modo-tv .slr-imp .a, body.modo-tv .slr-meu .a { font-size: clamp(17px, 2.6vh, 30px); }
+  /* Bolinhas e rótulo do quadro maiores */
+  body.modo-tv .tv-bolhas { padding: 1vh 1.2vw; gap: .8vw; bottom: 1.6vh; right: 1.6vw; }
+  body.modo-tv .tv-bolhas .rot { font-size: clamp(13px, 1.9vh, 22px); }
+  body.modo-tv .tv-bolha { width: clamp(12px, 1.8vh, 20px); height: clamp(12px, 1.8vh, 20px); }
+  body.modo-tv .tv-bolha.ativa { width: clamp(34px, 5vh, 56px); }
+  body.modo-tv .tv-pausa { font-size: clamp(14px, 2vh, 22px); }
+  /* Impacto no SLA do próprio analista (vale na tela normal e na TV) */
+  .slr-meu { display:grid; gap:4px; min-width:200px; }
+  .slr-meu .a { font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .slr-meu .a.down { color:var(--danger,#b3263a); } .slr-meu .a.up { color:var(--success,#0b7a55); } .slr-meu .a.zero { color:var(--t3); }
+  .slr-meu .l { display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap; }
+  .slr-meu .b { font-size:12px; color:var(--t3); }
+  @media (max-width: 760px) { body { padding: 14px; } .tv-head h1 { font-size: 24px; } .tv-page .stat-card .value { font-size: 44px; } }
+</style>
+<link rel="stylesheet" href="../css/v2.css">
+<script src="../js/ordenar-tabelas.js" defer></script>
+<link rel="stylesheet" href="../css/sem-animacao.css">
+</head>
+<body class="tv-page">
+<div class="container" id="tv-root">
+  <div class="tv-head">
+    <h1>Painel TV</h1>
+    <span class="sub">Tickets pendentes — visão geral</span>
+    <span class="esp"></span>
+    <span class="clock" id="tv-clock"></span>
+  </div>
+  <p class="note" id="tv-updated">Carregando…</p>
+
+  <div class="filtro-bar">
+    <label for="f-servico">Serviço</label>
+    <select id="f-servico" aria-label="Filtrar por serviço">
+      <option value="">Todos os serviços</option>
+    </select>
+    <label for="f-equipe">Equipe</label>
+    <select id="f-equipe" aria-label="Filtrar por equipe">
+      <option value="">Todas as equipes</option>
+    </select>
+    <label for="f-resp">Responsável</label>
+    <select id="f-resp" aria-label="Filtrar por responsável">
+      <option value="">Todos os responsáveis</option>
+    </select>
+    <label for="f-cliente">Cliente</label>
+    <select id="f-cliente" aria-label="Filtrar por cliente">
+      <option value="">Todos os clientes</option>
+    </select>
+    <label for="f-classe">Classificação</label>
+    <select id="f-classe" aria-label="Filtrar por classificação">
+      <option value="">Todas as classificações</option>
+    </select>
+    <button type="button" class="btn-limpar" id="f-limpar" style="display:none">Limpar filtros</button>
+    <button type="button" class="btn-limpar" id="f-link" style="display:none">Link da TV</button>
+  </div>
+
+  <div class="link-tv" id="link-tv-box"><span>Abra esta URL na TV (não precisa de login; quem tiver o link vê o painel):</span><input id="link-tv-url" readonly><button type="button" class="btn-limpar" id="link-copiar">Copiar</button><button type="button" class="btn-limpar" id="link-nova">Gerar novo link</button></div>
+
+  <div id="tv-content" style="display:none">
+    <p class="kpi-titulo">Backlog agora</p>
+    <div class="kpi-grid k4 compacto k2">
+      <div data-tone="blue" class="stat-card" data-card="todos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
+        <div class="kpi-main"><p class="value" id="k-pendentes">0</p></div>
+        <div class="kpi-foot"><p class="legend">Tickets em aberto agora.</p></div>
+      </div>
+      <div data-tone="red" class="stat-card danger" data-card="vencidos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Vencidos</p>
+        <div class="kpi-main"><p class="value" id="k-vencidos">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-vencidos-l">Passaram da meta de SLA da urgência.</p></div>
+      </div>
+    </div>
+
+    <p class="kpi-titulo">Movimento do dia e críticos</p>
+    <div class="kpi-grid k4 compacto k3 kpi-dia">
+      <div data-tone="blue" class="stat-card versus" id="card-versus">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14M3 14l4 4 4-4"/><path d="M17 20V6M13 10l4-4 4 4"/></svg></span>Abertos × fechados hoje</p>
+        <div class="vs-corpo">
+          <div class="vs-lado ab" data-card="abertos-hoje" role="button" tabindex="0" title="Ver os chamados abertos hoje"><b id="k-abertos-hoje">0</b><span>abertos</span><em id="k-abertos-hoje-pct" title="Parte dos abertos no movimento do dia (abertos + fechados)">—</em></div>
+          <span class="vs-x">×</span>
+          <div class="vs-lado fe" data-card="fechados-hoje" role="button" tabindex="0" title="Ver os chamados fechados hoje"><b id="k-fechados-hoje">0</b><span>fechados</span><em id="k-fechados-hoje-pct" title="Parte dos fechados no movimento do dia (abertos + fechados)">—</em></div>
+        </div>
+        <div class="vs-barra" aria-hidden="true"><i id="vs-ab"></i><i id="vs-fe"></i></div>
+      </div>
+      <div data-tone="red" class="stat-card danger" data-card="criticos">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Críticos pendentes</p>
+        <div class="kpi-main"><p class="value" id="k-criticos">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-criticos-l">Urgência crítica em aberto.</p></div>
+      </div>
+      <div data-tone="red" class="stat-card danger" data-card="criticos-venc">
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Críticos vencidos</p>
+        <div class="kpi-main"><p class="value" id="k-criticos-venc">0</p></div>
+        <div class="kpi-foot"><p class="legend" id="k-criticos-venc-l">Críticos que passaram da meta de SLA.</p></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel pnl-preenche">
+        <p class="chart-title">Pendentes por equipe</p>
+        <p class="chart-sub">Equipes com mais chamados em aberto.</p>
+        <div class="rolagem rank-scroll"><div class="chart-wrap" style="height:240px;"><canvas id="teamChart"></canvas></div></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">Pendentes por pessoa</p>
+        <p class="chart-sub">Chamados em aberto por responsável, separados por situação do prazo.</p>
+        <div class="leg-fixa"><span><i style="background:#ee6f82"></i>Vencido</span><span><i style="background:#f2b24a"></i>Pausado</span><span><i style="background:#a6adbf"></i>Fora do SLA</span><span><i style="background:#2fbf8a"></i>No prazo</span></div>
+        <div class="rolagem rank-scroll" style="max-height:520px"><div class="chart-wrap" id="pessoaWrap" style="height:240px;"><canvas id="pessoaChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="hrow c-2">
+      <div class="chart-panel">
+        <p class="chart-title">Situação do prazo</p>
+        <p class="chart-sub">Pendentes pela régua de SLA do Hub: horas úteis líquidas (sem fim de semana, feriado e pausa) × meta da urgência (Crítica 4h, Alta 8h, Média 16h, Baixa 24h). Fora do SLA = não entra na régua (equipe/cliente/urgência).</p>
+        <div class="donut-row"><div class="chart-wrap"><canvas id="prazoChart"></canvas></div><ul class="donut-leg" id="prazoChart-leg"></ul></div>
+      </div>
+      <div class="chart-panel">
+        <p class="chart-title">SLA por urgência</p>
+        <p class="chart-sub">Pendentes de cada urgência e quantos já passaram da meta de SLA (régua do Hub).</p>
+        <div class="rolagem" id="urg-lista" style="max-height:520px"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="data-panel danger">
+        <p class="table-title">Chamados pendentes — do mais antigo ao mais novo <span id="tv-table-count" style="color:var(--t3);font-weight:700;font-size:15px"></span></p>
+        <p class="chart-sub">Todos os pendentes do filtro, do mais antigo ao mais novo. "Horas de SLA" = tempo em aberto contado só no horário de atendimento, sem fins de semana, feriados e pausas (aguardando cliente/terceiro); o número menor embaixo são os dias corridos. Role a tabela para ver o restante. "Sem retorno" conta só ações públicas (visíveis ao cliente): agente é a última resposta da equipe, cliente é a última mensagem do cliente.</p>
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col style="width:6%"><col style="width:13%"><col style="width:20%"><col style="width:14%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th>
+                <th class="num">Horas de SLA</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th>
+                <th class="center">Status real</th><th class="center">Status prazo</th>
+              </tr>
+            </thead>
+            <tbody id="tv-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel" id="slaresp-panel">
+        <div class="slr-head">
+          <div>
+            <p class="chart-title">SLA individual por analista</p>
+            <p class="chart-sub" id="slr-sub">Suporte Técnico — resolvidos dentro e fora da meta (régua do Hub), o que está pendente e quanto cada um pesa no SLA do time.</p>
+          </div>
+          <label class="slr-per">Período dos resolvidos
+            <select id="slr-periodo" aria-label="Período dos resolvidos">
+              <option value="mes">Mês atual</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+              <option value="ano">Ano atual</option>
+            </select>
+          </label>
+        </div>
+        <div class="slr-resumo" id="slr-resumo"></div>
+        <div class="rolagem slr-scroll" id="slr-lista"><p class="imp-vazio">Carregando…</p></div>
+        <p class="slr-nota">Régua de SLA do Hub (a mesma do Painel Geral): só Suporte Técnico, equipes de suporte e sem os clientes excluídos; tempo = horas úteis líquidas (janela de atendimento, sem fins de semana, feriados e pausas); dentro = até a meta da urgência (Crítica 4h, Alta 8h, Média 16h, Baixa 24h). Impacto realizado = fora da meta do analista ÷ resolvidos do time (pontos percentuais que ele tirou do SLA). Se os vencidos fecharem fora = quanto o SLA do time cai se os pendentes já vencidos dele forem resolvidos depois da meta. Impacto no SLA dele = quanto o SLA do próprio analista desce se os vencidos fecharem fora da meta, e sobe se os no prazo fecharem dentro; pausados e fora do SLA ficam fora da conta.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tv-modal" class="tv-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="tv-modal-titulo">
+  <div class="tv-modal-box">
+    <div class="tv-modal-head"><div><p class="table-title" id="tv-modal-titulo"></p><p class="chart-sub" id="tv-modal-sub"></p></div><button type="button" class="btn-limpar" id="tv-modal-x">Fechar ✕</button></div>
+    <div class="table-wrap" id="tv-modal-corpo" style="max-height:none;flex:1"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const API = `${location.origin}/api`;
+// Link da TV (sem login): painel-tv.html?k=CHAVE — a chave é gerada em "Link da TV" (só admin).
+const CHAVE_TV=new URLSearchParams(location.search).get('k')||'';
+function tok(){ return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function api(ep,timeoutMs=60000){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{
+    const k=CHAVE_TV?`${ep.includes('?')?'&':'?'}k=${encodeURIComponent(CHAVE_TV)}`:'';
+    const r=await fetch(`${API}${ep}${k}`,{headers:tok()?{Authorization:`Bearer ${tok()}`}:{},signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok){ const body=await r.json().catch(()=>{}); throw new Error(body?.error||r.statusText); }
+    return r.json();
+  } catch(e){
+    if(e.name==='AbortError') throw new Error('Tempo limite excedido ao carregar dados');
+    throw e;
+  } finally { clearTimeout(t); }
+}
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+// Visão TV (body.modo-tv): tamanho em px proporcional à altura da tela (vh), entre um mínimo e um máximo.
+const ehTV=()=>document.body.classList.contains('modo-tv');
+const tvPx=(vh,min,max)=>Math.round(Math.max(min,Math.min(max,window.innerHeight*vh/100)));
+function escAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
+
+const FINALIZADO_STATUSES=['Resolved','Closed','Resolvido','Fechado'];
+const CANCELADO_STATUSES=['Canceled','Cancelado'];
+function isAberto(r){ return !FINALIZADO_STATUSES.includes(r.base_status)&&!CANCELADO_STATUSES.includes(r.base_status); }
+function temPrazo(r){ return !!r.sla_solucao; }
+// Régua do Hub (servidor manda r.sla_hub: vencido | pausado | no_prazo | fora — tempo líquido × meta da urgência, só
+// elegíveis); sem o campo (servidor antigo), cai no prazo do Movidesk.
+function isVencido(r){ if(r.sla_hub!==undefined) return r.sla_hub==='vencido'; return temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
+function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
+// Idade do chamado em ms (ordenação exata) e texto: menos de 1 dia mostra horas ("5 h"); menos de 1 hora, minutos.
+const fmtDataHora=v=>{ const d=new Date(v); return isNaN(d)?'':'Aberto em '+d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
+function idadeMs(r){ const t=new Date(r.criado_em).getTime(); return isNaN(t)?0:Math.max(0,Date.now()-t); }
+function tempoAberto(r){
+  const ms=idadeMs(r);
+  if(ms>=86400000) return Math.floor(ms/86400000).toLocaleString('pt-BR');
+  if(ms>=3600000) return `${Math.floor(ms/3600000)} h`;
+  return `${Math.max(1,Math.floor(ms/60000))} min`;
+}
+// Tempo aberto em HORAS DE SLA (sla_aberto_min, servidor): horário de atendimento, sem fins de semana, feriados e
+// pausas. Em destaque as horas de SLA; os dias corridos ficam pequenos embaixo (contexto). Sem o campo: texto antigo.
+function horasSlaAberto(r){
+  if(r.sla_aberto_min==null) return tempoAberto(r);
+  const h=Number(r.sla_aberto_min)/60;
+  const txt=`${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h`;
+  const d=idadeMs(r)>=86400000?`<small class="dias-corridos">${Math.floor(idadeMs(r)/86400000).toLocaleString('pt-BR')} d</small>`:'';
+  return txt+d;
+}
+function ticketUrl(id){ return `https://viasoft.movidesk.com/Ticket/Edit/${id}`; }
+// "Sem retorno" conta só AÇÕES PÚBLICAS (visíveis ao cliente, is_public=true
+// em silver.ticket_acao) — não conta desde a abertura nem desde qualquer
+// interação (nota interna, automação etc). Agente e cliente são calculados
+// separadamente: um ticket pode estar há dias esperando o cliente responder
+// (sem retorno do cliente alto) mas o agente ter respondido ontem (sem
+// retorno do agente baixo) — são histórias diferentes.
+function diasSemRetornoDe(dataStr){
+  if(!dataStr) return null;
+  return Math.floor((Date.now()-new Date(dataStr).getTime())/86400000);
+}
+function statusPrazoDe(r){
+  // Régua do Hub: 'Sem Prazo' = fora do SLA (não elegível ou urgência sem meta) — exibido como "Fora do SLA"
+  if(r.sla_hub!==undefined) return {vencido:'Vencido',pausado:'Pausado',no_prazo:'No Prazo'}[r.sla_hub]||'Sem Prazo';
+  // Aguardando (Stopped) sem data: o relógio do SLA está pausado (o Movidesk não informa o prazo enquanto pausa)
+  if(!temPrazo(r)) return r.base_status==='Stopped'?'Pausado':'Sem Prazo';
+  return isVencido(r)?'Vencido':'No Prazo';
+}
+
+let _rowsAll=[]; // todos os pendentes
+let _hojeAll=[]; // movimento do dia (abertos/fechados hoje)
+let _pessoaChart=null;
+let _rows=[];    // pendentes depois do filtro de serviço
+let _teamChart=null, _prazoChart=null;
+
+const semAcentoMin=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+
+// O painel roda sem ninguém mexendo: as escolhas ficam salvas no navegador (e a URL pode fixar:
+// painel-tv.html?servico=Nome&equipe=Nome&classificacao=Nome). Sem escolha = tudo.
+const CHAVES={servico:'painelTvServico',equipe:'painelTvEquipe',classe:'painelTvClasse',resp:'painelTvResp',cli:'painelTvCliente'};
+const PARAM_URL={servico:'servico',equipe:'equipe',classe:'classificacao',resp:'responsavel',cli:'cliente'};
+// Pré-configurado (pedido do usuário, 09/10/2026): classificação padrão = Suporte Técnico. Com filtro na URL (ex.:
+// ?vertical=agrotitan), a URL define a tela e o que ficou salvo no navegador da TV é ignorado.
+const _qs=new URLSearchParams(location.search);
+const URL_FIXA=['vertical',...Object.values(PARAM_URL)].some(p=>_qs.has(p));
+const PADRAO_FILTRO={classe:'Suporte Técnico'};
+function lerSalvo(c){
+  try{
+    const u=_qs.get(PARAM_URL[c]);
+    if(u!==null) return u;
+    if(URL_FIXA) return PADRAO_FILTRO[c]||'';
+    const salvo=localStorage.getItem(CHAVES[c]);
+    return salvo!==null?salvo:(PADRAO_FILTRO[c]||'');
+  }catch(_){ return PADRAO_FILTRO[c]||''; }
+}
+function salvar(c,v){ try{ localStorage.setItem(CHAVES[c],v); }catch(_){} }
+let _servicoSel=lerSalvo('servico'), _equipeSel=lerSalvo('equipe'), _classeSel=lerSalvo('classe'), _respSel=lerSalvo('resp'), _cliSel=lerSalvo('cli');
+const equipeDe=r=>(r.equipe||'').trim()||'Não informado';
+const classeDe=r=>(r.classificacao||'').trim()||'Sem classificação';
+const norm=semAcentoMin;
+const casaServico=r=>!_servicoSel||(r.servico||'').trim()===_servicoSel;
+const casaClasse=r=>!_classeSel||norm(classeDe(r))===norm(_classeSel);
+const casaEquipe=r=>!_equipeSel||equipeDe(r)===_equipeSel;
+const respDe=r=>(r.responsavel||'').trim()||'Não atribuído';
+const cliDe=r=>(r.organizacao||r.cliente_nome||'').trim()||'Não informado';
+const casaResp=r=>!_respSel||respDe(r)===_respSel;
+const casaCli=r=>!_cliSel||cliDe(r)===_cliSel;
+// ?vertical=<nome> = serviço de 1º nível do chamado ("Agronegócio > …"). Aceita o nome do serviço ou do produto, sem
+// diferenciar acento/maiúscula/hífen: agrotitan → Agronegócio, petroshow → Combustíveis, talentrh → Sistema para RH…
+const slugV=t=>semAcentoMin(t).replace(/[^a-z0-9]+/g,' ').trim();
+const VERTICAL_ALIAS={'agrotitan':'agronegocio','agro':'agronegocio','petroshow':'combustiveis','talentrh':'sistema para rh',
+  'talent rh':'sistema para rh','talent':'sistema para rh','rh':'sistema para rh','viasuper':'supermercados','fisco':'fisco contabil',
+  'servicos fiscais':'fisco contabil','fiscal':'fisco contabil','oracle':'oracle cloud','bi':'analytics b i','analytics':'analytics b i',
+  'automacao':'automacao comercial','fazendas':'agrotitan fazendas','internos':'sistemas internos'};
+const _verticalSlug=(()=>{ const v=slugV(_qs.get('vertical')||''); return VERTICAL_ALIAS[v]||v; })();
+const servico1=r=>String(r.servico||'').split('>')[0].trim();
+const casaVertical=r=>!_verticalSlug||slugV(servico1(r))===_verticalSlug;
+let _verticalNome='';   // nome real do serviço de 1º nível (para o servidor e a nota)
+const casaTodos=r=>casaVertical(r)&&casaServico(r)&&casaClasse(r)&&casaEquipe(r)&&casaResp(r)&&casaCli(r);
+function contar(rows,fn){ const c={}; rows.forEach(r=>{ const k=fn(r); if(k) c[k]=(c[k]||0)+1; }); return c; }
+function preencher(id,todos,cont,sel){
+  const el=document.getElementById(id);
+  if(sel && !(sel in cont)) cont[sel]=0;   // não perde a escolha se zerou
+  el.innerHTML=`<option value="">${todos}</option>`+Object.keys(cont).sort((a,b)=>a.localeCompare(b,'pt')).map(v=>`<option value="${escAttr(v)}">${esc(v)} (${cont[v]})</option>`).join('');
+  el.value=sel;
+}
+// Cada filtro mostra as contagens considerando os outros dois.
+function montarOpcoes(){
+  const sem=(...fora)=>_rowsAll.filter(r=>casaVertical(r)&&[['servico',casaServico],['classe',casaClasse],['equipe',casaEquipe],['resp',casaResp],['cli',casaCli]].every(([k,f])=>fora.includes(k)||f(r)));
+  preencher('f-servico','Todos os serviços',contar(sem('servico'),r=>(r.servico||'').trim()),_servicoSel);
+  preencher('f-classe','Todas as classificações',contar(sem('classe'),classeDe),_classeSel);
+  preencher('f-equipe','Todas as equipes',contar(sem('equipe'),equipeDe),_equipeSel);
+  preencher('f-resp','Todos os responsáveis',contar(sem('resp'),respDe),_respSel);
+  preencher('f-cliente','Todos os clientes',contar(sem('cli'),cliDe),_cliSel);
+}
+function aplicarFiltro(){
+  montarOpcoes();
+  _rows=_rowsAll.filter(casaTodos);
+  document.getElementById('f-limpar').style.display=(_servicoSel||_equipeSel||_classeSel||_respSel||_cliSel)?'':'none';
+}
+// Hora em que os dados do painel foram atualizados de verdade (fim da última carga do Movidesk), não a do navegador.
+let _dadosEm='';
+async function carregarFrescor(){
+  try{
+    const f=await api('/geral/frescor-tv',15000);
+    _dadosEm=f.atualizadoEm?new Date(f.atualizadoEm).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'sem registro';
+  }catch(_){ /* mantém o último valor */ }
+}
+function atualizarNota(){
+  const filtro=(_verticalSlug?` — vertical "${_verticalNome||_qs.get('vertical')}"`:'')+(_servicoSel?` — serviço "${_servicoSel}"`:'')+(_classeSel?` — classificação "${_classeSel}"`:'')+(_equipeSel?` — equipe "${_equipeSel}"`:'')+(_respSel?` — responsável "${_respSel}"`:'')+(_cliSel?` — cliente "${_cliSel}"`:'');
+  document.getElementById('tv-updated').textContent=`Dados atualizados em ${_dadosEm||'—'} — ${_rows.length.toLocaleString('pt-BR')} tickets pendentes${filtro}.`;
+}
+function refiltrar(){ aplicarFiltro(); render(); atualizarNota(); carregarSlaResponsaveis(); }
+document.getElementById('f-servico').addEventListener('change',e=>{ _servicoSel=e.target.value; salvar('servico',_servicoSel); refiltrar(); });
+document.getElementById('f-classe').addEventListener('change',e=>{ _classeSel=e.target.value; salvar('classe',_classeSel); refiltrar(); });
+document.getElementById('f-equipe').addEventListener('change',e=>{ _equipeSel=e.target.value; salvar('equipe',_equipeSel); refiltrar(); });
+document.getElementById('f-resp').addEventListener('change',e=>{ _respSel=e.target.value; salvar('resp',_respSel); refiltrar(); });
+document.getElementById('f-cliente').addEventListener('change',e=>{ _cliSel=e.target.value; salvar('cli',_cliSel); refiltrar(); });
+document.getElementById('f-limpar').addEventListener('click',()=>{
+  _servicoSel=_equipeSel=_classeSel=_respSel=_cliSel='';
+  ['servico','equipe','classe','resp','cli'].forEach(c=>salvar(c,''));
+  if(location.search.match(/(servico|equipe|classificacao|responsavel|cliente)=/)){ const u=new URL(location.href); ['servico','equipe','classificacao','responsavel','cliente'].forEach(x=>u.searchParams.delete(x)); history.replaceState(null,'',u); }
+  refiltrar();
+});
+// "Link da TV": só aparece para quem está logado como admin (a chave só é entregue ao admin).
+(async function(){
+  if(CHAVE_TV||!tok()) return;
+  let chave; try{ chave=(await api('/geral/tv-chave',15000)).chave; }catch(_){ return; }
+  const btn=document.getElementById('f-link'), box=document.getElementById('link-tv-box'), inp=document.getElementById('link-tv-url');
+  const url=c=>`${location.origin}${location.pathname}?k=${c}${_qs.get('vertical')?`&vertical=${encodeURIComponent(_qs.get('vertical'))}`:''}`;
+  btn.style.display='';
+  btn.addEventListener('click',()=>{ inp.value=url(chave); box.style.display=box.style.display==='flex'?'none':'flex'; });
+  document.getElementById('link-copiar').addEventListener('click',async e=>{ inp.select(); try{ await navigator.clipboard.writeText(inp.value); e.target.textContent='Copiado!'; setTimeout(()=>e.target.textContent='Copiar',1500); }catch(_){ document.execCommand('copy'); } });
+  document.getElementById('link-nova').addEventListener('click',async()=>{
+    if(!confirm('Gerar um novo link? O link antigo (usado nas TVs) deixa de funcionar.')) return;
+    try{ const r=await fetch(`${API}/geral/tv-chave`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`}}); chave=(await r.json()).chave; inp.value=url(chave); }catch(e){ alert('Não foi possível gerar: '+e.message); }
+  });
+})();
+
+function updateClock(){
+  const el=document.getElementById('tv-clock');
+  if(el) el.textContent=new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+async function loadPainelTV(){
+  try{
+    const resp=await api('/geral/pendentes',60000);
+    _rowsAll=(resp.rows||[]).filter(isAberto);
+    if(_verticalSlug&&!_verticalNome){ const r=_rowsAll.find(x=>slugV(servico1(x))===_verticalSlug); if(r) _verticalNome=servico1(r); }
+    _hojeAll=resp.hoje||[];
+    aplicarFiltro();
+    // mostra e ajusta a altura ANTES de desenhar: na TV os gráficos ocupam a altura medida do quadro
+    document.getElementById('tv-content').style.display='block';
+    document.getElementById('tv-updated').classList.remove('erro');
+    if(typeof ajustarAlturaCarrossel==='function') ajustarAlturaCarrossel();
+    render();
+    await carregarFrescor();
+    atualizarNota();
+    carregarSlaResponsaveis();
+  } catch(e){
+    document.getElementById('tv-content').style.display='none';
+    document.getElementById('tv-updated').classList.add('erro');
+    document.getElementById('tv-updated').innerHTML=`<span style="color:var(--danger)">Erro ao carregar: ${esc(e.message)}</span>`;
+  }
+}
+
+function render(){
+  const pendentes=_rows.length;
+  const vencidosRows=_rows.filter(isVencido);
+  const vencidos=vencidosRows.length;
+  const pctVencido=pendentes?vencidos/pendentes*100:0;
+
+  document.getElementById('k-pendentes').textContent=pendentes.toLocaleString('pt-BR');
+  // Vencidos traz o % do backlog vencido na legenda (mesmo visual de "Críticos pendentes"; o card próprio do % saiu).
+  document.getElementById('k-vencidos').textContent=vencidos.toLocaleString('pt-BR');
+  document.getElementById('k-vencidos').closest('.stat-card').classList.toggle('zero',vencidos===0);
+  document.getElementById('k-vencidos-l').textContent=vencidos?`${pctVencido.toLocaleString('pt-BR',{maximumFractionDigits:1})}% do backlog vencido.`:'Nenhum chamado vencido.';
+
+  renderHoje(vencidosRows);
+  renderTeamChart();
+  renderPrazoChart();
+  renderPessoaChart();
+  renderUrgencia();
+  renderTable();
+}
+
+function donutTv(id,itens){
+  const cv=document.getElementById(id), leg=document.getElementById(id+'-leg'); if(!cv) return;
+  if(_prazoChart){ _prazoChart.destroy(); _prazoChart=null; }
+  const total=itens.reduce((a,i)=>a+i.valor,0);
+  const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // legenda: "n · x%" (fatia ÷ total de pendentes)
+  const pctFatia=v=>total?` · ${(v/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:'';
+  if(leg) leg.innerHTML=itens.map(i=>`<li data-prazo="${escAttr(i.chave||'')}" style="cursor:pointer" title="Ver os chamados"><i style="background:${i.cor}"></i><span class="n">${esc(i.label)}</span><span class="v">${i.valor.toLocaleString('pt-BR')}${pctFatia(i.valor)}</span></li>`).join('');
+  if(!total) return;
+  const t1=cs('--t1'), t3=cs('--t3');
+  const centro={id:'centroRosca',afterDraw(ch){
+    const {ctx,chartArea:a}=ch, x=(a.left+a.right)/2, y=(a.top+a.bottom)/2;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    const fN=ehTV()?tvPx(9,34,100):34, fL=ehTV()?tvPx(2.6,13,30):13;
+    ctx.fillStyle=t1; ctx.font=`800 ${fN}px Manrope,system-ui,sans-serif`; ctx.fillText(total.toLocaleString('pt-BR'),x,y-fL*.6);
+    ctx.fillStyle=t3; ctx.font=`600 ${fL}px Manrope,system-ui,sans-serif`; ctx.fillText('pendentes',x,y+fN*.55); ctx.restore(); }};
+  _prazoChart=new Chart(cv,{type:'doughnut',
+    data:{labels:itens.map(i=>i.label),datasets:[{data:itens.map(i=>i.valor),backgroundColor:itens.map(i=>i.cor),borderWidth:0,borderRadius:10,spacing:3}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'76%',plugins:{legend:{display:false}},
+      onClick:(e,els)=>{ if(els.length) abrirModal({prazo:itens[els[0].index].chave}); }, onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }},plugins:[centro]});
+}
+
+function renderTeamChart(){
+  const porEquipe={};
+  _rows.forEach(r=>{
+    const e=r.equipe||'Não informado';
+    porEquipe[e]=(porEquipe[e]||0)+1;
+  });
+  const entries=Object.entries(porEquipe).sort((a,b)=>b[1]-a[1]).slice(0,30);
+  const cv=document.getElementById('teamChart'), wrap=cv.parentElement;
+  const tv=ehTV(), fTick=tv?tvPx(2.5,15,30):14, fVal=tv?tvPx(2.8,15,32):14;
+  // TV: as barras ocupam a altura do quadro (espessura com teto); com muitas equipes, a lista rola sozinha
+  const alturaUtil=tv?(wrap.parentElement.clientHeight||0)-6:0;
+  wrap.style.height=(tv?Math.max(alturaUtil,entries.length*tvPx(6.5,44,76)):Math.max(220,entries.length*38+24))+'px';
+  const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2');
+  const valores={id:'valoresBarras',afterDatasetsDraw(ch){
+    const c=ch.ctx; c.save(); c.font=`800 ${fVal}px Manrope,system-ui,sans-serif`; c.textBaseline='middle'; c.fillStyle=cs('--t1');
+    ch.getDatasetMeta(0).data.forEach((b,i)=>c.fillText(Number(entries[i][1]).toLocaleString('pt-BR'),b.x+8,b.y)); c.restore(); }};
+  if(_teamChart) _teamChart.destroy();
+  _teamChart=new Chart(cv, {
+    type: 'bar',
+    data: { labels: entries.map(e=>e[0]), datasets: [{ data: entries.map(e=>e[1]), backgroundColor: '#ff8a2b', borderRadius: 8, barPercentage: .7, categoryPercentage: .85, maxBarThickness: tv?tvPx(6,30,72):undefined }] },
+    plugins: [valores],
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { right: tv?fVal*4:48 } },
+      onClick: (e, els) => { if (els.length) abrirModal({ equipe: entries[els[0].index][0] }); },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false, beginAtZero: true },
+        y: { grid: { display: false }, border: { display: false }, ticks: { color: t2, font: { size: fTick, weight: '700' } } }
+      }
+    }
+  });
+}
+
+function renderPrazoChart(){
+  const vencido=_rows.filter(r=>statusPrazoDe(r)==='Vencido').length;
+  const semPrazo=_rows.filter(r=>statusPrazoDe(r)==='Sem Prazo').length;
+  const pausado=_rows.filter(r=>statusPrazoDe(r)==='Pausado').length;
+  const noPrazo=_rows.filter(r=>statusPrazoDe(r)==='No Prazo').length;
+  donutTv('prazoChart',[{label:'Vencido',chave:'Vencido',valor:vencido,cor:'#ee6f82'},{label:'Pausado (aguardando)',chave:'Pausado',valor:pausado,cor:'#f2b24a'},{label:'Fora do SLA',chave:'Sem Prazo',valor:semPrazo,cor:'#a6adbf'},{label:'No prazo',chave:'No Prazo',valor:noPrazo,cor:'#2fbf8a'}]);
+}
+
+
+// ── Movimento do dia, críticos, pessoa e urgência ───────────────────────
+// Crítico = urgência com "crítica/crítico", "urgente" ou "emergência" no nome (a lista completa aparece em "SLA por urgência").
+const ehCritico=r=>/^(critic|urgent|emerg)/.test(semAcentoMin(r.urgencia));
+const urgenciaDe=r=>(r.urgencia||'').trim()||'Não informada';
+const hojeBR=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+const diaBR=v=>v?new Date(v).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}):'';
+function renderHoje(vencidosRows){
+  const hoje=hojeBR();
+  const mov=_hojeAll.filter(casaTodos);
+  const abertos=mov.filter(r=>diaBR(r.criado_em)===hoje).length, fechados=mov.filter(r=>diaBR(r.fechado_em)===hoje).length;
+  const set=(id,v,l)=>{ const el=document.getElementById(id); el.textContent=v.toLocaleString('pt-BR'); el.closest('.stat-card').classList.toggle('zero',v===0); if(l!=null) document.getElementById(id+'-l').textContent=l; };
+  document.getElementById('k-abertos-hoje').textContent=abertos.toLocaleString('pt-BR');
+  document.getElementById('k-fechados-hoje').textContent=fechados.toLocaleString('pt-BR');
+  const tot=abertos+fechados;
+  // % de cada lado no movimento do dia (abertos + fechados = 100%), igual à barra abaixo.
+  // (fechados = 100 − abertos, para os dois lados sempre somarem 100% depois do arredondamento)
+  const pctAb=tot?Math.round(abertos/tot*100):null;
+  document.getElementById('k-abertos-hoje-pct').textContent=pctAb==null?'—':`${pctAb}%`;
+  document.getElementById('k-fechados-hoje-pct').textContent=pctAb==null?'—':`${100-pctAb}%`;
+  document.getElementById('vs-ab').style.width=(tot?abertos/tot*100:50)+'%';
+  document.getElementById('vs-fe').style.width=(tot?fechados/tot*100:50)+'%';
+  document.getElementById('card-versus').classList.toggle('bom',fechados>=abertos);
+  const crit=_rows.filter(ehCritico);
+  set('k-criticos',crit.length,crit.length?`${(crit.length/Math.max(_rows.length,1)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes.`:'Nenhum chamado crítico em aberto.');
+  // % dos críticos pendentes que já venceram (sem críticos, mantém o texto padrão)
+  const critVenc=crit.filter(isVencido).length;
+  set('k-criticos-venc',critVenc,crit.length?`${(critVenc/crit.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos críticos.`:'Críticos que passaram da meta de SLA.');
+}
+// Quem aparece na barra: o responsável; sem responsável mas com equipe, "Não atribuído · <equipe>"; sem nenhum dos dois, só "Não atribuído".
+const SEM_DONO='Não atribuído';
+function pessoaDe(r){
+  const n=(r.responsavel||'').trim(); if(n) return n;
+  const eq=String(r.equipe||'').replace(/\s+/g,' ').trim();
+  return eq?`${SEM_DONO} · ${eq}`:SEM_DONO;
+}
+const semDono=n=>n===SEM_DONO||n.startsWith(SEM_DONO+' · ');
+// No gráfico, quem não tem responsável aparece só com o nome da equipe (a chave interna "Não atribuído · equipe" mantém essas barras no topo e o clique certo).
+const rotuloPessoa=n=>n.startsWith(SEM_DONO+' · ')?n.slice(SEM_DONO.length+3):n;
+function renderPessoaChart(){
+  const por={};
+  _rows.forEach(r=>{ const n=pessoaDe(r); const o=por[n]||(por[n]={Vencido:0,'No Prazo':0,Pausado:0,'Sem Prazo':0,t:0}); o[statusPrazoDe(r)]++; o.t++; });
+  // Ordem decrescente por total. Os "Não atribuído" NÃO definem a escala: um backlog sem dono muito maior que o de qualquer pessoa achatava todas as barras.
+  const nomes=Object.keys(por).sort((a,b)=>por[b].t-por[a].t||a.localeCompare(b,'pt'));   // maior total primeiro (equipes sem responsável e pessoas juntas)
+  const maxPessoas=Math.max(1,...nomes.filter(n=>!semDono(n)).map(n=>por[n].t));
+  const maxSemDono=Math.max(0,...nomes.filter(semDono).map(n=>por[n].t));
+  const escalaMax=maxSemDono>maxPessoas*1.25?Math.ceil(maxPessoas*1.2):undefined;   // só corta se for realmente discrepante
+  const cv=document.getElementById('pessoaChart'), wrap=document.getElementById('pessoaWrap');
+  const tv=ehTV(), fTick=tv?tvPx(2.2,14,26):13, fVal=tv?tvPx(2.4,14,28):14;
+  const alturaUtil=tv?(wrap.parentElement.clientHeight||0)-6:0;
+  wrap.style.height=(tv?Math.max(alturaUtil,nomes.length*tvPx(5,36,58)):Math.max(220,nomes.length*34+30))+'px';
+  const cs=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(), t2=cs('--t2'), t1=cs('--t1');
+  const defs=[['Vencido','#ee6f82'],['Pausado','#f2b24a'],['Sem Prazo','#a6adbf'],['No Prazo','#2fbf8a']];
+  const total={id:'totalPessoa',afterDatasetsDraw(ch){ const c=ch.ctx; c.save(); c.font=`800 ${fVal}px Manrope,system-ui,sans-serif`; c.textBaseline='middle'; c.fillStyle=t1;
+    const last=ch.getDatasetMeta(ch.data.datasets.length-1).data, dir=ch.chartArea.right;
+    last.forEach((b,i)=>{ const cortada=escalaMax&&por[nomes[i]].t>escalaMax; c.fillText((cortada?'▸ ':'')+por[nomes[i]].t.toLocaleString('pt-BR'),Math.min(b.x,dir)+8,b.y); }); c.restore(); }};
+  if(_pessoaChart) _pessoaChart.destroy();
+  _pessoaChart=new Chart(cv,{type:'bar',
+    data:{labels:nomes.map(rotuloPessoa),datasets:defs.map(([k,cor])=>({label:k==='Vencido'?'Vencido':k==='Pausado'?'Pausado':k==='Sem Prazo'?'Fora do SLA':'No prazo',data:nomes.map(n=>por[n][k]),backgroundColor:cor,borderRadius:4,barPercentage:.75,categoryPercentage:.9,maxBarThickness:tv?tvPx(4,22,44):undefined}))},
+    plugins:[total],
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:tv?fVal*3.5:48}},
+      onClick:(e,els)=>{ if(els.length) abrirModal({pessoa:nomes[els[0].index],prazo:defs[els[0].datasetIndex][0]}); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },plugins:{legend:{display:false}},
+      scales:{x:{display:false,stacked:true,beginAtZero:true,max:escalaMax},y:{stacked:true,grid:{display:false},border:{display:false},ticks:{color:t2,font:{size:fTick,weight:'700'}}}}}});
+}
+function renderUrgencia(){
+  const por={};
+  _rows.forEach(r=>{ const u=urgenciaDe(r); const o=por[u]||(por[u]={t:0,v:0,n:0,p:0,s:0,crit:ehCritico(r)}); o.t++; const sp=statusPrazoDe(r); if(sp==='Vencido')o.v++; else if(sp==='No Prazo')o.n++; else if(sp==='Pausado')o.p++; else o.s++; });
+  const lista=Object.keys(por).sort((a,b)=>(por[b].crit-por[a].crit)||por[b].v-por[a].v||por[b].t-por[a].t);
+  const el=document.getElementById('urg-lista');
+  if(!lista.length){ el.innerHTML='<p class="imp-vazio">Nenhum chamado pendente.</p>'; return; }
+  const fmt=n=>n.toLocaleString('pt-BR');
+  el.innerHTML='<table class="slr-tab"><thead><tr><th>Urgência</th><th>Pendentes</th><th>Vencidos</th><th>% vencido</th><th>Situação do prazo</th></tr></thead><tbody>'+lista.map(u=>{
+    const o=por[u], pct=o.t?o.v/o.t*100:0, cor=pct>=40?'var(--danger)':pct>=20?'var(--warning)':'var(--success)';
+    return `<tr data-urg="${escAttr(u)}" style="cursor:pointer" title="Ver os chamados desta urgência" ><td><b>${esc(u)}</b></td><td><b>${fmt(o.t)}</b></td><td style="color:${o.v?'var(--danger)':'inherit'};font-weight:800">${fmt(o.v)}</td>
+      <td style="color:${cor};font-weight:800">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
+      <td><div class="slr-barra" title="${o.v} vencidos · ${o.p} pausados · ${o.s} fora do SLA · ${o.n} no prazo"><i style="width:${o.v/o.t*100}%;background:#ee6f82"></i><i style="width:${o.p/o.t*100}%;background:#f2b24a"></i><i style="width:${o.s/o.t*100}%;background:#a6adbf"></i><i style="width:${o.n/o.t*100}%;background:#2fbf8a"></i></div></td></tr>`;
+  }).join('')+'</tbody></table>';
+}
+
+const ROTULO_CARD={todos:'Chamados pendentes',vencidos:'Chamados vencidos',criticos:'Chamados críticos pendentes','criticos-venc':'Chamados críticos vencidos','abertos-hoje':'Chamados abertos hoje','fechados-hoje':'Chamados fechados hoje'};
+// spec = { card, urg, equipe, pessoa, prazo }: o que foi clicado (card, urgência, barra de equipe/pessoa, fatia do prazo, analista).
+const prazoRotulo={Vencido:'Vencidos','No Prazo':'No prazo',Pausado:'Pausados (aguardando)','Sem Prazo':'Fora do SLA'};
+function linhasDe(sp){
+  const {card,urg,equipe,pessoa,prazo}=sp;
+  if(card==='abertos-hoje'||card==='fechados-hoje'){
+    const hoje=hojeBR(), ab=card==='abertos-hoje';
+    return _hojeAll.filter(r=>casaTodos(r)&&diaBR(ab?r.criado_em:r.fechado_em)===hoje).map(r=>({...r,_hoje:ab?'aberto':'fechado'}));
+  }
+  let l=_rows;
+  if(urg) l=l.filter(r=>urgenciaDe(r)===urg);
+  if(equipe) l=l.filter(r=>(r.equipe||'Não informado')===equipe);
+  if(pessoa) l=l.filter(r=>pessoaDe(r)===pessoa);
+  if(prazo) l=l.filter(r=>statusPrazoDe(r)===prazo);
+  if(card==='vencidos') l=l.filter(isVencido);
+  else if(card==='criticos') l=l.filter(ehCritico);
+  else if(card==='criticos-venc') l=l.filter(r=>ehCritico(r)&&isVencido(r));
+  return l;
+}
+const tituloDe=sp=>{
+  const partes=[];
+  if(sp.card&&ROTULO_CARD[sp.card]) partes.push(ROTULO_CARD[sp.card]);
+  if(sp.equipe) partes.push(`Equipe "${sp.equipe}"`);
+  if(sp.pessoa) partes.push(sp.pessoa);
+  if(sp.urg) partes.push(`Urgência "${sp.urg}"`);
+  if(sp.prazo) partes.push(prazoRotulo[sp.prazo]||sp.prazo);
+  return partes.length?partes.join(' · '):'Chamados pendentes';
+};
+function linhaHtml(r){
+  const link=`<a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" class="ticket-link">${esc(r.ticket_id)}</a>`;
+  const base=`<td>${link}</td><td class="ellipsis" title="${escAttr(r.organizacao||r.cliente_nome||'')}">${esc(r.organizacao||r.cliente_nome||'—')}</td><td class="ellipsis" title="${escAttr(r.assunto||'')}">${esc(r.assunto||'—')}</td><td class="ellipsis" title="${escAttr(r.responsavel||'')}">${esc(r.responsavel||'Não atribuído')}</td><td class="num" title="${escAttr(fmtDataHora(r.criado_em)+(r.sla_aberto_min!=null?` · ${(Number(r.sla_aberto_min)/60).toLocaleString('pt-BR',{maximumFractionDigits:1})} h de SLA (horário de atendimento, sem fins de semana, feriados e pausas)`:''))}">${horasSlaAberto(r)}</td>`;
+  const st=r.status_movidesk||r.base_status||'—';
+  if(r._hoje) return `<tr>${base}<td class="num">—</td><td class="num">—</td><td class="center"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${r._hoje==='fechado'?'ok':'neutral'}">${r._hoje==='fechado'?'Fechado hoje':'Aberto hoje'}</span></td></tr>`;
+  const sp=statusPrazoDe(r), bc=sp==='Vencido'?'danger':sp==='No Prazo'?'ok':sp==='Pausado'?'warn':'neutral';
+  // Sem retorno: "…" = as ações do chamado ainda não chegaram ao banco (a fila de detalhes está carregando);
+  // agente nunca respondeu publicamente = conta desde a abertura; cliente que nunca escreveu = "—".
+  const semAcoes=Number(r.acoes_count||0)===0;
+  let dA=diasSemRetornoDe(r.ultima_publica_agente), dC=diasSemRetornoDe(r.ultima_publica_cliente), nuncaA=false;
+  if(!semAcoes&&dA==null){ dA=diasSemRetornoDe(r.criado_em); nuncaA=true; }
+  const celula=(v,dica)=>semAcoes?`<td class="num" style="color:var(--t3)" title="Ações do chamado ainda sendo carregadas">…</td>`:`<td class="num danger-num" ${dica?`title="${escAttr(dica)}"`:''}>${v!=null?v:'—'}</td>`;
+  return `<tr>${base}${celula(dA,nuncaA?'A equipe ainda não respondeu publicamente: contado desde a abertura':'')}${celula(dC,dC==null?'O cliente não enviou mensagem pública':'')}<td class="center" title="${escAttr(st)}"><span class="badge neutral">${esc(st)}</span></td><td class="center"><span class="badge ${bc}">${esc(sp==='Sem Prazo'?'Fora do SLA':sp==='No Prazo'?'No prazo':sp)}</span></td></tr>`;
+}
+const CABECALHO_TAB='<thead><tr><th>Ticket</th><th>Cliente</th><th>Assunto</th><th>Responsável</th><th class="num">Horas de SLA</th><th class="num">Sem retorno (agente)</th><th class="num">Sem retorno (cliente)</th><th class="center">Status real</th><th class="center">Status prazo</th></tr></thead>';
+const COLGROUP_TAB='<colgroup><col style="width:6%"><col style="width:13%"><col style="width:20%"><col style="width:14%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"></colgroup>';
+// Modal com a lista de chamados do card/urgência clicado.
+let _modalSel=null;
+function abrirModal(sp){
+  if(typeof sp==='string') sp={card:sp};
+  _modalSel=sp;
+  const lista=[...linhasDe(sp)].sort((a,b)=>idadeMs(b)-idadeMs(a));
+  document.getElementById('tv-modal-titulo').textContent=tituloDe(sp);
+  document.getElementById('tv-modal-sub').textContent=`${lista.length.toLocaleString('pt-BR')} chamado(s)${lista.length?' — do mais antigo ao mais novo':''}. Clique no número para abrir no Movidesk.`;
+  document.getElementById('tv-modal-corpo').innerHTML=lista.length?`<table>${COLGROUP_TAB}${CABECALHO_TAB}<tbody>${lista.map(linhaHtml).join('')}</tbody></table>`:'<p class="empty-state">Nenhum chamado neste recorte.</p>';
+  document.getElementById('tv-modal').style.display='flex';
+  document.getElementById('tv-modal-corpo').scrollTop=0;
+}
+function fecharModal(){ _modalSel=null; document.getElementById('tv-modal').style.display='none'; }
+document.addEventListener('click',e=>{
+  if(e.target.id==='tv-modal'||e.target.closest('#tv-modal-x')){ fecharModal(); return; }
+  const c=e.target.closest('[data-card]'); if(c){ abrirModal(c.dataset.card); return; }
+  const u=e.target.closest('[data-urg]'); if(u){ abrirModal({urg:u.dataset.urg}); return; }
+  const pz=e.target.closest('[data-prazo]'); if(pz){ abrirModal({prazo:pz.dataset.prazo}); return; }
+  const rs=e.target.closest('[data-resp]'); if(rs) abrirModal({pessoa:rs.dataset.resp});
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'||[10009,461].includes(e.keyCode)) fecharModal();
+  else if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-card]')){ e.preventDefault(); abrirModal(e.target.dataset.card); }
+});
+document.querySelectorAll('[data-card]').forEach(el=>{ el.setAttribute('role','button'); el.setAttribute('tabindex','0'); });
+
+function renderTable(){
+  const tbody=document.getElementById('tv-table-body');
+  const todos=[..._rows].sort((a,b)=>idadeMs(b)-idadeMs(a));
+  // TV: só os 40 mais antigos (a lista rola sozinha; os 300+ não caberiam no tempo do quadro)
+  const LIM_TV=40, top=ehTV()?todos.slice(0,LIM_TV):todos;
+  const ct=document.getElementById('tv-table-count'); if(ct) ct.textContent=top.length<todos.length?`(${top.length} mais antigos de ${todos.length.toLocaleString('pt-BR')})`:`(${todos.length.toLocaleString('pt-BR')} chamados)`;
+  tbody.innerHTML=top.length?top.map(linhaHtml).join(''):`<tr><td colspan="9" class="empty-state">Nenhum ticket pendente.</td></tr>`;
+  if(_modalSel) abrirModal(_modalSel);   // atualização automática: mantém o modal aberto com dados novos
+}
+
+
+// ── SLA individual por analista ─────────────────────────────────────────
+// Dados de GET /geral/sla-responsaveis (Suporte Técnico): resolvidos dentro/fora do prazo no período e pendentes agora.
+// Impacto realizado = fora ÷ total de resolvidos com prazo do time (pp). Impacto dos vencidos = quanto o SLA do time cairia se
+// todos os pendentes já vencidos desse analista fossem resolvidos fora do prazo.
+const CHAVE_PERIODO_SLA='painelTvPeriodoSla';
+function desdeDoPeriodo(p){
+  const h=new Date(), pad=n=>String(n).padStart(2,'0');
+  if(p==='ano') return `${h.getFullYear()}-01-01`;
+  if(p==='30'||p==='90'){ const d=new Date(h.getTime()-Number(p)*86400000); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  return `${h.getFullYear()}-${pad(h.getMonth()+1)}-01`;
+}
+const rotuloPeriodo={mes:'mês atual','30':'últimos 30 dias','90':'últimos 90 dias',ano:'ano atual'};
+let _slaSeq=0;
+async function carregarSlaResponsaveis(){
+  const sel=document.getElementById('slr-periodo');
+  const per=sel.value, seq=++_slaSeq, lista=document.getElementById('slr-lista');
+  try{
+    const q=`?desde=${desdeDoPeriodo(per)}${_verticalSlug?`&vertical=${encodeURIComponent(_verticalNome||_qs.get('vertical'))}`:''}${_servicoSel?`&servico=${encodeURIComponent(_servicoSel)}`:''}${_equipeSel?`&equipe=${encodeURIComponent(_equipeSel)}`:''}`;
+    const resp=await api('/geral/sla-responsaveis'+q,60000);
+    if(seq!==_slaSeq) return;
+    renderSlaResponsaveis(resp.rows||[],per);
+  }catch(e){ if(seq===_slaSeq){ lista.innerHTML=`<p class="tv-erro">Não foi possível carregar o SLA por analista: ${esc(e.message)}</p>`; document.getElementById('slr-resumo').innerHTML=''; } }
+}
+function corAvatar(n){ let h=0; for(const c of String(n).split(' ')[0]) h=(h*31+c.charCodeAt(0))%360; return `hsl(${h} 62% 54%)`; }
+function iniciais(n){ return String(n).trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase(); }
+function renderSlaResponsaveis(rows,per){
+  const fmt=(n,d=1)=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const dentroT=rows.reduce((s,r)=>s+r.dentro,0), foraT=rows.reduce((s,r)=>s+r.fora,0), T=dentroT+foraT;
+  const pendT=rows.reduce((s,r)=>s+r.pendentes,0), vencT=rows.reduce((s,r)=>s+r.vencidos,0);
+  const slaT=T?dentroT/T*100:null;
+  document.getElementById('slr-resumo').innerHTML=
+    `<span><b style="color:${slaT==null?'inherit':slaT>=90?'var(--success)':'var(--danger)'}">${slaT==null?'—':fmt(slaT)+'%'}</b>SLA do time (${rotuloPeriodo[per]})</span>`+
+    `<span><b>${T.toLocaleString('pt-BR')}</b>resolvidos com prazo (${dentroT.toLocaleString('pt-BR')} dentro · ${foraT.toLocaleString('pt-BR')} fora)</span>`+
+    `<span><b>${pendT.toLocaleString('pt-BR')}</b>pendentes agora</span>`+
+    `<span><b style="color:${vencT?'var(--danger)':'inherit'}">${vencT.toLocaleString('pt-BR')}</b>já vencidos</span>`;
+  const itens=rows.map(r=>{
+    const tot=r.dentro+r.fora, pct=tot?r.dentro/tot*100:null;
+    const impReal=T?r.fora/T*100:0;
+    const impVenc=T?(dentroT/T-dentroT/(T+r.vencidos))*100:0;
+    return {...r,tot,pct,impReal,impVenc,impTot:impReal+impVenc};
+  }).filter(r=>r.tot||r.pendentes).sort((a,b)=>b.impTot-a.impTot||b.pendentes-a.pendentes);
+  const lista=document.getElementById('slr-lista');
+  if(!itens.length){ lista.innerHTML='<p class="imp-vazio">Nenhum chamado de Suporte Técnico neste filtro.</p>'; return; }
+  const corPct=p=>p==null?'var(--t3)':p>=90?'var(--success)':'var(--danger)';
+  // Impacto no SLA DO ANALISTA: d dentro, f fora (resolvidos com prazo), v vencidos e np no prazo (pendentes).
+  // ▼ se os vencidos fecharem fora: d/(d+f+v); ▲ se os no prazo fecharem no prazo: (d+np)/(d+f+np). Pausados ficam fora.
+  const meuImpacto=r=>{
+    const d=r.dentro, tot=r.dentro+r.fora, v=r.vencidos||0, np=r.no_prazo||0;
+    const base=tot?d/tot*100:null;
+    const desce=v?(d/(tot+v)*100-(base??0)):0, sobe=np?((d+np)/(tot+np)*100-(base??0)):0;
+    const pl=(n,s,p)=>`${n} ${n>1?p:s}`;
+    if(base==null) return '<span class="b">sem resolvidos com prazo no período</span>';
+    const tv=ehTV();
+    const linha=(cls,txt,det)=>`<div class="l"><span class="a ${cls}">${txt}</span><span class="b">${det}</span></div>`;
+    return (v?linha('down',`▼ −${fmt(Math.abs(desce))} pp`,tv?pl(v,'vencido','vencidos'):`se ${pl(v,'vencido fechar','vencidos fecharem')} fora do prazo`)
+             :linha('zero','▼ 0,0 pp','sem vencidos'))
+      +(np?linha('up',`▲ +${fmt(sobe)} pp`,tv?pl(np,'no prazo','no prazo'):`se ${pl(np,'no prazo fechar','no prazo fecharem')} no prazo`):'');
+  };
+  lista.innerHTML=`<table class="slr-tab"><thead><tr><th>Analista</th><th>SLA (resolvidos)</th><th>Pendentes</th><th>Impacto no SLA dele</th><th>Impacto no SLA do time</th></tr></thead><tbody>`+
+    itens.map(r=>`<tr data-resp="${escAttr(r.responsavel)}" style="cursor:pointer" title="Ver os pendentes deste analista">
+      <td><div class="slr-nome"><span class="slr-av" style="background:${corAvatar(r.responsavel)}">${esc(iniciais(r.responsavel))}</span>${esc(r.responsavel)}</div></td>
+      <td><div class="slr-sla">
+        <div class="linha"><span class="pct" style="color:${corPct(r.pct)}">${r.pct==null?'—':fmt(r.pct)+'%'}</span><span class="det">${r.dentro.toLocaleString('pt-BR')} dentro · ${r.fora.toLocaleString('pt-BR')} fora</span></div>
+        ${r.tot?`<div class="slr-barra" role="img" aria-label="${r.dentro} dentro, ${r.fora} fora"><i style="width:${r.dentro/r.tot*100}%;background:var(--success)"></i><i style="width:${r.fora/r.tot*100}%;background:var(--danger)"></i></div>`:'<span class="det">sem resolvidos com prazo</span>'}
+      </div></td>
+      <td><div class="slr-pend"><b class="t">${r.pendentes.toLocaleString('pt-BR')}</b>
+        ${r.vencidos?`<span class="slr-chip r">${r.vencidos} vencido${r.vencidos>1?'s':''}</span>`:''}
+        ${r.no_prazo?`<span class="slr-chip g">${r.no_prazo} no prazo</span>`:''}
+        ${r.pausados?`<span class="slr-chip w">${r.pausados} pausado${r.pausados>1?'s':''}</span>`:''}
+        ${r.sem_prazo?`<span class="slr-chip n">${r.sem_prazo} fora do SLA</span>`:''}
+        ${!r.pendentes?'<span class="slr-chip n">nenhum</span>':''}</div></td>
+      <td><div class="slr-meu">${meuImpacto(r)}</div></td>
+      <td><div class="slr-imp"><span class="a ${r.impReal<0.05?'zero':''}">${r.impReal<0.05?'0,0 pp':'−'+fmt(r.impReal)+' pp'}</span>
+        <span class="b">${r.vencidos?(ehTV()?`e mais −${fmt(r.impVenc)} pp com os vencidos`:`e mais −${fmt(r.impVenc)} pp se ${r.vencidos>1?`os ${r.vencidos} vencidos fecharem`:'o vencido fechar'} fora do prazo`):'sem vencidos que pesem'}</span></div></td>
+    </tr>`).join('')+`</tbody></table>`;
+  document.getElementById('slr-sub').textContent=`Suporte Técnico${_servicoSel?` — serviço "${_servicoSel}"`:''}${_equipeSel?` — equipe "${_equipeSel}"`:''}: resolvidos (${rotuloPeriodo[per]}) dentro e fora da meta (régua do Hub), o que está pendente e quanto cada um pesa no SLA do time.`;
+}
+(function(){
+  const sel=document.getElementById('slr-periodo');
+  try{ const v=localStorage.getItem(CHAVE_PERIODO_SLA); if(v&&[...sel.options].some(o=>o.value===v)) sel.value=v; }catch(_){}
+  sel.addEventListener('change',()=>{ try{ localStorage.setItem(CHAVE_PERIODO_SLA,sel.value); }catch(_){} carregarSlaResponsaveis(); });
+})();
+// ── Carrossel ───────────────────────────────────────────────────────────────────────────────────────────
+// Muita informação para uma tela só: cada quadro vira um "slide" em tela cheia que passa sozinho (padrão 20 s;
+// ?seg=N na URL muda). Bolinhas no canto inferior direito levam a qualquer quadro. Controle da TV: setas
+// →/↓, Canal −, ⏭ = próximo; ←/↑, Canal +, ⏮ = anterior; OK/Play-Pause = pausa/retoma. Os quadros continuam
+// sendo os mesmos elementos (só mudam de lugar), então render() e os cliques seguem funcionando.
+const CARR={slides:[],atual:0,pausado:false,timer:0,seg:Math.max(5,Number(new URLSearchParams(location.search).get('seg'))||20)};
+function montarCarrossel(){
+  const cont=document.getElementById('tv-content');
+  const filhos=[...cont.children];
+  const grupos=[{nome:'Resumo',cls:'tv-slide-resumo',nos:filhos.filter(el=>el.matches('.kpi-titulo,.kpi-grid'))}];
+  filhos.filter(el=>el.matches('.hrow')).forEach(h=>[...h.children].forEach(p=>{
+    const t=p.querySelector('.chart-title,.table-title');
+    const nome=t?(t.firstChild&&t.firstChild.nodeType===3?t.firstChild.textContent:t.textContent).split('—')[0].trim():'Quadro';
+    grupos.push({nome,nos:[p]});
+  }));
+  cont.innerHTML='';
+  cont.classList.add('carrossel');
+  CARR.slides=grupos.filter(g=>g.nos.length).map((g,i)=>{
+    const sl=document.createElement('section');
+    sl.className='tv-slide'+(g.cls?' '+g.cls:'')+(i===0?' ativo':'');
+    sl.setAttribute('aria-label',g.nome);
+    g.nos.forEach(n=>sl.appendChild(n));
+    cont.appendChild(sl);
+    return {nome:g.nome,el:sl};
+  });
+  const bar=document.createElement('nav');
+  bar.className='tv-bolhas'; bar.setAttribute('aria-label','Quadros do painel');
+  bar.innerHTML=`<span class="rot" id="tv-carr-rot"></span>`+CARR.slides.map((s,i)=>`<button type="button" class="tv-bolha${i===0?' ativa':''}" data-i="${i}" title="${escAttr(s.nome)}" aria-label="${escAttr(s.nome)}"></button>`).join('')+
+    `<button type="button" class="tv-pausa" id="tv-carr-pausa" title="Pausar (OK / Play-Pause no controle)" aria-label="Pausar">❚❚</button>`;
+  document.body.appendChild(bar);
+  bar.addEventListener('click',e=>{
+    const b=e.target.closest('.tv-bolha'); if(b){ irPara(Number(b.dataset.i),true); return; }
+    if(e.target.closest('#tv-carr-pausa')) alternarPausa();
+  });
+  ajustarAlturaCarrossel(); window.addEventListener('resize',ajustarAlturaCarrossel);
+  atualizarBolhas(); agendarCarrossel();
+}
+// O carrossel ocupa da posição dele até o fim da tela (o cabeçalho com filtros pode quebrar linha).
+function ajustarAlturaCarrossel(){
+  const cont=document.getElementById('tv-content'); if(!cont) return;
+  const topo=cont.getBoundingClientRect().top+(document.getElementById('tv-raiz')?0:window.scrollY);   // na TV o conteúdo está numa camada fixa
+  cont.style.height=Math.max(320,window.innerHeight-topo-70)+'px';   // 70 = espaço das bolinhas embaixo
+}
+function atualizarBolhas(){
+  document.querySelectorAll('.tv-bolha').forEach((b,i)=>b.classList.toggle('ativa',i===CARR.atual));
+  const rot=document.getElementById('tv-carr-rot'); if(rot) rot.textContent=`${CARR.atual+1}/${CARR.slides.length} · ${CARR.slides[CARR.atual]?.nome||''}${CARR.pausado?' · pausado':''}`;
+  const p=document.getElementById('tv-carr-pausa'); if(p){ p.textContent=CARR.pausado?'▶':'❚❚'; p.title=CARR.pausado?'Retomar (OK / Play-Pause no controle)':'Pausar (OK / Play-Pause no controle)'; }
+}
+function irPara(i,manual){
+  if(!CARR.slides.length) return;
+  CARR.atual=(i+CARR.slides.length)%CARR.slides.length;
+  CARR.slides.forEach((s,k)=>s.el.classList.toggle('ativo',k===CARR.atual));
+  atualizarBolhas();
+  if(manual) agendarCarrossel();   // mexeu no controle/bolinha: o tempo do quadro recomeça
+}
+// TV: quadro com lista maior que a tela rola sozinho (pausa de 4 s no topo, desce em até 45 s, pausa de 4 s no fim) e
+// fica na tela o tempo necessário para isso (no mínimo CARR.seg). Fora da TV, quem rola é a pessoa.
+const ROL={raf:0};
+const rolagemDo=sl=>[...sl.el.querySelectorAll('.rolagem,.table-wrap')].find(e=>e.scrollHeight>e.clientHeight+4)||null;
+const tempoRolar=r=>Math.min(45000,Math.max(6000,(r.scrollHeight-r.clientHeight)/70*1000));   // ~70 px/s
+function duracaoSlide(sl){ const r=ehTV()&&rolagemDo(sl); return r?Math.max(CARR.seg*1000,8000+tempoRolar(r)):CARR.seg*1000; }
+function iniciarRolagem(sl){
+  cancelAnimationFrame(ROL.raf);
+  CARR.slides.forEach(x=>x.el.querySelectorAll('.rolagem,.table-wrap').forEach(e=>{ e.scrollTop=0; }));
+  const r=ehTV()&&rolagemDo(sl); if(!r) return;
+  const dur=tempoRolar(r); let t0=performance.now()+4000, ult=performance.now();
+  const passo=t=>{
+    if(CARR.pausado) t0+=t-ult;   // pausado: a rolagem também para
+    ult=t;
+    const k=Math.min(1,Math.max(0,(t-t0)/dur));
+    r.scrollTop=k*(r.scrollHeight-r.clientHeight);
+    if(k<1) ROL.raf=requestAnimationFrame(passo);
+  };
+  ROL.raf=requestAnimationFrame(passo);
+}
+function agendarCarrossel(){
+  clearTimeout(CARR.timer);
+  const sl=CARR.slides[CARR.atual]; if(!sl) return;
+  iniciarRolagem(sl);
+  const tick=()=>{
+    if(CARR.pausado||document.getElementById('tv-modal').style.display==='flex'){ CARR.timer=setTimeout(tick,2000); return; }   // não troca com a lista aberta
+    irPara(CARR.atual+1,true);
+  };
+  CARR.timer=setTimeout(tick,duracaoSlide(sl));
+}
+function alternarPausa(){ CARR.pausado=!CARR.pausado; atualizarBolhas(); if(!CARR.pausado){ clearTimeout(CARR.timer); CARR.timer=setTimeout(()=>irPara(CARR.atual+1,true),CARR.seg*1000); } }   // pausado: timer e rolagem esperam; ao retomar, o quadro fica mais CARR.seg
+// Teclas do controle da TV. Cada marca manda um jeito: setas como e.key ('ArrowRight') OU só como código (39), "OK" como
+// Enter/13, Canal +/−, mídia (play/pause/avançar/voltar) e a tecla Voltar (Tizen 10009, webOS 461, Android TV 4/GoBack).
+// O código numérico é lido de keyCode/which (e.key pode vir 'Unidentified'). Alguns navegadores de TV só entregam keyup:
+// se nenhum keydown chegou, o keyup passa a valer. ?teclas=1 mostra no canto da tela a última tecla recebida (diagnóstico).
+const TECLAS_TV={
+  proximo:{keys:['ArrowRight','ArrowDown','PageDown','ChannelDown','MediaTrackNext','MediaFastForward','GoToNext'],codes:[39,40,34,428,176,417,418,423]},
+  anterior:{keys:['ArrowLeft','ArrowUp','PageUp','ChannelUp','MediaTrackPrevious','MediaRewind','GoToPrevious'],codes:[37,38,33,427,177,412,419,424]},
+  pausa:{keys:['MediaPlayPause','MediaPlay','MediaPause','Pause','Play'],codes:[10252,179,415,19,413]},
+  voltar:{keys:['Escape','GoBack','BrowserBack','XF86Back'],codes:[27,10009,461,4,166]},
+};
+const teclaEh=(t,e)=>{ const c=e.keyCode||e.which; return TECLAS_TV[t].keys.includes(e.key)||TECLAS_TV[t].codes.includes(c); };
+const DEBUG_TECLAS=_qs.get('teclas')==='1';
+let _vistoKeydown=false, _dbgEl=null;
+function mostrarTecla(tipo,e){
+  if(!DEBUG_TECLAS) return;
+  if(!_dbgEl){ _dbgEl=document.createElement('div'); _dbgEl.style.cssText='position:fixed;right:12px;bottom:12px;z-index:99999;background:#000c;color:#fff;font:600 16px/1.4 monospace;padding:10px 14px;border-radius:10px;pointer-events:none'; document.body.appendChild(_dbgEl); }
+  _dbgEl.textContent=`${tipo}  key=${e.key}  code=${e.code||'-'}  keyCode=${e.keyCode||e.which||'-'}`;
+}
+function tratarTeclaTV(e){
+  const modalAberto=document.getElementById('tv-modal').style.display==='flex';
+  if(teclaEh('voltar',e)&&modalAberto){ e.preventDefault(); fecharModal(); return; }   // Voltar fecha a lista aberta
+  if(modalAberto) return;                                                              // lista aberta: teclas são dela
+  if(e.target.matches?.('input,select,textarea')) return;
+  const c=e.keyCode||e.which;
+  const pausa=teclaEh('pausa',e)||((e.key==='Enter'||c===13)&&!e.target.matches?.('[data-card],[data-resp],button,a,select'));
+  if(teclaEh('proximo',e)){ e.preventDefault(); irPara(CARR.atual+1,true); }
+  else if(teclaEh('anterior',e)){ e.preventDefault(); irPara(CARR.atual-1,true); }
+  else if(pausa){ e.preventDefault(); alternarPausa(); }
+}
+document.addEventListener('keydown',e=>{ _vistoKeydown=true; mostrarTecla('keydown',e); tratarTeclaTV(e); },true);
+document.addEventListener('keyup',e=>{ mostrarTecla('keyup',e); if(!_vistoKeydown) tratarTeclaTV(e); },true);
+// Garante que a página tem o foco do teclado/controle (sem isso a TV não entrega as teclas à página)
+function tomarFoco(){ try{ window.focus(); if(!document.activeElement||document.activeElement===document.body){ document.body.setAttribute('tabindex','-1'); document.body.focus({preventScroll:true}); } }catch(_){} }
+tomarFoco(); window.addEventListener('load',tomarFoco); document.addEventListener('click',tomarFoco);
+// Visão TV: aberto sem login (link da TV), ou com ?vertical= / ?tv=1 na URL. ?tv=0 força a tela completa com filtros.
+const MODO_TV=_qs.get('tv')==='0'?false:(_qs.get('tv')==='1'||_qs.has('vertical')||!!CHAVE_TV||!tok());
+if(MODO_TV) document.body.classList.add('modo-tv');
+montarCarrossel();
+// Setas laterais (clique do ponteiro): aparecem ao mover o ponteiro/tocar e somem depois de 4 s sem movimento
+(function(){
+  const mk=(cls,txt,rot,fn)=>{ const b=document.createElement('button'); b.type='button'; b.className='tv-seta '+cls; b.textContent=txt; b.setAttribute('aria-label',rot); b.title=rot; b.addEventListener('click',e=>{ e.stopPropagation(); fn(); }); document.body.appendChild(b); return b; };
+  const bs=[mk('esq','‹','Quadro anterior',()=>irPara(CARR.atual-1,true)), mk('dir','›','Próximo quadro',()=>irPara(CARR.atual+1,true))];
+  let t=0, ultX=-1, ultY=-1;
+  const mostrar=()=>{ bs.forEach(b=>b.classList.add('visivel')); clearTimeout(t); t=setTimeout(()=>bs.forEach(b=>b.classList.remove('visivel')),4000); };
+  document.addEventListener('pointermove',e=>{ if(Math.abs(e.clientX-ultX)+Math.abs(e.clientY-ultY)<4) return; ultX=e.clientX; ultY=e.clientY; mostrar(); },{passive:true});
+  document.addEventListener('touchstart',mostrar,{passive:true});
+  document.addEventListener('pointerdown',mostrar,{passive:true});
+})();
+// Modo rolagem (balão de 4 setas da TV Samsung): as setas passam a ROLAR a página em vez de mandar teclas. A página tem uma
+// folga de rolagem invisível; rolou para cima/baixo do centro = quadro anterior/próximo, e volta ao centro. A roda do mouse
+// e o gesto de deslizar fazem o mesmo.
+if(MODO_TV){
+  // Prende todo o conteúdo numa camada fixa: a página (folga invisível) rola por baixo sem deslocar nada na tela
+  const raiz=document.createElement('div'); raiz.id='tv-raiz';
+  [...document.body.childNodes].filter(n=>!(n.nodeType===1&&n.tagName==='SCRIPT')).forEach(n=>raiz.appendChild(n));
+  document.body.insertBefore(raiz,document.body.firstChild);
+  const sent=document.createElement('div'); sent.className='tv-sentinela'; document.body.appendChild(sent);
+  const CENTRO=120; let bloqueio=0, ignorar=false;
+  const centrar=()=>{ ignorar=true; window.scrollTo(0,CENTRO); setTimeout(()=>{ ignorar=false; },60); };
+  const navegar=d=>{ const agora=Date.now(); if(agora-bloqueio<700) return; bloqueio=agora; if(document.getElementById('tv-modal').style.display==='flex') return; irPara(CARR.atual+d,true); };
+  window.addEventListener('load',centrar); centrar();
+  window.addEventListener('scroll',()=>{ if(ignorar) return; const y=window.scrollY; if(Math.abs(y-CENTRO)<4) return; navegar(y>CENTRO?1:-1); centrar(); },{passive:true});
+  document.addEventListener('wheel',e=>{ const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY; if(Math.abs(d)<10) return; if(e.target.closest?.('.rolagem,.table-wrap,#tv-modal')) return; navegar(d>0?1:-1); },{passive:true});
+}
+updateClock();
+setInterval(updateClock,30000);
+loadPainelTV();
+// Painel de TV roda sem interação — recarrega sozinho pra ficar sempre
+// atualizado numa tela fixa (a cada 1 min; o servidor guarda a lista por até 2 min ou até a carga gravar chamados).
+setInterval(loadPainelTV,60*1000);
+</script>
+<script src="/js/telemetria.js"></script>
+</body>
+</html>
