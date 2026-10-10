@@ -159,6 +159,12 @@
   html body.tv-page .tv-slide-resumo .kpi-grid.compacto .legend { font-size: 15px; }
   html body.tv-page .tv-slide-resumo .vs-lado b { font-size: 64px; line-height: 68px; }
   html body.tv-page .tv-slide-resumo .kpi-titulo { font-size: 16px; }
+  /* Setas grandes nas laterais para o ponteiro do controle (TV Samsung abre o navegador em modo mouse): aparecem ao mover o ponteiro */
+  .tv-seta { position: fixed; top: 50%; transform: translateY(-50%); z-index: 70; width: clamp(56px, 7vh, 96px); height: clamp(96px, 14vh, 180px); border: none; border-radius: 18px;
+    background: rgba(15,23,42,.62); color: #fff; font-size: clamp(34px, 6vh, 72px); line-height: 1; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .25s, background .15s; }
+  .tv-seta.esq { left: 10px; } .tv-seta.dir { right: 10px; }
+  .tv-seta.visivel { opacity: 1; pointer-events: auto; }
+  .tv-seta:hover, .tv-seta:focus-visible { background: var(--brand-text, #ff8a2b); }
   .tv-bolhas { position: fixed; right: 24px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 8px;
     padding: 8px 12px; border-radius: 999px; background: var(--surface, rgba(20,24,32,.85)); box-shadow: 0 4px 18px rgba(0,0,0,.28); }
   .tv-bolhas .rot { font-size: 12px; font-weight: 700; color: var(--t2); margin-right: 4px; white-space: nowrap; }
@@ -1066,6 +1072,16 @@ tomarFoco(); window.addEventListener('load',tomarFoco); document.addEventListene
 const MODO_TV=_qs.get('tv')==='0'?false:(_qs.get('tv')==='1'||_qs.has('vertical')||!!CHAVE_TV||!tok());
 if(MODO_TV) document.body.classList.add('modo-tv');
 montarCarrossel();
+// Setas laterais (clique do ponteiro): aparecem ao mover o ponteiro/tocar e somem depois de 4 s sem movimento
+(function(){
+  const mk=(cls,txt,rot,fn)=>{ const b=document.createElement('button'); b.type='button'; b.className='tv-seta '+cls; b.textContent=txt; b.setAttribute('aria-label',rot); b.title=rot; b.addEventListener('click',e=>{ e.stopPropagation(); fn(); }); document.body.appendChild(b); return b; };
+  const bs=[mk('esq','‹','Quadro anterior',()=>irPara(CARR.atual-1,true)), mk('dir','›','Próximo quadro',()=>irPara(CARR.atual+1,true))];
+  let t=0, ultX=-1, ultY=-1;
+  const mostrar=()=>{ bs.forEach(b=>b.classList.add('visivel')); clearTimeout(t); t=setTimeout(()=>bs.forEach(b=>b.classList.remove('visivel')),4000); };
+  document.addEventListener('pointermove',e=>{ if(Math.abs(e.clientX-ultX)+Math.abs(e.clientY-ultY)<4) return; ultX=e.clientX; ultY=e.clientY; mostrar(); },{passive:true});
+  document.addEventListener('touchstart',mostrar,{passive:true});
+  document.addEventListener('pointerdown',mostrar,{passive:true});
+})();
 updateClock();
 setInterval(updateClock,30000);
 loadPainelTV();
