@@ -165,6 +165,10 @@
   .tv-seta.esq { left: 10px; } .tv-seta.dir { right: 10px; }
   .tv-seta.visivel { opacity: 1; pointer-events: auto; }
   .tv-seta:hover, .tv-seta:focus-visible { background: var(--brand-text, #ff8a2b); }
+  /* Modo rolagem do navegador da TV Samsung (balão de 4 setas): a rolagem vira "quadro anterior/próximo" */
+  html body.tv-page.modo-tv { overflow: visible; }
+  html { overflow-x: hidden; }
+  .tv-sentinela { position: absolute; top: 0; left: 0; width: 1px; height: calc(100vh + 240px); visibility: hidden; pointer-events: none; }
   .tv-bolhas { position: fixed; right: 24px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 8px;
     padding: 8px 12px; border-radius: 999px; background: var(--surface, rgba(20,24,32,.85)); box-shadow: 0 4px 18px rgba(0,0,0,.28); }
   .tv-bolhas .rot { font-size: 12px; font-weight: 700; color: var(--t2); margin-right: 4px; white-space: nowrap; }
@@ -1082,6 +1086,18 @@ montarCarrossel();
   document.addEventListener('touchstart',mostrar,{passive:true});
   document.addEventListener('pointerdown',mostrar,{passive:true});
 })();
+// Modo rolagem (balão de 4 setas da TV Samsung): as setas passam a ROLAR a página em vez de mandar teclas. A página tem uma
+// folga de rolagem invisível; rolou para cima/baixo do centro = quadro anterior/próximo, e volta ao centro. A roda do mouse
+// e o gesto de deslizar fazem o mesmo.
+if(MODO_TV){
+  const sent=document.createElement('div'); sent.className='tv-sentinela'; document.body.appendChild(sent);
+  const CENTRO=120; let bloqueio=0, ignorar=false;
+  const centrar=()=>{ ignorar=true; window.scrollTo(0,CENTRO); setTimeout(()=>{ ignorar=false; },60); };
+  const navegar=d=>{ const agora=Date.now(); if(agora-bloqueio<700) return; bloqueio=agora; if(document.getElementById('tv-modal').style.display==='flex') return; irPara(CARR.atual+d,true); };
+  window.addEventListener('load',centrar); centrar();
+  window.addEventListener('scroll',()=>{ if(ignorar) return; const y=window.scrollY; if(Math.abs(y-CENTRO)<4) return; navegar(y>CENTRO?1:-1); centrar(); },{passive:true});
+  document.addEventListener('wheel',e=>{ const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY; if(Math.abs(d)<10) return; if(e.target.closest?.('.rolagem,.table-wrap,#tv-modal')) return; navegar(d>0?1:-1); },{passive:true});
+}
 updateClock();
 setInterval(updateClock,30000);
 loadPainelTV();
