@@ -311,8 +311,7 @@ input,select{font-family:inherit}
 .seg button:hover:not(.on){color:var(--t1)}
 .seg button.on{background:var(--orange);color:#fff}
 /* Responsáveis por volume: lista + painel de detalhe */
-.rsp-wrap{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:18px;align-items:start}
-@media (max-width:1000px){.rsp-wrap{grid-template-columns:1fr}}
+.rsp-wrap{display:block}
 .rsp-lista table{width:100%;border-collapse:collapse;font-size:13px}
 .rsp-lista th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
 .rsp-lista th.n,.rsp-lista td.n{text-align:right;font-variant-numeric:tabular-nums}
@@ -327,7 +326,8 @@ input,select{font-family:inherit}
 .rsp-sla{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .rsp-sla .trilho{width:70px;height:6px;border-radius:999px;background:var(--surface-low);overflow:hidden}
 .rsp-sla .trilho i{display:block;height:100%;border-radius:999px}
-.rsp-det{position:sticky;top:76px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;min-height:260px}
+.rsp-det{padding:2px 2px 8px}
+#resp-modal .modal-box{max-width:min(780px,94vw);max-height:min(90vh,920px)}
 .rsp-det .vazio{color:var(--t3);font-size:12.5px;line-height:1.6;padding:30px 6px;text-align:center}
 .rsp-det h4{font-size:15px;font-weight:700;color:var(--t1);margin:0}
 .rsp-det .ref{font-size:11px;color:var(--t3);margin:2px 0 10px;letter-spacing:.04em;text-transform:uppercase}
@@ -923,10 +923,9 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-1">
       <div class="chart-panel" id="resp-panel">
         <p class="chart-title">Responsáveis por volume</p>
-        <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Passe o mouse sobre um colaborador para ver o detalhe do mês; clique para fixar.</p>
+        <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Clique em um colaborador para abrir o detalhe do período (abertos, resolvidos, SLA e comparação).</p>
         <div class="rsp-wrap">
           <div id="respChart" class="rsp-lista rolagem"></div>
-          <aside id="resp-detalhe" class="rsp-det" aria-live="polite"></aside>
         </div>
       </div>
     </div>
@@ -946,6 +945,19 @@ body.modal-open{overflow:hidden}
         <div class="pico" id="pico-grid"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="resp-modal" role="dialog" aria-modal="true" aria-labelledby="resp-modal-title">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h3 id="resp-modal-title">Responsável</h3>
+        <p id="resp-modal-sub">Detalhe do período dos filtros</p>
+      </div>
+      <button class="modal-close" id="resp-modal-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="modal-body"><div id="resp-detalhe" class="rsp-det" aria-live="polite"></div></div>
   </div>
 </div>
 
@@ -2910,11 +2922,9 @@ function respDetalheHtml(nome){
   const pctSla=l=>{ const x=slaDe(l); return x.total?{p:x.ok/x.total*100,ok:x.ok,total:x.total}:null; };
   const slaUrg=urg.map(([u,cor])=>{ const x=pctSla(A.rs.filter(r=>r.urgencia===u)), y=B?pctSla(B.rs.filter(r=>r.urgencia===u)):null;
     return blocoVar({nome:u,cor,valor:x?`${x.p.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · ${x.ok}/${x.total}`:'— · sem resolvidos com prazo',v:x?x.p:null,ant:y?y.p:null,altoEhBom:true,pp:true,refTxt}); }).join('');
-  const fixado=_respFixo===nome;
   const comp=B?`comparado com ${esc(P.rotAnt==='mês anterior'?rotuloMesCurto(P.ultimaN).toUpperCase():P.rotAnt)}`
     :(semAnt?'sem comparação: dados do período anterior não carregados':'sem comparação');
-  return `<div class="topo"><div><h4>${esc(nome)}</h4><div class="ref">${esc(P.rot)} · ${comp}${P.parcial?' · <b style="color:var(--orange)" title="O período ainda não terminou: as variações ficam subestimadas">em andamento</b>':''}</div></div>
-      <span class="fixar ${fixado?'on':''}">${fixado?'📌 fixado · clique de novo para soltar':'clique para fixar'}</span></div>
+  return `<div class="topo"><div><h4>${esc(nome)}</h4><div class="ref">${esc(P.rot)} · ${comp}${P.parcial?' · <b style="color:var(--orange)" title="O período ainda não terminou: as variações ficam subestimadas">em andamento</b>':''}</div></div></div>
     <div class="sec">Resumo do período</div>`+
     blocoVar({nome:'Abertos',cor:cssVar('--orange'),valor:`${A.ab.length.toLocaleString('pt-BR')} tickets`,v:A.ab.length,ant:B?B.ab.length:null,altoEhBom:false,unid:'ticket',refTxt})+
     blocoVar({nome:'Resolvidos',cor:cssVar('--purple'),valor:`${A.rs.length.toLocaleString('pt-BR')} tickets`,v:A.rs.length,ant:B?B.rs.length:null,altoEhBom:true,unid:'ticket',refTxt})+
@@ -2924,10 +2934,23 @@ function respDetalheHtml(nome){
     <div class="tv-tip-foot" style="margin-top:6px">Hoje: <b>${pend.length.toLocaleString('pt-BR')}</b> pendentes, <b class="${venc?'tv-ruim':''}">${venc.toLocaleString('pt-BR')}</b> com prazo de SLA vencido.</div>
     <div class="acoes"><button class="btn-refresh" type="button" data-ver="${escAttr(nome)}"><span class="sym">list_alt</span>Ver os tickets do período</button></div>`;
 }
-function respMostrar(nome){
+let _respAberto=null;   // colaborador cujo detalhe está aberto no modal
+function respRender(nome){
   const box=document.getElementById('resp-detalhe'); if(!box) return;
-  box.innerHTML=nome?respDetalheHtml(nome):'<div class="vazio">Passe o mouse sobre um colaborador para ver, no período dos filtros, o que ele abriu e resolveu, o SLA cumprido, comparado com o período anterior.<br>Clique para fixar o detalhe.</div>';
-  if(nome) buscarSlaFaltantes(()=>respMostrar(nome));   // período anterior pode não ter o tempo líquido ainda
+  box.innerHTML=respDetalheHtml(nome);
+  buscarSlaFaltantes(()=>{ if(_respAberto===nome) respRender(nome); });   // período anterior pode não ter o tempo líquido ainda
+}
+function respAbrir(nome){
+  _respAberto=nome;
+  document.getElementById('resp-modal-title').textContent=nome;
+  respRender(nome);
+  document.getElementById('resp-modal').classList.add('show');
+  syncModalBodyLock();
+}
+function respFechar(){
+  _respAberto=null;
+  document.getElementById('resp-modal').classList.remove('show');
+  syncModalBodyLock();
 }
 function renderRespChart(rows){
   const box=document.getElementById('respChart'); if(!box) return;
@@ -2939,8 +2962,7 @@ function renderRespChart(rows){
   const pendG=getPendentesGlobalRows();
   pendG.forEach(r=>{ const p=r.responsavel||'Não informado'; const o=por[p]; if(!o) return; o.pend=(o.pend||0)+1; if(isVencido(r)) o.venc=(o.venc||0)+1; });
   _respLista=Object.entries(por).sort((a,b)=>b[1].criados-a[1].criados).slice(0,RANK_MAX);
-  if(!_respLista.length){ box.innerHTML='<div class="vazio" style="color:var(--t3);padding:20px">Nenhum ticket no período filtrado.</div>'; respMostrar(null); return; }
-  if(_respFixo&&!_respLista.some(([n])=>n===_respFixo)) _respFixo=null;
+  if(!_respLista.length){ box.innerHTML='<div class="vazio" style="color:var(--t3);padding:20px">Nenhum ticket no período filtrado.</div>'; respFechar(); return; }
   const mx=Math.max(1,..._respLista.map(([,v])=>v.criados));
   const nfm=n=>Number(n||0).toLocaleString('pt-BR');
   const corSla=v=>v>=90?cssVar('--green'):cssVar('--orange');   // meta de SLA: 90%
@@ -2950,7 +2972,7 @@ function renderRespChart(rows){
   box.innerHTML=`<table><thead><tr><th style="width:34px">#</th><th>Responsável</th><th class="n" title="Abertos no período · % do total de abertos">Abertos</th><th class="n" title="Resolvidos no período · % do total de resolvidos">Resolvidos</th><th class="n" title="Resolvidos no período que foram reabertos (mesma regra da taxa de reabertura)">Reabertos</th><th class="n">SLA cumprido</th><th class="n">Pendentes</th><th class="n">Vencidos</th></tr></thead><tbody>`+
     _respLista.map(([n,v],i)=>{
       const pct=v.comPrazo?(v.noPrazo||0)/v.comPrazo*100:null;
-      return `<tr tabindex="0" role="button" data-n="${escAttr(n)}" class="${_respFixo===n?'fixo':''}" aria-label="Detalhe de ${escAttr(n)}">
+      return `<tr tabindex="0" role="button" data-n="${escAttr(n)}" aria-label="Abrir o detalhe de ${escAttr(n)}">
         <td><span class="rsp-rank">${i+1}</span></td>
         <td><div class="rsp-nome">${esc(n)}</div><div class="rsp-barra"><i style="width:${Math.max(3,v.criados/mx*100)}%"></i></div></td>
         <td class="n">${comPct(v.criados,totAb)}</td><td class="n">${comPct(v.resolvidos,totRs).replace(/^<b>|<\/b>/g,'')}</td>
@@ -2958,20 +2980,12 @@ function renderRespChart(rows){
         <td class="n">${pct==null?'<span style="color:var(--t3)">—</span>':`<div class="rsp-sla"><span>${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span><span class="trilho"><i style="width:${pct}%;background:${corSla(pct)}"></i></span></div>`}</td>
         <td class="n">${nfm(v.pend)}</td><td class="n" title="${v.pend?`${((v.venc||0)/v.pend*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% dos pendentes`:'sem pendentes'}" style="${v.venc?'color:var(--orange);font-weight:700':''}">${nfm(v.venc)}</td></tr>`;
     }).join('')+`</tbody></table>`;
-  respMostrar(_respFixo);
+  if(_respAberto) respRender(_respAberto);   // lista refeita com o modal aberto: atualiza o detalhe
 }
 (function ligarResponsaveis(){
   const lista=document.getElementById('respChart'), det=document.getElementById('resp-detalhe');
   if(!lista||!det) return;
-  const marcar=()=>lista.querySelectorAll('tbody tr').forEach(tr=>tr.classList.toggle('fixo',tr.dataset.n===_respFixo));
-  lista.addEventListener('mouseover',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr&&!_respFixo) respMostrar(tr.dataset.n); });
-  lista.addEventListener('mouseleave',()=>{ if(!_respFixo) respMostrar(null); });
-  lista.addEventListener('focusin',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr&&!_respFixo) respMostrar(tr.dataset.n); });
-  lista.addEventListener('click',e=>{
-    const tr=e.target.closest('tr[data-n]'); if(!tr) return;
-    _respFixo=_respFixo===tr.dataset.n?null:tr.dataset.n;      // clicar de novo solta
-    marcar(); respMostrar(_respFixo||tr.dataset.n);
-  });
+  lista.addEventListener('click',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr) respAbrir(tr.dataset.n); });
   lista.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.closest('tr[data-n]')){ e.preventDefault(); e.target.closest('tr[data-n]').click(); } });
   det.addEventListener('click',e=>{
     const b=e.target.closest('[data-ver]'); if(!b) return;
@@ -2979,6 +2993,8 @@ function renderRespChart(rows){
     const l=_rowsFull.filter(r=>(r.responsavel||'Não informado')===nome);
     openDetailModal(`Responsável: ${nome}`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'} abertos no período`,l);
   });
+  document.getElementById('resp-modal-close').addEventListener('click',respFechar);
+  document.getElementById('resp-modal').addEventListener('click',e=>{ if(e.target.id==='resp-modal') respFechar(); });
 })();
 
 // ── ação: equipes com maior % de backlog vencido ────────────────────
@@ -3400,6 +3416,7 @@ function syncModalBodyLock(){
     || document.getElementById('ticket-modal').classList.contains('show')
     || document.getElementById('export-modal').classList.contains('show')
     || document.getElementById('info-modal').classList.contains('show')
+    || document.getElementById('resp-modal').classList.contains('show')
     || document.getElementById('listagem-modal').classList.contains('show');
   document.body.classList.toggle('modal-open',open);
 }
@@ -3486,6 +3503,7 @@ document.addEventListener('keydown',e=>{
   else if(document.getElementById('ticket-modal').classList.contains('show')) closeTicketModal();
   else if(document.getElementById('listagem-modal').classList.contains('show')) closeListagemModal();
   else if(document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
+  else if(document.getElementById('resp-modal').classList.contains('show')) respFechar();   // por último: ticket e listas abrem por cima
 });
 
 // ── Esconde o menu ao rolar pra baixo (mais área útil) ─────────────────
