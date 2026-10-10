@@ -1518,6 +1518,20 @@ async function runBackfillCamposBasicos({ years = [] } = {}) {
  *
  * Ideal para rodar diariamente (05h).
  */
+// Bug da API do Movidesk: listagem com $filter + $expand devolve customFieldValues e clients VAZIOS (ver corrigirCustomFieldValues).
+// As cargas que listam em massa sem a correção por id (incremental e geral) NÃO podem regravar esses dois campos — antes
+// regravavam e apagavam a classificação e a organização de centenas de chamados (08/10/2026). Aqui eles saem do lote, e o
+// que já está no banco é mantido; chamado novo (sem nenhum campo customizado ainda) volta para a fila de detalhes da delta.
+async function salvarListagemSemCamposCorrompiveis(batch) {
+  const ids = batch.map(t => String(t.id));
+  for (const t of batch) { delete t.customFieldValues; delete t.clients; }
+  await saveBatch(batch);
+  await db.query(
+    `UPDATE silver.ticket t SET detalhes_em = NULL
+      WHERE t.ticket_id = ANY($1::bigint[]) AND NOT EXISTS (SELECT 1 FROM silver.ticket_campo_customizado c WHERE c.ticket_id = t.ticket_id)`, [ids]
+  ).catch(() => {});
+}
+
 async function runIncremental(cronJobId = null) {
   if (state.running) throw new Error('Já existe uma carga em andamento');
 
@@ -1569,7 +1583,7 @@ async function runIncremental(cronJobId = null) {
     const dedupSave = async (batch) => {
       const fresh = batch.filter(t => !seen.has(String(t.id)));
       fresh.forEach(t => seen.add(String(t.id)));
-      if (fresh.length) await saveBatch(fresh);
+      if (fresh.length) await salvarListagemSemCamposCorrompiveis(fresh);
       return fresh;
     };
 
@@ -1671,7 +1685,7 @@ async function runGeral(cronJobId = null) {
     const dedupSave = async (batch) => {
       const fresh = batch.filter(t => !seen.has(String(t.id)));
       fresh.forEach(t => seen.add(String(t.id)));
-      if (fresh.length) await saveBatch(fresh);
+      if (fresh.length) await salvarListagemSemCamposCorrompiveis(fresh);
       return fresh;
     };
 
