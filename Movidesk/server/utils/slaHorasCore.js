@@ -79,11 +79,14 @@ async function carregarChamados(competencia, cfg) {
 async function planosMap() {
   return new Map((await db.query(`SELECT organizacao_id, plano FROM public.sla_cliente_plano`)).rows.map((r) => [r.organizacao_id, r.plano]));
 }
+// A própria Viasoft Informática Ltda (organização interna) não gera nem recebe horas/créditos.
+const ehOrgInterna = (nome) => /^viasoft informatica( ltda)?[.\s]*$/i.test(P.semAcento(String(nome || '')).trim());
 const compOk = (c) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(c || ''));
 async function apurar(competencia, cfg) {
   const [chamados, planos] = await Promise.all([carregarChamados(competencia, cfg), planosMap()]);
   const por = new Map();
   for (const c of chamados) {
+    if (ehOrgInterna(c.organizacao_nome)) continue;
     const chave = c.organizacao_id || `sem:${c.organizacao_nome}`;
     if (!por.has(chave)) por.set(chave, { organizacao_id: c.organizacao_id || null, nome: c.organizacao_nome, plano: planos.get(c.organizacao_id) || cfg.planoPadrao, planoDefinido: planos.has(c.organizacao_id), itens: [] });
     const g = por.get(chave);
@@ -223,9 +226,9 @@ let _saldosCache = { em: 0, valor: null };
 async function saldosPorCliente() {
   if (_saldosCache.valor && Date.now() - _saldosCache.em < 60 * 1000) return _saldosCache.valor;
   await prepararTabelas();
-  const rows = (await db.query(`SELECT organizacao_id, competencia, tipo, horas::float AS horas, criado_em, validade FROM public.sla_credito ORDER BY criado_em`)).rows;
+  const rows = (await db.query(`SELECT organizacao_id, organizacao_nome, competencia, tipo, horas::float AS horas, criado_em, validade FROM public.sla_credito ORDER BY criado_em`)).rows;
   const por = new Map();
-  for (const l of rows) { if (!por.has(l.organizacao_id)) por.set(l.organizacao_id, []); por.get(l.organizacao_id).push(l); }
+  for (const l of rows) { if (ehOrgInterna(l.organizacao_nome)) continue; if (!por.has(l.organizacao_id)) por.set(l.organizacao_id, []); por.get(l.organizacao_id).push(l); }
   const out = {};
   for (const [id, l] of por) {
     // últimos créditos concedidos (com horas), do mais novo para o mais antigo — para mostrar de onde veio o saldo
@@ -263,4 +266,4 @@ async function orgsDoEscopo(esc) {
   _escopoOrgs.set(chave, { em: Date.now(), v });
   return v;
 }
-module.exports = { repararAutores, estadoReparo, prepararTabelas, lerConfig, lerConfigEmCache, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, orgsDoEscopo, lerStatus, primeiroDiaSeguinte };
+module.exports = { ehOrgInterna, repararAutores, estadoReparo, prepararTabelas, lerConfig, lerConfigEmCache, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, orgsDoEscopo, lerStatus, primeiroDiaSeguinte };

@@ -146,7 +146,7 @@ router.get('/extrato/resumo', async (req, res) => {
   try {
     const rows = (await db.query(`SELECT organizacao_id, organizacao_nome, tipo, horas::float AS horas, criado_em, validade FROM public.sla_credito ORDER BY criado_em`)).rows;
     const por = new Map(), sc = await escopoClientes(req);
-    for (const l of rows) { if (!orgVisivel(sc, l.organizacao_id)) continue; if (!por.has(l.organizacao_id)) por.set(l.organizacao_id, { organizacao_id: l.organizacao_id, nome: l.organizacao_nome, l: [] }); por.get(l.organizacao_id).l.push(l); }
+    for (const l of rows) { if (core.ehOrgInterna(l.organizacao_nome) || !orgVisivel(sc, l.organizacao_id)) continue; if (!por.has(l.organizacao_id)) por.set(l.organizacao_id, { organizacao_id: l.organizacao_id, nome: l.organizacao_nome, l: [] }); por.get(l.organizacao_id).l.push(l); }
     res.json({ clientes: [...por.values()].map((g) => ({ organizacao_id: g.organizacao_id, nome: g.nome, ...P.saldoExtrato(g.l) })).sort((a, b) => b.disponivel - a.disponivel) });
   } catch (e) { erro(res, e); }
 });
