@@ -844,7 +844,7 @@ document.addEventListener('click',e=>{
   const rs=e.target.closest('[data-resp]'); if(rs) abrirModal({pessoa:rs.dataset.resp});
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') fecharModal();
+  if(e.key==='Escape'||[10009,461].includes(e.keyCode)) fecharModal();
   else if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-card]')){ e.preventDefault(); abrirModal(e.target.dataset.card); }
 });
 document.querySelectorAll('[data-card]').forEach(el=>{ el.setAttribute('role','button'); el.setAttribute('tabindex','0'); });
@@ -1028,19 +1028,40 @@ function agendarCarrossel(){
   CARR.timer=setTimeout(tick,duracaoSlide(sl));
 }
 function alternarPausa(){ CARR.pausado=!CARR.pausado; atualizarBolhas(); if(!CARR.pausado){ clearTimeout(CARR.timer); CARR.timer=setTimeout(()=>irPara(CARR.atual+1,true),CARR.seg*1000); } }   // pausado: timer e rolagem esperam; ao retomar, o quadro fica mais CARR.seg
-// Teclas do controle da TV (os navegadores de Smart TV mandam setas; alguns também Canal +/−, mídia e OK=Enter).
-document.addEventListener('keydown',e=>{
-  if(document.getElementById('tv-modal').style.display==='flex') return;          // lista aberta: teclas são dela
+// Teclas do controle da TV. Cada marca manda um jeito: setas como e.key ('ArrowRight') OU só como código (39), "OK" como
+// Enter/13, Canal +/−, mídia (play/pause/avançar/voltar) e a tecla Voltar (Tizen 10009, webOS 461, Android TV 4/GoBack).
+// O código numérico é lido de keyCode/which (e.key pode vir 'Unidentified'). Alguns navegadores de TV só entregam keyup:
+// se nenhum keydown chegou, o keyup passa a valer. ?teclas=1 mostra no canto da tela a última tecla recebida (diagnóstico).
+const TECLAS_TV={
+  proximo:{keys:['ArrowRight','ArrowDown','PageDown','ChannelDown','MediaTrackNext','MediaFastForward','GoToNext'],codes:[39,40,34,428,176,417,418,423]},
+  anterior:{keys:['ArrowLeft','ArrowUp','PageUp','ChannelUp','MediaTrackPrevious','MediaRewind','GoToPrevious'],codes:[37,38,33,427,177,412,419,424]},
+  pausa:{keys:['MediaPlayPause','MediaPlay','MediaPause','Pause','Play'],codes:[10252,179,415,19,413]},
+  voltar:{keys:['Escape','GoBack','BrowserBack','XF86Back'],codes:[27,10009,461,4,166]},
+};
+const teclaEh=(t,e)=>{ const c=e.keyCode||e.which; return TECLAS_TV[t].keys.includes(e.key)||TECLAS_TV[t].codes.includes(c); };
+const DEBUG_TECLAS=_qs.get('teclas')==='1';
+let _vistoKeydown=false, _dbgEl=null;
+function mostrarTecla(tipo,e){
+  if(!DEBUG_TECLAS) return;
+  if(!_dbgEl){ _dbgEl=document.createElement('div'); _dbgEl.style.cssText='position:fixed;right:12px;bottom:12px;z-index:99999;background:#000c;color:#fff;font:600 16px/1.4 monospace;padding:10px 14px;border-radius:10px;pointer-events:none'; document.body.appendChild(_dbgEl); }
+  _dbgEl.textContent=`${tipo}  key=${e.key}  code=${e.code||'-'}  keyCode=${e.keyCode||e.which||'-'}`;
+}
+function tratarTeclaTV(e){
+  const modalAberto=document.getElementById('tv-modal').style.display==='flex';
+  if(teclaEh('voltar',e)&&modalAberto){ e.preventDefault(); fecharModal(); return; }   // Voltar fecha a lista aberta
+  if(modalAberto) return;                                                              // lista aberta: teclas são dela
   if(e.target.matches?.('input,select,textarea')) return;
-  const k=e.key, c=e.keyCode;
-  const proximo=['ArrowRight','ArrowDown','PageDown','ChannelDown','MediaTrackNext','MediaFastForward'].includes(k)||[34,428,176,417].includes(c);
-  const anterior=['ArrowLeft','ArrowUp','PageUp','ChannelUp','MediaTrackPrevious','MediaRewind'].includes(k)||[33,427,177,412].includes(c);
-  const pausa=['MediaPlayPause','MediaPlay','MediaPause'].includes(k)||[10252,179,415,19].includes(c)
-    ||((k==='Enter'||c===13)&&!e.target.matches?.('[data-card],[data-resp],button,a,select'));
-  if(proximo){ e.preventDefault(); irPara(CARR.atual+1,true); }
-  else if(anterior){ e.preventDefault(); irPara(CARR.atual-1,true); }
+  const c=e.keyCode||e.which;
+  const pausa=teclaEh('pausa',e)||((e.key==='Enter'||c===13)&&!e.target.matches?.('[data-card],[data-resp],button,a,select'));
+  if(teclaEh('proximo',e)){ e.preventDefault(); irPara(CARR.atual+1,true); }
+  else if(teclaEh('anterior',e)){ e.preventDefault(); irPara(CARR.atual-1,true); }
   else if(pausa){ e.preventDefault(); alternarPausa(); }
-},true);
+}
+document.addEventListener('keydown',e=>{ _vistoKeydown=true; mostrarTecla('keydown',e); tratarTeclaTV(e); },true);
+document.addEventListener('keyup',e=>{ mostrarTecla('keyup',e); if(!_vistoKeydown) tratarTeclaTV(e); },true);
+// Garante que a página tem o foco do teclado/controle (sem isso a TV não entrega as teclas à página)
+function tomarFoco(){ try{ window.focus(); if(!document.activeElement||document.activeElement===document.body){ document.body.setAttribute('tabindex','-1'); document.body.focus({preventScroll:true}); } }catch(_){} }
+tomarFoco(); window.addEventListener('load',tomarFoco); document.addEventListener('click',tomarFoco);
 // Visão TV: aberto sem login (link da TV), ou com ?vertical= / ?tv=1 na URL. ?tv=0 força a tela completa com filtros.
 const MODO_TV=_qs.get('tv')==='0'?false:(_qs.get('tv')==='1'||_qs.has('vertical')||!!CHAVE_TV||!tok());
 if(MODO_TV) document.body.classList.add('modo-tv');
