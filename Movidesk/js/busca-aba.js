@@ -22,6 +22,10 @@
     var txt = String(ev.data.texto || '');
     var el = campo();
     if (el) {
+      // Campo dentro da listagem em janela (Geral, GCC, Ouvidoria, Satisfação): abre a listagem para a busca aparecer.
+      if (txt && el.offsetParent === null && typeof window.openChamadoListagemModal === 'function') {
+        try { window.openChamadoListagemModal(); } catch (_) {}
+      }
       el.value = txt;
       el.dispatchEvent(new Event('input', { bubbles: true }));
       try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (txt) el.focus({ preventScroll: true }); } catch (_) {}
