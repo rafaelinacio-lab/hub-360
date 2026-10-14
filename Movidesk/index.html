@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="css/dashboard-v3.css">
     <link rel="stylesheet" href="css/modload.css">
     <script src="js/ui-version.js"></script>
+<script src="js/aparencia.js"></script>
     <script src="js/ordenar-tabelas.js" defer></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <script>
@@ -219,6 +220,9 @@
                     </button>
                     <button class="cfg-tab-btn" data-tab="email" onclick="switchConfigTab('email')">
                         <span class="material-symbols-outlined">mail</span> E-mail (SMTP)
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="aparencia" onclick="switchConfigTab('aparencia')">
+                        <span class="material-symbols-outlined">palette</span> Aparência
                     </button>
                     <button class="cfg-tab-btn" data-tab="reincfeedback" onclick="switchConfigTab('reincfeedback')">
                         <span class="material-symbols-outlined">fact_check</span> Feedback das reincidências
@@ -779,6 +783,20 @@
                     </div>
                 </div>
 
+                <!-- ABA: Aparência (só admin) -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-aparencia">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Aparência do sistema</h3>
+                        <p class="config-card-help">Muda o visual do Hub inteiro sem mexer em código: cor de destaque, fonte, cantos, tamanho da interface e a ordem das abas do menu. Cada mudança aparece na hora nesta tela como pré-visualização; só vale para todo mundo depois de <b>Salvar</b>.</p>
+                        <div id="apForm"></div>
+                        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+                            <button id="apSalvar" class="config-btn" type="button" onclick="apSalvar()">Salvar</button>
+                            <button class="config-btn config-btn-muted" type="button" onclick="apRestaurar()">Restaurar padrão</button>
+                            <button class="config-btn config-btn-muted" type="button" onclick="apCarregar()">Descartar mudanças</button>
+                        </div>
+                        <div id="apStatus" class="config-status" style="margin-top:8px"></div>
+                    </div>
+                </div>
                 <!-- ABA: Feedback das reincidências (só admin) -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-reincfeedback">
                     <div class="config-card">
@@ -1894,6 +1912,7 @@
     <script src="js/pessoas.js"></script>
     <script src="js/emailConfig.js"></script>
     <script src="js/reincFeedback.js"></script>
+    <script src="js/aparenciaConfig.js"></script>
     <script src="js/avisos.js"></script>
     <script src="js/delta.js"></script>
     <script src="js/tokens.js"></script>

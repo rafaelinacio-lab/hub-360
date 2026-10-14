@@ -138,7 +138,8 @@ app.use('/api/avisos', require('./routes/avisos'));
 app.use('/api/extrator', require('./routes/tokens').extrator);   // sem login: só o extrator do Jira, com chave própria
 app.use('/api/tokens', require('./routes/tokens'));
 app.use('/api/sla-horas', require('./routes/slaHoras'));
-app.use('/api/email-config', require('./routes/emailConfig'));   // Configurações → E-mail (SMTP), só admin
+app.use('/api/email-config', require('./routes/emailConfig'));
+app.use('/api/aparencia', require('./routes/aparencia'));   // Configurações → Aparência (GET público, PUT só admin)   // Configurações → E-mail (SMTP), só admin
 app.use('/api/inicio', inicioRoutes);   // tela inicial personalizada (todos os perfis)
 // Para as telas de GCC/Satisfação avisarem qual vertical está em uso
 app.get('/api/escopo-vertical', require('./routes/auth').authMiddleware, async (req, res) => {

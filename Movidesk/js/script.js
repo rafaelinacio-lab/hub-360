@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function abasVisiveis() {
         return [...document.querySelectorAll('.topbar-nav .sidebar-btn[data-view]')]
-            .filter((b) => b.style.display !== 'none')
+            .filter((b) => b.style.display !== 'none' && getComputedStyle(b).display !== 'none')   // inclui abas escondidas em Configurações → Aparência
             .map((b) => ({
                 view: b.dataset.view,
                 nome: (b.querySelector('.sidebar-btn-label') || b).textContent.trim(),
