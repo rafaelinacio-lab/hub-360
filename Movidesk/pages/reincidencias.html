@@ -172,6 +172,11 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 .gv-fb textarea{width:100%;min-height:62px;resize:vertical;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--t1);padding:7px 9px;font:13px/1.4 inherit;font-family:inherit}
 .gv-fb .acoes{display:flex;align-items:center;gap:10px}
 .gv-fb .st{font-size:11.5px;color:var(--t2)} .gv-fb .st.erro{color:var(--bad)}
+/* Selo da própria marcação, no alto do cartão (visível sem rolar até os botões) */
+.gv-marca{grid-column:1/-1;display:inline-flex;align-items:center;gap:6px;justify-self:start;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;margin-bottom:2px}
+.gv-marca.sim{background:rgba(22,163,74,.14);color:#15803d} .gv-marca.nao{background:var(--bad-bg);color:var(--bad)}
+.gv-marca small{font-weight:500;opacity:.85;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gv-item.marcado-sim{border-left:3px solid #16a34a} .gv-item.marcado-nao{border-left:3px solid var(--bad)}
 .gv-ferr input{flex:1}
 
 /* Gaveta de chamados sem rolagem horizontal */
@@ -205,7 +210,7 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
   </div>
   <div class="gv-fundo" id="gvFundo"></div>
   <div id="tip" role="tooltip"></div>
-  <aside class="gv" id="gv" aria-hidden="true" role="dialog" aria-label="Chamados"><div class="gv-topo"><div style="min-width:0"><h2 id="gvTitulo"></h2><div class="sub" id="gvSub"></div></div><button class="x" id="gvFechar" type="button" aria-label="Fechar">&times;</button></div><div class="gv-ferr"><input type="search" id="gvBusca" placeholder="Buscar no painel…" aria-label="Buscar nos chamados"><select id="gvOrdem" aria-label="Ordenar"><option value="rec">Mais recentes</option><option value="dias">Menos dias até voltar</option><option value="cli">Cliente (A–Z)</option></select></div><div class="gv-corpo" id="gvCorpo"></div></aside>
+  <aside class="gv" id="gv" aria-hidden="true" role="dialog" aria-label="Chamados"><div class="gv-topo"><div style="min-width:0"><h2 id="gvTitulo"></h2><div class="sub" id="gvSub"></div></div><button class="x" id="gvFechar" type="button" aria-label="Fechar">&times;</button></div><div class="gv-ferr"><input type="search" id="gvBusca" placeholder="Buscar no painel…" aria-label="Buscar nos chamados"><select id="gvOrdem" aria-label="Ordenar"><option value="rec">Mais recentes</option><option value="dias">Menos dias até voltar</option><option value="cli">Cliente (A–Z)</option></select><select id="gvMarca" aria-label="Filtrar por marcação"><option value="">Todos os chamados</option><option value="meus">Marcados por mim</option><option value="sem">Reincidências sem marcação minha</option></select></div><div class="gv-corpo" id="gvCorpo"></div></aside>
 </div>
 <script>
 const API=`${location.origin}/api/reincidencias`;
@@ -378,6 +383,11 @@ function gvFeedback(c){
     <div class="caixa"${nao?'':' hidden'}><textarea maxlength="1500" placeholder="Por que não procede? (ex.: são problemas diferentes, o cliente só pediu outra coisa, o chamado anterior não tem relação…)" aria-label="Por que não procede">${esc(c.fb_comentario||'')}</textarea>
       <div class="acoes"><button type="button" data-fb="salvar">Salvar</button><span class="st" role="status"></span></div></div></div>`;
 }
+function gvMarca(c){
+  if(c.fb_procede!==true&&c.fb_procede!==false) return '';
+  const sim=c.fb_procede===true;
+  return `<span class="gv-marca ${sim?'sim':'nao'}" title="${esc(c.fb_comentario||'')}">${sim?'👍 Você marcou: Procede':'👎 Você marcou: Não procede'}${!sim&&c.fb_comentario?` <small>— ${esc(c.fb_comentario)}</small>`:''}</span>`;
+}
 function gvItem(c){
   const modulo=c.modulo&&c.modulo!==c.motivo?` · módulo/rotina: ${esc(c.modulo)}`:'';
   const par=c.reincidente&&c.anterior?`<div class="gv-par"><div class="tkt"><b>${link(c.ticket_id)} · ${br(String(c.criado_em).slice(0,10))}</b><span title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span></div>
@@ -385,16 +395,22 @@ function gvItem(c){
       <div class="tkt"><b>${link(c.anterior)} · ${br(String(c.anterior_fim).slice(0,10))}</b><span title="${esc(c.anterior_assunto||'')}">${esc(c.anterior_assunto||'(sem assunto)')}</span></div></div>
       <span class="sub gv-pq"><b>Por que é reincidente${c.confianca?` (confiança ${esc(c.confianca)})`:''}:</b> ${esc(c.explicacao||'o contexto e as ações indicam o mesmo problema')}</span>${gvFeedback(c)}`:'';
   const topo=par?'':`${link(c.ticket_id)}<span class="sub" style="grid-column:auto">${br(String(c.criado_em).slice(0,10))}</span><span class="as" title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span>`;
-  return `<div class="gv-item">${topo}<span class="sub" style="grid-column:1/-1">${esc(c.cliente||'cliente não identificado')} · <b>${esc(c.motivo||'Sem motivo identificado')}</b>${modulo} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}</span>${par}</div>`;
+  const marc=c.fb_procede===true?' marcado-sim':c.fb_procede===false?' marcado-nao':'';
+  return `<div class="gv-item${marc}">${gvMarca(c)}${topo}<span class="sub" style="grid-column:1/-1">${esc(c.cliente||'cliente não identificado')} · <b>${esc(c.motivo||'Sem motivo identificado')}</b>${modulo} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}</span>${par}</div>`;
 }
 function gvListar(){
   if(!gvAtual||!gvAtual.lista) return;
   const q=$('gvBusca').value.trim().toLowerCase(), o=$('gvOrdem').value;
+  const mf=$('gvMarca').value;
   let l=gvAtual.lista.filter(c=>!q||[c.ticket_id,c.assunto,c.cliente,c.motivo,c.equipe].join(' ').toLowerCase().includes(q));
+  if(mf==='meus') l=l.filter(c=>c.fb_procede===true||c.fb_procede===false);
+  else if(mf==='sem') l=l.filter(c=>c.reincidente&&c.fb_procede!==true&&c.fb_procede!==false);
   if(o==='dias') l=[...l].sort((a,b)=>(a.dias_entre??1e9)-(b.dias_entre??1e9));
   else if(o==='cli') l=[...l].sort((a,b)=>String(a.cliente||'').localeCompare(String(b.cliente||''),'pt-BR'));
   $('gvCorpo').innerHTML=l.length?l.map(gvItem).join(''):'<div class="vazio"><span class="material-symbols-outlined" aria-hidden="true">search_off</span>Nenhum chamado para este item nos filtros atuais.</div>';
 }
+// Refaz o cartão inteiro (selo no alto, faixa lateral e bloco de botões) depois de marcar/desfazer
+function gvRefazer(box,c){ const it=box.closest('.gv-item'); if(it) it.outerHTML=gvItem(c); }
 $('gvCorpo').addEventListener('click',async e=>{
   const b=e.target.closest('[data-fb]'); if(!b) return;
   const box=b.closest('.gv-fb'); if(!box) return;
@@ -404,19 +420,19 @@ $('gvCorpo').addEventListener('click',async e=>{
   const k=b.dataset.fb;
   try{
     if(k==='nao'){ caixa.hidden=false; ta.focus(); box.querySelectorAll('button[data-fb=sim],button[data-fb=nao]').forEach(x=>x.classList.toggle('on',x.dataset.fb==='nao')); return; }
-    if(k==='sim'){ msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:true,comentario:''}}); c.fb_procede=true; c.fb_comentario=''; box.outerHTML=gvFeedback(c); return; }
+    if(k==='sim'){ msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:true,comentario:''}}); c.fb_procede=true; c.fb_comentario=''; gvRefazer(box,c); return; }
     if(k==='salvar'){
       const t=ta.value.trim(); if(t.length<5){ msg('Conte por que não procede (pelo menos algumas palavras).',true); ta.focus(); return; }
-      msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:false,comentario:t}}); c.fb_procede=false; c.fb_comentario=t; box.outerHTML=gvFeedback(c);
+      msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:false,comentario:t}}); c.fb_procede=false; c.fb_comentario=t; gvRefazer(box,c);
       const novo=$('gvCorpo').querySelector(`.gv-fb[data-t="${CSS.escape(id)}"] .st`); if(novo) novo.textContent='Salvo. Obrigado — isso ajuda a melhorar a análise.'; return;
     }
-    if(k==='desfazer'){ msg('Removendo…'); await api('/feedback/'+encodeURIComponent(id),{method:'DELETE'}); delete c.fb_procede; delete c.fb_comentario; box.outerHTML=gvFeedback(c); }
+    if(k==='desfazer'){ msg('Removendo…'); await api('/feedback/'+encodeURIComponent(id),{method:'DELETE'}); delete c.fb_procede; delete c.fb_comentario; gvRefazer(box,c); }
   }catch(err){ msg(err.message||'Não foi possível salvar',true); }
 });
-$('gvBusca').addEventListener('input',gvListar); $('gvOrdem').addEventListener('change',gvListar);
+$('gvBusca').addEventListener('input',gvListar); $('gvOrdem').addEventListener('change',gvListar); $('gvMarca').addEventListener('change',gvListar);
 async function gvAbrir(tipo,valor,titulo){
   titulo=String(titulo==null?'':titulo).replace(/<span[^>]*>.*?<\/span>/gi,'').replace(/<[^>]+>/g,'').trim();   // o rótulo do KPI vem com o ícone em HTML: só o texto vai no título
-  gvAtual={tipo,valor,titulo}; gvOrigem=document.activeElement; $('gvBusca').value=''; $('gvOrdem').value='rec';
+  gvAtual={tipo,valor,titulo}; gvOrigem=document.activeElement; $('gvBusca').value=''; $('gvOrdem').value='rec'; $('gvMarca').value='';
   $('gvTitulo').textContent=`${TIPO_ROTULO[tipo]||''}: ${titulo}`; $('gvSub').textContent='Carregando…';
   $('gvCorpo').innerHTML='<div class="carregando"><span class="spin"></span>Buscando os chamados…</div>';
   $('gvFundo').classList.add('aberto'); $('gv').classList.add('aberta'); $('gv').setAttribute('aria-hidden','false'); $('gvFechar').focus();
@@ -425,7 +441,8 @@ async function gvAbrir(tipo,valor,titulo){
     const r=await api('/geral/chamados?'+q);
     if(!gvAtual||gvAtual.valor!==valor||gvAtual.tipo!==tipo) return;
     const extra=(tipo==='cliente'||tipo==='equipe')?` <button class="btn peq" id="gvFiltrar" type="button">Filtrar a visão por este</button>`:'';
-    $('gvSub').innerHTML=`${nf(r.total)} chamado(s)${r.truncado?' (mostrando os 500 mais recentes)':''} · voltou em até ${f.dias} dias${extra}`;
+    const nMarc=(r.chamados||[]).filter(c=>c.fb_procede===true||c.fb_procede===false).length;
+    $('gvSub').innerHTML=`${nf(r.total)} chamado(s)${r.truncado?' (mostrando os 500 mais recentes)':''} · voltou em até ${f.dias} dias${nMarc?` · <b>${nf(nMarc)} marcado(s) por você</b>`:''}${extra}`;
     gvAtual.lista=r.chamados; gvListar();
     const bf=$('gvFiltrar'); if(bf) bf.addEventListener('click',()=>{ if(tipo==='cliente') $('gCliente').value=valor; else $('gEquipe').value=valor; gvFechar(); gAplicar(); });
   }catch(e){ $('gvCorpo').innerHTML=`<div class="aviso erro">${esc(e.message)}</div>`; $('gvSub').textContent=''; }
