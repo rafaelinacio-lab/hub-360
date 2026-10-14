@@ -835,7 +835,17 @@ body.modal-open{overflow:hidden}
 
     <div class="hrow c-1" id="slaEquipe-linha" style="display:none">   <!-- só admin e diretoria (applyRolePermissions) -->
       <div class="chart-panel">
-        <p class="chart-title">SLA por equipe</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <p class="chart-title" style="margin:0">SLA por equipe</p>
+          <!-- filtro só deste card (não mexe no resto do painel): escolhe uma ou mais equipes -->
+          <div class="multi-sel" id="f-slaeq">
+            <button class="ms-btn" type="button" onclick="toggleMs(this)">
+              <span class="ms-lbl">Equipe: todas</span>
+              <span class="sym ms-arrow">expand_more</span>
+            </button>
+            <div class="ms-drop" style="left:auto;right:0"></div>
+          </div>
+        </div>
         <p class="chart-sub" style="text-align:left" id="slaEquipe-sub">Chamados resolvidos no mês e ano filtrados · meta 90% · clique numa equipe para ver os chamados</p>
         <div class="slaeq" id="slaEquipe"></div>
       </div>
@@ -3091,14 +3101,21 @@ function openStatusModal(kind){
 }
 
 // ── SLA por equipe: resolvidos do mês/ano filtrados, régua do Hub (elegíveis com tempo líquido já calculado) ─────────
+let _slaEqRows=[];
 function renderSlaEquipe(resolvidosRows){
   const el=document.getElementById('slaEquipe'); if(!el) return;
+  _slaEqRows=resolvidosRows;
   const eleg=resolvidosRows.filter(elegivelSla), comTempo=eleg.filter(temMinutosSla), faltam=eleg.length-comTempo.length;
   if(!comTempo.length){ el.innerHTML=`<p class="bk-vazio">${faltam?'Calculando o tempo de solução líquido…':'Nenhum chamado elegível ao SLA resolvido no período filtrado.'}</p>`; return; }
   const por=new Map();
   comTempo.forEach(r=>{ const k=limpaEquipe(r.equipe); const o=por.get(k)||por.set(k,{k,ok:0,total:0,rows:[]}).get(k); o.total++; if(dentroSla(r)) o.ok++; o.rows.push(r); });
-  const lista=[...por.values()].sort((a,b)=>b.total-a.total);
-  const ok=comTempo.filter(dentroSla).length, tot=comTempo.length;
+  // Filtro próprio do card (f-slaeq): opções = equipes com chamados elegíveis; a escolha é mantida entre redesenhos.
+  populateMs('f-slaeq',[...por.keys()].sort((a,b)=>a.localeCompare(b,'pt')).map(k=>({v:k,l:limpaEquipe(k)})),'Equipe: todas',()=>renderSlaEquipe(_slaEqRows));
+  msBusca('f-slaeq','Buscar equipe…');
+  const sel=new Set(getMsValues('f-slaeq'));
+  const lista=[...por.values()].filter(o=>!sel.size||sel.has(o.k)).sort((a,b)=>b.total-a.total);
+  if(!lista.length){ el.innerHTML='<p class="bk-vazio">Nenhuma das equipes escolhidas tem chamados elegíveis neste período.</p>'; return; }
+  const ok=lista.reduce((a,o)=>a+o.ok,0), tot=lista.reduce((a,o)=>a+o.total,0);
   const f1=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
   const cor=v=>v>=90?cssVar('--green'):cssVar('--orange');
   const linha=(nome,o,cls)=>{ const p=o.total?o.ok/o.total*100:0; return `<button type="button" class="slaeq-row ${cls||''}" ${cls?'':`data-k="${escAttr(o.k)}"`}>
@@ -3106,7 +3123,7 @@ function renderSlaEquipe(resolvidosRows){
       <span class="slaeq-bar"><i style="width:${p.toFixed(1)}%;background:${cor(p)}"></i><em style="left:90%" title="Meta 90%"></em></span>
       <b class="slaeq-pct" style="color:${cor(p)}">${f1(p)}%</b>
       <span class="slaeq-det">${o.ok.toLocaleString('pt-BR')}/${o.total.toLocaleString('pt-BR')} · ${(o.total-o.ok).toLocaleString('pt-BR')} fora</span></button>`; };
-  el.innerHTML=linha('Todas as equipes',{ok,total:tot},'geral')+lista.map(o=>linha(limpaEquipe(o.k),o)).join('')+
+  el.innerHTML=linha(sel.size?(lista.length===1?'Equipe escolhida':`${lista.length} equipes escolhidas`):'Todas as equipes',{ok,total:tot},'geral')+lista.map(o=>linha(limpaEquipe(o.k),o)).join('')+
     (faltam?`<p class="bk-vazio" style="margin-top:6px">${faltam.toLocaleString('pt-BR')} chamado${faltam===1?'':'s'} ainda sendo calculado${faltam===1?'':'s'}…</p>`:'');
   el.querySelectorAll('.slaeq-row[data-k]').forEach(b=>b.addEventListener('click',()=>{
     const o=por.get(b.dataset.k); if(!o) return;
