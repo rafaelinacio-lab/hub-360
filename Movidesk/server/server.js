@@ -246,9 +246,14 @@ movideskLoader.ensureTables().catch(e => {
 // (ver comentário em ensureTables/refreshTicketOrganizacao). Recalcula no boot
 // e a cada 30min pra acompanhar tickets/clientes novos, sem repetir a
 // subquery correlacionada lenta a cada request do Painel Geral/GCC/Ouvidoria.
-movideskLoader.refreshTicketOrganizacao().catch(e => {
-  console.error('[server] refreshTicketOrganizacao na inicialização falhou (não bloqueia o boot):', e.message);
-});
+// Ao subir, o Painel Geral/Início aquecem o cache primeiro; as atualizações pesadas de apoio esperam 3 min (e rodam uma depois da outra),
+// senão tudo disputa o banco ao mesmo tempo e as telas ficam sem dados por vários minutos depois de cada reinício.
+const ATRASO_BOOT_MS = 3 * 60 * 1000;
+setTimeout(() => {
+  movideskLoader.refreshTicketOrganizacao().catch(e => {
+    console.error('[server] refreshTicketOrganizacao na inicialização falhou (não bloqueia o boot):', e.message);
+  }).finally(() => { if (typeof _gccNoBoot === 'function') _gccNoBoot(); });
+}, ATRASO_BOOT_MS).unref();
 setInterval(() => {
   movideskLoader.refreshTicketOrganizacao().catch(() => {});
 }, 30 * 60 * 1000);
@@ -259,11 +264,13 @@ setInterval(() => {
 // A dedução lê o texto das ações de todos os chamados do GCC e leva ~4 min de CPU e disco do banco (medido em 14/10/2026), disputando
 // com o Painel Geral. Por isso roda a cada 3 h (não 30 min) e, ao subir, só se a última rodada tiver mais de 3 h.
 const GCC_VERTICAL_INTERVALO_MS = 3 * 60 * 60 * 1000;
-db.query(`SELECT MAX(atualizado_em) AS ultima FROM silver.gcc_vertical_inferida`)
-  .then((r) => { const u = r.rows[0]?.ultima; return !u || Date.now() - new Date(u).getTime() > GCC_VERTICAL_INTERVALO_MS; })
-  .catch(() => true)
-  .then((precisa) => precisa && movideskLoader.refreshGccVerticalInferida())
-  .catch(e => { console.error('[server] refreshGccVerticalInferida na inicialização falhou (não bloqueia o boot):', e.message); });
+function _gccNoBoot() {
+  db.query(`SELECT MAX(atualizado_em) AS ultima FROM silver.gcc_vertical_inferida`)
+    .then((r) => { const u = r.rows[0]?.ultima; return !u || Date.now() - new Date(u).getTime() > GCC_VERTICAL_INTERVALO_MS; })
+    .catch(() => true)
+    .then((precisa) => precisa && movideskLoader.refreshGccVerticalInferida())
+    .catch(e => { console.error('[server] refreshGccVerticalInferida na inicialização falhou (não bloqueia o boot):', e.message); });
+}
 setInterval(() => {
   movideskLoader.refreshGccVerticalInferida().catch(() => {});
 }, GCC_VERTICAL_INTERVALO_MS);

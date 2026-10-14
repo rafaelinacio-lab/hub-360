@@ -22,12 +22,23 @@ function marcarAlterado() {
   try { require('./leitor').invalidar(); } catch { /* sem processo leitor */ }   // o cache do leitor também precisa ser refeito
 }
 
+// Consultas pesadas do cache: no máximo MAX_SIMULTANEAS ao mesmo tempo. Sem isso, ao subir o servidor (ou com várias verticais abrindo juntas)
+// as consultas paralelas esgotam o /dev/shm de 64 MB do Postgres e cada uma cai na repetição sem paralelismo (~40 s), empilhando tudo.
+const MAX_SIMULTANEAS = Number(process.env.CACHE_CONSULTAS_SIMULTANEAS) || 2;
+let _rodando = 0; const _fila = [];
+async function comLimite(fn) {
+  if (_rodando >= MAX_SIMULTANEAS) await new Promise((ok) => _fila.push(ok));
+  _rodando++;
+  try { return await fn(); }
+  finally { _rodando--; const prox = _fila.shift(); if (prox) prox(); }
+}
+
 function obter(chave, ttlMs, produzir) {
   const e = store.get(chave);
   if (e && e.versao === versao && Date.now() - e.em < ttlMs) return e.promessa;
 
   const promessa = (async () => {
-    const json = Buffer.from(JSON.stringify(await produzir()));
+    const json = Buffer.from(JSON.stringify(await comLimite(produzir)));
     return { json, gz: await gzip(json, { level: 6 }) };
   })();
   const novo = { versao, em: Date.now(), promessa };
