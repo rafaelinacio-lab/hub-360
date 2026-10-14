@@ -477,6 +477,10 @@ input,select{font-family:inherit}
 .stat-card.danger{border-color:var(--orange-bd)}
 .stat-card.success{border-color:var(--green-bd)}
 .stat-card.clickable{cursor:pointer}
+.sla-pend{font-weight:600;white-space:nowrap}
+.sla-pend.bad{color:var(--red,#ef4444)}
+.sla-pend.good{color:var(--green)}
+.sla-pend.warn{color:var(--orange)}
 .stat-card.clickable:hover{border-color:var(--border-hi)}
 .stat-card .label{font-size:12.5px;color:var(--t2);margin:0 0 6px;font-weight:500}
 .stat-card .value{
@@ -1738,6 +1742,7 @@ function render(){
   _slaFaltam=new Set();
   const slaCard=slaHub(resolvidosRows);
   const slaCumprido=slaCard.total?slaCard.ok/slaCard.total:0;
+  _slaBase={ok:slaCard.ok,total:slaCard.total};   // base do SLA do período: usada no impacto de cada pendente (modal de pendentes)
   const vencidosRows=pendentesRows.filter(isVencido);
   const pctVencido=pendentesRows.length?vencidosRows.length/pendentesRows.length:0;
   document.getElementById('k-sla-cumprido').textContent=slaCard.faltam?'…':slaCard.total?fmtPct(slaCumprido):'—';
@@ -3390,20 +3395,38 @@ document.getElementById('info-modal').addEventListener('click',e=>{ if(e.target.
 })();
 
 const DETALHE_MAX=1000;   // linhas desenhadas no modal (o resto fica fora para não travar a tela)
+// SLA de cada pendente (régua do Hub, vindo de /geral/pendentes: sla_hub, sla_meta_h, sla_aberto_min) e o quanto ele mexe no SLA do período:
+// vencido = já conta como fora do prazo (reduz); no prazo/pausado = conta como dentro se for resolvido até a meta (eleva).
+let _slaBase={ok:0,total:0};
+const temSlaPend=rows=>rows.length>0&&rows.every(r=>r.sla_hub!==undefined);
+function slaPendInfo(r){
+  const meta=r.sla_meta_h!=null?Number(r.sla_meta_h):null;
+  if(!r.sla_hub||r.sla_hub==='fora'||meta==null) return {txt:'Fora da régua',cls:'',imp:'—',impCls:'',tip:'Chamado fora da régua de SLA do Hub (não é Suporte Técnico de equipe de suporte, cliente excluído ou urgência sem meta): não entra no SLA.'};
+  const usado=r.sla_aberto_min!=null?Number(r.sla_aberto_min)/60:null, h=v=>fmtH(Math.abs(v));
+  const base=_slaBase, ok=base.ok, t=base.total;
+  let txt,cls,d=null;
+  if(r.sla_hub==='vencido'){ txt=`Vencido${usado!=null?` · estourou há ${h(usado-meta)}`:''} (meta ${meta}h)`; cls='bad'; if(t) d=(ok/(t+1)-ok/t)*100; }
+  else if(r.sla_hub==='pausado'){ txt=`Pausado${usado!=null?` · ${fmtH(usado)} de ${meta}h`:''}`; cls='warn'; if(t) d=((ok+1)/(t+1)-ok/t)*100; }
+  else{ txt=`No prazo${usado!=null?` · faltam ${h(meta-usado)}`:''} (meta ${meta}h)`; cls='good'; if(t) d=((ok+1)/(t+1)-ok/t)*100; }
+  const imp=d==null?'—':`${d>0?'+':d<0?'−':''}${Math.abs(d).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})} p.p.`;
+  return {txt,cls,imp,impCls:d==null?'':d<0?'bad':'good',
+    tip:`SLA do período: ${t?`${(ok/t*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% (${ok}/${t})`:'sem base'}. ${r.sla_hub==='vencido'?'Este chamado já passou da meta: entra como fora do prazo e reduz o SLA.':'Se for resolvido dentro da meta, entra como dentro do prazo e eleva o SLA.'}`};
+}
 function openDetailModal(title,sub,rows,opts){
   opts=opts||{};
   document.getElementById('detail-modal-title').textContent=title;
   document.getElementById('detail-modal-sub').textContent=sub;
+  const slaP=temSlaPend(rows);       // lista de pendentes: colunas de SLA e impacto
   const an=modoAnalytics(rows);      // chamados do Analytics: previsão de solução, início da implantação e valor do orçamento
   document.getElementById('detail-modal-thead').innerHTML=
-    '<th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th>'+(opts.acoes?'<th class="num">Ações</th>':'')+
+    '<th>ID</th><th>Organização</th><th>Assunto</th><th>Equipe</th><th>Status</th>'+(opts.acoes?'<th class="num">Ações</th>':'')+(slaP?'<th>SLA</th><th class="num" title="Quanto este chamado eleva (+) ou reduz (−) o SLA do período">Impacto no SLA</th>':'')+
     (an?'<th>Previsão de solução</th><th>Início da implantação</th><th class="num">Valor do orçamento</th>':'');
   if(an&&rows.some(r=>ehAnalytics(r)&&!(r.ticket_id in _camposAn))){
     garantirCamposAnalytics(rows).then(()=>{ if(document.getElementById('detail-modal').classList.contains('show')) openDetailModal(title,sub,rows,opts); },e=>console.error('[campos analytics]',e.message));
   }
   const tbody=document.getElementById('detail-modal-tbody');
   if(!rows.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="9">Nenhum ticket encontrado.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="11">Nenhum ticket encontrado.</td></tr>`;
   } else {
     const ordenado=rows.slice().sort(opts.ordenar||((a,b)=>new Date(b.criado_em||0)-new Date(a.criado_em||0)));
     const visiveis=ordenado.slice(0,DETALHE_MAX);
@@ -3417,6 +3440,7 @@ function openDetailModal(title,sub,rows,opts){
           <td>${esc(r.equipe||'—')}</td>
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
           ${opts.acoes?`<td class="num">${Number(r.acoes_count||0).toLocaleString('pt-BR')}</td>`:''}
+          ${slaP?(()=>{ const i=slaPendInfo(r); return `<td title="${escAttr(i.tip)}"><span class="sla-pend ${i.cls}">${esc(i.txt)}</span></td><td class="num" title="${escAttr(i.tip)}"><span class="sla-pend ${i.impCls}">${esc(i.imp)}</span></td>`; })():''}
           ${an?`<td class="an-col">${esc(dtStr(r.sla_solucao)||'—')}</td><td class="an-col">${esc(ehAnalytics(r)?(dataCampo(campoAn(r,'implantacao'))||'—'):'—')}</td><td class="num an-col">${esc(ehAnalytics(r)?(fmtOrcamento(campoAn(r,'orcamento'))||'—'):'—')}</td>`:''}
         </tr>`).join('');
   }
