@@ -1063,7 +1063,7 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-1">
       <div class="chart-panel" id="causas-panel">
         <p class="chart-title">Top 10 causas dos chamados</p>
-        <p class="chart-sub" id="causas-sub" style="text-align:left">Causa registrada em cada chamado (campo Causa do Movidesk); onde ele está vazio, vale o diagnóstico da Curadoria. Clique numa causa para ver os tickets.</p>
+        <p class="chart-sub" id="causas-sub" style="text-align:left">Sempre o ano atual. Causa identificada pela Curadoria lendo o chamado como um todo (assunto e todas as ações), não o campo Causa do Movidesk. Clique numa causa para ver os tickets.</p>
         <div id="causas-lista" class="rolagem"></div>
       </div>
     </div>
@@ -2069,8 +2069,10 @@ function render(){
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
   renderTemas(rowsFull);
-  window._rowsFullAtual=rowsFull;
-  renderCausas(rowsFull);
+  // Top 10 causas: sempre o ANO ATUAL (chamados criados neste ano), com os demais filtros mas sem o corte de Ano/Mês do topo
+  const rowsCausasAno=rowsCtx.filter(r=>r.criado_em&&new Date(r.criado_em).getFullYear()===new Date().getFullYear());
+  window._rowsFullAtual=rowsCausasAno;
+  renderCausas(rowsCausasAno);
   renderImpactoSla(rowsResolv);
   renderSlaEquipe(resolvidosRows);
   renderTarefasJira(rowsCtx,pendentesRows);
@@ -2791,13 +2793,13 @@ function abrirTema(tema){
   openDetailModal(`Tema: ${tema}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
 }
 
-// ── Top 10 causas: campo Causa do chamado no Movidesk (preenchido pelos agentes) e, onde falta, o diagnóstico da Curadoria ──
+// ── Top 10 causas (diagnóstico da Curadoria sobre o histórico inteiro do chamado) ──
 let _causasSeq=0, _causasGrupos=[], _causasBase=null;
 async function renderCausas(rows){
   const lista=document.getElementById('causas-lista'), sub=document.getElementById('causas-sub');
   if(!lista) return;
   const seq=++_causasSeq;
-  if(!rows.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; return; }
+  if(!rows.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket do ano atual nos filtros escolhidos.</p>'; return; }
   try{
     if(!_causasBase){
       lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
@@ -2813,9 +2815,9 @@ async function renderCausas(rows){
     for(const [id,i] of _causasBase.itens){ if(!ids.has(id)) continue; comCausa++; (porCausa.get(i)||porCausa.set(i,[]).get(i)).push(id); }
     const n=x=>x.toLocaleString('pt-BR');
     const cob=ids.size?comCausa/ids.size:0;
-    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets do período têm causa registrada (${fmtPct(cob)}) — campo Causa do Movidesk ou diagnóstico da Curadoria. Clique numa causa para ver os tickets.`;
+    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets de ${new Date().getFullYear()} têm causa diagnosticada (${fmtPct(cob)}) — a Curadoria lê o chamado inteiro (assunto e todas as ações); os demais ainda não passaram por ela. Clique numa causa para ver os tickets.`;
     _causasGrupos=[...porCausa.entries()].map(([i,lst])=>({causa:_causasBase.causas[i],qtd:lst.length,ids:lst})).sort((a,b)=>b.qtd-a.qtd).slice(0,10);
-    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do período tem causa registrada (campo Causa do Movidesk) nem diagnóstico da Curadoria.')}</p>`; return; }
+    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do ano atual foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
     const max=_causasGrupos[0].qtd;
     lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
       <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
