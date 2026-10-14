@@ -170,11 +170,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter((a) => !q || semAcento(a.nome).includes(q))
             .map((a) => ({ tipo: 'aba', ...a }));
         if (/^\d{4,}$/.test(q)) {
-            itens.unshift({ tipo: 'chamado', numero: q, nome: `Abrir o chamado #${q} no Movidesk`, icone: '' });
+            itens.unshift({ tipo: 'chamado', numero: q, nome: `Abrir o chamado #${q} no Hub`, icone: '' });
         }
         sel = Math.min(sel, Math.max(0, itens.length - 1));
         el('navPaletaLista').innerHTML = itens.length
-            ? itens.map((i, n) => `<li role="option" data-n="${n}" class="${n === sel ? 'sel' : ''}">${i.icone}<span>${i.nome}</span>${i.tipo === 'chamado' ? '<small>nova aba</small>' : ''}</li>`).join('')
+            ? itens.map((i, n) => `<li role="option" data-n="${n}" class="${n === sel ? 'sel' : ''}">${i.icone}<span>${i.nome}</span>${i.tipo === 'chamado' ? '<small>Central do chamado</small>' : ''}</li>`).join('')
             : '<li style="cursor:default">Nada encontrado</li>';
     }
     function abrir() {
@@ -191,7 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const i = itens[n];
         if (!i) return;
         fechar();
-        if (i.tipo === 'chamado') window.open(`https://viasoft.movidesk.com/Ticket/Edit/${i.numero}`, '_blank', 'noopener');
+        if (i.tipo === 'chamado') {
+            // Abre a Central do chamado aqui no Hub (dados do banco); só cai no Movidesk se a Central não estiver disponível.
+            if (typeof window.openTicketWorkspace === 'function') window.openTicketWorkspace(i.numero);
+            else window.open(`https://viasoft.movidesk.com/Ticket/Edit/${i.numero}`, '_blank', 'noopener');
+        }
         else navigateTo(i.view);
     }
 
