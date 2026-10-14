@@ -487,6 +487,11 @@ input,select{font-family:inherit}
 .visao-btn.on{background:var(--orange);color:#fff}
 .visao-btn:disabled{opacity:.45;cursor:not-allowed}
 .visao-nota{font-size:11px;color:var(--t3)}
+/* KPIs: borda lateral na cor do cartão, número na cor do cartão e, nos totais que vêm de anos anteriores, a linha "↳ N (P%) abertos em anos anteriores" */
+.kpi-grid .stat-card{border-left:4px solid var(--tone)}
+.kpi-grid .stat-card .value:not(.bad):not(.good){color:var(--tone-ink)}
+.kpi-antes{margin:4px 0 0;font-size:11.5px;color:var(--t2);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.kpi-antes:hover{color:var(--tone-ink)}
 /* Na visão Produto somem os painéis que só fazem sentido com a régua de SLA do Hub (Suporte Técnico) */
 body.visao-produto .so-regua-hub{display:none!important}
 #f-class.ms-travado{opacity:.55;pointer-events:none}   /* classificação fixa na visão Suporte Técnico */
@@ -794,7 +799,7 @@ body.modal-open{overflow:hidden}
       <div data-tone="green" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span>Resolvidos</p>
         <div class="kpi-main"><p class="value" id="k-resolvidos">0</p><span class="kpi-spark" id="sp-resolvidos"></span></div>
-        <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p><p class="kpi-antes" id="k-resolvidos-antes" hidden></p></div>
       </div>
       <div data-tone="green" class="stat-card danger sla-hero">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span id="k-sla-rotulo">SLA</span></p>
@@ -813,7 +818,7 @@ body.modal-open{overflow:hidden}
       <div data-tone="red" class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
         <div class="kpi-main"><p class="value bad" id="k-pendentes">0</p><span class="kpi-spark" id="sp-pendentes"></span></div>
-        <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p><p class="kpi-antes" id="k-pendentes-antes" hidden></p></div>
       </div>
       <div data-tone="red" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12"/><path d="M7 2c0 5 10 5 10 10S7 17 7 22"/><path d="M17 2c0 5-10 5-10 10s10 5 10 10"/></svg></span>Aging</p>
@@ -1889,6 +1894,22 @@ function render(){
     const yf=getMsValues('f-year'), mf=getMsValues('f-month');
     const rotuloPeriodo=(yf.length||mf.length)?'Todos em aberto, de qualquer ano (não segue o filtro de Ano/Mês). Clique pra ver.':'Ainda em aberto (todos os anos). Clique pra ver.';
     document.getElementById('k-pendentes-legend').textContent=rotuloPeriodo;
+  }
+  // "Antes": quantos dos totais foram abertos em anos anteriores (pendentes: antes do ano de hoje; resolvidos: antes do ano em que foram resolvidos)
+  {
+    const anoHoje=new Date().getFullYear();
+    const anoDe=d=>d?new Date(d).getFullYear():null;
+    const linhaAntes=(id,arr,ehAntes,titulo)=>{
+      const el=document.getElementById(id); if(!el) return;
+      if(!arr.length){ el.hidden=true; el.onclick=null; return; }
+      const lista=arr.filter(ehAntes), n=lista.length, pc=n/arr.length*100;
+      el.hidden=false;
+      el.innerHTML=`↳ <b>${n.toLocaleString('pt-BR')}</b> (${pc>0&&pc<1?'<1':Math.round(pc)}%) abertos em anos anteriores`;
+      el.title=`Clique para ver os ${n.toLocaleString('pt-BR')} chamados`;
+      el.onclick=ev=>{ ev.stopPropagation(); openDetailModal(titulo,`${n.toLocaleString('pt-BR')} ticket${n===1?'':'s'}`,lista); };
+    };
+    linhaAntes('k-pendentes-antes',pendentesRows,r=>{ const a=anoDe(r.criado_em); return a!=null&&a<anoHoje; },'Pendentes abertos em anos anteriores');
+    linhaAntes('k-resolvidos-antes',resolvidosRows,r=>{ const a=anoDe(r.criado_em), b=anoDe(r.resolvido_em); return a!=null&&b!=null&&a<b; },'Resolvidos no período que foram abertos em anos anteriores');
   }
 
   // ── SLA / backlog ──
