@@ -494,6 +494,22 @@ input,select{font-family:inherit}
 .kpi-antes:hover{color:var(--tone-ink)}
 /* Na visão Produto somem os painéis que só fazem sentido com a régua de SLA do Hub (Suporte Técnico) */
 body.visao-produto .so-regua-hub{display:none!important}
+/* Card "Tarefas do Jira × chamados": só aparece na visão Suporte Técnico */
+body:not(.visao-st) .so-st{display:none!important}
+.jr-topo{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:-4px 0 10px}
+.jr-topo input{flex:1;min-width:200px;max-width:380px;border:1px solid var(--border);border-radius:8px;background:var(--surface-mid,transparent);color:var(--t1);padding:7px 10px;font:inherit;font-size:13px}
+.jr-lin{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 14px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin:0 0 8px;cursor:pointer;background:var(--surface,transparent);transition:border-color .15s,background .15s}
+.jr-lin:hover{border-color:var(--orange);background:var(--orange-bg,rgba(255,138,43,.06))}
+.jr-key{font-weight:800;font-size:13px;color:var(--orange);text-decoration:none;white-space:nowrap}
+.jr-key:hover{text-decoration:underline}
+.jr-mid{min-width:0}
+.jr-res{display:block;font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jr-mid small{display:block;font-size:11.5px;color:var(--t3);margin-top:2px}
+.jr-st{font-weight:700} .jr-st.fim{color:var(--green)} .jr-st.abe{color:var(--orange)}
+.jr-n{text-align:right;line-height:1.15;white-space:nowrap}
+.jr-n b{display:block;font-size:22px;font-weight:800;color:var(--t1)}
+.jr-n small{font-size:11px;color:var(--t3)}
+.jr-mais{margin-top:4px}
 #f-class.ms-travado{opacity:.55;pointer-events:none}   /* classificação fixa na visão Suporte Técnico */
 .slaeq{display:flex;flex-direction:column;gap:2px;margin-top:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .slaeq-row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(120px,2.4fr) 64px minmax(110px,auto);align-items:center;gap:14px;width:100%;padding:8px 8px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -1032,6 +1048,15 @@ body.modal-open{overflow:hidden}
         <div class="rsp-wrap">
           <div id="respChart" class="rsp-lista rolagem"></div>
         </div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel so-st" id="jira-panel">
+        <p class="chart-title">Tarefas do Jira × chamados</p>
+        <p class="chart-sub" id="jira-sub" style="text-align:left;margin:-6px 0 10px">Cada tarefa do Jira e os chamados do Movidesk vinculados a ela. Clique numa tarefa para ver os chamados.</p>
+        <div class="jr-topo"><input type="search" id="jira-busca" placeholder="Buscar por tarefa, resumo, responsável ou projeto…" aria-label="Buscar tarefa do Jira" oninput="jiraBuscar()"><span class="kpi-antes" style="text-decoration:none;cursor:default" id="jira-conta"></span></div>
+        <div id="jira-lista"></div>
       </div>
     </div>
 
@@ -1607,6 +1632,64 @@ let _visao='todos';
 // Visão Suporte Técnico: três regras FIXAS, valem junto com os demais filtros e não dependem do dropdown de Classificação —
 // classificação do ticket = Suporte Técnico, categoria = Suporte Técnico e equipe de suporte (nome com "Suporte" ou a exceção Analytics - B.I.).
 const semAcentoV=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+// ── Card "Tarefas do Jira × chamados" (visão Suporte Técnico) ──
+// Agrupa por tarefa (silver.ticket.jiraissuekey, o campo jiraIssueKey do Movidesk, que chega como tarefa_jira em cada chamado) os chamados da visão
+// atual (mesmos filtros) e mostra, de cada tarefa, o resumo/status/responsável vindos do Jira (GET /geral/tarefas-jira, lidos dos JSON do extrator).
+const JIRA_BASE='https://nimitz.atlassian.net/browse/';
+let _jiraGrupos=[], _jiraInfo={}, _jiraMostrar=15, _jiraBuscando=false;
+function renderTarefasJira(rowsCtx,pendRows){
+  const box=document.getElementById('jira-lista'); if(!box||_visao!=='st') return;
+  const por=new Map(), vistos=new Set();
+  [...rowsCtx,...pendRows].forEach(r=>{
+    if(!r.tarefa_jira||vistos.has(r.ticket_id)) return; vistos.add(r.ticket_id);
+    const k=String(r.tarefa_jira).toUpperCase(); if(!por.has(k)) por.set(k,[]); por.get(k).push(r);
+  });
+  _jiraGrupos=[...por].map(([k,l])=>{ const ab=l.filter(isAberto).length; return {k,l,ab,res:l.length-ab}; })
+    .sort((a,b)=>b.l.length-a.l.length||b.ab-a.ab||a.k.localeCompare(b.k));
+  _jiraTotalChamados=_jiraGrupos.reduce((n,g)=>n+g.l.length,0);
+  jiraDesenhar();
+}
+let _jiraTotalChamados=0;
+function jiraFiltrados(){
+  const q=((document.getElementById('jira-busca')||{}).value||'').trim().toLowerCase();
+  if(!q) return _jiraGrupos;
+  return _jiraGrupos.filter(g=>{ const i=_jiraInfo[g.k]||{}; return [g.k,i.resumo,i.responsavel,i.projeto,i.status].join(' ').toLowerCase().includes(q); });
+}
+function jiraBuscar(){ _jiraMostrar=15; jiraDesenhar(); }
+function jiraDesenhar(){
+  const box=document.getElementById('jira-lista'); if(!box) return;
+  const conta=document.getElementById('jira-conta');
+  if(!_jiraGrupos.length){
+    box.innerHTML='<p class="chart-sub" style="text-align:left;margin:6px 0">Nenhum chamado desta visão tem tarefa do Jira vinculada nos filtros atuais. (As chaves entram por ano pela carga <code>carga-jira-issuekey</code>; anos ainda não carregados aparecem vazios.)</p>';
+    if(conta) conta.textContent=''; return;
+  }
+  const lista=jiraFiltrados(), vis=lista.slice(0,_jiraMostrar);
+  if(conta) conta.textContent=`${_jiraGrupos.length.toLocaleString('pt-BR')} tarefa(s) · ${_jiraTotalChamados.toLocaleString('pt-BR')} chamado(s) vinculado(s)${lista.length!==_jiraGrupos.length?` · mostrando ${lista.length.toLocaleString('pt-BR')} na busca`:''}`;
+  box.innerHTML=vis.map(g=>{
+    const i=_jiraInfo[g.k], fim=i&&i.finalizada;
+    const linha2=i?[i.status&&`<span class="jr-st ${fim?'fim':'abe'}">${esc(i.status)}</span>`,i.projeto&&esc(i.projeto),i.responsavel&&esc(i.responsavel)].filter(Boolean).join(' · '):(_jiraInfo.hasOwnProperty(g.k)?'tarefa não encontrada nos dados do Jira':'carregando dados da tarefa…');
+    return `<div class="jr-lin" data-k="${escAttr(g.k)}" role="button" tabindex="0" title="Ver os ${g.l.length} chamados vinculados">
+      <a class="jr-key" href="${JIRA_BASE}${encodeURIComponent(g.k)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(g.k)}</a>
+      <div class="jr-mid"><span class="jr-res" title="${escAttr((i&&i.resumo)||'')}">${esc((i&&i.resumo)||'—')}</span><small>${linha2}</small></div>
+      <div class="jr-n"><b>${g.l.length.toLocaleString('pt-BR')}</b><small>chamado${g.l.length===1?'':'s'} · ${g.ab} aberto${g.ab===1?'':'s'} · ${g.res} resolvido${g.res===1?'':'s'}</small></div>
+    </div>`;
+  }).join('')+(lista.length>vis.length?`<button type="button" class="btn jr-mais" onclick="_jiraMostrar+=15;jiraDesenhar()">Mostrar mais (${(lista.length-vis.length).toLocaleString('pt-BR')})</button>`:'');
+  // dados das tarefas que ainda não temos (as da página atual), numa chamada só
+  const faltam=vis.map(g=>g.k).filter(k=>!_jiraInfo.hasOwnProperty(k));
+  if(faltam.length&&!_jiraBuscando){
+    _jiraBuscando=true;
+    api('/geral/tarefas-jira?chaves='+encodeURIComponent(faltam.join(',')),30000).then(r=>{ Object.entries(r.tarefas||{}).forEach(([k,v])=>{ _jiraInfo[k]=v; }); }).catch(()=>{ faltam.forEach(k=>{ _jiraInfo[k]=null; }); })
+      .finally(()=>{ _jiraBuscando=false; jiraDesenhar(); });
+  }
+}
+document.addEventListener('click',e=>{
+  const l=e.target.closest&&e.target.closest('#jira-lista .jr-lin'); if(!l||e.target.closest('a')) return;
+  const g=_jiraGrupos.find(x=>x.k===l.dataset.k); if(!g) return;
+  const i=_jiraInfo[g.k]||{};
+  openDetailModal(`Tarefa ${g.k}${i.resumo?` — ${i.resumo}`:''}`,`${g.l.length} chamado${g.l.length===1?'':'s'} vinculado${g.l.length===1?'':'s'} · ${g.ab} aberto${g.ab===1?'':'s'}`,g.l);
+});
+document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('jr-lin')){ e.preventDefault(); e.target.click(); } });
+
 // Visão Produto: equipes do tipo Produto (js/equipesTipo.js: as "Equipe Técnica" + as equipes "depende" quando a classificação não é Suporte Técnico),
 // em qualquer classificação. O prazo vem da previsão de solução do Movidesk; a régua de SLA do Hub não se aplica.
 function visaoLinha(r){
@@ -1627,6 +1710,7 @@ const PAINEIS_REGUA_HUB=['k-pausa','sla-evo-panel','impacto-panel','impacto-cima
 function pintarVisao(){
   const v=visaoAtual();
   document.body.classList.toggle('visao-produto',_visao==='produto');
+  document.body.classList.toggle('visao-st',_visao==='st');
   PAINEIS_REGUA_HUB.forEach(id=>{ const el=document.getElementById(id); const alvo=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(alvo) alvo.classList.add('so-regua-hub'); });
   document.querySelectorAll('#visao-abas .visao-btn').forEach(b=>{ const on=b.dataset.v===v; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
   const nota=document.getElementById('visao-nota');
@@ -1983,6 +2067,7 @@ function render(){
   renderCausas(rowsFull);
   renderImpactoSla(rowsResolv);
   renderSlaEquipe(resolvidosRows);
+  renderTarefasJira(rowsCtx,pendentesRows);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);

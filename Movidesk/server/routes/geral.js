@@ -70,6 +70,7 @@ const LIST_SELECT = `
     t.owner_name                    AS responsavel,
     t.urgency                        AS urgencia,
     t.category                        AS categoria,
+    NULLIF(btrim(t.jiraissuekey), '')  AS tarefa_jira,
     t.service_full                     AS servico,
     t.sla_solution_date                 AS sla_solucao,
     t.last_update                        AS ultima_interacao,
@@ -307,6 +308,19 @@ setTimeout(() => cacheResposta.aquecer('geral:ano', CACHE_PAINEL_MS, async () =>
   const r = await db.query(`${LIST_SELECT} WHERE t.createddate >= date_trunc('year', NOW()) OR t.resolved_in >= date_trunc('year', NOW()) ORDER BY t.createddate DESC`);
   return { rows: r.rows || [], janela: 'ano-vigente' };
 }), 30 * 1000).unref();
+
+// Tarefas do Jira citadas pelos chamados (card "Tarefas do Jira × chamados"): resumo, status, projeto e responsável, lidos dos JSON do
+// extrator (utils/tarefasJira.js). ?chaves=AG-1,CWM-2 (até 500). Quem vê o painel já vê as tarefas na aba Jira; não depende de vertical.
+router.get('/tarefas-jira', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const chaves = [...new Set(String(req.query.chaves || '').split(',').map((k) => k.trim().toUpperCase()).filter((k) => /^[A-Z][A-Z0-9]*-\d+$/.test(k)))].slice(0, 500);
+    const ind = await require('../utils/tarefasJira').indice();
+    res.json({ geradoEm: ind.geradoEm, tarefas: Object.fromEntries(chaves.map((k) => [k, ind.itens.get(k) || null])) });
+  } catch (e) {
+    console.error('[geral] tarefas-jira:', e.message);
+    res.status(500).json({ error: 'Erro ao ler as tarefas do Jira' });
+  }
+});
 
 router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
