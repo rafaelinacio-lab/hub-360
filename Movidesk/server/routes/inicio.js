@@ -328,8 +328,15 @@ function resumoDele(G, ids, agoraMs) {
   const resumo = calc(pend, res);
   resumo.vinculado = pend.length > 0 || res.some((g) => g.resolvidos > 0 || g.baseP > 0 || g.baseM > 0);
   const eqDe = (x) => x.equipe_escopo || x.equipe || '';
-  const nomes = [...new Set([...pend.map(eqDe), ...res.map((g) => g.equipe || '')].filter(Boolean))].sort();
-  if (nomes.length > 1) resumo.porEquipe = nomes.map((n) => ({ equipe: n, ...calc(pend.filter((x) => eqDe(x) === n), res.filter((g) => (g.equipe || '') === n)) }));
+  // Equipes que só diferem por maiúsculas/espaços ("VX - FISCO/TALENT" × "VX - Fisco/Talent") são a mesma: uma seção só, com o nome mais usado
+  const chaveEq = (n) => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const variantes = new Map();   // chave -> Map(nome -> quantidade)
+  [...pend.map(eqDe), ...res.map((g) => g.equipe || '')].filter(Boolean).forEach((n) => {
+    const k = chaveEq(n); if (!variantes.has(k)) variantes.set(k, new Map());
+    variantes.get(k).set(n, (variantes.get(k).get(n) || 0) + 1);
+  });
+  const nomes = [...variantes.entries()].map(([k, v]) => ({ k, nome: [...v.entries()].sort((a, b) => b[1] - a[1])[0][0] })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+  if (nomes.length > 1) resumo.porEquipe = nomes.map(({ k, nome }) => ({ equipe: nome, ...calc(pend.filter((x) => chaveEq(eqDe(x)) === k), res.filter((g) => chaveEq(g.equipe) === k)) }));
   return { pend, resumo };
 }
 
