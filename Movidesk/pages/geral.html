@@ -477,6 +477,15 @@ input,select{font-family:inherit}
 .stat-card.danger{border-color:var(--orange-bd)}
 .stat-card.success{border-color:var(--green-bd)}
 .stat-card.clickable{cursor:pointer}
+/* Visões do Painel Geral (atalho para a classificação): Todos | Suporte Técnico | … */
+.visao-abas{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.visao-abas .visao-rot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.visao-seg{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--bg2,transparent)}
+.visao-btn{border:0;background:transparent;color:var(--t2);font:600 12px/1 inherit;font-family:inherit;padding:7px 14px;border-radius:7px;cursor:pointer;transition:background .15s,color .15s}
+.visao-btn:hover:not(:disabled):not(.on){background:rgba(127,127,127,.12);color:var(--t1,inherit)}
+.visao-btn.on{background:var(--orange);color:#fff}
+.visao-btn:disabled{opacity:.45;cursor:not-allowed}
+.visao-nota{font-size:11px;color:var(--t3)}
 .slaeq{display:flex;flex-direction:column;gap:2px;margin-top:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .slaeq-row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(120px,2.4fr) 64px minmax(110px,auto);align-items:center;gap:14px;width:100%;padding:8px 8px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .slaeq-row:hover{background:var(--surface-low,rgba(148,163,184,.12))}
@@ -689,6 +698,16 @@ body.modal-open{overflow:hidden}
         <span class="sym">download</span>Exportar
       </button>
       </div>
+    </div>
+    <div class="visao-abas" id="visao-abas" role="tablist" aria-label="Visão do painel">
+      <span class="visao-rot">Visão</span>
+      <div class="visao-seg">
+        <button type="button" class="visao-btn" data-v="todos" role="tab" onclick="escolherVisao('todos')">Todos</button>
+        <button type="button" class="visao-btn" data-v="st" role="tab" onclick="escolherVisao('st')" title="Só chamados da classificação Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h por urgência)">Suporte Técnico</button>
+        <button type="button" class="visao-btn" data-v="produto" role="tab" disabled title="Em breve">Produto</button>
+        <button type="button" class="visao-btn" data-v="servicos" role="tab" disabled title="Em breve">Serviços</button>
+      </div>
+      <span class="visao-nota" id="visao-nota"></span>
     </div>
     <div class="topbar-filters">
       <div class="multi-sel" id="f-serv">
@@ -1568,6 +1587,41 @@ function limparFiltros(){
   document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
   render();
 }
+// ── Visões: atalho para a classificação (Todos | Suporte Técnico). Cada visão é só o filtro de Classificação marcado de um jeito;
+// os cards já respeitam esse filtro (a régua de SLA do Hub vale só para Suporte Técnico). Fica salva neste navegador.
+const VISOES={todos:{classes:[]}, st:{classes:['Suporte Técnico']}};
+const VISAO_LS='hub_geral_visao';
+function visaoAtual(){
+  const c=getMsValues('f-class');
+  if(!c.length) return 'todos';
+  if(c.length===1&&c[0]==='Suporte Técnico') return 'st';
+  return 'personalizada';
+}
+function pintarVisao(){
+  const v=visaoAtual();
+  document.querySelectorAll('#visao-abas .visao-btn').forEach(b=>{ const on=b.dataset.v===v; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
+  const nota=document.getElementById('visao-nota');
+  if(nota) nota.textContent=v==='st'?'Só Suporte Técnico · SLA pela régua do Hub (meta 90%)':v==='personalizada'?'Classificação personalizada no filtro':'';
+}
+function escolherVisao(v){
+  const def=VISOES[v]; if(!def) return;
+  document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=def.classes.includes(i.value); });
+  updateMsLabel('f-class','Classificação: todos');
+  try{ localStorage.setItem(VISAO_LS,v); }catch(_){}
+  pintarVisao();
+  render();
+}
+let _visaoAplicada=false;
+function aplicarVisaoSalva(){
+  if(_visaoAplicada) return;
+  _visaoAplicada=true;
+  let v='todos'; try{ v=localStorage.getItem(VISAO_LS)||'todos'; }catch(_){}
+  if(v==='st'&&!getMsValues('f-class').length){
+    document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=VISOES.st.classes.includes(i.value); });
+    updateMsLabel('f-class','Classificação: todos');
+  }
+  pintarVisao();
+}
 function populateMs(id,items,allLabel,onChange){
   const drop=document.querySelector(`#${id} .ms-drop`);
   if(!drop) return;
@@ -1637,6 +1691,7 @@ function buildFilterOptions(){
   renderYearLoadMore(years);
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
   aplicarMesPadrao();
+  aplicarVisaoSalva();
   // Todos os filtros ganham o campo de busca no topo do dropdown.
   FILTROS_MS.forEach(([id,label])=>msBusca(id,`Buscar ${label.toLowerCase()}…`));
 }
@@ -1770,6 +1825,7 @@ function getPendentesGlobalRows(){
 
 // ── render ───────────────────────────────────────────────────────────
 function render(){
+  pintarVisao();
   if(!_rows.length && document.getElementById('geral-dash').dataset.err) return;
   // Tempo de SLA líquido que já vem calculado do servidor (silver.ticket_sla_liquido): entra no cache e o card de SLA
   // abre junto com os outros. Quem vier sem (ex.: histórico antigo) cai no cálculo sob demanda de antes.
