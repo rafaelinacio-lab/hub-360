@@ -2261,20 +2261,24 @@ function impBarra(h,meta,maxH){
 }
 function renderImpactoTickets(){
   const corpo=document.getElementById('impacto-corpo'), kpis=document.getElementById('impacto-kpis'); if(!corpo||!kpis) return;
-  const todos=_impItens, n=todos.length;
   impChips('impacto-chips',[['','Todas as urgências'],...Object.keys(IMP_COR_URG).map(u=>[u,u])],_impUrg,v=>{ _impUrg=v; renderImpactoTickets(); });
-  const comMeta=todos.filter(x=>metaDe(x.r)!=null);
+  // A urgência escolhida vale para tudo (cards e listas): média, impacto de cada ticket, mediana e "10× a meta" são refeitos só com os
+  // tickets dessa urgência. Sem urgência escolhida é o conjunto inteiro do período (mesmos números de antes).
+  const base=_impUrg?_impItens.filter(x=>x.r.urgencia===_impUrg):_impItens, n=base.length;
+  const somaV=base.reduce((a,x)=>a+x.h,0), mediaV=n?somaV/n:0;
+  const vis=base.map(x=>({r:x.r,h:x.h,imp:n>1?mediaV-(somaV-x.h)/(n-1):0}));
+  const comMeta=vis.filter(x=>metaDe(x.r)!=null);
   const dentro=comMeta.filter(x=>x.h<=metaDe(x.r)).length;
-  const pos=todos.filter(x=>x.imp>0).sort((a,b)=>b.imp-a.imp);
+  const pos=vis.filter(x=>x.imp>0).sort((a,b)=>b.imp-a.imp);
   const somaPos=pos.reduce((a,x)=>a+x.imp,0), top10=pos.slice(0,10).reduce((a,x)=>a+x.imp,0);
   const dezX=comMeta.filter(x=>x.h>=10*metaDe(x.r)).length;
+  const rotUrg=_impUrg?` · urgência ${_impUrg}`:'';
   const card=(t,v,sub)=>`<div class="imp-k"><small>${t}</small><b>${v}</b><span>${sub}</span></div>`;
   kpis.innerHTML=
-    card('MÉDIA DO PERÍODO',fmtH(_impMedia),`${n.toLocaleString('pt-BR')} tickets resolvidos`)+
+    card('MÉDIA DO PERÍODO',n?fmtH(mediaV):'—',`${n.toLocaleString('pt-BR')} tickets resolvidos${rotUrg}`)+
     card('OS 10 MAIORES PESAM',somaPos?fmtPct(top10/somaPos):'—','do desvio para cima')+
-    card('MEDIANA',fmtH(mediana(todos.map(x=>x.h))),'metade dos tickets abaixo disso')+
+    card('MEDIANA',n?fmtH(mediana(vis.map(x=>x.h))):'—','metade dos tickets abaixo disso')+
     card('PASSARAM 10× A META',dezX.toLocaleString('pt-BR'),comMeta.length?`${fmtPct(dezX/comMeta.length)} · dentro da meta: ${fmtPct(dentro/comMeta.length)}`:'sem urgência com meta');
-  const vis=_impUrg?todos.filter(x=>x.r.urgencia===_impUrg):todos;
   const maxH=Math.max(10,...vis.map(x=>x.h));
   const linha=x=>{
     const meta=metaDe(x.r), cor=IMP_COR_URG[x.r.urgencia]||'#a6adbf';
