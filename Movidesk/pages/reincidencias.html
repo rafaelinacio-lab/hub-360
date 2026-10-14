@@ -380,7 +380,7 @@ function gvFeedback(c){
     <button type="button" class="sim${sim?' on':''}" data-fb="sim" aria-pressed="${sim}">👍 Procede</button>
     <button type="button" class="nao${nao?' on':''}" data-fb="nao" aria-pressed="${nao}">👎 Não procede</button>
     ${marcado?'<button type="button" class="desfazer" data-fb="desfazer" title="Remove a sua marcação">desfazer</button>':''}
-    <div class="caixa"${nao?'':' hidden'}><textarea maxlength="1500" placeholder="Por que não procede? (ex.: são problemas diferentes, o cliente só pediu outra coisa, o chamado anterior não tem relação…)" aria-label="Por que não procede">${esc(c.fb_comentario||'')}</textarea>
+    <div class="caixa"${nao||(sim&&c.fb_comentario)?'':' hidden'}><textarea maxlength="1500" placeholder="${nao?'Por que não procede? (ex.: são problemas diferentes, o cliente só pediu outra coisa, o chamado anterior não tem relação…)':'Comentário (opcional)'}" aria-label="Comentário sobre a reincidência">${esc(c.fb_comentario||'')}</textarea>
       <div class="acoes"><button type="button" data-fb="salvar">Salvar</button><span class="st" role="status"></span></div></div></div>`;
 }
 function gvMarca(c){
@@ -420,10 +420,14 @@ $('gvCorpo').addEventListener('click',async e=>{
   const k=b.dataset.fb;
   try{
     if(k==='nao'){ caixa.hidden=false; ta.focus(); box.querySelectorAll('button[data-fb=sim],button[data-fb=nao]').forEach(x=>x.classList.toggle('on',x.dataset.fb==='nao')); return; }
-    if(k==='sim'){ msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:true,comentario:''}}); c.fb_procede=true; c.fb_comentario=''; gvRefazer(box,c); return; }
+    // "Procede" grava na hora e MANTÉM o que a pessoa já digitou (o comentário é opcional aqui; antes ele era apagado)
+    if(k==='sim'){ const t=ta.value.trim(); msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:true,comentario:t}}); c.fb_procede=true; c.fb_comentario=t; gvRefazer(box,c); return; }
     if(k==='salvar'){
-      const t=ta.value.trim(); if(t.length<5){ msg('Conte por que não procede (pelo menos algumas palavras).',true); ta.focus(); return; }
-      msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:false,comentario:t}}); c.fb_procede=false; c.fb_comentario=t; gvRefazer(box,c);
+      // vale a escolha que está marcada (Procede ou Não procede); "não procede" exige o motivo, "procede" aceita comentário opcional
+      const naoSel=!!box.querySelector('button.nao.on'), simSel=!!box.querySelector('button.sim.on');
+      if(!naoSel&&!simSel){ msg('Escolha antes: Procede ou Não procede.',true); return; }
+      const t=ta.value.trim(); if(naoSel&&t.length<5){ msg('Conte por que não procede (pelo menos algumas palavras).',true); ta.focus(); return; }
+      msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:!naoSel,comentario:t}}); c.fb_procede=!naoSel; c.fb_comentario=t; gvRefazer(box,c);
       const novo=$('gvCorpo').querySelector(`.gv-fb[data-t="${CSS.escape(id)}"] .st`); if(novo) novo.textContent='Salvo. Obrigado — isso ajuda a melhorar a análise.'; return;
     }
     if(k==='desfazer'){ msg('Removendo…'); await api('/feedback/'+encodeURIComponent(id),{method:'DELETE'}); delete c.fb_procede; delete c.fb_comentario; gvRefazer(box,c); }
