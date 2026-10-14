@@ -1899,17 +1899,20 @@ function render(){
   {
     const anoHoje=new Date().getFullYear();
     const anoDe=d=>d?new Date(d).getFullYear():null;
-    const linhaAntes=(id,arr,ehAntes,titulo,explica)=>{
+    const linhaAntes=(id,arr,ehAntes,titulo,explica,sufixo)=>{
       const el=document.getElementById(id); if(!el) return;
       if(!arr.length){ el.hidden=true; el.onclick=null; return; }
       const lista=arr.filter(ehAntes), n=lista.length, pc=n/arr.length*100;
       el.hidden=false;
-      el.innerHTML=`↳ <b>${n.toLocaleString('pt-BR')}</b> (${pc>0&&pc<1?'<1':Math.round(pc)}%) abertos em anos anteriores`;
+      el.innerHTML=`↳ <b>${n.toLocaleString('pt-BR')}</b> (${pc>0&&pc<1?'<1':Math.round(pc)}%) abertos em anos anteriores${sufixo?` <span style="opacity:.8">· ${sufixo}</span>`:''}`;
       el.title=`${explica} Clique para ver os ${n.toLocaleString('pt-BR')} chamados.`;
       el.onclick=ev=>{ ev.stopPropagation(); openDetailModal(titulo,`${n.toLocaleString('pt-BR')} ticket${n===1?'':'s'}`,lista); };
     };
     linhaAntes('k-pendentes-antes',pendentesRows,r=>{ const a=anoDe(r.criado_em); return a!=null&&a<anoHoje; },'Pendentes abertos em anos anteriores','Pendentes de hoje que foram abertos antes do ano atual.');
-    linhaAntes('k-resolvidos-antes',resolvidosRows,r=>{ const a=anoDe(r.criado_em), b=anoDe(r.resolvido_em); return a!=null&&b!=null&&a<b; },'Resolvidos no período que foram abertos em anos anteriores','Chamados abertos em anos passados e resolvidos no período (ano/mês filtrados), dentro dos filtros e da visão ativos.');
+    // Resolvidos: conta o ANO inteiro (o do filtro de Ano, ou o atual), sem o corte do Mês — "resolvidos este ano que foram abertos em anos anteriores"
+    const anosRes=getMsValues('f-year').map(Number).filter(Boolean), alvo=anosRes.length?anosRes:[anoHoje];
+    const resAno=rowsCtx.filter(r=>isResolvido(r)&&r.resolvido_em&&alvo.includes(anoDe(r.resolvido_em)));
+    linhaAntes('k-resolvidos-antes',resAno,r=>{ const a=anoDe(r.criado_em), b=anoDe(r.resolvido_em); return a!=null&&b!=null&&a<b; },`Resolvidos em ${alvo.join(', ')} que foram abertos em anos anteriores`,`Chamados resolvidos em ${alvo.join(', ')} (o ano inteiro, sem o corte do Mês) que foram abertos em anos anteriores, dentro dos demais filtros e da visão ativos.`,`resolvidos em ${alvo.join(', ')}`);
   }
 
   // ── SLA / backlog ──
