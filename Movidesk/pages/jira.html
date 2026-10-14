@@ -6,8 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Jira — Indicadores</title>
 <script>
-    // Aplica o tema compartilhado com o resto do painel antes do body pintar,
-    // pra não dar flash do tema escuro hardcoded no <html> acima.
+    // Tema compartilhado com o resto do painel (chave 'theme' do localStorage), aplicado antes do body pintar.
     (function() {
         try {
             const t = localStorage.getItem('theme');
@@ -30,29 +29,15 @@
   --info-bg: #dbeafe; --info-c: #1e40af;
   --gc: rgba(0,0,0,.05); --tc: #888;
 }
-.nav-tabs{display:flex;gap:4px;background:var(--bg3);padding:3px;border-radius:8px;border:1px solid var(--border);position:relative}
-.nav-tab{position:relative;z-index:2;display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:var(--text2)}
-.nav-tab.active{color:#fff}
-.nav-tab-icon{width:14px;height:14px;flex-shrink:0;color:var(--text3);transition:color .25s ease,transform .25s cubic-bezier(.34,1.56,.64,1)}
-.nav-tab.active .nav-tab-icon{color:#fff;transform:scale(1.12)}
-/* Indicador roxo que "viaja" entre as abas — ver moveTdcIndicator() no script.
-   Elástico: alonga em direção ao destino, atravessa como uma cápsula e
-   contrai de volta ao formato da aba com um pequeno overshoot na chegada. */
-.tdc-indicator{
-  position:absolute;
-  top:3px;
-  height:calc(100% - 6px);
-  border-radius:6px;
-  background:radial-gradient(circle at 40% 35%,#8f4cff,#5b00d9);
-  box-shadow:0 0 10px rgba(126,44,255,.55),0 2px 8px rgba(0,0,0,.3);
-  z-index:1;
-  pointer-events:none;
-}
+.nav-tabs{display:flex;gap:4px;background:var(--bg3);padding:3px;border-radius:8px;border:1px solid var(--border)}
+.nav-tab{padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:var(--text2)}
+.nav-tab.active{background:var(--bg2);color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .nav-tab:hover:not(.active){color:var(--text)}
 #view-indicadores{display:none}
 #view-aberto{display:none}
 #view-fluxo{display:none}
 #view-sprint{display:none}
+#view-qualidade{display:none}
 
 /* ── Sprint ── */
 .sp-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
@@ -188,23 +173,16 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;transition:background .2s,color .2s,border-color .2s}
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;padding:12px}
-/* Esconde a barra de rolagem nativa (igual às outras abas embutidas GCC/Ouvidoria) — o scroll continua funcionando, só a barra visual desaparece. */
-html,body{scrollbar-width:none;-ms-overflow-style:none}
-html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
-*{scrollbar-width:none;-ms-overflow-style:none}
-*::-webkit-scrollbar{display:none}
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 h1{font-size:17px;font-weight:700}
 .sub{font-size:11px;color:var(--text3);margin-top:2px}
+.theme-btn{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px}
+.theme-btn:hover{border-color:var(--indigo);color:var(--indigo)}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
 .kpi{background:var(--bg2);border-radius:8px;padding:11px 13px;box-shadow:var(--shadow);border:1px solid var(--border)}
 .kl{font-size:10px;color:var(--text3);margin-bottom:3px}
 .kv{font-size:20px;font-weight:700}
 .panel{background:var(--bg2);border-radius:8px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px;border:1px solid var(--border)}
-/* #panel-root é o wrapper da página inteira (não um card de conteúdo) — sem
-   borda/fundo/padding próprios, pra não sobrar moldura nem espaço vazio nas
-   laterais. Os cards internos continuam usando .panel normalmente. */
-#panel-root{background:transparent;border:none;box-shadow:none;padding:0;margin-bottom:0;border-radius:0}
 .controls{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
 input[type=text],select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text)}
 input[type=text]{flex:1;min-width:160px}
@@ -297,6 +275,15 @@ tr.sel td{background:var(--info-bg)!important}
 .crit-baixo{color:#22c55e}
 @keyframes accFade{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 
+/* Esconde a barra de rolagem nativa (igual às outras abas embutidas) — o scroll continua funcionando. */
+html,body{scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none}
+/* #panel-root é o wrapper da página inteira (não um card): sem borda/fundo/padding, para não sobrar moldura nas laterais. */
+#panel-root{background:transparent;border:none;box-shadow:none;padding:0;margin-bottom:0;border-radius:0}
+/* O tema mora só na barra principal do Hub; o botão do dashboard original fica oculto. */
+#theme-btn{display:none}
 </style>
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">
@@ -310,33 +297,16 @@ tr.sel td{background:var(--info-bg)!important}
       <div id="global-gerado-em" style="font-size:11px;color:var(--text3);margin-top:2px" title="Data/hora da última extração dos dados"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <div class="nav-tabs" id="navTabsBar">
-        <div class="tdc-indicator" id="tdcIndicator"></div>
-        <button class="nav-tab active" onclick="setView('tdc',this)">
-          <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9V7a4 4 0 0 1 8 0v2"/><rect x="6" y="9" width="12" height="10" rx="4"/><path d="M6 13H3M21 13h-3M9 4 7 2M15 4l2-2M10 19v2M14 19v2"/></svg>
-          <span>Análise TDC</span>
-        </button>
-        <button class="nav-tab" onclick="setView('indicadores',this)">
-          <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
-          <span>Indicadores</span>
-        </button>
-        <button class="nav-tab" onclick="setView('aberto',this)">
-          <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3h6v3H9zM8 10h8M8 14h8M8 18h5"/></svg>
-          <span>Backlog</span>
-        </button>
-        <button class="nav-tab" onclick="setView('fluxo',this)">
-          <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 9 11 13 15 21 6"/><path d="M15 6h6v6"/></svg>
-          <span>Fluxo</span>
-        </button>
-        <button class="nav-tab" onclick="setView('sprint',this)">
-          <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>
-          <span>Sprint</span>
-        </button>
-        <button class="nav-tab" onclick="setView('qualidade',this)">
-          <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
-          <span>Qualidade</span>
-        </button>
+      <div class="nav-tabs">
+        <button class="nav-tab active" onclick="setView('tdc',this)">🐛 Análise TDC</button>
+        <button class="nav-tab" onclick="setView('bugsimples',this)">🩺 Pulso dos Bugs</button>
+        <button class="nav-tab" onclick="setView('indicadores',this)">📊 Indicadores</button>
+        <button class="nav-tab" onclick="setView('aberto',this)">📋 Backlog</button>
+        <button class="nav-tab" onclick="setView('fluxo',this)">📈 Fluxo</button>
+        <button class="nav-tab" onclick="setView('sprint',this)">⚡ Sprint</button>
+        <button class="nav-tab" onclick="setView('qualidade',this)">🎯 Qualidade</button>
       </div>
+      <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">☀️ Modo claro</button>
     </div>
   </div>
 
@@ -469,6 +439,9 @@ tr.sel td{background:var(--info-bg)!important}
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-modulo" onclick="toggleMS('ab-modulo',event)">Módulo: Todos</div><div class="ms-dropdown" id="ms-ab-modulo"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('ab-modulo',this.value)"></div><div id="ms-ab-modulo-list"></div><div class="ms-actions"><button onclick="clearMS('ab-modulo')">Limpar</button><button onclick="selectAllMS('ab-modulo')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-rotina" onclick="toggleMS('ab-rotina',event)">Rotina: Todos</div><div class="ms-dropdown" id="ms-ab-rotina"><div id="ms-ab-rotina-list"></div><div class="ms-actions"><button onclick="clearMS('ab-rotina')">Limpar</button><button onclick="selectAllMS('ab-rotina')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-cliente" onclick="toggleMS('ab-cliente',event)">Cliente: Todos</div><div class="ms-dropdown" id="ms-ab-cliente"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('ab-cliente',this.value)"></div><div id="ms-ab-cliente-list"></div><div class="ms-actions"><button onclick="clearMS('ab-cliente')">Limpar</button><button onclick="selectAllMS('ab-cliente')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-classbug" onclick="toggleMS('ab-classbug',event)">Classificação de Bug: Todos</div><div class="ms-dropdown" id="ms-ab-classbug"><div id="ms-ab-classbug-list"></div><div class="ms-actions"><button onclick="clearMS('ab-classbug')">Limpar</button><button onclick="selectAllMS('ab-classbug')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-classmel" onclick="toggleMS('ab-classmel',event)">Classificação de Melhoria: Todos</div><div class="ms-dropdown" id="ms-ab-classmel"><div id="ms-ab-classmel-list"></div><div class="ms-actions"><button onclick="clearMS('ab-classmel')">Limpar</button><button onclick="selectAllMS('ab-classmel')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-gut" onclick="toggleMS('ab-gut',event)">GUT: Todos</div><div class="ms-dropdown" id="ms-ab-gut"><div id="ms-ab-gut-list"></div><div class="ms-actions"><button onclick="clearMS('ab-gut')">Limpar</button><button onclick="selectAllMS('ab-gut')">Todos</button></div></div></div>
         <select id="fil-prazo-aberto" onchange="renderAberto()" style="padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--bg2);color:var(--text)">
           <option value="">Prazo: Todos</option>
           <option value="vencido">Vencido</option>
@@ -507,6 +480,12 @@ tr.sel td{background:var(--info-bg)!important}
       </div>
     </div>
 
+    <!-- Envelhecimento do Backlog — tempo em aberto por faixa de idade -->
+    <div class="cbox" style="margin-bottom:12px">
+      <div class="ctitle">⏳ Envelhecimento do Backlog — tempo em aberto por faixa <span style="font-weight:400;color:var(--text3)">(clique numa barra para filtrar)</span></div>
+      <div style="position:relative;height:230px"><canvas id="chartAbIdade"></canvas></div>
+    </div>
+
     <!-- Lista detalhada de Issues — Backlog -->
     <div class="panel" style="padding:10px;margin-top:16px;margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-wrap:wrap">
@@ -541,6 +520,139 @@ tr.sel td{background:var(--info-bg)!important}
       <div id="resp-list"><p style="color:var(--text3);text-align:center;padding:20px">Carregando tarefas em aberto...</p></div>
     </div>
   </div><!-- /view-aberto -->
+
+  <!-- ── PAINEL SIMPLES DE BUGS ── -->
+  <div id="view-bugsimples" style="display:none">
+    <style>
+      .kpi.bs-card{cursor:pointer;transition:transform .12s,box-shadow .12s}.kpi.bs-card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.28)}
+      .bs-fun{display:grid;grid-template-columns:minmax(150px,230px) 1fr 86px;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px}.bs-fun:hover{background:var(--bg2)}.bs-fun.dim{opacity:.45;cursor:default}.bs-fun.dim:hover{background:transparent}
+      .bs-fun-det{font-size:9px;color:var(--text3);line-height:1.35;margin-top:1px}.bs-fun-track{display:flex;justify-content:center;height:16px;background:transparent}.bs-fun-bar{height:100%;border-radius:4px;min-width:3px}
+      .bs-sla{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:9px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);border-left:4px solid #6366f1;margin:0 0 14px;font-size:12px}
+      .bs-slarow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}.bs-sla .t{font-weight:700}.bs-sla .s{font-size:10px;color:var(--text3)}.bs-slachip{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:14px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+      .bs-dec{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin-bottom:6px}
+      .bs-dcard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}.bs-dq{font-size:11px;color:var(--text3);font-weight:600}.bs-dh{font-size:21px;font-weight:800;margin:4px 0 6px}
+      .bs-dl{font-size:11px;color:var(--text2);line-height:1.55}.bs-dl b{color:var(--text)}.bs-dlink{font-size:10px;color:var(--indigo);font-weight:600;cursor:pointer;margin-top:3px;display:block}.bs-dlink:hover{text-decoration:underline}
+      .bs-divider{font-size:15px;font-weight:800;margin:18px 0 10px;padding:8px 0 6px;border-top:2px solid var(--border)}
+      .bs-note{font-size:10px;line-height:1.5;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px dashed var(--border)}.bs-note b{color:var(--text2)}.bs-click{display:block;margin-top:3px;color:var(--indigo);font-weight:600}
+      .bs-big{display:flex;align-items:baseline;gap:8px;margin:2px 0 10px}.bs-big b{font-size:34px;font-weight:800;line-height:1}.bs-big span{font-size:12px;color:var(--text2)}
+      .bs-stackbar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--border);gap:2px;margin-bottom:12px}
+      .bs-seg{cursor:pointer;min-width:3px;transition:filter .15s}.bs-seg:hover{filter:brightness(1.2)}
+      .bs-row{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:12px;cursor:pointer}.bs-row:hover{background:var(--bg2)}
+      .bs-row.dim{opacity:.45;cursor:default}.bs-row.dim:hover{background:transparent}
+      .bs-dot{width:10px;height:10px;border-radius:3px;flex:0 0 10px}.bs-lbl{flex:1}.bs-val{white-space:nowrap}.bs-val b{font-weight:800}.bs-val span{color:var(--text3);font-size:11px}
+      .bs-chips{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
+      .bs-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600}.bs-chip span{color:var(--text3);font-weight:500}
+      .bs-vrow{margin-bottom:12px}.bs-vname{font-size:12px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+      .bs-bl{display:flex;align-items:center;gap:8px;margin:3px 0;cursor:pointer}.bs-bl.dim{cursor:default;opacity:.5}
+      .bs-btrack{flex:1;height:9px;border-radius:5px;background:var(--border);overflow:hidden}.bs-bfill{height:100%;border-radius:5px}
+      .bs-bv{width:96px;text-align:right;font-size:11px;font-weight:700;white-space:nowrap}
+    </style>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div>
+        <div style="font-size:16px;font-weight:800">🩺 Pulso dos Bugs <span style="font-weight:400;font-size:12px;color:var(--text3)">— o resumo do que está acontecendo</span></div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">Tipo de item = <b>Bug</b> · Classificação de Bug = <b>Cliente/externo</b> e <b>Sem classificação</b></div>
+      </div>
+      <div id="bs-filtros" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+    </div>
+
+    <div id="bs-resumo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-bottom:8px"></div>
+    <div id="bs-frase" class="panel" style="padding:10px 14px;font-size:13px;line-height:1.5;margin-bottom:12px"></div>
+    <div id="bs-sla" class="bs-sla"></div>
+    <div style="font-size:14px;font-weight:800;margin:4px 0 6px">🧭 Para decidir: as 4 perguntas</div>
+    <div id="bs-decisao" class="bs-dec"></div>
+    <div style="font-size:14px;font-weight:800;margin:16px 0 4px">🚩 Segmentos que merecem atenção</div>
+    <div id="bs-seg-call" class="panel" style="padding:9px 14px;font-size:12.5px;line-height:1.6;margin-bottom:8px"></div>
+    <div class="cbox"><div style="overflow-x:auto"><table class="ttbl" id="bs-tab-seg"></table></div>
+      <div class="bs-note">ℹ️ <b>Como é calculado:</b> cada segmento ganha pontos por <b>% de pendentes fora do SLA</b> (a partir de 15%: 1 ponto; de 35%: 2), <b>% com prazo vencido</b> (de 10%: 1; de 25%: 2), <b>fila crescendo</b> nos últimos 30 dias (1) e <b>5 ou mais bugs parados há mais de 1 ano</b> (1). Com 4 pontos ou mais é <b>Prioridade</b>; com 2 ou 3, <b>Atenção</b>. Segmentos com menos de 10 pendentes aparecem como "Poucos bugs" e não são avaliados. A lista ignora o filtro de Segmento, para comparar um com o outro.<span class="bs-click">👆 Clique numa linha para ver os bugs pendentes daquele segmento fora do SLA.</span></div></div>
+    <div class="bs-divider">📚 Informações completas</div>
+
+    <div style="font-size:14px;font-weight:800;margin:6px 0 2px" id="bs-sec-1">1️⃣ O que está pendente?</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Bugs que ainda <b>não foram resolvidos</b> hoje. Quanto mais à direita/vermelho, mais antigo o problema.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:10px">
+      <div class="cbox"><div class="ctitle">📅 Pendentes por ano em que o bug foi criado <span style="font-weight:400;color:var(--text3)">(clique numa cor ou linha)</span></div><div id="bsStackAno"></div><div class="bs-note">ℹ️ <b>Como é calculado:</b> conta os bugs pendentes hoje, agrupados pelo <b>ano em que foram criados</b>.<span class="bs-click">👆 Clique numa cor ou numa linha da lista para ver quais são os bugs.</span></div></div>
+      <div class="cbox"><div class="ctitle">⏳ Há quanto tempo estão parados (envelhecimento)</div><div id="bsStackFaixa"></div><div class="bs-note">ℹ️ <b>Como é calculado:</b> conta os bugs pendentes hoje pelo <b>tempo desde a abertura</b> (hoje − data de criação), dividido em faixas de dias.<span class="bs-click">👆 Clique numa cor ou numa linha da lista para ver quais são os bugs.</span></div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:6px">
+      <div class="cbox"><div class="ctitle">🧭 Em que etapa estão os pendentes <span style="font-weight:400;color:var(--text3)">(clique numa etapa)</span></div><div id="bsFunil"></div></div>
+      <div class="cbox"><div class="ctitle">⏰ Prazo dos pendentes <span style="font-weight:400;color:var(--text3)">(clique numa cor ou linha)</span></div><div id="bsStackPrazo"></div></div>
+    </div>
+    <div class="bs-note" style="margin:0 0 16px;border-top:none;padding-top:0">ℹ️ <b>Como é calculado:</b> cada etapa junta os status do Jira dos bugs pendentes (os status aparecem abaixo do nome da etapa). O prazo vem do campo de prazo da tarefa.<span class="bs-click">👆 Clique numa etapa, numa cor ou numa linha para ver quais são os bugs.</span></div>
+
+    <div style="font-size:14px;font-weight:800;margin:6px 0 2px" id="bs-sec-2">2️⃣ Quanto entrou, quanto saiu, quanto reprovou?</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+      <b style="color:#3b82f6">Entrou</b> = bug novo aberto no mês · <b>Saiu</b> = bug que saiu da fila: <b style="color:#22c55e">resolvido</b> (finalizado) ou <b style="color:#f97316">reprovado</b> (a análise concluiu que não era bug / não procede). O número destacado em cima da coluna é o total que saiu.
+    </div>
+    <div class="cbox" style="margin-bottom:16px"><div class="ctitle">📈 Movimento mês a mês <span style="font-weight:400;color:var(--text3)">(clique numa cor · passe o mouse para ver os detalhes)</span></div><div id="bs-chips" class="bs-chips"></div><div style="position:relative;height:300px"><canvas id="bsChFluxo"></canvas></div><div class="bs-note">ℹ️ <b>Como é calculado:</b> <b>Entrou</b> = bugs criados no mês · <b>Saiu</b> = bugs <b>resolvidos</b> (status Finalizada) somados aos <b>reprovados</b> (status "Análise Reprovada") no mês, pela data de resolução — as duas cores mostram a divisão e o número destacado é o total · <b>Saldo do período</b> = Entrou − Saiu (positivo = a fila cresceu; negativo = diminuiu).<span class="bs-click">👆 Clique numa cor da coluna para ver os bugs · passe o mouse na coluna Saiu para ver quantos foram abertos neste ano e em anos anteriores.</span></div></div>
+
+    <div style="font-size:14px;font-weight:800;margin:6px 0 2px" id="bs-sec-3">3️⃣ A vida do bug</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Quanto tempo um bug <b>fica aberto</b> até ser resolvido, e quanto tempo os que ainda estão abertos já esperam — separado por <b>criticidade</b> (a gravidade do bug).</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:10px">
+      <div class="cbox"><div class="ctitle">⏱️ Tempo médio por criticidade <span style="font-weight:400;color:var(--text3)">(clique numa barra)</span></div><div id="bsVidaRows"></div><div class="bs-note">ℹ️ <b>Como é calculado:</b> <b>Já resolvidos</b> = média de dias entre a criação e a resolução dos bugs finalizados no ano · <b>Ainda abertos</b> = média de dias entre a criação e hoje dos bugs pendentes.<span class="bs-click">👆 Clique numa barra para ver quais são os bugs.</span></div></div>
+      <div class="cbox"><div class="ctitle">📋 Resumo por criticidade</div><div style="overflow-x:auto"><table class="ttbl" id="bs-tab-crit"></table></div><div class="bs-note">ℹ️ <b>Como é calculado:</b> mesma conta do gráfico ao lado. "Mais demorado" e "mais antigo" mostram o maior tempo daquele grupo; a linha <b>Σ Total</b> soma todas as criticidades.</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:6px">
+      <div class="cbox"><div class="ctitle">⏱️ Em quanto tempo os bugs são resolvidos <span style="font-weight:400;color:var(--text3)">(clique numa cor ou linha)</span></div><div id="bsStackTempo"></div></div>
+      <div class="cbox"><div class="ctitle">📈 Média e mediana de dias para resolver, por mês <span id="bs-med-geral" style="font-weight:400;color:var(--text3)"></span></div><div style="position:relative;height:250px"><canvas id="bsChMediana"></canvas></div></div>
+    </div>
+    <div class="bs-note" style="margin:0 0 16px;border-top:none;padding-top:0">ℹ️ <b>Como é calculado:</b> dias entre a abertura e a resolução dos bugs finalizados no ano. A <b>mediana</b> é o valor do meio (não se distorce com poucos casos muito demorados); a <b>média</b> soma tudo e divide pela quantidade, por isso sobe quando há bugs muito demorados. Ambas são agrupadas pelo mês em que o bug foi resolvido.<span class="bs-click">👆 Clique num ponto da linha para ver os bugs daquele mês.</span></div>
+
+    <div style="font-size:14px;font-weight:800;margin:14px 0 2px">4️⃣ O que está causando os bugs — tarefas de origem</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">As tarefas mais apontadas como <b>origem de bugs</b> (campo "Tarefa Origem Inconsistência"). Quanto maior a barra, mais bugs saíram dessa tarefa; a tabela ao lado mostra <b>do que se trata</b> cada uma.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:6px">
+      <div class="cbox"><div class="ctitle">🎯 Top 10 — Tarefas que mais geraram bugs <span style="font-weight:400;color:var(--text3)">(clique numa barra)</span></div><div style="position:relative;height:290px"><canvas id="bsChOrigem"></canvas></div><div id="bs-origem-leg" style="display:none"></div></div>
+      <div class="cbox"><div class="ctitle">🧾 Tarefa de origem, resumo e versão <span id="bs-origem-qtd" style="font-weight:400;color:var(--text3)"></span></div><div style="overflow:auto;max-height:312px"><table class="ttbl" id="bs-tab-origem" style="font-size:11px"></table></div></div>
+    </div>
+    <div class="bs-note" style="margin:0 0 16px;border-top:none;padding-top:0">ℹ️ <b>Como é calculado:</b> conta, entre os bugs resolvidos no ano, quantas vezes cada tarefa foi preenchida como <b>origem da inconsistência</b>.</div>
+
+    <div style="font-size:14px;font-weight:800;margin:14px 0 2px" id="bs-sec-5">5️⃣ Por que os bugs acontecem — motivos e temas</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">De onde o problema nasce (código ou análise), se é bug antigo ou novo e quais assuntos mais aparecem nos títulos dos bugs abertos no ano.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:6px">
+      <div class="cbox"><div class="ctitle">🧬 Motivo do bug (origem)</div><div style="position:relative;height:190px"><canvas id="bsChMotivo"></canvas></div><div id="bsLegMotivo" style="margin-top:8px"></div></div>
+      <div class="cbox"><div class="ctitle">🕰️ Erro legado ou erro novo</div><div style="position:relative;height:190px"><canvas id="bsChLegado"></canvas></div><div id="bsLegLegado" style="margin-top:8px"></div></div>
+      <div class="cbox"><div class="ctitle">🔤 Temas mais citados nos assuntos <span style="font-weight:400;color:var(--text3)">(clique numa barra)</span></div><div style="position:relative;height:300px"><canvas id="bsChTemas"></canvas></div></div>
+    </div>
+    <div class="bs-note" style="margin:0 0 16px;border-top:none;padding-top:0">ℹ️ <b>Como é calculado:</b> considera os bugs abertos no ano, sem os reprovados. <b>Motivo</b> = campo "Origem do Bug"; <b>legado × novo</b> = campo "Bug Gerado"; <b>temas</b> = em quantos títulos cada palavra aparece (palavras genéricas como ajuste, correção e erro são ignoradas — é uma leitura aproximada, vinda de texto livre).<span class="bs-click">👆 Clique numa fatia, numa linha da legenda ou numa barra para ver quais são os bugs.</span></div>
+
+    <div style="font-size:14px;font-weight:800;margin:14px 0 2px">6️⃣ Onde os bugs se concentram — Módulos, Rotinas e Clientes</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Os 10 que mais têm bugs, com três barras cada: <b style="color:#3b82f6">Abertos</b> (entraram no ano), <b style="color:#22c55e">Resolvidos</b> (finalizados no ano) e <b style="color:#f97316">Pendentes</b> (esperando solução hoje).</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:10px;margin-bottom:6px">
+      <div class="cbox"><div class="ctitle">📦 Top 10 Módulos</div><div style="position:relative;height:400px"><canvas id="bsChMod"></canvas></div></div>
+      <div class="cbox"><div class="ctitle">🔄 Top 10 Rotinas</div><div style="position:relative;height:400px"><canvas id="bsChRot"></canvas></div></div>
+      <div class="cbox"><div class="ctitle">🏢 Top 10 Clientes</div><div style="position:relative;height:400px"><canvas id="bsChCli"></canvas></div></div>
+    </div>
+    <div class="bs-note" style="margin:0 0 16px;border-top:none;padding-top:0">ℹ️ <b>Como é calculado:</b> <b>Abertos</b> = bugs criados no ano · <b>Resolvidos</b> = bugs finalizados no ano · <b>Pendentes</b> = bugs ainda não resolvidos hoje. O ranking ordena pela soma das três barras. Bugs sem módulo, rotina ou cliente preenchido não entram, e um bug com mais de um cliente conta para cada um deles.<span class="bs-click">👆 Clique numa barra para expandir e ver quais são os bugs · passe o mouse para ver a quebra de cada barra.</span></div>
+
+    <div style="font-size:14px;font-weight:800;margin:14px 0 2px">7️⃣ Onde mais se abre bug que não era bug</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Dos bugs abertos no ano, quantos % acabaram <b>reprovados na análise</b>, por módulo. Percentual alto sugere falta de orientação na abertura do chamado.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:6px">
+      <div class="cbox"><div class="ctitle">↩️ Top 10 módulos com maior % de reprovação <span style="font-weight:400;color:var(--text3)">(clique numa barra)</span></div><div style="position:relative;height:290px"><canvas id="bsChReprov"></canvas></div></div>
+      <div class="cbox"><div class="ctitle">🧾 Módulo, abertos e reprovados</div><div style="overflow:auto;max-height:312px"><table class="ttbl" id="bs-tab-reprov" style="font-size:11px"></table></div></div>
+    </div>
+    <div class="bs-note" style="margin:0 0 16px;border-top:none;padding-top:0">ℹ️ <b>Como é calculado:</b> reprovados ÷ abertos no ano em cada módulo, considerando só módulos com pelo menos 30 bugs abertos. É um recorte dos bugs <b>abertos no ano</b>, por isso o total de reprovados pode diferir do cartão "Reprovados", que conta também os que foram abertos em anos anteriores.</div>
+
+    <div class="panel" style="padding:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;font-weight:600;color:var(--text2)">🗂️ Lista:</span>
+          <button id="bs-lst-ab" onclick="bsSetLista('aberto')" class="ms-btn">Ainda abertos (mais antigos primeiro)</button>
+          <button id="bs-lst-fe" onclick="bsSetLista('fechado')" class="ms-btn">Já resolvidos (mais demorados primeiro)</button>
+        </div>
+        <span id="bs-lst-count" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+      <div style="overflow:auto;max-height:420px"><table class="ttbl" id="bs-tab-lista"></table></div>
+    </div>
+    <!-- Janela: lista de bugs da barra clicada -->
+    <div id="bs-modal" onclick="if(event.target===this)bsFechar()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px">
+      <div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);width:min(1440px,100%);max-height:88vh;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div><div id="bs-modal-titulo" style="font-size:14px;font-weight:800"></div><div id="bs-modal-count" style="font-size:11px;color:var(--text3);margin-top:2px"></div></div>
+          <button onclick="bsFechar()" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">✕ Fechar</button>
+        </div>
+        <div style="overflow:auto;padding:0 8px 8px"><table class="ttbl" id="bs-modal-tab"></table></div>
+      </div>
+    </div>
+  </div><!-- /view-bugsimples -->
 
   <!-- ── ANÁLISE TDC ── -->
   <div id="view-tdc" style="display:none">
@@ -714,6 +826,10 @@ tr.sel td{background:var(--info-bg)!important}
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-tipo" onclick="toggleMS('sup-tipo',event)">Tipo: Todos</div><div class="ms-dropdown" id="ms-sup-tipo"><div id="ms-sup-tipo-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-tipo')">Limpar</button><button onclick="selectAllMSSup('sup-tipo')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-squad" onclick="toggleMS('sup-squad',event)">Squad: Todos</div><div class="ms-dropdown" id="ms-sup-squad"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-squad',this.value)"></div><div id="ms-sup-squad-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-squad')">Limpar</button><button onclick="selectAllMSSup('sup-squad')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-prod" onclick="toggleMS('sup-prod',event)">Produto: Todos</div><div class="ms-dropdown" id="ms-sup-prod"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-prod',this.value)"></div><div id="ms-sup-prod-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-prod')">Limpar</button><button onclick="selectAllMSSup('sup-prod')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-classbug" onclick="toggleMS('sup-classbug',event)">Classificação de Bug: Todos</div><div class="ms-dropdown" id="ms-sup-classbug"><div id="ms-sup-classbug-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-classbug')">Limpar</button><button onclick="selectAllMSSup('sup-classbug')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-classmel" onclick="toggleMS('sup-classmel',event)">Classificação de Melhoria: Todos</div><div class="ms-dropdown" id="ms-sup-classmel"><div id="ms-sup-classmel-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-classmel')">Limpar</button><button onclick="selectAllMSSup('sup-classmel')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-status" onclick="toggleMS('sup-status',event)">Status: Todos</div><div class="ms-dropdown" id="ms-sup-status"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-status',this.value)"></div><div id="ms-sup-status-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-status')">Limpar</button><button onclick="selectAllMSSup('sup-status')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-cliente" onclick="toggleMS('sup-cliente',event)">Cliente: Todos</div><div class="ms-dropdown" id="ms-sup-cliente"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-cliente',this.value)"></div><div id="ms-sup-cliente-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-cliente')">Limpar</button><button onclick="selectAllMSSup('sup-cliente')">Todos</button></div></div></div>
         <button onclick="resetSupFilters()" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text2);cursor:pointer;font-size:11px" onmouseover="this.style.borderColor='var(--indigo)'" onmouseout="this.style.borderColor='var(--border)'">✕ Limpar</button>
       </div>
     </div>
@@ -721,9 +837,9 @@ tr.sel td{background:var(--info-bg)!important}
     <!-- KPIs -->
     <div class="sup-kpi-row">
       <div class="sup-kpi sup-kpi-ab"><div class="sup-kpi-icon">✦</div><div class="sup-kpi-lbl">Abertos</div><div class="sup-kpi-val" id="sup-kv-ab">—</div><div class="sup-kpi-sub">por data de criação</div></div>
-      <div class="sup-kpi sup-kpi-res"><div class="sup-kpi-icon">✔</div><div class="sup-kpi-lbl">Resolvidos</div><div class="sup-kpi-val" id="sup-kv-res">—</div><div class="sup-kpi-sub" id="sup-ks-res">por data de resolução</div></div>
+      <div class="sup-kpi sup-kpi-res"><div class="sup-kpi-icon">✔</div><div class="sup-kpi-lbl">Resolvidos</div><div class="sup-kpi-val" id="sup-kv-res">—</div><div class="sup-kpi-sub">por data de resolução</div></div>
       <div class="sup-kpi sup-kpi-pend"><div class="sup-kpi-icon">⏳</div><div class="sup-kpi-lbl">Pendentes</div><div class="sup-kpi-val" id="sup-kv-pend">—</div><div class="sup-kpi-sub">no backlog</div></div>
-      <div class="sup-kpi sup-kpi-rep"><div class="sup-kpi-icon">✕</div><div class="sup-kpi-lbl">Reprovados</div><div class="sup-kpi-val" id="sup-kv-rep">—</div><div class="sup-kpi-sub" id="sup-ks-rep">análise reprovada</div></div>
+      <div class="sup-kpi sup-kpi-rep"><div class="sup-kpi-icon">✕</div><div class="sup-kpi-lbl">Reprovados</div><div class="sup-kpi-val" id="sup-kv-rep">—</div><div class="sup-kpi-sub">análise reprovada</div></div>
     </div>
 
     <!-- Gráficos -->
@@ -846,7 +962,7 @@ tr.sel td{background:var(--info-bg)!important}
       <div class="sp-kpi sp-kpi-pts">
         <div class="sp-kpi-lbl">Pontos Planejados</div>
         <div class="sp-kpi-val" id="sp-kv-pts">—</div>
-        <div class="sp-kpi-sub" id="sp-ks-pts">story points totais</div>
+        <div class="sp-kpi-sub">story points totais</div>
       </div>
       <div class="sp-kpi sp-kpi-saydo">
         <div class="sp-kpi-lbl">Say-Do Ratio</div>
@@ -988,11 +1104,11 @@ tr.sel td{background:var(--info-bg)!important}
             <th onclick="qaSortBy('nome')">Desenvolvedor</th>
             <th onclick="qaSortBy('qtd_tarefas')">Tarefas</th>
             <th onclick="qaSortBy('rep_codigo')">Reprov. Revisão Código</th>
-            <th onclick="qaSortBy('tx_qualidade_codigo')" title="Reprovações (ou bugs) por 100 tarefas — uma tarefa pode ser reprovada mais de uma vez, então pode passar de 100">Índice Código (por 100 tarefas)</th>
+            <th onclick="qaSortBy('tx_qualidade_codigo')">Índice Qualid. Código</th>
             <th onclick="qaSortBy('rep_interna')">Reprov. Teste Interno</th>
-            <th onclick="qaSortBy('tx_qualidade_interna')" title="Reprovações (ou bugs) por 100 tarefas — uma tarefa pode ser reprovada mais de uma vez, então pode passar de 100">Índice Interna (por 100 tarefas)</th>
+            <th onclick="qaSortBy('tx_qualidade_interna')">Índice Qualid. Interna</th>
             <th onclick="qaSortBy('bugs_prog')">Bugs Falha Programação</th>
-            <th onclick="qaSortBy('tx_qualidade_externa')" title="Reprovações (ou bugs) por 100 tarefas — uma tarefa pode ser reprovada mais de uma vez, então pode passar de 100">Índice Externa (por 100 tarefas)</th>
+            <th onclick="qaSortBy('tx_qualidade_externa')">Índice Qualid. Externa</th>
           </tr></thead>
           <tbody id="qa-tbody"></tbody>
         </table>
@@ -1098,116 +1214,47 @@ tr.sel td{background:var(--info-bg)!important}
 </div><!-- /panel -->
 
 <script>
-// Sem animação de entrada dos gráficos (barra crescendo, linha sendo
-// traçada) — a transição de aba (ícone) já cumpre esse papel; a
-// animação do Chart.js tocando depois ficava parecendo uma segunda
-// animação sobrando.
+// Sem animação de entrada dos gráficos: a transição de aba do Hub já cumpre esse papel.
 if (typeof Chart !== 'undefined') Chart.defaults.animation = false;
 
-// Tema: esta aba vive dentro do painel Movidesk (iframe same-origin) — usa a
-// mesma chave de localStorage ('theme') que o resto do app (já aplicada no
-// <head>), só fica ouvindo mudanças feitas em outra aba/sidebar.
+// Dados: esta aba vive dentro do painel (iframe same-origin). A sessão (SSO) já foi resolvida pelo Hub e deixou o token no
+// localStorage; os JSON do extrator vêm de /api/jira/<arquivo> (só leitura, com permissão da aba Jira).
+function getJiraToken(){ return localStorage.getItem('token') || ''; }
+function jiraFetch(file, opts){
+  opts = opts || {};
+  const nome = String(file).split('?')[0];   // o ?t= do dashboard original não é usado
+  return fetch('/api/jira/' + nome, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + getJiraToken(), ...(opts.headers || {}) },
+    cache: 'no-store'
+  });
+}
+// Tema: só reage à mudança feita na barra principal (evento 'storage'), repintando o que depende de cor fixa em JS.
 (function(){
   try {
     window.addEventListener('storage', function(e){
       if (e.key === 'theme') {
         document.documentElement.setAttribute('data-theme', e.newValue || 'light');
-        applyThemeRefresh(e.newValue === 'dark');
+        if (typeof applyThemeRefresh === 'function') applyThemeRefresh(e.newValue === 'dark');
       }
     });
   } catch(e){}
 })();
 
-// ─── Autenticação ───────────────────────────────────────────────────────
-// O login (SSO Google) e a sessão já são resolvidos pelo painel Movidesk
-// (login.html + sidebar) — esta aba só precisa do token Bearer que a sessão
-// principal já deixou no localStorage, igual às abas GCC/Ouvidoria.
-function getJiraToken(){
-  return localStorage.getItem('token') || '';
-}
-
-function jiraFetch(file, opts){
-  opts = opts || {};
-  return fetch(`/api/jira/${file}`, {
-    ...opts,
-    headers: { Authorization: `Bearer ${getJiraToken()}`, ...(opts.headers||{}) },
-    cache: 'no-store'
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function(){
-  const initialTab = document.querySelector('.nav-tab.active');
-  if (initialTab) moveTdcIndicator(initialTab);
-  if (typeof _bootFetchData === 'function') _bootFetchData();
-  if (typeof _bootTDCData === 'function') _bootTDCData();
-});
-
-// ─── Indicador roxo elástico das abas TDC/Indicadores/Backlog/Fluxo/Sprint ──
-// Em vez de só trocar a classe .active na hora do clique, a cápsula roxa
-// "viaja" de uma aba pra outra: alonga em direção ao destino, atravessa como
-// uma gota elástica e contrai de volta com um pequeno overshoot na chegada
-// (ver CSS de .tdc-indicator). A troca de cor do ícone/texto é atrasada pra
-// acontecer no meio da viagem, como se o roxo "acendesse" o ícone ao passar.
-let _tdcIndicatorReady = false;
-
-function moveTdcIndicator(btn){
-  const bar = document.getElementById('navTabsBar');
-  const ind = document.getElementById('tdcIndicator');
-  if (!bar || !ind || !btn) return;
-
-  const barRect = bar.getBoundingClientRect();
-  const toRect  = btn.getBoundingClientRect();
-  const toLeft  = toRect.left - barRect.left;
-  const toWidth = toRect.width;
-
-  if (!_tdcIndicatorReady) {
-    // Primeiro posicionamento (carregamento da página) — sem animação.
-    ind.style.left  = toLeft + 'px';
-    ind.style.width = toWidth + 'px';
-    ind.style.borderRadius = '6px';
-    _tdcIndicatorReady = true;
-    return;
-  }
-
-  const fromLeft  = ind.offsetLeft;
-  const fromWidth = ind.offsetWidth;
-  if (fromLeft === toLeft && fromWidth === toWidth) return;
-
-  const goingRight = toLeft > fromLeft;
-
-  // Cápsula intermediária que cobre o trecho inteiro entre origem e destino
-  // — é o "esticar antes de puxar" descrito: o indicador vira uma gota
-  // alongada no meio do caminho em vez de só deslizar de um lado pro outro.
-  const spanLeft  = Math.min(fromLeft, toLeft);
-  const spanWidth = Math.max(fromLeft + fromWidth, toLeft + toWidth) - spanLeft;
-
-  // Pequeno overshoot na chegada (a cápsula "ultrapassa" o tamanho final e
-  // volta), pra dar a sensação de mola/elástico em vez de um easing comum.
-  const overshootWidth = toWidth * 1.08;
-  const overshootLeft  = goingRight ? toLeft - (overshootWidth - toWidth) : toLeft;
-
-  ind.getAnimations().forEach(a => a.cancel());
-  const duration = 560;
-  const anim = ind.animate([
-    { left: `${fromLeft}px`,     width: `${fromWidth}px`,     borderRadius: '6px',   offset: 0,    easing: 'cubic-bezier(.4,0,.2,1)' },
-    { left: `${spanLeft}px`,     width: `${spanWidth}px`,     borderRadius: '999px', offset: 0.4,  easing: 'cubic-bezier(.4,0,.2,1)' },
-    { left: `${overshootLeft}px`, width: `${overshootWidth}px`, borderRadius: '999px', offset: 0.78, easing: 'cubic-bezier(.34,1.56,.64,1)' },
-    { left: `${toLeft}px`,       width: `${toWidth}px`,       borderRadius: '6px',   offset: 1 }
-  ], { duration, fill: 'forwards' });
-
-  anim.onfinish = () => {
-    ind.style.left  = `${toLeft}px`;
-    ind.style.width = `${toWidth}px`;
-    ind.style.borderRadius = '6px';
-  };
-
-  // Ícone/texto trocam de estado no meio da viagem do indicador, não no
-  // instante do clique — dá a impressão de que o roxo "ativa" o ícone.
-  setTimeout(() => {
-    bar.querySelectorAll('.nav-tab').forEach(t => { if (t !== btn) t.classList.remove('active'); });
-    btn.classList.add('active');
-  }, duration * 0.42);
-}
+// Aplica tema salvo imediatamente para evitar flash de tema errado
+(function(){
+  try {
+    const s = JSON.parse(localStorage.getItem('dashboard_filters_v2')||'{}');
+    if(false && s.theme){   // no Hub o tema vem da barra principal (localStorage 'theme')
+      document.documentElement.setAttribute('data-theme', s.theme);
+      // Atualiza botão após DOM estar pronto
+      document.addEventListener('DOMContentLoaded', function(){
+        const btn = document.getElementById('theme-btn');
+        if(btn) btn.textContent = s.theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro';
+      });
+    }
+  } catch(e){}
+})();
 
 const CC={AR:'#2563eb',AT:'#22c55e',DEV:'#d97706',AT_TEC:'#7c3aed'};
 const CL={AR:'Analista de Requisitos',AT:'Analista de Testes',DEV:'Desenvolvedor',AT_TEC:'Análise Técnica'};
@@ -1236,11 +1283,7 @@ function renderSupLista(){
     'Tecnologia','Voors','Nimitz','CRM','Agrotitan Fazendas','Testes Automatizados',
     'zViasuper - inativo','zAutomação Comercial - inativo']);
 
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
   const q      = (document.getElementById('sup-srch-lista')||{value:''}).value.toLowerCase();
 
   const MES_LABEL={'Jan':'2026-01','Fev':'2026-02','Mar':'2026-03','Abr':'2026-04','Mai':'2026-05'};
@@ -1317,26 +1360,27 @@ function setGlobalGeradoEm(gerado_em){
   const current = el.dataset.raw || '';
   if(!current || parse(gerado_em) >= parse(current)){
     el.dataset.raw = gerado_em;
-
-    // O jira_extractor.py roda de hora em hora (Task Scheduler) — a próxima
-    // atualização é sempre gerado_em + 1h.
-    const ts = parse(gerado_em);
-    let proximaHtml = '';
-    if(ts){
-      const pad = n => String(n).padStart(2,'0');
-      const next = new Date(ts + 60*60*1000);
-      const proximaStr = `${pad(next.getDate())}/${pad(next.getMonth()+1)}/${next.getFullYear()} ${pad(next.getHours())}:${pad(next.getMinutes())}`;
-      proximaHtml = `<br>⏭️ Próxima atualização: ${proximaStr} (de hora em hora)`;
-    }
-
-    el.innerHTML = '🕐 ' + gerado_em + proximaHtml;
+    el.textContent = '🕐 ' + gerado_em;
   }
 }
 
-// O toggle de tema em si mora só na barra principal do painel (Movidesk) —
-// aqui a gente só reage à mudança (evento 'storage', ver acima) repintando
-// o que depende de cor "hardcoded" em JS (Chart.js não lê var(--...) sozinho).
 function applyThemeRefresh(dark){
+  if(window.Chart) Chart.defaults.color = dark ? '#888' : '#9ba3bf';
+  setTimeout(()=>{
+    if(selNome) redrawCharts(DATA.find(x=>x.nome===selNome));
+    if(document.getElementById('view-aberto').style.display==='block') renderAberto();
+    if(document.getElementById('view-bugsimples').style.display==='block') bsRender();
+    if(document.getElementById('view-tdc').style.display==='block') renderTDC();
+    if(document.getElementById('view-fluxo').style.display==='block') renderSup();
+  }, 150);
+}
+
+function toggleTheme(){
+  const html=document.documentElement;
+  const dark=html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme', dark?'light':'dark');
+  document.getElementById('theme-btn').textContent = dark?'🌙 Modo escuro':'☀️ Modo claro';
+  // Update Chart.js global defaults for legend/tick color
   const newTc = dark ? '#888' : '#9ba3bf';
   if(window.Chart){
     Chart.defaults.color = newTc;
@@ -1344,26 +1388,25 @@ function applyThemeRefresh(dark){
   setTimeout(()=>{
     if(selNome) redrawCharts(DATA.find(x=>x.nome===selNome));
     if(document.getElementById('view-aberto').style.display==='block') renderAberto();
+    if(document.getElementById('view-bugsimples').style.display==='block') bsRender();
     if(document.getElementById('view-tdc').style.display==='block') renderTDC();
     if(document.getElementById('view-fluxo').style.display==='block') renderSup();
   }, 150);
 }
 
-// Carregamento dos dados — disparado apenas após login via SSO (ver ssoGrantAccess)
-function _bootFetchData(){
 // Busca antecipada de gerado_em de todos os JSONs para exibir o mais recente
 Promise.allSettled([
-  jiraFetch('dashboard_data.json').then(r=>r.json()),
-  jiraFetch('tdc_data.json').then(r=>r.json()),
-  jiraFetch('abertos_data.json').then(r=>r.json()),
-  jiraFetch('fechados_data.json').then(r=>r.json()),
-  jiraFetch('sprint_data.json').then(r=>r.json()),
-  jiraFetch('qualidade_data.json').then(r=>r.json()),
+  jiraFetch('dashboard_data.json?t='+Date.now()).then(r=>r.json()),
+  jiraFetch('tdc_data.json?t='+Date.now()).then(r=>r.json()),
+  jiraFetch('abertos_data.json?t='+Date.now()).then(r=>r.json()),
+  jiraFetch('fechados_data.json?t='+Date.now()).then(r=>r.json()),
+  jiraFetch('sprint_data.json?t='+Date.now()).then(r=>r.json()),
+  jiraFetch('qualidade_data.json?t='+Date.now()).then(r=>r.json()),
 ]).then(results=>{
   results.forEach(r=>{ if(r.status==='fulfilled') setGlobalGeradoEm(r.value?.gerado_em); });
 });
 
-jiraFetch('dashboard_data.json')
+jiraFetch('dashboard_data.json?t='+Date.now())
   .then(r=>{ if(!r.ok) throw new Error('Arquivo não encontrado'); return r.json(); })
   .then(json=>{
     setGlobalGeradoEm(json.gerado_em);
@@ -1413,14 +1456,6 @@ jiraFetch('dashboard_data.json')
 
     // Restaurar filtros salvos (após dados e listas estarem prontos)
     restoreFilters();
-    // Sem seleção salva, abre no mês atual (pedido do usuário, 09/10/2026: todos os painéis em ano e mês atuais).
-    if(!MES_SEL.size){
-      const mesAtual=String(new Date().getMonth()+1).padStart(2,'0');
-      if(MK.includes(mesAtual)){
-        MES_SEL.add(mesAtual);
-        setTimeout(()=>{ document.querySelectorAll('#ms-fil-mes-list input').forEach(i=>{ i.checked=MES_SEL.has(i.value); }); updateMesBtn(); render(); },60);
-      }
-    }
 
     // ── Auto-reload: detecta mudança nos JSONs e recarrega tudo automaticamente ──
     const POLL_FILES = [
@@ -1433,7 +1468,7 @@ jiraFetch('dashboard_data.json')
     async function _getSignature(){
       const results = await Promise.allSettled(
         POLL_FILES.map(f =>
-          jiraFetch(f, {method:"HEAD"})
+          jiraFetch(f+"?t="+Date.now(), {method:"HEAD", cache:"no-store"})
             .then(r => r.ok
               ? (r.headers.get("last-modified") || r.headers.get("content-length") || "ok")
               : "")
@@ -1450,7 +1485,7 @@ jiraFetch('dashboard_data.json')
 
       try {
         // dashboard_data (Indicadores + Backlog)
-        const ddRes = await jiraFetch('dashboard_data.json');
+        const ddRes = await jiraFetch('dashboard_data.json?t='+Date.now(), {cache:'no-store'});
         if(ddRes.ok){
           const json = await ddRes.json();
           setGlobalGeradoEm(json.gerado_em);
@@ -1465,7 +1500,7 @@ jiraFetch('dashboard_data.json')
         }
 
         // TDC
-        const tdcRes = await jiraFetch('tdc_data.json');
+        const tdcRes = await jiraFetch('tdc_data.json?t='+Date.now(), {cache:'no-store'});
         if(tdcRes.ok){
           const json = await tdcRes.json();
           setGlobalGeradoEm(json.gerado_em);
@@ -1478,13 +1513,13 @@ jiraFetch('dashboard_data.json')
         // Fluxo (abertos + fechados)
         if(SUP_INIT){
           const [abRes, feRes] = await Promise.all([
-            jiraFetch('abertos_data.json'),
-            jiraFetch('fechados_data.json')
+            jiraFetch('abertos_data.json?t='+Date.now(), {cache:'no-store'}),
+            jiraFetch('fechados_data.json?t='+Date.now(), {cache:'no-store'})
           ]);
           if(abRes.ok && feRes.ok){
             const [abData, feData] = await Promise.all([abRes.json(), feRes.json()]);
             setGlobalGeradoEm(abData.gerado_em || feData.gerado_em);
-            const ddJson = await jiraFetch('dashboard_data.json').then(r=>r.json()).catch(()=>({}));
+            const ddJson = await jiraFetch('dashboard_data.json?t='+Date.now(), {cache:'no-store'}).then(r=>r.json()).catch(()=>({}));
             const r = buildSupData(abData.itens, feData.itens, ddJson.tarefas_abertas||[]);
             SUP_DATA   = r.rows;
             SUP_WEEKLY = r.weekly;
@@ -1494,7 +1529,7 @@ jiraFetch('dashboard_data.json')
 
         // Sprint
         if(SP_INIT){
-          const spRes = await jiraFetch('sprint_data.json');
+          const spRes = await jiraFetch('sprint_data.json?t='+Date.now(), {cache:'no-store'});
           if(spRes.ok){
             const json = await spRes.json();
             setGlobalGeradoEm(json.gerado_em);
@@ -1513,10 +1548,9 @@ jiraFetch('dashboard_data.json')
             if(document.getElementById('view-sprint').style.display==='block') renderSprint();
           }
         }
-
         // Qualidade
         if(QA_INIT){
-          const qaRes = await jiraFetch('qualidade_data.json');
+          const qaRes = await jiraFetch('qualidade_data.json?t='+Date.now(), {cache:'no-store'});
           if(qaRes.ok){
             const json = await qaRes.json();
             setGlobalGeradoEm(json.gerado_em);
@@ -1528,6 +1562,7 @@ jiraFetch('dashboard_data.json')
             if(document.getElementById('view-qualidade').style.display==='block'){ renderQualidade(); renderDevBugRanking(); }
           }
         }
+
       } catch(e){ console.warn('Auto-reload error:', e); }
 
       if(geradoEl) geradoEl.style.opacity='1';
@@ -1536,7 +1571,6 @@ jiraFetch('dashboard_data.json')
     // Inicia o polling a cada 30 segundos
     _getSignature().then(sig => { _lastSignature = sig; });
     setInterval(async ()=>{
-      if(document.hidden) return;   // aba em segundo plano não consulta
       const sig = await _getSignature();
       if(sig && sig !== _lastSignature){
         _lastSignature = sig;
@@ -1547,11 +1581,8 @@ jiraFetch('dashboard_data.json')
   })
   .catch(e=>{
     document.getElementById('loading').innerHTML=`❌ Erro: ${e.message}<br><br>
-      <small>Verifique se o <b>jira_extractor.py</b> já rodou pelo menos uma vez — ele grava o
-      <b>dashboard_data.json</b> (e os demais) na pasta <b>Jira/</b>, que este painel lê via
-      <b>/api/jira/</b>. Veja <b>Jira/README.md</b> para configurar e rodar o extrator.</small>`;
+      <small>Execute: <b>python -m http.server 8000</b> e acesse <b>http://localhost:8000/dashboard.html</b></small>`;
   });
-} // fim _bootFetchData
 
 function renderKPIs(rows){
   const totT=rows.reduce((a,d)=>a+d.qtd_tarefas,0);
@@ -1559,15 +1590,11 @@ function renderKPIs(rows){
   const totBR=rows.reduce((a,d)=>a+(d.bugs_falha_req||0),0);
   const totBT=rows.reduce((a,d)=>a+(d.bugs_falha_test||0),0);
   const totBD=rows.reduce((a,d)=>a+(d.bugs_falha_dev||0),0);
-  // % Bugs Falha da equipe: mesma regra de tx_bug_falha (cada pessoa conta o bug do próprio cargo: AR=req, AT=test, demais=dev)
-  const totBugCargo=rows.reduce((a,d)=>a+(d.cargo==='AR'?(d.bugs_falha_req||0):d.cargo==='AT'?(d.bugs_falha_test||0):(d.bugs_falha_dev||0)),0);
-  const txEquipe=totT>0?totBugCargo/totT*100:0;
   document.getElementById('kpi-row').innerHTML=`
     <div class="kpi"><div class="kl">Profissionais</div><div class="kv">${rows.length}</div></div>
     <div class="kpi"><div class="kl">Total tarefas</div><div class="kv">${totT.toLocaleString('pt-BR')}</div></div>
     <div class="kpi"><div class="kl">Total pontos</div><div class="kv">${fmtN(totP)}</div></div>
-    <div class="kpi"><div class="kl">Bugs ↗ Req / Test / Dev</div><div class="kv">${totBR} / ${totBT} / ${totBD}</div></div>
-    <div class="kpi" title="Bugs de falha do próprio cargo ÷ tarefas (mesma regra da coluna % Bugs Falha)"><div class="kl">% Bugs Falha (equipe)</div><div class="kv">${fmtN(txEquipe)}%</div></div>`;
+    <div class="kpi"><div class="kl">Bugs ↗ Req / Test / Dev</div><div class="kv">${totBR} / ${totBT} / ${totBD}</div></div>`;
 }
 
 function setTab(tab,btn){
@@ -1682,6 +1709,20 @@ function render(){
       </div>
     </td></tr>`:''}`;
   }).join('');
+
+  // Se havia um profissional com o detalhe aberto, o bloco acima recria o HTML do
+  // acordeão vazio (nome, KPIs, gráficos e tarefas). Precisamos repopular esse
+  // conteúdo sempre que a tabela é re-renderizada (busca, ordenação, filtros, abas),
+  // senão o painel de detalhe fica em branco.
+  if(selNome){
+    if(rows.some(x=>x.nome===selNome)){
+      const raw=DATA.find(x=>x.nome===selNome);
+      if(raw) requestAnimationFrame(()=>openDet(raw, false));
+    } else {
+      // O profissional selecionado não está mais nos resultados filtrados
+      selNome=null;
+    }
+  }
 }
 
 function sel(nome){
@@ -1689,12 +1730,35 @@ function sel(nome){
   selNome=nome; render();
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
-      openDet(DATA.find(x=>x.nome===nome));
+      openDet(DATA.find(x=>x.nome===nome), true);
     });
   });
 }
 
-function openDet(d){
+function openDet(dRaw, doScroll){
+  // Reaplica o filtro de meses ativo no topo (o mesmo usado na tabela principal),
+  // para que os KPIs, gráficos e listas do detalhe fiquem consistentes com a linha da tabela.
+  const mesFiltro = (MES_SEL.size>0 && MES_SEL.size<MK.length) ? [...MES_SEL] : null;
+  let d = dRaw;
+  if(mesFiltro){
+    const getMk = t => (t.mes||'').slice(5,7) || (t.mes||'').slice(0,2) || '';
+    const tarefasF = (dRaw.tarefas||[]).filter(t=>mesFiltro.includes(getMk(t)));
+    const pontosF = tarefasF.reduce((a,t)=>a+(t.pontos||0),0);
+    const finalizadasF = tarefasF.filter(t=>t.status==='Finalizada').length;
+    const reprovadasF  = tarefasF.filter(t=>t.status==='Análise Reprovada').length;
+    const tipoCountsF = {};
+    tarefasF.forEach(t=>{ const tp=t.tipo||'Outro'; tipoCountsF[tp]=(tipoCountsF[tp]||0)+1; });
+    const filtraBugs = arr => (arr||[]).filter(b=>mesFiltro.includes(getMk(b)));
+    const bugReqF=filtraBugs(dRaw.tarefas_bug_req), bugTestF=filtraBugs(dRaw.tarefas_bug_test), bugDevF=filtraBugs(dRaw.tarefas_bug_dev);
+    d = {...dRaw,
+      pontos:pontosF, qtd_tarefas:tarefasF.length,
+      finalizadas:finalizadasF, reprovadas:reprovadasF,
+      tarefas:tarefasF, tipo_counts:tipoCountsF,
+      bugs_falha_req:bugReqF.length, bugs_falha_test:bugTestF.length, bugs_falha_dev:bugDevF.length,
+      tarefas_bug_req:bugReqF, tarefas_bug_test:bugTestF, tarefas_bug_dev:bugDevF
+    };
+  }
+
   curCargo=d.cargo;
   const col=CC[d.cargo];
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
@@ -1702,8 +1766,8 @@ function openDet(d){
   const tc=dark?'#9ba3bf':'#888';
 
   document.getElementById('det-name').innerHTML=`${d.nome} <span class="bdg bdg-${d.cargo}">${CL[d.cargo]}</span>`;
-  const txRep=d.qtd_tarefas>0?` (${(d.reprovadas/d.qtd_tarefas*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%)`:'';
-  document.getElementById('det-sub').textContent=`${d.qtd_tarefas} tarefas · ${d.finalizadas} finalizadas · ${d.reprovadas} reprovadas${txRep}`;
+  const filtroTxt = mesFiltro ? ` · Meses: ${mesFiltro.map(m=>ML[m]).join(', ')}` : '';
+  document.getElementById('det-sub').textContent=`${d.qtd_tarefas} tarefas · ${d.finalizadas} finalizadas · ${d.reprovadas} reprovadas${filtroTxt}`;
 
   const bugMain=d.cargo==='AR'?(d.bugs_falha_req||0):d.cargo==='AT'?(d.bugs_falha_test||0):(d.bugs_falha_dev||0);
   const txBug=d.qtd_tarefas>0?bugMain/d.qtd_tarefas*100:0;
@@ -1721,13 +1785,14 @@ function openDet(d){
       <div class="dkv">${d.bugs_falha_req||0} / ${d.bugs_falha_test||0} / ${d.bugs_falha_dev||0}</div>
     </div>`;
 
-  const vals=MK.map(m=>d.monthly?.[m]||0);
+  const vals=MK.map(m=>dRaw.monthly?.[m]||0);
   const avg=vals.reduce((a,v)=>a+v,0)/(MK.length||1);
+  const barColors = MK.map(m => (!mesFiltro || mesFiltro.includes(m)) ? col+'99' : (dark?'rgba(255,255,255,.12)':'rgba(0,0,0,.08)'));
   if(cM)cM.destroy();
   cM=new Chart(document.getElementById('chartM'),{
     type:'bar',
     data:{labels:MESES,datasets:[
-      {label:'Pontuação',data:vals,backgroundColor:col+'99',borderColor:col,borderWidth:1,borderRadius:3}
+      {label:'Pontuação',data:vals,backgroundColor:barColors,borderColor:col,borderWidth:1,borderRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtN(c.raw)}}},
@@ -1765,15 +1830,24 @@ function openDet(d){
   curTasks=d.tarefas||[];
   document.getElementById('tsrch').value='';
   document.getElementById('tstat').value='';
-  document.getElementById('tmes').value='';
   document.getElementById('tproj').value='';
   document.getElementById('tsquad').value='';
+  // Repopula o seletor de mês da tabela de tarefas: se houver filtro de meses ativo no topo,
+  // só mostra (e permite selecionar) os meses que estão dentro do filtro.
+  const tmesEl=document.getElementById('tmes');
+  const mesesParaMostrar = mesFiltro ? MK.filter(m=>mesFiltro.includes(m)) : MK;
+  tmesEl.innerHTML = '<option value="">Todos meses</option>' +
+    mesesParaMostrar.map(m=>`<option value="2026-${m}">${ML[m]}</option>`).join('');
+  tmesEl.value='';
   renderTasks();
   renderBugs(d);
 
-  // Scroll accordion row into view smoothly
-  const accRow=document.querySelector('.acc-row');
-  if(accRow) accRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  // Scroll accordion row into view smoothly — apenas quando o detalhe está sendo
+  // aberto pela primeira vez (clique na linha), não em cada re-render por filtro.
+  if(doScroll){
+    const accRow=document.querySelector('.acc-row');
+    if(accRow) accRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
 }
 
 function renderTasks(){
@@ -1852,11 +1926,7 @@ function renderIndCharts(){
   if(!all.length) return;
 
   // Aplicar os mesmos filtros ativos do Fluxo sobre os itens fechados
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
 
   const raw = all.filter(x=>{
     if(fMes){
@@ -1970,7 +2040,18 @@ function redrawCharts(d){
   });
 }
 
-let CHART_FILTER = {tipo:null, status:null, projeto:null, class_bug:null, class_mel:null};
+let CHART_FILTER = {tipo:null, status:null, projeto:null, class_bug:null, class_mel:null, idade:null};
+const AB_IDADE_FAIXAS = ['Até 1 ano','1 a 2 anos','2 a 3 anos','Mais de 3 anos'];
+function abIdadeFaixa(t){
+  if(!t.criado) return null;
+  const d = Math.floor((new Date()-new Date(t.criado))/86400000);
+  if(d<365)  return AB_IDADE_FAIXAS[0];
+  if(d<730)  return AB_IDADE_FAIXAS[1];
+  if(d<1095) return AB_IDADE_FAIXAS[2];
+  return AB_IDADE_FAIXAS[3];
+}
+const AB_SEM_CLASS = 'Sem classificação';  // bugs sem Classificação de Bug preenchida
+const abBugSemClass = t => t.tipo==='Bug' && !t.class_bug;
 let AB_SORT = {col:'dias_aberto', asc:false};  // ordenação da tabela de backlog
 
 function applyChartFilter(field, value){
@@ -1979,7 +2060,7 @@ function applyChartFilter(field, value){
   renderAberto();
 }
 function resetChartFilters(){
-  CHART_FILTER={tipo:null,status:null,projeto:null,class_bug:null,class_mel:null};
+  CHART_FILTER={tipo:null,status:null,projeto:null,class_bug:null,class_mel:null,idade:null};
 }
 
 function renderChartsAberto(filtradas){
@@ -2038,7 +2119,7 @@ function renderChartsAberto(filtradas){
 
   const bugs = filtradas.filter(t=>t.tipo==='Bug');
   const classBugMap = {};
-  bugs.forEach(t=>{ const k=t.class_bug||'Não informado'; classBugMap[k]=(classBugMap[k]||0)+1; });
+  bugs.forEach(t=>{ const k=t.class_bug||AB_SEM_CLASS; classBugMap[k]=(classBugMap[k]||0)+1; });
   const classBugLabels = Object.keys(classBugMap).sort((a,b)=>classBugMap[b]-classBugMap[a]);
   const bugColors = ['#22c55e','#6366f1','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#9ca3af'];
   if(cBug) cBug.destroy();
@@ -2119,6 +2200,43 @@ function renderChartsAberto(filtradas){
   window._cAbModulos  = mkAbHBar('chartAbModulos',  topN(modulos),  '#22c55e', window._cAbModulos,  'ab-modulo');
   window._cAbRotinas  = mkAbHBar('chartAbRotinas',  topN(rotinas),  '#a78bfa', window._cAbRotinas,  'ab-rotina');
   window._cAbClientes = mkAbHBar('chartAbClientes', topN(clientes), '#38bdf8', window._cAbClientes, 'ab-cliente');
+
+  // ── Envelhecimento do Backlog (tempo em aberto por faixa) ────────────────
+  const idadeCnt = AB_IDADE_FAIXAS.map(()=>0);
+  filtradas.forEach(t=>{ const f=abIdadeFaixa(t); if(f) idadeCnt[AB_IDADE_FAIXAS.indexOf(f)]++; });
+  const idadeTot = idadeCnt.reduce((a,b)=>a+b,0);
+  const idadeCores = ['#22c55e','#eab308','#f97316','#ef4444'];
+  const idadeLabelsPlugin = {
+    id:'abIdadeLabels',
+    afterDatasetsDraw(ch){
+      const {ctx}=ch; ctx.save();
+      ctx.font='600 11px sans-serif'; ctx.fillStyle=tc; ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ch.getDatasetMeta(0).data.forEach((bar,i)=>{
+        const v=idadeCnt[i], pct=idadeTot?Math.round(v/idadeTot*100):0;
+        ctx.fillText(`${v.toLocaleString('pt-BR')} (${pct}%)`, bar.x, bar.y-4);
+      });
+      ctx.restore();
+    }
+  };
+  if(window._cAbIdade) window._cAbIdade.destroy();
+  window._cAbIdade = new Chart(document.getElementById('chartAbIdade'),{
+    type:'bar',
+    data:{labels:AB_IDADE_FAIXAS, datasets:[{
+      data:idadeCnt,
+      backgroundColor:idadeCores.map((c,i)=>CHART_FILTER.idade&&CHART_FILTER.idade!==AB_IDADE_FAIXAS[i]?c+'55':c),
+      borderRadius:4, borderWidth:0, maxBarThickness:90}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:20}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${c.raw.toLocaleString('pt-BR')} itens (${idadeTot?Math.round(c.raw/idadeTot*100):0}%)`}}},
+      scales:{x:{grid:{display:false},ticks:{color:tc,font:{size:10}}},
+              y:{grid:{color:gc},ticks:{color:tc,font:{size:9}},beginAtZero:true}},
+      animation:{duration:300},
+      onClick:(e,els)=>{ applyChartFilter('idade', els.length?AB_IDADE_FAIXAS[els[0].index]:null); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }
+    },
+    plugins:[idadeLabelsPlugin]
+  });
 }
 
 function resetFiltrosAberto(){
@@ -2179,8 +2297,10 @@ function applyMesFiltro(d){
 function resetFiltrosIndicadores(){
   MS_IND_RESP.clear(); buildMSList('ind-resp', MS_IND_RESP_ALL); updateMSBtnIndResp();
   clearMesSel();
+  const srch = document.getElementById('srch');
   const fp = document.getElementById('fil-projeto');
   const fs = document.getElementById('fil-squad');
+  if(srch) srch.value='';
   if(fp) fp.value='';
   if(fs) fs.value='';
   render();
@@ -2207,21 +2327,22 @@ function updateMSBtnIndResp(){
 
 // ── Multiselect state Backlog ──
 const MS_AB_STATE = {};
-['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status'].forEach(k=>{ MS_AB_STATE[k]=new Set(); });
+['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ab-classbug','ab-classmel','ab-gut'].forEach(k=>{ MS_AB_STATE[k]=new Set(); });
 const MS_AB_LABELS = {
   'ab-resp':'Responsável','ab-proj':'Projetos','ab-squad':'Squads','ab-tipo':'Tipos',
   'ab-prod':'Produtos','ab-modulo':'Módulos','ab-rotina':'Rotinas',
-  'ab-cliente':'Clientes','ab-status':'Status'
+  'ab-cliente':'Clientes','ab-status':'Status',
+  'ab-classbug':'Classificação de Bug','ab-classmel':'Classificação de Melhoria','ab-gut':'GUT'
 };
 const MS_AB_ALL_VALS = {};
-['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status'].forEach(k=>{ MS_AB_ALL_VALS[k]=[]; });
+['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ab-classbug','ab-classmel','ab-gut'].forEach(k=>{ MS_AB_ALL_VALS[k]=[]; });
 
 // ── Multiselect state TDC ──
 const MS_STATE = { seg:new Set(), produto:new Set(), squad:new Set(), 'bug-gerado':new Set(), crit:new Set() };
 const MS_LABELS = { seg:'Segmento', produto:'Produtos', squad:'Squad', 'bug-gerado':'Bug Gerado', crit:'Criticidade' };
 const MS_ALL_VALS = { seg:[], produto:[], squad:[], 'bug-gerado':['3 Últimas Versões','Última Versão','Últimos 12 Meses'], crit:[] };
 
-const AB_KEYS = new Set(['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ind-resp']);
+const AB_KEYS = new Set(['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ab-classbug','ab-classmel','ab-gut','ind-resp']);
 
 const MS_VALS_MAP = {};
 
@@ -2281,9 +2402,11 @@ function filterMS(key, q){
   const all = key==='ind-resp'    ? MS_IND_RESP_ALL :
               AB_KEYS.has(key)    ? (MS_AB_ALL_VALS[key]||[]) :
               key.startsWith('sp-')? (MS_SP_ALL[key]||[]) :
+              key.startsWith('sup-')? (MS_SUP_ALL[key]||[]) :
               (MS_ALL_VALS[key]||[]);
   const filtered = all.filter(v=>v.toLowerCase().includes(q.toLowerCase()));
   if(key.startsWith('sp-')) buildMSListSp(key, filtered);
+  else if(key.startsWith('sup-')) buildMSListSup(key, filtered);
   else buildMSList(key, filtered);
 }
 
@@ -2322,10 +2445,13 @@ document.addEventListener('click', e=>{
 });
 
 function setView(view, btn){
-  moveTdcIndicator(btn);
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
   document.getElementById('view-indicadores').style.display = view==='indicadores'?'block':'none';
   document.getElementById('view-aberto').style.display      = view==='aberto'?'block':'none';
   document.getElementById('view-tdc').style.display         = view==='tdc'?'block':'none';
+  document.getElementById('view-bugsimples').style.display  = view==='bugsimples'?'block':'none';
+  if(view==='bugsimples') bsInit();
   document.getElementById('view-fluxo').style.display       = view==='fluxo'?'block':'none';
   document.getElementById('view-sprint').style.display      = view==='sprint'?'block':'none';
   document.getElementById('view-qualidade').style.display   = view==='qualidade'?'block':'none';
@@ -2333,7 +2459,7 @@ function setView(view, btn){
   if(view==='aberto'){
     if(ABERTO.length > 0) renderAberto();
     else {
-      jiraFetch('dashboard_data.json')
+      jiraFetch('dashboard_data.json?t='+Date.now())
         .then(r=>r.json())
         .then(json=>{ initAberto(json); if(ABERTO.length>0) renderAberto();
           else document.getElementById('resp-list').innerHTML =
@@ -2379,7 +2505,6 @@ let cSupMes=null, cSupTipo=null;
 const MS_SUP_ALL={};
 const MS_SUP_SEL={};
 
-let _supMesPadrao=false;
 let SUP_MES_LABEL={'2026-01':'Jan','2026-02':'Fev','2026-03':'Mar','2026-04':'Abr','2026-05':'Mai','2026-06':'Jun'};
 let SUP_MESES=['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
 
@@ -2400,14 +2525,14 @@ function buildSupData(itens_ab, itens_fe, backlog) {
   };
   const PROJS=new Set(itens_ab.map(x=>x.projeto));
   const agg={};
-  const key=(mc,mr,p,sq,pr,ti,ca)=>[mc,mr,p,sq,pr,ti,ca].join('|');
+  const key=(mc,mr,p,sq,pr,ti,ca,cb,cm,st)=>[mc,mr,p,sq,pr,ti,ca,cb,cm,st].join('|');
   const get=k=>{if(!agg[k])agg[k]={ab:0,res:0,pend:0,rep:0};return agg[k];};
 
   itens_ab.forEach(x=>{
     const mc=(x.criado||'').slice(0,7);
     if(!mc.startsWith('2026'))return;
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
-    get(key(mc,'',x.projeto,x.squad||'',x.produto||'',x.tipo,ca)).ab++;
+    get(key(mc,'',x.projeto,x.squad||'',x.produto||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||'')).ab++;
   });
 
   itens_fe.forEach(x=>{
@@ -2415,7 +2540,7 @@ function buildSupData(itens_ab, itens_fe, backlog) {
     if(!mr.startsWith('2026'))return;
     const mc=(x.criado||'').slice(0,7);
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
-    const r=get(key(mc,mr,x.projeto,x.squad||'',x.produto||'',x.tipo,ca));
+    const r=get(key(mc,mr,x.projeto,x.squad||'',x.produto||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||''));
     r.res++;
     if(x.status==='Análise Reprovada')r.rep++;
   });
@@ -2423,12 +2548,12 @@ function buildSupData(itens_ab, itens_fe, backlog) {
   (backlog||[]).filter(x=>PROJS.has(x.projeto)).forEach(x=>{
     const mc=(x.criado||'').slice(0,7);
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
-    get(key(mc,'',x.projeto,x.squad||'',(x.produto||(x.produtos||[])[0])||'',x.tipo,ca)).pend++;
+    get(key(mc,'',x.projeto,x.squad||'',(x.produto||(x.produtos||[])[0])||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||'')).pend++;
   });
 
   const rows=Object.entries(agg).map(([k,v])=>{
-    const[mc,mr,p,sq,pr,ti,ca]=k.split('|');
-    return{mc,mr,p,sq,pr,ti,ca,...v};
+    const[mc,mr,p,sq,pr,ti,ca,cb,cm,st]=k.split('|');
+    return{mc,mr,p,sq,pr,ti,ca,cb,cm,st,...v};
   });
 
   // Semanal
@@ -2449,9 +2574,9 @@ async function initSup(){
   if(supSection) supSection.style.opacity='0.4';
   try {
     const [abRes, feRes, ddRes] = await Promise.all([
-      jiraFetch('abertos_data.json'),
-      jiraFetch('fechados_data.json'),
-      jiraFetch('dashboard_data.json')
+      jiraFetch('abertos_data.json?t='+Date.now()),
+      jiraFetch('fechados_data.json?t='+Date.now()),
+      jiraFetch('dashboard_data.json?t='+Date.now())
     ]);
     if(!abRes.ok||!feRes.ok||!ddRes.ok) throw new Error('Arquivo não encontrado');
     const [abData, feData, ddData] = await Promise.all([abRes.json(),feRes.json(),ddRes.json()]);
@@ -2489,21 +2614,39 @@ async function initSup(){
       const d=document.createElement('div');
       d.className='warn-msg';
       d.style.cssText='color:var(--red);padding:12px;font-size:12px;text-align:center';
-      d.innerHTML='⚠️ <b>Arquivos JSON não encontrados</b><br>Certifique-se que o <code>jira_extractor.py</code> já rodou pelo menos uma vez — ele grava <code>abertos_data.json</code>, <code>fechados_data.json</code> e <code>dashboard_data.json</code> na pasta <code>Jira/</code>, lida por este painel via <code>/api/jira/</code>.<br><br><button onclick="SUP_INIT=false;document.querySelector(\'#sup-section .warn-msg\')?.remove();initSup().then(()=>renderSup())" style="padding:6px 14px;border-radius:6px;background:var(--indigo);color:#fff;border:none;cursor:pointer;font-size:12px">🔄 Tentar novamente</button>';
+      d.innerHTML='⚠️ <b>Arquivos JSON não encontrados</b><br>Certifique-se que <code>abertos_data.json</code>, <code>fechados_data.json</code> e <code>dashboard_data.json</code> estão na mesma pasta do <code>dashboard.html</code>.<br><br><button onclick="SUP_INIT=false;document.querySelector(\'#sup-section .warn-msg\')?.remove();initSup().then(()=>renderSup())" style="padding:6px 14px;border-radius:6px;background:var(--indigo);color:#fff;border:none;cursor:pointer;font-size:12px">🔄 Tentar novamente</button>';
       supSection2?.prepend(d);
     }
   }
   if(supSection) supSection.style.opacity='1';
   const vals=(fn)=>([...new Set(SUP_DATA.map(fn).filter(Boolean))].sort());
   const fill=(key,v)=>{MS_SUP_ALL[key]=v;buildMSListSup(key,v);updateMSBtnSup(key);};
-  // Primeira montagem sem mês escolhido: marca o mês atual (todos os painéis abrem em ano e mês atuais).
-  if(!_supMesPadrao){ _supMesPadrao=true; const d=new Date(), k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if(SUP_MESES.includes(k)&&!(MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size)) (MS_SUP_SEL['sup-mes']=MS_SUP_SEL['sup-mes']||new Set()).add(SUP_MES_LABEL[k]); }
+  if(SUP_MESES) fill('sup-mes', SUP_MESES.map(m=>SUP_MES_LABEL[m]));
   fill('sup-mes',  SUP_MESES.map(m=>SUP_MES_LABEL[m]));
   fill('sup-seg',  vals(r=>r.p));
   fill('sup-tipo', vals(r=>r.ti));
   fill('sup-squad',vals(r=>r.sq));
   fill('sup-prod', Object.keys(window._PROD_PROJETOS||{}).sort());
+  fill('sup-classbug', vals(r=>r.cb));
+  fill('sup-classmel', vals(r=>r.cm));
+  fill('sup-status',   vals(r=>r.st));
+  const clienteSet = new Set();
+  [...(window._ABERTOS_ITENS||[]), ...(window._FECHADOS_ITENS||[]), ...(window._BACKLOG_ITENS||[])].forEach(x=>{
+    (x.clientes||[]).forEach(c=>{ if(c) clienteSet.add(c); });
+  });
+  fill('sup-cliente', [...clienteSet].sort());
+}
+
+// Trata "todos selecionados" (ou nenhum marcado) como equivalente a "sem filtro".
+// Isso evita que registros com o campo vazio/nulo (ex.: squad ou produto em
+// branco) sejam indevidamente excluídos quando o usuário clica em "Todos" —
+// causa da divergência entre "Total em aberto" (Backlog) e "Pendentes" (Fluxo).
+function supActiveFilter(key){
+  const sel = MS_SUP_SEL[key];
+  if(!sel || sel.size===0) return null;
+  const all = MS_SUP_ALL[key]||[];
+  if(all.length && sel.size>=all.length) return null;
+  return sel;
 }
 
 function buildMSListSup(key,vals){
@@ -2533,14 +2676,14 @@ function selectAllMSSup(key){
 function updateMSBtnSup(key){
   const sel=MS_SUP_SEL[key]||new Set();
   const all=MS_SUP_ALL[key]||[];
-  const labels={'sup-mes':'Mês','sup-seg':'Segmento','sup-tipo':'Tipo','sup-squad':'Squad','sup-prod':'Produto'};
+  const labels={'sup-mes':'Mês','sup-seg':'Segmento','sup-tipo':'Tipo','sup-squad':'Squad','sup-prod':'Produto','sup-classbug':'Classificação de Bug','sup-classmel':'Classificação de Melhoria','sup-status':'Status','sup-cliente':'Cliente'};
   const btn=document.getElementById('ms-btn-'+key);
   if(!btn) return;
   if(sel.size===0||sel.size===all.length){btn.textContent=(labels[key]||key)+': Todos';btn.classList.remove('active');}
   else{btn.textContent=(labels[key]||key)+': '+sel.size+' sel.';btn.classList.add('active');}
 }
 function resetSupFilters(){
-  ['sup-mes','sup-seg','sup-tipo','sup-squad','sup-prod'].forEach(k=>{
+  ['sup-mes','sup-seg','sup-tipo','sup-squad','sup-prod','sup-classbug','sup-classmel','sup-status','sup-cliente'].forEach(k=>{
     MS_SUP_SEL[k]=new Set();
     buildMSListSup(k,MS_SUP_ALL[k]||[]);
     updateMSBtnSup(k);
@@ -2549,16 +2692,15 @@ function resetSupFilters(){
 }
 
 function getSupFiltered(){
-  const fMes    = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg    = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo   = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad  = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd   = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
   return SUP_DATA.filter(r=>{
     if(fMes   && !fMes.has(SUP_MES_LABEL[r.mc]||r.mc) && !fMes.has(SUP_MES_LABEL[r.mr]||r.mr)) return false;
     if(fSeg   && !fSeg.has(r.p))   return false;
     if(fTipo  && !fTipo.has(r.ti)) return false;
     if(fSquad && !fSquad.has(r.sq))return false;
+    if(fClassBug && !fClassBug.has(r.cb)) return false;
+    if(fClassMel && !fClassMel.has(r.cm)) return false;
+    if(fStatus   && !fStatus.has(r.st))   return false;
     if(fProd){
       // Se o item tem pr preenchido, filtra direto; senão filtra pelo projeto via mapeamento
       if(r.pr){
@@ -2583,11 +2725,7 @@ function renderSupChartSemana(){
   const tc=dark?'#9ba3bf':'#888';
   const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';
 
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size   ? MS_SUP_SEL['sup-mes']   : null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
 
   // Recalcula semanal dos itens brutos com filtros aplicados
   const wk=d=>{if(!d||d.length<10)return null;const dt=new Date(d.slice(0,10));dt.setDate(dt.getDate()-dt.getDay()+1);return dt.toISOString().slice(0,10);};
@@ -2596,6 +2734,10 @@ function renderSupChartSemana(){
     if(fSeg   && ![...fSeg].includes(x.projeto||''))   return false;
     if(fTipo  && ![...fTipo].includes(x.tipo||''))     return false;
     if(fSquad && ![...fSquad].includes(x.squad||''))   return false;
+    if(fClassBug && !fClassBug.has(x.class_bug||''))   return false;
+    if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+    if(fStatus   && !fStatus.has(x.status||''))        return false;
+    if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
     if(fProd){
       const prods=(x.produtos||[]).concat(x.produto?[x.produto]:[]);
       if(![...fProd].some(p=>prods.includes(p)||(window._PROD_PROJETOS||{})[p]?.has(x.projeto))) return false;
@@ -2667,11 +2809,7 @@ function renderSup(){
 let FX_SORT={col:'criado', dir:-1};
 
 function getFluxoIssuesFiltered(){
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
   const itens  = window._FLUXO_ITENS_MERGED||[];
 
   let out = itens.filter(x=>{
@@ -2683,6 +2821,10 @@ function getFluxoIssuesFiltered(){
     if(fSeg   && !fSeg.has(x.projeto||''))  return false;
     if(fTipo  && !fTipo.has(x.tipo||''))    return false;
     if(fSquad && !fSquad.has(x.squad||''))  return false;
+    if(fClassBug && !fClassBug.has(x.class_bug||''))     return false;
+    if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+    if(fStatus   && !fStatus.has(x.status||''))          return false;
+    if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
     if(fProd){
       if(x.produto){ if(!fProd.has(x.produto)) return false; }
       else { if(![...fProd].some(p=>(window._PROD_PROJETOS||{})[p]?.has(x.projeto))) return false; }
@@ -2749,11 +2891,7 @@ function renderFluxoIssuesTable(){
 
 function renderSupKPIs(data){
   const fmt=n=>n.toLocaleString('pt-BR');
-  const fMes = MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size ? MS_SUP_SEL['sup-mes'] : null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
 
   let ab=0, res=0, rep=0;
   data.forEach(r=>{
@@ -2764,16 +2902,20 @@ function renderSupKPIs(data){
     if(!fMes || fMes.has(mrLbl)) rep += r.rep;
   });
 
-  // Pendentes: filtra backlog por Segmento/Tipo/Squad/Produto — ignora Mês
+  // Pendentes: filtra backlog por Segmento/Tipo/Squad/Produto/Classificação/GUT/Status/Cliente — ignora Mês
   let pend = 0;
   const bl = window._BACKLOG_ITENS || [];
-  if(!fSeg && !fTipo && !fSquad && !fProd){
+  if(!fSeg && !fTipo && !fSquad && !fProd && !fClassBug && !fClassMel && !fStatus && !fCliente){
     pend = window._PEND_TOTAL || bl.length;
   } else {
     pend = bl.filter(x=>{
       if(fSeg   && ![...fSeg].includes(x.projeto||''))    return false;
       if(fTipo  && ![...fTipo].includes(x.tipo||''))      return false;
       if(fSquad && ![...fSquad].includes(x.squad||''))    return false;
+      if(fClassBug && !fClassBug.has(x.class_bug||''))    return false;
+      if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+        if(fStatus   && !fStatus.has(x.status||''))         return false;
+      if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
       if(fProd){
         const prods = x.produtos||[];
         if(x.produto) prods.push(x.produto);
@@ -2787,10 +2929,6 @@ function renderSupKPIs(data){
   document.getElementById('sup-kv-res').textContent = fmt(res);
   document.getElementById('sup-kv-pend').textContent= fmt(pend);
   document.getElementById('sup-kv-rep').textContent = fmt(rep);
-  // Vazão = resolvidos ÷ abertos; taxa de reprovação = reprovados ÷ resolvidos (mesmo filtro de mês/segmento)
-  const pctF = (a,b) => b ? `${(a/b*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%` : '—';
-  document.getElementById('sup-ks-res').textContent = `por data de resolução · vazão ${pctF(res,ab)}`;
-  document.getElementById('sup-ks-rep').textContent = `análise reprovada · taxa ${pctF(rep,res)}`;
 }
 
 function renderSupChartMes(data){
@@ -2798,19 +2936,23 @@ function renderSupChartMes(data){
   const tc=dark?'#9ba3bf':'#888';
   const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';
 
-  const fMes=MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size?MS_SUP_SEL['sup-mes']:null;
+  const fMes=supActiveFilter('sup-mes');
   const activeMeses=fMes ? SUP_MESES.filter(m=>fMes.has(SUP_MES_LABEL[m])) : SUP_MESES;
 
   // Usa data (já filtrado por seg/tipo/squad/prod) mas sem filtro de mês
   // para cada registro: ab conta por mc, res/rep conta por mr
-  const fSeg2   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo2  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad2 = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd2  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fSeg2   = supActiveFilter('sup-seg');
+  const fTipo2  = supActiveFilter('sup-tipo');
+  const fSquad2 = supActiveFilter('sup-squad');
+  const fProd2  = supActiveFilter('sup-prod');
+  const fClassBug2 = supActiveFilter('sup-classbug');
+  const fClassMel2 = supActiveFilter('sup-classmel');
   const baseData = SUP_DATA.filter(r=>{
     if(fSeg2   && !fSeg2.has(r.p))    return false;
     if(fTipo2  && !fTipo2.has(r.ti))  return false;
     if(fSquad2 && !fSquad2.has(r.sq)) return false;
+    if(fClassBug2 && !fClassBug2.has(r.cb)) return false;
+    if(fClassMel2 && !fClassMel2.has(r.cm)) return false;
     if(fProd2){
       if(r.pr){ if(!fProd2.has(r.pr)) return false; }
       else { if(![...fProd2].some(p=>(window._PROD_PROJETOS||{})[p]?.has(r.p))) return false; }
@@ -2902,15 +3044,19 @@ function renderSupChartTipo(data){
 }
 
 function renderSupTable(data){
-  const fMes = MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size ? MS_SUP_SEL['sup-mes'] : null;
-  const fSeg2   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo2  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad2 = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd2  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fMes = supActiveFilter('sup-mes');
+  const fSeg2   = supActiveFilter('sup-seg');
+  const fTipo2  = supActiveFilter('sup-tipo');
+  const fSquad2 = supActiveFilter('sup-squad');
+  const fProd2  = supActiveFilter('sup-prod');
+  const fClassBug2 = supActiveFilter('sup-classbug');
+  const fClassMel2 = supActiveFilter('sup-classmel');
   const baseData = SUP_DATA.filter(r=>{
     if(fSeg2   && !fSeg2.has(r.p))    return false;
     if(fTipo2  && !fTipo2.has(r.ti))  return false;
     if(fSquad2 && !fSquad2.has(r.sq)) return false;
+    if(fClassBug2 && !fClassBug2.has(r.cb)) return false;
+    if(fClassMel2 && !fClassMel2.has(r.cm)) return false;
     if(fProd2){
       if(r.pr){ if(!fProd2.has(r.pr)) return false; }
       else { if(![...fProd2].some(p=>(window._PROD_PROJETOS||{})[p]?.has(r.p))) return false; }
@@ -3012,6 +3158,22 @@ function initAberto(json){
   fillAB('ab-modulo', [...new Set(ABERTO.map(t=>t.modulo).filter(Boolean))].sort());
   fillAB('ab-rotina', [...new Set(ABERTO.map(t=>t.rotina).filter(Boolean))].sort());
   fillAB('ab-cliente',[...new Set(ABERTO.flatMap(t=>t.clientes||[]).filter(Boolean))].sort());
+  fillAB('ab-classbug',[...new Set(ABERTO.map(t=>t.class_bug).filter(Boolean))].sort()
+    .concat(ABERTO.some(t=>t.tipo==='Bug'&&!t.class_bug) ? [AB_SEM_CLASS] : []));
+  fillAB('ab-classmel',[...new Set(ABERTO.map(t=>t.class_melhoria).filter(Boolean))].sort());
+  fillAB('ab-gut',[...new Set(ABERTO.map(t=>t.gut_resultado ?? t.gut).filter(v=>v!=null&&v!==''))]
+    .map(String).sort((a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0)));
+}
+
+// Trata "todos selecionados" (ou nenhum) como equivalente a "sem filtro" — evita
+// que itens com valor nulo/vazio no campo sejam excluídos indevidamente quando
+// o usuário clica em "Selecionar Todos".
+function abActiveFilter(key){
+  const sel = MS_AB_STATE[key];
+  if(!sel || sel.size===0) return null;
+  const all = MS_AB_ALL_VALS[key]||[];
+  if(all.length && sel.size>=all.length) return null;
+  return sel;
 }
 
 function abSort(col){
@@ -3064,24 +3226,41 @@ function renderAberto(){
   const q     = (document.getElementById('srch-aberto').value||'').toLowerCase();
   const prazo = document.getElementById('fil-prazo-aberto')?.value||'';
 
+  const fResp  = abActiveFilter('ab-resp');
+  const fProj  = abActiveFilter('ab-proj');
+  const fSquadA= abActiveFilter('ab-squad');
+  const fTipoA = abActiveFilter('ab-tipo');
+  const fStat  = abActiveFilter('ab-status');
+  const fMod   = abActiveFilter('ab-modulo');
+  const fRot   = abActiveFilter('ab-rotina');
+  const fProdA = abActiveFilter('ab-prod');
+  const fCli   = abActiveFilter('ab-cliente');
+  const fClassBugA = abActiveFilter('ab-classbug');
+  const fClassMelA = abActiveFilter('ab-classmel');
+  const fGutA = abActiveFilter('ab-gut');
+
   const filtradas = ABERTO.filter(t=>{
-    if(MS_AB_STATE['ab-resp'].size   && !MS_AB_STATE['ab-resp'].has(t.responsavel))   return false;
-    if(MS_AB_STATE['ab-proj'].size   && !MS_AB_STATE['ab-proj'].has(t.projeto))       return false;
-    if(MS_AB_STATE['ab-squad'].size  && !MS_AB_STATE['ab-squad'].has(t.squad))        return false;
-    if(MS_AB_STATE['ab-tipo'].size   && !MS_AB_STATE['ab-tipo'].has(t.tipo))          return false;
-    if(MS_AB_STATE['ab-status'].size && !MS_AB_STATE['ab-status'].has(t.status))      return false;
-    if(MS_AB_STATE['ab-modulo'].size && !MS_AB_STATE['ab-modulo'].has(t.modulo))      return false;
-    if(MS_AB_STATE['ab-rotina'].size && !MS_AB_STATE['ab-rotina'].has(t.rotina))      return false;
-    if(MS_AB_STATE['ab-prod'].size   && !(t.produtos||[]).some(p=>MS_AB_STATE['ab-prod'].has(p)))     return false;
-    if(MS_AB_STATE['ab-cliente'].size && !(t.clientes||[]).some(c=>MS_AB_STATE['ab-cliente'].has(c))) return false;
+    if(fResp  && !fResp.has(t.responsavel))   return false;
+    if(fProj  && !fProj.has(t.projeto))       return false;
+    if(fSquadA&& !fSquadA.has(t.squad))       return false;
+    if(fTipoA && !fTipoA.has(t.tipo))         return false;
+    if(fStat  && !fStat.has(t.status))        return false;
+    if(fMod   && !fMod.has(t.modulo))         return false;
+    if(fRot   && !fRot.has(t.rotina))         return false;
+    if(fProdA && !(t.produtos||[]).some(p=>fProdA.has(p)))     return false;
+    if(fCli   && !(t.clientes||[]).some(c=>fCli.has(c)))       return false;
+    if(fClassBugA && !(fClassBugA.has(t.class_bug) || (fClassBugA.has(AB_SEM_CLASS) && abBugSemClass(t)))) return false;
+    if(fClassMelA && !fClassMelA.has(t.class_melhoria)) return false;
+    if(fGutA  && !fGutA.has(String(t.gut_resultado ?? t.gut ?? ''))) return false;
     if(prazo==='vencido'   && !t.prazo_vencido)  return false;
     if(prazo==='hoje'      && !(t.dias_prazo!=null && t.dias_prazo>=0 && t.dias_prazo<=1)) return false;
     if(prazo==='sem_prazo' && t.prazo!=null)      return false;
     if(CHART_FILTER.tipo      && t.tipo!==CHART_FILTER.tipo)           return false;
     if(CHART_FILTER.status    && t.status!==CHART_FILTER.status)       return false;
     if(CHART_FILTER.projeto   && t.projeto!==CHART_FILTER.projeto)     return false;
-    if(CHART_FILTER.class_bug && t.class_bug!==CHART_FILTER.class_bug) return false;
+    if(CHART_FILTER.class_bug && !(t.class_bug===CHART_FILTER.class_bug || (CHART_FILTER.class_bug===AB_SEM_CLASS && abBugSemClass(t)))) return false;
     if(CHART_FILTER.class_mel && t.class_melhoria!==CHART_FILTER.class_mel) return false;
+    if(CHART_FILTER.idade     && abIdadeFaixa(t)!==CHART_FILTER.idade) return false;
     if(q){
       const hay = (t.responsavel||'')+(t.chave||'')+(t.summary||'');
       if(!hay.toLowerCase().includes(q)) return false;
@@ -3105,15 +3284,13 @@ function renderAberto(){
         ${tp} <span style="color:var(--text2)">${n}</span>
       </span>`).join('');
 
-  // parte de cada KPI no total em aberto (após os filtros)
-  const pctAberto = n => filtradas.length ? `${(n/filtradas.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% do total em aberto` : '';
   document.getElementById('kpi-aberto').innerHTML=`
     <div class="kpi"><div class="kl">Total em aberto</div><div class="kv">${filtradas.length.toLocaleString('pt-BR')}</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${tipoHtml}</div>
     </div>
-    <div class="kpi"><div class="kl">Prazo vencido</div><div class="kv" style="color:var(--red)">${venc}</div><div class="sp-kpi-sub">${pctAberto(venc)}</div></div>
-    <div class="kpi"><div class="kl">Vence hoje/amanhã</div><div class="kv" style="color:#d97706">${hoje}</div><div class="sp-kpi-sub">${pctAberto(hoje)}</div></div>
-    <div class="kpi"><div class="kl">Sem prazo definido</div><div class="kv" style="color:var(--text3)">${sp}</div><div class="sp-kpi-sub">${pctAberto(sp)}</div></div>`;
+    <div class="kpi"><div class="kl">Prazo vencido</div><div class="kv" style="color:var(--red)">${venc}</div></div>
+    <div class="kpi"><div class="kl">Vence hoje/amanhã</div><div class="kv" style="color:#d97706">${hoje}</div></div>
+    <div class="kpi"><div class="kl">Sem prazo definido</div><div class="kv" style="color:var(--text3)">${sp}</div></div>`;
 
   const grupos = {};
   filtradas.forEach(t=>{
@@ -3128,11 +3305,9 @@ function renderAberto(){
 
   try { renderChartsAberto(filtradas); } catch(e){ console.warn('Charts error:', e); }
 
-  window._AB_FILTRADAS = filtradas;
   if(!lista.length){
     document.getElementById('resp-list').innerHTML=
       `<p style="color:var(--text3);text-align:center;padding:30px">Nenhuma tarefa encontrada</p>`;
-    renderAbDetailTable();
     return;
   }
 
@@ -3189,6 +3364,7 @@ function renderAberto(){
       </div>
     </div>`).join('');
 
+  window._AB_FILTRADAS = filtradas;
   renderAbDetailTable();
 }
 
@@ -3317,9 +3493,7 @@ function renderTDCList(filtradas){
 let cTDCCrit=null, cTDCSeg=null, cTDCTemporal=null, cTDCLinha=null;
 let cTDCClientes=null, cTDCModulos=null, cTDCRotinas=null;
 
-// Carregamento do TDC — disparado apenas após login via SSO (ver ssoGrantAccess)
-function _bootTDCData(){
-jiraFetch('tdc_data.json')
+jiraFetch('tdc_data.json?t='+Date.now())
   .then(r=>{ if(!r.ok) throw new Error('tdc_data.json não encontrado'); return r.json(); })
   .then(json=>{
     setGlobalGeradoEm(json.gerado_em);
@@ -3329,7 +3503,6 @@ jiraFetch('tdc_data.json')
     if(document.getElementById('view-tdc').style.display==='block') renderTDC();
   })
   .catch(e=>{ console.warn('TDC:', e.message); });
-} // fim _bootTDCData
 
 function initTDCFilters(){
   MS_ALL_VALS.seg     = [...new Set(TDC_DATA.map(t=>t.segmento).filter(Boolean))].sort();
@@ -3431,7 +3604,6 @@ function renderTDC(){
 
   const segCount={};
   atual.forEach(t=>{ const s=t.segmento||'—'; segCount[s]=(segCount[s]||0)+1; });
-  const pctSeg = n => atual.length ? `${(n/atual.length*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%` : '';
   const segBarLabels=Object.entries(segCount).sort((a,b)=>b[1]-a[1]).map(([s])=>s);
   const segChartH = Math.max(180, segBarLabels.length * 28);
   const segWrap = document.getElementById('chartTDCSeg-wrap');
@@ -3444,9 +3616,9 @@ function renderTDC(){
     data:{labels:segBarLabels,datasets:[{data:segBarLabels.map(s=>segCount[s]),
       backgroundColor:'#22c55e',borderWidth:0,borderRadius:2}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} bugs · ${pctSeg(c.raw)} do ano atual`}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} bugs`}}},
       scales:{x:{display:false,beginAtZero:true},y:{grid:{display:false},ticks:{color:tc,font:{size:10}}}},
-      layout:{padding:{right:56}}
+      layout:{padding:{right:40}}
     },
     plugins:[{
       id:'barLabels',
@@ -3464,9 +3636,6 @@ function renderTDC(){
             ctx.textAlign='right';
             ctx.textBaseline='middle';
             ctx.fillText(v, bar.x-4, y);
-            // % do segmento no total de bugs do ano atual, fora da barra
-            ctx.fillStyle=tc; ctx.font='600 10px system-ui,sans-serif'; ctx.textAlign='left';
-            ctx.fillText(pctSeg(v), bar.x+4, y);
             ctx.restore();
           });
         });
@@ -3683,7 +3852,7 @@ function fillSp(key, vals){
 async function initSprint(){
   SP_INIT=true;
   try {
-    const res = await jiraFetch('sprint_data.json');
+    const res = await jiraFetch('sprint_data.json?t='+Date.now());
     if(!res.ok) throw new Error('não encontrado');
     const json = await res.json();
     SP_DATA           = json.itens          || [];
@@ -3845,8 +4014,6 @@ function renderSprint(){
   document.getElementById('sp-kv-tasks').textContent  = fmt(tasks);
   document.getElementById('sp-kv-done').textContent   = fmt(done);
   document.getElementById('sp-kv-pts').textContent    = fmtF(ptsAll);
-  // pontos entregues e a parte deles no planejado (antes só aparecia o total planejado)
-  document.getElementById('sp-ks-pts').textContent    = ptsAll>0 ? `${fmtF(ptsDone)} entregues (${(ptsDone/ptsAll*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%)` : 'story points totais';
   document.getElementById('sp-kv-saydo').textContent  = saydo!=null ? saydo+'%' : '—';
   document.getElementById('sp-kv-lt').textContent     = lt!=null ? lt+' dias' : '—';
 
@@ -3981,7 +4148,7 @@ function renderSprintStatusCards(sprints){
       </div>
       <div style="display:flex;gap:12px;font-size:11px">
         <span>📋 <b>${s.tasks_done}/${s.tasks_plan}</b> tarefas</span>
-        <span>⭐ <b>${s.pts_done}/${s.pts_plan}</b> pts${s.say_do_pts!=null?` (${s.say_do_pts.toLocaleString('pt-BR',{maximumFractionDigits:1})}%)`:''}</span>
+        <span>⭐ <b>${s.pts_done}/${s.pts_plan}</b> pts</span>
       </div>
       ${s.lead_time_medio!=null?`
       <div style="margin-top:6px;padding:5px 8px;background:var(--bg3);border-radius:5px;font-size:10px;display:flex;gap:10px;align-items:center">
@@ -4172,7 +4339,7 @@ function openSpModal(sprintName){
     <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">Concluídas</div><div class="sp-modal-kpi-val" style="color:#38bdf8">${done}</div></div>
     <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">Say-Do</div><div class="sp-modal-kpi-val" style="color:${sdColor(saydo)}">${saydo!=null?saydo+'%':'—'}</div></div>
     <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">Pts Planejados</div><div class="sp-modal-kpi-val" style="color:#22c55e">${ptsAll.toFixed(1)}</div></div>
-    <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">Pts Entregues</div><div class="sp-modal-kpi-val" style="color:#22c55e">${ptsDone.toFixed(1)}${ptsAll>0?` <span style="font-size:.6em;font-weight:600">(${(ptsDone/ptsAll*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%)</span>`:''}</div></div>
+    <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">Pts Entregues</div><div class="sp-modal-kpi-val" style="color:#22c55e">${ptsDone.toFixed(1)}</div></div>
     <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">Lead Time</div><div class="sp-modal-kpi-val" style="color:#a78bfa">${lt!=null?lt+'d':'—'}</div></div>
     <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">🐛 Bugs</div><div class="sp-modal-kpi-val" style="color:#a78bfa">${bugs}</div></div>
     <div class="sp-modal-kpi"><div class="sp-modal-kpi-lbl">📦 Melhorias</div><div class="sp-modal-kpi-val" style="color:#22c55e">${mels}</div></div>
@@ -4201,7 +4368,7 @@ function saveFilters(){
       // Aba ativa e view ativa
       activeTab,
       activeView: (() => {
-        const views = ['indicadores','aberto','tdc','fluxo','sprint','qualidade'];
+        const views = ['bugsimples','indicadores','aberto','tdc','fluxo','sprint','qualidade'];
         return views.find(v => document.getElementById('view-'+v)?.style.display !== 'none') || 'tdc';
       })(),
 
@@ -4247,8 +4414,12 @@ function restoreFilters(){
     if(!raw) return;
     const s = JSON.parse(raw);
 
-    // Tema: fica a cargo da chave compartilhada 'theme' (sincronizada com o
-    // resto do painel) — não há mais botão local pra manter coerente aqui.
+    // Tema
+    if(false && s.theme){   // no Hub o tema vem da barra principal (localStorage 'theme')
+      document.documentElement.setAttribute('data-theme', s.theme);
+      const btn = document.getElementById('theme-btn');
+      if(btn) btn.textContent = s.theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro';
+    }
 
     // Indicadores — text/select
     const srchEl = document.getElementById('srch');
@@ -4319,6 +4490,12 @@ function restoreFilters(){
 const _origSetView = setView;
 window.setView = function(view, btn){
   _origSetView(view, btn);
+  saveFilters();
+};
+
+const _origToggleTheme = toggleTheme;
+window.toggleTheme = function(){
+  _origToggleTheme();
   saveFilters();
 };
 
@@ -4635,7 +4812,7 @@ function resetQaFiltros(){
 async function initQualidade(){
   QA_INIT = true;
   try{
-    const res = await jiraFetch('qualidade_data.json');
+    const res = await jiraFetch('qualidade_data.json?t='+Date.now(), {cache:'no-store'});
     if(!res.ok) throw new Error('não encontrado');
     const json = await res.json();
     QA_POR_ANO       = json.por_ano || {};
@@ -4716,13 +4893,11 @@ function renderQualidade(){
   const totalRepCodigo = lista.reduce((s,d)=>s+d.rep_codigo,0);
   const totalRepInterna = lista.reduce((s,d)=>s+d.rep_interna,0);
   const totalBugsProg = lista.reduce((s,d)=>s+d.bugs_prog,0);
-  // índice global da equipe, na mesma régua das colunas (por 100 tarefas)
-  const por100 = n => totalTarefas ? `${fmtN(n/totalTarefas*100,1)} por 100 tarefas (${totalTarefas.toLocaleString('pt-BR')} tarefas)` : '';
   document.getElementById('qa-kpi-row').innerHTML = `
     <div class="kpi"><div class="kl">Desenvolvedores</div><div class="kv">${lista.length}</div></div>
-    <div class="kpi"><div class="kl">Reprovadas Revisão de Código</div><div class="kv" style="color:var(--red)">${totalRepCodigo}</div><div class="sp-kpi-sub">${por100(totalRepCodigo)}</div></div>
-    <div class="kpi"><div class="kl">Reprov. Testes</div><div class="kv" style="color:var(--red)">${totalRepInterna}</div><div class="sp-kpi-sub">${por100(totalRepInterna)}</div></div>
-    <div class="kpi"><div class="kl">Bugs Falha Programação</div><div class="kv" style="color:var(--orange)">${totalBugsProg}</div><div class="sp-kpi-sub">${por100(totalBugsProg)}</div></div>`;
+    <div class="kpi"><div class="kl">Reprovadas Revisão de Código</div><div class="kv" style="color:var(--red)">${totalRepCodigo}</div></div>
+    <div class="kpi"><div class="kl">Reprov. Testes</div><div class="kv" style="color:var(--red)">${totalRepInterna}</div></div>
+    <div class="kpi"><div class="kl">Bugs Falha Programação</div><div class="kv" style="color:var(--orange)">${totalBugsProg}</div></div>`;
 
   document.getElementById('qa-count').textContent = `${lista.length} desenvolvedor(es)`;
   QA_LAST_LISTA = lista;
@@ -4735,11 +4910,11 @@ function renderQualidade(){
         ${d.nome}</td>
       <td style="text-align:right">${d.qtd_tarefas}</td>
       <td style="text-align:right">${d.rep_codigo}</td>
-      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_codigo>20?'var(--red)':d.tx_qualidade_codigo>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_codigo,1)}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_codigo>20?'var(--red)':d.tx_qualidade_codigo>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_codigo,1)}%</td>
       <td style="text-align:right">${d.rep_interna}</td>
-      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_interna>20?'var(--red)':d.tx_qualidade_interna>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_interna,1)}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_interna>20?'var(--red)':d.tx_qualidade_interna>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_interna,1)}%</td>
       <td style="text-align:right">${d.bugs_prog}</td>
-      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_externa>20?'var(--red)':d.tx_qualidade_externa>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_externa,1)}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_externa>20?'var(--red)':d.tx_qualidade_externa>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_externa,1)}%</td>
     </tr>${isOpen ? qaRenderDetail(d) : ''}`;
   }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:16px">Nenhum dado para o filtro selecionado.</td></tr>`;
 
@@ -5112,8 +5287,667 @@ function renderDevEpicProgress(){
       </td>
     </tr>`).join('');
 }
+
 </script>
 
+<script>
+// ══════════════════════════════════════════════════════════════════
+// PAINEL SIMPLES DE BUGS — só bugs de cliente (Cliente/externo ou sem classificação, igual ao TDC)
+// ══════════════════════════════════════════════════════════════════
+const BS = {rank:[], rankAnos:[], act:[], ls:{col:'dias',dir:-1}, init:false, pend:[], entrou:[], saiu:[], reprov:[], lista:'aberto', ch:{}};
+const BS_STATUS_EXCLUIDOS = new Set(['Reprovada pela análise','Reprovada Análise','Bug Reprovado','Erro Não Confirmado','Tarefa Abortada','Análise Reprovada','Cancelada','Cancelado']);
+// SLA para solução definitiva do incidente (dias corridos, da abertura até a solução)
+const BS_SLA={'Crítico':15,'Alto':15,'Médio':30,'Baixo':45};
+// SLA para retorno com solução paliativa (só informativo — não há data da paliativa nos dados)
+const BS_SLA_PALIATIVA={'Crítico':'1 dia','Alto':'3 dias'};
+// Limites do semáforo (provisórios — ajuste conforme a meta do conselho)
+const BS_LIM={foraSlaAmarelo:15, foraSlaVermelho:35, filaEstavel:5, rapidezEstavel:10, vencAmarelo:10, vencVermelho:25, velhosAlerta:5, minPend:10};
+const BS_CRIT_ORDEM = ['Bloqueante','Crítico','Alto','Médio','Baixo','Menor','Sem criticidade'];
+const BS_CRIT_COR   = {'Bloqueante':'#7f1d1d','Crítico':'#ef4444','Alto':'#f97316','Médio':'#eab308','Baixo':'#22c55e','Menor':'#84cc16','Sem criticidade':'#9ca3af'};
+const BS_FAIXAS = [
+  {l:'Até 10 dias',  max:10,   c:'#22c55e'},
+  {l:'11–30 dias',   max:30,   c:'#84cc16'},
+  {l:'31–45 dias',   max:45,   c:'#eab308'},
+  {l:'46–60 dias',   max:60,   c:'#f59e0b'},
+  {l:'61–90 dias',   max:90,   c:'#f97316'},
+  {l:'91–180 dias',  max:180,  c:'#ef4444'},
+  {l:'181 dias–1 ano',max:365, c:'#dc2626'},
+  {l:'Mais de 1 ano',max:1e9,  c:'#7f1d1d'}
+];
+// Projetos fora desta análise (o TDC também não considera): Personalizações - VX (PERS) e Testes Automatizados (TA)
+const BS_PROJ_FORA = new Set(['Personalizações - VX','PERS','Testes Automatizados']);
+const bsProjOk = x => !BS_PROJ_FORA.has(x.projeto);
+const bsEhBugCliente = x => x.tipo==='Bug' && (!x.class_bug || x.class_bug==='Cliente/externo');
+const bsCrit = v => { if(!v) return 'Sem criticidade'; if(v==='Critico') return 'Crítico'; return BS_CRIT_ORDEM.includes(v)?v:v; };
+const bsDia  = s => s ? new Date(String(s).slice(0,10)+'T00:00:00') : null;
+const bsDiasEntre = (a,b) => Math.max(0, Math.floor((b-a)/86400000));
+const bsN = v => Math.round(v).toLocaleString('pt-BR');
+function bsHumano(d){
+  if(d<60) return d+' dia'+(d===1?'':'s');
+  if(d<365) return '≈ '+Math.round(d/30)+' meses';
+  let a=Math.floor(d/365), m=Math.round((d-a*365)/30);
+  if(m>=12){ a++; m=0; }
+  return a+' ano'+(a>1?'s':'')+(m?' e '+m+' mes'+(m>1?'es':''):'');
+}
+const bsEsc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const bsMed = a => { if(!a.length) return 0; const b=[...a].sort((x,y)=>x-y), m=Math.floor(b.length/2); return b.length%2?b[m]:(b[m-1]+b[m])/2; };
+const bsAvg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0;
+
+async function bsInit(){
+  if(BS.init){ bsRender(); return; }
+  try{
+    const [dd,ab,fe,tdc,qa] = await Promise.all([
+      jiraFetch('dashboard_data.json?t='+Date.now()).then(r=>r.json()),
+      jiraFetch('abertos_data.json?t='+Date.now()).then(r=>r.json()),
+      jiraFetch('fechados_data.json?t='+Date.now()).then(r=>r.json()),
+      jiraFetch('tdc_data.json?t='+Date.now()).then(r=>r.json()).catch(()=>({bugs:[]})),
+      jiraFetch('qualidade_data.json?t='+Date.now()).then(r=>r.json()).catch(()=>({}))
+    ]);
+    // Segmento e Bug Gerado vêm do TDC (mesma fonte dos filtros da aba TDC)
+    const tdcMap={}; (tdc.bugs||[]).forEach(b=>{ tdcMap[b.chave]=b; });
+    // Responsável: usa o assignee do Jira quando o extrator trouxe; senão, cai no dev/analista do bug
+    const resp = x => x.responsavel || x.dev || x.at_tec || x.at || x.ar || '—';
+    const rec  = (x,critField) => {
+      const t=tdcMap[x.chave]||{};
+      const produtos = (x.produtos&&x.produtos.length)?x.produtos:(x.produto?[x.produto]:(t.produto?[t.produto]:[]));
+      const squad = x.squad||t.squad||null;
+      return {chave:x.chave,summary:x.summary,status:x.status,projeto:x.projeto,crit:bsCrit(x[critField]),criado:bsDia(x.criado),resolvido:bsDia(x.resolvido),resp:resp(x),
+              squad, produtos, seg:t.segmento||bsSegmento(x.projeto,produtos[0]||null,squad), gerado:t.bug_gerado||x.bug_gerado||null,
+              modulo:x.modulo||null, rotina:x.rotina||null, clientes:(x.clientes||[]).filter(Boolean),
+              origem:x.origem_bug||t.origem_bug||null, prazo:x.prazo||null, prazoVenc:!!x.prazo_vencido, diasPrazo:(x.dias_prazo==null?null:x.dias_prazo)};
+    };
+    const pend = (dd.tarefas_abertas||[]).filter(x=>bsEhBugCliente({tipo:x.tipo,class_bug:x.class_bug}) && bsProjOk(x) && !BS_STATUS_EXCLUIDOS.has(x.status))
+      .map(x=>rec(x,'criticidade'));
+    const entrou = (ab.itens||[]).filter(x=>bsEhBugCliente(x)&&bsProjOk(x)).map(x=>rec(x,'crit_bug'));
+    const fech = (fe.itens||[]).filter(x=>bsEhBugCliente(x)&&bsProjOk(x));
+    BS.pend = pend; BS.entrou = entrou;
+    BS.saiu   = fech.filter(x=>x.status==='Finalizada').map(x=>rec(x,'crit_bug'));
+    BS.reprov = fech.filter(x=>x.status==='Análise Reprovada').map(x=>rec(x,'crit_bug'));
+    BS.rank=(qa.bug_ranking||[]); BS.rankAnos=Object.keys(qa.bug_counts_por_ano||{});
+    BS.init=true;
+    bsBuildFiltros();
+    setGlobalGeradoEm(dd.gerado_em);
+  }catch(e){
+    console.warn('bugsimples:',e);
+    document.getElementById('bs-frase').innerHTML='⚠️ Não consegui carregar os arquivos de dados (<code>dashboard_data.json</code>, <code>abertos_data.json</code>, <code>fechados_data.json</code>). Eles precisam estar na mesma pasta do dashboard.';
+    return;
+  }
+  bsRender();
+}
+
+// ── Janela com a lista de bugs ao clicar numa barra ──
+const BS_COLS=[['chave','Chave'],['projeto','Projeto'],['summary','Assunto'],['criado','Data de abertura'],['dias','Dias'],['crit','Criticidade'],['resp','Responsável']];
+function bsAbrir(titulo, rows, sortCol, sortDir, opts){
+  // dias: se já foi resolvido/reprovado = da abertura até a resolução; se ainda está aberto = da abertura até hoje
+  const hoje=new Date();
+  // atraso: dias que já passaram do prazo (só para quem tem prazo e já venceu)
+  const lista=rows.map(x=>{ const pd=x.prazo?bsDia(x.prazo):null;
+    const dd=x.criado?bsDiasEntre(x.criado,x.resolvido||hoje):-1, sla=BS_SLA[x.crit]||null;
+    return {...x, fechado:!!x.resolvido, dias:dd, prazoD:pd, atraso:pd?(x.prazoVenc?Math.max(1,bsDiasEntre(pd,hoje)):0):null, sla, alemSla:(sla&&dd>=0)?dd-sla:null}; });
+  const nF=lista.filter(x=>x.fechado).length;
+  const diasLabel = nF===0 ? 'Dias em aberto' : nF===lista.length ? 'Dias para resolver' : 'Dias (aberto / até fechar)';
+  BS.modal={titulo, rows:lista, col:sortCol||'criado', dir:sortCol?(sortDir||1):1, diasLabel, misto:(nF>0&&nF<lista.length), temPrazo:lista.some(x=>x.prazo), temSla:!!(opts&&opts.sla)};
+  document.getElementById('bs-modal').style.display='flex';
+  bsRenderModal();
+}
+function bsFechar(){ document.getElementById('bs-modal').style.display='none'; }
+function bsOrdenar(col){ const m=BS.modal; if(m.col===col) m.dir*=-1; else {m.col=col; m.dir=(col==='atraso'||col==='alemSla')?-1:1;} bsRenderModal(); }
+function bsRenderModal(){
+  const m=BS.modal; if(!m) return;
+  const v=x=>m.col==='criado'?(x.criado?x.criado.getTime():0):m.col==='crit'?BS_CRIT_ORDEM.indexOf(x.crit):m.col==='dias'?x.dias:m.col==='atraso'?(x.atraso==null?-1:x.atraso):m.col==='alemSla'?(x.alemSla==null?-99999:x.alemSla):(x[m.col]||'').toString().toLowerCase();
+  m.rows.sort((a,b)=>{const A=v(a),B=v(b); return (A<B?-1:A>B?1:0)*m.dir;});
+  document.getElementById('bs-modal-titulo').textContent=m.titulo;
+  document.getElementById('bs-modal-count').textContent=bsN(m.rows.length)+' bug'+(m.rows.length===1?'':'s');
+  const seta=c=>m.col===c?(m.dir>0?' ▲':' ▼'):'';
+  const f=d=>d?d.toLocaleDateString('pt-BR'):'—';
+  document.getElementById('bs-modal-tab').innerHTML=
+    '<thead style="position:sticky;top:0;z-index:2"><tr>'+BS_COLS.flatMap(c=>c[0]==='dias'?[c,...(m.temPrazo?[['atraso','Dias após o prazo']]:[]),...(m.temSla?[['alemSla','Dias além do SLA']]:[])]:[c]).map(([c,l])=>`<th onclick="bsOrdenar('${c}')" style="cursor:pointer;white-space:nowrap;user-select:none">${c==='dias'?m.diasLabel:l}${seta(c)}</th>`).join('')+'</tr></thead><tbody>'+
+    (m.rows.length?m.rows.map(x=>`<tr>
+      <td style="font-family:monospace;white-space:nowrap"><a href="https://nimitz.atlassian.net/browse/${encodeURIComponent(x.chave)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${bsEsc(x.chave)}</a></td>
+      <td>${bsEsc(x.projeto)}</td>
+      <td title="${bsEsc(x.summary)}">${bsEsc((x.summary||'').slice(0,85))}${(x.summary||'').length>85?'…':''}</td>
+      <td style="white-space:nowrap">${f(x.criado)}</td>
+      <td style="white-space:nowrap;font-weight:700;color:${x.dias>365?'#ef4444':x.dias>90?'#f97316':x.dias>30?'#eab308':'#22c55e'}">${x.dias<0?'—':bsN(x.dias)+' dia'+(x.dias===1?'':'s')}${m.misto&&x.dias>=0?` <span style="font-weight:500;font-size:10px;color:var(--text3)">${x.fechado?'(levou)':'(aberto)'}</span>`:''}</td>
+      ${m.temPrazo?`<td style="white-space:nowrap" title="${x.prazo?'Prazo: '+f(x.prazoD):'Sem prazo definido'}">${x.prazo?(x.atraso>0?`<b style="color:#ef4444">${bsN(x.atraso)} dia${x.atraso===1?'':'s'}</b>`:'<span style="color:var(--text3)">no prazo</span>'):'<span style="color:var(--text3)">—</span>'}</td>`:''}
+      ${m.temSla?`<td style="white-space:nowrap" title="${x.sla?'SLA: '+x.sla+' dias':'Sem SLA para esta criticidade'}">${x.sla?(x.alemSla>0?`<b style="color:#ef4444">${bsN(x.alemSla)} dia${x.alemSla===1?'':'s'}</b>`:'<span style="color:var(--text3)">dentro</span>'):'<span style="color:var(--text3)">—</span>'}</td>`:''}
+      <td><span style="background:${BS_CRIT_COR[x.crit]||'#9ca3af'};color:#fff;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:600;white-space:nowrap">${x.crit}</span></td>
+      <td style="white-space:nowrap">${bsEsc(x.resp)}</td></tr>`).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Nenhum bug nesta barra.</td></tr>')+'</tbody>';
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') bsFechar(); });
+
+function bsSetLista(t){ BS.lista=t; BS.ls={col:'dias',dir:-1}; bsRenderLista(bsFiltrado()); }
+function bsOrdLista(col){ const o=BS.ls; if(o.col===col) o.dir*=-1; else {o.col=col; o.dir=(col==='dias'||col==='criado'||col==='resolvido')?-1:1;} bsRenderLista(bsFiltrado()); }
+
+// Segmento: mesma hierarquia do TDC (produto → projetos inativos → squad → projeto).
+// Bugs que existem no tdc_data usam o segmento já calculado lá; os demais (ex.: reprovados) usam esta réplica.
+const BS_PROJ_SEG={'Agrotitan':'Agrotitan','Agrotitan Fazendas':'Agrotitan Fazendas','ConstruShow':'ConstruShow','Petroshow':'Petroshow','zViasuper - inativo':'Viasuper','Fisco':'Fisco','BI':'BI','Talent':'Talent','Tecnologia':'Tecnologia','Voors':'Voors','zAutomação Comercial - inativo':'Automação Comercial','Nimitz':'Nimitz','CWM':'CRM','CRM':'CRM'};
+function bsSegmento(projeto,produto,squad){
+  if(produto){
+    if(['Construshow','ConstruShow','Web/ Mobile'].includes(produto)) return 'ConstruShow';
+    if(produto==='Petroshow') return 'Petroshow';
+    if(['SAAS','Delphi'].includes(produto)) return 'Talent';
+    if(produto==='Automação Comercial') return 'Automação Comercial';
+  }
+  if(projeto==='zViasuper - inativo') return 'Viasuper';
+  if(projeto==='zAutomação Comercial - inativo') return 'Automação Comercial';
+  if(squad){
+    if(squad==='Austrália') return 'Agrotitan Fazendas';
+    if(squad==='Inglaterra') return 'Viasuper';
+    if(squad==='Testes Automatizados') return 'Agrotitan';
+    if(squad==='Grécia') return 'CRM';
+    if(['Blackbird','Falcon','Eagle','Raptor','Avengers','Hornet','Nimitz-Fiscal','Nimitz-Gerencial'].includes(squad)) return 'Nimitz';
+  }
+  return BS_PROJ_SEG[projeto]||projeto;
+}
+
+// ── Filtros (mesmos do TDC) ──
+const BS_FIL=[['seg','Segmento'],['squad','Squad'],['prod','Produtos'],['gerado','Bug Gerado'],['crit','Criticidade']];
+function bsBuildFiltros(){
+  const recs=[...BS.pend,...BS.entrou,...BS.saiu,...BS.reprov];
+  const uniq=fn=>[...new Set(recs.flatMap(fn).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  BS.F={}; BS.vals={}; BS.shown={};
+  BS.vals.seg=uniq(x=>[x.seg]); BS.vals.squad=uniq(x=>[x.squad]); BS.vals.prod=uniq(x=>x.produtos||[]);
+  BS.vals.gerado=uniq(x=>[x.gerado]); BS.vals.crit=BS_CRIT_ORDEM.filter(c=>recs.some(x=>x.crit===c));
+  document.getElementById('bs-filtros').innerHTML=BS_FIL.map(([k,l])=>
+    `<div class="ms-wrap"><div class="ms-btn" id="ms-btn-bs-${k}" onclick="toggleMS('bs-${k}',event)">${l}: Todos</div>
+      <div class="ms-dropdown" id="ms-bs-${k}"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="bsMSFilter('${k}',this.value)"></div>
+      <div id="ms-bs-${k}-list"></div><div class="ms-actions"><button onclick="bsMSClear('${k}')">Limpar</button><button onclick="bsMSAll('${k}')">Todos</button></div></div></div>`).join('')+
+    `<button onclick="bsLimparFiltros()" style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text2);cursor:pointer;font-size:11px">✕ Limpar</button>`;
+  BS_FIL.forEach(([k])=>{ BS.F[k]=new Set(); bsMSList(k,BS.vals[k]); });
+}
+function bsMSList(k,vals){
+  BS.shown[k]=vals;
+  document.getElementById(`ms-bs-${k}-list`).innerHTML=vals.map((v,i)=>`<label class="ms-item"><input type="checkbox" ${BS.F[k].has(v)?'checked':''} onchange="bsMSToggle('${k}',${i},this.checked)"><span> ${bsEsc(v)}</span></label>`).join('');
+}
+function bsMSBtn(k){
+  const l=BS_FIL.find(f=>f[0]===k)[1], sel=BS.F[k], b=document.getElementById(`ms-btn-bs-${k}`);
+  b.textContent= sel.size===0?`${l}: Todos`: sel.size===1?`${l}: ${[...sel][0]}`:`${l}: ${sel.size} selecionados`;
+  b.classList.toggle('active',sel.size>0);
+}
+function bsMSToggle(k,i,on){ const v=BS.shown[k][i]; if(on) BS.F[k].add(v); else BS.F[k].delete(v); bsMSBtn(k); bsRender(); }
+function bsMSFilter(k,q){ bsMSList(k,BS.vals[k].filter(v=>v.toLowerCase().includes(q.toLowerCase()))); }
+function bsMSClear(k){ BS.F[k].clear(); bsMSList(k,BS.vals[k]); bsMSBtn(k); bsRender(); }
+function bsMSAll(k){ BS.vals[k].forEach(v=>BS.F[k].add(v)); bsMSList(k,BS.vals[k]); bsMSBtn(k); bsRender(); }
+function bsLimparFiltros(){ BS_FIL.forEach(([k])=>{ BS.F[k].clear(); bsMSList(k,BS.vals[k]); bsMSBtn(k); }); bsRender(); }
+
+function bsFiltrado(semSeg){
+  const F=BS.F;
+  const ok=x=>{
+    if(!semSeg && F.seg.size && !F.seg.has(x.seg)) return false;
+    if(F.squad.size  && !F.squad.has(x.squad))   return false;
+    if(F.crit.size   && !F.crit.has(x.crit))     return false;
+    if(F.gerado.size && !F.gerado.has(x.gerado)) return false;
+    if(F.prod.size   && !(x.produtos||[]).some(p=>F.prod.has(p))) return false;
+    return true;
+  };
+  const f=a=>a.filter(ok);
+  return {pend:f(BS.pend), entrou:f(BS.entrou), saiu:f(BS.saiu), reprov:f(BS.reprov)};
+}
+
+function bsReg(f){ BS.act.push(f); return BS.act.length-1; }
+function bsAct(i){ if(BS.act[i]) BS.act[i](); }
+// Barra única empilhada + lista (contagem · %), tudo clicável
+function bsStack(id, items, sub){
+  const T=items.reduce((a,b)=>a+b.n,0);
+  const pc=n=>T?(n/T*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'0,0%';
+  const seg=items.filter(i=>i.n>0).map(i=>`<div class="bs-seg" title="${bsEsc(i.l)}: ${bsN(i.n)} (${pc(i.n)})" onclick="bsAct(${bsReg(i.f)})" style="flex:${i.n};background:${i.c}"></div>`).join('');
+  const rows=items.map(i=>`<div class="bs-row ${i.n>0?'':'dim'}" ${i.n>0?`onclick="bsAct(${bsReg(i.f)})"`:''}><span class="bs-dot" style="background:${i.c}"></span><span class="bs-lbl">${bsEsc(i.l)}</span><span class="bs-val"><b>${bsN(i.n)}</b> <span>· ${pc(i.n)}</span></span></div>`).join('');
+  document.getElementById(id).innerHTML=`<div class="bs-big"><b>${bsN(T)}</b><span>${sub}</span></div><div class="bs-stackbar">${seg}</div><div>${rows}</div>`;
+}
+function bsChart(id, cfg, onBar){
+  if(BS.ch[id]) BS.ch[id].destroy();
+  if(onBar){
+    cfg.options.onClick=(e,els)=>{ if(els.length) onBar(els[0]); };
+    cfg.options.onHover=(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; };
+  }
+  BS.ch[id]=new Chart(document.getElementById(id), cfg);
+}
+
+function bsRender(){
+  if(!BS.init) return;
+  BS.act=[];
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)', tc=dark?'#9ba3bf':'#666';
+  const D=bsFiltrado(); const hoje=new Date();
+  const ano=hoje.getFullYear();
+
+  // ── Cards de resumo ──
+  const nEnt=D.entrou.length, nSai=D.saiu.length, nRep=D.reprov.length, nPend=D.pend.length;
+  const idades=D.pend.map(x=>x.criado?bsDiasEntre(x.criado,hoje):0);
+  const velhos=idades.filter(d=>d>365).length;
+  // quantos dos resolvidos/reprovados no ano foram abertos em anos anteriores
+  const antes=arr=>{
+    if(!arr.length) return '';
+    const n=arr.filter(x=>x.criado&&x.criado.getFullYear()<ano).length, pc=n/arr.length*100;
+    const pend=arr===D.pend, nome=arr===D.saiu?'resolvidos':arr===D.reprov?'reprovados':'pendentes';
+    const oAct=bsReg(()=>bsAbrir(pend?'Bugs pendentes que foram abertos em anos anteriores':`Bugs ${nome} em ${ano} que foram abertos em anos anteriores`, arr.filter(x=>x.criado&&x.criado.getFullYear()<ano)));
+    return `<div style="margin-top:3px;color:var(--text2);text-decoration:underline dotted" onclick="event.stopPropagation();bsAct(${oAct})" title="Clique para ver os ${n} bugs ${pend?'pendentes hoje':nome+' em '+ano}, mas que foram abertos antes de ${ano}">↳ <b>${bsN(n)}</b> (${pc>0&&pc<1?'<1':Math.round(pc)}%) abertos em anos anteriores</div>`;
+  };
+  const card=(ico,tit,val,sub,cor,fn)=>`<div class="kpi bs-card" onclick="bsAct(${bsReg(fn)})" title="Clique para ver quais são os bugs" style="border-left:4px solid ${cor}"><div class="kl">${ico} ${tit}</div><div class="kv" style="color:${cor}">${val}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${sub}</div></div>`;
+  document.getElementById('bs-resumo').innerHTML =
+    card('🟠','Esperando solução agora',bsN(nPend),'bugs pendentes hoje'+antes(D.pend),'#f97316',()=>bsAbrir('Bugs esperando solução (pendentes hoje)',D.pend))+
+    card('📥','Entraram em '+ano,bsN(nEnt),'bugs novos abertos','#3b82f6',()=>bsAbrir(`Bugs que entraram em ${ano}`,D.entrou))+
+    card('✅','Resolvidos em '+ano,bsN(nSai),'bugs finalizados'+antes(D.saiu),'#22c55e',()=>bsAbrir(`Bugs resolvidos em ${ano}`,D.saiu))+
+    card('↩️','Reprovados em '+ano,bsN(nRep),'não era bug / não procede'+antes(D.reprov),'#f97316',()=>bsAbrir(`Bugs reprovados em ${ano}`,D.reprov))+
+    card('🚨','Parados há mais de 1 ano',bsN(velhos),'dos pendentes','#ef4444',()=>bsAbrir('Bugs pendentes parados há mais de 1 ano',D.pend.filter(x=>x.criado&&bsDiasEntre(x.criado,hoje)>365)));
+  const saldo=nEnt-nSai-nRep;
+  const F30=bsFila30(D), sinal=saldo>0?1:saldo<0?-1:0;
+  const nomeDir=d=>d>0?'crescendo':d<0?'diminuindo':'estável', corDir=d=>d>0?'#ef4444':d<0?'#16a34a':'#f59e0b';
+  const noAno = saldo>0 ? `no ano a fila cresceu em <b>${bsN(saldo)}</b>` : saldo<0 ? `no ano a fila diminuiu em <b>${bsN(-saldo)}</b>` : 'no ano a fila ficou igual';
+  const recente = `nos últimos ${F30.j} dias ela está <b style="color:${corDir(F30.dir)}">${nomeDir(F30.dir)}</b> (entraram ${bsN(F30.ent)}, saíram ${bsN(F30.sai+F30.rep)})`;
+  const tend = `${noAno}; ${sinal===F30.dir?'e':'mas'} ${recente}`;
+  const mediaIdade=bsAvg(idades);
+  document.getElementById('bs-frase').innerHTML =
+    `📌 <b>Em resumo:</b> hoje há <b>${bsN(nPend)}</b> bugs de clientes esperando solução; em média estão abertos há <b>${bsHumano(Math.round(mediaIdade))}</b>. Em ${ano} entraram <b>${bsN(nEnt)}</b>, foram resolvidos <b>${bsN(nSai)}</b> e <b>${bsN(nRep)}</b> foram reprovados — ou seja, ${tend}.`;
+
+  bsDecisao(D);
+  bsSegRisco();
+  const pctF=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+
+  // ── 1a. Pendentes por ano de criação (barra única) ──
+  const porAno={}; D.pend.forEach(x=>{ const a=x.criado?x.criado.getFullYear():'?'; porAno[a]=(porAno[a]||0)+1; });
+  const PAL_ANO=['#3b82f6','#f59e0b','#ef4444','#b91c1c','#7f1d1d','#581c1c'];
+  const anos=Object.keys(porAno).sort();
+  bsStack('bsStackAno', anos.map(a=>({l:'Criados em '+a, n:porAno[a], c:PAL_ANO[Math.min(Math.max(ano-(+a),0),PAL_ANO.length-1)],
+      f:()=>bsAbrir(`Bugs pendentes criados em ${a}`, D.pend.filter(x=>String(x.criado?x.criado.getFullYear():'?')===a))})), 'bugs pendentes');
+
+  // ── 1b. Envelhecimento em faixas (barra única) ──
+  const faixaIdx=x=>BS_FAIXAS.findIndex(f=>(x.criado?bsDiasEntre(x.criado,hoje):0)<=f.max);
+  const faixaCnt=BS_FAIXAS.map(()=>0); D.pend.forEach(x=>faixaCnt[faixaIdx(x)]++);
+  bsStack('bsStackFaixa', BS_FAIXAS.map((f,k)=>({l:f.l, n:faixaCnt[k], c:f.c,
+      f:()=>bsAbrir(`Bugs pendentes parados: ${f.l}`, D.pend.filter(x=>faixaIdx(x)===k))})), 'bugs pendentes');
+
+  // ── 2. Entrou / Saiu / Reprovou por mês (linhas) ──
+  const NM=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mk=d=>d&&d.getFullYear()===ano?d.getMonth():-1;
+  const ult=Math.max(hoje.getMonth(),0);
+  const ent=Array(12).fill(0), sai=Array(12).fill(0), rep=Array(12).fill(0);
+  D.entrou.forEach(x=>{const m=mk(x.criado); if(m>=0) ent[m]++;});
+  D.saiu.forEach(x=>{const m=mk(x.resolvido); if(m>=0) sai[m]++;});
+  D.reprov.forEach(x=>{const m=mk(x.resolvido); if(m>=0) rep[m]++;});
+  const ms=NM.slice(0,ult+1), E=ent.slice(0,ult+1), S=sai.slice(0,ult+1), R=rep.slice(0,ult+1);
+  const sum=a=>a.reduce((x,y)=>x+y,0), tE=sum(E), tS=sum(S), tR=sum(R), sd=tE-(tS+tR);
+  // quantos dos que saíram em cada mês já tinham sido abertos em anos anteriores
+  const velho=(arr,m)=>arr.filter(x=>mk(x.resolvido)===m&&x.criado&&x.criado.getFullYear()<ano).length;
+  const sOld=ms.map((_,m)=>velho(D.saiu,m)), rOld=ms.map((_,m)=>velho(D.reprov,m));
+  const antesTot=sum(sOld)+sum(rOld);
+  document.getElementById('bs-chips').innerHTML=
+    `<span class="bs-chip"><i class="bs-dot" style="background:#3b82f6"></i>Entrou <span>${bsN(tE)}</span></span>`+
+    `<span class="bs-chip" title="Resolvidos + reprovados. ${bsN(antesTot)} deles foram abertos em anos anteriores."><i class="bs-dot" style="background:linear-gradient(135deg,#22c55e 50%,#f97316 50%)"></i>Saiu <span>${bsN(tS+tR)}</span></span>`+
+    `<span class="bs-chip"><i class="bs-dot" style="background:#22c55e"></i>↳ Resolvidos <span>${bsN(tS)}</span></span>`+
+    `<span class="bs-chip"><i class="bs-dot" style="background:#f97316"></i>↳ Reprovados <span>${bsN(tR)}</span></span>`+
+    `<span class="bs-chip">Saldo do período <b style="color:${sd>0?'#ef4444':'#16a34a'}">${sd>0?'+':sd<0?'−':''}${bsN(Math.abs(sd))}</b></span>`;
+  const pillBg=dark?'#22263a':'#ffffff', pillTx=dark?'#f3f4f6':'#111827';
+  const pill=(ctx,txt,cx,yBottom,cor)=>{ ctx.font='800 11px sans-serif'; const w=ctx.measureText(txt).width+14, h=19, x=cx-w/2, y=yBottom-h;
+    ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,w,h,7); else ctx.rect(x,y,w,h); ctx.fillStyle=pillBg; ctx.fill(); ctx.strokeStyle=cor; ctx.lineWidth=1.6; ctx.stroke();
+    ctx.fillStyle=pillTx; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,cx,y+h/2+1); };
+  const stackLbl={id:'bsStackLbl',afterDatasetsDraw(ch){
+    const {ctx}=ch; ctx.save();
+    ch.getDatasetMeta(0).data.forEach((b,i)=>{ if(E[i]) pill(ctx,bsN(E[i]),b.x,b.y-4,'#3b82f6'); });          // Entrou
+    [1,2].forEach(di=>ch.getDatasetMeta(di).data.forEach((b,i)=>{ const v=ch.data.datasets[di].data[i], h=Math.abs(b.base-b.y);   // valores dentro de cada cor
+      if(v&&h>=17){ ctx.font='700 10px sans-serif'; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(bsN(v),b.x,(b.y+b.base)/2+1); } }));
+    ch.getDatasetMeta(2).data.forEach((b,i)=>{ const t=S[i]+R[i]; if(t) pill(ctx,bsN(t),b.x,b.y-4,'#22c55e'); }); // total que saiu
+    ctx.restore(); }};
+  const col=(label,data,c,stack,r)=>({label,data,backgroundColor:c,stack,borderRadius:r,borderSkipped:false});
+  bsChart('bsChFluxo',{type:'bar',
+    data:{labels:ms,datasets:[col('Entrou',E,'#3b82f6','entrou',3),col('Resolvidos',S,'#22c55e','saiu',0),col('Reprovados',R,'#f97316','saiu',{topLeft:3,topRight:3})]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:30}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:it=>`${NM[it[0].dataIndex]}/${ano}`,
+        label:c=>{ const i=c.dataIndex;
+          if(c.datasetIndex===0) return `Entrou: ${bsN(c.raw)}`;
+          const t=S[i]+R[i], v=sOld[i]+rOld[i];
+          return [`Saiu no mês: ${bsN(t)}`,
+            `   Resolvidos: ${bsN(S[i])}  (${bsN(S[i]-sOld[i])} abertos em ${ano} · ${bsN(sOld[i])} de anos anteriores)`,
+            `   Reprovados: ${bsN(R[i])}  (${bsN(R[i]-rOld[i])} abertos em ${ano} · ${bsN(rOld[i])} de anos anteriores)`,
+            `   No total: ${bsN(t-v)} abertos em ${ano} · ${bsN(v)} de anos anteriores`]; }}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:tc}},y:{stacked:true,beginAtZero:true,grid:{color:gc},ticks:{color:tc,font:{size:9}}}}},
+    plugins:[stackLbl]},
+    el=>{ const m=el.index, di=el.datasetIndex;
+      const L=[D.entrou.filter(x=>mk(x.criado)===m), D.saiu.filter(x=>mk(x.resolvido)===m), D.reprov.filter(x=>mk(x.resolvido)===m)];
+      const T=['Bugs que entraram','Bugs resolvidos (saíram)','Bugs reprovados (saíram)']; bsAbrir(`${T[di]} em ${NM[m]}/${ano}`, L[di]); });
+
+  // ── 3. Vida do bug por criticidade (barras de progresso) ──
+  const crits=BS_CRIT_ORDEM.filter(c=>D.pend.some(x=>x.crit===c)||D.saiu.some(x=>x.crit===c));
+  const diasFe=c=>D.saiu.filter(x=>x.crit===c&&x.criado&&x.resolvido).map(x=>bsDiasEntre(x.criado,x.resolvido));
+  const diasAb=c=>D.pend.filter(x=>x.crit===c&&x.criado).map(x=>bsDiasEntre(x.criado,hoje));
+  const mFe=crits.map(c=>Math.round(bsAvg(diasFe(c)))), mAb=crits.map(c=>Math.round(bsAvg(diasAb(c)))), mx=Math.max(1,...mFe,...mAb);
+  const bl=(v,n,cor,fn)=>`<div class="bs-bl ${n?'':'dim'}" ${n?`onclick="bsAct(${bsReg(fn)})"`:''}><div class="bs-btrack"><div class="bs-bfill" style="width:${n?Math.max(2,v/mx*100):0}%;background:${cor}"></div></div><span class="bs-bv">${n?bsHumano(v):'—'}</span></div>`;
+  document.getElementById('bsVidaRows').innerHTML=
+    `<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text3);margin-bottom:10px"><span><i class="bs-dot" style="background:#22c55e;display:inline-block;vertical-align:middle"></i> Já resolvidos — dias que levaram</span><span><i class="bs-dot" style="background:#ef4444;display:inline-block;vertical-align:middle"></i> Ainda abertos — dias esperando</span></div>`+
+    crits.map((c,k)=>`<div class="bs-vrow"><div class="bs-vname"><i class="bs-dot" style="background:${BS_CRIT_COR[c]||'#9ca3af'}"></i>${c}</div>`+
+      bl(mFe[k],diasFe(c).length,'#22c55e',()=>bsAbrir(`Bugs já resolvidos — criticidade ${c}`,D.saiu.filter(x=>x.crit===c)))+
+      bl(mAb[k],diasAb(c).length,'#ef4444',()=>bsAbrir(`Bugs ainda abertos — criticidade ${c}`,D.pend.filter(x=>x.crit===c)))+`</div>`).join('');
+
+  const th='style="text-align:right"';
+  document.getElementById('bs-tab-crit').innerHTML =
+    `<thead><tr><th>Criticidade</th><th class="r">Resolvidos</th><th class="r">Levaram (média)</th><th class="r">Levaram (mais demorado)</th><th class="r">Ainda abertos</th><th class="r">Esperando (média)</th><th class="r">Esperando (mais antigo)</th></tr></thead><tbody>`+
+    crits.map(c=>{const f=diasFe(c), a=diasAb(c);
+      return `<tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${BS_CRIT_COR[c]||'#9ca3af'};margin-right:5px"></span><b>${c}</b></td>
+        <td class="r">${bsN(f.length)}</td><td class="r">${f.length?bsHumano(Math.round(bsAvg(f))):'—'}</td><td class="r">${f.length?bsHumano(Math.max(...f)):'—'}</td>
+        <td class="r">${bsN(a.length)}</td><td class="r">${a.length?bsHumano(Math.round(bsAvg(a))):'—'}</td><td class="r">${a.length?bsHumano(Math.max(...a)):'—'}</td></tr>`;}).join('')+
+    (()=>{ const f=D.saiu.filter(x=>x.criado&&x.resolvido).map(x=>bsDiasEntre(x.criado,x.resolvido)), a=D.pend.filter(x=>x.criado).map(x=>bsDiasEntre(x.criado,hoje));
+      const t='style="font-weight:800;border-top:2px solid var(--border);background:var(--bg3)"';
+      return `<tr><td ${t}>Σ Total</td><td class="r" ${t}>${bsN(D.saiu.length)}</td><td class="r" ${t}>${f.length?bsHumano(Math.round(bsAvg(f))):'—'}</td><td class="r" ${t}>${f.length?bsHumano(Math.max(...f)):'—'}</td>
+        <td class="r" ${t}>${bsN(D.pend.length)}</td><td class="r" ${t}>${a.length?bsHumano(Math.round(bsAvg(a))):'—'}</td><td class="r" ${t}>${a.length?bsHumano(Math.max(...a)):'—'}</td></tr>`; })()+'</tbody>';
+
+  bsOrigem(tc,gc);
+  bsEtapas(D); bsTempo(D,tc,gc); bsMotivos(D,tc,gc); bsReprovMod(D,tc,gc);
+  bsRankings(D,tc,gc);
+  bsRenderLista(D);
+}
+
+const BS_JIRA='https://nimitz.atlassian.net/browse/';
+function bsOrigem(tc,gc){
+  // Os filtros valem pelas características da TAREFA DE ORIGEM (segmento, squad e produto dela).
+  // Criticidade e Bug Gerado são do bug e o ranking não traz essa ligação por bug, então não se aplicam aqui.
+  const R0=BS.rank||[], F=BS.F||{seg:new Set(),squad:new Set(),prod:new Set(),crit:new Set(),gerado:new Set()};
+  const R=R0.filter(r=>{
+    if(F.seg.size   && !F.seg.has(bsSegmento(r.projeto,r.produto,r.squad))) return false;
+    if(F.squad.size && !F.squad.has(r.squad)) return false;
+    if(F.prod.size  && !F.prod.has(r.produto)) return false;
+    return true; });
+  const tab=document.getElementById('bs-tab-origem');
+  const semEfeito=(F.crit.size||F.gerado.size)?' · Criticidade e Bug Gerado não se aplicam aqui':'';
+  if(!R.length){
+    tab.innerHTML=`<tr><td style="padding:16px;color:var(--text3)">${R0.length?'Nenhuma tarefa de origem com esses filtros.':'Sem dados do ranking (qualidade_data.json).'}</td></tr>`;
+    document.getElementById('bs-origem-leg').innerHTML=''; document.getElementById('bs-origem-qtd').textContent=R0.length?`(0 de ${R0.length} tarefas${semEfeito})`:'';
+    if(BS.ch.bsChOrigem){BS.ch.bsChOrigem.destroy(); delete BS.ch.bsChOrigem;} return; }
+  const top=R.slice(0,10), cut=(t,n)=>!t?'—':(t.length>n?t.slice(0,n-1)+'…':t);
+  const labels=top.map(r=>r.chave_origem);
+  const lbl={id:'bsOrgLbl',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.font='700 10px sans-serif'; ctx.fillStyle=tc; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ch.getDatasetMeta(0).data.forEach((b,i)=>ctx.fillText(bsN(top[i].qtd_bugs), b.x+5, b.y)); ctx.restore(); }};
+  bsChart('bsChOrigem',{type:'bar',
+    data:{labels,datasets:[{data:top.map(r=>r.qtd_bugs),backgroundColor:'#dc2626',borderRadius:3,categoryPercentage:.8,barPercentage:.7}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:30}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>top[it[0].dataIndex].chave_origem,
+        label:c=>{ const r=top[c.dataIndex]; return [r.summary||'—',`${bsN(r.qtd_bugs)} bugs gerados`,`Versão: ${(r.fix_versions||[]).join(', ')||'—'}`]; }}}},
+      scales:{x:{display:false,beginAtZero:true},y:{grid:{display:false},border:{display:false},ticks:{color:tc,font:{size:9}}}}},
+    plugins:[lbl]},
+    el=>{ window.open(BS_JIRA+encodeURIComponent(top[el.index].chave_origem),'_blank','noopener'); });
+  const tot=R.reduce((a,r)=>a+r.qtd_bugs,0);
+  document.getElementById('bs-origem-qtd').textContent=`(${R.length}${R.length<R0.length?' de '+R0.length:''} tarefas · ${bsN(tot)} bugs${BS.rankAnos.length?' · '+BS.rankAnos.join(', '):''}${semEfeito})`;
+  tab.innerHTML='<thead style="position:sticky;top:0;z-index:2"><tr><th>Tarefa Origem</th><th>Resumo</th><th class="r">Qtd. Bugs Gerados</th><th>Fix Version(s)</th></tr></thead><tbody>'+
+    R.map(r=>`<tr>
+      <td style="font-family:monospace;white-space:nowrap"><a href="${BS_JIRA}${encodeURIComponent(r.chave_origem)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">${bsEsc(r.chave_origem)}</a></td>
+      <td title="${bsEsc(r.summary)}">${bsEsc(cut(r.summary,62))}</td>
+      <td class="r" style="font-weight:800;color:#ef4444">${bsN(r.qtd_bugs)}</td>
+      <td title="${bsEsc((r.fix_versions||[]).join(', '))}" style="white-space:nowrap">${bsEsc(cut((r.fix_versions||[]).join(', ')||'—',24))}</td></tr>`).join('')+'</tbody>';
+}
+
+// ══ Novas visões: etapas, prazo, tempo p/ resolver, motivos, temas, reprovação ══
+const BS_ETAPAS=[
+  {n:'🔎 Análise',c:'#3b82f6',st:['Análise Pendente','Em Análise','Análise Técnica']},
+  {n:'✅ Pronto para desenvolver',c:'#06b6d4',st:['Análise Aprovada','Pronta para Desenvolvimento']},
+  {n:'💻 Desenvolvimento',c:'#8b5cf6',st:['Em desenvolvimento','Desenvolvida','Revisão de código']},
+  {n:'🧪 Teste',c:'#f59e0b',st:['Teste Pendente','Em Teste','Teste Reprovado','Teste Produção']},
+  {n:'📦 Pronto para merge',c:'#22c55e',st:['Pronto para Merge']},
+  {n:'⏸️ Aguardando retorno',c:'#9ca3af',st:['Aguardando retorno']}
+];
+function bsEtapas(D){
+  const conhecidos=new Set(BS_ETAPAS.flatMap(e=>e.st));
+  const etapas=BS_ETAPAS.map(e=>({...e,rows:D.pend.filter(x=>e.st.includes(x.status))}));
+  const outras=D.pend.filter(x=>!conhecidos.has(x.status));
+  if(outras.length) etapas.push({n:'❔ Outras etapas',c:'#6b7280',st:[...new Set(outras.map(x=>x.status))],rows:outras});
+  const T=D.pend.length, mx=Math.max(1,...etapas.map(e=>e.rows.length));
+  document.getElementById('bsFunil').innerHTML=
+    `<div class="bs-big"><b>${bsN(T)}</b><span>bugs pendentes</span></div>`+
+    etapas.map(e=>{ const n=e.rows.length, id=n?bsReg(()=>bsAbrir(`Bugs pendentes na etapa: ${e.n.replace(/^\S+\s/,'')}`,e.rows)):-1;
+      const det=e.st.map(st=>[st,e.rows.filter(x=>x.status===st).length]).filter(a=>a[1]).map(a=>`${bsEsc(a[0])} ${bsN(a[1])}`).join(' · ');
+      return `<div class="bs-fun ${n?'':'dim'}" ${n?`onclick="bsAct(${id})"`:''}><div><div>${e.n}</div><div class="bs-fun-det">${det||'—'}</div></div><div class="bs-fun-track"><div class="bs-fun-bar" style="width:${n/mx*100}%;background:${e.c}"></div></div><div class="bs-val"><b>${bsN(n)}</b> <span>· ${T?(n/T*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0'}%</span></div></div>`; }).join('');
+  // prazo
+  const cat=x=>x.prazoVenc?0:(x.prazo?(x.diasPrazo!=null&&x.diasPrazo<=1?1:2):3);
+  const P=[['Prazo vencido','#ef4444'],['Vence hoje ou amanhã','#f59e0b'],['Dentro do prazo','#22c55e'],['Sem prazo definido','#9ca3af']];
+  bsStack('bsStackPrazo',P.map(([l,c],k)=>({l,c,n:D.pend.filter(x=>cat(x)===k).length,f:()=>bsAbrir(`Bugs pendentes — ${l.toLowerCase()}`,D.pend.filter(x=>cat(x)===k),k===0?'atraso':null,-1)})),'bugs pendentes');
+}
+
+function bsTempo(D,tc,gc){
+  const hoje=new Date(), ano=hoje.getFullYear();
+  const R=D.saiu.filter(x=>x.criado&&x.resolvido).map(x=>({...x,_d:bsDiasEntre(x.criado,x.resolvido)}));
+  const F=[['Até 7 dias','#22c55e',d=>d<=7],['8 a 30 dias','#84cc16',d=>d>7&&d<=30],['31 a 90 dias','#f59e0b',d=>d>30&&d<=90],['Mais de 90 dias','#ef4444',d=>d>90]];
+  bsStack('bsStackTempo',F.map(([l,c,fn])=>({l,c,n:R.filter(x=>fn(x._d)).length,f:()=>bsAbrir(`Bugs resolvidos em ${l.toLowerCase()}`,R.filter(x=>fn(x._d)))})),'bugs resolvidos');
+  const NM=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const ult=hoje.getMonth(), med=[], avg=[];
+  for(let m=0;m<=ult;m++){ const v=R.filter(x=>x.resolvido.getFullYear()===ano&&x.resolvido.getMonth()===m).map(x=>x._d); med.push(v.length?bsMed(v):null); avg.push(v.length?bsAvg(v):null); }
+  const dAll=R.map(x=>x._d);
+  document.getElementById('bs-med-geral').textContent=R.length?`(geral: mediana ${bsN(bsMed(dAll))} dias · média ${bsN(bsAvg(dAll))} dias)`:'';
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  const SERIES=[[med,'Mediana','#8b5cf6'],[avg,'Média','#f59e0b']];
+  // rótulos: o valor maior fica em cima do ponto e o menor embaixo, para não se sobrepor
+  const lbl={id:'bsMedLbl',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.font='700 10px sans-serif'; ctx.textAlign='center';
+    SERIES.forEach(([arr,,cor],di)=>{ ch.getDatasetMeta(di).data.forEach((pt,i)=>{ const v=arr[i], o=SERIES[1-di][0][i]; if(v==null) return;
+      const up = o==null ? true : (v>o || (v===o && di===1)); ctx.fillStyle=cor; ctx.textBaseline=up?'bottom':'top'; ctx.fillText(bsN(v),pt.x,pt.y+(up?-8:9)); }); });
+    ctx.restore(); }};
+  bsChart('bsChMediana',{type:'line',
+    data:{labels:NM.slice(0,ult+1),datasets:SERIES.map(([arr,label,cor])=>({label,data:arr,borderColor:cor,backgroundColor:cor,tension:.35,borderWidth:2.5,fill:false,spanGaps:true,pointRadius:4,pointHoverRadius:7,pointBackgroundColor:dark?'#1a1d27':'#fff',pointBorderColor:cor,pointBorderWidth:2}))},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:8,bottom:14,right:10}},interaction:{mode:'nearest',intersect:true},elements:{point:{hitRadius:14}},
+      plugins:{legend:{position:'top',labels:{color:tc,font:{size:10},boxWidth:12}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${bsN(c.raw)} dias`}}},
+      scales:{x:{grid:{display:false},ticks:{color:tc}},y:{beginAtZero:true,grid:{color:gc},ticks:{color:tc,font:{size:9}}}}},
+    plugins:[lbl]},
+    el=>{ const m=el.index; bsAbrir(`Bugs resolvidos em ${NM[m]}/${ano}`,R.filter(x=>x.resolvido.getFullYear()===ano&&x.resolvido.getMonth()===m)); });
+}
+
+const BS_STOP=new Set(('ajuste ajustes ajustar ajustado correção correções corrigir corrigindo corrigido erro erros falha falhas problema problemas sistema sistemas rotina rotinas telas campo campos opção opções dados quando após apos sendo sobre antes depois mesmo mesma porém todos todas deveria estar estão está possível permite permitir permitindo apresenta apresentando apresentar gerando gerar gerado gerada considerar considera considerando aparece aparecendo exibindo exibir exibida exibido ainda quais qual onde porque como pelo pela pelos pelas entre cada outra outro outros outras mostrando mostra deve devem deveria precisa precisam realizar realizado informar informado informada utilizar utilizando utilizado configurado nova novo novos novas'
+  ).split(' '));
+function bsMotivos(D,tc,gc){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark', bgc=dark?'#1a1d27':'#ffffff';
+  const real=D.entrou.filter(x=>x.status!=='Análise Reprovada');
+  const PAL=['#8b5cf6','#06b6d4','#f97316','#22c55e','#ec4899','#eab308'];
+  const donut=(cv,lg,campo,fixas,centro,titulo)=>{
+    const g={}; real.forEach(x=>{ const k=x[campo]||'Sem informação'; (g[k]=g[k]||[]).push(x); });
+    const ks=Object.keys(g).sort((a,b)=>g[b].length-g[a].length); let pi=0;
+    const items=ks.map(k=>({l:k,n:g[k].length,c:k==='Sem informação'?'#9ca3af':(fixas[k]||PAL[pi++%PAL.length]),f:()=>bsAbrir(`${titulo}: ${k}`,g[k])}));
+    const T=real.length, pc=n=>T?(n/T*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'0,0%';
+    const ctr={id:'bsCtr',afterDraw(ch){ const {ctx,chartArea:a}=ch; const x=(a.left+a.right)/2,y=(a.top+a.bottom)/2; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=dark?'#f3f4f6':'#111827'; ctx.font='800 22px sans-serif'; ctx.fillText(bsN(T),x,y-7); ctx.fillStyle=tc; ctx.font='10px sans-serif'; ctx.fillText(centro,x,y+13); ctx.restore(); }};
+    bsChart(cv,{type:'doughnut',data:{labels:items.map(i=>i.l),datasets:[{data:items.map(i=>i.n),backgroundColor:items.map(i=>i.c),borderColor:bgc,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'64%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${bsN(c.raw)} (${pc(c.raw)})`}}}},plugins:[ctr]},
+      el=>items[el.index].f());
+    document.getElementById(lg).innerHTML=items.map(i=>`<div class="bs-row ${i.n?'':'dim'}" ${i.n?`onclick="bsAct(${bsReg(i.f)})"`:''}><span class="bs-dot" style="background:${i.c}"></span><span class="bs-lbl">${bsEsc(i.l)}</span><span class="bs-val"><b>${bsN(i.n)}</b> <span>· ${pc(i.n)}</span></span></div>`).join('');
+  };
+  donut('bsChMotivo','bsLegMotivo','origem',{'Falha de Programação':'#ef4444','Falha de Análise':'#f59e0b'},'bugs no ano','Motivo do bug');
+  donut('bsChLegado','bsLegLegado','gerado',{'Erro legado':'#8b5cf6','Últimos 12 meses':'#06b6d4'},'bugs no ano','Bug gerado');
+
+  // temas: em quantos títulos cada palavra aparece
+  const idx={};
+  real.forEach((x,i)=>{ new Set(((x.summary||'').toLowerCase().match(/\p{L}{5,}/gu))||[]).forEach(w=>{ if(BS_STOP.has(w)) return; (idx[w]=idx[w]||new Set()).add(i); }); });
+  Object.keys(idx).forEach(w=>{ if(w.endsWith('s')&&idx[w.slice(0,-1)]){ idx[w].forEach(i=>idx[w.slice(0,-1)].add(i)); delete idx[w]; } });
+  const top=Object.entries(idx).sort((a,b)=>b[1].size-a[1].size).slice(0,12);
+  const lbl={id:'bsTemaLbl',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.font='700 10px sans-serif'; ctx.fillStyle=tc; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ch.getDatasetMeta(0).data.forEach((b,i)=>ctx.fillText(bsN(top[i][1].size),b.x+5,b.y)); ctx.restore(); }};
+  bsChart('bsChTemas',{type:'bar',data:{labels:top.map(t=>t[0]),datasets:[{data:top.map(t=>t[1].size),backgroundColor:'#8b5cf6',borderRadius:3,categoryPercentage:.8,barPercentage:.7}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:30}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${bsN(c.raw)} bugs com "${top[c.dataIndex][0]}" no assunto`}}},
+      scales:{x:{display:false,beginAtZero:true},y:{grid:{display:false},border:{display:false},ticks:{color:tc,font:{size:10}}}}},
+    plugins:[lbl]},
+    el=>{ const t=top[el.index]; bsAbrir(`Bugs com "${t[0]}" no assunto`,[...t[1]].map(i=>real[i])); });
+}
+
+function bsReprovMod(D,tc,gc){
+  const g={}; D.entrou.forEach(x=>{ if(!x.modulo) return; const o=g[x.modulo]=g[x.modulo]||{t:0,r:0,rows:[]}; o.t++; if(x.status==='Análise Reprovada'){ o.r++; o.rows.push(x); } });
+  const L=Object.entries(g).filter(([,o])=>o.t>=30).map(([m,o])=>({m,...o,p:o.r/o.t*100})).sort((a,b)=>b.p-a.p||b.t-a.t);
+  const tab=document.getElementById('bs-tab-reprov');
+  if(!L.length){ tab.innerHTML='<tr><td style="padding:16px;color:var(--text3)">Sem módulos com pelo menos 30 bugs abertos neste filtro.</td></tr>'; if(BS.ch.bsChReprov) BS.ch.bsChReprov.destroy(); return; }
+  const top=L.slice(0,10), cut=(t,n)=>t.length>n?t.slice(0,n-1)+'…':t, pf=v=>Math.round(v)+'%';
+  const lbl={id:'bsRepLbl',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.font='700 10px sans-serif'; ctx.fillStyle=tc; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ch.getDatasetMeta(0).data.forEach((b,i)=>ctx.fillText(`${pf(top[i].p)} (${bsN(top[i].r)}/${bsN(top[i].t)})`,b.x+5,b.y)); ctx.restore(); }};
+  bsChart('bsChReprov',{type:'bar',data:{labels:top.map(r=>cut(r.m,26)),datasets:[{data:top.map(r=>+r.p.toFixed(1)),backgroundColor:'#f97316',borderRadius:3,categoryPercentage:.8,barPercentage:.7}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:70}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>top[it[0].dataIndex].m,label:c=>`${pf(top[c.dataIndex].p)} reprovados (${bsN(top[c.dataIndex].r)} de ${bsN(top[c.dataIndex].t)} abertos)`}}},
+      scales:{x:{display:false,beginAtZero:true},y:{grid:{display:false},border:{display:false},ticks:{color:tc,font:{size:9}}}}},
+    plugins:[lbl]},
+    el=>{ const r=top[el.index]; bsAbrir(`Bugs reprovados — módulo: ${r.m}`,r.rows); });
+  tab.innerHTML='<thead style="position:sticky;top:0;z-index:2"><tr><th>Módulo</th><th class="r">Abertos</th><th class="r">Reprovados</th><th class="r">% reprovado</th></tr></thead><tbody>'+
+    L.map(r=>`<tr style="${r.r?'cursor:pointer':''}" ${r.r?`onclick="bsAct(${bsReg(()=>bsAbrir(`Bugs reprovados — módulo: ${r.m}`,r.rows))})"`:''}><td title="${bsEsc(r.m)}">${bsEsc(cut(r.m,34))}</td><td class="r">${bsN(r.t)}</td><td class="r">${bsN(r.r)}</td><td class="r" style="font-weight:800;color:#f97316">${pf(r.p)}</td></tr>`).join('')+'</tbody>';
+}
+
+// ══ Tarja de SLA e bloco "as 4 perguntas" ══
+function bsFila30(D){
+  const hoje=new Date(), ano=hoje.getFullYear(), dsj=bsDiasEntre(new Date(ano,0,1),hoje), j=Math.max(1,Math.min(30,dsj));
+  const ini=new Date(hoje.getTime()-j*86400000);
+  const ent=D.entrou.filter(x=>x.criado&&x.criado>=ini).length, sai=D.saiu.filter(x=>x.resolvido&&x.resolvido>=ini).length, rep=D.reprov.filter(x=>x.resolvido&&x.resolvido>=ini).length;
+  const saldo=ent-sai-rep, lim=ent*BS_LIM.filaEstavel/100;
+  return {j,ent,sai,rep,saldo,dir:saldo>lim?1:saldo<-lim?-1:0};
+}
+function bsDecisao(D){
+  const hoje=new Date(), ano=hoje.getFullYear(), DIA=86400000, G='#22c55e', Y='#f59e0b', R='#ef4444', B='#8b5cf6';
+  document.getElementById('bs-sla').innerHTML=
+    `<div class="bs-slarow"><span class="t">⏱️ SLA para solução definitiva do incidente</span>`+
+    Object.entries(BS_SLA).map(([c,d])=>`<span class="bs-slachip" style="background:${BS_CRIT_COR[c]}">${c} · ${d} dias</span>`).join('')+
+    `<span class="s">dias corridos desde a abertura · criticidade sem SLA (Menor / sem criticidade) fica fora dessas contas</span></div>`+
+    `<div class="bs-slarow"><span class="t">🩹 SLA para retorno com solução paliativa</span>`+
+    Object.entries(BS_SLA_PALIATIVA).map(([c,d])=>`<span class="bs-slachip" style="background:${BS_CRIT_COR[c]}">${c} · ${d}</span>`).join('')+
+    `<span class="s">somente Crítico e Alto</span></div>`;
+  const ago=n=>new Date(hoje.getTime()-n*DIA), dsj=bsDiasEntre(new Date(ano,0,1),hoje);
+  const pct=(n,t)=>t?Math.round(n/t*100):0, ln=(t)=>`<div class="bs-dl">${t}</div>`;
+  const ver=(txt,id)=>`<span class="bs-dlink" onclick="bsAct(${id})">${txt}</span>`;
+  const rolar=(txt,sec)=>`<span class="bs-dlink" onclick="document.getElementById('bs-sec-${sec}').scrollIntoView({behavior:'smooth',block:'start'})">${txt}</span>`;
+  const card=(q,cor,head,linhas,link)=>`<div class="bs-dcard" style="border-left:4px solid ${cor}"><div class="bs-dq">${q}</div><div class="bs-dh" style="color:${cor}">${head}</div>${linhas.filter(Boolean).map(ln).join('')}${link||''}</div>`;
+
+  // 1) fila crescendo ou diminuindo? (últimos 30 dias, sem passar do começo do ano)
+  const F=bsFila30(D), j=F.j, ent=F.ent, sai=F.sai, rep=F.rep;
+  const f1 = F.dir>0 ? ['↑ Crescendo',R] : F.dir<0 ? ['↓ Diminuindo',G] : ['→ Estável',Y];
+  const saldoAno=D.entrou.length-D.saiu.length-D.reprov.length;
+  const c1=card('A fila está crescendo ou diminuindo?',f1[1],f1[0],
+    [`Últimos ${j} dias: entraram <b>${bsN(ent)}</b> e saíram <b>${bsN(sai+rep)}</b> (${bsN(sai)} resolvidos + ${bsN(rep)} reprovados)`,
+     `No ano todo: ${saldoAno>0?'cresceu':saldoAno<0?'diminuiu':'ficou igual'}${saldoAno?` em <b>${bsN(Math.abs(saldoAno))}</b>`:''}`],
+    rolar('ver o movimento mês a mês ↓',2));
+
+  // 2) mais rápidos? (últimos w dias × w dias anteriores; w até 90)
+  const Rz=D.saiu.filter(x=>x.criado&&x.resolvido).map(x=>({...x,_d:bsDiasEntre(x.criado,x.resolvido)}));
+  const w=Math.min(90,Math.floor(dsj/2)), recT=Rz.filter(x=>x.resolvido>ago(w)), antT=Rz.filter(x=>x.resolvido>ago(2*w)&&x.resolvido<=ago(w));
+  const slaOk=a=>{ const c=a.filter(x=>BS_SLA[x.crit]); return c.length?pct(c.filter(x=>x._d<=BS_SLA[x.crit]).length,c.length):null; };
+  let c2;
+  if(w<30||!recT.length||!antT.length){ c2=card('Estamos ficando mais rápidos?','#9ca3af','Sem dados suficientes',['Ainda não há histórico no ano para comparar dois períodos.'],rolar('ver o tempo para resolver ↓',3)); }
+  else{
+    const mR=bsMed(recT.map(x=>x._d)), mA=bsMed(antT.map(x=>x._d)), ch=mA?(mR-mA)/mA*100:0, lim2=BS_LIM.rapidezEstavel;
+    const f2= ch<=-lim2?['↑ Sim, mais rápidos',G]: ch>=lim2?['↓ Não, mais lentos',R]:['→ Estável',Y];
+    const sR=slaOk(recT), sA=slaOk(antT);
+    c2=card('Estamos ficando mais rápidos?',f2[1],f2[0],
+      [`Tempo típico (mediana): <b>${bsN(mR)} dias</b> nos últimos ${w} dias, contra ${bsN(mA)} nos ${w} anteriores`,
+       sR==null?'':`Resolvidos dentro do SLA: <b>${sR}%</b> (antes ${sA==null?'—':sA+'%'})`],
+      rolar('ver o tempo para resolver ↓',3));
+  }
+
+  // 3) onde está o risco? (fora do SLA, prazo vencido, bugs antigos)
+  const Pz=D.pend.filter(x=>x.criado).map(x=>({...x,_d:bsDiasEntre(x.criado,hoje)}));
+  const comSla=Pz.filter(x=>BS_SLA[x.crit]), fora=comSla.filter(x=>x._d>BS_SLA[x.crit]), pf=pct(fora.length,comSla.length);
+  const venc=D.pend.filter(x=>x.prazoVenc), velhos=Pz.filter(x=>x._d>365), grave=fora.filter(x=>x.crit==='Crítico'||x.crit==='Alto').length;
+  const f3= pf<BS_LIM.foraSlaAmarelo?['Sob controle',G]: pf<BS_LIM.foraSlaVermelho?['Atenção',Y]:['Risco alto',R];
+  const c3=card('Onde está o risco? (bugs antigos e prazos vencidos)',f3[1],f3[0],
+    [`<b>${bsN(fora.length)}</b> de ${bsN(comSla.length)} pendentes (${pf}%) já passaram do SLA — <b>${bsN(grave)}</b> deles Crítico ou Alto`,
+     `<b>${bsN(venc.length)}</b> com prazo vencido · <b>${bsN(velhos.length)}</b> parados há mais de 1 ano`],
+    ver('ver os bugs fora do SLA →',bsReg(()=>bsAbrir('Bugs pendentes fora do SLA',fora,'alemSla',-1,{sla:true})))+
+    ver('ver os com prazo vencido →',bsReg(()=>bsAbrir('Bugs pendentes — prazo vencido',venc,'atraso',-1)))+
+    ver('ver os parados há mais de 1 ano →',bsReg(()=>bsAbrir('Bugs pendentes parados há mais de 1 ano',velhos))));
+
+  // 4) o que causa os bugs? (origem e idade do erro, bugs abertos no ano sem os reprovados)
+  const real=D.entrou.filter(x=>x.status!=='Análise Reprovada'), T=real.length;
+  const n=(c,v)=>real.filter(x=>x[c]===v).length;
+  const prog=n('origem','Falha de Programação'), anal=n('origem','Falha de Análise'), semO=real.filter(x=>!x.origem).length, leg=n('gerado','Erro legado'), novo=n('gerado','Últimos 12 meses');
+  const top=prog>=anal?'Falha de programação':'Falha de análise';
+  const c4= T?card('O que causa os bugs? (código, análise ou erro antigo)',B,top,
+    [`<b>${pct(prog,T)}%</b> falha de programação · <b>${pct(anal,T)}%</b> falha de análise${semO?` · ${pct(semO,T)}% sem informação`:''}`,
+     `<b>${pct(leg,T)}%</b> são erro legado (antigo) · <b>${pct(novo,T)}%</b> erro dos últimos 12 meses`],
+    rolar('ver os motivos e temas ↓',5)):card('O que causa os bugs?','#9ca3af','Sem dados',['Nenhum bug aberto neste filtro.'],'');
+  document.getElementById('bs-decisao').innerHTML=c1+c2+c3+c4;
+}
+
+// ══ Segmentos que merecem atenção ══
+function bsSegRisco(){
+  const D=bsFiltrado(true), hoje=new Date();
+  const L=BS_LIM, R='#ef4444', Y='#f59e0b', G='#22c55e', Z='#9ca3af';
+  const segs=[...new Set([...D.pend,...D.entrou].map(x=>x.seg).filter(Boolean))];
+  const rows=segs.map(sg=>{
+    const sub={pend:D.pend.filter(x=>x.seg===sg),entrou:D.entrou.filter(x=>x.seg===sg),saiu:D.saiu.filter(x=>x.seg===sg),reprov:D.reprov.filter(x=>x.seg===sg)};
+    const P=sub.pend.filter(x=>x.criado).map(x=>({...x,_d:bsDiasEntre(x.criado,hoje)}));
+    const comSla=P.filter(x=>BS_SLA[x.crit]), fora=comSla.filter(x=>x._d>BS_SLA[x.crit]);
+    const venc=sub.pend.filter(x=>x.prazoVenc), velhos=P.filter(x=>x._d>365), F=bsFila30(sub);
+    const pf=comSla.length?fora.length/comSla.length*100:0, pv=sub.pend.length?venc.length/sub.pend.length*100:0, cresce=F.dir>0&&F.saldo>=3;
+    let pts=0; pts+=pf>=L.foraSlaVermelho?2:pf>=L.foraSlaAmarelo?1:0; pts+=pv>=L.vencVermelho?2:pv>=L.vencAmarelo?1:0; pts+=cresce?1:0; pts+=velhos.length>=L.velhosAlerta?1:0;
+    const pouco=sub.pend.length<L.minPend;
+    const nivel=pouco?{n:'Poucos bugs',c:Z,o:0}:pts>=4?{n:'Prioridade',c:R,o:3}:pts>=2?{n:'Atenção',c:Y,o:2}:{n:'Ok',c:G,o:1};
+    const motivos=[pf>=L.foraSlaAmarelo?`${Math.round(pf)}% fora do SLA`:null, pv>=L.vencAmarelo?`${Math.round(pv)}% com prazo vencido`:null, cresce?'fila crescendo':null, velhos.length>=L.velhosAlerta?`${velhos.length} parados há mais de 1 ano`:null].filter(Boolean);
+    return {sg,sub,fora,venc,velhos,F,pf,pv,cresce,pts,nivel,motivos,pend:sub.pend.length};
+  }).sort((a,b)=>b.nivel.o-a.nivel.o||b.pts-a.pts||b.fora.length-a.fora.length);
+
+  const pri=rows.filter(r=>r.nivel.o===3), ate=rows.filter(r=>r.nivel.o===2);
+  const nm=r=>`<b>${bsEsc(r.sg)}</b> <span style="color:var(--text3)">(${bsN(r.fora.length)} fora do SLA)</span>`;
+  document.getElementById('bs-seg-call').innerHTML =
+    (pri.length?`🔴 <b>Prioridade:</b> ${pri.map(nm).join(', ')}.`:'🟢 Nenhum segmento em prioridade.')+
+    (ate.length?`<br>🟡 <b>Atenção:</b> ${ate.map(nm).join(', ')}.`:'');
+
+  const barra=(v,cor)=>`<div style="display:inline-block;vertical-align:middle;width:46px;height:6px;border-radius:3px;background:var(--border);margin-right:6px;overflow:hidden"><div style="height:100%;width:${Math.min(100,v)}%;background:${cor}"></div></div>`;
+  const corPf=v=>v>=L.foraSlaVermelho?R:v>=L.foraSlaAmarelo?Y:G, corPv=v=>v>=L.vencVermelho?R:v>=L.vencAmarelo?Y:G;
+  document.getElementById('bs-tab-seg').innerHTML=
+    '<thead><tr><th>Segmento</th><th>Situação</th><th class="r">Pendentes</th><th>Fora do SLA</th><th>Prazo vencido</th><th class="r">Parados +1 ano</th><th class="r">Fila (30 dias)</th><th>Por quê</th></tr></thead><tbody>'+
+    rows.map(r=>{ const F=r.F, dif=F.saldo, seta=r.cresce?`<b style="color:${R}">↑ +${bsN(dif)}</b>`:dif<0?`<b style="color:${G}">↓ ${bsN(dif)}</b>`:`<span style="color:var(--text3)">${dif>0?'+':''}${bsN(dif)}</span>`;
+      const alvo=r.fora.length?r.fora:r.sub.pend, id=bsReg(()=>bsAbrir(r.fora.length?`${r.sg} — bugs pendentes fora do SLA`:`${r.sg} — bugs pendentes`,alvo,r.fora.length?'alemSla':null,-1,{sla:r.fora.length>0}));
+      return `<tr style="cursor:pointer" onclick="bsAct(${id})"><td style="font-weight:700">${bsEsc(r.sg)}</td>
+        <td><span class="bs-slachip" style="background:${r.nivel.c}">${r.nivel.n}</span></td>
+        <td class="r">${bsN(r.pend)}</td>
+        <td style="white-space:nowrap">${barra(r.pf,corPf(r.pf))}<b>${bsN(r.fora.length)}</b> <span style="color:var(--text3)">· ${Math.round(r.pf)}%</span></td>
+        <td style="white-space:nowrap">${barra(r.pv,corPv(r.pv))}<b>${bsN(r.venc.length)}</b> <span style="color:var(--text3)">· ${Math.round(r.pv)}%</span></td>
+        <td class="r">${bsN(r.velhos.length)}</td>
+        <td class="r" title="entraram ${bsN(F.ent)} · saíram ${bsN(F.sai+F.rep)}">${seta}</td>
+        <td style="color:var(--text2);font-size:11px">${r.nivel.o===0?'amostra pequena':(r.motivos.join(' · ')||'—')}</td></tr>`; }).join('')+'</tbody>';
+}
+
+function bsRankings(D,tc,gc){
+  const defs=[['bsChMod','Módulos',x=>x.modulo?[x.modulo]:[]],['bsChRot','Rotinas',x=>x.rotina?[x.rotina]:[]],['bsChCli','Clientes',x=>x.clientes||[]]];
+  const SER=[['Abertos','#3b82f6','entrou'],['Resolvidos','#22c55e','saiu'],['Pendentes','#f97316','pend']];
+  const MSG=['Bugs abertos (entraram no ano)','Bugs resolvidos (finalizados no ano)','Bugs pendentes (esperando solução)'];
+  defs.forEach(([cv,nome,keyOf])=>{
+    const cnt={}, dt={}, anoAt=new Date().getFullYear();
+    SER.forEach(([,,fld],si)=>D[fld].forEach(x=>keyOf(x).forEach(k=>{
+      (cnt[k]=cnt[k]||[0,0,0])[si]++;
+      const d=dt[k]=dt[k]||{fin:0,rep:0,pen:0,rOld:0,pOld:0};
+      if(si===0){ if(x.status==='Análise Reprovada') d.rep++; else if(x.status==='Finalizada') d.fin++; else d.pen++; }
+      else if(si===1){ if(x.criado&&x.criado.getFullYear()<anoAt) d.rOld++; }
+      else { if(x.criado&&x.criado.getFullYear()<anoAt) d.pOld++; }
+    })));
+    const top=Object.entries(cnt).sort((a,b)=>(b[1][0]+b[1][1]+b[1][2])-(a[1][0]+a[1][1]+a[1][2])).slice(0,10);
+    const full=top.map(t=>t[0]), labels=full.map(l=>l.length>26?l.slice(0,25)+'…':l);
+    const lbl={id:'bsHLbl',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.font='600 9px sans-serif'; ctx.fillStyle=tc; ctx.textAlign='left'; ctx.textBaseline='middle';
+      ch.data.datasets.forEach((ds,di)=>ch.getDatasetMeta(di).data.forEach((b,i)=>{ const v=ds.data[i]; if(v) ctx.fillText(bsN(v), b.x+4, b.y); })); ctx.restore(); }};
+    bsChart(cv,{type:'bar',
+      data:{labels,datasets:SER.map(([l,c],si)=>({label:l,data:top.map(t=>t[1][si]),backgroundColor:c,borderRadius:2}))},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:26}},
+        plugins:{legend:{position:'top',labels:{color:tc,font:{size:10},boxWidth:10}},tooltip:{callbacks:{title:it=>full[it[0].dataIndex],label:c=>{
+          const d=dt[full[c.dataIndex]], n=c.raw, si=c.datasetIndex;
+          if(si===0) return [`Abertos: ${bsN(n)}`,`   • ${bsN(d.fin)} já resolvidos`,`   • ${bsN(d.rep)} reprovados (não era bug)`,`   • ${bsN(d.pen)} ainda pendentes`];
+          const old=si===1?d.rOld:d.pOld;
+          return [`${c.dataset.label}: ${bsN(n)}`,`   • ${bsN(n-old)} abertos em ${anoAt}`,`   • ${bsN(old)} de anos anteriores`];
+        }}}},
+        scales:{x:{display:false,beginAtZero:true},y:{grid:{display:false},border:{display:false},ticks:{color:tc,font:{size:9}}}}},
+      plugins:[lbl]},
+      el=>{ const nm=full[el.index], si=el.datasetIndex; bsAbrir(`${MSG[si]} — ${nome.slice(0,-1)}: ${nm}`, D[SER[si][2]].filter(x=>keyOf(x).includes(nm))); });
+  });
+}
+
+function bsRenderLista(D){
+  const hoje=new Date(); const ab=BS.lista==='aberto';
+  document.getElementById('bs-lst-ab').classList.toggle('active',ab);
+  document.getElementById('bs-lst-fe').classList.toggle('active',!ab);
+  const rows = ab
+    ? D.pend.filter(x=>x.criado).map(x=>({...x,dias:bsDiasEntre(x.criado,hoje)}))
+    : D.saiu.filter(x=>x.criado&&x.resolvido).map(x=>({...x,dias:bsDiasEntre(x.criado,x.resolvido)}));
+  const o=BS.ls;
+  const val=x=>o.col==='dias'?x.dias:o.col==='criado'?(x.criado?x.criado.getTime():0):o.col==='resolvido'?(x.resolvido?x.resolvido.getTime():0):o.col==='crit'?BS_CRIT_ORDEM.indexOf(x.crit):((o.col==='col4'?(ab?x.status:x.projeto):x[o.col])||'').toString().toLowerCase();
+  rows.sort((a,b)=>{const A=val(a),B=val(b); return (A<B?-1:A>B?1:0)*o.dir;});
+  const mostra=rows;  // todos os bugs; a tabela rola
+  document.getElementById('bs-lst-count').textContent=`${bsN(rows.length)} bug${rows.length===1?'':'s'}`;
+  const cor=d=>d>365?'#ef4444':d>90?'#f97316':d>30?'#eab308':'#22c55e';
+  const f=d=>d.toLocaleDateString('pt-BR');
+  document.getElementById('bs-tab-lista').innerHTML =
+    (()=>{ const sa=c=>o.col===c?(o.dir>0?' ▲':' ▼'):''; const th=(c,l,cls='')=>`<th ${cls?`class="${cls}" `:''}onclick="bsOrdLista('${c}')" style="cursor:pointer;white-space:nowrap;user-select:none">${l}${sa(c)}</th>`;
+      return `<thead style="position:sticky;top:0;z-index:2"><tr>${th('chave','Chave')}${th('summary','O que é')}${th('crit','Criticidade')}${th('col4',ab?'Situação atual':'Área')}${th('criado','Aberto em')}${ab?'':th('resolvido','Resolvido em')}${th('dias',ab?'Está aberto há':'Levou','r')}</tr></thead><tbody>`; })()+
+    mostra.map(x=>`<tr><td style="font-family:monospace;white-space:nowrap"><a href="https://nimitz.atlassian.net/browse/${encodeURIComponent(x.chave)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">${bsEsc(x.chave)}</a></td>
+      <td title="${bsEsc(x.summary)}">${bsEsc((x.summary||'').slice(0,80))}${(x.summary||'').length>80?'…':''}</td>
+      <td><span style="background:${BS_CRIT_COR[x.crit]||'#9ca3af'};color:#fff;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:600;white-space:nowrap">${x.crit}</span></td>
+      <td>${bsEsc(ab?x.status:x.projeto)}</td><td>${f(x.criado)}</td>${ab?'':`<td>${f(x.resolvido)}</td>`}
+      <td class="r" style="font-weight:700;color:${cor(x.dias)};white-space:nowrap">${bsHumano(x.dias)}</td></tr>`).join('')+'</tbody>';
+}
+</script>
 <script src="/js/telemetria.js"></script>
 </body>
 </html>
