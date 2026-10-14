@@ -3231,6 +3231,7 @@ const EXPANSOES={
   equipesven: {t:'Backlog vencido por equipe',   rows:()=>_pendentesGlobal.filter(isVencido), ordenar:(a,b)=>String(a.equipe||'').localeCompare(String(b.equipe||''),'pt')},
   reabertura: {t:'Reabertos (resolvidos no período)', rows:()=>_rowsResolv.filter(isReaberto)},
   fcr:        {t:'Resolvidos no 1º contato (FCR)',    rows:()=>_rowsResolv.filter(isFCR)},
+  pausa:      {t:'Tempo em pausa (resolvidos elegíveis ao SLA)', rows:()=>_rowsResolv.filter(elegivelSla).filter(r=>r.sla_pausa_min!=null), ordenar:(a,b)=>Number(b.sla_pausa_min||0)-Number(a.sla_pausa_min||0)},
   slaurg:     {t:'SLA por urgência',             rows:()=>_rowsResolv.filter(elegivelSla), ordenar:(a,b)=>String(a.urgencia||'').localeCompare(String(b.urgencia||''),'pt')},
 };
 function abrirExpansao(chave){
@@ -3241,7 +3242,7 @@ function abrirExpansao(chave){
 (function colocarSetas(){
   const mapa={'k-aging':'aging','k-abertos':'abertos','k-resolvidos':'resolvidos','k-media-acoes':'media','k-clientes':'clientes','k-pendentes':'pendentes','k-sla-cumprido':'sla','k-backlog-vencido':'vencido',
     'classChart':'classe','trendVolChart':'tendencia','agingChart':'aging','teamChart':'equipe','urgChart':'urgencia','clientChart':'topclientes','respChart':'topresp','tbl-equipes-vencido':'equipesven',
-    'k-reabertura':'reabertura','k-fcr':'fcr','slaUrgChart':'slaurg'};
+    'k-reabertura':'reabertura','k-fcr':'fcr','k-pausa':'pausa','slaUrgChart':'slaurg'};
   Object.entries(mapa).forEach(([id,chave])=>{
     const el=document.getElementById(id); const card=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(!card||card.querySelector('.panel-expand')) return;
     const b=document.createElement('button'); b.type='button'; b.className='panel-expand'; b.title='Expandir'; b.setAttribute('aria-label','Expandir: ver os chamados deste card');
@@ -3250,6 +3251,14 @@ function abrirExpansao(chave){
     const titulo=card.querySelector('.chart-title,.panel-title,.label');
     if(titulo){ titulo.classList.add('panel-title-exp'); titulo.appendChild(b); }
     else { b.classList.add('solta'); card.appendChild(b); }
+  });
+  // O card inteiro dos KPIs também abre a lista (não só o botão de expandir). O card Pendentes já tem o clique dele.
+  Object.entries(mapa).forEach(([id,chave])=>{
+    if(!id.startsWith('k-')) return;
+    const card=document.getElementById(id)?.closest('.stat-card'); if(!card||card.onclick||card.dataset.kpiClick) return;
+    card.dataset.kpiClick='1'; card.classList.add('clickable'); card.tabIndex=0; card.setAttribute('role','button');
+    card.addEventListener('click',ev=>{ if(ev.target.closest('button,a,.panel-expand,.info-btn,[data-info]')) return; abrirExpansao(chave); });
+    card.addEventListener('keydown',ev=>{ if((ev.key==='Enter'||ev.key===' ')&&ev.target===card){ ev.preventDefault(); abrirExpansao(chave); } });
   });
 })();
 
