@@ -280,7 +280,10 @@ WITH cf AS (
       fc AS (SELECT * FROM f WHERE classificado)
 `;
 // A mesma consulta com o escopo de vertical (parâmetro $vp = nomes normalizados da vertical); sem escopo, não muda nada.
-const cteGeral = (vp) => GERAL_CTE.replace('/*SI*/', NAO_SISTEMAS_INTERNOS('t')).replace('/*VERT*/', vp ? ` AND ${sqlVertical('t', vp)}` : '');
+// Perfil cuja vertical é Sistemas Internos vê esses chamados (como no Painel Geral); admin e perfis sem essa vertical continuam sem eles.
+// Obs.: o veredito da IA (public.reincidencia_par) só existe para os chamados de SI analisados antes da exclusão.
+const incluiSI = (esc) => !!(esc && esc.filtrar && alvosDe(esc).includes('sistemas internos'));
+const cteGeral = (vp, si = false) => GERAL_CTE.replace('/*SI*/', si ? 'TRUE' : NAO_SISTEMAS_INTERNOS('t')).replace('/*VERT*/', vp ? ` AND ${sqlVertical('t', vp)}` : '');
 // ── Motivo de cada reincidência ───────────────────────────────────────────
 // Não depende só do campo Módulo/Rotina: o tema sai do texto do chamado (assunto, as primeiras ações e a explicação da IA
 // sobre por que é o mesmo problema), com o dicionário de palavras-chave de server/data/temas-chamados.json.
@@ -348,7 +351,7 @@ async function listasFiltro(esc) {                                       // anos
   const [a, e] = await Promise.all([
     consultaLimitada(`SELECT DISTINCT extract(year from createddate)::int AS ano FROM silver.ticket WHERE createddate IS NOT NULL ORDER BY 1`, [], 30),
     esc.filtrar
-      ? consultaLimitada(`SELECT COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS e FROM silver.ticket t WHERE t.createddate >= NOW() - INTERVAL '3 years' AND ${NAO_SISTEMAS_INTERNOS('t')} AND ${sqlVertical('t', 1)} GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [alvosDe(esc)], 30)
+      ? consultaLimitada(`SELECT COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,''), 'Sem equipe') AS e FROM silver.ticket t WHERE t.createddate >= NOW() - INTERVAL '3 years' AND ${incluiSI(esc) ? 'TRUE' : NAO_SISTEMAS_INTERNOS('t')} AND ${sqlVertical('t', 1)} GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [alvosDe(esc)], 30)
       : consultaLimitada(`SELECT COALESCE(NULLIF(owner_team,''), NULLIF(ownerteam,''), 'Sem equipe') AS e FROM silver.ticket WHERE createddate >= NOW() - INTERVAL '3 years' AND ${NAO_SISTEMAS_INTERNOS('')} GROUP BY 1 ORDER BY count(*) DESC LIMIT 40`, [], 30)]);
   const v = { anos: a.rows.map((x) => x.ano), equipesLista: e.rows.map((x) => x.e).sort() };
   if (listasCache.size > 40) listasCache.clear();
@@ -375,7 +378,7 @@ router.get('/geral', requireLeitura, async (req, res) => {
     const campos = [...new Set([...mods, 148916, 23946])];
     const vert = esc.filtrar ? [alvosDe(esc)] : [], vp = esc.filtrar ? 8 : 0;
     const r = (await consultaLimitada(`
-      ${cteGeral(vp)}
+      ${cteGeral(vp, incluiSI(esc))}
       SELECT
         (SELECT json_build_object('total', count(*), 'classificados', count(*) FILTER (WHERE classificado), 'semMotivo', count(*) FILTER (WHERE NOT classificado),
                 'reincidentes', count(*) FILTER (WHERE rn), 'clientes', count(DISTINCT cliente) FILTER (WHERE classificado), 'clientesAfetados', count(DISTINCT cliente) FILTER (WHERE rn),
@@ -394,7 +397,7 @@ router.get('/geral', requireLeitura, async (req, res) => {
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...vert])).rows[0];
     // Motivos e clientes: o motivo vem do CONTEÚDO (assunto, ações e explicação da IA), com o campo Módulo/Rotina só de apoio.
     const rnRows = (await consultaLimitada(`
-      ${cteGeral(vp)}
+      ${cteGeral(vp, incluiSI(esc))}
       SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.cliente, f.equipe, f.explicacao, f.modulo_campo, f.causa_campo, p.subject AS anterior_assunto
         FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id
        WHERE f.classificado AND f.rn ORDER BY f.createddate DESC LIMIT ${RN_MAX + 1}`,
@@ -435,7 +438,7 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
     const campos = [...new Set([...mods, 148916, 23946])];
     const vert = esc.filtrar ? [alvosDe(esc)] : [], vp = esc.filtrar ? 8 + extra.length : 0;   // o escopo vai depois do $8 opcional do detalhe
     const r = await consultaLimitada(`
-      ${cteGeral(vp)}
+      ${cteGeral(vp, incluiSI(esc))}
       SELECT f.ticket_id::text AS ticket_id, f.subject AS assunto, f.status, f.cliente, f.equipe, f.createddate AS criado_em, f.ant_id AS anterior, p.subject AS anterior_assunto,
              f.fim_ant AS anterior_fim, round((extract(epoch from (f.createddate - f.fim_ant)) / 86400)::numeric, 1) AS dias_entre,
              f.rn AS reincidente, f.explicacao, f.confianca, (f.reopened_in IS NOT NULL) AS reaberto, f.classificado,
