@@ -134,15 +134,41 @@ async function shRenderExtrato() {
             : '<p class="config-card-help">Ainda não há créditos lançados. Eles nascem da Apuração mensal.</p>'}</div><div id="shExtratoDet"></div>`;
     } catch (e) { c.innerHTML = `<div class="config-card"><p class="config-status error">${shEsc(e.message)}</p></div>`; }
 }
+
+async function shCreditoChamados(id) {
+    const box = document.getElementById('shCredCh'); if (!box) return;
+    box.innerHTML = '<p class="config-card-help">Calculando os chamados deste crédito (pode levar alguns segundos)…</p>';
+    try {
+        const d = await shApi(`/credito/${id}/chamados`);
+        const r = d.resumo, f2 = (v) => (v == null ? '—' : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        const marco = (m) => (!m.aplica ? '<span style="color:var(--t3)">n/a</span>' : m.dentro === null ? '<span style="color:var(--t3)">não medido</span>'
+            : `<span style="color:${m.dentro ? '#10b981' : '#ef4444'};font-weight:700">${shMin(m.minutos)}</span> <span style="color:var(--t3)">/ ${shMin(m.prazo)}</span>`);
+        const dif = Math.abs((d.lancamento.horas || 0) - r.horasSugeridas) > 0.001;
+        box.innerHTML = `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+          <h4 style="margin:0 0 6px">Chamados do crédito de ${shH(d.lancamento.horas)} h — ${shEsc(d.lancamento.competencias.join(' + '))}</h4>
+          <p class="config-card-help" style="margin:0 0 8px">Cumprimento global <b>${r.pct == null ? '—' : f2(r.pct) + '%'}</b> (${r.dentro}/${r.avaliados} dentro do prazo) → faixa de <b>${shH(r.faixaHoras)} h</b>${r.gatilhoCritico ? ` · gatilho de chamado Crítico garantiu o mínimo (sem ele: ${shH(r.horasSemGatilho)} h)` : ''}.
+            ${r.proximaFaixa ? `Para subir para <b>${shH(r.proximaFaixa.horas)} h</b> (cumprimento de ${shH(r.proximaFaixa.pctMin)}%) faltou cumprir mais <b>${r.proximaFaixa.faltam}</b> chamado${r.proximaFaixa.faltam === 1 ? '' : 's'}. ` : ''}O crédito vem da faixa do cumprimento, não é a soma de horas por chamado: em cada chamado fora do prazo aparecem o <b>peso no cumprimento</b> e as <b>horas a mais</b> que o cliente teria se ele tivesse sido cumprido (0 h quando um só chamado não muda a faixa).</p>
+          ${dif ? `<p class="config-status error" style="margin:0 0 8px">Recalculando hoje com os dados atuais o crédito seria de ${shH(r.horasSugeridas)} h, diferente das ${shH(d.lancamento.horas)} h lançadas (chamados ou regras mudaram desde o lançamento).</p>` : ''}
+          <div style="overflow:auto;max-height:420px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left"><th>Chamado</th><th>Comp.</th><th>Severidade</th><th>Primeira Resposta</th><th>Resolução</th><th>Situação</th><th>Peso (p.p.)</th><th>Custou (h)</th></tr></thead><tbody>
+          ${d.chamados.map((c) => `<tr style="border-top:1px solid var(--border)"><td><a href="https://viasoft.movidesk.com/Ticket/Edit/${shEsc(c.id)}" target="_blank" rel="noopener">#${shEsc(c.id)}</a> <span style="color:var(--t3)">${shEsc((c.assunto || '').slice(0, 46))}</span></td>
+            <td>${shEsc(c.competencia)}</td><td>${shEsc(c.severidade || '—')}${c.gatilho ? ' <span title="Primeira Resposta ou Contorno de chamado Crítico acima do dobro do prazo: garante crédito mínimo" style="color:#f59e0b">⚡</span>' : ''}</td>
+            <td>${marco(c.marcos.pr)}</td><td>${marco(c.marcos.resolucao)}</td>
+            <td>${c.dentro ? '<span style="color:#10b981">dentro</span>' : '<span style="color:#ef4444">fora</span>'}</td>
+            <td>${c.dentro ? '—' : '−' + f2(c.pesoPp)}</td><td style="font-weight:700;color:${c.custoHoras > 0 ? '#ef4444' : 'var(--t3)'}">${c.dentro ? '—' : shH(c.custoHoras)}</td></tr>`).join('')}
+          </tbody></table></div></div>`;
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (e) { box.innerHTML = `<p class="config-status error">${shEsc(e.message)}</p>`; }
+}
 async function shAbrirExtrato(org, nome) {
     const box = document.getElementById('shExtratoDet'); box.innerHTML = '<div class="config-card"><p class="config-card-help">Carregando…</p></div>';
     try {
         const d = await shApi(`/extrato/${encodeURIComponent(org)}`);
         const rot = { credito: 'Crédito', uso: 'Uso', ajuste: 'Ajuste' };
         box.innerHTML = `<div class="config-card"><h3 class="config-card-title">${shEsc(nome)} — disponível: ${shH(d.saldo.disponivel)} h</h3>
-          <div style="overflow:auto;max-height:320px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left"><th>Data</th><th>Tipo</th><th>Horas</th><th>Competência</th><th>Validade</th><th>Motivo</th><th>Por</th></tr></thead><tbody>
+          <div style="overflow:auto;max-height:320px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left"><th>Data</th><th>Tipo</th><th>Horas</th><th>Competência</th><th>Validade</th><th>Motivo</th><th>Por</th><th></th></tr></thead><tbody>
           ${d.lancamentos.map((l) => `<tr style="border-top:1px solid var(--border)"><td>${shDataHora(l.criado_em)}</td><td>${l.tipo === 'credito' && !l.horas ? 'Apurado (sem crédito)' : (rot[l.tipo] || l.tipo)}</td><td style="color:${l.tipo === 'uso' || l.horas < 0 ? '#ef4444' : l.horas ? '#10b981' : 'var(--t3)'};font-weight:700">${l.tipo === 'uso' ? '−' : ''}${shH(l.horas)}</td>
-          <td>${shEsc(l.competencia || '—')}</td><td>${shData(l.validade)}</td><td>${shEsc(l.motivo || '')}</td><td>${shEsc(l.criado_por || '')}</td></tr>`).join('')}</tbody></table></div>
+          <td>${shEsc(l.competencia || '—')}</td><td>${shData(l.validade)}</td><td>${shEsc(l.motivo || '')}</td><td>${shEsc(l.criado_por || '')}</td><td>${l.tipo === 'credito' && l.competencia ? `<button class="config-btn config-btn-muted" type="button" title="Ver os chamados que geraram este crédito" onclick="shCreditoChamados(${Number(l.id)})">Chamados</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+          <div id="shCredCh"></div>
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:end">
             <label>Horas <input id="shUsoH" type="number" step="0.25" min="0.25" class="config-input" style="width:110px"></label>
             <label style="flex:1;min-width:260px">Motivo / serviço prestado <input id="shUsoM" class="config-input" maxlength="400" placeholder="Ex.: personalização do relatório de comissões (chamado 123456)"></label>

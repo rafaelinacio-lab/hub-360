@@ -7,6 +7,7 @@
 //  GET     /apuracao/detalhe?competencia=&org=      chamados e marcos de um cliente
 //  POST    /creditos/gerar                          força agora a rodada automática de lançamento de horas técnicas (idempotente)
 //  GET     /automatico/status                       resultado da última rodada automática
+//  GET     /credito/:id/chamados                    chamados que geraram um crédito (peso no cumprimento e horas)
 //  GET     /extrato/resumo · GET /extrato/:orgId · POST /extrato/uso · POST /extrato/ajuste
 const express = require('express');
 const db = require('../db/remote');
@@ -148,6 +149,64 @@ router.get('/extrato/resumo', async (req, res) => {
     const por = new Map(), sc = await escopoClientes(req);
     for (const l of rows) { if (core.ehOrgInterna(l.organizacao_nome) || !orgVisivel(sc, l.organizacao_id)) continue; if (!por.has(l.organizacao_id)) por.set(l.organizacao_id, { organizacao_id: l.organizacao_id, nome: l.organizacao_nome, l: [] }); por.get(l.organizacao_id).l.push(l); }
     res.json({ clientes: [...por.values()].map((g) => ({ organizacao_id: g.organizacao_id, nome: g.nome, ...P.saldoExtrato(g.l) })).sort((a, b) => b.disponivel - a.disponivel) });
+  } catch (e) { erro(res, e); }
+});
+
+// De onde veio um crédito: os chamados da competência (ou das competências acumuladas) que o geraram. O crédito não é a soma de horas
+// por chamado: vem da FAIXA do cumprimento global do cliente (ex.: 66,67% → 16 h). Por isso, para cada chamado fora do prazo mostramos o
+// peso no cumprimento (pontos percentuais) e quantas horas de crédito a mais o cliente teria se aquele chamado tivesse sido cumprido.
+// Cada competência apurada fica 5 min em memória (a apuração lê todos os chamados de Suporte Técnico do mês).
+const _apuCache = new Map();
+async function apuracaoCache(comp, cfg) {
+  const h = _apuCache.get(comp);
+  if (h && Date.now() - h.em < 5 * 60 * 1000) return h.v;
+  const v = await apurar(comp, cfg);
+  _apuCache.set(comp, { em: Date.now(), v });
+  while (_apuCache.size > 6) _apuCache.delete(_apuCache.keys().next().value);
+  return v;
+}
+router.get('/credito/:id/chamados', limiteApurar, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Lançamento inválido' });
+    const lc = (await db.query(`SELECT id, organizacao_id, organizacao_nome, competencia, tipo, horas::float AS horas, origem FROM public.sla_credito WHERE id = $1`, [id])).rows[0];
+    if (!lc || lc.tipo !== 'credito') return res.status(404).json({ error: 'Lançamento de crédito não encontrado' });
+    if (!orgVisivel(await escopoClientes(req), lc.organizacao_id)) return res.status(FORA.status).json({ error: FORA.message });
+    let origem = {}; try { origem = lc.origem && typeof lc.origem === 'object' ? lc.origem : (lc.origem ? JSON.parse(lc.origem) : {}); } catch (_) { origem = {}; }   // coluna jsonb: o driver já devolve objeto
+    const comps = (Array.isArray(origem.meses) && origem.meses.length ? origem.meses : [lc.competencia]).filter(compOk);
+    if (!comps.length) return res.status(404).json({ error: 'Este lançamento não tem competência (ajuste manual ou uso).' });
+    const cfg = await lerConfig();
+    const itens = [];
+    for (const comp of comps) {
+      const ap = await apuracaoCache(comp, cfg);
+      const cl = ap.clientes.find((x) => String(x.organizacao_id) === String(lc.organizacao_id));
+      if (cl) for (const i of cl._itens) itens.push({ comp, c: i.c, av: i.av });
+    }
+    const aval = itens.filter((i) => i.av.dentro !== null);
+    const base = P.apurarCliente(aval.map((i) => i.av), cfg);
+    const horasDe = (avs) => P.apurarCliente(avs, cfg).creditoSugerido;
+    const n = aval.length;
+    const lista = aval.map((i) => {
+      // peso: quanto este chamado fora do prazo tirou do cumprimento; custo em horas: crédito a mais se ele tivesse sido cumprido
+      let custoHoras = 0;
+      if (i.av.dentro === false) {
+        const alt = aval.map((x) => (x === i ? { ...x.av, dentro: true, marcos: { pr: { ...x.av.marcos.pr, dentro: true }, contorno: { ...x.av.marcos.contorno, dentro: true }, resolucao: { ...x.av.marcos.resolucao, dentro: true } } } : x.av));
+        custoHoras = Math.max(0, horasDe(alt) - base.creditoSugerido);
+      }
+      const gatilho = i.av.severidade === 'Crítica' && [i.av.marcos.pr, i.av.marcos.contorno].some((m) => m.dentro === false && m.minutos > 2 * m.prazo);
+      return { id: i.c.id, assunto: i.c.subject, competencia: i.comp, severidade: i.av.severidade, dentro: i.av.dentro, encerrado_em: i.c.encerrado_em,
+        marcos: i.av.marcos, pesoPp: i.av.dentro === false && n ? 100 / n : 0, custoHoras, gatilho };
+    }).sort((a, b) => (a.dentro === b.dentro ? 0 : a.dentro ? 1 : -1) || b.custoHoras - a.custoHoras);
+    // próxima faixa melhor: quantos chamados a mais teriam de ter sido cumpridos para o cliente subir de faixa
+    let proxima = null;
+    if (base.pct !== null && Array.isArray(cfg.creditos)) {
+      const p2 = Math.round(base.pct * 100) / 100, idx = cfg.creditos.findIndex((f) => p2 >= f.min);
+      if (idx > 0) { const f = cfg.creditos[idx - 1]; proxima = { horas: f.horas, pctMin: f.min, faltam: Math.max(1, Math.ceil(f.min * n / 100 - base.dentro - 1e-9)) }; }
+    }
+    res.json({ cliente: { id: lc.organizacao_id, nome: lc.organizacao_nome }, lancamento: { id: lc.id, competencia: lc.competencia, horas: lc.horas, competencias: comps },
+      resumo: { proximaFaixa: proxima, avaliados: base.avaliados, dentro: base.dentro, fora: base.fora, pct: base.pct, faixaHoras: base.creditoFaixa, horasSugeridas: base.creditoSugerido, gatilhoCritico: base.gatilhoCritico,
+        horasSemGatilho: base.gatilhoCritico ? Math.min(base.pct === null ? 0 : P.faixaCredito(base.pct, cfg), cfg.limiteMensalHoras) : null },
+      chamados: lista });
   } catch (e) { erro(res, e); }
 });
 router.get('/extrato/:orgId', async (req, res) => {
