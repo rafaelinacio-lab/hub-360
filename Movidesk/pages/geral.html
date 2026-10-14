@@ -837,13 +837,37 @@ body.modal-open{overflow:hidden}
       <div class="chart-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
           <p class="chart-title" style="margin:0">SLA por equipe</p>
-          <!-- filtro só deste card (não mexe no resto do painel): escolhe uma ou mais equipes -->
+          <!-- filtros só deste card (não mexem no resto do painel) -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="imp-chips" id="slaeq-modo"></div>
+          <div class="multi-sel" id="f-slaeq-ano">
+            <button class="ms-btn" type="button" onclick="toggleMs(this)">
+              <span class="ms-lbl">Ano: do painel</span>
+              <span class="sym ms-arrow">expand_more</span>
+            </button>
+            <div class="ms-drop" style="left:auto;right:0"></div>
+          </div>
+          <div class="multi-sel" id="f-slaeq-mes">
+            <button class="ms-btn" type="button" onclick="toggleMs(this)">
+              <span class="ms-lbl">Mês: do painel</span>
+              <span class="sym ms-arrow">expand_more</span>
+            </button>
+            <div class="ms-drop" style="left:auto;right:0"></div>
+          </div>
           <div class="multi-sel" id="f-slaeq">
             <button class="ms-btn" type="button" onclick="toggleMs(this)">
               <span class="ms-lbl">Equipe: todas</span>
               <span class="sym ms-arrow">expand_more</span>
             </button>
             <div class="ms-drop" style="left:auto;right:0"></div>
+          </div>
+          <div class="multi-sel" id="f-slaeq-resp">
+            <button class="ms-btn" type="button" onclick="toggleMs(this)">
+              <span class="ms-lbl">Responsável: todos</span>
+              <span class="sym ms-arrow">expand_more</span>
+            </button>
+            <div class="ms-drop" style="left:auto;right:0"></div>
+          </div>
           </div>
         </div>
         <p class="chart-sub" style="text-align:left" id="slaEquipe-sub">Chamados resolvidos no mês e ano filtrados · meta 90% · clique numa equipe para ver os chamados</p>
@@ -3101,20 +3125,45 @@ function openStatusModal(kind){
 }
 
 // ── SLA por equipe: resolvidos do mês/ano filtrados, régua do Hub (elegíveis com tempo líquido já calculado) ─────────
-let _slaEqRows=[];
+let _slaEqRows=[], _slaEqModo='equipe';
 function renderSlaEquipe(resolvidosRows){
   const el=document.getElementById('slaEquipe'); if(!el) return;
   _slaEqRows=resolvidosRows;
-  const eleg=resolvidosRows.filter(elegivelSla), comTempo=eleg.filter(temMinutosSla), faltam=eleg.length-comTempo.length;
-  if(!comTempo.length){ el.innerHTML=`<p class="bk-vazio">${faltam?'Calculando o tempo de solução líquido…':'Nenhum chamado elegível ao SLA resolvido no período filtrado.'}</p>`; return; }
-  const por=new Map();
-  comTempo.forEach(r=>{ const k=limpaEquipe(r.equipe); const o=por.get(k)||por.set(k,{k,ok:0,total:0,rows:[]}).get(k); o.total++; if(dentroSla(r)) o.ok++; o.rows.push(r); });
-  // Filtro próprio do card (f-slaeq): opções = equipes com chamados elegíveis; a escolha é mantida entre redesenhos.
-  populateMs('f-slaeq',[...por.keys()].sort((a,b)=>a.localeCompare(b,'pt')).map(k=>({v:k,l:limpaEquipe(k)})),'Equipe: todas',()=>renderSlaEquipe(_slaEqRows));
+  const rerender=()=>renderSlaEquipe(_slaEqRows);
+  // Período: sem escolha própria no card vale o Ano/Mês do painel (resolvidosRows); com escolha, vale a do card (data de RESOLUÇÃO).
+  const locA=getMsValues('f-slaeq-ano').map(Number), locM=getMsValues('f-slaeq-mes').map(Number);
+  const anosOpc=[...new Set((_rowsCtx||[]).filter(r=>isResolvido(r)&&r.resolvido_em).map(r=>new Date(r.resolvido_em).getFullYear()))].sort((a,b)=>b-a);
+  populateMs('f-slaeq-ano',anosOpc.map(y=>({v:y,l:y})),'Ano: do painel',rerender);
+  populateMs('f-slaeq-mes',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: do painel',rerender);
+  const anos=(locA.length?locA:getMsValues('f-year').map(Number)), meses=(locM.length?locM:getMsValues('f-month').map(Number));
+  const periodo=(locA.length||locM.length)?(_rowsCtx||[]).filter(r=>{
+    if(!isResolvido(r)||!r.resolvido_em) return false; const d=new Date(r.resolvido_em);
+    return (!anos.length||anos.includes(d.getFullYear()))&&(!meses.length||meses.includes(d.getMonth()+1));
+  }):resolvidosRows;
+  const nomesMes=meses.slice().sort((a,b)=>a-b).map(m=>(MONTHS.find(x=>x.v===m)||{}).l).filter(Boolean);
+  const txtPer=`${nomesMes.length?nomesMes.join(', '):'todos os meses'} de ${anos.length?anos.slice().sort((a,b)=>a-b).join(', '):'todos os anos'}`;
+  const sub=document.getElementById('slaEquipe-sub');
+  if(sub) sub.textContent=`Chamados resolvidos em ${txtPer}${(locA.length||locM.length)?'':' (filtros do painel)'} · meta 90% · clique numa linha para ver os chamados`;
+
+  impChips('slaeq-modo',[['equipe','Por equipe'],['responsavel','Por responsável']],_slaEqModo,v=>{ _slaEqModo=v; rerender(); });
+  const porEq=_slaEqModo==='equipe';
+  const chave=r=>porEq?limpaEquipe(r.equipe):(r.responsavel||'Não atribuído');
+  const eleg=periodo.filter(elegivelSla);
+  eleg.forEach(r=>{ if(!(r.ticket_id in _impactoMinutos)) _slaFaltam.add(r.ticket_id); });
+  if(_slaFaltam.size) buscarSlaFaltantes(rerender);
+  const comTempo=eleg.filter(temMinutosSla), faltam=eleg.length-comTempo.length;
+  if(!comTempo.length){ el.innerHTML=`<p class="bk-vazio">${faltam?'Calculando o tempo de solução líquido…':'Nenhum chamado elegível ao SLA resolvido neste período.'}</p>`; return; }
+  // Opções dos filtros de equipe e de responsável (do período escolhido); a escolha é mantida entre redesenhos.
+  populateMs('f-slaeq',[...new Set(comTempo.map(r=>limpaEquipe(r.equipe)))].sort((a,b)=>a.localeCompare(b,'pt')).map(k=>({v:k,l:k})),'Equipe: todas',rerender);
   msBusca('f-slaeq','Buscar equipe…');
-  const sel=new Set(getMsValues('f-slaeq'));
-  const lista=[...por.values()].filter(o=>!sel.size||sel.has(o.k)).sort((a,b)=>b.total-a.total);
-  if(!lista.length){ el.innerHTML='<p class="bk-vazio">Nenhuma das equipes escolhidas tem chamados elegíveis neste período.</p>'; return; }
+  populateMs('f-slaeq-resp',[...new Set(comTempo.map(r=>r.responsavel||'Não atribuído'))].sort((a,b)=>a.localeCompare(b,'pt')).map(k=>({v:k,l:k})),'Responsável: todos',rerender);
+  msBusca('f-slaeq-resp','Buscar responsável…');
+  const selE=new Set(getMsValues('f-slaeq')), selR=new Set(getMsValues('f-slaeq-resp'));
+  const alvo=comTempo.filter(r=>(!selE.size||selE.has(limpaEquipe(r.equipe)))&&(!selR.size||selR.has(r.responsavel||'Não atribuído')));
+  const por=new Map();
+  alvo.forEach(r=>{ const k=chave(r); const o=por.get(k)||por.set(k,{k,ok:0,total:0,rows:[]}).get(k); o.total++; if(dentroSla(r)) o.ok++; o.rows.push(r); });
+  const lista=[...por.values()].sort((a,b)=>b.total-a.total);
+  if(!lista.length){ el.innerHTML='<p class="bk-vazio">Nenhum chamado elegível com os filtros escolhidos neste período.</p>'; return; }
   const ok=lista.reduce((a,o)=>a+o.ok,0), tot=lista.reduce((a,o)=>a+o.total,0);
   const f1=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
   const cor=v=>v>=90?cssVar('--green'):cssVar('--orange');
@@ -3123,11 +3172,13 @@ function renderSlaEquipe(resolvidosRows){
       <span class="slaeq-bar"><i style="width:${p.toFixed(1)}%;background:${cor(p)}"></i><em style="left:90%" title="Meta 90%"></em></span>
       <b class="slaeq-pct" style="color:${cor(p)}">${f1(p)}%</b>
       <span class="slaeq-det">${o.ok.toLocaleString('pt-BR')}/${o.total.toLocaleString('pt-BR')} · ${(o.total-o.ok).toLocaleString('pt-BR')} fora</span></button>`; };
-  el.innerHTML=linha(sel.size?(lista.length===1?'Equipe escolhida':`${lista.length} equipes escolhidas`):'Todas as equipes',{ok,total:tot},'geral')+lista.map(o=>linha(limpaEquipe(o.k),o)).join('')+
+  const filtrando=selE.size||selR.size;
+  const rotTotal=filtrando?`Selecionado (${lista.length.toLocaleString('pt-BR')} ${porEq?(lista.length===1?'equipe':'equipes'):(lista.length===1?'responsável':'responsáveis')})`:(porEq?'Todas as equipes':'Todos os responsáveis');
+  el.innerHTML=linha(rotTotal,{ok,total:tot},'geral')+lista.map(o=>linha(o.k,o)).join('')+
     (faltam?`<p class="bk-vazio" style="margin-top:6px">${faltam.toLocaleString('pt-BR')} chamado${faltam===1?'':'s'} ainda sendo calculado${faltam===1?'':'s'}…</p>`:'');
   el.querySelectorAll('.slaeq-row[data-k]').forEach(b=>b.addEventListener('click',()=>{
     const o=por.get(b.dataset.k); if(!o) return;
-    openDetailModal(`SLA — Equipe: ${limpaEquipe(o.k)}`,`${o.ok.toLocaleString('pt-BR')}/${o.total.toLocaleString('pt-BR')} dentro da meta · ${(o.total-o.ok).toLocaleString('pt-BR')} fora`,o.rows,
+    openDetailModal(`SLA — ${porEq?'Equipe':'Responsável'}: ${o.k}`,`${o.ok.toLocaleString('pt-BR')}/${o.total.toLocaleString('pt-BR')} dentro da meta · ${(o.total-o.ok).toLocaleString('pt-BR')} fora`,o.rows,
       {ordenar:(a,b2)=>(dentroSla(a)-dentroSla(b2))||((_impactoMinutos[b2.ticket_id]||0)-(_impactoMinutos[a.ticket_id]||0))});
   }));
 }
