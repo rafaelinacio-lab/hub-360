@@ -30,7 +30,7 @@ function shRender() {
       <div class="config-card">
         <h3 class="config-card-title">SLA e horas — Política POL-SLA-001</h3>
         <p class="config-card-help">Controle das <b>horas úteis</b> de cada chamado (Primeira Resposta e Resolução do Suporte, janela 08:30–12:00 e 13:30–18:00, sem feriados, descontando pausas) e do
-          <b>extrato de horas técnicas</b> de crédito geradas quando o cumprimento mensal fica abaixo de 90%. Vale <b>só para chamados da classificação Suporte Técnico</b>;
+          <b>extrato de horas técnicas</b> de crédito geradas quando o cumprimento mensal fica abaixo de 90%. Vale <b>só para chamados da classificação Suporte Técnico</b>, sem os atendidos por equipes <b>FRANQUIA - …</b>;
           os demais seguem a previsão de solução do próprio chamado.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${abas.map(([k, r]) => `<button type="button" class="config-btn ${SH.aba === k ? '' : 'config-btn-muted'}" onclick="shAba('${k}')">${r}</button>`).join('')}</div>
       </div><div id="shCorpo"></div>`;

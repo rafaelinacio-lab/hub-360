@@ -45,6 +45,7 @@ async function carregarChamados(competencia, cfg) {
       JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
       LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
      WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = 'suporte tecnico'
+       AND lower(btrim(COALESCE(t.ownerteam, ''))) NOT LIKE 'franquia%'   -- equipes FRANQUIA - … ficam fora (pedido do usuário, 14/10/2026), como no SLA do Hub
        AND t.basestatus IN (${FECHADOS}) AND COALESCE(t.resolved_in, t.closed_in) >= $1::timestamptz AND COALESCE(t.resolved_in, t.closed_in) < $2::timestamptz`, [ini, fim])).rows;
   const ids = tk.map((t) => t.id);
   const acoes = new Map();
@@ -111,6 +112,7 @@ async function idsSemAutor(competencia, limite) {
     SELECT t.ticket_id::text AS id FROM silver.ticket t
       JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
      WHERE translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = 'suporte tecnico'
+       AND lower(btrim(COALESCE(t.ownerteam, ''))) NOT LIKE 'franquia%'
        AND t.basestatus IN (${FECHADOS}) AND COALESCE(t.resolved_in, t.closed_in) >= $1::timestamptz AND COALESCE(t.resolved_in, t.closed_in) < $2::timestamptz
        AND EXISTS (SELECT 1 FROM silver.ticket_acao a WHERE a.ticket_id = t.ticket_id AND a.is_public
                     AND a.criado_por_profile_type IS NULL AND a.criado_por_email IS NULL AND a.criado_por_nome IS NULL)
