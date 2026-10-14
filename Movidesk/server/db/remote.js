@@ -54,6 +54,12 @@ async function createPoolForConfig(cfg, ensureSchema = false) {
   pool.__poolKey = key;
   pools.set(key, pool);
 
+  // O contêiner do Postgres tem só 64 MB de /dev/shm e consultas paralelas pesadas (Painel Geral) estouravam com
+  // "could not resize shared memory segment … No space left on device" (14/10/2026). Sem workers paralelos o dsm nem é usado;
+  // custa ~20% de tempo nas consultas grandes. DB_PARALELO_POR_CONSULTA=2 devolve o paralelismo quando o shm do banco aumentar.
+  const paralelo = Number.isInteger(Number(process.env.DB_PARALELO_POR_CONSULTA)) ? Number(process.env.DB_PARALELO_POR_CONSULTA) : 0;
+  pool.on('connect', (client) => { client.query(`SET max_parallel_workers_per_gather = ${paralelo}`).catch(() => {}); });
+
   // Handle pool errors
   pool.on('error', (err) => {
     console.error('Unexpected error on idle client in pool:', err);
