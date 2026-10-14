@@ -1585,6 +1585,7 @@ function limparFiltros(){
     updateMsLabel(id,`${label}: todos`);
   });
   document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+  try{ localStorage.setItem('hub_geral_visao','todos'); }catch(_){}   // Limpar também volta a visão para Todos
   render();
 }
 // ── Visões: atalho para a classificação (Todos | Suporte Técnico). Cada visão é só o filtro de Classificação marcado de um jeito;
