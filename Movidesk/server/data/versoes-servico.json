@@ -1,0 +1,12 @@
+{
+  "_ajuda": "Projeto do Jira de onde sai a versão -> 1º nível do serviço no Movidesk (a que produto os chamados pertencem). Usado no card 'Versões lançadas × chamados' do Painel Geral. Projetos que não estão aqui (ex.: Nimitz) aparecem sem a comparação 'antes × depois'. Edite este arquivo para ajustar.",
+  "Agrotitan": ["Agronegócio"],
+  "Agrotitan Fazendas": ["Agrotitan Fazendas"],
+  "CRM": ["CRM"],
+  "Fisco": ["Fisco Contábil"],
+  "Petroshow": ["Combustíveis"],
+  "Voors": ["Voors"],
+  "Talent": ["Sistema para RH"],
+  "BI": ["Analytics - B.I"],
+  "Tecnologia": ["Tecnologia"]
+}

@@ -510,6 +510,22 @@ body:not(.visao-st) .so-st{display:none!important}
 .jr-n b{display:block;font-size:22px;font-weight:800;color:var(--t1)}
 .jr-n small{font-size:11px;color:var(--t3)}
 .jr-mais{margin-top:4px}
+/* Card "Versões lançadas × chamados" */
+.vs-topo{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:-4px 0 10px}
+.vs-topo select{border:1px solid var(--border);border-radius:8px;background:var(--surface-mid,transparent);color:var(--t1);padding:6px 9px;font:inherit;font-size:13px}
+.vs-topo label{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:6px}
+.vs-tab{width:100%;border-collapse:collapse;font-size:13px}
+.vs-tab th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.vs-tab td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.vs-tab th.n,.vs-tab td.n{text-align:right;white-space:nowrap}
+.vs-tab tr.sem-mapa td{opacity:.6}
+.vs-nome{font-weight:700;color:var(--t1)} .vs-sub{display:block;font-size:11.5px;color:var(--t3);margin-top:1px}
+.vs-num{border:0;background:none;color:var(--orange);font:700 13px inherit;font-family:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;padding:0}
+.vs-num:disabled{color:var(--t3);text-decoration:none;cursor:default}
+.vs-var{display:inline-block;font-weight:800;border-radius:999px;padding:2px 9px;font-size:12px}
+.vs-var.alta{background:rgba(220,38,38,.14);color:#dc2626} .vs-var.queda{background:rgba(22,163,74,.14);color:#15803d} .vs-var.igual{background:rgba(127,127,127,.14);color:var(--t2)}
+.vs-parcial{font-size:11px;color:var(--t3)}
+.vs-nota{font-size:11.5px;color:var(--t3);margin:10px 0 0}
 #f-class.ms-travado{opacity:.55;pointer-events:none}   /* classificação fixa na visão Suporte Técnico */
 .slaeq{display:flex;flex-direction:column;gap:2px;margin-top:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .slaeq-row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(120px,2.4fr) 64px minmax(110px,auto);align-items:center;gap:14px;width:100%;padding:8px 8px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -1057,6 +1073,19 @@ body.modal-open{overflow:hidden}
         <p class="chart-sub" id="jira-sub" style="text-align:left;margin:-6px 0 10px">Cada tarefa do Jira e os chamados do Movidesk vinculados a ela. Clique numa tarefa para ver os chamados.</p>
         <div class="jr-topo"><input type="search" id="jira-busca" placeholder="Buscar por tarefa, resumo, responsável ou projeto…" aria-label="Buscar tarefa do Jira" oninput="jiraBuscar()"><span class="kpi-antes" style="text-decoration:none;cursor:default" id="jira-conta"></span></div>
         <div id="jira-lista"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel so-st" id="versoes-panel">
+        <p class="chart-title">Versões lançadas × chamados</p>
+        <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Os chamados que estão entrando têm relação com as versões que lançamos? Para cada versão: os chamados de Suporte Técnico do produto nos dias antes e depois do lançamento, quantos citam a versão ou a atualização, quantos foram marcados como "após a atualização" e quantos estão ligados às tarefas que a versão entregou.</p>
+        <div class="vs-topo">
+          <label>Período <select id="vs-periodo" onchange="versoesCarregar(true)"><option value="30">Últimos 30 dias</option><option value="60" selected>Últimos 60 dias</option><option value="90">Últimos 90 dias</option><option value="mes">Mês atual</option></select></label>
+          <label>Comparar <select id="vs-janela" onchange="versoesCarregar(true)"><option value="7">7 dias antes × depois</option><option value="14" selected>14 dias antes × depois</option><option value="30">30 dias antes × depois</option></select></label>
+          <span class="kpi-antes" style="text-decoration:none;cursor:default" id="vs-conta"></span>
+        </div>
+        <div id="vs-corpo"><p class="chart-sub" style="text-align:left">Carregando as versões…</p></div>
       </div>
     </div>
 
@@ -1696,6 +1725,67 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('jr-lin')){ e.preventDefault(); e.target.click(); } });
 
+// ── Card "Versões lançadas × chamados" (visão Suporte Técnico) ──
+// Dados de GET /geral/versoes-chamados (versões do Jira × chamados de Suporte Técnico do produto). Não segue os filtros do topo: é por versão.
+let _versoes=null, _versoesSeq=0, _versoesCarregando=false;
+function versoesDesde(){
+  const v=document.getElementById('vs-periodo').value;
+  if(v==='mes'){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; }
+  return new Date(Date.now()-Number(v)*86400000).toISOString().slice(0,10);
+}
+async function versoesCarregar(forcar){
+  const corpo=document.getElementById('vs-corpo'); if(!corpo||_visao!=='st') return;
+  if(_versoes&&!forcar) return;
+  if(_versoesCarregando) return;
+  _versoesCarregando=true; const seq=++_versoesSeq;
+  corpo.innerHTML='<p class="chart-sub" style="text-align:left">Calculando as versões e os chamados…</p>';
+  try{
+    const janela=document.getElementById('vs-janela').value;
+    const r=await api(`/geral/versoes-chamados?janela=${janela}&desde=${versoesDesde()}`,120000);
+    if(seq!==_versoesSeq) return;
+    _versoes=r; versoesDesenhar();
+  }catch(e){ if(seq===_versoesSeq) corpo.innerHTML=`<p class="chart-sub" style="text-align:left;color:var(--bad,#dc2626)">Não foi possível calcular: ${esc(e.message)}</p>`; }
+  finally{ _versoesCarregando=false; }
+}
+function versoesDesenhar(){
+  const corpo=document.getElementById('vs-corpo'), conta=document.getElementById('vs-conta'); if(!corpo||!_versoes) return;
+  const n=x=>(x==null?'—':Number(x).toLocaleString('pt-BR'));
+  const j=_versoes.janela, vs=_versoes.versoes||[];
+  if(!vs.length){ corpo.innerHTML=`<p class="chart-sub" style="text-align:left">${esc(_versoes.aviso||'Nenhuma versão lançada no período escolhido (ou fora do seu produto).')}</p>`; if(conta) conta.textContent=''; return; }
+  const comMapa=vs.filter(v=>v.servicos&&v.servicos.length);
+  if(conta) conta.textContent=`${vs.length} versão(ões) lançada(s) · ${comMapa.length} com produto no Movidesk${_versoes.semMapa?` · ${_versoes.semMapa} sem produto mapeado`:''}`;
+  const btn=(v,tipo,val,tit)=>val>0?`<button type="button" class="vs-num" onclick="versaoAbrir('${escAttr(v.id)}','${tipo}')" title="${escAttr(tit)}">${n(val)}</button>`:`<button type="button" class="vs-num" disabled>${n(val)}</button>`;
+  const linhas=vs.map(v=>{
+    const mapeada=v.servicos&&v.servicos.length;
+    const variacao=mapeada&&v.variacaoPct!=null?`<span class="vs-var ${v.variacaoPct>=30?'alta':v.variacaoPct<=-10?'queda':'igual'}" title="Ritmo diário de chamados: ${v.ritmoAntes.toLocaleString('pt-BR',{maximumFractionDigits:1})}/dia antes × ${v.ritmoDepois.toLocaleString('pt-BR',{maximumFractionDigits:1})}/dia depois">${v.variacaoPct>0?'+':''}${v.variacaoPct}%</span>`:'<span class="vs-parcial">—</span>';
+    return `<tr class="${mapeada?'':'sem-mapa'}">
+      <td><span class="vs-nome">${esc(v.nome)}</span><span class="vs-sub">${esc(v.projeto||'')} · ${n(v.tarefas)} tarefa(s)${v.tiposTarefa&&v.tiposTarefa.bugs?` (${n(v.tiposTarefa.bugs)} bug(s))`:''}</span></td>
+      <td>${esc(String(v.lancada).split('-').reverse().join('/'))}${mapeada&&!v.janelaCompleta?`<span class="vs-sub vs-parcial">há ${v.diasDecorridos} d · janela em andamento</span>`:''}</td>
+      <td>${mapeada?esc(v.servicos.join(', ')):'<span class="vs-parcial">sem produto mapeado</span>'}</td>
+      <td class="n">${mapeada?`${n(v.antes)} → ${btn(v,'depois',v.depois,`Chamados de Suporte Técnico abertos nos ${j} dias depois do lançamento`)}`:'—'}</td>
+      <td class="n">${variacao}</td>
+      <td class="n">${mapeada?`${btn(v,'citaversao',v.citaVersao,'Chamados que citam o número da versão')} / ${btn(v,'cita',v.citaAtualizacao,'Chamados que falam de atualização ou nova versão')}`:'—'}</td>
+      <td class="n">${mapeada?btn(v,'causa',v.causaApos,'Chamados marcados como "Situação Reportada Após a Atualização"'):'—'}</td>
+      <td class="n">${btn(v,'vinculados',v.vinculados,'Chamados ligados às tarefas desta versão')}${v.vinculadosAbertos?`<span class="vs-sub">${n(v.vinculadosAbertos)} aberto(s)</span>`:''}</td>
+    </tr>`;
+  }).join('');
+  corpo.innerHTML=`<div class="rolagem" style="overflow-x:auto"><table class="vs-tab"><thead><tr>
+    <th>Versão</th><th>Lançada</th><th>Produto</th><th class="n" title="Chamados de Suporte Técnico do produto: ${j} dias antes → ${j} dias depois do lançamento">Chamados antes → depois (${j} d)</th><th class="n" title="Variação do ritmo diário de chamados">Variação</th>
+    <th class="n" title="Citam o número da versão / falam de atualização ou nova versão (assunto e 1ª ação)">Citam versão / atualização</th><th class="n" title='Marcados com a causa "Situação Reportada Após a Atualização"'>"Após a atualização"</th><th class="n" title="Chamados ligados às tarefas que a versão entregou (demanda que ela atendeu)">Vinculados às tarefas</th>
+    </tr></thead><tbody>${linhas}</tbody></table></div>
+    <p class="vs-nota">Variação = ritmo diário de chamados depois ÷ antes. Alta (vermelho) a partir de +30%. Coincidir no tempo não prova que a versão causou os chamados: use os números de "citam" e "após a atualização" para confirmar, e abra a lista para ler os chamados. O produto de cada versão sai do projeto do Jira (arquivo <code>server/data/versoes-servico.json</code>).</p>`;
+}
+async function versaoAbrir(versaoId,tipo){
+  const v=(_versoes&&_versoes.versoes||[]).find(x=>String(x.id)===String(versaoId)); if(!v) return;
+  const rotulo={depois:`abertos nos ${_versoes.janela} dias depois do lançamento`,citaversao:'citam o número da versão',cita:'falam de atualização ou nova versão',causa:'marcados "Situação Reportada Após a Atualização"',vinculados:'vinculados às tarefas da versão'}[tipo]||tipo;
+  openDetailModal(`Versão ${v.nome}`,'Carregando os chamados…',[]);
+  try{
+    const r=await api(`/geral/versoes-chamados/lista?versao=${encodeURIComponent(versaoId)}&tipo=${tipo}&janela=${_versoes.janela}`,60000);
+    const rows=r.rows||[]; rows.forEach(x=>{ _rowsById[x.ticket_id]=x; });
+    openDetailModal(`Versão ${v.nome} — chamados ${rotulo}`,`${rows.length.toLocaleString('pt-BR')} chamado${rows.length===1?'':'s'}${rows.length>=500?' (mostrando os 500 mais recentes)':''}`,rows);
+  }catch(e){ openDetailModal(`Versão ${v.nome}`,`Não foi possível carregar: ${e.message}`,[]); }
+}
+
 // Visão Produto: equipes do tipo Produto (js/equipesTipo.js: as "Equipe Técnica" + as equipes "depende" quando a classificação não é Suporte Técnico),
 // em qualquer classificação. O prazo vem da previsão de solução do Movidesk; a régua de SLA do Hub não se aplica.
 function visaoLinha(r){
@@ -2076,6 +2166,7 @@ function render(){
   renderImpactoSla(rowsResolv);
   renderSlaEquipe(resolvidosRows);
   renderTarefasJira(rowsCtx,pendentesRows);
+  if(_visao==='st') versoesCarregar(false);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);

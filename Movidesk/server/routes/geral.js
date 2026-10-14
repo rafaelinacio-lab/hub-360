@@ -322,6 +322,42 @@ router.get('/tarefas-jira', authMiddleware, requireTabAccess('movidesk'), async 
   }
 });
 
+// Versões lançadas × chamados (card da visão Suporte Técnico): por versão do Jira, quantos chamados do produto entraram antes e depois do lançamento,
+// quantos citam a versão/atualização, quantos o suporte marcou como "após a atualização" e quantos estão vinculados às tarefas da versão.
+// ?janela=7|14|30 (dias antes e depois) &desde=AAAA-MM-DD (padrão: últimos 60 dias). Cache de 10 min por escopo de vertical.
+const versoesChamados = require('../utils/versoesChamados');
+const _versoesCache = new Map();
+router.get('/versoes-chamados', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const esc = await escopoDoRequest(req);
+    const janela = [7, 14, 30].includes(Number(req.query.janela)) ? Number(req.query.janela) : 14;
+    const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.desde || '')) ? String(req.query.desde) : '';
+    const chave = `${janela}|${desde}${chaveEscopo(esc)}`;
+    const c = _versoesCache.get(chave);
+    if (c && c.ate > Date.now()) return res.json(c.dados);
+    const dados = await versoesChamados.calcular({ esc, janela, desde, pertence });
+    if (_versoesCache.size > 30) _versoesCache.clear();
+    _versoesCache.set(chave, { ate: Date.now() + 10 * 60 * 1000, dados });
+    res.json(dados);
+  } catch (e) {
+    console.error('[geral] versoes-chamados:', e.message);
+    res.status(500).json({ error: 'Erro ao calcular as versões e os chamados' });
+  }
+});
+// Os chamados por trás de um número do card (linhas completas, no mesmo formato da lista do Painel Geral)
+router.get('/versoes-chamados/lista', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const esc = await escopoDoRequest(req);
+    const ids = await versoesChamados.idsDoItem({ esc, versaoId: String(req.query.versao || ''), tipo: String(req.query.tipo || ''), janela: req.query.janela, pertence });
+    if (!ids.length) return res.json({ rows: [] });
+    const r = await db.query(`${LIST_SELECT} WHERE t.ticket_id = ANY($1::bigint[]) ORDER BY t.createddate DESC`, [ids]);
+    res.json({ rows: filtrarEscopo(esc, r.rows || []) });
+  } catch (e) {
+    console.error('[geral] versoes-chamados/lista:', e.message);
+    res.status(500).json({ error: 'Erro ao listar os chamados da versão' });
+  }
+});
+
 router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
     const closedList = OPEN_EXCLUDED_STATUSES.map(s => `'${s}'`).join(',');
