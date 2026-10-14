@@ -10,9 +10,11 @@ const P = require('./slaPolitica');
 const META_H = { 'Crítica': 4, 'Alta': 8, 'Média': 16, 'Baixa': 24 };
 const EQUIPES_EXCECAO = ['analytics - b.i'];   // contam mesmo sem "Suporte" no nome (pedido do usuário, 08/10/2026)
 
+// Equipes "FRANQUIA - …" (Prodacon, MP Agrotech, GO UP, Borges e Mazete, Link) não entram no SLA do Hub (pedido do usuário, 14/10/2026).
+const ehFranquia = (e) => /^franquia\b/.test(e);
 const equipeContaNoSla = (nome) => {
   const e = String(nome || '').trim().toLowerCase();
-  return /suporte/.test(e) || EQUIPES_EXCECAO.includes(e);
+  return !ehFranquia(e) && (/suporte/.test(e) || EQUIPES_EXCECAO.includes(e));
 };
 const metaDe = (urgencia) => (META_H[urgencia] != null ? META_H[urgencia] : null);
 // Linha no formato do LIST_SELECT do Painel Geral (classificacao, equipe, urgencia, sla_fora_cliente).
@@ -21,7 +23,7 @@ const elegivel = (r) => String(r.classificacao || '').trim() === 'Suporte Técni
 
 // Mesma regra em SQL (para agregações no banco). col* = expressões das colunas.
 const sqlEquipeConta = (col) =>
-  `(lower(btrim(COALESCE(${col}, ''))) LIKE '%suporte%' OR lower(btrim(COALESCE(${col}, ''))) IN (${EQUIPES_EXCECAO.map(e => `'${e}'`).join(',')}))`;
+  `(lower(btrim(COALESCE(${col}, ''))) NOT LIKE 'franquia%' AND (lower(btrim(COALESCE(${col}, ''))) LIKE '%suporte%' OR lower(btrim(COALESCE(${col}, ''))) IN (${EQUIPES_EXCECAO.map(e => `'${e}'`).join(',')})))`;
 const sqlMetaH = (col) =>
   `(CASE ${col} ${Object.entries(META_H).map(([u, h]) => `WHEN '${u}' THEN ${h}`).join(' ')} END)`;
 // Clientes que tiram o chamado do SLA (Coronel Vivida, MP Agrotech, AD Tech, ou só a Viasoft Informática como cliente).
