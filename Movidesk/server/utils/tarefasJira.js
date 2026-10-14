@@ -1,13 +1,14 @@
 'use strict';
 // Dados das tarefas do Jira (resumo, status, projeto, responsável…) para o card "Tarefas do Jira × chamados" do Painel Geral.
 // A fonte são os mesmos JSON do extrator (pasta Jira, a mesma da aba Jira: routes/jira.js): dashboard_data.json (tarefas abertas, com responsável),
-// abertos_data.json e fechados_data.json. Monta um índice chave → dados, guardado na memória e refeito só quando algum arquivo muda
+// abertos_data.json, fechados_data.json e, para tarefas que o extrator só guarda em outras listas (bugs do TDC, sprints, issues_raw), tdc_data.json,
+// sprint_data.json e issues_raw.json. Monta um índice chave → dados, guardado na memória e refeito só quando algum arquivo muda
 // (o extrator roda de hora em hora). Nada daqui chama o Jira: só lê arquivos.
 const fs = require('fs');
 const path = require('path');
 
 const JIRA_DATA_DIR = path.resolve(__dirname, '../../', process.env.JIRA_DATA_DIR || '../Jira');
-const ARQUIVOS = ['dashboard_data.json', 'abertos_data.json', 'fechados_data.json'];
+const ARQUIVOS = ['dashboard_data.json', 'abertos_data.json', 'fechados_data.json', 'tdc_data.json', 'sprint_data.json', 'issues_raw.json'];
 const FINAIS = /finaliz|conclu|resolv|fechad|cancel|reprov|done|closed/i;
 
 let cache = { chave: '', itens: new Map(), geradoEm: null };
@@ -39,9 +40,14 @@ function registrar(mapa, x, aberta) {
 }
 
 async function construir() {
-  const [dash, ab, fe] = await Promise.all(ARQUIVOS.map(lerJson));
+  const [dash, ab, fe, tdc, sprint, raw] = await Promise.all(ARQUIVOS.map(lerJson));
   const mapa = new Map();
-  // ordem de menor para maior prioridade de "aberta": fechados, depois abertos do ano, por fim as tarefas abertas do dashboard (mais completas)
+  // Da menor para a maior prioridade (o que vem depois completa/sobrescreve o que veio antes): listas gerais, bugs do TDC, fechados,
+  // abertos do ano e, por fim, as tarefas abertas do dashboard (as mais completas, com responsável).
+  (Array.isArray(raw) ? raw : (raw && raw.itens) || []).forEach((x) => registrar(mapa, x, false));
+  ((sprint && sprint.itens_fechadas) || []).forEach((x) => registrar(mapa, x, false));
+  ((sprint && sprint.itens) || []).forEach((x) => registrar(mapa, x, false));
+  ((tdc && tdc.bugs) || []).forEach((x) => registrar(mapa, x, false));
   ((fe && fe.itens) || []).forEach((x) => registrar(mapa, x, false));
   ((ab && ab.itens) || []).forEach((x) => registrar(mapa, x, false));
   ((dash && dash.tarefas_abertas) || []).forEach((x) => registrar(mapa, x, true));
