@@ -3123,6 +3123,9 @@ async function refreshTicketOrganizacao() {
         organizacao_id   = EXCLUDED.organizacao_id,
         organizacao_nome = EXCLUDED.organizacao_nome,
         atualizado_em    = EXCLUDED.atualizado_em
+      -- só regrava o que mudou: antes reescrevia as ~737 mil linhas a cada 30 min (disco, WAL e 3 min de banco ocupado)
+      WHERE silver.ticket_organizacao.organizacao_id IS DISTINCT FROM EXCLUDED.organizacao_id
+         OR silver.ticket_organizacao.organizacao_nome IS DISTINCT FROM EXCLUDED.organizacao_nome
     `);
     console.log(`[loader] ✔ silver.ticket_organizacao atualizada — ${result.rowCount} ticket(s) (${Date.now() - t0}ms)`);
     // Cliente que vem do Movidesk sem organização: deduz (1) pela PESSOA — o mesmo cliente_id tem uma única organização em outros

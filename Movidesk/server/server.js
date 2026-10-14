@@ -256,12 +256,17 @@ setInterval(() => {
 // silver.gcc_vertical_inferida — vertical deduzida (serviço/texto) dos chamados
 // de GCC sem "Verticais Insatisfação" no Movidesk. Recalcula no boot e a cada
 // 30 min (chamado que ganha a vertical real no Movidesk sai da tabela sozinho).
-movideskLoader.refreshGccVerticalInferida().catch(e => {
-  console.error('[server] refreshGccVerticalInferida na inicialização falhou (não bloqueia o boot):', e.message);
-});
+// A dedução lê o texto das ações de todos os chamados do GCC e leva ~4 min de CPU e disco do banco (medido em 14/10/2026), disputando
+// com o Painel Geral. Por isso roda a cada 3 h (não 30 min) e, ao subir, só se a última rodada tiver mais de 3 h.
+const GCC_VERTICAL_INTERVALO_MS = 3 * 60 * 60 * 1000;
+db.query(`SELECT MAX(atualizado_em) AS ultima FROM silver.gcc_vertical_inferida`)
+  .then((r) => { const u = r.rows[0]?.ultima; return !u || Date.now() - new Date(u).getTime() > GCC_VERTICAL_INTERVALO_MS; })
+  .catch(() => true)
+  .then((precisa) => precisa && movideskLoader.refreshGccVerticalInferida())
+  .catch(e => { console.error('[server] refreshGccVerticalInferida na inicialização falhou (não bloqueia o boot):', e.message); });
 setInterval(() => {
   movideskLoader.refreshGccVerticalInferida().catch(() => {});
-}, 30 * 60 * 1000);
+}, GCC_VERTICAL_INTERVALO_MS);
 
 // Avisos automáticos (mensagens para chamados novos de serviços configurados) — nasce desligado
 require('./utils/avisosAutomaticos').iniciar();
