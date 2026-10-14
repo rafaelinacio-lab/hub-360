@@ -487,6 +487,8 @@ input,select{font-family:inherit}
 .slaeq-bar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--t2);opacity:.7}
 .slaeq-pct{font-weight:800;text-align:right}
 .slaeq-det{font-size:12px;color:var(--t3)}
+.slaeq-ref{margin:2px 8px 6px;font-size:12px;color:var(--t3)}
+.slaeq-ref b{color:var(--t2)}
 @media (max-width:700px){.slaeq-row{grid-template-columns:1fr 64px}.slaeq-bar,.slaeq-det{grid-column:1/-1}}
 .sla-pend{font-weight:600;white-space:nowrap}
 .sla-pend.bad{color:var(--red,#ef4444)}
@@ -3174,7 +3176,10 @@ function renderSlaEquipe(resolvidosRows){
       <span class="slaeq-det">${o.ok.toLocaleString('pt-BR')}/${o.total.toLocaleString('pt-BR')} · ${(o.total-o.ok).toLocaleString('pt-BR')} fora</span></button>`; };
   const filtrando=selE.size||selR.size;
   const rotTotal=filtrando?`Selecionado (${lista.length.toLocaleString('pt-BR')} ${porEq?(lista.length===1?'equipe':'equipes'):(lista.length===1?'responsável':'responsáveis')})`:(porEq?'Todas as equipes':'Todos os responsáveis');
-  el.innerHTML=linha(rotTotal,{ok,total:tot},'geral')+lista.map(o=>linha(o.k,o)).join('')+
+  // Com filtro no card, o total do card difere do card SLA do topo (que soma todas as equipes): mostra o total de referência.
+  const okTodos=comTempo.filter(dentroSla).length;
+  const refTopo=(filtrando&&tot!==comTempo.length)?`<p class="slaeq-ref">Todas as equipes e responsáveis neste período: <b>${f1(okTodos/comTempo.length*100)}%</b> (${okTodos.toLocaleString('pt-BR')}/${comTempo.length.toLocaleString('pt-BR')}) — é o número do card SLA do topo.</p>`:'';
+  el.innerHTML=linha(rotTotal,{ok,total:tot},'geral')+refTopo+lista.map(o=>linha(o.k,o)).join('')+
     (faltam?`<p class="bk-vazio" style="margin-top:6px">${faltam.toLocaleString('pt-BR')} chamado${faltam===1?'':'s'} ainda sendo calculado${faltam===1?'':'s'}…</p>`:'');
   el.querySelectorAll('.slaeq-row[data-k]').forEach(b=>b.addEventListener('click',()=>{
     const o=por.get(b.dataset.k); if(!o) return;
