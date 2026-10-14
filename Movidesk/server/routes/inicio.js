@@ -280,11 +280,25 @@ function resumoEquipe(G, esc, alvos, agoraMs) {
   };
 }
 // IDs de responsável (owner_id do Movidesk) do usuário: achados pelo e-mail em qualquer chamado dele; em cache 10 min.
-async function donoIds(email) {
+// Ids de responsável da pessoa. O e-mail do responsável no chamado vem vazio/desatualizado e às vezes de OUTRA pessoa (o mesmo e-mail
+// aparece com o id de colegas), então o e-mail sozinho trazia ids alheios (resumo de outras equipes, zerado). Por isso, entre os ids
+// achados pelo e-mail ficam só os cujo NOME de responsável contém o nome da pessoa (ex.: "Aline Rotava" × "Aline Patricia Rotava
+// Guimaraes"). Se nenhum casar (apelido, nome diferente), vale o que o e-mail achou, como antes.
+async function donoIds(email, nome) {
   const e = String(email || '').trim().toLowerCase();
   if (!e) return [];
-  return comCache(`donoIds:${e}`, 10 * 60 * 1000, async () => (await db.query(
-    `SELECT DISTINCT owner_id::text AS id FROM silver.ticket WHERE lower(owneremail) = $1 AND owner_id IS NOT NULL`, [e])).rows.map((x) => x.id));
+  const partes = norm(nome).split(/\s+/).filter((t) => t.length > 1);
+  return comCache(`donoIds:${e}|${partes.join(' ')}`, 10 * 60 * 1000, async () => {
+    const r = (await db.query(
+      `SELECT owner_id::text AS id, MAX(owner_name) AS nome, COUNT(*)::int AS n FROM silver.ticket WHERE lower(owneremail) = $1 AND owner_id IS NOT NULL GROUP BY 1`, [e])).rows;
+    const casam = partes.length >= 2 ? r.filter((x) => { const n = norm(x.nome); return partes.every((t) => n.includes(t)); }) : [];
+    if (casam.length || r.length) return (casam.length ? casam : r).map((x) => x.id);
+    // Nenhum chamado traz o e-mail dele: acha pelo nome do responsável (o id mais frequente cujo nome contém todos os nomes dele)
+    if (partes.length < 2) return [];
+    const cond = partes.map((_, i) => `translate(lower(owner_name), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') LIKE $${i + 1}`).join(' AND ');
+    const porNome = (await db.query(`SELECT owner_id::text AS id, COUNT(*)::int AS n FROM silver.ticket WHERE owner_id IS NOT NULL AND ${cond} GROUP BY 1 ORDER BY 2 DESC LIMIT 1`, partes.map((t) => `%${t}%`))).rows;
+    return porNome.map((x) => x.id);
+  });
 }
 // Resumo DELE (também da base global: pelo e-mail do RESPONSÁVEL, sem filtrar pelo nome da equipe). Se ele atende chamados de mais
 // de uma equipe, vem também `porEquipe` com a visão de cada uma.
@@ -406,7 +420,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const visita = await secao('visita', () => calcularVisita(userId, agoraMs)) || { primeira: true, anterior: null, anteriorMs: null, diasDesde: null, sequencia: 1, ultimaAba: null };
     const G = await secao('base', () => globais(agoraMs));
-    const meusIds = await secao('donoIds', () => donoIds(u.email)) || [];
+    const meusIds = await secao('donoIds', () => donoIds(u.email, u.name)) || [];
     const meuR = G ? await secao('meu', async () => resumoDele(G, meusIds, agoraMs)) : null;
     const equipeR = G ? await secao('equipe', async () => resumoEquipe(G, esc, alvos, agoraMs)) : null;
     const meu = meuR ? meuR.resumo : null;
