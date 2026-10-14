@@ -321,6 +321,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
         <button class="nav-tab" onclick="setView('fluxo',this)">📈 Fluxo</button>
         <button class="nav-tab" onclick="setView('sprint',this)">⚡ Sprint</button>
         <button class="nav-tab" onclick="setView('qualidade',this)">🎯 Qualidade</button>
+        <button class="nav-tab" onclick="setView('versoes',this)">📦 Versões</button>
       </div>
       <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">☀️ Modo claro</button>
     </div>
@@ -669,6 +670,41 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
       </div>
     </div>
   </div><!-- /view-bugsimples -->
+
+  <!-- ── PAINEL DE VERSÕES ── -->
+  <div id="view-versoes" style="display:none">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div>
+        <div style="font-size:16px;font-weight:800">📦 Versões <span style="font-weight:400;font-size:12px;color:var(--text3)">— o que foi lançado e quantas tarefas saíram em cada versão</span></div>
+      </div>
+      <div id="vs-filtros" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+    </div>
+    <div id="vs-aviso" class="panel" style="padding:8px 14px;font-size:11.5px;line-height:1.55;margin-bottom:10px"></div>
+    <div id="vs-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-bottom:14px"></div>
+
+    <div style="font-size:14px;font-weight:800;margin:6px 0 2px">1️⃣ Quantas versões saíram e quantas tarefas foram entregues, mês a mês</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">A tarefa conta no mês em que a <b>versão dela foi lançada</b>. Clique numa coluna para ver as versões daquele mês.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-bottom:6px">
+      <div class="cbox"><div class="ctitle">🚀 Versões lançadas por mês <span style="font-weight:400;color:var(--text3)">(clique numa coluna para ver as versões)</span></div><div style="position:relative;height:260px"><canvas id="vsChV"></canvas></div></div>
+      <div class="cbox"><div class="ctitle">✅ Tarefas entregues por mês <span style="font-weight:400;color:var(--text3)">(clique numa cor ou no total)</span></div><div style="position:relative;height:260px"><canvas id="vsChT"></canvas></div></div>
+    </div>
+    <div class="bs-note" style="margin:0 0 16px;border-top:none;padding-top:0">ℹ️ <b>Como é calculado:</b> considera as tarefas <b>Finalizadas</b> com versão preenchida, de <b>todos os projetos</b>, e só as versões <b>lançadas no ano vigente</b>. <b>Versão lançada</b> = versão com data de lançamento no mês. <b>Tarefas entregues</b> = tarefas dessas versões, separadas em Bugs, Melhorias (inclui Nova Funcionalidade) e Outras. Uma tarefa com mais de uma versão conta em cada uma.</div>
+
+    <div id="vs-sec-tab" style="font-size:14px;font-weight:800;margin:6px 0 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">2️⃣ Versões e suas tarefas <span id="vs-mes-chip"></span></div>
+    <div class="cbox"><div style="overflow:auto;max-height:520px"><table class="ttbl" id="vs-tab"></table></div>
+      <div class="bs-note">👆 Clique numa versão para ver as tarefas que saíram nela · clique no título de uma coluna para ordenar.<br>ℹ️ <b>Dias até lançar</b> = data de lançamento − data em que a versão foi criada. O Jira não guarda a data de criação; uso o <b>início cadastrado na versão</b> e, quando está vazio, a <b>data da primeira tarefa finalizada nela</b> (marcada com ≈).</div></div>
+
+    <div id="vs-modal" onclick="if(event.target===this)vsFechar()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px">
+      <div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);width:min(1200px,100%);max-height:88vh;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div><div id="vs-modal-titulo" style="font-size:14px;font-weight:800"></div><div id="vs-modal-count" style="font-size:11px;color:var(--text3);margin-top:2px"></div></div>
+          <div style="display:flex;gap:6px"><button id="vs-modal-voltar" onclick="VS.voltar&&VS.voltar()" style="display:none;padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">← Voltar às versões</button>
+          <button onclick="vsFechar()" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">✕ Fechar</button></div>
+        </div>
+        <div style="overflow:auto;padding:0 8px 8px"><table class="ttbl" id="vs-modal-tab"></table></div>
+      </div>
+    </div>
+  </div><!-- /view-versoes -->
 
   <!-- ── ANÁLISE TDC ── -->
   <div id="view-tdc" style="display:none">
@@ -1386,6 +1422,7 @@ function applyThemeRefresh(dark){
     if(selNome) redrawCharts(DATA.find(x=>x.nome===selNome));
     if(document.getElementById('view-aberto').style.display==='block') renderAberto();
     if(document.getElementById('view-bugsimples').style.display==='block') bsRender();
+    if(document.getElementById('view-versoes').style.display==='block') vsRender();
     if(document.getElementById('view-tdc').style.display==='block') renderTDC();
     if(document.getElementById('view-fluxo').style.display==='block') renderSup();
   }, 150);
@@ -1405,6 +1442,7 @@ function toggleTheme(){
     if(selNome) redrawCharts(DATA.find(x=>x.nome===selNome));
     if(document.getElementById('view-aberto').style.display==='block') renderAberto();
     if(document.getElementById('view-bugsimples').style.display==='block') bsRender();
+    if(document.getElementById('view-versoes').style.display==='block') vsRender();
     if(document.getElementById('view-tdc').style.display==='block') renderTDC();
     if(document.getElementById('view-fluxo').style.display==='block') renderSup();
   }, 150);
@@ -2468,6 +2506,8 @@ function setView(view, btn){
   document.getElementById('view-tdc').style.display         = view==='tdc'?'block':'none';
   document.getElementById('view-bugsimples').style.display  = view==='bugsimples'?'block':'none';
   if(view==='bugsimples') bsInit();
+  document.getElementById('view-versoes').style.display     = view==='versoes'?'block':'none';
+  if(view==='versoes') vsInit();
   document.getElementById('view-fluxo').style.display       = view==='fluxo'?'block':'none';
   document.getElementById('view-sprint').style.display      = view==='sprint'?'block':'none';
   document.getElementById('view-qualidade').style.display   = view==='qualidade'?'block':'none';
@@ -4384,7 +4424,7 @@ function saveFilters(){
       // Aba ativa e view ativa
       activeTab,
       activeView: (() => {
-        const views = ['bugsimples','indicadores','aberto','tdc','fluxo','sprint','qualidade'];
+        const views = ['bugsimples','versoes','indicadores','aberto','tdc','fluxo','sprint','qualidade'];
         return views.find(v => document.getElementById('view-'+v)?.style.display !== 'none') || 'tdc';
       })(),
 
@@ -5513,8 +5553,9 @@ function bsStack(id, items, sub){
 function bsChart(id, cfg, onBar){
   if(BS.ch[id]) BS.ch[id].destroy();
   if(onBar){
-    cfg.options.onClick=(e,els)=>{ if(els.length) onBar(els[0]); };
-    cfg.options.onHover=(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; };
+    // onBar.blank(e) e onBar.hover(e) são opcionais: tratam o clique/mouse em áreas que não são barras (ex.: etiqueta do total)
+    cfg.options.onClick=(e,els)=>{ if(onBar.blank&&onBar.blank(e)) return; if(els.length) onBar(els[0]); };
+    cfg.options.onHover=(e,els)=>{ e.native.target.style.cursor=(els.length||(onBar.hover&&onBar.hover(e)))?'pointer':'default'; };
   }
   BS.ch[id]=new Chart(document.getElementById(id), cfg);
 }
@@ -5964,6 +6005,184 @@ function bsRenderLista(D){
       <td class="r" style="font-weight:700;color:${cor(x.dias)};white-space:nowrap">${bsHumano(x.dias)}</td></tr>`).join('')+'</tbody>';
 }
 </script>
+<script>
+// ══════════════════════════════════════════════════════════════════
+// PAINEL DE VERSÕES — só versões LANÇADAS no ano vigente · todos os projetos · filtro por Segmento
+// Fonte oficial: versoes_data.json (gerar_versoes.py). Sem ele, usa o sprint_data.json
+// (data aproximada). Reaproveita os auxiliares do Pulso (bsN, bsEsc, bsDia, bsChart, bsSegmento).
+// ══════════════════════════════════════════════════════════════════
+const VS={all:[],aprox:true,gerado:'',F:new Set(),vals:[],shown:[],mes:null,init:false,act:[],ignoradas:0,fonte:'',ord:{col:'data',dir:-1}};
+const VS_NM=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const VS_PROVISORIA=/xx|\bx\b|^aguardando$|^suporte$|^support$|^refatora/i;
+const VS_JIRA='https://nimitz.atlassian.net/browse/';
+const vsGrupo=t=>t==='Bug'?'bug':(t==='Melhoria'||t==='Nova Funcionalidade')?'mel':'out';
+const vsData=d=>d?d.toLocaleDateString('pt-BR'):'—';
+function vsReg(f){ VS.act.push(f); return VS.act.length-1; }
+function vsAct(i){ if(VS.act[i]) VS.act[i](); }
+
+async function vsInit(){
+  if(VS.init){ vsRender(); return; }
+  const ano=new Date().getFullYear();
+  try{
+    let oficial=null;
+    try{ const r=await jiraFetch('versoes_data.json?t='+Date.now()); if(r.ok){ const d=await r.json(); if(d&&d.versoes&&+d.ano===ano) oficial=d; } }catch(e){}
+    const tarefa=(x,res)=>({chave:x.chave,summary:x.summary,tipo:x.tipo,projeto:x.projeto,squad:x.squad||null,produto:x.produto||null,resolvido:res});
+    if(oficial){
+      VS.all=oficial.versoes.map(v=>{ const dt=v.release_date?bsDia(v.release_date):null;
+        const ini=v.data_inicio?bsDia(v.data_inicio):(v.primeira_tarefa?bsDia(v.primeira_tarefa):null);   // início cadastrado no Jira; senão, 1ª tarefa finalizada
+        return {id:v.id,nome:v.nome,lancada:!!(v.released&&dt),data:dt,aprox:false,inicio:ini,inicioAprox:!v.data_inicio,tarefas:(v.tarefas||[]).map(x=>tarefa(x,bsDia(x.resolvido)))}; });
+      VS.aprox=false; VS.gerado=oficial.gerado_em; VS.fonte='oficial';
+    }else{
+      const sp=await jiraFetch('sprint_data.json?t='+Date.now()).then(r=>r.json());
+      const un={}; [...(sp.itens||[]),...(sp.itens_fechadas||[])].forEach(x=>{ un[x.chave]=x; });
+      const fin=Object.values(un).filter(x=>x.status==='Finalizada'&&x.resolvido&&+x.resolvido.slice(0,4)===ano&&(x.fix_versions||[]).length);
+      const g={}, ign=new Set();
+      fin.forEach(x=>x.fix_versions.forEach(n=>{
+        if(VS_PROVISORIA.test(n.trim())){ ign.add(n); return; }
+        (g[n]=g[n]||[]).push(tarefa(x,bsDia(x.resolvido))); }));
+      VS.ignoradas=ign.size;
+      VS.all=Object.entries(g).map(([nome,tarefas])=>{
+        const mm=nome.match(/(20\d\d)[.\-](\d\d)[.\-](\d\d)/); let data=null, aprox=true;
+        if(mm&&+mm[2]>=1&&+mm[2]<=12&&+mm[3]>=1&&+mm[3]<=31){ data=new Date(+mm[1],+mm[2]-1,+mm[3]); aprox=false; }   // data embutida no nome
+        else data=new Date(Math.max(...tarefas.map(t=>t.resolvido.getTime())));                                         // dia da última tarefa entregue
+        const inicio=new Date(Math.min(...tarefas.map(t=>t.resolvido.getTime())));
+        return {id:nome,nome,lancada:true,data,aprox,inicio,inicioAprox:true,tarefas}; });
+      VS.aprox=true; VS.gerado=sp.gerado_em||''; VS.fonte='sprint';
+    }
+    // só versões lançadas no ano vigente; Segmento de cada tarefa = mesma regra das outras abas
+    VS.all=VS.all.filter(v=>v.lancada&&v.data&&v.data.getFullYear()===ano);
+    VS.all.forEach(v=>v.tarefas.forEach(t=>{ t.seg=bsSegmento(t.projeto,t.produto,t.squad); }));
+    VS.vals=[...new Set(VS.all.flatMap(v=>v.tarefas.map(t=>t.seg)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    VS.init=true; vsBuildFiltro();
+  }catch(e){
+    console.warn('versoes:',e);
+    document.getElementById('vs-aviso').innerHTML='⚠️ Não consegui carregar <code>versoes_data.json</code> nem <code>sprint_data.json</code>. Eles precisam estar na mesma pasta do dashboard.';
+    return;
+  }
+  vsRender();
+}
+
+// ── filtro de Segmento (mesmo seletor das outras abas) ──
+function vsBuildFiltro(){
+  VS.F=new Set();
+  document.getElementById('vs-filtros').innerHTML=
+    `<div class="ms-wrap"><div class="ms-btn" id="ms-btn-vs-seg" onclick="toggleMS('vs-seg',event)">Segmento: Todos</div>
+      <div class="ms-dropdown" id="ms-vs-seg"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="vsMSFilter(this.value)"></div>
+      <div id="ms-vs-seg-list"></div><div class="ms-actions"><button onclick="vsMSClear()">Limpar</button><button onclick="vsMSAll()">Todos</button></div></div></div>
+     <button onclick="vsLimpar()" style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text2);cursor:pointer;font-size:11px">✕ Limpar</button>`;
+  vsMSList(VS.vals);
+}
+function vsMSList(vals){ VS.shown=vals; document.getElementById('ms-vs-seg-list').innerHTML=vals.map((v,i)=>`<label class="ms-item"><input type="checkbox" ${VS.F.has(v)?'checked':''} onchange="vsMSToggle(${i},this.checked)"><span> ${bsEsc(v)}</span></label>`).join(''); }
+function vsMSBtn(){ const b=document.getElementById('ms-btn-vs-seg'), n=VS.F.size; b.textContent=n===0?'Segmento: Todos':n===1?`Segmento: ${[...VS.F][0]}`:`Segmento: ${n} selecionados`; b.classList.toggle('active',n>0); }
+function vsMSToggle(i,on){ const v=VS.shown[i]; if(on) VS.F.add(v); else VS.F.delete(v); vsMSBtn(); vsRender(); }
+function vsMSFilter(q){ vsMSList(VS.vals.filter(v=>v.toLowerCase().includes(q.toLowerCase()))); }
+function vsMSClear(){ VS.F.clear(); vsMSList(VS.vals); vsMSBtn(); vsRender(); }
+function vsMSAll(){ VS.vals.forEach(v=>VS.F.add(v)); vsMSList(VS.vals); vsMSBtn(); vsRender(); }
+function vsOrd(col){ const o=VS.ord; if(o.col===col) o.dir*=-1; else { o.col=col; o.dir=(col==='nome'||col==='segs')?1:-1; } vsRender(); }
+function vsLimpar(){ VS.F.clear(); VS.mes=null; VS.ord={col:'data',dir:-1}; vsMSList(VS.vals); vsMSBtn(); vsRender(); }
+function vsSetMes(m){ VS.mes=(VS.mes===m?null:m); vsRender(); }
+function vsFechar(){ document.getElementById('vs-modal').style.display='none'; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') vsFechar(); });
+
+function vsAbrir(titulo,tarefas,voltar){
+  const rows=[...tarefas].sort((a,b)=>(b.resolvido||0)-(a.resolvido||0));
+  VS.voltar=voltar||null; document.getElementById('vs-modal-voltar').style.display=voltar?'':'none';
+  document.getElementById('vs-modal').style.display='flex';
+  document.getElementById('vs-modal-titulo').textContent=titulo;
+  document.getElementById('vs-modal-count').textContent=bsN(rows.length)+' tarefa'+(rows.length===1?'':'s');
+  document.getElementById('vs-modal-tab').innerHTML='<thead style="position:sticky;top:0;z-index:2"><tr><th>Tarefa</th><th>Resumo</th><th>Tipo</th><th>Segmento</th><th>Finalizada em</th></tr></thead><tbody>'+
+    rows.map(x=>`<tr><td style="font-family:monospace;white-space:nowrap"><a href="${VS_JIRA}${encodeURIComponent(x.chave)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">${bsEsc(x.chave)}</a></td>
+      <td title="${bsEsc(x.summary)}">${bsEsc((x.summary||'').slice(0,110))}${(x.summary||'').length>110?'…':''}</td><td>${bsEsc(x.tipo)}</td><td>${bsEsc(x.seg)}</td><td style="white-space:nowrap">${vsData(x.resolvido)}</td></tr>`).join('')+'</tbody>';
+}
+
+// ── linha e cabeçalho da tabela de versões (usados na tabela principal e na janela do mês) ──
+const VS_TIT_CRIADA='Data de início cadastrada na versão no Jira (o Jira não guarda a data de criação). Quando está vazia, uso a data da primeira tarefa finalizada nela (≈).';
+const VS_COLS=[['nome','Versão','',''],['inicio','Criada em','',VS_TIT_CRIADA],['data','Lançada em','',''],['dias','Dias até lançar','r',''],['segs','Segmento(s)','',''],['n','Tarefas','r',''],['bug','Bugs','r',''],['mel','Melhorias','r',''],['out','Outras','r','']];
+function vsThead(ordenavel){
+  const o=VS.ord, seta=c=>(ordenavel&&o.col===c)?(o.dir>0?' ▲':' ▼'):'';
+  return '<thead style="position:sticky;top:0;z-index:2"><tr>'+VS_COLS.map(([c,l,cls,tit])=>`<th ${cls?`class="${cls}" `:''}${tit?`title="${bsEsc(tit)}" `:''}${ordenavel?`onclick="vsOrd('${c}')" style="cursor:pointer;white-space:nowrap;user-select:none"`:'style="white-space:nowrap"'}>${l}${seta(c)}</th>`).join('')+'</tr></thead>';
+}
+function vsLinha(v,id){
+  const lan=`${v.aprox?'<span title="Data aproximada (dia da última tarefa entregue)" style="color:var(--text3)">≈ </span>':''}${vsData(v.data)}`;
+  const cri=v.inicio?`${v.inicioAprox?'<span title="Data da primeira tarefa finalizada na versão (o Jira não tem início cadastrado)" style="color:var(--text3)">≈ </span>':''}${vsData(v.inicio)}`:'—';
+  const dias=v.dias==null?'—':`<b>${bsN(v.dias)}</b> <span style="color:var(--text3)">${v.dias===1?'dia':'dias'}</span>`;
+  return `<tr style="cursor:pointer" onclick="vsAct(${id})"><td style="font-weight:700">${bsEsc(v.nome)}</td><td style="white-space:nowrap">${cri}</td><td style="white-space:nowrap">${lan}</td><td class="r" style="white-space:nowrap">${dias}</td><td style="font-size:11px;color:var(--text2)">${bsEsc(v.segs.join(', '))}</td>
+    <td class="r"><b>${bsN(v.tarefas.length)}</b></td><td class="r" style="color:${v.g.bug?'#ef4444':'var(--text3)'}">${bsN(v.g.bug)}</td><td class="r">${bsN(v.g.mel)}</td><td class="r" style="color:var(--text3)">${bsN(v.g.out)}</td></tr>`;
+}
+// janela com as versões de um mês; clicar numa versão abre as tarefas, com botão para voltar
+function vsAbrirVersoes(titulo,lista){
+  const voltar=()=>vsAbrirVersoes(titulo,lista);
+  VS.voltar=null; document.getElementById('vs-modal-voltar').style.display='none';
+  document.getElementById('vs-modal').style.display='flex';
+  document.getElementById('vs-modal-titulo').textContent=titulo;
+  const nT=lista.reduce((a,v)=>a+v.tarefas.length,0);
+  document.getElementById('vs-modal-count').textContent=`${bsN(lista.length)} ${lista.length===1?'versão':'versões'} · ${bsN(nT)} ${nT===1?'tarefa':'tarefas'}`;
+  document.getElementById('vs-modal-tab').innerHTML=vsThead(false)+'<tbody>'+lista.map(v=>vsLinha(v,vsReg(()=>vsAbrir(`Versão ${v.nome}`,v.tarefas,voltar)))).join('')+'</tbody>';
+}
+
+function vsRender(){
+  if(!VS.init) return;
+  VS.act=[];
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)', tc=dark?'#9ba3bf':'#666';
+  const hoje=new Date(), ano=hoje.getFullYear(), mAt=hoje.getMonth();
+  // filtro de Segmento: a versão fica se tiver ao menos uma tarefa do segmento; só entram versões lançadas no ano
+  const L=VS.all.map(v=>{ const t=VS.F.size?v.tarefas.filter(x=>VS.F.has(x.seg)):v.tarefas; return t.length?{...v,tarefas:t,segs:[...new Set(t.map(x=>x.seg))].sort(),mes:v.data.getMonth()}:null; }).filter(Boolean);
+  L.forEach(v=>{ v.g={bug:0,mel:0,out:0}; v.tarefas.forEach(t=>v.g[vsGrupo(t.tipo)]++); v.dias=v.inicio?bsDiasEntre(v.inicio,v.data):null; });
+  const nV=Array(12).fill(0), tG=VS_NM.map(()=>({bug:0,mel:0,out:0}));
+  L.forEach(v=>{ nV[v.mes]++; ['bug','mel','out'].forEach(k=>tG[v.mes][k]+=v.g[k]); });
+  const totT=L.reduce((a,v)=>a+v.tarefas.length,0);
+
+  // O aviso só aparece quando as datas são aproximadas (sem o arquivo oficial do Jira)
+  const av=document.getElementById('vs-aviso');
+  if(VS.aprox){
+    av.style.display=''; av.style.borderLeft='4px solid #f59e0b';
+    av.innerHTML=`⚠️ <b>Datas de lançamento aproximadas.</b> Usei a data que está no nome da versão (quando existe, ex.: "v.2026.07.27") ou, nas demais, o dia da última tarefa entregue nela${VS.ignoradas?`. ${VS.ignoradas} nomes provisórios (como "Aguardando" e "26xx") ficaram de fora`:''}. Para a data oficial do Jira, rode o <code>jira_extractor.py</code> — ele agora também gera o <code>versoes_data.json</code> e o painel passa a usá-lo sozinho.`;
+  } else av.style.display='none';
+
+  const kpi=(ico,tit,val,sub,cor,fn)=>`<div class="kpi bs-card" ${fn?`onclick="vsAct(${vsReg(fn)})" title="Clique para ver"`:''} style="border-left:4px solid ${cor}"><div class="kl">${ico} ${tit}</div><div class="kv" style="color:${cor}">${val}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${sub}</div></div>`;
+  const todas=L.flatMap(v=>v.tarefas), dd=L.map(v=>v.dias).filter(d=>d!=null);
+  document.getElementById('vs-cards').innerHTML=
+    kpi('🚀',`Versões lançadas em ${ano}`,bsN(L.length),VS.aprox?'datas aproximadas':'datas oficiais do Jira','#6366f1',()=>{ VS.mes=null; vsRender(); document.getElementById('vs-sec-tab').scrollIntoView({behavior:'smooth'}); })+
+    kpi('⏳','Média de dias até o lançamento',dd.length?bsN(bsAvg(dd)):'—',dd.length?`mediana ${bsN(bsMed(dd))} dias · da criação ao lançamento`:'sem data de início','#3b82f6',dd.length?()=>{ VS.ord={col:'dias',dir:-1}; VS.mes=null; vsRender(); document.getElementById('vs-sec-tab').scrollIntoView({behavior:'smooth'}); }:null)+
+    kpi('✅','Tarefas entregues em versões',bsN(totT),'soma das tarefas das versões lançadas','#22c55e',()=>vsAbrir(`Tarefas entregues em versões lançadas em ${ano}`,todas))+
+    kpi('⚖️','Média de tarefas por versão',L.length?(totT/L.length).toLocaleString('pt-BR',{maximumFractionDigits:1}):'—','tarefas ÷ versões','#f59e0b',null);
+
+  const ms=VS_NM.slice(0,mAt+1), pillBg=dark?'#22263a':'#fff', pillTx=dark?'#f3f4f6':'#111827';
+  const lblV={id:'vsLblV',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.font='700 11px sans-serif'; ctx.fillStyle=tc; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ch.getDatasetMeta(0).data.forEach((b,i)=>{ const v=nV[i]; if(v) ctx.fillText(bsN(v),b.x,b.y-4); }); ctx.restore(); }};
+  bsChart('vsChV',{type:'bar',data:{labels:ms,datasets:[{data:nV.slice(0,mAt+1),backgroundColor:ms.map((_,i)=>VS.mes===i?'#4f46e5':'#6366f1'),borderRadius:4,maxBarThickness:46}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} versões lançadas`}}},
+      scales:{x:{grid:{display:false},ticks:{color:tc}},y:{beginAtZero:true,grid:{color:gc},ticks:{color:tc,font:{size:9},precision:0}}}}, plugins:[lblV]},
+    el=>{ const m=el.index; vsAbrirVersoes(`Versões lançadas em ${VS_NM[m]}/${ano}`,L.filter(v=>v.mes===m).sort((a,b)=>b.data.getTime()-a.data.getTime())); });
+  const PILLS=[];   // posição das etiquetas de total (para o clique)
+  const stackLbl={id:'vsLblT',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    [0,1,2].forEach(di=>ch.getDatasetMeta(di).data.forEach((b,i)=>{ const v=ch.data.datasets[di].data[i], h=Math.abs(b.base-b.y); if(v&&h>=16){ ctx.font='700 10px sans-serif'; ctx.fillStyle='#fff'; ctx.fillText(bsN(v),b.x,(b.y+b.base)/2+1); } }));
+    ch.getDatasetMeta(2).data.forEach((b,i)=>{ const t=tG[i].bug+tG[i].mel+tG[i].out; if(!t){ PILLS[i]=null; return; } ctx.font='800 11px sans-serif'; const txt=bsN(t), w=ctx.measureText(txt).width+14, h=19, x=b.x-w/2, y=b.y-4-h; PILLS[i]={x,y,w,h};
+      ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,w,h,7); else ctx.rect(x,y,w,h); ctx.fillStyle=pillBg; ctx.fill(); ctx.strokeStyle='#22c55e'; ctx.lineWidth=1.6; ctx.stroke(); ctx.fillStyle=pillTx; ctx.fillText(txt,b.x,y+h/2+1); });
+    ctx.restore(); }};
+  const GR=[['Bugs','bug','#ef4444'],['Melhorias','mel','#3b82f6'],['Outras','out','#9ca3af']];
+  // clique numa cor = só aquele tipo · clique no número total (etiqueta verde) = todas as tarefas do mês, de qualquer tipo
+  const hT=el=>{ const m=el.index, k=GR[el.datasetIndex][1]; vsAbrir(`${GR[el.datasetIndex][0]} entregues em versões lançadas em ${VS_NM[m]}/${ano}`,L.filter(v=>v.mes===m).flatMap(v=>v.tarefas.filter(t=>vsGrupo(t.tipo)===k))); };
+  const pillAt=e=>PILLS.findIndex(q=>q&&e.x>=q.x&&e.x<=q.x+q.w&&e.y>=q.y&&e.y<=q.y+q.h);
+  bsChart('vsChT',{type:'bar',data:{labels:ms,datasets:GR.map(([l,k,c],di)=>({label:l,data:tG.slice(0,mAt+1).map(x=>x[k]),backgroundColor:c,stack:'t',borderRadius:di===2?{topLeft:4,topRight:4}:0,borderSkipped:false,maxBarThickness:46}))},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:30}},plugins:{legend:{position:'top',labels:{color:tc,font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${bsN(c.raw)}`,footer:it=>{ const i=it[0].dataIndex; return `Total: ${bsN(tG[i].bug+tG[i].mel+tG[i].out)} em ${nV[i]} versões`; }}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:tc}},y:{stacked:true,beginAtZero:true,grid:{color:gc},ticks:{color:tc,font:{size:9},precision:0}}}}, plugins:[stackLbl]},
+    hT);
+  const cvT=document.getElementById('vsChT');
+  cvT.onclick=e=>{ const m=pillAt({x:e.offsetX,y:e.offsetY}); if(m<0) return;
+    vsAbrir(`Todas as tarefas entregues em versões lançadas em ${VS_NM[m]}/${ano}`,L.filter(v=>v.mes===m).flatMap(v=>v.tarefas)); };
+  cvT.onmousemove=e=>{ const ca=BS.ch.vsChT&&BS.ch.vsChT.chartArea, dentro=ca&&e.offsetX>=ca.left&&e.offsetX<=ca.right&&e.offsetY>=ca.top&&e.offsetY<=ca.bottom;
+    if(pillAt({x:e.offsetX,y:e.offsetY})>=0) cvT.style.cursor='pointer'; else if(!dentro) cvT.style.cursor='default'; };
+
+  document.getElementById('vs-mes-chip').innerHTML = VS.mes===null?'':`<span class="bs-chip" style="cursor:pointer" onclick="vsSetMes(${VS.mes})" title="Clique para ver todos os meses">Mês: ${VS_NM[VS.mes]}/${ano} ✕</span>`;
+  const val=(v,c)=>c==='nome'?v.nome.toLowerCase():c==='inicio'?(v.inicio?v.inicio.getTime():0):c==='data'?v.data.getTime():c==='dias'?(v.dias==null?-1:v.dias):c==='segs'?v.segs.join(', ').toLowerCase():c==='n'?v.tarefas.length:v.g[c];
+  const o=VS.ord, vis=L.filter(v=>VS.mes===null||v.mes===VS.mes).sort((a,b)=>{ const A=val(a,o.col), B=val(b,o.col); return (A<B?-1:A>B?1:0)*o.dir; });
+  document.getElementById('vs-tab').innerHTML=vsThead(true)+'<tbody>'+
+    (vis.length?vis.map(v=>vsLinha(v,vsReg(()=>vsAbrir(`Versão ${v.nome}`,v.tarefas)))).join(''):'<tr><td colspan="9" style="padding:18px;text-align:center;color:var(--text3)">Nenhuma versão neste filtro.</td></tr>')+'</tbody>';
+}
+</script>
 <script src="/js/telemetria.js"></script>
+<script src="/js/busca-aba.js"></script>
 </body>
 </html>
