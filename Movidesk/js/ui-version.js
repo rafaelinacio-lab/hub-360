@@ -156,6 +156,6 @@ document.documentElement.setAttribute('data-ui', 'v2');
             .catch(function () {});
     }
     // espera a abertura da aba terminar (o medidor acima só conta chamadas feitas logo que a página abre) e depois renova a cada minuto
-    window.addEventListener('load', function () { setTimeout(function () { ler(); setInterval(ler, 60 * 1000); }, 1500); });
+    window.addEventListener('load', function () { setTimeout(function () { ler(); setInterval(function () { if (!document.hidden) ler(); }, 60 * 1000); }, 1500); });
     document.addEventListener('visibilitychange', function () { if (!document.hidden && el) ler(); });
 })();

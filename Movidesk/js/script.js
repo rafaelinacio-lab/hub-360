@@ -145,7 +145,7 @@ async function atualizarBadgeIncidentes() {
 }
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(atualizarBadgeIncidentes, 3000);   // depois das abas liberadas pelo perfil
-    setInterval(atualizarBadgeIncidentes, 3 * 60 * 1000);
+    setInterval(() => { if (!document.hidden) atualizarBadgeIncidentes(); }, 3 * 60 * 1000);
 });
 
 // ─── "Ir para…" (Ctrl+K): abas do menu e número de chamado ──────────────────

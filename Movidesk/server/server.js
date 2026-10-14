@@ -78,6 +78,20 @@ app.use('/api', (req, res, next) => {
   });
   next();
 });
+// Limite de requisições por usuário na API (evita aba em loop ou muitas abas derrubarem o servidor). A chave é o token de login
+// (não o IP: sem TRUST_PROXY o IP é o do proxy e seria igual para todos); sem token (Painel TV público, login), o IP de X-Forwarded-For.
+{
+  const { rateLimit } = require('./utils/rateLimit');
+  const crypto = require('crypto');
+  const chaveUsuario = (req) => {
+    const a = String(req.headers.authorization || '');
+    if (a.length > 12) return 't:' + crypto.createHash('sha1').update(a).digest('hex').slice(0, 16);
+    return 'ip:' + String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+  };
+  app.use('/api', rateLimit({ windowMs: 60 * 1000, max: Number(process.env.API_LIMITE_POR_MIN) || 600, name: 'api', keyFn: chaveUsuario }));
+  // As rotas do Painel Geral são as mais pesadas (consulta do ano inteiro): teto próprio, bem acima do uso normal.
+  app.use('/api/geral', rateLimit({ windowMs: 60 * 1000, max: Number(process.env.GERAL_LIMITE_POR_MIN) || 120, name: 'geral', keyFn: (req) => 'g:' + chaveUsuario(req) }));
+}
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')

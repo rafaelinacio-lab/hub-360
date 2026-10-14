@@ -416,8 +416,8 @@ async function alternarColeta(){
 }
 carregarColeta();
 carregar();
-setInterval(carregar,30000);
-setInterval(()=>{ if(D) desenharIdades(); },1000);
+setInterval(()=>{ if(!document.hidden) carregar(); },30000);   // aba em segundo plano não consulta
+setInterval(()=>{ if(D&&!document.hidden) desenharIdades(); },1000);
 function desenharIdades(){ /* atualiza as durações ao vivo sem refazer a tela */
   document.querySelectorAll('td[data-desde]').forEach(td=>{ td.textContent=idade(td.dataset.desde); });
 }

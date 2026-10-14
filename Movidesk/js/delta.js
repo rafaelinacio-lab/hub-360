@@ -17,7 +17,7 @@ async function deltaCarregar(silencioso = false) {
     try {
         DT.dados = await dtApi('/crons/delta');
         if (!silencioso || !document.getElementById('deltaIntervalo')) deltaRender(); else deltaAtualizarStatus();
-        if (!DT.timer) DT.timer = setInterval(() => deltaCarregar(true), 5000);
+        if (!DT.timer) DT.timer = setInterval(() => { if (!document.hidden) deltaCarregar(true); }, 5000);
     } catch (e) { root.innerHTML = `<div class="config-card"><p class="config-status error">${dtEsc(e.message)}</p></div>`; }
 }
 

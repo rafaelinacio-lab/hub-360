@@ -1536,6 +1536,7 @@ jiraFetch('dashboard_data.json')
     // Inicia o polling a cada 30 segundos
     _getSignature().then(sig => { _lastSignature = sig; });
     setInterval(async ()=>{
+      if(document.hidden) return;   // aba em segundo plano não consulta
       const sig = await _getSignature();
       if(sig && sig !== _lastSignature){
         _lastSignature = sig;
