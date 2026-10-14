@@ -1655,6 +1655,11 @@ function jiraFiltrados(){
   if(!q) return _jiraGrupos;
   return _jiraGrupos.filter(g=>{ const i=_jiraInfo[g.k]||{}; return [g.k,i.resumo,i.responsavel,i.projeto,i.status].join(' ').toLowerCase().includes(q); });
 }
+// Tarefa que não está nos dados do Jira (cancelada ou fora do período que o extrator lê): usa o assunto do chamado vinculado como resumo
+const jiraResumoDoChamado=g=>{
+  const a=(g.l.find(r=>r.assunto)||{}).assunto||'';
+  return a.replace(new RegExp('^\\s*'+g.k.replace(/[-]/g,'[-–]')+'\\s*[-–:|]*\\s*','i'),'').trim()||a;
+};
 function jiraBuscar(){ _jiraMostrar=15; jiraDesenhar(); }
 function jiraDesenhar(){
   const box=document.getElementById('jira-lista'); if(!box) return;
@@ -1666,11 +1671,12 @@ function jiraDesenhar(){
   const lista=jiraFiltrados(), vis=lista.slice(0,_jiraMostrar);
   if(conta) conta.textContent=`${_jiraGrupos.length.toLocaleString('pt-BR')} tarefa(s) · ${_jiraTotalChamados.toLocaleString('pt-BR')} chamado(s) vinculado(s)${lista.length!==_jiraGrupos.length?` · mostrando ${lista.length.toLocaleString('pt-BR')} na busca`:''}`;
   box.innerHTML=vis.map(g=>{
-    const i=_jiraInfo[g.k], fim=i&&i.finalizada;
-    const linha2=i?[i.status&&`<span class="jr-st ${fim?'fim':'abe'}">${esc(i.status)}</span>`,i.projeto&&esc(i.projeto),i.responsavel&&esc(i.responsavel)].filter(Boolean).join(' · '):(_jiraInfo.hasOwnProperty(g.k)?'tarefa não encontrada nos dados do Jira':'carregando dados da tarefa…');
+    const i=_jiraInfo[g.k], fim=i&&i.finalizada, semDados=!i&&_jiraInfo.hasOwnProperty(g.k);
+    const resumo=(i&&i.resumo)||(semDados?jiraResumoDoChamado(g):'');
+    const linha2=i?[i.status&&`<span class="jr-st ${fim?'fim':'abe'}">${esc(i.status)}</span>`,i.projeto&&esc(i.projeto),i.responsavel&&esc(i.responsavel)].filter(Boolean).join(' · '):(semDados?'<span class="jr-st abe">fora dos dados do Jira</span> · provavelmente cancelada ou fora do período extraído · resumo tirado do chamado':'carregando dados da tarefa…');
     return `<div class="jr-lin" data-k="${escAttr(g.k)}" role="button" tabindex="0" title="Ver os ${g.l.length} chamados vinculados">
       <a class="jr-key" href="${JIRA_BASE}${encodeURIComponent(g.k)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(g.k)}</a>
-      <div class="jr-mid"><span class="jr-res" title="${escAttr((i&&i.resumo)||'')}">${esc((i&&i.resumo)||'—')}</span><small>${linha2}</small></div>
+      <div class="jr-mid"><span class="jr-res" title="${escAttr(resumo)}">${esc(resumo||'—')}</span><small>${linha2}</small></div>
       <div class="jr-n"><b>${g.l.length.toLocaleString('pt-BR')}</b><small>chamado${g.l.length===1?'':'s'} · ${g.ab} aberto${g.ab===1?'':'s'} · ${g.res} resolvido${g.res===1?'':'s'}</small></div>
     </div>`;
   }).join('')+(lista.length>vis.length?`<button type="button" class="btn jr-mais" onclick="_jiraMostrar+=15;jiraDesenhar()">Mostrar mais (${(lista.length-vis.length).toLocaleString('pt-BR')})</button>`:'');
@@ -1685,8 +1691,8 @@ function jiraDesenhar(){
 document.addEventListener('click',e=>{
   const l=e.target.closest&&e.target.closest('#jira-lista .jr-lin'); if(!l||e.target.closest('a')) return;
   const g=_jiraGrupos.find(x=>x.k===l.dataset.k); if(!g) return;
-  const i=_jiraInfo[g.k]||{};
-  openDetailModal(`Tarefa ${g.k}${i.resumo?` — ${i.resumo}`:''}`,`${g.l.length} chamado${g.l.length===1?'':'s'} vinculado${g.l.length===1?'':'s'} · ${g.ab} aberto${g.ab===1?'':'s'}`,g.l);
+  const i=_jiraInfo[g.k]||{}, resumo=i.resumo||jiraResumoDoChamado(g);
+  openDetailModal(`Tarefa ${g.k}${resumo?` — ${resumo}`:''}`,`${g.l.length} chamado${g.l.length===1?'':'s'} vinculado${g.l.length===1?'':'s'} · ${g.ab} aberto${g.ab===1?'':'s'}`,g.l);
 });
 document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('jr-lin')){ e.preventDefault(); e.target.click(); } });
 
