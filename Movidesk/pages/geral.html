@@ -487,6 +487,8 @@ input,select{font-family:inherit}
 .visao-btn.on{background:var(--orange);color:#fff}
 .visao-btn:disabled{opacity:.45;cursor:not-allowed}
 .visao-nota{font-size:11px;color:var(--t3)}
+/* Na visão Produto somem os painéis que só fazem sentido com a régua de SLA do Hub (Suporte Técnico) */
+body.visao-produto .so-regua-hub{display:none!important}
 #f-class.ms-travado{opacity:.55;pointer-events:none}   /* classificação fixa na visão Suporte Técnico */
 .slaeq{display:flex;flex-direction:column;gap:2px;margin-top:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .slaeq-row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(120px,2.4fr) 64px minmax(110px,auto);align-items:center;gap:14px;width:100%;padding:8px 8px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -660,6 +662,7 @@ body.modal-open{overflow:hidden}
 .modal-body .sla-pend{white-space:normal}
 .modal-box{overflow-x:hidden}
 </style>
+<script src="../js/equipesTipo.js"></script>
 <link rel="stylesheet" href="../css/v2.css">
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">
@@ -706,7 +709,7 @@ body.modal-open{overflow:hidden}
       <div class="visao-seg">
         <button type="button" class="visao-btn" data-v="todos" role="tab" onclick="escolherVisao('todos')">Todos</button>
         <button type="button" class="visao-btn" data-v="st" role="tab" onclick="escolherVisao('st')" title="Só chamados da classificação Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h por urgência)">Suporte Técnico</button>
-        <button type="button" class="visao-btn" data-v="produto" role="tab" disabled title="Em breve">Produto</button>
+        <button type="button" class="visao-btn" data-v="produto" role="tab" onclick="escolherVisao('produto')" title="Só equipes de Produto (Equipe Técnica). Prazo pela previsão de solução do Movidesk, sem a régua de SLA do Hub">Produto</button>
         <button type="button" class="visao-btn" data-v="servicos" role="tab" disabled title="Em breve">Serviços</button>
       </div>
       <span class="visao-nota" id="visao-nota"></span>
@@ -794,7 +797,7 @@ body.modal-open{overflow:hidden}
         <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p></div>
       </div>
       <div data-tone="green" class="stat-card danger sla-hero">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA</p>
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span id="k-sla-rotulo">SLA</span></p>
         <div class="kpi-main">
           <p class="value bad" id="k-sla-cumprido">0%</p>
           <div class="sla-ring"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sla-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg></div>
@@ -1593,13 +1596,16 @@ function limparFiltros(){
 }
 // ── Visões: atalho para a classificação (Todos | Suporte Técnico). Cada visão é só o filtro de Classificação marcado de um jeito;
 // os cards já respeitam esse filtro (a régua de SLA do Hub vale só para Suporte Técnico). Fica salva neste navegador.
-const VISOES={todos:{classes:[]}, st:{classes:['Suporte Técnico']}};
+const VISOES={todos:{classes:[]}, st:{classes:['Suporte Técnico']}, produto:{classes:[]}};
 const VISAO_LS='hub_geral_visao';
 let _visao='todos';
 // Visão Suporte Técnico: três regras FIXAS, valem junto com os demais filtros e não dependem do dropdown de Classificação —
 // classificação do ticket = Suporte Técnico, categoria = Suporte Técnico e equipe de suporte (nome com "Suporte" ou a exceção Analytics - B.I.).
 const semAcentoV=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+// Visão Produto: equipes do tipo Produto (js/equipesTipo.js: as "Equipe Técnica" + as equipes "depende" quando a classificação não é Suporte Técnico),
+// em qualquer classificação. O prazo vem da previsão de solução do Movidesk; a régua de SLA do Hub não se aplica.
 function visaoLinha(r){
+  if(_visao==='produto') return !!window.hubTipoEquipe&&window.hubTipoEquipe(r.equipe,classificacaoDe(r))==='produto';
   if(_visao!=='st') return true;
   return classificacaoDe(r)==='Suporte Técnico'&&semAcentoV(r.categoria)==='suporte tecnico'&&equipeContaNoSla(r.equipe);
 }
@@ -1609,18 +1615,21 @@ function travarClasse(on){
   el.title=on?'Fixo na visão Suporte Técnico':'';
 }
 function visaoAtual(){
-  if(_visao==='st') return 'st';
+  if(_visao==='st'||_visao==='produto') return _visao;
   return getMsValues('f-class').length?'personalizada':'todos';
 }
+const PAINEIS_REGUA_HUB=['k-pausa','sla-evo-panel','impacto-panel','impacto-cima-panel','impacto-baixo-panel','impacto-cli-panel','slaUrgChart','slaEquipe'];
 function pintarVisao(){
   const v=visaoAtual();
+  document.body.classList.toggle('visao-produto',_visao==='produto');
+  PAINEIS_REGUA_HUB.forEach(id=>{ const el=document.getElementById(id); const alvo=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(alvo) alvo.classList.add('so-regua-hub'); });
   document.querySelectorAll('#visao-abas .visao-btn').forEach(b=>{ const on=b.dataset.v===v; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
   const nota=document.getElementById('visao-nota');
-  if(nota) nota.textContent=v==='st'?'Fixo: classificação, categoria e equipe de suporte · SLA pela régua do Hub (meta 90%)':v==='personalizada'?'Classificação personalizada no filtro':'';
+  if(nota) nota.textContent=v==='produto'?'Equipes de Produto · prazo pela previsão de solução do Movidesk (sem a régua de SLA do Hub)':v==='st'?'Fixo: classificação, categoria e equipe de suporte · SLA pela régua do Hub (meta 90%)':v==='personalizada'?'Classificação personalizada no filtro':'';
 }
 function escolherVisao(v){
   const def=VISOES[v]; if(!def) return;
-  _visao=v; travarClasse(v==='st');
+  _visao=v; travarClasse(v==='st');   // Produto e Todos deixam a Classificação livre (e limpa)
   document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=def.classes.includes(i.value); });
   updateMsLabel('f-class','Classificação: todos');
   try{ localStorage.setItem(VISAO_LS,v); }catch(_){}
@@ -1632,6 +1641,7 @@ function aplicarVisaoSalva(){
   if(_visaoAplicada) return;
   _visaoAplicada=true;
   let v='todos'; try{ v=localStorage.getItem(VISAO_LS)||'todos'; }catch(_){}
+  if(v==='produto') _visao='produto';
   if(v==='st'){
     _visao='st'; travarClasse(true);
     document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=VISOES.st.classes.includes(i.value); });
@@ -1883,7 +1893,9 @@ function render(){
 
   // ── SLA / backlog ──
   _slaFaltam=new Set();
-  const slaCard=slaHub(resolvidosRows);
+  // Produto: "prazo cumprido" = resolvidos até a previsão de solução do Movidesk; as demais visões usam a régua do Hub
+  const slaCard=_visao==='produto'?(()=>{ const c=resolvidosRows.filter(r=>r.resolvido_em&&r.sla_solucao); return {ok:c.filter(r=>new Date(r.resolvido_em)<=new Date(r.sla_solucao)).length,total:c.length,faltam:0}; })():slaHub(resolvidosRows);
+  { const rot=document.getElementById('k-sla-rotulo'); if(rot) rot.textContent=_visao==='produto'?'Prazo cumprido':'SLA'; }
   const slaCumprido=slaCard.total?slaCard.ok/slaCard.total:0;
   _slaBase={ok:slaCard.ok,total:slaCard.total};   // base do SLA do período: usada no impacto de cada pendente (modal de pendentes)
   const vencidosRows=pendentesRows.filter(isVencido);
@@ -1905,7 +1917,7 @@ function render(){
     }
   }
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
-  document.getElementById('k-sla-cumprido-legend').textContent='';   // sem legenda (pedido do usuário)
+  document.getElementById('k-sla-cumprido-legend').textContent=_visao==='produto'?'Resolvidos até a previsão do Movidesk.':'';   // fora de Produto, sem legenda (pedido do usuário)
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
   // Aging: tempo de vida dos pendentes (dias desde a abertura) — média em destaque, com máximo, mínimo, mediana e % com mais de 30 dias
   {
@@ -3618,6 +3630,11 @@ const DETALHE_MAX=1000;   // linhas desenhadas no modal (o resto fica fora para 
 let _slaBase={ok:0,total:0};
 const temSlaPend=rows=>rows.length>0&&rows.every(r=>r.sla_hub!==undefined);
 function slaPendInfo(r){
+  if(_visao==='produto'){
+    if(!r.sla_solucao) return {txt:'Sem prazo no Movidesk',cls:'',imp:'—',impCls:'',tip:'Chamado sem previsão de solução cadastrada no Movidesk.'};
+    const d=new Date(r.sla_solucao), venc=d.getTime()<Date.now(), dias=Math.max(0,Math.floor(Math.abs(Date.now()-d.getTime())/86400000));
+    return {txt:venc?`Vencido há ${dias} d (previsão ${dtStr(r.sla_solucao)})`:`No prazo · vence em ${dias} d (${dtStr(r.sla_solucao)})`,cls:venc?'bad':'good',imp:'—',impCls:'',tip:'Prazo pela previsão de solução do Movidesk. Na visão Produto não há impacto pela régua de SLA do Hub.'};
+  }
   const meta=r.sla_meta_h!=null?Number(r.sla_meta_h):null;
   if(!r.sla_hub||r.sla_hub==='fora'||meta==null) return {txt:'Fora da régua',cls:'',imp:'—',impCls:'',tip:'Chamado fora da régua de SLA do Hub (não é Suporte Técnico de equipe de suporte, cliente excluído ou urgência sem meta): não entra no SLA.'};
   const usado=r.sla_aberto_min!=null?Number(r.sla_aberto_min)/60:null, h=v=>fmtH(Math.abs(v));
