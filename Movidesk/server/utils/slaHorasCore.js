@@ -206,6 +206,84 @@ async function processarCompetencias({ por = 'automático', forcar = false } = {
     throw e;
   } finally { _rodando = false; }
 }
+
+// ── Recálculo dos créditos JÁ lançados ───────────────────────────────────────────────────────────────────────
+// Refaz a apuração das competências que já têm crédito no livro (com as regras de hoje: ex.: sem equipes FRANQUIA) e atualiza o que
+// mudou. Mesmo método do lançamento automático (bolsas, acúmulo, faixa, gatilho), mas cada cliente/competência é ATUALIZADO em vez de
+// ignorado. Só mexe em lançamentos tipo 'credito': usos e ajustes ficam como estão. O valor anterior (horas, motivo, validade) fica
+// guardado em origem.recalculado.anterior para auditoria e reversão. `aplicar:false` só calcula e devolve o que mudaria.
+async function recalcularCreditos({ por = 'recálculo', aplicar = false } = {}) {
+  if (_rodando) return { ignorado: 'já existe uma apuração em andamento' };
+  _rodando = true;
+  try {
+    await prepararTabelas();
+    const cfg = await lerConfig();
+    const comps = (await db.query(`SELECT DISTINCT competencia FROM public.sla_credito WHERE tipo = 'credito' AND competencia IS NOT NULL ORDER BY 1`)).rows.map((r) => r.competencia);
+    const plano = new Map();   // `${org}|${comp}` -> linha do novo lançamento
+    const bolsas = new Map();
+    for (const comp of comps) {
+      const ap = await apurar(comp, cfg);
+      for (const cl of ap.clientes) {
+        if (!cl.organizacao_id) continue;
+        const id = cl.organizacao_id;
+        const av = cl._itens.map((i) => i.av).filter((a) => a.dentro !== null);
+        if (!av.length) continue;
+        const b = bolsas.get(id) || { nome: cl.nome, plano: cl.plano, meses: [] };
+        b.nome = cl.nome; b.plano = cl.plano; b.meses.push({ comp, av }); bolsas.set(id, b);
+        const total = b.meses.reduce((n, m) => n + m.av.length, 0);
+        const span = mesIdx(comp) - mesIdx(b.meses[0].comp) + 1;
+        if (total < cfg.minimoElegiveis && span < 3) continue;
+        const ult = apurarBolsa(b, cfg);
+        const origem = { meses: b.meses.map((m) => m.comp), pct: ult.pct, avaliados: ult.avaliados, dentro: ult.dentro, plano: b.plano, gatilho: ult.gatilhoCritico };
+        const validade = ult.creditoSugerido > 0 ? P.somaMeses(primeiroDiaSeguinte(comp), cfg.validadeMeses) : null;
+        for (const m of b.meses.slice(0, -1)) plano.set(`${id}|${m.comp}`, { id, nome: b.nome, comp: m.comp, horas: 0, motivo: `Apuração acumulada e fechada em ${comp}`, validade: null, origem });
+        const motivo = ult.pct == null ? 'Sem chamados avaliados' : `Cumprimento global ${ult.pct.toFixed(2)}% (${ult.dentro}/${ult.avaliados})${b.meses.length > 1 ? ` acumulado em ${b.meses.length} competências` : ''}${ult.gatilhoCritico ? ' · gatilho de chamado Crítico' : ''}`;
+        plano.set(`${id}|${comp}`, { id, nome: b.nome, comp, horas: ult.creditoSugerido, motivo, validade, origem });
+        bolsas.delete(id);
+      }
+    }
+    const atuais = new Map((await db.query(`SELECT id, organizacao_id, organizacao_nome, competencia, horas::float AS horas, motivo, validade FROM public.sla_credito WHERE tipo = 'credito' AND competencia = ANY($1::text[])`, [comps])).rows
+      .map((r) => [`${r.organizacao_id}|${r.competencia}`, r]));
+    const mudancas = [], novos = [], mesmaHoras = [];
+    for (const [k, n] of plano) {
+      const a = atuais.get(k);
+      if (!a) { novos.push(n); continue; }
+      if (Math.abs(a.horas - n.horas) > 0.001) mudancas.push({ lancamento: a.id, id: n.id, nome: n.nome, comp: n.comp, antes: a.horas, depois: n.horas, motivoAntes: a.motivo, ...n });
+      // mesmas horas, mas a base mudou (ex.: 10/14 → 8/14): atualiza o motivo/origem para o extrato continuar explicando o crédito
+      else if (String(a.motivo || '').split(' · recalculado')[0] !== n.motivo && !String(a.motivo || '').startsWith('Sem chamados avaliados após')) mesmaHoras.push({ lancamento: a.id, horas: a.horas, motivoAntes: a.motivo, ...n });
+    }
+    // lançamentos com horas que deixaram de existir na nova apuração (cliente sem chamados avaliados): zeram
+    const zerados = [...atuais.entries()].filter(([k, a]) => !plano.has(k) && a.horas > 0).map(([, a]) => a);
+    const resumo = {
+      competencias: comps, clientes: new Set([...plano.values()].map((x) => x.id)).size,
+      horasAntes: Math.round([...atuais.values()].reduce((s, a) => s + a.horas, 0) * 100) / 100,
+      horasDepois: Math.round([...plano.values()].reduce((s, n) => s + n.horas, 0) * 100) / 100,
+      alterados: mudancas.length, aumentaram: mudancas.filter((m) => m.depois > m.antes).length, diminuiram: mudancas.filter((m) => m.depois < m.antes).length,
+      novos: novos.length, zerados: zerados.length, baseAtualizada: mesmaHoras.length,
+    };
+    if (!aplicar) return { ...resumo, aplicado: false, exemplos: mudancas.slice(0, 15).map((m) => ({ nome: m.nome, comp: m.comp, antes: m.antes, depois: m.depois })) };
+    const sqlUp = `UPDATE public.sla_credito SET horas = $2, motivo = $3, validade = $4::date,
+        origem = $5::jsonb || jsonb_build_object('recalculado', jsonb_build_object('em', NOW(), 'por', $6::text, 'anterior', jsonb_build_object('horas', horas, 'motivo', motivo, 'validade', validade)))
+      WHERE id = $1 AND tipo = 'credito'`;
+    const quando = new Date().toLocaleDateString('pt-BR');
+    for (const m of mudancas) {
+      await db.query(sqlUp, [m.lancamento, m.depois, `${m.motivo} · recalculado em ${quando} sem equipes FRANQUIA (antes: ${m.antes} h)`, m.validade, JSON.stringify(m.origem), por]);
+    }
+    for (const m of mesmaHoras) {   // horas iguais: só o motivo/origem (a base do cálculo) são atualizados
+      await db.query(sqlUp, [m.lancamento, m.horas, `${m.motivo} · base recalculada em ${quando} sem equipes FRANQUIA (horas mantidas)`, m.validade, JSON.stringify(m.origem), por]);
+    }
+    for (const a of zerados) {
+      await db.query(sqlUp, [a.id, 0, `Sem chamados avaliados após recálculo sem equipes FRANQUIA em ${quando} (antes: ${a.horas} h)`, null, JSON.stringify({ meses: [a.competencia] }), por]);
+    }
+    for (const n of novos) {
+      await db.query(`INSERT INTO public.sla_credito (organizacao_id, organizacao_nome, competencia, tipo, horas, motivo, validade, origem, criado_por)
+        VALUES ($1,$2,$3,'credito',$4,$5,$6::date,$7::jsonb,$8) ON CONFLICT DO NOTHING`, [n.id, n.nome, n.comp, n.horas, `${n.motivo} · lançado no recálculo de ${quando} sem equipes FRANQUIA`, n.validade, JSON.stringify(n.origem), por]);
+    }
+    invalidarSaldos();
+    console.log(`[sla-horas] ${por}: recálculo aplicado — ${mudancas.length} alterado(s), ${zerados.length} zerado(s), ${novos.length} novo(s)`);
+    return { ...resumo, aplicado: true };
+  } finally { _rodando = false; }
+}
 function apurarBolsa(b, cfg) { return P.apurarCliente(b.meses.flatMap((m) => m.av), cfg); }
 async function gravarStatus(st) {
   await db.query(`INSERT INTO config (key, value) VALUES ('sla_horas_auto_status', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(st)]);
@@ -268,4 +346,4 @@ async function orgsDoEscopo(esc) {
   _escopoOrgs.set(chave, { em: Date.now(), v });
   return v;
 }
-module.exports = { ehOrgInterna, repararAutores, estadoReparo, prepararTabelas, lerConfig, lerConfigEmCache, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, orgsDoEscopo, lerStatus, primeiroDiaSeguinte };
+module.exports = { recalcularCreditos, ehOrgInterna, repararAutores, estadoReparo, prepararTabelas, lerConfig, lerConfigEmCache, apurar, compOk, processarCompetencias, iniciarAutomatico, saldosPorCliente, invalidarSaldos, orgsDoEscopo, lerStatus, primeiroDiaSeguinte };

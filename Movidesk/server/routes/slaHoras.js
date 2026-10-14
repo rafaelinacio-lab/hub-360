@@ -154,7 +154,7 @@ router.get('/extrato/resumo', async (req, res) => {
 
 // De onde veio um crédito: os chamados da competência (ou das competências acumuladas) que o geraram. O crédito não é a soma de horas
 // por chamado: vem da FAIXA do cumprimento global do cliente (ex.: 66,67% → 16 h). Por isso, para cada chamado fora do prazo mostramos o
-// peso no cumprimento (pontos percentuais) e quantas horas de crédito a mais o cliente teria se aquele chamado tivesse sido cumprido.
+// peso no cumprimento (pontos percentuais) e quantas horas de crédito deixariam de existir se aquele chamado tivesse sido cumprido.
 // Cada competência apurada fica 5 min em memória (a apuração lê todos os chamados de Suporte Técnico do mês).
 const _apuCache = new Map();
 async function apuracaoCache(comp, cfg) {
@@ -187,17 +187,18 @@ router.get('/credito/:id/chamados', limiteApurar, async (req, res) => {
     const horasDe = (avs) => P.apurarCliente(avs, cfg).creditoSugerido;
     const n = aval.length;
     const lista = aval.map((i) => {
-      // peso: quanto este chamado fora do prazo tirou do cumprimento; custo em horas: crédito a mais se ele tivesse sido cumprido
+      // peso: quanto este chamado fora do prazo tirou do cumprimento; custoHoras: horas de crédito geradas por ele
       let custoHoras = 0;
       if (i.av.dentro === false) {
         const alt = aval.map((x) => (x === i ? { ...x.av, dentro: true, marcos: { pr: { ...x.av.marcos.pr, dentro: true }, contorno: { ...x.av.marcos.contorno, dentro: true }, resolucao: { ...x.av.marcos.resolucao, dentro: true } } } : x.av));
-        custoHoras = Math.max(0, horasDe(alt) - base.creditoSugerido);
+        // o crédito é compensação: quanto MENOR o cumprimento, mais horas. Horas geradas por este chamado = quanto o crédito cairia se ele tivesse sido cumprido.
+        custoHoras = Math.max(0, base.creditoSugerido - horasDe(alt));
       }
       const gatilho = i.av.severidade === 'Crítica' && [i.av.marcos.pr, i.av.marcos.contorno].some((m) => m.dentro === false && m.minutos > 2 * m.prazo);
       return { id: i.c.id, assunto: i.c.subject, competencia: i.comp, severidade: i.av.severidade, dentro: i.av.dentro, encerrado_em: i.c.encerrado_em,
         marcos: i.av.marcos, pesoPp: i.av.dentro === false && n ? 100 / n : 0, custoHoras, gatilho };
     }).sort((a, b) => (a.dentro === b.dentro ? 0 : a.dentro ? 1 : -1) || b.custoHoras - a.custoHoras);
-    // próxima faixa melhor: quantos chamados a mais teriam de ter sido cumpridos para o cliente subir de faixa
+    // próxima faixa melhor (crédito menor): quantos chamados a mais teriam de ter sido cumpridos para o crédito cair
     let proxima = null;
     if (base.pct !== null && Array.isArray(cfg.creditos)) {
       const p2 = Math.round(base.pct * 100) / 100, idx = cfg.creditos.findIndex((f) => p2 >= f.min);
