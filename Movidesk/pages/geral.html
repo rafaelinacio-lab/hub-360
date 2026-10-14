@@ -1751,7 +1751,7 @@ function render(){
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
   document.getElementById('k-sla-cumprido-legend').textContent='';   // sem legenda (pedido do usuário)
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
-  // Aging: tempo de vida dos pendentes (dias desde a abertura) — média em destaque, mediana e % com mais de 30 dias
+  // Aging: tempo de vida dos pendentes (dias desde a abertura) — média em destaque, com máximo, mínimo, mediana e % com mais de 30 dias
   {
     const dias=pendentesRows.filter(r=>r.criado_em).map(diasEmAberto).sort((a,b)=>a-b);
     const el=document.getElementById('k-aging'), lg=document.getElementById('k-aging-legend');
@@ -1761,7 +1761,8 @@ function render(){
         const media=dias.reduce((a,d)=>a+d,0)/dias.length, mediana=dias[Math.floor(dias.length/2)];
         const mais30=dias.filter(d=>d>30).length/dias.length*100;
         el.textContent=`${Math.round(media).toLocaleString('pt-BR')} dias`;
-        lg.textContent=`Média · mediana ${mediana.toLocaleString('pt-BR')} d · ${mais30.toLocaleString('pt-BR',{maximumFractionDigits:1})}% há mais de 30 dias.`;
+        const nd=n=>Math.round(n).toLocaleString('pt-BR');
+        lg.textContent=`Média · máx. ${nd(dias[dias.length-1])} d · mín. ${nd(dias[0])} d · mediana ${nd(mediana)} d · ${mais30.toLocaleString('pt-BR',{maximumFractionDigits:1})}% há mais de 30 dias.`;
       }
     }
   }
@@ -3266,7 +3267,7 @@ const INFO_CARDS={
     obs:FILTROS_TXT},
   'k-aging':{t:'Aging',
     o:'Tempo de vida dos chamados em aberto: quantos dias, em média, os pendentes estão abertos.',
-    c:['Dias corridos desde a abertura até hoje, de cada chamado pendente (os mesmos do card Pendentes: todos os anos, com os demais filtros).','Valor do card = média; a legenda traz a mediana (metade dos pendentes está abaixo dela) e o % com mais de 30 dias.','Clique em expandir para ver a lista, do mais antigo para o mais novo.'],
+    c:['Dias corridos desde a abertura até hoje, de cada chamado pendente (os mesmos do card Pendentes: todos os anos, com os demais filtros).','Valor do card = média; a legenda traz o máximo (o pendente mais antigo), o mínimo (o mais novo), a mediana (metade dos pendentes está abaixo dela) e o % com mais de 30 dias.','Clique em expandir para ver a lista, do mais antigo para o mais novo.'],
     obs:FILTROS_TXT},
   'k-pendentes':{t:'Pendentes',
     o:'Tickets que ainda estão em aberto.',
