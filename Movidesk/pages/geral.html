@@ -477,6 +477,17 @@ input,select{font-family:inherit}
 .stat-card.danger{border-color:var(--orange-bd)}
 .stat-card.success{border-color:var(--green-bd)}
 .stat-card.clickable{cursor:pointer}
+.slaeq{display:flex;flex-direction:column;gap:2px;margin-top:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.slaeq-row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(120px,2.4fr) 64px minmax(110px,auto);align-items:center;gap:14px;width:100%;padding:8px 8px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.slaeq-row:hover{background:var(--surface-low,rgba(148,163,184,.12))}
+.slaeq-row.geral{cursor:default;font-weight:700;border-bottom:1px solid var(--border);border-radius:0;margin-bottom:4px}
+.slaeq-nome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slaeq-bar{position:relative;height:10px;border-radius:6px;background:var(--border)}
+.slaeq-bar i{display:block;height:100%;border-radius:6px}
+.slaeq-bar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--t2);opacity:.7}
+.slaeq-pct{font-weight:800;text-align:right}
+.slaeq-det{font-size:12px;color:var(--t3)}
+@media (max-width:700px){.slaeq-row{grid-template-columns:1fr 64px}.slaeq-bar,.slaeq-det{grid-column:1/-1}}
 .sla-pend{font-weight:600;white-space:nowrap}
 .sla-pend.bad{color:var(--red,#ef4444)}
 .sla-pend.good{color:var(--green)}
@@ -819,6 +830,14 @@ body.modal-open{overflow:hidden}
         <p class="chart-title">Volume por equipe</p>
         <p class="chart-sub" style="text-align:left">Participação no volume do período · clique para ver os chamados</p>
         <div class="bkv" id="teamChart"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1" id="slaEquipe-linha" style="display:none">   <!-- só admin e diretoria (applyRolePermissions) -->
+      <div class="chart-panel">
+        <p class="chart-title">SLA por equipe</p>
+        <p class="chart-sub" style="text-align:left" id="slaEquipe-sub">Chamados resolvidos no mês e ano filtrados · meta 90% · clique numa equipe para ver os chamados</p>
+        <div class="slaeq" id="slaEquipe"></div>
       </div>
     </div>
 
@@ -1803,6 +1822,7 @@ function render(){
   window._rowsFullAtual=rowsFull;
   renderCausas(rowsFull);
   renderImpactoSla(rowsResolv);
+  renderSlaEquipe(resolvidosRows);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);
@@ -3070,6 +3090,31 @@ function openStatusModal(kind){
   openDetailModal(kind==='aberto'?'Tickets pendentes':'Tickets resolvidos',`${matched.length} ticket${matched.length===1?'':'s'}`,matched);
 }
 
+// ── SLA por equipe: resolvidos do mês/ano filtrados, régua do Hub (elegíveis com tempo líquido já calculado) ─────────
+function renderSlaEquipe(resolvidosRows){
+  const el=document.getElementById('slaEquipe'); if(!el) return;
+  const eleg=resolvidosRows.filter(elegivelSla), comTempo=eleg.filter(temMinutosSla), faltam=eleg.length-comTempo.length;
+  if(!comTempo.length){ el.innerHTML=`<p class="bk-vazio">${faltam?'Calculando o tempo de solução líquido…':'Nenhum chamado elegível ao SLA resolvido no período filtrado.'}</p>`; return; }
+  const por=new Map();
+  comTempo.forEach(r=>{ const k=limpaEquipe(r.equipe); const o=por.get(k)||por.set(k,{k,ok:0,total:0,rows:[]}).get(k); o.total++; if(dentroSla(r)) o.ok++; o.rows.push(r); });
+  const lista=[...por.values()].sort((a,b)=>b.total-a.total);
+  const ok=comTempo.filter(dentroSla).length, tot=comTempo.length;
+  const f1=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const cor=v=>v>=90?cssVar('--green'):cssVar('--orange');
+  const linha=(nome,o,cls)=>{ const p=o.total?o.ok/o.total*100:0; return `<button type="button" class="slaeq-row ${cls||''}" ${cls?'':`data-k="${escAttr(o.k)}"`}>
+      <span class="slaeq-nome" title="${escAttr(nome)}">${esc(nome)}</span>
+      <span class="slaeq-bar"><i style="width:${p.toFixed(1)}%;background:${cor(p)}"></i><em style="left:90%" title="Meta 90%"></em></span>
+      <b class="slaeq-pct" style="color:${cor(p)}">${f1(p)}%</b>
+      <span class="slaeq-det">${o.ok.toLocaleString('pt-BR')}/${o.total.toLocaleString('pt-BR')} · ${(o.total-o.ok).toLocaleString('pt-BR')} fora</span></button>`; };
+  el.innerHTML=linha('Todas as equipes',{ok,total:tot},'geral')+lista.map(o=>linha(limpaEquipe(o.k),o)).join('')+
+    (faltam?`<p class="bk-vazio" style="margin-top:6px">${faltam.toLocaleString('pt-BR')} chamado${faltam===1?'':'s'} ainda sendo calculado${faltam===1?'':'s'}…</p>`:'');
+  el.querySelectorAll('.slaeq-row[data-k]').forEach(b=>b.addEventListener('click',()=>{
+    const o=por.get(b.dataset.k); if(!o) return;
+    openDetailModal(`SLA — Equipe: ${limpaEquipe(o.k)}`,`${o.ok.toLocaleString('pt-BR')}/${o.total.toLocaleString('pt-BR')} dentro da meta · ${(o.total-o.ok).toLocaleString('pt-BR')} fora`,o.rows,
+      {ordenar:(a,b2)=>(dentroSla(a)-dentroSla(b2))||((_impactoMinutos[b2.ticket_id]||0)-(_impactoMinutos[a.ticket_id]||0))});
+  }));
+}
+
 // ── SLA por urgência ─────────────────────────────────────────────────
 function renderSlaUrgChart(resolvidosComPrazo){
   destroyChart('slaUrgChart');
@@ -3240,6 +3285,7 @@ const EXPANSOES={
   equipesven: {t:'Backlog vencido por equipe',   rows:()=>_pendentesGlobal.filter(isVencido), ordenar:(a,b)=>String(a.equipe||'').localeCompare(String(b.equipe||''),'pt')},
   reabertura: {t:'Reabertos (resolvidos no período)', rows:()=>_rowsResolv.filter(isReaberto)},
   fcr:        {t:'Resolvidos no 1º contato (FCR)',    rows:()=>_rowsResolv.filter(isFCR)},
+  slaequipe:  {t:'SLA por equipe (resolvidos elegíveis ao SLA)', rows:()=>_rowsResolv.filter(elegivelSla).filter(temMinutosSla), ordenar:(a,b)=>String(a.equipe||'').localeCompare(String(b.equipe||''),'pt')},
   pausa:      {t:'Tempo em pausa (resolvidos elegíveis ao SLA)', rows:()=>_rowsResolv.filter(elegivelSla).filter(r=>r.sla_pausa_min!=null), ordenar:(a,b)=>Number(b.sla_pausa_min||0)-Number(a.sla_pausa_min||0)},
   slaurg:     {t:'SLA por urgência',             rows:()=>_rowsResolv.filter(elegivelSla), ordenar:(a,b)=>String(a.urgencia||'').localeCompare(String(b.urgencia||''),'pt')},
 };
@@ -3251,7 +3297,7 @@ function abrirExpansao(chave){
 (function colocarSetas(){
   const mapa={'k-aging':'aging','k-abertos':'abertos','k-resolvidos':'resolvidos','k-media-acoes':'media','k-clientes':'clientes','k-pendentes':'pendentes','k-sla-cumprido':'sla','k-backlog-vencido':'vencido',
     'classChart':'classe','trendVolChart':'tendencia','agingChart':'aging','teamChart':'equipe','urgChart':'urgencia','clientChart':'topclientes','respChart':'topresp','tbl-equipes-vencido':'equipesven',
-    'k-reabertura':'reabertura','k-fcr':'fcr','k-pausa':'pausa','slaUrgChart':'slaurg'};
+    'k-reabertura':'reabertura','k-fcr':'fcr','k-pausa':'pausa','slaUrgChart':'slaurg','slaEquipe':'slaequipe'};
   Object.entries(mapa).forEach(([id,chave])=>{
     const el=document.getElementById(id); const card=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(!card||card.querySelector('.panel-expand')) return;
     const b=document.createElement('button'); b.type='button'; b.className='panel-expand'; b.title='Expandir'; b.setAttribute('aria-label','Expandir: ver os chamados deste card');
@@ -3357,6 +3403,10 @@ const INFO_CARDS={
   'tbl-equipes-vencido':{t:'Backlog vencido por equipe',
     o:'Em quais equipes o backlog pendente está mais atrasado.',
     c:['Por equipe: pendentes, vencidos (prazo de SLA já passado) e % vencido = vencidos ÷ pendentes.','Todas as equipes com pendentes, em ordem alfabética; o % fica em destaque quando passa de 30%.','O filtro “Equipe” do próprio quadro vale só para esta tabela.','Clique numa equipe para ver os tickets vencidos.']},
+  'slaEquipe':{t:'SLA por equipe',
+    o:'% de chamados resolvidos dentro da meta de SLA, por equipe, no mês e ano filtrados (visível só para admin e diretoria).',
+    c:['Mesmos chamados do card "SLA cumprido": resolvidos no período, Suporte Técnico de equipe de suporte, com urgência com meta.','Dentro = tempo líquido de atendimento menor ou igual à meta da urgência (Crítica 4h, Alta 8h, Média 16h, Baixa 24h). Meta de SLA: 90%.','A linha "Todas as equipes" é o mesmo número do card SLA cumprido. Clique numa equipe para ver os chamados, os que ficaram fora primeiro.'],
+    obs:FILTROS_TXT},
   'slaUrgChart':{t:'SLA por urgência',
     o:'% de tickets resolvidos no prazo, por nível de urgência.',
     c:['Considera os resolvidos no período com prazo de solução definido.','No prazo = resolvido até a data de prazo do Movidesk.','% = no prazo ÷ resolvidos com prazo, para cada urgência.']},
@@ -3659,6 +3709,8 @@ async function apiFetch(path,method='GET'){
 async function applyRolePermissions(){
   try{
     const me=await api('/auth/me');
+    // Card "SLA por equipe": só perfis admin e diretoria
+    if(['admin','diretoria'].includes(me.role)) document.getElementById('slaEquipe-linha')?.style.removeProperty('display');
     if(me.role!=='admin'){
       document.getElementById('btn-atualizar')?.style.setProperty('display','none');
       document.getElementById('btn-sync')?.style.setProperty('display','none');
