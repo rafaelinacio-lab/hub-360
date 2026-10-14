@@ -820,7 +820,15 @@ router.get('/sla-responsaveis', acessoPainelTv, async (req, res) => {
 router.get('/sla-evolucao', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const esc = await escopoDoRequest(req);
-    await cacheResposta.responder(req, res, 'sla-evo:12' + chaveEscopo(esc), CACHE_PAINEL_MS, async () => {
+    // Filtros do painel (menos Ano/Mês): ?f={"equipe":[],"resp":[],"serv":[],"cli":[],"cls":[],"status":[]}; cada combinação tem a sua chave de cache
+    let fl = null;
+    try {
+      const j = req.query.f ? JSON.parse(String(req.query.f)) : null;
+      const lista = (v) => (Array.isArray(v) ? v.slice(0, 200).map((x) => String(x).slice(0, 200)) : []);
+      if (j && typeof j === 'object') { fl = { equipe: lista(j.equipe), resp: lista(j.resp), serv: lista(j.serv), cli: lista(j.cli), cls: lista(j.cls), status: lista(j.status) }; if (!Object.values(fl).some((a) => a.length)) fl = null; }
+    } catch { fl = null; }
+    const chaveF = fl ? ':f=' + require('crypto').createHash('sha1').update(JSON.stringify(fl)).digest('hex').slice(0, 12) : '';
+    await cacheResposta.responder(req, res, 'sla-evo:12' + chaveEscopo(esc) + chaveF, CACHE_PAINEL_MS, async () => {
       const b = new Date(Date.now() - 3 * 3600 * 1000);   // relógio de Brasília em campos UTC
       const meses = [];
       for (let i = 11; i >= 0; i--) {
@@ -831,17 +839,25 @@ router.get('/sla-evolucao', authMiddleware, requireTabAccess('movidesk'), async 
       const r = await db.query(`
         SELECT t.ticket_id::text AS ticket_id, to_char(t.resolved_in AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') AS mk,
                t.urgency AS urgencia, t.ownerteam AS equipe, t.service_full AS servico, cf.valor_texto AS classificacao,
+               t.owner_name AS responsavel, tc.organizacao_nome AS organizacao,
                COALESCE(cl.fora_sla, false) AS sla_fora_cliente, sl.minutos
           FROM silver.ticket t
+          LEFT JOIN silver.ticket_organizacao tc ON tc.ticket_id = t.ticket_id
           JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = ${CF_CLASSIFICACAO}
           JOIN silver.ticket_sla_liquido sl ON sl.ticket_id = t.ticket_id AND sl.resolvido_em = t.resolved_in AND sl.minutos IS NOT NULL
           ${slaHub.sqlLateralClienteFora('t')}
          WHERE t.resolved_in >= $1 AND t.basestatus IN (${FECHADOS_SQL})
            AND translate(lower(cf.valor_texto), 'éèêáàâãíóôõúç', 'eeeaaaaiooouc') = '${CLASSIFICACAO_SLA}'`, [inicio]);
       const por = new Map(meses.map((mk) => [mk, { mk, dentro: 0, total: 0, fora: [] }]));
+      // mesma regra dos filtros do painel (pages/geral.html getFilteredRows); o status "aberto" sozinho não tem resolvidos
+      const passa = (x) => !fl || (
+        (!fl.equipe.length || fl.equipe.includes(x.equipe)) && (!fl.resp.length || fl.resp.includes(x.responsavel))
+        && (!fl.serv.length || fl.serv.includes(x.servico)) && (!fl.cli.length || fl.cli.includes(x.organizacao))
+        && (!fl.cls.length || fl.cls.includes((x.classificacao || '').trim() || 'Não classificado'))
+        && (!fl.status.length || fl.status.includes('finalizado')));
       for (const x of filtrarEscopo(esc, r.rows || [])) {
         const o = por.get(x.mk);
-        if (!o || !slaHub.elegivel(x)) continue;
+        if (!o || !passa(x) || !slaHub.elegivel(x)) continue;
         o.total++;
         if (x.minutos / 60 <= slaHub.metaDe(x.urgencia)) o.dentro++; else o.fora.push(x.ticket_id);
       }

@@ -2389,12 +2389,15 @@ async function renderSlaEvolucao(rows){
   const kpis=document.getElementById('sla-evo-kpis');
   const ult=document.getElementById('sla-evo-ult');
   if(!kpis||!ult) return;
-  // Não segue os filtros: sempre os ÚLTIMOS 12 MESES (mês atual + 11), calculados no servidor (GET /geral/sla-evolucao),
+  // Sempre os ÚLTIMOS 12 MESES (mês atual + 11) — Ano e Mês do painel não valem —, mas segue os demais filtros (equipe, responsável,
+  // serviço, cliente, classificação e status), para o último mês bater com o card SLA. Calculado no servidor (GET /geral/sla-evolucao?f=…),
   // inclusive meses fora do ano carregado na tela. Só a vertical do perfil limita. A resposta fica 60 s em memória.
   let evo;
   try{
-    if(_slaEvoDados&&Date.now()-_slaEvoDados.em<60000) evo=_slaEvoDados.v;
-    else { if(status) status.textContent='Calculando a evolução dos últimos 12 meses…'; evo=await api('/geral/sla-evolucao',120000); _slaEvoDados={em:Date.now(),v:evo}; }
+    const fl={equipe:getMsValues('f-equipe'),resp:getMsValues('f-resp'),serv:getMsValues('f-serv'),cli:getMsValues('f-cliente'),cls:getMsValues('f-class'),status:getMsValues('f-status')};
+    const fq=Object.values(fl).some(a=>a.length)?JSON.stringify(fl):'';
+    if(_slaEvoDados&&_slaEvoDados.fq===fq&&Date.now()-_slaEvoDados.em<60000) evo=_slaEvoDados.v;
+    else { if(status) status.textContent='Calculando a evolução dos últimos 12 meses…'; evo=await api('/geral/sla-evolucao'+(fq?`?f=${encodeURIComponent(fq)}`:''),120000); _slaEvoDados={em:Date.now(),v:evo,fq}; }
   }catch(e){ if(seq===_slaEvoSeq&&status) status.textContent=`Não foi possível calcular o SLA: ${e.message}`; return; }
   if(seq!==_slaEvoSeq) return;
   if(status) status.textContent='';
@@ -2422,7 +2425,7 @@ async function renderSlaEvolucao(rows){
 
   const [y0,m0]=chaves[0].split('-').map(Number);
   document.getElementById('sla-evo-sub').textContent=
-    `Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência (tempo de solução líquido em horas úteis) — sempre os últimos 12 meses, sem depender dos filtros (desde ${new Date(y0,m0-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}).`;
+    `Percentual mensal de tickets elegíveis resolvidos dentro da meta da própria urgência (tempo de solução líquido em horas úteis) — sempre os últimos 12 meses (Ano e Mês do painel não valem; os demais filtros sim) (desde ${new Date(y0,m0-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}).`;
   ult.innerHTML=`<span class="tv-eyebrow" style="margin:0">Último mês</span><b>${fmtP(pct[iU])}</b><small class="${dpp==null||dpp===0?'':dpp>0?'tv-bom':'tv-ruim'}">${dpp==null?'sem mês anterior':`${dpp>0?'↑ +':dpp<0?'↓ −':'→ '}${Math.abs(dpp).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp vs. mês anterior`}</small>`;
   kpis.innerHTML=
     `<div class="sl-kpi"><span class="tv-eyebrow" style="margin:0">Competências</span><b>${comDado.length}</b><small>meses com tickets elegíveis</small></div>`+
