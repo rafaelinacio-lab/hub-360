@@ -13,11 +13,14 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gzip = promisify(zlib.gzip);
 
-const MAX_CHAVES = 6;
+const MAX_CHAVES = 16;   // uma por combinação (vertical x janela); com 6 as verticais se expulsavam do cache umas às outras
 const store = new Map();   // chave -> { versao, em, promessa }
 let versao = 0;
 
-function marcarAlterado() { versao++; }
+function marcarAlterado() {
+  versao++;
+  try { require('./leitor').invalidar(); } catch { /* sem processo leitor */ }   // o cache do leitor também precisa ser refeito
+}
 
 function obter(chave, ttlMs, produzir) {
   const e = store.get(chave);

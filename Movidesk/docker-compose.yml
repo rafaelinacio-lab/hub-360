@@ -11,6 +11,8 @@ services:
     environment:
       # O Node limita o heap a ~2 GB por padrão e o servidor caiu por falta de memória (10/10/2026); a VM tem ~11 GB.
       NODE_OPTIONS: --max-old-space-size=4096
+      # Painel Geral e Início rodam num segundo processo Node (server/utils/leitor.js); LEITOR=0 volta para um processo só.
+      LEITOR: "1"
     ports:
       - "${PORT:-5000}:${PORT:-5000}"
     volumes:

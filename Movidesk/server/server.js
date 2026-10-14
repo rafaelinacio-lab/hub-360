@@ -14,7 +14,10 @@ const pessoasRoutes = require('./routes/pessoas');
 const curadoriaRoutes = require('./routes/curadoria');
 const ouvidoriaRoutes = require('./routes/ouvidoria');
 const gccRoutes = require('./routes/gcc');
-const geralRoutes = require('./routes/geral');
+const leitor = require('./utils/leitor');
+// Com LEITOR=1 o Painel Geral e o Início rodam num segundo processo (utils/leitor.js); aqui só entram se o leitor estiver fora do ar.
+const geralRoutes = leitor.ativo() ? leitor.lazy(() => require('./routes/geral')) : require('./routes/geral');
+const inicioRoutes = leitor.ativo() ? leitor.lazy(() => require('./routes/inicio')) : require('./routes/inicio');
 const satisfacaoRoutes = require('./routes/satisfacao');
 const incidentesRoutes = require('./routes/incidentes');
 const telemetriaRoutes = require('./routes/telemetria');
@@ -98,6 +101,8 @@ app.use(cors({
     : [`http://localhost:${PORT}`],
   credentials: true
 }));
+// Painel Geral e Início: repassados ao processo leitor ANTES de ler o corpo (o corpo segue cru para ele)
+if (leitor.ativo()) app.use(['/api/geral', '/api/inicio'], leitor.proxy);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -134,7 +139,7 @@ app.use('/api/extrator', require('./routes/tokens').extrator);   // sem login: s
 app.use('/api/tokens', require('./routes/tokens'));
 app.use('/api/sla-horas', require('./routes/slaHoras'));
 app.use('/api/email-config', require('./routes/emailConfig'));   // Configurações → E-mail (SMTP), só admin
-app.use('/api/inicio', require('./routes/inicio'));   // tela inicial personalizada (todos os perfis)
+app.use('/api/inicio', inicioRoutes);   // tela inicial personalizada (todos os perfis)
 // Para as telas de GCC/Satisfação avisarem qual vertical está em uso
 app.get('/api/escopo-vertical', require('./routes/auth').authMiddleware, async (req, res) => {
   try { const e = await require('./utils/verticalScope').escopoVertical(req.user.id); res.json({ filtrar: e.filtrar, vertical: e.vertical, verticais: e.filtrar ? e.verticais : [], semVertical: e.semVertical }); }
@@ -265,6 +270,7 @@ require('./utils/slaHorasCore').iniciarAutomatico();   // lança as horas técni
 
 // Iniciar servidor
 app.listen(PORT, () => {
+  leitor.iniciar();
   console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}`);
   console.log(`⚙️  Admin: http://localhost:${PORT}/admin`);

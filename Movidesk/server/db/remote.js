@@ -54,11 +54,13 @@ async function createPoolForConfig(cfg, ensureSchema = false) {
   pool.__poolKey = key;
   pools.set(key, pool);
 
-  // O contêiner do Postgres tem só 64 MB de /dev/shm e consultas paralelas pesadas (Painel Geral) estouravam com
-  // "could not resize shared memory segment … No space left on device" (14/10/2026). Sem workers paralelos o dsm nem é usado;
-  // custa ~20% de tempo nas consultas grandes. DB_PARALELO_POR_CONSULTA=2 devolve o paralelismo quando o shm do banco aumentar.
-  const paralelo = Number.isInteger(Number(process.env.DB_PARALELO_POR_CONSULTA)) ? Number(process.env.DB_PARALELO_POR_CONSULTA) : 0;
-  pool.on('connect', (client) => { client.query(`SET max_parallel_workers_per_gather = ${paralelo}`).catch(() => {}); });
+  // Paralelismo do Postgres: a consulta do Painel Geral leva ~5 s com workers paralelos e ~40 s sem (medido em 14/10/2026), então ele
+  // fica LIGADO. O contêiner do banco tem só 64 MB de /dev/shm; se uma consulta paralela estourar essa memória, query() repete
+  // aquela consulta sozinha sem paralelismo (mais lenta, mas sem erro). DB_PARALELO_POR_CONSULTA força um valor em todas as conexões.
+  if (process.env.DB_PARALELO_POR_CONSULTA !== undefined && Number.isInteger(Number(process.env.DB_PARALELO_POR_CONSULTA))) {
+    const paralelo = Number(process.env.DB_PARALELO_POR_CONSULTA);
+    pool.on('connect', (client) => { client.query(`SET max_parallel_workers_per_gather = ${paralelo}`).catch(() => {}); });
+  }
 
   // Handle pool errors
   pool.on('error', (err) => {
@@ -327,6 +329,16 @@ async function query(sql, params = []) {
     } catch (err) {
       lastError = err;
 
+      // Memória compartilhada do banco esgotada por consulta paralela: repete esta consulta sem workers paralelos.
+      if (/shared memory segment|No space left on device/i.test(err.message || '') && !err.__semParalelo) {
+        const c = await activePool.connect();
+        try {
+          await c.query('SET max_parallel_workers_per_gather = 0');
+          console.warn('[db] memória compartilhada do banco esgotada; repetindo a consulta sem paralelismo');
+          return await c.query(text, values);
+        } catch (e2) { e2.__semParalelo = true; throw e2; }
+        finally { try { await c.query('RESET max_parallel_workers_per_gather'); } catch { /* conexão será descartada */ } c.release(); }
+      }
       if (attempt < 3 && !isClosing && isRetryableConnectionError(err)) {
         await invalidatePoolByKey(activePool.__poolKey);
         console.warn(`Query attempt ${attempt} failed, retrying in ${attempt * 1000}ms...`, err.message);
