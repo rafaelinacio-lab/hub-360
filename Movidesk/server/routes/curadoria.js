@@ -1956,3 +1956,5 @@ router.get('/ai/status', authMiddleware, requireTabAccess('chamados'), async (re
 });
 
 module.exports = router;
+// Usado por server/scripts/curadoria-amostra.js (roda a Curadoria em lote, com teto de gasto, sem passar pela tela)
+module.exports.processOneCuradoriaTicket = processOneCuradoriaTicket;

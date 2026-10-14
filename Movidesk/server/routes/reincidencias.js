@@ -370,6 +370,7 @@ const emAndamento = new Map();                                           // mesm
 const geralCache = new Map();                                            // chave dos filtros -> { em, dados }
 const GERAL_TTL = 10 * 60 * 1000;
 router.get('/geral', requireLeitura, async (req, res) => {
+  let chave = null, falhar = null;   // fora do try: o catch também usa (antes dava ReferenceError e derrubava o servidor)
   try {
     const dias = JANELAS.includes(Number(req.query.dias)) ? Number(req.query.dias) : 15;
     const ano = /^\d{4}$/.test(String(req.query.ano || '')) ? Number(req.query.ano) : null;
@@ -377,11 +378,11 @@ router.get('/geral', requireLeitura, async (req, res) => {
     const busca = String(req.query.cliente || '').trim().slice(0, 120);
     const classif = req.query.classif === 'todas' ? '' : 'Suporte Técnico';
     const esc = await escopoVertical(req.user.id);
-    const chave = JSON.stringify([dias, ano, equipe, busca.toLowerCase(), classif, chaveEscopo(esc)]);   // o escopo entra na chave dos DOIS caches
+    chave = JSON.stringify([dias, ano, equipe, busca.toLowerCase(), classif, chaveEscopo(esc)]);   // o escopo entra na chave dos DOIS caches
     const c = geralCache.get(chave);
     if (c && Date.now() - c.em < GERAL_TTL) return res.json({ ...c.dados, cache: true });
     if (emAndamento.has(chave)) { try { return res.json({ ...(await emAndamento.get(chave)), cache: true }); } catch (e) { return erro(res, e); } }
-    let liberar, falhar; emAndamento.set(chave, new Promise((ok, ko) => { liberar = ok; falhar = ko; }).catch((e) => { throw e; }));
+    let liberar; emAndamento.set(chave, new Promise((ok, ko) => { liberar = ok; falhar = ko; }).catch((e) => { throw e; }));
     emAndamento.get(chave).catch(() => {});
     const mods = (await db.query(`SELECT custom_field_id::bigint AS id FROM silver.dim_campo_customizado WHERE nome_campo ILIKE '%m_dulo%rotina%' OR nome_campo ILIKE 'M_dulos - %'`)).rows.map((x) => Number(x.id));
     const campos = [...new Set([...mods, 148916, 23946])];
@@ -420,7 +421,7 @@ router.get('/geral', requireLeitura, async (req, res) => {
     geralCache.set(chave, { em: Date.now(), dados });
     liberar(dados); emAndamento.delete(chave);
     res.json({ ...dados, cache: false });
-  } catch (e) { if (typeof falhar === 'function') falhar(e); emAndamento.delete(chave); erro(res, e); }
+  } catch (e) { if (typeof falhar === 'function') falhar(e); if (chave) emAndamento.delete(chave); erro(res, e); }
 });
 
 

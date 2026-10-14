@@ -2456,7 +2456,11 @@ function buscarSlaFaltantes(depois){
   const ids=[..._slaFaltam]; _slaFaltam=new Set();
   if(!ids.length||_slaBuscando) return;
   _slaBuscando=true;
-  buscarMinutosLiquidos(ids).then(()=>{ _slaBuscando=false; depois(); }).catch(()=>{ _slaBuscando=false; });
+  // Se a busca falhar (servidor ocupado, rede), tenta mais uma vez; se falhar de novo, marca os que faltam como "sem tempo" e redesenha:
+  // o card passa a mostrar o que já tem em vez de ficar em "…" para sempre.
+  const desistir=()=>{ _slaBuscando=false; ids.forEach(id=>{ if(!(id in _impactoMinutos)) _impactoMinutos[id]=null; }); depois(); };
+  buscarMinutosLiquidos(ids).then(()=>{ _slaBuscando=false; depois(); })
+    .catch(()=>{ setTimeout(()=>buscarMinutosLiquidos(ids).then(()=>{ _slaBuscando=false; depois(); }).catch(desistir),3000); });
 }
 let _impactoMinutos={};   // ticket_id -> minutos úteis líquidos (cache)
 let _impactoSeq=0;
@@ -2475,11 +2479,15 @@ async function impactoBuscarMinutos(ids){
   const faltam=ids.filter(id=>!(id in _impactoMinutos));
   for(let i=0;i<faltam.length;i+=2000){
     const lote=faltam.slice(i,i+2000);
-    const r=await fetch(`${API}/geral/sla-liquido`,{
-      method:'POST',
-      headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},
-      body:JSON.stringify({ids:lote}),
-    });
+    const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),60000);   // sem resposta em 60 s: aborta (não deixa a busca pendurada)
+    let r; try{
+      r=await fetch(`${API}/geral/sla-liquido`,{
+        method:'POST',
+        headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},
+        body:JSON.stringify({ids:lote}),
+        signal:ctl.signal,
+      });
+    } finally { clearTimeout(t); }
     if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); }
     const {minutos}=await r.json();
     lote.forEach(id=>{ _impactoMinutos[id]=minutos[id]!=null?minutos[id]:null; });
