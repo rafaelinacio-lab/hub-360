@@ -723,30 +723,47 @@ router.get('/causas', authMiddleware, requireTabAccess('movidesk'), async (req, 
       return res.json(recorte);
     };
     if (_causasBase && _causasBase.ate > Date.now()) return entregar(_causasBase.dados);
-    // Confere quais colunas existem neste banco (a Curadoria cria colunas aos poucos), em vez de assumir.
-    const cols = new Set(((await db.queryDatabase('movidesk_curadoria',
-      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'curadoria_chamados'`)).rows || []).map((x) => x.column_name));
-    const partes = ['causa_normalizada', 'causa'].filter((c) => cols.has(c)).map((c) => `NULLIF(btrim(${c}::text), '')`);
-    if (!cols.has('ticket_id') || !partes.length) {
-      return res.json({ causas: [], itens: [], aviso: 'A Curadoria ainda não tem diagnósticos de causa neste banco.' });
-    }
-    const r = await db.queryDatabase('movidesk_curadoria',
-      `SELECT ticket_id::text AS id, COALESCE(${partes.join(', ')}) AS causa
-         FROM public.curadoria_chamados
-        WHERE ${cols.has('processado') ? "processado::text IN ('1', 'true', 't') AND " : ''}COALESCE(${partes.join(', ')}) IS NOT NULL`);
+    // Fontes da causa de cada chamado, da menos para a mais prioritária:
+    //  1) diagnóstico da Curadoria (IA, banco movidesk_curadoria) — hoje cobre poucos chamados;
+    //  2) o campo "Causa" do próprio chamado no Movidesk (custom field 148916), preenchido pelos agentes: ~56 mil chamados só em 2026, ~20 causas.
+    //     Vale mais que o da IA quando os dois existem. Janela: chamados criados desde o início do ano passado (cobre o ano do painel e os
+    //     abertos antes dele que foram resolvidos nele).
+    const porId = new Map();   // ticket_id -> texto da causa
+    let origemMovidesk = 0, origemCuradoria = 0, avisoCuradoria = null;
+    try {
+      // Confere quais colunas existem neste banco (a Curadoria cria colunas aos poucos), em vez de assumir.
+      const cols = new Set(((await db.queryDatabase('movidesk_curadoria',
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'curadoria_chamados'`)).rows || []).map((x) => x.column_name));
+      const partes = ['causa_normalizada', 'causa'].filter((c) => cols.has(c)).map((c) => `NULLIF(btrim(${c}::text), '')`);
+      if (!cols.has('ticket_id') || !partes.length) avisoCuradoria = 'A Curadoria ainda não tem diagnósticos de causa neste banco.';
+      else {
+        const r = await db.queryDatabase('movidesk_curadoria',
+          `SELECT ticket_id::text AS id, COALESCE(${partes.join(', ')}) AS causa
+             FROM public.curadoria_chamados
+            WHERE ${cols.has('processado') ? "processado::text IN ('1', 'true', 't') AND " : ''}COALESCE(${partes.join(', ')}) IS NOT NULL`);
+        for (const row of r.rows || []) { porId.set(String(row.id), String(row.causa)); origemCuradoria++; }
+      }
+    } catch (e) { console.warn('[geral] causas: Curadoria indisponível, seguindo só com o campo Causa do Movidesk:', e.message); avisoCuradoria = 'A Curadoria não está acessível.'; }
+    const mv = await db.query(
+      `SELECT cf.ticket_id::text AS id, btrim(cf.valor_texto) AS causa
+         FROM silver.ticket_campo_customizado cf JOIN silver.ticket t ON t.ticket_id = cf.ticket_id
+        WHERE cf.custom_field_id = 148916 AND NULLIF(btrim(cf.valor_texto), '') IS NOT NULL
+          AND t.createddate >= date_trunc('year', NOW()) - INTERVAL '1 year'`);
+    for (const row of mv.rows || []) { porId.set(String(row.id), String(row.causa)); origemMovidesk++; }
+    if (!porId.size) return res.json({ causas: [], itens: [], aviso: avisoCuradoria || 'Nenhum chamado tem causa registrada (campo Causa do Movidesk) nem diagnóstico da Curadoria.' });
     const indice = new Map();            // chave normalizada -> posição em `causas`
     const variantes = [];                // por posição: Map(texto -> n)
     const itens = [];
-    for (const row of r.rows || []) {
-      const texto = String(row.causa).replace(/\s+/g, ' ').slice(0, 300);
+    for (const [id, causa] of porId) {
+      const texto = String(causa).replace(/\s+/g, ' ').slice(0, 300);
       const chave = _chaveCausa(texto);
       let i = indice.get(chave);
       if (i === undefined) { i = variantes.length; indice.set(chave, i); variantes.push(new Map()); }
       variantes[i].set(texto, (variantes[i].get(texto) || 0) + 1);
-      itens.push([row.id, i]);
+      itens.push([id, i]);
     }
     const causas = variantes.map((m) => [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]);
-    const dados = { causas, itens };
+    const dados = { causas, itens, fontes: { movidesk: origemMovidesk, curadoria: origemCuradoria } };
     _causasBase = { ate: Date.now() + CAUSAS_TTL_MS, dados };
     return entregar(dados);
   } catch (error) {
@@ -754,7 +771,7 @@ router.get('/causas', authMiddleware, requireTabAccess('movidesk'), async (req, 
     const m = String(error.message || '');
     const motivo = /does not exist|não existe/i.test(m) ? 'a tabela da Curadoria não existe neste banco'
       : /ECONN|ETIMEDOUT|EAI_AGAIN|timeout|terminat|password|authentication/i.test(m) ? 'o banco da Curadoria não está acessível'
-      : 'erro ao consultar a Curadoria';
+      : 'erro ao consultar as causas';
     res.status(502).json({ error: `Não foi possível analisar as causas: ${motivo}.` });
   }
 });

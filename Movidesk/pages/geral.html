@@ -1063,7 +1063,7 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-1">
       <div class="chart-panel" id="causas-panel">
         <p class="chart-title">Top 10 causas dos chamados</p>
-        <p class="chart-sub" id="causas-sub" style="text-align:left">Causa identificada pela Curadoria lendo o histórico inteiro de cada chamado. Clique numa causa para ver os tickets.</p>
+        <p class="chart-sub" id="causas-sub" style="text-align:left">Causa registrada em cada chamado (campo Causa do Movidesk); onde ele está vazio, vale o diagnóstico da Curadoria. Clique numa causa para ver os tickets.</p>
         <div id="causas-lista" class="rolagem"></div>
       </div>
     </div>
@@ -2791,7 +2791,7 @@ function abrirTema(tema){
   openDetailModal(`Tema: ${tema}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
 }
 
-// ── Top 10 causas (diagnóstico da Curadoria sobre o histórico inteiro do chamado) ──
+// ── Top 10 causas: campo Causa do chamado no Movidesk (preenchido pelos agentes) e, onde falta, o diagnóstico da Curadoria ──
 let _causasSeq=0, _causasGrupos=[], _causasBase=null;
 async function renderCausas(rows){
   const lista=document.getElementById('causas-lista'), sub=document.getElementById('causas-sub');
@@ -2813,9 +2813,9 @@ async function renderCausas(rows){
     for(const [id,i] of _causasBase.itens){ if(!ids.has(id)) continue; comCausa++; (porCausa.get(i)||porCausa.set(i,[]).get(i)).push(id); }
     const n=x=>x.toLocaleString('pt-BR');
     const cob=ids.size?comCausa/ids.size:0;
-    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets do período têm causa diagnosticada (${fmtPct(cob)}) — os demais ainda não passaram pela Curadoria. Clique numa causa para ver os tickets.`;
+    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets do período têm causa registrada (${fmtPct(cob)}) — campo Causa do Movidesk ou diagnóstico da Curadoria. Clique numa causa para ver os tickets.`;
     _causasGrupos=[...porCausa.entries()].map(([i,lst])=>({causa:_causasBase.causas[i],qtd:lst.length,ids:lst})).sort((a,b)=>b.qtd-a.qtd).slice(0,10);
-    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do período foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
+    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do período tem causa registrada (campo Causa do Movidesk) nem diagnóstico da Curadoria.')}</p>`; return; }
     const max=_causasGrupos[0].qtd;
     lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
       <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
