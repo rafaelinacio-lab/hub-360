@@ -159,6 +159,18 @@ a.id{color:var(--t2);font-weight:600;text-decoration:none;font-variant-numeric:t
 .gv-par .seta{text-align:center;font-weight:800;font-size:11px;color:var(--accent)} .gv-par .seta i{display:block;font-style:normal;font-size:18px}
 .gv-pq{border-left:3px solid var(--accent);background:var(--p2-bg) !important}
 .gv-ferr{display:flex;gap:8px;padding:0 20px 10px;background:var(--bg)}
+/* Feedback da pessoa: a reincidência procede? */
+.gv-fb{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:2px;padding-top:6px;border-top:1px dashed var(--border);font-size:12px}
+.gv-fb .q{color:var(--t2);font-weight:600;margin-right:2px}
+.gv-fb button{border:1px solid var(--border);background:var(--surface);color:var(--t2);border-radius:999px;padding:4px 11px;font:600 12px inherit;font-family:inherit;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.gv-fb button:hover{border-color:var(--accent);color:var(--accent)}
+.gv-fb button.on.sim{background:#16a34a;border-color:#16a34a;color:#fff}
+.gv-fb button.on.nao{background:var(--bad);border-color:var(--bad);color:#fff}
+.gv-fb .desfazer{border:0;background:none;text-decoration:underline;font-weight:500;padding:4px 2px}
+.gv-fb .caixa{flex-basis:100%;display:flex;flex-direction:column;gap:6px}
+.gv-fb textarea{width:100%;min-height:62px;resize:vertical;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--t1);padding:7px 9px;font:13px/1.4 inherit;font-family:inherit}
+.gv-fb .acoes{display:flex;align-items:center;gap:10px}
+.gv-fb .st{font-size:11.5px;color:var(--t2)} .gv-fb .st.erro{color:var(--bad)}
 .gv-ferr input{flex:1}
 
 /* Gaveta de chamados sem rolagem horizontal */
@@ -354,12 +366,23 @@ $('gResultado').addEventListener('mouseleave',()=>{ tipEl().style.display='none'
 const TIPO_ROTULO={kpi:'Indicador',motivo:'Motivo',cliente:'Cliente',equipe:'Equipe',ano:'Ano',mes:'Mês'};
 let gvAtual=null, gvOrigem=null;
 function gvFechar(){ $('gv').classList.remove('aberta'); $('gvFundo').classList.remove('aberto'); $('gv').setAttribute('aria-hidden','true'); if(gvOrigem&&gvOrigem.focus) gvOrigem.focus(); }
+// Marcação "procede / não procede": 'Procede' grava na hora; 'Não procede' abre a caixa para dizer por quê (obrigatório) e grava em Salvar.
+// O que é marcado como "não procede" vai para Configurações → Feedback das reincidências (só admin), para ajustar a IA depois.
+function gvFeedback(c){
+  const sim=c.fb_procede===true, nao=c.fb_procede===false, marcado=sim||nao;
+  return `<div class="gv-fb" data-t="${esc(c.ticket_id)}"><span class="q">Esta reincidência procede?</span>
+    <button type="button" class="sim${sim?' on':''}" data-fb="sim" aria-pressed="${sim}">👍 Procede</button>
+    <button type="button" class="nao${nao?' on':''}" data-fb="nao" aria-pressed="${nao}">👎 Não procede</button>
+    ${marcado?'<button type="button" class="desfazer" data-fb="desfazer" title="Remove a sua marcação">desfazer</button>':''}
+    <div class="caixa"${nao?'':' hidden'}><textarea maxlength="1500" placeholder="Por que não procede? (ex.: são problemas diferentes, o cliente só pediu outra coisa, o chamado anterior não tem relação…)" aria-label="Por que não procede">${esc(c.fb_comentario||'')}</textarea>
+      <div class="acoes"><button type="button" data-fb="salvar">Salvar</button><span class="st" role="status"></span></div></div></div>`;
+}
 function gvItem(c){
   const modulo=c.modulo&&c.modulo!==c.motivo?` · módulo/rotina: ${esc(c.modulo)}`:'';
   const par=c.reincidente&&c.anterior?`<div class="gv-par"><div class="tkt"><b>${link(c.ticket_id)} · ${br(String(c.criado_em).slice(0,10))}</b><span title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span></div>
       <div class="seta"><i>←</i>+${nf(c.dias_entre)} d</div>
       <div class="tkt"><b>${link(c.anterior)} · ${br(String(c.anterior_fim).slice(0,10))}</b><span title="${esc(c.anterior_assunto||'')}">${esc(c.anterior_assunto||'(sem assunto)')}</span></div></div>
-      <span class="sub gv-pq"><b>Por que é reincidente${c.confianca?` (confiança ${esc(c.confianca)})`:''}:</b> ${esc(c.explicacao||'o contexto e as ações indicam o mesmo problema')}</span>`:'';
+      <span class="sub gv-pq"><b>Por que é reincidente${c.confianca?` (confiança ${esc(c.confianca)})`:''}:</b> ${esc(c.explicacao||'o contexto e as ações indicam o mesmo problema')}</span>${gvFeedback(c)}`:'';
   const topo=par?'':`${link(c.ticket_id)}<span class="sub" style="grid-column:auto">${br(String(c.criado_em).slice(0,10))}</span><span class="as" title="${esc(c.assunto)}">${esc(c.assunto||'(sem assunto)')}</span>`;
   return `<div class="gv-item">${topo}<span class="sub" style="grid-column:1/-1">${esc(c.cliente||'cliente não identificado')} · <b>${esc(c.motivo||'Sem motivo identificado')}</b>${modulo} · ${esc(c.equipe||'—')} · ${esc(c.status||'—')}${c.reaberto?' · reaberto':''}</span>${par}</div>`;
 }
@@ -371,6 +394,24 @@ function gvListar(){
   else if(o==='cli') l=[...l].sort((a,b)=>String(a.cliente||'').localeCompare(String(b.cliente||''),'pt-BR'));
   $('gvCorpo').innerHTML=l.length?l.map(gvItem).join(''):'<div class="vazio"><span class="material-symbols-outlined" aria-hidden="true">search_off</span>Nenhum chamado para este item nos filtros atuais.</div>';
 }
+$('gvCorpo').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-fb]'); if(!b) return;
+  const box=b.closest('.gv-fb'); if(!box) return;
+  const id=box.dataset.t, c=(gvAtual&&gvAtual.lista||[]).find(x=>String(x.ticket_id)===id); if(!c) return;
+  const st=box.querySelector('.st'), caixa=box.querySelector('.caixa'), ta=box.querySelector('textarea');
+  const msg=(t,erro)=>{ st.textContent=t; st.className='st'+(erro?' erro':''); };
+  const k=b.dataset.fb;
+  try{
+    if(k==='nao'){ caixa.hidden=false; ta.focus(); box.querySelectorAll('button[data-fb=sim],button[data-fb=nao]').forEach(x=>x.classList.toggle('on',x.dataset.fb==='nao')); return; }
+    if(k==='sim'){ msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:true,comentario:''}}); c.fb_procede=true; c.fb_comentario=''; box.outerHTML=gvFeedback(c); return; }
+    if(k==='salvar'){
+      const t=ta.value.trim(); if(t.length<5){ msg('Conte por que não procede (pelo menos algumas palavras).',true); ta.focus(); return; }
+      msg('Salvando…'); await api('/feedback',{method:'POST',body:{ticketId:Number(id),procede:false,comentario:t}}); c.fb_procede=false; c.fb_comentario=t; box.outerHTML=gvFeedback(c);
+      const novo=$('gvCorpo').querySelector(`.gv-fb[data-t="${CSS.escape(id)}"] .st`); if(novo) novo.textContent='Salvo. Obrigado — isso ajuda a melhorar a análise.'; return;
+    }
+    if(k==='desfazer'){ msg('Removendo…'); await api('/feedback/'+encodeURIComponent(id),{method:'DELETE'}); delete c.fb_procede; delete c.fb_comentario; box.outerHTML=gvFeedback(c); }
+  }catch(err){ msg(err.message||'Não foi possível salvar',true); }
+});
 $('gvBusca').addEventListener('input',gvListar); $('gvOrdem').addEventListener('change',gvListar);
 async function gvAbrir(tipo,valor,titulo){
   titulo=String(titulo==null?'':titulo).replace(/<span[^>]*>.*?<\/span>/gi,'').replace(/<[^>]+>/g,'').trim();   // o rótulo do KPI vem com o ícone em HTML: só o texto vai no título

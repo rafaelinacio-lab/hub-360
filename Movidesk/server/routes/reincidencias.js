@@ -8,7 +8,7 @@
 const express = require('express');
 const db = require('../db/remote');
 const { requireTabAccess } = require('./config');
-const { authMiddleware } = require('./auth');
+const { authMiddleware, requireRole } = require('./auth');
 const { rateLimit } = require('../utils/rateLimit');
 const { escopoVertical, norm } = require('../utils/verticalScope');
 const cfg = require('../utils/aiSettings');
@@ -25,11 +25,20 @@ router.use(async (req, res, next) => {
   try {
     if (!prontas) prontas = db.query(`CREATE TABLE IF NOT EXISTS public.reincidencia_analise (
       id SERIAL PRIMARY KEY, criado_por INTEGER, criado_por_nome TEXT, criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`).then(() => db.query(TABELA_PAR)).catch((e) => { prontas = null; throw e; });
+      parametros JSONB NOT NULL DEFAULT '{}', n_tickets INTEGER NOT NULL DEFAULT 0, resultado JSONB NOT NULL DEFAULT '{}')`).then(() => db.query(TABELA_PAR)).then(() => db.query(TABELA_FEEDBACK)).catch((e) => { prontas = null; throw e; });
     await Promise.race([prontas, new Promise((_, ko) => setTimeout(() => ko(new Error('banco ocupado')), 15000).unref())]); next();
   } catch (e) { res.status(500).json({ error: 'Erro ao preparar a tabela de reincidências: ' + e.message }); }
 });
 
+// Feedback das pessoas sobre cada reincidência apontada pela IA ("procede" / "não procede" + o porquê). Guarda uma FOTO do veredito
+// (explicação, confiança, assuntos, cliente) no momento da marcação, para servir de exemplo de treino/ajuste das análises depois.
+// Uma marcação por pessoa e chamado (remarcar atualiza). Só o admin lê tudo (Configurações → Feedback das reincidências).
+const TABELA_FEEDBACK = `CREATE TABLE IF NOT EXISTS public.reincidencia_feedback (
+  id BIGSERIAL PRIMARY KEY, ticket_id BIGINT NOT NULL, anterior_id BIGINT, procede BOOLEAN NOT NULL, comentario TEXT,
+  explicacao_ia TEXT, confianca TEXT, dias_entre NUMERIC, assunto TEXT, anterior_assunto TEXT, cliente TEXT, equipe TEXT,
+  usuario_id INTEGER NOT NULL, usuario_nome TEXT, usuario_email TEXT,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(), atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT ux_reincidencia_feedback UNIQUE (ticket_id, usuario_id))`;
 const TABELA_PAR = `CREATE TABLE IF NOT EXISTS public.reincidencia_par (
   ticket_id BIGINT PRIMARY KEY, anterior_id BIGINT, reincidente BOOLEAN NOT NULL DEFAULT FALSE, confianca TEXT, explicacao TEXT,
   anterior_fim TIMESTAMPTZ, dias_entre NUMERIC, mesmo_modulo BOOLEAN, analisado_em TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
@@ -446,6 +455,12 @@ router.get('/geral/chamados', requireLeitura, async (req, res) => {
         FROM f LEFT JOIN silver.ticket p ON p.ticket_id::text = f.ant_id
        WHERE ${cond.replace(/\b(rn|classificado|cliente|equipe|createddate|reopened_in)\b/g, 'f.$1')} ORDER BY f.createddate DESC LIMIT ${tipo === 'motivo' ? RN_MAX + 1 : 501}`,
       [dias, ano, equipe, busca, classif, mods.length ? mods : [0], campos, ...extra, ...vert]);
+    // marcação (procede / não procede) da própria pessoa em cada chamado da lista
+    const meus = new Map();
+    const idsLista = r.rows.filter((c) => c.reincidente).map((c) => Number(c.ticket_id)).filter(Number.isFinite);
+    if (idsLista.length) (await db.query(`SELECT ticket_id::text AS id, procede, comentario FROM public.reincidencia_feedback WHERE usuario_id = $1 AND ticket_id = ANY($2::bigint[])`, [req.user.id, idsLista]))
+      .rows.forEach((x) => meus.set(x.id, { procede: x.procede, comentario: x.comentario || '' }));
+    r.rows.forEach((c) => { const m = meus.get(String(c.ticket_id)); if (m) { c.fb_procede = m.procede; c.fb_comentario = m.comentario; } });
     // motivo pelo conteúdo do chamado (e só então o filtro por motivo)
     const dado = await motivosDe(r.rows);
     let linhas = r.rows.map((c) => { const m = dado(c.ticket_id); return { ...c, motivo: m.motivo, modulo: m.campo || null }; });
@@ -588,5 +603,64 @@ if (!process.env.REINCIDENCIAS_SEM_AUTO) {
   setTimeout(rotinaAutomatica, 2 * 60 * 1000).unref();                 // 2 min depois de subir
   setInterval(rotinaAutomatica, 30 * 60 * 1000).unref();               // e confere a cada 30 min
 }
+
+// ── Feedback: a pessoa marca se a reincidência procede e, se não procede, diz por quê ──
+const limiteFeedback = rateLimit({ name: 'reincidencias/feedback', windowMs: 10 * 60 * 1000, max: 60, keyFn: (req) => `u:${req.user && req.user.id}` });
+router.post('/feedback', requireLeitura, limiteFeedback, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const ticketId = Number(b.ticketId);
+    if (!Number.isInteger(ticketId) || ticketId <= 0) return res.status(400).json({ error: 'Chamado inválido' });
+    if (typeof b.procede !== 'boolean') return res.status(400).json({ error: 'Informe se a reincidência procede ou não' });
+    const comentario = String(b.comentario == null ? '' : b.comentario).replace(/\s+/g, ' ').trim().slice(0, 1500);
+    if (!b.procede && comentario.length < 5) return res.status(400).json({ error: 'Conte por que não procede (pelo menos algumas palavras)' });
+    const esc = await escopoVertical(req.user.id);
+    if (esc.filtrar && !(await idsEmEscopo([ticketId], esc)).has(ticketId)) return res.status(403).json({ error: 'Este chamado está fora da sua vertical' });
+    // Foto do veredito atual: só dá para marcar o que a IA apontou como reincidente
+    const v = (await db.query(`
+      SELECT p.anterior_id, p.confianca, p.explicacao, p.dias_entre, t.subject AS assunto, a.subject AS anterior_assunto,
+             COALESCE(NULLIF(o.organizacao_nome,''), NULLIF(t.clientorganization,'')) AS cliente,
+             COALESCE(NULLIF(t.owner_team,''), NULLIF(t.ownerteam,'')) AS equipe
+        FROM public.reincidencia_par p JOIN silver.ticket t ON t.ticket_id = p.ticket_id
+        LEFT JOIN silver.ticket a ON a.ticket_id = p.anterior_id LEFT JOIN silver.ticket_organizacao o ON o.ticket_id = t.ticket_id
+       WHERE p.ticket_id = $1 AND p.reincidente`, [ticketId])).rows[0];
+    if (!v) return res.status(404).json({ error: 'Este chamado não está marcado como reincidente' });
+    const u = (await db.query(`SELECT name, email FROM users WHERE id = $1`, [req.user.id])).rows[0] || {};
+    const r = (await db.query(`
+      INSERT INTO public.reincidencia_feedback (ticket_id, anterior_id, procede, comentario, explicacao_ia, confianca, dias_entre, assunto, anterior_assunto, cliente, equipe, usuario_id, usuario_nome, usuario_email)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      ON CONFLICT (ticket_id, usuario_id) DO UPDATE SET procede = EXCLUDED.procede, comentario = EXCLUDED.comentario, anterior_id = EXCLUDED.anterior_id,
+        explicacao_ia = EXCLUDED.explicacao_ia, confianca = EXCLUDED.confianca, dias_entre = EXCLUDED.dias_entre, assunto = EXCLUDED.assunto,
+        anterior_assunto = EXCLUDED.anterior_assunto, cliente = EXCLUDED.cliente, equipe = EXCLUDED.equipe, usuario_nome = EXCLUDED.usuario_nome,
+        usuario_email = EXCLUDED.usuario_email, atualizado_em = NOW()
+      RETURNING ticket_id, procede, comentario`,
+      [ticketId, v.anterior_id, b.procede, comentario || null, v.explicacao, v.confianca, v.dias_entre, v.assunto, v.anterior_assunto, v.cliente, v.equipe, req.user.id, u.name || null, u.email || null])).rows[0];
+    res.json({ ok: true, feedback: { ticketId: String(r.ticket_id), procede: r.procede, comentario: r.comentario || '' } });
+  } catch (e) { erro(res, e); }
+});
+// Desfaz a própria marcação
+router.delete('/feedback/:ticketId(\\d+)', requireLeitura, limiteFeedback, async (req, res) => {
+  try {
+    await db.query(`DELETE FROM public.reincidencia_feedback WHERE ticket_id = $1 AND usuario_id = $2`, [Number(req.params.ticketId), req.user.id]);
+    res.json({ ok: true });
+  } catch (e) { erro(res, e); }
+});
+// Só admin: tudo o que foi marcado (por padrão só os "não procede", que são o material para ajustar a IA). ?todos=1 inclui os "procede".
+router.get('/feedback', requireRole('admin'), async (req, res) => {
+  try {
+    const todos = req.query.todos === '1';
+    const busca = String(req.query.q || '').trim().slice(0, 100);
+    const lim = num(req.query.limite, 1, 2000, 500);
+    const r = (await db.query(`
+      SELECT id, ticket_id::text AS ticket_id, anterior_id::text AS anterior_id, procede, comentario, explicacao_ia, confianca, dias_entre, assunto, anterior_assunto,
+             cliente, equipe, usuario_nome, usuario_email, criado_em, atualizado_em
+        FROM public.reincidencia_feedback
+       WHERE ($1::boolean OR NOT procede)
+         AND ($2 = '' OR concat_ws(' ', ticket_id, assunto, cliente, comentario, usuario_nome, equipe) ILIKE '%' || $2 || '%')
+       ORDER BY atualizado_em DESC LIMIT $3`, [todos, busca, lim])).rows;
+    const t = (await db.query(`SELECT count(*) FILTER (WHERE NOT procede)::int AS nao, count(*) FILTER (WHERE procede)::int AS sim FROM public.reincidencia_feedback`)).rows[0];
+    res.json({ total: t.nao + t.sim, naoProcede: t.nao, procede: t.sim, itens: r });
+  } catch (e) { erro(res, e); }
+});
 
 module.exports = router;

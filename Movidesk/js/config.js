@@ -883,6 +883,7 @@ function switchConfigTab(tab) {
     if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
     if (tab === 'acesso') { if (typeof pessoasLoad === 'function') pessoasLoad(); loadTabPermissionsConfig(); loadVerticalAliases(); }
     if (tab === 'email' && typeof emailCfgCarregar === 'function') emailCfgCarregar();
+    if (tab === 'reincfeedback' && typeof rfCarregar === 'function') rfCarregar();
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
     if (tab === 'tokens' && typeof tokensCarregar === 'function') tokensCarregar();
     if (tab === 'slahoras' && typeof slaHorasCarregar === 'function') slaHorasCarregar();

@@ -220,6 +220,9 @@
                     <button class="cfg-tab-btn" data-tab="email" onclick="switchConfigTab('email')">
                         <span class="material-symbols-outlined">mail</span> E-mail (SMTP)
                     </button>
+                    <button class="cfg-tab-btn" data-tab="reincfeedback" onclick="switchConfigTab('reincfeedback')">
+                        <span class="material-symbols-outlined">fact_check</span> Feedback das reincidências
+                    </button>
                     <button class="cfg-tab-btn" data-tab="avisos" onclick="switchConfigTab('avisos')">
                         <span class="material-symbols-outlined">campaign</span> Avisos automáticos
                     </button>
@@ -776,6 +779,21 @@
                     </div>
                 </div>
 
+                <!-- ABA: Feedback das reincidências (só admin) -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-reincfeedback">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Feedback das reincidências</h3>
+                        <p class="config-card-help">Quando alguém abre uma reincidência em Reincidências e marca que <b>não procede</b>, o motivo fica guardado aqui, junto com o que a IA disse naquele momento. Só admin vê esta lista. Use o CSV como exemplos para ajustar o prompt e treinar as próximas análises.</p>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px">
+                            <input id="rfBusca" type="search" class="config-input" style="max-width:320px" placeholder="Buscar por chamado, cliente, comentário ou pessoa…" oninput="rfBuscaDigitou()" autocomplete="off">
+                            <label class="config-card-help" style="margin:0;display:flex;align-items:center;gap:6px"><input id="rfTodos" type="checkbox" onchange="rfCarregar()"> Mostrar também os “procede”</label>
+                            <button class="config-btn config-btn-muted" type="button" onclick="rfCarregar()">Atualizar</button>
+                            <button class="config-btn" type="button" onclick="rfExportar()">Exportar CSV</button>
+                        </div>
+                        <div id="rfStatus" class="config-status"></div>
+                        <div id="rfLista"></div>
+                    </div>
+                </div>
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-avisos">
                     <div id="avRoot"><p class="config-card-help">Carregando…</p></div>
                 </div>
@@ -1875,6 +1893,7 @@
     <script src="js/curadoria.js"></script>
     <script src="js/pessoas.js"></script>
     <script src="js/emailConfig.js"></script>
+    <script src="js/reincFeedback.js"></script>
     <script src="js/avisos.js"></script>
     <script src="js/delta.js"></script>
     <script src="js/tokens.js"></script>
