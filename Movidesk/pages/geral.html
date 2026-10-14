@@ -486,6 +486,7 @@ input,select{font-family:inherit}
 .visao-btn.on{background:var(--orange);color:#fff}
 .visao-btn:disabled{opacity:.45;cursor:not-allowed}
 .visao-nota{font-size:11px;color:var(--t3)}
+#f-class.ms-travado{opacity:.55;pointer-events:none}   /* classificação fixa na visão Suporte Técnico */
 .slaeq{display:flex;flex-direction:column;gap:2px;margin-top:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .slaeq-row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(120px,2.4fr) 64px minmax(110px,auto);align-items:center;gap:14px;width:100%;padding:8px 8px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .slaeq-row:hover{background:var(--surface-low,rgba(148,163,184,.12))}
@@ -1585,6 +1586,7 @@ function limparFiltros(){
     updateMsLabel(id,`${label}: todos`);
   });
   document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+  _visao='todos'; travarClasse(false);
   try{ localStorage.setItem('hub_geral_visao','todos'); }catch(_){}   // Limpar também volta a visão para Todos
   render();
 }
@@ -1592,20 +1594,32 @@ function limparFiltros(){
 // os cards já respeitam esse filtro (a régua de SLA do Hub vale só para Suporte Técnico). Fica salva neste navegador.
 const VISOES={todos:{classes:[]}, st:{classes:['Suporte Técnico']}};
 const VISAO_LS='hub_geral_visao';
+let _visao='todos';
+// Visão Suporte Técnico: três regras FIXAS, valem junto com os demais filtros e não dependem do dropdown de Classificação —
+// classificação do ticket = Suporte Técnico, categoria = Suporte Técnico e equipe de suporte (nome com "Suporte" ou a exceção Analytics - B.I.).
+const semAcentoV=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+function visaoLinha(r){
+  if(_visao!=='st') return true;
+  return classificacaoDe(r)==='Suporte Técnico'&&semAcentoV(r.categoria)==='suporte tecnico'&&equipeContaNoSla(r.equipe);
+}
+function travarClasse(on){
+  const el=document.getElementById('f-class'); if(!el) return;
+  el.classList.toggle('ms-travado',!!on);
+  el.title=on?'Fixo na visão Suporte Técnico':'';
+}
 function visaoAtual(){
-  const c=getMsValues('f-class');
-  if(!c.length) return 'todos';
-  if(c.length===1&&c[0]==='Suporte Técnico') return 'st';
-  return 'personalizada';
+  if(_visao==='st') return 'st';
+  return getMsValues('f-class').length?'personalizada':'todos';
 }
 function pintarVisao(){
   const v=visaoAtual();
   document.querySelectorAll('#visao-abas .visao-btn').forEach(b=>{ const on=b.dataset.v===v; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
   const nota=document.getElementById('visao-nota');
-  if(nota) nota.textContent=v==='st'?'Só Suporte Técnico · SLA pela régua do Hub (meta 90%)':v==='personalizada'?'Classificação personalizada no filtro':'';
+  if(nota) nota.textContent=v==='st'?'Fixo: classificação, categoria e equipe de suporte · SLA pela régua do Hub (meta 90%)':v==='personalizada'?'Classificação personalizada no filtro':'';
 }
 function escolherVisao(v){
   const def=VISOES[v]; if(!def) return;
+  _visao=v; travarClasse(v==='st');
   document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=def.classes.includes(i.value); });
   updateMsLabel('f-class','Classificação: todos');
   try{ localStorage.setItem(VISAO_LS,v); }catch(_){}
@@ -1617,7 +1631,8 @@ function aplicarVisaoSalva(){
   if(_visaoAplicada) return;
   _visaoAplicada=true;
   let v='todos'; try{ v=localStorage.getItem(VISAO_LS)||'todos'; }catch(_){}
-  if(v==='st'&&!getMsValues('f-class').length){
+  if(v==='st'){
+    _visao='st'; travarClasse(true);
     document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=VISOES.st.classes.includes(i.value); });
     updateMsLabel('f-class','Classificação: todos');
   }
@@ -1771,6 +1786,7 @@ function getFilteredRows(){
     if(servFils.length&&!servFils.includes(r.servico)) return false;
     if(cliFils.length&&!cliFils.includes(r.organizacao)) return false;
     if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
+    if(!visaoLinha(r)) return false;
     if(!statusBate(r,statusFils)) return false;
     return true;
   });
@@ -1820,6 +1836,7 @@ function getPendentesGlobalRows(){
     if(servFils.length&&!servFils.includes(r.servico)) return false;
     if(cliFils.length&&!cliFils.includes(r.organizacao)) return false;
     if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
+    if(!visaoLinha(r)) return false;
     return true;
   });
 }
