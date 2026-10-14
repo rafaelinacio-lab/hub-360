@@ -164,17 +164,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 icone: b.querySelector('svg') ? b.querySelector('svg').outerHTML : '',
             }));
     }
+    const ABAS_SEM_BUSCA = ['inicio', 'configuracoes', 'jira', 'chats'];
+    const viewAtiva = () => { const b = document.querySelector('.topbar-nav .sidebar-btn[data-view].active'); return b ? b.dataset.view : ''; };
     function montar() {
         const q = semAcento(el('navPaletaInput').value.trim());
         itens = abasVisiveis()
             .filter((a) => !q || semAcento(a.nome).includes(q))
             .map((a) => ({ tipo: 'aba', ...a }));
+        // Busca dentro da aba aberta (a página embutida filtra o próprio conteúdo — js/busca-aba.js)
+        const view = viewAtiva();
+        if (view && !ABAS_SEM_BUSCA.includes(view)) {
+            const bruto = el('navPaletaInput').value.trim();
+            itens.unshift(bruto
+                ? { tipo: 'busca-aba', texto: bruto, nome: `Buscar nesta aba: “${bruto}”`, icone: '' }
+                : { tipo: 'busca-aba', texto: '', nome: 'Limpar a busca desta aba', icone: '' });
+        }
         if (/^\d{4,}$/.test(q)) {
             itens.unshift({ tipo: 'chamado', numero: q, nome: `Abrir o chamado #${q} no Hub`, icone: '' });
         }
         sel = Math.min(sel, Math.max(0, itens.length - 1));
         el('navPaletaLista').innerHTML = itens.length
-            ? itens.map((i, n) => `<li role="option" data-n="${n}" class="${n === sel ? 'sel' : ''}">${i.icone}<span>${i.nome}</span>${i.tipo === 'chamado' ? '<small>Central do chamado</small>' : ''}</li>`).join('')
+            ? itens.map((i, n) => `<li role="option" data-n="${n}" class="${n === sel ? 'sel' : ''}">${i.icone}<span>${i.nome}</span>${i.tipo === 'chamado' ? '<small>Central do chamado</small>' : i.tipo === 'busca-aba' ? '<small>esta aba</small>' : ''}</li>`).join('')
             : '<li style="cursor:default">Nada encontrado</li>';
     }
     function abrir() {
@@ -191,7 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const i = itens[n];
         if (!i) return;
         fechar();
-        if (i.tipo === 'chamado') {
+        if (i.tipo === 'busca-aba') {
+            const frame = document.getElementById('embeddedPageFrame');
+            if (frame && frame.contentWindow) frame.contentWindow.postMessage({ tipo: 'hub360:buscar', texto: i.texto }, location.origin);
+        } else if (i.tipo === 'chamado') {
             // Abre a Central do chamado aqui no Hub (dados do banco); só cai no Movidesk se a Central não estiver disponível.
             if (typeof window.openTicketWorkspace === 'function') window.openTicketWorkspace(i.numero);
             else window.open(`https://viasoft.movidesk.com/Ticket/Edit/${i.numero}`, '_blank', 'noopener');
