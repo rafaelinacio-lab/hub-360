@@ -280,6 +280,21 @@ html,body{scrollbar-width:none;-ms-overflow-style:none}
 html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
 *{scrollbar-width:none;-ms-overflow-style:none}
 *::-webkit-scrollbar{display:none}
+/* Backlog: onde há rolagem de fato (tabela de issues, lista por responsável e listas dos filtros) a barra aparece — fina, discreta e
+   suave: o polegar só ganha cor ao passar o mouse na área, e a rolagem é amortecida. Fora disso as barras continuam escondidas. */
+#view-aberto .sb-suave, #view-aberto .ms-dropdown{
+  scrollbar-width:thin; scrollbar-color:transparent transparent;
+  scroll-behavior:smooth; overscroll-behavior:contain;
+}
+#view-aberto .sb-suave:hover, #view-aberto .ms-dropdown:hover{ scrollbar-color:rgba(120,126,150,.45) transparent; }
+#view-aberto .sb-suave::-webkit-scrollbar, #view-aberto .ms-dropdown::-webkit-scrollbar{ display:block; width:6px; height:6px; }
+#view-aberto .sb-suave::-webkit-scrollbar-track, #view-aberto .ms-dropdown::-webkit-scrollbar-track{ background:transparent; }
+#view-aberto .sb-suave::-webkit-scrollbar-corner, #view-aberto .ms-dropdown::-webkit-scrollbar-corner{ background:transparent; }
+#view-aberto .sb-suave::-webkit-scrollbar-thumb, #view-aberto .ms-dropdown::-webkit-scrollbar-thumb{
+  background:rgba(120,126,150,.0); border-radius:999px; transition:background .25s ease;
+}
+#view-aberto .sb-suave:hover::-webkit-scrollbar-thumb, #view-aberto .ms-dropdown:hover::-webkit-scrollbar-thumb{ background:rgba(120,126,150,.40); }
+#view-aberto .sb-suave::-webkit-scrollbar-thumb:hover, #view-aberto .ms-dropdown::-webkit-scrollbar-thumb:hover{ background:rgba(99,102,241,.75); }
 /* #panel-root é o wrapper da página inteira (não um card): sem borda/fundo/padding, para não sobrar moldura nas laterais. */
 #panel-root{background:transparent;border:none;box-shadow:none;padding:0;margin-bottom:0;border-radius:0}
 /* O tema mora só na barra principal do Hub; o botão do dashboard original fica oculto. */
@@ -492,7 +507,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
         <div style="font-size:11px;font-weight:600;color:var(--text2)">🗂️ Issues — Detalhamento</div>
         <span id="ab-detail-count" style="font-size:11px;color:var(--text3);white-space:nowrap"></span>
       </div>
-      <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+      <div class="sb-suave" style="overflow-x:auto;max-height:480px;overflow-y:auto">
         <table class="ttbl" id="ab-detail-table">
           <thead style="position:sticky;top:0;z-index:2"><tr>
             <th onclick="sortAbDetail('chave')"          style="cursor:pointer;white-space:nowrap;user-select:none">Chave <span id="abd-sort-chave"></span></th>
@@ -516,7 +531,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
       </div>
     </div>
 
-    <div id="resp-list-wrap" style="max-height:620px;overflow-y:auto;padding-right:4px;margin-top:16px">
+    <div id="resp-list-wrap" class="sb-suave" style="max-height:620px;overflow-y:auto;padding-right:4px;margin-top:16px">
       <div id="resp-list"><p style="color:var(--text3);text-align:center;padding:20px">Carregando tarefas em aberto...</p></div>
     </div>
   </div><!-- /view-aberto -->
