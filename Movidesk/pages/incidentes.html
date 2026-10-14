@@ -163,6 +163,10 @@ a.id{color:var(--t3);font-weight:600;text-decoration:none} a.id:hover{text-decor
 .pill.pr{background:var(--surface-mid);color:var(--t2)}
 .pill.pr.erro_conhecido{background:var(--p3-bg);color:var(--p3)} .pill.pr.resolvido{background:var(--ok-bg);color:var(--ok)}
 @media (max-width:640px){.pm-linha{grid-template-columns:1fr 1fr}.sug{grid-template-columns:1fr}}
+
+/* Modal sem rolagem horizontal: texto longo quebra linha */
+.modal{overflow-x:hidden;overflow-wrap:anywhere}
+.modal input,.modal select,.modal textarea{max-width:100%;box-sizing:border-box}
 </style>
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">

@@ -1790,7 +1790,11 @@
                     .ws-side{border-left:none;border-top:1px solid var(--border);overflow-y:visible}
                     .ws-main{min-height:55vh}
                 }
-            </style>
+            
+/* Central do chamado e modais do shell sem rolagem horizontal: texto e links longos quebram linha */
+.ws-side,.ws-timeline,.ws-layout{overflow-x:hidden}
+.ws-timeline,.ws-side{overflow-wrap:anywhere}
+</style>
 
             <!-- Modal: lista de chamados de um KPI da Dashboard -->
             <div id="kpiTicketsModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true" onclick="if(event.target===this)closeKpiModal()">

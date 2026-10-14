@@ -219,6 +219,10 @@ html[data-ui="v2"] .modal h3{font-size:20px;font-weight:800}
 html[data-ui="v2"] select,html[data-ui="v2"] input,html[data-ui="v2"] textarea{border:1px solid var(--border-hi);border-radius:14px;background:var(--surface);font-weight:600}
 html[data-ui="v2"] textarea{border-radius:16px}
 html[data-ui="v2"] select:focus,html[data-ui="v2"] input:focus,html[data-ui="v2"] textarea:focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+
+/* Modal sem rolagem horizontal: texto longo quebra linha */
+.modal{overflow-x:hidden;overflow-wrap:anywhere}
+.modal input,.modal select,.modal textarea{max-width:100%;box-sizing:border-box}
 </style>
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">
