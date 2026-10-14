@@ -199,7 +199,7 @@ async function carregarResolvidos(agoraMs) {
     const l = linha(x, x.no_mes ? 'mes' : 'ant');
     const ok = x.minutos / 60 <= x.meta;
     l.baseP++; if (ok) l.dentroP++;                  // visão pessoal: todas as equipes do responsável
-    if (x.conta_eq) { l.base++; if (ok) l.dentro++; } // equipe: só equipes de suporte (régua do Hub)
+    if (x.conta_eq && !slaHub.foraPorResponsavel(x.equipe, null, x.dono)) { l.base++; if (ok) l.dentro++; } // equipe: só equipes de suporte (régua do Hub), sem os responsáveis fora do SLA de Sistemas Internos
   }
   const contadosHub = new Set(sla.rows.filter((x) => !_foraSla.get(x.id)).map((x) => x.id));   // já entram pela régua do Hub
   for (const x of mdk.rows) {
@@ -257,25 +257,29 @@ function resumoEquipe(G, esc, alvos, agoraMs) {
   const pend = G.abertos.rows.filter((x) => x.classificacao === 'Suporte Técnico' && noEscopo(esc, alvos, x));
   const res = G.resolvidos.filter((g) => noEscopo(esc, alvos, g));
   const total = pend.length;
+  // Responsáveis fora do SLA de Sistemas Internos (Edson Matana, Gustavo Lattmann): continuam nos pendentes, mas saem de todo número de SLA da equipe
+  const foraSla = (x) => slaHub.foraPorResponsavel(x.equipe, null, x.dono);
+  const pendSla = pend.filter((x) => !foraSla(x)), totalSla = pendSla.length;
+  const resSla = res.filter((g) => !foraSla(g));
   // SLA do mês: régua do Hub onde ela vale; no resto (equipe sem "Suporte" no nome, cliente interno…) o prazo do Movidesk
-  const periodo = (per) => ({ base: soma(res, 'base', (g) => g.periodo === per) + soma(res, 'baseMs', (g) => g.periodo === per),
-    dentro: soma(res, 'dentro', (g) => g.periodo === per) + soma(res, 'dentroMs', (g) => g.periodo === per) });
+  const periodo = (per) => ({ base: soma(resSla, 'base', (g) => g.periodo === per) + soma(resSla, 'baseMs', (g) => g.periodo === per),
+    dentro: soma(resSla, 'dentro', (g) => g.periodo === per) + soma(resSla, 'dentroMs', (g) => g.periodo === per) });
   const mes = periodo('mes'), ant = periodo('ant');
   // pendentes fora da régua do Hub que têm prazo no Movidesk: parado = pausado; prazo passado = vencido; senão no prazo
-  const mdk = pend.filter((x) => x.sla_hub === 'fora' && x.sla_mdk);
+  const mdk = pendSla.filter((x) => x.sla_hub === 'fora' && x.sla_mdk);
   const mdkPaus = contar(mdk, (x) => x.basestatus === 'Stopped' || x.sla_mdk_pausado);
   const mdkVenc = contar(mdk, (x) => !(x.basestatus === 'Stopped' || x.sla_mdk_pausado) && new Date(x.sla_mdk).getTime() < agoraMs);
   const mdkPrazo = mdk.length - mdkPaus - mdkVenc;
-  const vencidos = contar(pend, (x) => x.sla_hub === 'vencido') + mdkVenc;
-  const pausados = contar(pend, (x) => x.sla_hub === 'pausado') + mdkPaus, noPrazo = contar(pend, (x) => x.sla_hub === 'no_prazo') + mdkPrazo;
+  const vencidos = contar(pendSla, (x) => x.sla_hub === 'vencido') + mdkVenc;
+  const pausados = contar(pendSla, (x) => x.sla_hub === 'pausado') + mdkPaus, noPrazo = contar(pendSla, (x) => x.sla_hub === 'no_prazo') + mdkPrazo;
   return {
     pend,
     resumo: {
-      classificacao: 'Suporte Técnico', pendentes: total, vencidos, pctVencido: total ? Math.round((vencidos / total) * 1000) / 10 : 0,
-      pausados, noPrazo, foraSla: total - vencidos - pausados - noPrazo,
+      classificacao: 'Suporte Técnico', pendentes: total, vencidos, pctVencido: totalSla ? Math.round((vencidos / totalSla) * 1000) / 10 : 0,
+      pausados, noPrazo, foraSla: total - vencidos - pausados - noPrazo,   // inclui os responsáveis fora do SLA
       entraramHoje: soma(G.criados.filter((g) => noEscopo(esc, alvos, g)), 'n'), fecharamHoje: soma(res, 'fecharam'),
       slaMes: pctDe(mes.dentro, mes.base), slaMesAnterior: pctDe(ant.dentro, ant.base), baseSlaMes: mes.base,
-      baseSlaMovidesk: soma(res, 'baseMs', (g) => g.periodo === 'mes'),
+      baseSlaMovidesk: soma(resSla, 'baseMs', (g) => g.periodo === 'mes'),
     },
   };
 }
@@ -373,7 +377,7 @@ async function slaAteInstante(alvos, ateMs, agoraMs) {
       FROM silver.ticket_sla_liquido s JOIN silver.ticket t ON t.ticket_id = s.ticket_id AND t.resolved_in = s.resolvido_em
       ${CLASSIF_JOIN} ${slaHub.sqlLateralClienteFora('t')}
      WHERE s.resolvido_em >= $1 AND s.resolvido_em < $2 AND s.minutos IS NOT NULL AND t.basestatus IN (${RESOLVIDOS_SQL})
-       AND cf.valor_texto = 'Suporte Técnico' AND ${slaHub.sqlEquipeConta('t.ownerteam')} AND NOT COALESCE(cl.fora_sla, false)
+       AND cf.valor_texto = 'Suporte Técnico' AND ${slaHub.sqlEquipeConta('t.ownerteam')} AND NOT ${slaHub.sqlSiFora('t.ownerteam', 't.owner_id')} AND NOT COALESCE(cl.fora_sla, false)
        AND ${slaHub.sqlMetaH('t.urgency')} IS NOT NULL${escSql}`, params);
   return { base: r.rows[0].base, pct: pctDe(r.rows[0].dentro, r.rows[0].base) };
 }

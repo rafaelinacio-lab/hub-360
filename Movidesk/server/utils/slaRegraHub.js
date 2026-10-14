@@ -16,10 +16,19 @@ const equipeContaNoSla = (nome) => {
   const e = String(nome || '').trim().toLowerCase();
   return !ehFranquia(e) && (/suporte/.test(e) || EQUIPES_EXCECAO.includes(e));
 };
+// Responsáveis fora do SLA da equipe Sistemas Internos (pedido do usuário, 14/10/2026): Edson Matana e Gustavo Felipe Lattmann. Só vale nos
+// chamados atendidos na equipe Sistemas Internos (nas outras equipes deles o SLA conta normalmente). Chave: id do responsável (ou o nome).
+const SI_FORA_IDS = ['30688RR', '31729R'];
+const SI_FORA_NOMES = ['edson matana', 'gustavo felipe lattmann'];
+const foraPorResponsavel = (equipe, nome, id) => /sistemas internos/i.test(String(equipe || ''))
+  && (SI_FORA_IDS.includes(String(id == null ? '' : id)) || SI_FORA_NOMES.includes(P.semAcento(nome)));
+const sqlSiFora = (colEquipe, colOwnerId) =>
+  `(lower(COALESCE(${colEquipe}, '')) LIKE '%sistemas internos%' AND COALESCE(${colOwnerId}::text, '') IN (${SI_FORA_IDS.map((i) => `'${i}'`).join(',')}))`;
 const metaDe = (urgencia) => (META_H[urgencia] != null ? META_H[urgencia] : null);
 // Linha no formato do LIST_SELECT do Painel Geral (classificacao, equipe, urgencia, sla_fora_cliente).
 const elegivel = (r) => String(r.classificacao || '').trim() === 'Suporte Técnico'
-  && equipeContaNoSla(r.equipe) && !r.sla_fora_cliente && metaDe(r.urgencia) != null;
+  && equipeContaNoSla(r.equipe) && !r.sla_fora_cliente && metaDe(r.urgencia) != null
+  && !foraPorResponsavel(r.equipe, r.responsavel || r.owner_name, r.dono || r.owner_id);
 
 // Mesma regra em SQL (para agregações no banco). col* = expressões das colunas.
 const sqlEquipeConta = (col) =>
@@ -67,4 +76,4 @@ function marcarPendentes(rows, eventosPorId, cfg, agora = new Date()) {
   return rows;
 }
 
-module.exports = { META_H, EQUIPES_EXCECAO, equipeContaNoSla, metaDe, elegivel, sqlEquipeConta, sqlMetaH, sqlLateralClienteFora, classificarPendente, marcarPendentes };
+module.exports = { foraPorResponsavel, sqlSiFora, META_H, EQUIPES_EXCECAO, equipeContaNoSla, metaDe, elegivel, sqlEquipeConta, sqlMetaH, sqlLateralClienteFora, classificarPendente, marcarPendentes };

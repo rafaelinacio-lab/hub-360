@@ -1230,7 +1230,10 @@ function temPrazo(r){ return !!r.sla_solucao; }
 const EQUIPES_SLA_EXCECAO=new Set(['analytics - b.i']);
 // Equipes "FRANQUIA - …" não entram no SLA do Hub (pedido do usuário, 14/10/2026) — igual a utils/slaRegraHub.js
 const equipeContaNoSla=e=>!/^franquia\b/i.test(String(e||'').trim())&&(/suporte/i.test(e||'')||EQUIPES_SLA_EXCECAO.has(String(e||'').trim().toLowerCase()));
-function contaNoSla(r){ return classificacaoDe(r)==='Suporte Técnico'&&equipeContaNoSla(r.equipe)&&!r.sla_fora_cliente; }
+// Fora do SLA da equipe Sistemas Internos (pedido do usuário, 14/10/2026): Edson Matana e Gustavo Felipe Lattmann — igual a utils/slaRegraHub.js
+const SI_FORA_NOMES=['edson matana','gustavo felipe lattmann'];
+const foraPorResponsavel=r=>/sistemas internos/i.test(String(r.equipe||''))&&SI_FORA_NOMES.includes(String(r.responsavel||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase());
+function contaNoSla(r){ return classificacaoDe(r)==='Suporte Técnico'&&equipeContaNoSla(r.equipe)&&!r.sla_fora_cliente&&!foraPorResponsavel(r); }
 function isNoPrazo(r){ return temPrazo(r)&&r.resolvido_em&&new Date(r.resolvido_em)<=new Date(r.sla_solucao); }
 function isVencido(r){ return isAberto(r)&&temPrazo(r)&&new Date(r.sla_solucao).getTime()<Date.now(); }
 function diasEmAberto(r){ return Math.floor((Date.now()-new Date(r.criado_em).getTime())/86400000); }
