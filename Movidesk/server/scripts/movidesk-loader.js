@@ -728,10 +728,20 @@ async function ensureTables() {
       // ADD COLUMN IF NOT EXISTS pede lock exclusivo mesmo quando a coluna já existe: com consultas longas rodando, ele fica
       // na fila e trava todas as leituras da tabela (Dashboard parado). Por isso só executa se a coluna realmente falta.
       const existentes = new Set();
-      try { (await client.query(`SELECT table_schema || '.' || table_name || '.' || column_name AS k FROM information_schema.columns WHERE table_schema IN ('silver','public')`)).rows.forEach((r) => existentes.add(r.k)); } catch { /* sem checagem: executa tudo */ }
+      const comDefault = new Set(), tipos = new Map();
+      try {
+        (await client.query(`SELECT table_schema || '.' || table_name || '.' || column_name AS k, column_default, data_type FROM information_schema.columns WHERE table_schema IN ('silver','public')`)).rows
+          .forEach((r) => { existentes.add(r.k); if (r.column_default) comDefault.add(r.k); tipos.set(r.k, r.data_type); });
+      } catch { /* sem checagem: executa tudo */ }
       for (const [label, sql] of statements) {
         const m = /^\s*ALTER TABLE\s+(\S+)\s+ADD COLUMN IF NOT EXISTS\s+(\w+)/i.exec(sql);
         if (m && existentes.has(`${m[1]}.${m[2]}`.toLowerCase())) continue;
+        // ALTER COLUMN … SET DEFAULT / TYPE também pedem lock exclusivo na tabela inteira (fila atrás das consultas longas e trava as leituras
+        // por até lock_timeout, a cada subida do servidor): só rodam se a coluna ainda não está como se quer.
+        const d = /^\s*ALTER TABLE\s+(\S+)\s+ALTER COLUMN\s+(\w+)\s+SET DEFAULT/i.exec(sql);
+        if (d && comDefault.has(`${d[1]}.${d[2]}`.toLowerCase())) continue;
+        const ty = /^\s*ALTER TABLE\s+(\S+)\s+ALTER COLUMN\s+(\w+)\s+TYPE\s+(\w+)/i.exec(sql);
+        if (ty && tipos.get(`${ty[1]}.${ty[2]}`.toLowerCase()) === ({ bigint: 'bigint', integer: 'integer', text: 'text' })[ty[3].toLowerCase()]) continue;
         try {
           await client.query(sql);
         } catch (e) {
