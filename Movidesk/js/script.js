@@ -99,7 +99,7 @@ function loadEmbeddedPage(view) {
 
     let src = EMBED_PAGE_ROUTES[normalizedView] || EMBED_PAGE_ROUTES.dashboard;
     // Configurações → Layout das abas: abre a aba em modo de edição do layout (só admin; o servidor também confere ao salvar)
-    if (window._hubEditarLayout && window._hubEditarLayout === normalizedView) { src += '?editarLayout=1'; window._hubEditarLayout = null; }
+    if (window._hubEditarLayout && window._hubEditarLayout === normalizedView) { src += '?editarLayout=1&t=' + Date.now(); window._hubEditarLayout = null; }   // t: cada pedido é uma URL nova (recarrega mesmo se a aba já estava em edição)
     if (frame.getAttribute('src') !== src) {
         document.body.classList.remove('nav-oculta');
         frame.setAttribute('src', src);
@@ -847,7 +847,5 @@ function applyTheme(theme) {
 // Configurações → Layout das abas: abre a aba pedida em modo de edição (js/layout.js dentro da aba cuida do resto).
 window.hubEditarLayout = function (view) {
     window._hubEditarLayout = String(view || '').trim().toLowerCase();
-    const frame = document.getElementById('embeddedPageFrame');
-    if (frame) frame.removeAttribute('src');   // força recarregar a aba com o parâmetro, mesmo que ela já esteja aberta
     navigateTo(window._hubEditarLayout);
 };
