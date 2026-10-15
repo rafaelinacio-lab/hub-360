@@ -3,11 +3,11 @@
 //   HubLayout.iniciar('geral', '#geral-dash')   aplica o layout guardado (GET /api/layout) e, se o admin abriu a aba em modo de edição
 //                                                (?editarLayout=1, vindo de Configurações → Layout das abas), liga a edição na própria tela:
 //                                                arrastar para mudar a ordem, largura (1/4 … total), altura e ocultar. Salvar vale para todos.
-// Sem layout salvo a aba fica exatamente como era. Contêiner vira uma grade de 12 colunas; as linhas antigas (.hrow) passam a display:contents
+// Sem layout salvo a aba fica exatamente como era. Contêiner vira uma grade de 60 colunas (divide certo em 1/2, 1/3, 1/4, 1/5, 1/6); as linhas antigas (.hrow) e a grade dos KPIs (.kpi-grid) passam a display:contents
 // e cada cartão é um item da grade (order + grid-column). Nada do que vem do servidor é inserido como HTML: só ids de lista fechada.
 (function () {
     var LS = 'hub_layout', ID_CSS = 'hub-layout-css';
-    var LARG = [[3, '1/4'], [4, '1/3'], [6, '1/2'], [8, '2/3'], [12, 'Total']];
+    var LARG = [[10, '1/6'], [12, '1/5'], [15, '1/4'], [20, '1/3'], [24, '2/5'], [30, '1/2'], [36, '3/5'], [40, '2/3'], [48, '4/5'], [60, 'Total']];   // em 60 avos da linha
     var ALT = [['auto', 'Altura: auto'], ['p', 'Baixa'], ['m', 'Média'], ['g', 'Alta']];
     var estado = { aba: null, raiz: null, salvo: null, editando: false, ed: null, arrastando: null };
 
@@ -15,16 +15,19 @@
         if (document.getElementById(ID_CSS)) return;
         var s = document.createElement('style'); s.id = ID_CSS;
         s.textContent =
-            '.hub-layout{display:grid!important;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch}' +
+            '.hub-layout{display:grid!important;grid-template-columns:repeat(60,minmax(0,1fr));column-gap:0;row-gap:14px;align-items:stretch;width:auto!important;margin-left:-7px!important;margin-right:-7px!important}' +   // sem gap de coluna (60 colunas de gap estourariam telas estreitas): o respiro vem da margem de 7px de cada card
+            'html .hub-layout.hub-layout.hub-layout .kpi-grid.k9{display:contents}' +      // os KPIs viram cards soltos da grade (mais específico que o .kpi-grid do v2.css)
             'html .hub-layout .hrow:not([style*="none"]){display:contents}' +   // mais específico que html[data-ui=v2] .hrow; linha escondida por style=display:none continua escondida
             
             '.hub-layout>:not([data-card]):not(.hrow){grid-column:1/-1;order:-1}' +
-            '.hub-layout [data-card]{margin:0;min-width:0}' +
+            '.hub-layout [data-card]{margin:0 7px!important;min-width:0}' +
             '.hub-layout [data-card].hub-h-p{max-height:260px;overflow:auto}' +
             '.hub-layout [data-card].hub-h-m{max-height:420px;overflow:auto}' +
             '.hub-layout [data-card].hub-h-g{max-height:640px;overflow:auto}' +
             '.hub-layout [data-card].hub-oculto{display:none!important}' +
-            '@media (max-width:1000px){.hub-layout [data-card]{grid-column:1/-1!important}}' +
+            '@media (max-width:1000px){.hub-layout [data-card]:not([data-card^="kpi-"]){grid-column:1/-1!important}.hub-layout [data-card^="kpi-"]{grid-column:span 20!important}}' +
+            '@media (max-width:700px){.hub-layout [data-card^="kpi-"]{grid-column:span 30!important}.hub-layout [data-card="kpi-sla"]{grid-column:1/-1!important}}' +
+            '@media (max-width:460px){.hub-layout [data-card^="kpi-"]{grid-column:1/-1!important}}' +
             'body.hub-editando .hub-layout [data-card].hub-oculto{display:block!important;opacity:.4;outline:2px dashed var(--border-hi,#999)}' +
             'body.hub-editando .hub-layout [data-card]{position:relative;outline:1px dashed var(--border-hi,#aaa);outline-offset:-1px}' +
             '.hub-ed{position:relative;z-index:20;display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px;' +
@@ -48,10 +51,14 @@
 
     // largura padrão = como a linha antiga (.hrow c-N) dividia: 1 cartão = total, 2 = 1/2, 3 = 1/3
     function larguraPadrao(el) {
-        if (idDe(el) === 'kpis') return 12;
+        var id = idDe(el);
+        if (id === 'kpi-sla') return 24;               // o SLA ocupa 2 de 5, como no padrão (5 por linha; 9 KPIs + o SLA dobrado = 2 linhas de 5)
+        if (/^kpi-/.test(id)) return 12;
         var linha = el.parentElement, n = linha && /\bhrow\b/.test(linha.className) ? linha.querySelectorAll(':scope > [data-card]').length : 1;
-        return n >= 4 ? 3 : n === 3 ? 4 : n === 2 ? 6 : 12;
+        return n >= 4 ? 15 : n === 3 ? 20 : n === 2 ? 30 : 60;
     }
+    // largura guardada em 60 avos (w); layouts antigos guardavam em 12 avos (l) e são convertidos
+    function largura(c, el) { return c.w || (c.l ? c.l * 5 : larguraPadrao(el)); }
     function vazio(l) { return !l || (!(l.ordem && l.ordem.length) && !(l.cartoes && Object.keys(l.cartoes).length)); }
 
     function limpar() {
@@ -72,7 +79,7 @@
         seq.forEach(function (id, i) {
             var el = porId[id], c = (layout.cartoes || {})[id] || {};
             el.style.order = String(i);
-            el.style.gridColumn = 'span ' + (id === 'kpis' ? 12 : (c.l || larguraPadrao(el)));
+            el.style.gridColumn = 'span ' + largura(c, el);
             el.classList.toggle('hub-h-p', c.h === 'p'); el.classList.toggle('hub-h-m', c.h === 'm'); el.classList.toggle('hub-h-g', c.h === 'g');
             el.classList.toggle('hub-oculto', c.o === true);
         });
@@ -104,18 +111,19 @@
         });
         mv.addEventListener('dragend', function () { el.classList.remove('hub-arrastando'); estado.arrastando = null; limparAlvos(); });
         box.appendChild(mv);
-        if (id !== 'kpis') {
+        {
             var sl = document.createElement('select'); sl.title = 'Largura'; sl.setAttribute('aria-label', 'Largura do card');
             LARG.forEach(function (p) { var o = document.createElement('option'); o.value = p[0]; o.textContent = 'Largura: ' + p[1]; sl.appendChild(o); });
-            sl.value = String(cfg().l || larguraPadrao(el));
-            sl.addEventListener('change', function () { cfgCartao(id).l = Number(sl.value); aplicar(estado.ed); });
+            sl.value = String(largura(cfg(), el));
+            sl.addEventListener('change', function () { var c = cfgCartao(id); delete c.l; c.w = Number(sl.value); aplicar(estado.ed); });
             box.appendChild(sl);
         }
+        var ehKpi = /^kpi-/.test(id);
         var sh = document.createElement('select'); sh.title = 'Altura'; sh.setAttribute('aria-label', 'Altura do card');
         ALT.forEach(function (p) { var o = document.createElement('option'); o.value = p[0]; o.textContent = p[0] === 'auto' ? p[1] : 'Altura: ' + p[1]; sh.appendChild(o); });
         sh.value = cfg().h || 'auto';
         sh.addEventListener('change', function () { var c = cfgCartao(id); if (sh.value === 'auto') delete c.h; else c.h = sh.value; aplicar(estado.ed); });
-        box.appendChild(sh);
+        if (!ehKpi) box.appendChild(sh);   // KPI tem altura fixa (todos da linha iguais)
         var oc = document.createElement('button'); oc.type = 'button';
         var rot = function () { oc.textContent = cfg().o ? 'Mostrar' : 'Ocultar'; };
         oc.addEventListener('click', function () { var c = cfgCartao(id); if (c.o) delete c.o; else c.o = true; rot(); aplicar(estado.ed); });

@@ -3,7 +3,7 @@
 //   GET /api/layout   configuração atual — qualquer usuário logado (quem monta a tela precisa dela)
 //   PUT /api/layout   salva — só admin. Tudo é validado contra listas fechadas: nada digitado vira CSS/HTML.
 // Guarda um JSON na tabela config (chave ui_layout_abas): { <aba>: { ordem: [idCartao…], cartoes: { <idCartao>: { l, h, o } } } }
-//   l = largura em colunas de 12 (3, 4, 6, 8, 12) · h = altura (auto | p | m | g) · o = oculto.
+//   w = largura em 60 avos da linha (10, 12, 15, 20, 24, 30, 36, 40, 48, 60) · h = altura (auto | p | m | g) · o = oculto. (layouts antigos guardavam `l` em 12 avos: convertido ×5.)
 // Quem aplica é js/layout.js (e o modo de edição, na própria aba).
 const express = require('express');
 const router = express.Router();
@@ -12,7 +12,7 @@ const { authMiddleware, requireRole } = require('./auth');
 
 const CHAVE = 'ui_layout_abas';
 const ABAS = ['geral'];                       // abas com layout configurável (cresce conforme js/layout.js é ligado nas telas)
-const LARGURAS = [3, 4, 6, 8, 12];
+const LARGURAS = [10, 12, 15, 20, 24, 30, 36, 40, 48, 60];   // em 60 avos da linha (1/6, 1/5, 1/4, 1/3, 2/5, 1/2, 3/5, 2/3, 4/5, total)
 const ALTURAS = ['auto', 'p', 'm', 'g'];
 const ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
 const MAX_CARTOES = 80;
@@ -31,7 +31,8 @@ function sanear(b) {
     for (const [id, c] of Object.entries(a.cartoes && typeof a.cartoes === 'object' ? a.cartoes : {})) {
       if (!ID.test(id) || Object.keys(cartoes).length >= MAX_CARTOES || !c || typeof c !== 'object') continue;
       const o = {};
-      if (LARGURAS.includes(Number(c.l))) o.l = Number(c.l);
+      const w = Number(c.w) || (Number(c.l) ? Number(c.l) * 5 : 0);
+      if (LARGURAS.includes(w)) o.w = w;
       if (ALTURAS.includes(c.h) && c.h !== 'auto') o.h = c.h;
       if (c.o === true) o.o = true;
       if (Object.keys(o).length) cartoes[id] = o;
