@@ -26,7 +26,7 @@ const CLASSIF_JOIN = `LEFT JOIN LATERAL (SELECT valor_texto FROM silver.ticket_c
 const ABAS = {   // aba (data-view do shell) → [rótulo, chave de permissão | null = sempre | 'admin']
   dashboard: ['Dashboard', 'dashboard'], movidesk: ['Movidesk', 'movidesk'], chamados: ['Curadoria', 'chamados'], ouvidoria: ['Ouvidoria', 'ouvidoria'],
   gcc: ['GCC', 'gcc'], jira: ['Jira', 'jira'], satisfacao: ['Satisfação', 'satisfacao'], incidentes: ['Incidentes', 'incidentes'],
-  reincidencias: ['Reincidências', 'reincidencias'], melhorias: ['Melhorias', 'nao-guest'], configuracoes: ['Configurações', 'admin'],
+  reincidencias: ['Reincidências', 'reincidencias'], melhorias: ['Melhorias', 'nao-guest'], repasses: ['Repasses', 'movidesk'], configuracoes: ['Configurações', 'admin'],
 };
 
 // ── tempo (Brasília) ──────────────────────────────────────────────────────────────────────────────────────

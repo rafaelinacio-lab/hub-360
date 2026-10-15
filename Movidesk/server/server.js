@@ -23,6 +23,7 @@ const incidentesRoutes = require('./routes/incidentes');
 const telemetriaRoutes = require('./routes/telemetria');
 const chatsRoutes = require('./routes/chats');
 const melhoriasRoutes = require('./routes/melhorias');
+const repassesRoutes = require('./routes/repasses');
 const reincidenciasRoutes = require('./routes/reincidencias');
 const dashboardConferenciaRoutes = require('./routes/dashboard-conferencia');
 const incidentesAvancadoRoutes = require('./routes/incidentes-avancado');
@@ -133,6 +134,7 @@ app.use('/api/satisfacao', satisfacaoRoutes);
 app.use('/api/dashboard-conferencia', dashboardConferenciaRoutes);
 app.use('/api/reincidencias', reincidenciasRoutes);
 app.use('/api/melhorias', melhoriasRoutes);
+app.use('/api/repasses', repassesRoutes);
 app.use('/api/avisos-img', require('./routes/avisos').publico);   // imagens dos avisos (pública, só leitura)
 app.use('/api/avisos', require('./routes/avisos'));
 app.use('/api/extrator', require('./routes/tokens').extrator);   // sem login: só o extrator do Jira, com chave própria

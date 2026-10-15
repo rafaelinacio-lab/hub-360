@@ -32,7 +32,8 @@ const EMBED_PAGE_ROUTES = {
     chats: 'pages/chats.html',
     incidentes: 'pages/incidentes.html',
     reincidencias: 'pages/reincidencias.html',
-    melhorias: 'pages/melhorias.html'
+    melhorias: 'pages/melhorias.html',
+    repasses: 'pages/repasses.html'
 };
 
 // ─── Transição entre abas: só a persiana do Visual 2.0 (js/modload.js).

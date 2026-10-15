@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<script src="../js/ui-version.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repasses</title>
+<script>
+  (function(){
+    const t=localStorage.getItem('theme')||'light';
+    document.documentElement.className=t;
+    window.addEventListener('storage',function(e){
+      if(e.key==='theme') document.documentElement.className=e.newValue||'light';
+    });
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f1ee; --surface:#ffffff; --surface-mid:#f7f6f3; --border:#e5e3de; --border-hi:#cac8c2;
+  --t1:#1a1917; --t2:#57554f; --t3:#9b9892; --accent:#e85d04; --bar:#fcd9bd; --warn:#b45309; --warn-bg:#fef3c7; --bad:#b91c1c; --bad-bg:#fee2e2;
+}
+html.dark{
+  --bg:#0f1117; --surface:#1a1d27; --surface-mid:#1e2232; --border:#2a2d3a; --border-hi:#3a3e50;
+  --t1:#e8e8e2; --t2:#a8a8a0; --t3:#75756e; --bar:#5a2d10; --warn:#fbbf24; --warn-bg:#33270a; --bad:#f87171; --bad-bg:#3b1515;
+}
+*{box-sizing:border-box}
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:Inter,system-ui,sans-serif;font-size:14px}
+button,input,select{font:inherit;color:inherit}
+.page{padding:20px 24px 40px}
+.topo h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.topo p{margin:2px 0 14px;color:var(--t3);font-size:13px;max-width:720px}
+.barra{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.barra label{display:flex;flex-direction:column;gap:3px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);font-weight:600}
+select,input{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:8px 10px;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--t1)}
+.btn{border:1px solid var(--border-hi);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.btn.primario{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.55;cursor:default}
+.kpis{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 16px;min-width:140px}
+.kpi .r{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);font-weight:600}
+.kpi .n{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0}
+.card h2{margin:0 0 8px;font-size:13px;font-weight:700}
+.lin{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:8px;align-items:center;padding:4px 0;font-size:13px;cursor:pointer;border-radius:6px}
+.lin:hover{background:var(--surface-mid)}
+.lin .nome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lin .nome span{color:var(--t3)}
+.lin b{text-align:right;font-variant-numeric:tabular-nums}
+.lin .fio{grid-column:1/-1;height:4px;border-radius:2px;background:var(--bar)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;word-break:break-word}
+.tabela{overflow-x:auto}
+.seta{color:var(--t3);padding:0 4px}
+.aviso{margin:0 0 12px;padding:9px 12px;border-radius:8px;font-size:13px;background:var(--warn-bg);color:var(--warn)}
+.aviso.erro{background:var(--bad-bg);color:var(--bad)}
+.vazio{padding:28px 12px;text-align:center;color:var(--t3)}
+.sub{color:var(--t3);font-size:12px}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topo">
+    <h1>Repasses entre equipes</h1>
+    <p>Chamados que mudaram de equipe — por exemplo, entraram pelo Suporte Técnico e foram para Produto. Clique numa linha dos quadros para filtrar a lista.</p>
+  </div>
+  <div class="barra">
+    <label>De<input type="date" id="fDe"></label>
+    <label>Até<input type="date" id="fAte"></label>
+    <label>Equipe (origem ou destino)<select id="fEquipe"><option value="">Todas as equipes</option></select></label>
+    <button class="btn primario" id="bAplicar" type="button">Aplicar</button>
+  </div>
+  <div id="aviso" class="aviso" hidden></div>
+  <div class="kpis"><div class="kpi"><div class="r">Repasses</div><div class="n" id="kRep">—</div></div><div class="kpi"><div class="r">Chamados repassados</div><div class="n" id="kCham">—</div></div></div>
+  <div id="conteudo"></div>
+</div>
+<script>
+const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmt=v=>v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+const dia=v=>v?new Date(v).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—';
+let equipeFixa=''; // equipes do filtro vêm da primeira consulta do período (sem filtro de equipe)
+
+function aviso(m,erro){ const e=$('aviso'); e.hidden=!m; e.textContent=m||''; e.className='aviso'+(erro?' erro':''); }
+
+function blocoRank(titulo,lista,tipo){
+  const max=Math.max(1,...lista.map(x=>x.total));
+  return `<div class="card"><h2>${titulo}</h2>${lista.length?lista.slice(0,12).map(x=>`<div class="lin" data-eq="${esc(x.equipe)}" title="Filtrar por ${esc(x.equipe)}"><div class="nome">${esc(x.equipe)}</div><b>${x.total}</b><div class="fio" style="width:${Math.round(x.total/max*100)}%"></div></div>`).join(''):'<div class="sub">Sem dados.</div>'}</div>`;
+}
+
+function desenhar(d){
+  $('kRep').textContent=d.resumo.repasses; $('kCham').textContent=d.resumo.chamados;
+  const sel=$('fEquipe'), atual=sel.value;
+  if(!atual){ sel.innerHTML='<option value="">Todas as equipes</option>'+d.equipes.map(e=>`<option>${esc(e)}</option>`).join(''); }
+  if(!d.resumo.repasses){
+    $('conteudo').innerHTML=`<div class="card vazio">Não há chamados repassados entre equipes no período${atual?' para esta equipe':''}.${d.desde?`<div class="sub" style="margin-top:6px">O histórico começa em ${dia(d.desde)}.</div>`:''}</div>`;
+    return;
+  }
+  const pares=`<div class="card"><h2>De → Para</h2>${d.pares.slice(0,12).map(p=>`<div class="lin" data-par="${esc(p.de)}\u0000${esc(p.para)}"><div class="nome">${esc(p.de)} <span>→</span> ${esc(p.para)}</div><b>${p.total}</b></div>`).join('')}</div>`;
+  const linhas=d.chamados.map(c=>`<tr><td>#${esc(c.ticket_id)}</td><td>${esc(c.assunto||'—')}<div class="sub">${esc(c.cliente||'')}</div></td><td>${esc(c.de)}<span class="seta">→</span>${esc(c.para)}</td><td>${esc(c.equipe_atual||'—')}</td><td>${esc(c.status||'—')}</td><td>${fmt(c.criado_em)}</td></tr>`).join('');
+  $('conteudo').innerHTML=`<div class="grade">${pares}${blocoRank('Mais repassam (origem)',d.origem)}${blocoRank('Mais recebem (destino)',d.destino)}</div>
+   <div class="card"><h2>Chamados repassados${d.truncado?' (mostrando os 1000 mais recentes)':''}</h2><div class="tabela"><table><thead><tr><th>Chamado</th><th>Assunto</th><th>Repasse</th><th>Equipe atual</th><th>Status</th><th>Quando</th></tr></thead><tbody>${linhas}</tbody></table></div></div>`;
+}
+
+async function carregar(){
+  const qs=new URLSearchParams({de:$('fDe').value,ate:$('fAte').value}); if($('fEquipe').value) qs.set('equipe',$('fEquipe').value);
+  $('bAplicar').disabled=true; aviso('');
+  try{
+    const r=await fetch(`${location.origin}/api/repasses?${qs}`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'});
+    const raw=await r.text(); let d={}; try{d=raw?JSON.parse(raw):{};}catch{d={error:raw};}
+    if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+    if(d.periodo){ $('fDe').value=d.periodo.de; $('fAte').value=d.periodo.ate; }
+    desenhar(d);
+  }catch(e){ aviso(e.message,true); $('conteudo').innerHTML=''; }
+  finally{ $('bAplicar').disabled=false; }
+}
+$('bAplicar').addEventListener('click',carregar);
+$('fEquipe').addEventListener('change',carregar);
+$('fDe').addEventListener('change',()=>{ $('fEquipe').value=''; });
+$('fAte').addEventListener('change',()=>{ $('fEquipe').value=''; });
+$('conteudo').addEventListener('click',e=>{
+  const l=e.target.closest('.lin'); if(!l) return;
+  const eq=l.dataset.eq||(l.dataset.par||'').split('\u0000')[0]; if(!eq) return;
+  const sel=$('fEquipe'); if([...sel.options].some(o=>o.value===eq)){ sel.value=eq; carregar(); }
+});
+carregar();
+</script>
+</body>
+</html>
