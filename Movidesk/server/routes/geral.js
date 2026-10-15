@@ -324,7 +324,7 @@ router.get('/tarefas-jira', authMiddleware, requireTabAccess('movidesk'), async 
 
 // Versões lançadas × chamados (card da visão Suporte Técnico): por versão do Jira, quantos chamados do produto entraram antes e depois do lançamento,
 // quantos citam a versão/atualização, quantos o suporte marcou como "após a atualização" e quantos estão vinculados às tarefas da versão.
-// ?janela=7|14|30 (dias antes e depois) &desde=AAAA-MM-DD (padrão: últimos 60 dias). Cache de 10 min por escopo de vertical.
+// ?ano=AAAA &mes=1..12 (0/ausente = o ano todo; padrão: o ano atual): versões lançadas no período e os chamados abertos DEPOIS do lançamento, até hoje. Cache de 10 min por escopo de vertical.
 const versoesChamados = require('../utils/versoesChamados');
 const _versoesCache = new Map();
 // Por enquanto só admin vê o card Versões × chamados (também no servidor, não só na tela)
@@ -338,12 +338,12 @@ async function soAdmin(req, res, next) {
 router.get('/versoes-chamados', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const esc = await escopoDoRequest(req);
-    const janela = [7, 14, 30].includes(Number(req.query.janela)) ? Number(req.query.janela) : 14;
-    const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.desde || '')) ? String(req.query.desde) : '';
-    const chave = `${janela}|${desde}${chaveEscopo(esc)}`;
+    const ano = /^\d{4}$/.test(String(req.query.ano || '')) ? Number(req.query.ano) : new Date().getFullYear();
+    const mes = Number(req.query.mes) >= 1 && Number(req.query.mes) <= 12 ? Number(req.query.mes) : 0;   // 0 = o ano todo
+    const chave = `${ano}|${mes}${chaveEscopo(esc)}`;
     const c = _versoesCache.get(chave);
     if (c && c.ate > Date.now()) return res.json(c.dados);
-    const dados = await versoesChamados.calcular({ esc, janela, desde, pertence });
+    const dados = await versoesChamados.calcular({ esc, ano, mes, pertence });
     if (_versoesCache.size > 30) _versoesCache.clear();
     _versoesCache.set(chave, { ate: Date.now() + 10 * 60 * 1000, dados });
     res.json(dados);
@@ -356,7 +356,7 @@ router.get('/versoes-chamados', authMiddleware, soAdmin, requireTabAccess('movid
 router.get('/versoes-chamados/lista', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const esc = await escopoDoRequest(req);
-    const ids = await versoesChamados.idsDoItem({ esc, versaoId: String(req.query.versao || ''), tipo: String(req.query.tipo || ''), janela: req.query.janela, pertence });
+    const ids = await versoesChamados.idsDoItem({ esc, versaoId: String(req.query.versao || ''), tipo: String(req.query.tipo || ''), pertence });
     if (!ids.length) return res.json({ rows: [] });
     const r = await db.query(`${LIST_SELECT} WHERE t.ticket_id = ANY($1::bigint[]) ORDER BY t.createddate DESC`, [ids]);
     res.json({ rows: filtrarEscopo(esc, r.rows || []) });

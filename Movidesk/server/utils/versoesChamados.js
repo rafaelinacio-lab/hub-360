@@ -53,14 +53,17 @@ const projetoPrincipal = (v) => {
 };
 
 // esc = escopo de vertical do perfil (utils/verticalScope.escopoVertical). Quem tem vertical só vê versões do próprio produto.
-async function calcular({ esc, janela = 14, desde, pertence }) {
-  const j = [7, 14, 30].includes(Number(janela)) ? Number(janela) : 14;
+// Versões lançadas no mês/ano escolhidos (mes 0 = o ano todo). Os chamados relacionados são os abertos DEPOIS do lançamento, até hoje.
+async function calcular({ esc, ano, mes, pertence }) {
   const dados = lerVersoes();
-  if (!dados) return { versoes: [], aviso: 'O arquivo de versões do Jira ainda não foi gerado (versoes_data.json).', janela: j };
+  const anoN = /^\d{4}$/.test(String(ano)) ? Number(ano) : new Date().getFullYear();
+  const mesN = Number(mes) >= 1 && Number(mes) <= 12 ? Number(mes) : 0;
+  if (!dados) return { versoes: [], aviso: 'O arquivo de versões do Jira ainda não foi gerado (versoes_data.json).', ano: anoN, mes: mesN };
   const hoje = new Date().toISOString().slice(0, 10);
-  const ini = /^\d{4}-\d{2}-\d{2}$/.test(String(desde || '')) ? desde : new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
-  let lista = (dados.versoes || []).filter((v) => v.released && v.release_date && v.release_date >= ini && v.release_date <= hoje)
-    .sort((a, b) => b.release_date.localeCompare(a.release_date)).slice(0, 120);
+  const ini = `${anoN}-${String(mesN || 1).padStart(2, '0')}-01`;
+  const fim = new Date(Date.UTC(anoN, mesN || 12, 0)).toISOString().slice(0, 10);   // último dia do mês (ou do ano)
+  let lista = (dados.versoes || []).filter((v) => v.released && v.release_date && v.release_date >= ini && v.release_date <= fim && v.release_date <= hoje)
+    .sort((a, b) => b.release_date.localeCompare(a.release_date)).slice(0, 500);
   const base = lista.map((v) => {
     const proj = projetoPrincipal(v);
     const servicos = MAPA[proj] || null;
@@ -83,47 +86,49 @@ async function calcular({ esc, janela = 14, desde, pertence }) {
     r.rows.forEach((x) => vinc.set(x.i, x));
   }
 
+  // Uma leitura por PRODUTO (desde o lançamento mais antigo dele): texto do cliente, causa e chave do Jira de cada chamado; as contagens de cada versão saem daqui
+  const grupos = new Map();
+  visiveis.forEach((b) => { if (!b.servicos) return; const k = b.servicos.join('|'); const g = grupos.get(k) || { servicos: b.servicos, min: b.v.release_date }; if (b.v.release_date < g.min) g.min = b.v.release_date; grupos.set(k, g); });
+  for (const g of grupos.values()) {
+    const r = await db.query(`
+      SELECT t.createddate, upper(t.jiraissuekey) AS jk,
+             lower(COALESCE(t.subject, '')) || ' ' || COALESCE((${TXT_CLIENTE('t.ticket_id')}), '') AS txt,
+             (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa
+        FROM silver.ticket t JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946 AND cf.valor_texto = 'Suporte Técnico'
+       WHERE t.createddate >= $2::date AND btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) = ANY($1::text[])`, [g.servicos, g.min]);
+    g.tickets = r.rows.map((x) => ({ em: new Date(x.createddate).getTime(), jk: x.jk, txt: x.txt || '', causa: x.causa || '' }));
+  }
+  const rxCita = new RegExp(RX_CITA);
+  const causaApos = CAUSA_APOS.toLowerCase();
   const out = [];
   for (let i = 0; i < visiveis.length; i++) {
     const { v, proj, servicos, tokens } = visiveis[i];
     const item = { id: String(v.id || v.nome), nome: v.nome, lancada: v.release_date, projeto: proj, servicos: servicos || [], tarefas: (v.tarefas || []).length,
       tiposTarefa: (v.tarefas || []).reduce((o, t) => { const k = /bug/i.test(t.tipo || '') ? 'bugs' : 'outras'; o[k] = (o[k] || 0) + 1; return o; }, { bugs: 0, outras: 0 }),
       tokens, vinculados: (vinc.get(i) || {}).vinculados || 0, vinculadosAbertos: (vinc.get(i) || {}).abertos || 0, tarefasComChamado: (vinc.get(i) || {}).tarefas_com_chamado || 0,
-      janela: j, diasDecorridos: Math.max(0, Math.floor((Date.now() - new Date(v.release_date + 'T00:00:00-03:00').getTime()) / 86400000)) };
+      diasDecorridos: Math.max(0, Math.floor((Date.now() - new Date(v.release_date + 'T00:00:00-03:00').getTime()) / 86400000)) };
     if (servicos) {
-      const r = await db.query(`
-        WITH t0 AS (
-          SELECT t.ticket_id, t.createddate, lower(COALESCE(t.subject, '')) AS assunto, (t.createddate >= $2::date) AS depois,
-                 (upper(t.jiraissuekey) = ANY($7::text[])) AS vinc
-            FROM silver.ticket t JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946 AND cf.valor_texto = 'Suporte Técnico'
-           WHERE t.createddate >= $2::date - make_interval(days => $3::int) AND t.createddate < $2::date + make_interval(days => $3::int)
-             AND btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) = ANY($1::text[])),
-        d AS (
-          SELECT t0.ticket_id, t0.depois, t0.vinc,
-                 t0.assunto || ' ' || COALESCE((${TXT_CLIENTE('t0.ticket_id')}), '') AS txt,
-                 (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t0.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa
-            FROM t0)
-        SELECT COUNT(*) FILTER (WHERE NOT depois)::int AS antes, COUNT(*) FILTER (WHERE depois)::int AS depois,
-               COUNT(*) FILTER (WHERE depois AND txt ~ $4)::int AS cita_atualizacao,
-               COUNT(*) FILTER (WHERE depois AND EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0))::int AS cita_versao,
-               COUNT(*) FILTER (WHERE depois AND causa LIKE lower($6) || '%')::int AS causa_apos,
-               COUNT(*) FILTER (WHERE depois AND vinc)::int AS vinc_depois,
-               COUNT(*) FILTER (WHERE depois AND (EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0) OR causa LIKE lower($6) || '%' OR vinc))::int AS relacionados
-          FROM d`, [servicos, v.release_date, j, RX_CITA, tokens.length ? tokens : ['§§sem-versao§§'], CAUSA_APOS, chavesDe(v)]);
-      const x = r.rows[0] || {};
-      const diasDepois = Math.min(j, Math.max(1, item.diasDecorridos));
-      Object.assign(item, { antes: x.antes, depois: x.depois, citaAtualizacao: x.cita_atualizacao, citaVersao: x.cita_versao, causaApos: x.causa_apos, vincDepois: x.vinc_depois, relacionados: x.relacionados,
-        ritmoAntes: x.antes / j, ritmoDepois: x.depois / diasDepois, janelaCompleta: item.diasDecorridos >= j });
-      item.variacaoPct = item.ritmoAntes > 0 ? Math.round((item.ritmoDepois / item.ritmoAntes - 1) * 100) : null;
+      const desdeMs = new Date(v.release_date + 'T00:00:00Z').getTime(), chaves = new Set(chavesDe(v));
+      const c = { depois: 0, citaAtualizacao: 0, citaVersao: 0, causaApos: 0, vincDepois: 0, relacionados: 0 };
+      for (const t of grupos.get(servicos.join('|')).tickets) {
+        if (t.em < desdeMs) continue;
+        c.depois++;
+        const cita = tokens.some((k) => t.txt.includes(k)), apos = t.causa.startsWith(causaApos), vinc2 = chaves.has(t.jk);
+        if (rxCita.test(t.txt)) c.citaAtualizacao++;
+        if (cita) c.citaVersao++;
+        if (apos) c.causaApos++;
+        if (vinc2) c.vincDepois++;
+        if (cita || apos || vinc2) c.relacionados++;
+      }
+      Object.assign(item, c);
     }
     out.push(item);
   }
-  return { versoes: out, janela: j, desde: ini, geradoEm: dados.gerado_em || null, semMapa: visiveis.filter((b) => !b.servicos).length };
+  return { versoes: out, ano: anoN, mes: mesN, desde: ini, ate: fim, geradoEm: dados.gerado_em || null, semMapa: visiveis.filter((b) => !b.servicos).length };
 }
 
 // Chamados por trás de um número do card. tipo: depois | cita | citaversao | causa | vinculados. Devolve só os ids (a rota monta as linhas completas).
-async function idsDoItem({ esc, versaoId, tipo, janela = 14, desde, pertence }) {
-  const j = [7, 14, 30].includes(Number(janela)) ? Number(janela) : 14;
+async function idsDoItem({ esc, versaoId, tipo, pertence }) {
   const dados = lerVersoes(); if (!dados) return [];
   const v = (dados.versoes || []).find((x) => String(x.id || x.nome) === String(versaoId)); if (!v) return [];
   const proj = projetoPrincipal(v), servicos = MAPA[proj] || null;
@@ -134,8 +139,8 @@ async function idsDoItem({ esc, versaoId, tipo, janela = 14, desde, pertence }) 
     return (await db.query(`SELECT ticket_id::text AS id FROM silver.ticket WHERE upper(jiraissuekey) = ANY($1::text[]) ${cond} ORDER BY createddate DESC LIMIT 500`, [chaves, ...(cond ? [esc.verticais] : [])])).rows.map((x) => x.id);
   }
   if (!servicos) return [];
-  const filtro = { depois: 'TRUE', cita: 'txt ~ $4', citaversao: 'EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0)', causa: 'causa LIKE lower($6) || \'%\'',
-    relacionados: '(EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0) OR causa LIKE lower($6) || \'%\' OR vinc)' }[tipo];
+  const filtro = { depois: 'TRUE', cita: 'txt ~ $3', citaversao: 'EXISTS (SELECT 1 FROM unnest($4::text[]) k WHERE position(k IN txt) > 0)', causa: 'causa LIKE lower($5) || \'%\'',
+    relacionados: '(EXISTS (SELECT 1 FROM unnest($4::text[]) k WHERE position(k IN txt) > 0) OR causa LIKE lower($5) || \'%\' OR vinc)' }[tipo];
   if (!filtro) return [];
   const tokens = tokensDaVersao(v.nome);
   const r = await db.query(`
@@ -143,13 +148,13 @@ async function idsDoItem({ esc, versaoId, tipo, janela = 14, desde, pertence }) 
       SELECT t.ticket_id, t.createddate,
              lower(COALESCE(t.subject, '')) || ' ' || COALESCE((${TXT_CLIENTE('t.ticket_id')}), '') AS txt,
              (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa,
-             (upper(t.jiraissuekey) = ANY($7::text[])) AS vinc
+             (upper(t.jiraissuekey) = ANY($6::text[])) AS vinc
         FROM silver.ticket t JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946 AND cf.valor_texto = 'Suporte Técnico'
-       WHERE t.createddate >= $2::date AND t.createddate < $2::date + make_interval(days => $3::int)
+       WHERE t.createddate >= $2::date
          AND btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) = ANY($1::text[]))
-    SELECT ticket_id::text AS id FROM d WHERE ${filtro} AND $4::text IS NOT NULL AND $5::text[] IS NOT NULL AND $6::text IS NOT NULL AND $7::text[] IS NOT NULL   -- cita todos os parâmetros: o Postgres exige que a consulta use todos
+    SELECT ticket_id::text AS id FROM d WHERE ${filtro} AND $3::text IS NOT NULL AND $4::text[] IS NOT NULL AND $5::text IS NOT NULL AND $6::text[] IS NOT NULL   -- cita todos os parâmetros: o Postgres exige que a consulta use todos
      ORDER BY createddate DESC LIMIT 500`,
-  [servicos, v.release_date, j, RX_CITA, tokens.length ? tokens : ['§§sem-versao§§'], CAUSA_APOS, chavesDe(v)]);
+  [servicos, v.release_date, RX_CITA, tokens.length ? tokens : ['§§sem-versao§§'], CAUSA_APOS, chavesDe(v)]);
   return r.rows.map((x) => x.id);
 }
 
