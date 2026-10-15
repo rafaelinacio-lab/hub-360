@@ -2,7 +2,7 @@
 // Versões lançadas × chamados (card do Painel Geral, visão Suporte Técnico): para cada versão lançada no período, o suporte vê se os chamados
 // que estão entrando têm relação com ela. Sinais, por versão:
 //   - antes × depois: chamados de Suporte Técnico do produto abertos nos N dias ANTES e nos N dias DEPOIS do lançamento (ritmo por dia);
-//   - citam a versão ou a atualização: no assunto ou na 1ª ação do chamado aparece o número da versão ou frases como "após a atualização";
+//   - citam a versão ou a atualização: no assunto ou nas primeiras ações do cliente (só o que ele escreveu) aparece o número da versão ou frases como "após a atualização";
 //   - marcados "após a atualização": campo Causa do Movidesk (148916) = "Situação Reportada Após a Atualização";
 //   - RELACIONADOS (o que o gráfico mostra): chamados abertos DEPOIS do lançamento, dentro da janela, que têm ligação com ESTA versão — citam o número dela,
 //     estão marcados "após a atualização" ou estão vinculados às tarefas que ela entregou (sem contar duas vezes o chamado que tem mais de um sinal);
@@ -14,6 +14,14 @@ const db = require('../db/remote');
 
 const JIRA_DATA_DIR = path.resolve(__dirname, '../../', process.env.JIRA_DATA_DIR || '../Jira');
 const MAPA = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '../data/versoes-servico.json'), 'utf8')); } catch { return {}; } })();
+// O relacionamento chamado × versão olha só o que o CLIENTE escreveu: as 3 primeiras ações públicas dele (profile_type 2; sem e-mail
+// da Viasoft quando o tipo vem vazio). Ações de agente, da IA e internas (análise, orientação, encaminhamento) não entram: elas
+// citam versão/atualização por conta do próprio atendimento e não mostram o problema que o cliente relatou.
+const TXT_CLIENTE = (col) => `SELECT lower(regexp_replace(string_agg(x.d, ' ' ORDER BY x.acao_id), '<[^>]+>', ' ', 'g')) FROM (
+            SELECT a.acao_id, a.descricao AS d FROM silver.ticket_acao a
+             WHERE a.ticket_id = ${col} AND a.tipo = 2 AND COALESCE(a.descricao, '') <> ''
+               AND (a.criado_por_profile_type = 2 OR (a.criado_por_profile_type IS NULL AND COALESCE(a.criado_por_email, '') NOT ILIKE '%@viasoft.com.br'))
+             ORDER BY a.acao_id LIMIT 3) x`;
 const SEM_CHAVE = '§§sem-chave§§';
 const CAUSA_APOS = 'Situação Reportada Após a Atualização';
 const RX_CITA = '(ap(o|ó)s|depois).{0,25}(atualiz|vers(ao|ão))|nova vers(ao|ão)|atualizamos|atualizei|atualizou|vers(ao|ão) nova';
@@ -92,7 +100,7 @@ async function calcular({ esc, janela = 14, desde, pertence }) {
              AND btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) = ANY($1::text[])),
         d AS (
           SELECT t0.ticket_id, t0.depois, t0.vinc,
-                 t0.assunto || ' ' || COALESCE((SELECT lower(a.descricao) FROM silver.ticket_acao a WHERE a.ticket_id = t0.ticket_id ORDER BY a.acao_id LIMIT 1), '') AS txt,
+                 t0.assunto || ' ' || COALESCE((${TXT_CLIENTE('t0.ticket_id')}), '') AS txt,
                  (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t0.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa
             FROM t0)
         SELECT COUNT(*) FILTER (WHERE NOT depois)::int AS antes, COUNT(*) FILTER (WHERE depois)::int AS depois,
@@ -133,7 +141,7 @@ async function idsDoItem({ esc, versaoId, tipo, janela = 14, desde, pertence }) 
   const r = await db.query(`
     WITH d AS (
       SELECT t.ticket_id, t.createddate,
-             lower(COALESCE(t.subject, '')) || ' ' || COALESCE((SELECT lower(a.descricao) FROM silver.ticket_acao a WHERE a.ticket_id = t.ticket_id ORDER BY a.acao_id LIMIT 1), '') AS txt,
+             lower(COALESCE(t.subject, '')) || ' ' || COALESCE((${TXT_CLIENTE('t.ticket_id')}), '') AS txt,
              (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa,
              (upper(t.jiraissuekey) = ANY($7::text[])) AS vinc
         FROM silver.ticket t JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946 AND cf.valor_texto = 'Suporte Técnico'
