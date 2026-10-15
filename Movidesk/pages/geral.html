@@ -16,6 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="../js/ui-version.js"></script>
+<script src="../js/aparencia.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
 /* ═══ Tokens ══════════════════════════════════════════════════════════ */
@@ -477,6 +478,55 @@ input,select{font-family:inherit}
 .stat-card.danger{border-color:var(--orange-bd)}
 .stat-card.success{border-color:var(--green-bd)}
 .stat-card.clickable{cursor:pointer}
+/* Visões do Painel Geral (atalho para a classificação): Todos | Suporte Técnico | … */
+.visao-abas{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.visao-abas .visao-rot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.visao-seg{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--bg2,transparent)}
+.visao-btn{border:0;background:transparent;color:var(--t2);font:600 12px/1 inherit;font-family:inherit;padding:7px 14px;border-radius:7px;cursor:pointer;transition:background .15s,color .15s}
+.visao-btn:hover:not(:disabled):not(.on){background:rgba(127,127,127,.12);color:var(--t1,inherit)}
+.visao-btn.on{background:var(--orange);color:#fff}
+.visao-btn:disabled{opacity:.45;cursor:not-allowed}
+.visao-nota{font-size:11px;color:var(--t3)}
+/* KPIs: borda lateral na cor do cartão, número na cor do cartão e, nos totais que vêm de anos anteriores, a linha "↳ N (P%) abertos em anos anteriores" */
+.kpi-grid .stat-card{border-left:4px solid var(--tone)}
+.kpi-grid .stat-card .value:not(.bad):not(.good){color:var(--tone-ink)}
+.kpi-antes{margin:4px 0 0;font-size:11.5px;color:var(--t2);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.kpi-antes:hover{color:var(--tone-ink)}
+/* Na visão Produto somem os painéis que só fazem sentido com a régua de SLA do Hub (Suporte Técnico) */
+body.visao-produto .so-regua-hub{display:none!important}
+/* Card "Tarefas do Jira × chamados": só aparece na visão Suporte Técnico */
+body:not(.visao-st) .so-st{display:none!important}
+.jr-topo{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:-4px 0 10px}
+.jr-topo input{flex:1;min-width:200px;max-width:380px;border:1px solid var(--border);border-radius:8px;background:var(--surface-mid,transparent);color:var(--t1);padding:7px 10px;font:inherit;font-size:13px}
+.jr-lin{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 14px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin:0 0 8px;cursor:pointer;background:var(--surface,transparent);transition:border-color .15s,background .15s}
+.jr-lin:hover{border-color:var(--orange);background:var(--orange-bg,rgba(255,138,43,.06))}
+.jr-key{font-weight:800;font-size:13px;color:var(--orange);text-decoration:none;white-space:nowrap}
+.jr-key:hover{text-decoration:underline}
+.jr-mid{min-width:0}
+.jr-res{display:block;font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jr-mid small{display:block;font-size:11.5px;color:var(--t3);margin-top:2px}
+.jr-st{font-weight:700} .jr-st.fim{color:var(--green)} .jr-st.abe{color:var(--orange)}
+.jr-n{text-align:right;line-height:1.15;white-space:nowrap}
+.jr-n b{display:block;font-size:22px;font-weight:800;color:var(--t1)}
+.jr-n small{font-size:11px;color:var(--t3)}
+.jr-mais{margin-top:4px}
+/* Card "Versões lançadas × chamados" */
+.vs-topo{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:-4px 0 10px}
+.vs-topo select{border:1px solid var(--border);border-radius:8px;background:var(--surface-mid,transparent);color:var(--t1);padding:6px 9px;font:inherit;font-size:13px}
+.vs-topo label{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:6px}
+.vs-tab{width:100%;border-collapse:collapse;font-size:13px}
+.vs-tab th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.vs-tab td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.vs-tab th.n,.vs-tab td.n{text-align:right;white-space:nowrap}
+.vs-tab tr.sem-mapa td{opacity:.6}
+.vs-nome{font-weight:700;color:var(--t1)} .vs-sub{display:block;font-size:11.5px;color:var(--t3);margin-top:1px}
+.vs-num{border:0;background:none;color:var(--orange);font:700 13px inherit;font-family:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;padding:0}
+.vs-num:disabled{color:var(--t3);text-decoration:none;cursor:default}
+.vs-var{display:inline-block;font-weight:800;border-radius:999px;padding:2px 9px;font-size:12px}
+.vs-var.alta{background:rgba(220,38,38,.14);color:#dc2626} .vs-var.queda{background:rgba(22,163,74,.14);color:#15803d} .vs-var.igual{background:rgba(127,127,127,.14);color:var(--t2)}
+.vs-parcial{font-size:11px;color:var(--t3)}
+.vs-nota{font-size:11.5px;color:var(--t3);margin:10px 0 0}
+#f-class.ms-travado{opacity:.55;pointer-events:none}   /* classificação fixa na visão Suporte Técnico */
 .slaeq{display:flex;flex-direction:column;gap:2px;margin-top:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .slaeq-row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(120px,2.4fr) 64px minmax(110px,auto);align-items:center;gap:14px;width:100%;padding:8px 8px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .slaeq-row:hover{background:var(--surface-low,rgba(148,163,184,.12))}
@@ -649,6 +699,7 @@ body.modal-open{overflow:hidden}
 .modal-body .sla-pend{white-space:normal}
 .modal-box{overflow-x:hidden}
 </style>
+<script src="../js/equipesTipo.js"></script>
 <link rel="stylesheet" href="../css/v2.css">
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">
@@ -689,6 +740,16 @@ body.modal-open{overflow:hidden}
         <span class="sym">download</span>Exportar
       </button>
       </div>
+    </div>
+    <div class="visao-abas" id="visao-abas" role="tablist" aria-label="Visão do painel">
+      <span class="visao-rot">Visão</span>
+      <div class="visao-seg">
+        <button type="button" class="visao-btn" data-v="todos" role="tab" onclick="escolherVisao('todos')">Todos</button>
+        <button type="button" class="visao-btn" data-v="st" role="tab" onclick="escolherVisao('st')" title="Só chamados da classificação Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h por urgência)">Suporte Técnico</button>
+        <button type="button" class="visao-btn" data-v="produto" role="tab" onclick="escolherVisao('produto')" title="Só equipes de Produto (Equipe Técnica). Prazo pela previsão de solução do Movidesk, sem a régua de SLA do Hub">Produto</button>
+        <button type="button" class="visao-btn" data-v="servicos" role="tab" disabled title="Em breve">Serviços</button>
+      </div>
+      <span class="visao-nota" id="visao-nota"></span>
     </div>
     <div class="topbar-filters">
       <div class="multi-sel" id="f-serv">
@@ -770,10 +831,10 @@ body.modal-open{overflow:hidden}
       <div data-tone="green" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span>Resolvidos</p>
         <div class="kpi-main"><p class="value" id="k-resolvidos">0</p><span class="kpi-spark" id="sp-resolvidos"></span></div>
-        <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-resolvidos"></span><p class="legend" id="k-taxa-resolucao-legend">Taxa de resolução: 0%</p><p class="kpi-antes" id="k-resolvidos-antes" hidden></p></div>
       </div>
       <div data-tone="green" class="stat-card danger sla-hero">
-        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>SLA</p>
+        <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span id="k-sla-rotulo">SLA</span></p>
         <div class="kpi-main">
           <p class="value bad" id="k-sla-cumprido">0%</p>
           <div class="sla-ring"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="trk" cx="64" cy="64" r="54"/><circle class="arc" id="sla-arc" cx="64" cy="64" r="54" transform="rotate(-90 64 64)"/></svg></div>
@@ -789,7 +850,7 @@ body.modal-open{overflow:hidden}
       <div data-tone="red" class="stat-card danger clickable" id="k-pendentes-card" onclick="openStatusModal('aberto')">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Pendentes</p>
         <div class="kpi-main"><p class="value bad" id="k-pendentes">0</p><span class="kpi-spark" id="sp-pendentes"></span></div>
-        <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p></div>
+        <div class="kpi-foot"><span class="kpi-delta" id="dl-pendentes"></span><p class="legend" id="k-pendentes-legend">Ainda em aberto. Clique pra ver.</p><p class="kpi-antes" id="k-pendentes-antes" hidden></p></div>
       </div>
       <div data-tone="red" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12"/><path d="M7 2c0 5 10 5 10 10S7 17 7 22"/><path d="M17 2c0 5-10 5-10 10s10 5 10 10"/></svg></span>Aging</p>
@@ -1007,9 +1068,31 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
+      <div class="chart-panel so-st" id="jira-panel">
+        <p class="chart-title">Tarefas do Jira × chamados</p>
+        <p class="chart-sub" id="jira-sub" style="text-align:left;margin:-6px 0 10px">Cada tarefa do Jira e os chamados do Movidesk vinculados a ela. Clique numa tarefa para ver os chamados.</p>
+        <div class="jr-topo"><input type="search" id="jira-busca" placeholder="Buscar por tarefa, resumo, responsável ou projeto…" aria-label="Buscar tarefa do Jira" oninput="jiraBuscar()"><span class="kpi-antes" style="text-decoration:none;cursor:default" id="jira-conta"></span></div>
+        <div id="jira-lista"></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div class="chart-panel so-st" id="versoes-panel">
+        <p class="chart-title">Versões lançadas × chamados</p>
+        <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Os chamados que estão entrando têm relação com as versões que lançamos? Para cada versão: os chamados de Suporte Técnico do produto nos dias antes e depois do lançamento, quantos citam a versão ou a atualização, quantos foram marcados como "após a atualização" e quantos estão ligados às tarefas que a versão entregou.</p>
+        <div class="vs-topo">
+          <label>Período <select id="vs-periodo" onchange="versoesCarregar(true)"><option value="30">Últimos 30 dias</option><option value="60" selected>Últimos 60 dias</option><option value="90">Últimos 90 dias</option><option value="mes">Mês atual</option></select></label>
+          <label>Comparar <select id="vs-janela" onchange="versoesCarregar(true)"><option value="7">7 dias antes × depois</option><option value="14" selected>14 dias antes × depois</option><option value="30">30 dias antes × depois</option></select></label>
+          <span class="kpi-antes" style="text-decoration:none;cursor:default" id="vs-conta"></span>
+        </div>
+        <div id="vs-corpo"><p class="chart-sub" style="text-align:left">Carregando as versões…</p></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
       <div class="chart-panel" id="causas-panel">
         <p class="chart-title">Top 10 causas dos chamados</p>
-        <p class="chart-sub" id="causas-sub" style="text-align:left">Causa identificada pela Curadoria lendo o histórico inteiro de cada chamado. Clique numa causa para ver os tickets.</p>
+        <p class="chart-sub" id="causas-sub" style="text-align:left">Sempre o ano atual. Causa identificada pela Curadoria lendo o chamado como um todo (assunto e todas as ações), não o campo Causa do Movidesk. Clique numa causa para ver os tickets.</p>
         <div id="causas-lista" class="rolagem"></div>
       </div>
     </div>
@@ -1566,7 +1649,190 @@ function limparFiltros(){
     updateMsLabel(id,`${label}: todos`);
   });
   document.querySelectorAll('.multi-sel.open').forEach(o=>o.classList.remove('open'));
+  _visao='todos'; travarClasse(false);
+  try{ localStorage.setItem('hub_geral_visao','todos'); }catch(_){}   // Limpar também volta a visão para Todos
   render();
+}
+// ── Visões: atalho para a classificação (Todos | Suporte Técnico). Cada visão é só o filtro de Classificação marcado de um jeito;
+// os cards já respeitam esse filtro (a régua de SLA do Hub vale só para Suporte Técnico). Fica salva neste navegador.
+const VISOES={todos:{classes:[]}, st:{classes:['Suporte Técnico']}, produto:{classes:[]}};
+const VISAO_LS='hub_geral_visao';
+let _visao='todos';
+// Visão Suporte Técnico: três regras FIXAS, valem junto com os demais filtros e não dependem do dropdown de Classificação —
+// classificação do ticket = Suporte Técnico, categoria = Suporte Técnico e equipe de suporte (nome com "Suporte" ou a exceção Analytics - B.I.).
+const semAcentoV=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+// ── Card "Tarefas do Jira × chamados" (visão Suporte Técnico) ──
+// Agrupa por tarefa (silver.ticket.jiraissuekey, o campo jiraIssueKey do Movidesk, que chega como tarefa_jira em cada chamado) os chamados da visão
+// atual (mesmos filtros) e mostra, de cada tarefa, o resumo/status/responsável vindos do Jira (GET /geral/tarefas-jira, lidos dos JSON do extrator).
+const JIRA_BASE='https://nimitz.atlassian.net/browse/';
+let _jiraGrupos=[], _jiraInfo={}, _jiraMostrar=15, _jiraBuscando=false;
+function renderTarefasJira(rowsCtx,pendRows){
+  const box=document.getElementById('jira-lista'); if(!box||_visao!=='st') return;
+  const por=new Map(), vistos=new Set();
+  [...rowsCtx,...pendRows].forEach(r=>{
+    if(!r.tarefa_jira||vistos.has(r.ticket_id)) return; vistos.add(r.ticket_id);
+    const k=String(r.tarefa_jira).toUpperCase(); if(!por.has(k)) por.set(k,[]); por.get(k).push(r);
+  });
+  _jiraGrupos=[...por].map(([k,l])=>{ const ab=l.filter(isAberto).length; return {k,l,ab,res:l.length-ab}; })
+    .sort((a,b)=>b.l.length-a.l.length||b.ab-a.ab||a.k.localeCompare(b.k));
+  _jiraTotalChamados=_jiraGrupos.reduce((n,g)=>n+g.l.length,0);
+  jiraDesenhar();
+}
+let _jiraTotalChamados=0;
+function jiraFiltrados(){
+  const q=((document.getElementById('jira-busca')||{}).value||'').trim().toLowerCase();
+  if(!q) return _jiraGrupos;
+  return _jiraGrupos.filter(g=>{ const i=_jiraInfo[g.k]||{}; return [g.k,i.resumo,i.responsavel,i.projeto,i.status].join(' ').toLowerCase().includes(q); });
+}
+// Tarefa que não está nos dados do Jira (cancelada ou fora do período que o extrator lê): usa o assunto do chamado vinculado como resumo
+const jiraResumoDoChamado=g=>{
+  const a=(g.l.find(r=>r.assunto)||{}).assunto||'';
+  return a.replace(new RegExp('^\\s*'+g.k.replace(/[-]/g,'[-–]')+'\\s*[-–:|]*\\s*','i'),'').trim()||a;
+};
+function jiraBuscar(){ _jiraMostrar=15; jiraDesenhar(); }
+function jiraDesenhar(){
+  const box=document.getElementById('jira-lista'); if(!box) return;
+  const conta=document.getElementById('jira-conta');
+  if(!_jiraGrupos.length){
+    box.innerHTML='<p class="chart-sub" style="text-align:left;margin:6px 0">Nenhum chamado desta visão tem tarefa do Jira vinculada nos filtros atuais. (As chaves entram por ano pela carga <code>carga-jira-issuekey</code>; anos ainda não carregados aparecem vazios.)</p>';
+    if(conta) conta.textContent=''; return;
+  }
+  const lista=jiraFiltrados(), vis=lista.slice(0,_jiraMostrar);
+  if(conta) conta.textContent=`${_jiraGrupos.length.toLocaleString('pt-BR')} tarefa(s) · ${_jiraTotalChamados.toLocaleString('pt-BR')} chamado(s) vinculado(s)${lista.length!==_jiraGrupos.length?` · mostrando ${lista.length.toLocaleString('pt-BR')} na busca`:''}`;
+  box.innerHTML=vis.map(g=>{
+    const i=_jiraInfo[g.k], fim=i&&i.finalizada, semDados=!i&&_jiraInfo.hasOwnProperty(g.k);
+    const resumo=(i&&i.resumo)||(semDados?jiraResumoDoChamado(g):'');
+    const linha2=i?[i.status&&`<span class="jr-st ${fim?'fim':'abe'}">${esc(i.status)}</span>`,i.projeto&&esc(i.projeto),i.responsavel&&esc(i.responsavel)].filter(Boolean).join(' · '):(semDados?'<span class="jr-st abe">fora dos dados do Jira</span> · provavelmente cancelada ou fora do período extraído · resumo tirado do chamado':'carregando dados da tarefa…');
+    return `<div class="jr-lin" data-k="${escAttr(g.k)}" role="button" tabindex="0" title="Ver os ${g.l.length} chamados vinculados">
+      <a class="jr-key" href="${JIRA_BASE}${encodeURIComponent(g.k)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(g.k)}</a>
+      <div class="jr-mid"><span class="jr-res" title="${escAttr(resumo)}">${esc(resumo||'—')}</span><small>${linha2}</small></div>
+      <div class="jr-n"><b>${g.l.length.toLocaleString('pt-BR')}</b><small>chamado${g.l.length===1?'':'s'} · ${g.ab} aberto${g.ab===1?'':'s'} · ${g.res} resolvido${g.res===1?'':'s'}</small></div>
+    </div>`;
+  }).join('')+(lista.length>vis.length?`<button type="button" class="btn jr-mais" onclick="_jiraMostrar+=15;jiraDesenhar()">Mostrar mais (${(lista.length-vis.length).toLocaleString('pt-BR')})</button>`:'');
+  // dados das tarefas que ainda não temos (as da página atual), numa chamada só
+  const faltam=vis.map(g=>g.k).filter(k=>!_jiraInfo.hasOwnProperty(k));
+  if(faltam.length&&!_jiraBuscando){
+    _jiraBuscando=true;
+    api('/geral/tarefas-jira?chaves='+encodeURIComponent(faltam.join(',')),30000).then(r=>{ Object.entries(r.tarefas||{}).forEach(([k,v])=>{ _jiraInfo[k]=v; }); }).catch(()=>{ faltam.forEach(k=>{ _jiraInfo[k]=null; }); })
+      .finally(()=>{ _jiraBuscando=false; jiraDesenhar(); });
+  }
+}
+document.addEventListener('click',e=>{
+  const l=e.target.closest&&e.target.closest('#jira-lista .jr-lin'); if(!l||e.target.closest('a')) return;
+  const g=_jiraGrupos.find(x=>x.k===l.dataset.k); if(!g) return;
+  const i=_jiraInfo[g.k]||{}, resumo=i.resumo||jiraResumoDoChamado(g);
+  openDetailModal(`Tarefa ${g.k}${resumo?` — ${resumo}`:''}`,`${g.l.length} chamado${g.l.length===1?'':'s'} vinculado${g.l.length===1?'':'s'} · ${g.ab} aberto${g.ab===1?'':'s'}`,g.l);
+});
+document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('jr-lin')){ e.preventDefault(); e.target.click(); } });
+
+// ── Card "Versões lançadas × chamados" (visão Suporte Técnico) ──
+// Dados de GET /geral/versoes-chamados (versões do Jira × chamados de Suporte Técnico do produto). Não segue os filtros do topo: é por versão.
+let _versoes=null, _versoesSeq=0, _versoesCarregando=false;
+function versoesDesde(){
+  const v=document.getElementById('vs-periodo').value;
+  if(v==='mes'){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; }
+  return new Date(Date.now()-Number(v)*86400000).toISOString().slice(0,10);
+}
+async function versoesCarregar(forcar){
+  const corpo=document.getElementById('vs-corpo'); if(!corpo||_visao!=='st') return;
+  if(_versoes&&!forcar) return;
+  if(_versoesCarregando) return;
+  _versoesCarregando=true; const seq=++_versoesSeq;
+  corpo.innerHTML='<p class="chart-sub" style="text-align:left">Calculando as versões e os chamados…</p>';
+  try{
+    const janela=document.getElementById('vs-janela').value;
+    const r=await api(`/geral/versoes-chamados?janela=${janela}&desde=${versoesDesde()}`,120000);
+    if(seq!==_versoesSeq) return;
+    _versoes=r; versoesDesenhar();
+  }catch(e){ if(seq===_versoesSeq) corpo.innerHTML=`<p class="chart-sub" style="text-align:left;color:var(--bad,#dc2626)">Não foi possível calcular: ${esc(e.message)}</p>`; }
+  finally{ _versoesCarregando=false; }
+}
+function versoesDesenhar(){
+  const corpo=document.getElementById('vs-corpo'), conta=document.getElementById('vs-conta'); if(!corpo||!_versoes) return;
+  const n=x=>(x==null?'—':Number(x).toLocaleString('pt-BR'));
+  const j=_versoes.janela, vs=_versoes.versoes||[];
+  if(!vs.length){ corpo.innerHTML=`<p class="chart-sub" style="text-align:left">${esc(_versoes.aviso||'Nenhuma versão lançada no período escolhido (ou fora do seu produto).')}</p>`; if(conta) conta.textContent=''; return; }
+  const comMapa=vs.filter(v=>v.servicos&&v.servicos.length);
+  if(conta) conta.textContent=`${vs.length} versão(ões) lançada(s) · ${comMapa.length} com produto no Movidesk${_versoes.semMapa?` · ${_versoes.semMapa} sem produto mapeado`:''}`;
+  const btn=(v,tipo,val,tit)=>val>0?`<button type="button" class="vs-num" onclick="versaoAbrir('${escAttr(v.id)}','${tipo}')" title="${escAttr(tit)}">${n(val)}</button>`:`<button type="button" class="vs-num" disabled>${n(val)}</button>`;
+  const linhas=vs.map(v=>{
+    const mapeada=v.servicos&&v.servicos.length;
+    const variacao=mapeada&&v.variacaoPct!=null?`<span class="vs-var ${v.variacaoPct>=30?'alta':v.variacaoPct<=-10?'queda':'igual'}" title="Ritmo diário de chamados: ${v.ritmoAntes.toLocaleString('pt-BR',{maximumFractionDigits:1})}/dia antes × ${v.ritmoDepois.toLocaleString('pt-BR',{maximumFractionDigits:1})}/dia depois">${v.variacaoPct>0?'+':''}${v.variacaoPct}%</span>`:'<span class="vs-parcial">—</span>';
+    return `<tr class="${mapeada?'':'sem-mapa'}">
+      <td><span class="vs-nome">${esc(v.nome)}</span><span class="vs-sub">${esc(v.projeto||'')} · ${n(v.tarefas)} tarefa(s)${v.tiposTarefa&&v.tiposTarefa.bugs?` (${n(v.tiposTarefa.bugs)} bug(s))`:''}</span></td>
+      <td>${esc(String(v.lancada).split('-').reverse().join('/'))}${mapeada&&!v.janelaCompleta?`<span class="vs-sub vs-parcial">há ${v.diasDecorridos} d · janela em andamento</span>`:''}</td>
+      <td>${mapeada?esc(v.servicos.join(', ')):'<span class="vs-parcial">sem produto mapeado</span>'}</td>
+      <td class="n">${mapeada?`${n(v.antes)} → ${btn(v,'depois',v.depois,`Chamados de Suporte Técnico abertos nos ${j} dias depois do lançamento`)}`:'—'}</td>
+      <td class="n">${variacao}</td>
+      <td class="n">${mapeada?`${btn(v,'citaversao',v.citaVersao,'Chamados que citam o número da versão')} / ${btn(v,'cita',v.citaAtualizacao,'Chamados que falam de atualização ou nova versão')}`:'—'}</td>
+      <td class="n">${mapeada?btn(v,'causa',v.causaApos,'Chamados marcados como "Situação Reportada Após a Atualização"'):'—'}</td>
+      <td class="n">${btn(v,'vinculados',v.vinculados,'Chamados ligados às tarefas desta versão')}${v.vinculadosAbertos?`<span class="vs-sub">${n(v.vinculadosAbertos)} aberto(s)</span>`:''}</td>
+    </tr>`;
+  }).join('');
+  corpo.innerHTML=`<div class="rolagem" style="overflow-x:auto"><table class="vs-tab"><thead><tr>
+    <th>Versão</th><th>Lançada</th><th>Produto</th><th class="n" title="Chamados de Suporte Técnico do produto: ${j} dias antes → ${j} dias depois do lançamento">Chamados antes → depois (${j} d)</th><th class="n" title="Variação do ritmo diário de chamados">Variação</th>
+    <th class="n" title="Citam o número da versão / falam de atualização ou nova versão (assunto e 1ª ação)">Citam versão / atualização</th><th class="n" title='Marcados com a causa "Situação Reportada Após a Atualização"'>"Após a atualização"</th><th class="n" title="Chamados ligados às tarefas que a versão entregou (demanda que ela atendeu)">Vinculados às tarefas</th>
+    </tr></thead><tbody>${linhas}</tbody></table></div>
+    <p class="vs-nota">Variação = ritmo diário de chamados depois ÷ antes. Alta (vermelho) a partir de +30%. Coincidir no tempo não prova que a versão causou os chamados: use os números de "citam" e "após a atualização" para confirmar, e abra a lista para ler os chamados. O produto de cada versão sai do projeto do Jira (arquivo <code>server/data/versoes-servico.json</code>).</p>`;
+}
+async function versaoAbrir(versaoId,tipo){
+  const v=(_versoes&&_versoes.versoes||[]).find(x=>String(x.id)===String(versaoId)); if(!v) return;
+  const rotulo={depois:`abertos nos ${_versoes.janela} dias depois do lançamento`,citaversao:'citam o número da versão',cita:'falam de atualização ou nova versão',causa:'marcados "Situação Reportada Após a Atualização"',vinculados:'vinculados às tarefas da versão'}[tipo]||tipo;
+  openDetailModal(`Versão ${v.nome}`,'Carregando os chamados…',[]);
+  try{
+    const r=await api(`/geral/versoes-chamados/lista?versao=${encodeURIComponent(versaoId)}&tipo=${tipo}&janela=${_versoes.janela}`,60000);
+    const rows=r.rows||[]; rows.forEach(x=>{ _rowsById[x.ticket_id]=x; });
+    openDetailModal(`Versão ${v.nome} — chamados ${rotulo}`,`${rows.length.toLocaleString('pt-BR')} chamado${rows.length===1?'':'s'}${rows.length>=500?' (mostrando os 500 mais recentes)':''}`,rows);
+  }catch(e){ openDetailModal(`Versão ${v.nome}`,`Não foi possível carregar: ${e.message}`,[]); }
+}
+
+// Visão Produto: equipes do tipo Produto (js/equipesTipo.js: as "Equipe Técnica" + as equipes "depende" quando a classificação não é Suporte Técnico),
+// em qualquer classificação. O prazo vem da previsão de solução do Movidesk; a régua de SLA do Hub não se aplica.
+function visaoLinha(r){
+  if(_visao==='produto') return !!window.hubTipoEquipe&&window.hubTipoEquipe(r.equipe,classificacaoDe(r))==='produto';
+  if(_visao!=='st') return true;
+  return classificacaoDe(r)==='Suporte Técnico'&&semAcentoV(r.categoria)==='suporte tecnico'&&equipeContaNoSla(r.equipe);
+}
+function travarClasse(on){
+  const el=document.getElementById('f-class'); if(!el) return;
+  el.classList.toggle('ms-travado',!!on);
+  el.title=on?'Fixo na visão Suporte Técnico':'';
+}
+function visaoAtual(){
+  if(_visao==='st'||_visao==='produto') return _visao;
+  return getMsValues('f-class').length?'personalizada':'todos';
+}
+const PAINEIS_REGUA_HUB=['k-pausa','sla-evo-panel','impacto-panel','impacto-cima-panel','impacto-baixo-panel','impacto-cli-panel','slaUrgChart','slaEquipe'];
+function pintarVisao(){
+  const v=visaoAtual();
+  document.body.classList.toggle('visao-produto',_visao==='produto');
+  document.body.classList.toggle('visao-st',_visao==='st');
+  PAINEIS_REGUA_HUB.forEach(id=>{ const el=document.getElementById(id); const alvo=el&&el.closest('.stat-card,.chart-panel,.data-panel'); if(alvo) alvo.classList.add('so-regua-hub'); });
+  document.querySelectorAll('#visao-abas .visao-btn').forEach(b=>{ const on=b.dataset.v===v; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
+  const nota=document.getElementById('visao-nota');
+  if(nota) nota.textContent=v==='produto'?'Equipes de Produto · prazo pela previsão de solução do Movidesk (sem a régua de SLA do Hub)':v==='st'?'Fixo: classificação, categoria e equipe de suporte · SLA pela régua do Hub (meta 90%)':v==='personalizada'?'Classificação personalizada no filtro':'';
+}
+function escolherVisao(v){
+  const def=VISOES[v]; if(!def) return;
+  _visao=v; travarClasse(v==='st');   // Produto e Todos deixam a Classificação livre (e limpa)
+  document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=def.classes.includes(i.value); });
+  updateMsLabel('f-class','Classificação: todos');
+  try{ localStorage.setItem(VISAO_LS,v); }catch(_){}
+  pintarVisao();
+  render();
+}
+let _visaoAplicada=false;
+function aplicarVisaoSalva(){
+  if(_visaoAplicada) return;
+  _visaoAplicada=true;
+  let v='todos'; try{ v=localStorage.getItem(VISAO_LS)||'todos'; }catch(_){}
+  if(v==='produto') _visao='produto';
+  if(v==='st'){
+    _visao='st'; travarClasse(true);
+    document.querySelectorAll('#f-class .ms-drop input').forEach(i=>{ i.checked=VISOES.st.classes.includes(i.value); });
+    updateMsLabel('f-class','Classificação: todos');
+  }
+  pintarVisao();
 }
 function populateMs(id,items,allLabel,onChange){
   const drop=document.querySelector(`#${id} .ms-drop`);
@@ -1637,6 +1903,7 @@ function buildFilterOptions(){
   renderYearLoadMore(years);
   populateMs('f-month',MONTHS.map(m=>({v:m.v,l:m.l})),'Mês: todos',render);
   aplicarMesPadrao();
+  aplicarVisaoSalva();
   // Todos os filtros ganham o campo de busca no topo do dropdown.
   FILTROS_MS.forEach(([id,label])=>msBusca(id,`Buscar ${label.toLowerCase()}…`));
 }
@@ -1715,6 +1982,7 @@ function getFilteredRows(){
     if(servFils.length&&!servFils.includes(r.servico)) return false;
     if(cliFils.length&&!cliFils.includes(r.organizacao)) return false;
     if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
+    if(!visaoLinha(r)) return false;
     if(!statusBate(r,statusFils)) return false;
     return true;
   });
@@ -1764,12 +2032,14 @@ function getPendentesGlobalRows(){
     if(servFils.length&&!servFils.includes(r.servico)) return false;
     if(cliFils.length&&!cliFils.includes(r.organizacao)) return false;
     if(classFils.length&&!classFils.includes(classificacaoDe(r))) return false;
+    if(!visaoLinha(r)) return false;
     return true;
   });
 }
 
 // ── render ───────────────────────────────────────────────────────────
 function render(){
+  pintarVisao();
   if(!_rows.length && document.getElementById('geral-dash').dataset.err) return;
   // Tempo de SLA líquido que já vem calculado do servidor (silver.ticket_sla_liquido): entra no cache e o card de SLA
   // abre junto com os outros. Quem vier sem (ex.: histórico antigo) cai no cálculo sob demanda de antes.
@@ -1805,10 +2075,31 @@ function render(){
     const rotuloPeriodo=(yf.length||mf.length)?'Todos em aberto, de qualquer ano (não segue o filtro de Ano/Mês). Clique pra ver.':'Ainda em aberto (todos os anos). Clique pra ver.';
     document.getElementById('k-pendentes-legend').textContent=rotuloPeriodo;
   }
+  // "Antes": quantos dos totais foram abertos em anos anteriores (pendentes: antes do ano de hoje; resolvidos: antes do ano em que foram resolvidos)
+  {
+    const anoHoje=new Date().getFullYear();
+    const anoDe=d=>d?new Date(d).getFullYear():null;
+    const linhaAntes=(id,arr,ehAntes,titulo,explica,sufixo)=>{
+      const el=document.getElementById(id); if(!el) return;
+      if(!arr.length){ el.hidden=true; el.onclick=null; return; }
+      const lista=arr.filter(ehAntes), n=lista.length, pc=n/arr.length*100;
+      el.hidden=false;
+      el.innerHTML=`↳ <b>${n.toLocaleString('pt-BR')}</b> (${pc>0&&pc<1?'<1':Math.round(pc)}%) abertos em anos anteriores${sufixo?` <span style="opacity:.8">· ${sufixo}</span>`:''}`;
+      el.title=`${explica} Clique para ver os ${n.toLocaleString('pt-BR')} chamados.`;
+      el.onclick=ev=>{ ev.stopPropagation(); openDetailModal(titulo,`${n.toLocaleString('pt-BR')} ticket${n===1?'':'s'}`,lista); };
+    };
+    linhaAntes('k-pendentes-antes',pendentesRows,r=>{ const a=anoDe(r.criado_em); return a!=null&&a<anoHoje; },'Pendentes abertos em anos anteriores','Pendentes de hoje que foram abertos antes do ano atual.');
+    // Resolvidos: conta o ANO inteiro (o do filtro de Ano, ou o atual), sem o corte do Mês — "resolvidos este ano que foram abertos em anos anteriores"
+    const anosRes=getMsValues('f-year').map(Number).filter(Boolean), alvo=anosRes.length?anosRes:[anoHoje];
+    const resAno=rowsCtx.filter(r=>isResolvido(r)&&r.resolvido_em&&alvo.includes(anoDe(r.resolvido_em)));
+    linhaAntes('k-resolvidos-antes',resAno,r=>{ const a=anoDe(r.criado_em), b=anoDe(r.resolvido_em); return a!=null&&b!=null&&a<b; },`Resolvidos em ${alvo.join(', ')} que foram abertos em anos anteriores`,`Chamados resolvidos em ${alvo.join(', ')} (o ano inteiro, sem o corte do Mês) que foram abertos em anos anteriores, dentro dos demais filtros e da visão ativos.`,`resolvidos em ${alvo.join(', ')}`);
+  }
 
   // ── SLA / backlog ──
   _slaFaltam=new Set();
-  const slaCard=slaHub(resolvidosRows);
+  // Produto: "prazo cumprido" = resolvidos até a previsão de solução do Movidesk; as demais visões usam a régua do Hub
+  const slaCard=_visao==='produto'?(()=>{ const c=resolvidosRows.filter(r=>r.resolvido_em&&r.sla_solucao); return {ok:c.filter(r=>new Date(r.resolvido_em)<=new Date(r.sla_solucao)).length,total:c.length,faltam:0}; })():slaHub(resolvidosRows);
+  { const rot=document.getElementById('k-sla-rotulo'); if(rot) rot.textContent=_visao==='produto'?'Prazo cumprido':'SLA'; }
   const slaCumprido=slaCard.total?slaCard.ok/slaCard.total:0;
   _slaBase={ok:slaCard.ok,total:slaCard.total};   // base do SLA do período: usada no impacto de cada pendente (modal de pendentes)
   const vencidosRows=pendentesRows.filter(isVencido);
@@ -1830,7 +2121,7 @@ function render(){
     }
   }
   { const arc=document.getElementById('sla-arc'); if(arc){ const C=2*Math.PI*54; arc.style.strokeDasharray=`${(C*Math.max(0,Math.min(1,slaCumprido))).toFixed(1)} ${C.toFixed(1)}`; } }
-  document.getElementById('k-sla-cumprido-legend').textContent='';   // sem legenda (pedido do usuário)
+  document.getElementById('k-sla-cumprido-legend').textContent=_visao==='produto'?'Resolvidos até a previsão do Movidesk.':'';   // fora de Produto, sem legenda (pedido do usuário)
   document.getElementById('k-backlog-vencido').textContent=vencidosRows.length.toLocaleString('pt-BR');
   // Aging: tempo de vida dos pendentes (dias desde a abertura) — média em destaque, com máximo, mínimo, mediana e % com mais de 30 dias
   {
@@ -1868,10 +2159,14 @@ function render(){
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
   renderTemas(rowsFull);
-  window._rowsFullAtual=rowsFull;
-  renderCausas(rowsFull);
+  // Top 10 causas: sempre o ANO ATUAL (chamados criados neste ano), com os demais filtros mas sem o corte de Ano/Mês do topo
+  const rowsCausasAno=rowsCtx.filter(r=>r.criado_em&&new Date(r.criado_em).getFullYear()===new Date().getFullYear());
+  window._rowsFullAtual=rowsCausasAno;
+  renderCausas(rowsCausasAno);
   renderImpactoSla(rowsResolv);
   renderSlaEquipe(resolvidosRows);
+  renderTarefasJira(rowsCtx,pendentesRows);
+  if(_visao==='st') versoesCarregar(false);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);
@@ -2252,7 +2547,11 @@ function buscarSlaFaltantes(depois){
   const ids=[..._slaFaltam]; _slaFaltam=new Set();
   if(!ids.length||_slaBuscando) return;
   _slaBuscando=true;
-  buscarMinutosLiquidos(ids).then(()=>{ _slaBuscando=false; depois(); }).catch(()=>{ _slaBuscando=false; });
+  // Se a busca falhar (servidor ocupado, rede), tenta mais uma vez; se falhar de novo, marca os que faltam como "sem tempo" e redesenha:
+  // o card passa a mostrar o que já tem em vez de ficar em "…" para sempre.
+  const desistir=()=>{ _slaBuscando=false; ids.forEach(id=>{ if(!(id in _impactoMinutos)) _impactoMinutos[id]=null; }); depois(); };
+  buscarMinutosLiquidos(ids).then(()=>{ _slaBuscando=false; depois(); })
+    .catch(()=>{ setTimeout(()=>buscarMinutosLiquidos(ids).then(()=>{ _slaBuscando=false; depois(); }).catch(desistir),3000); });
 }
 let _impactoMinutos={};   // ticket_id -> minutos úteis líquidos (cache)
 let _impactoSeq=0;
@@ -2271,11 +2570,15 @@ async function impactoBuscarMinutos(ids){
   const faltam=ids.filter(id=>!(id in _impactoMinutos));
   for(let i=0;i<faltam.length;i+=2000){
     const lote=faltam.slice(i,i+2000);
-    const r=await fetch(`${API}/geral/sla-liquido`,{
-      method:'POST',
-      headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},
-      body:JSON.stringify({ids:lote}),
-    });
+    const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),60000);   // sem resposta em 60 s: aborta (não deixa a busca pendurada)
+    let r; try{
+      r=await fetch(`${API}/geral/sla-liquido`,{
+        method:'POST',
+        headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},
+        body:JSON.stringify({ids:lote}),
+        signal:ctl.signal,
+      });
+    } finally { clearTimeout(t); }
     if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); }
     const {minutos}=await r.json();
     lote.forEach(id=>{ _impactoMinutos[id]=minutos[id]!=null?minutos[id]:null; });
@@ -2595,7 +2898,7 @@ async function renderCausas(rows){
   const lista=document.getElementById('causas-lista'), sub=document.getElementById('causas-sub');
   if(!lista) return;
   const seq=++_causasSeq;
-  if(!rows.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket no período filtrado.</p>'; return; }
+  if(!rows.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket do ano atual nos filtros escolhidos.</p>'; return; }
   try{
     if(!_causasBase){
       lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
@@ -2611,9 +2914,9 @@ async function renderCausas(rows){
     for(const [id,i] of _causasBase.itens){ if(!ids.has(id)) continue; comCausa++; (porCausa.get(i)||porCausa.set(i,[]).get(i)).push(id); }
     const n=x=>x.toLocaleString('pt-BR');
     const cob=ids.size?comCausa/ids.size:0;
-    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets do período têm causa diagnosticada (${fmtPct(cob)}) — os demais ainda não passaram pela Curadoria. Clique numa causa para ver os tickets.`;
+    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets de ${new Date().getFullYear()} têm causa diagnosticada (${fmtPct(cob)}) — a Curadoria lê o chamado inteiro (assunto e todas as ações); os demais ainda não passaram por ela. Clique numa causa para ver os tickets.`;
     _causasGrupos=[...porCausa.entries()].map(([i,lst])=>({causa:_causasBase.causas[i],qtd:lst.length,ids:lst})).sort((a,b)=>b.qtd-a.qtd).slice(0,10);
-    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do período foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
+    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do ano atual foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
     const max=_causasGrupos[0].qtd;
     lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
       <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
@@ -3543,6 +3846,11 @@ const DETALHE_MAX=1000;   // linhas desenhadas no modal (o resto fica fora para 
 let _slaBase={ok:0,total:0};
 const temSlaPend=rows=>rows.length>0&&rows.every(r=>r.sla_hub!==undefined);
 function slaPendInfo(r){
+  if(_visao==='produto'){
+    if(!r.sla_solucao) return {txt:'Sem prazo no Movidesk',cls:'',imp:'—',impCls:'',tip:'Chamado sem previsão de solução cadastrada no Movidesk.'};
+    const d=new Date(r.sla_solucao), venc=d.getTime()<Date.now(), dias=Math.max(0,Math.floor(Math.abs(Date.now()-d.getTime())/86400000));
+    return {txt:venc?`Vencido há ${dias} d (previsão ${dtStr(r.sla_solucao)})`:`No prazo · vence em ${dias} d (${dtStr(r.sla_solucao)})`,cls:venc?'bad':'good',imp:'—',impCls:'',tip:'Prazo pela previsão de solução do Movidesk. Na visão Produto não há impacto pela régua de SLA do Hub.'};
+  }
   const meta=r.sla_meta_h!=null?Number(r.sla_meta_h):null;
   if(!r.sla_hub||r.sla_hub==='fora'||meta==null) return {txt:'Fora da régua',cls:'',imp:'—',impCls:'',tip:'Chamado fora da régua de SLA do Hub (não é Suporte Técnico de equipe de suporte, cliente excluído ou urgência sem meta): não entra no SLA.'};
   const usado=r.sla_aberto_min!=null?Number(r.sla_aberto_min)/60:null, h=v=>fmtH(Math.abs(v));

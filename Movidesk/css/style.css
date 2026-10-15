@@ -2042,6 +2042,17 @@ body.legacy-view-mode .app-wrapper {
 
 .cfg-tabs::-webkit-scrollbar { display: none; }
 
+/* Rolagem das abas (js/cfgTabsScroll.js): o contêiner fixa no topo, a barra rola por roda do mouse, arrasto e setas, com esmaecido nas pontas */
+.cfg-tabs-wrap { position: sticky; top: 0; z-index: 10; margin-bottom: 24px; background: var(--background, var(--bg)); }
+.cfg-tabs-wrap .cfg-tabs { position: static; margin-bottom: 0; scroll-behavior: smooth; overscroll-behavior-x: contain; cursor: grab; }
+.cfg-tabs-wrap .cfg-tabs.arrastando { cursor: grabbing; scroll-behavior: auto; user-select: none; }
+.cfg-tabs-wrap .cfg-tabs.arrastando .cfg-tab-btn { pointer-events: none; }
+.cfg-tabs-seta { position: absolute; top: 4px; bottom: 2px; width: 38px; display: none; align-items: center; justify-content: center; border: 0; padding: 0; z-index: 2; cursor: pointer; color: var(--text); font: 700 22px/1 inherit; font-family: inherit; }
+.cfg-tabs-seta.esq { left: 0; background: linear-gradient(90deg, var(--background, var(--bg)) 55%, transparent); }
+.cfg-tabs-seta.dir { right: 0; background: linear-gradient(270deg, var(--background, var(--bg)) 55%, transparent); }
+.cfg-tabs-seta:hover { color: var(--primary, #7c6ef5); }
+.cfg-tabs-wrap.tem-esq .cfg-tabs-seta.esq, .cfg-tabs-wrap.tem-dir .cfg-tabs-seta.dir { display: flex; }
+
 .cfg-tab-btn {
     display: flex;
     align-items: center;

@@ -23,6 +23,7 @@ const ALLOWED_FILES = new Set([
   'sprint_data.json',
   'issues_raw.json',
   'qualidade_data.json',
+  'versoes_data.json',   // aba Versões do painel Jira (versões lançadas no ano, geradas pelo extrator)
 ]);
 
 router.get('/:file', authMiddleware, requireTabAccess('jira'), async (req, res) => {

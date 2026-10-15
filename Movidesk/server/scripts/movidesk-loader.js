@@ -300,6 +300,7 @@ const SELECT_FIELDS = [
   'lastUpdate', 'stoppedTime', 'stoppedTimeWorkingTime', 'slaRealResponseDate',
   'slaSolutionDate', // prazo (deadline) de solução do SLA — usado pro card "Tickets vencidos"
   'reopenedIn', // usado pro card "Taxa de reabertura" do Painel Geral
+  'jiraIssueKey', // tarefa do Jira vinculada (card "Tarefas do Jira × chamados" do Painel Geral, visão Suporte Técnico)
 ].join(',');
 
 // Movidesk OData não suporta sintaxe aninhada v4 com semicolons ($select dentro
@@ -554,6 +555,7 @@ async function ensureTables() {
       'stopped_time_wt float', 'sla_response_date timestamptz', 'extracted_at timestamptz',
       'sla_solution_date timestamptz',
       'reopened_in timestamptz',
+      'jiraissuekey text',   // tarefa do Jira vinculada ao chamado (campo jiraIssueKey do Movidesk)
       'detalhes_em timestamptz',   // quando as ações/clientes/campos do chamado foram gravados (fila de detalhes em segundo plano)
     ].map(col => {
       const [name] = col.split(' ');
@@ -957,6 +959,7 @@ async function saveBatch(tickets) {
   const slaRespDs   = tickets.map(t => t.slaRealResponseDate || null);
   const slaSolDs    = tickets.map(t => t.slaSolutionDate     || null);
   const reopenedIns = tickets.map(t => t.reopenedIn || null);
+  const jiraKeys    = tickets.map(t => ('jiraIssueKey' in t) ? String(t.jiraIssueKey || '').trim() : null);   // null = o campo não veio: não mexe; '' = veio vazio: limpa
   // clientorganization — pega a organização da primeira org dos clients.
   // Não cai pro nome do contato (c.businessName) quando não há organização:
   // isso fazia o "Top clientes" mostrar nome de pessoa em vez de empresa.
@@ -981,7 +984,7 @@ async function saveBatch(tickets) {
        last_update, ownerteam, owner_id, owner_name,
        urgency, category, service_full,
        resolved_in, closed_in, stopped_time_wt, stopped_time,
-       sla_response_date, clientorganization, sla_solution_date, reopened_in, extracted_at)
+       sla_response_date, clientorganization, sla_solution_date, reopened_in, jiraissuekey, extracted_at)
     SELECT
       u.ticket_id::bigint, u.subject, u.status, u.basestatus, u.createddate::timestamptz,
       u.last_update::timestamptz, u.ownerteam, u.owner_id, u.owner_name,
@@ -989,19 +992,20 @@ async function saveBatch(tickets) {
       u.resolved_in::timestamptz, u.closed_in::timestamptz,
       u.stopped_time_wt::float, u.stopped_time::float,
       u.sla_response_date::timestamptz, u.clientorganization, u.sla_solution_date::timestamptz,
-      u.reopened_in::timestamptz, NOW()
+      u.reopened_in::timestamptz, NULLIF(u.jiraissuekey, ''), NOW()
     FROM unnest(
       $1::varchar[],  $2::text[],  $3::text[],  $4::text[],  $5::text[],
       $6::text[],     $7::text[],  $8::text[],  $9::text[],
       $10::text[],    $11::text[], $12::text[],
       $13::text[],    $14::text[], $15::text[],  $16::text[],
-      $17::text[],    $18::text[], $19::text[],  $20::text[]
+      $17::text[],    $18::text[], $19::text[],  $20::text[],
+      $21::text[]
     ) AS u(
       ticket_id, subject, status, basestatus, createddate,
       last_update, ownerteam, owner_id, owner_name,
       urgency, category, service_full,
       resolved_in, closed_in, stopped_time_wt, stopped_time,
-      sla_response_date, clientorganization, sla_solution_date, reopened_in
+      sla_response_date, clientorganization, sla_solution_date, reopened_in, jiraissuekey
     )
     ON CONFLICT (ticket_id) DO UPDATE SET
       subject           = EXCLUDED.subject,
@@ -1022,12 +1026,13 @@ async function saveBatch(tickets) {
       clientorganization = EXCLUDED.clientorganization,
       sla_solution_date = EXCLUDED.sla_solution_date,
       reopened_in       = EXCLUDED.reopened_in,
+      jiraissuekey      = CASE WHEN EXCLUDED.jiraissuekey IS NULL THEN silver.ticket.jiraissuekey ELSE NULLIF(EXCLUDED.jiraissuekey, '') END,
       extracted_at      = EXCLUDED.extracted_at
   `, [ids, subjects, statuses, baseStats, createdDts,
       lastUpdates, ownerTeams, ownerIds, ownerNames,
       urgencies, categories, services,
       resolvedIns, closedIns, stoppedTs, stoppedCs,
-      slaRespDs, clientOrgs, slaSolDs, reopenedIns]));
+      slaRespDs, clientOrgs, slaSolDs, reopenedIns, jiraKeys]));
   await db.query(`UPDATE silver.ticket SET detalhes_em = NOW() WHERE ticket_id = ANY($1::bigint[])`, [ids]).catch(() => {});   // fila de detalhes em segundo plano
 
   // ── 2. silver.ticket_acao ──

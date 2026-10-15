@@ -307,7 +307,13 @@ router.get('/:id/workspace', requireLeitura, exigirChamadoNoEscopo, async (req, 
     const t = await lerTicketAoVivo(id);
     if (!t) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
     const papel = await papelDoUsuario(req.user.id);
-    res.json({ ...t, podeInteragir: ROLES_ESCRITA.includes(papel) });
+    // O que a própria pessoa marcou em Reincidências ("procede" / "não procede") aparece no chamado
+    let minhaReincidencia = null;
+    try {
+      const m = (await db.query(`SELECT procede, comentario, atualizado_em FROM public.reincidencia_feedback WHERE ticket_id = $1 AND usuario_id = $2`, [id, req.user.id])).rows[0];
+      if (m) minhaReincidencia = { procede: m.procede, comentario: m.comentario || '', em: m.atualizado_em };
+    } catch (_) { /* tabela ainda não existe: ninguém marcou nada */ }
+    res.json({ ...t, podeInteragir: ROLES_ESCRITA.includes(papel), minhaReincidencia });
   } catch (e) { erroParaResposta(res, e); }
 });
 

@@ -53,6 +53,7 @@
                 <div class="ws-assunto" title="${esc(d.assunto)}">${esc(d.assunto)}</div>
                 <span class="ws-chip">${esc(d.status)}</span>
             </div>
+            ${d.minhaReincidencia ? `<div class="ws-reinc" style="display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:2px 0 8px;padding:6px 10px;border-radius:8px;font-size:12.5px;background:${d.minhaReincidencia.procede ? 'rgba(22,163,74,.12)' : 'rgba(220,38,38,.10)'};color:${d.minhaReincidencia.procede ? '#15803d' : '#b91c1c'}"><b>${d.minhaReincidencia.procede ? '👍 Reincidência: você marcou que procede' : '👎 Reincidência: você marcou que não procede'}</b>${d.minhaReincidencia.comentario ? `<span style="opacity:.9">— ${esc(d.minhaReincidencia.comentario)}</span>` : ''}<span style="opacity:.7">· ${esc(fmt(d.minhaReincidencia.em))}</span></div>` : ''}
             <dl class="ws-info">
                 ${campo('Responsável', d.responsavel?.nome || 'Não atribuído', true)}
                 ${campo('Cliente', d.clientes[0] || '—', true)}

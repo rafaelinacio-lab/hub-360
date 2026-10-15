@@ -70,6 +70,7 @@ const LIST_SELECT = `
     t.owner_name                    AS responsavel,
     t.urgency                        AS urgencia,
     t.category                        AS categoria,
+    NULLIF(btrim(t.jiraissuekey), '')  AS tarefa_jira,
     t.service_full                     AS servico,
     t.sla_solution_date                 AS sla_solucao,
     t.last_update                        AS ultima_interacao,
@@ -307,6 +308,55 @@ setTimeout(() => cacheResposta.aquecer('geral:ano', CACHE_PAINEL_MS, async () =>
   const r = await db.query(`${LIST_SELECT} WHERE t.createddate >= date_trunc('year', NOW()) OR t.resolved_in >= date_trunc('year', NOW()) ORDER BY t.createddate DESC`);
   return { rows: r.rows || [], janela: 'ano-vigente' };
 }), 30 * 1000).unref();
+
+// Tarefas do Jira citadas pelos chamados (card "Tarefas do Jira × chamados"): resumo, status, projeto e responsável, lidos dos JSON do
+// extrator (utils/tarefasJira.js). ?chaves=AG-1,CWM-2 (até 500). Quem vê o painel já vê as tarefas na aba Jira; não depende de vertical.
+router.get('/tarefas-jira', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const chaves = [...new Set(String(req.query.chaves || '').split(',').map((k) => k.trim().toUpperCase()).filter((k) => /^[A-Z][A-Z0-9]*-\d+$/.test(k)))].slice(0, 500);
+    const ind = await require('../utils/tarefasJira').indice();
+    res.json({ geradoEm: ind.geradoEm, tarefas: Object.fromEntries(chaves.map((k) => [k, ind.itens.get(k) || null])) });
+  } catch (e) {
+    console.error('[geral] tarefas-jira:', e.message);
+    res.status(500).json({ error: 'Erro ao ler as tarefas do Jira' });
+  }
+});
+
+// Versões lançadas × chamados (card da visão Suporte Técnico): por versão do Jira, quantos chamados do produto entraram antes e depois do lançamento,
+// quantos citam a versão/atualização, quantos o suporte marcou como "após a atualização" e quantos estão vinculados às tarefas da versão.
+// ?janela=7|14|30 (dias antes e depois) &desde=AAAA-MM-DD (padrão: últimos 60 dias). Cache de 10 min por escopo de vertical.
+const versoesChamados = require('../utils/versoesChamados');
+const _versoesCache = new Map();
+router.get('/versoes-chamados', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const esc = await escopoDoRequest(req);
+    const janela = [7, 14, 30].includes(Number(req.query.janela)) ? Number(req.query.janela) : 14;
+    const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.desde || '')) ? String(req.query.desde) : '';
+    const chave = `${janela}|${desde}${chaveEscopo(esc)}`;
+    const c = _versoesCache.get(chave);
+    if (c && c.ate > Date.now()) return res.json(c.dados);
+    const dados = await versoesChamados.calcular({ esc, janela, desde, pertence });
+    if (_versoesCache.size > 30) _versoesCache.clear();
+    _versoesCache.set(chave, { ate: Date.now() + 10 * 60 * 1000, dados });
+    res.json(dados);
+  } catch (e) {
+    console.error('[geral] versoes-chamados:', e.message);
+    res.status(500).json({ error: 'Erro ao calcular as versões e os chamados' });
+  }
+});
+// Os chamados por trás de um número do card (linhas completas, no mesmo formato da lista do Painel Geral)
+router.get('/versoes-chamados/lista', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const esc = await escopoDoRequest(req);
+    const ids = await versoesChamados.idsDoItem({ esc, versaoId: String(req.query.versao || ''), tipo: String(req.query.tipo || ''), janela: req.query.janela, pertence });
+    if (!ids.length) return res.json({ rows: [] });
+    const r = await db.query(`${LIST_SELECT} WHERE t.ticket_id = ANY($1::bigint[]) ORDER BY t.createddate DESC`, [ids]);
+    res.json({ rows: filtrarEscopo(esc, r.rows || []) });
+  } catch (e) {
+    console.error('[geral] versoes-chamados/lista:', e.message);
+    res.status(500).json({ error: 'Erro ao listar os chamados da versão' });
+  }
+});
 
 router.get('/pendentes', acessoPainelTv, async (req, res) => {
   try {
