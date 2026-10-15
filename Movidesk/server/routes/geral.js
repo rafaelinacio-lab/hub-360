@@ -66,6 +66,7 @@ const LIST_SELECT = `
     t.resolved_in            AS resolvido_em,
     t.closed_in                AS fechado_em,
     t.reopened_in                AS reaberto_em,
+    t.justification                AS justificativa,
     t.ownerteam                    AS equipe,
     t.owner_name                    AS responsavel,
     t.urgency                        AS urgencia,

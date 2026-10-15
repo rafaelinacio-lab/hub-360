@@ -218,6 +218,7 @@ th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
       <span style="margin-left:auto"></span>
       <div class="md-tabs">
         <button class="md-tab" onclick="irPara('movidesk')"><span class="sym">dashboard</span>Painel Geral</button>
+        <button class="md-tab" onclick="irPara('pendentes')"><span class="sym">pending_actions</span>Pendentes</button>
         <button class="md-tab" onclick="irPara('satisfacao')"><span class="sym">sentiment_satisfied</span>Satisfação</button>
         <button class="md-tab active"><span class="sym">forum</span>Chats</button>
       </div>
@@ -298,7 +299,7 @@ function dur(s){
 function idade(iso){ return iso?dur((Date.now()-new Date(iso).getTime())/1000):'—'; }
 const quando=iso=>iso?new Date(iso).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 const linkTk=id=>`<a href="https://viasoft.movidesk.com/Ticket/Edit/${esc(id)}" target="_blank" rel="noopener" style="color:var(--orange);font-weight:600">#${esc(id)}</a>`;
-function irPara(v){ try{ if(window.parent&&window.parent!==window&&typeof window.parent.navigateTo==='function'){ window.parent.navigateTo(v); return; } }catch{} location.href=v==='movidesk'?'geral.html':'satisfacao.html'; }
+function irPara(v){ try{ if(window.parent&&window.parent!==window&&typeof window.parent.navigateTo==='function'){ window.parent.navigateTo(v); return; } }catch{} location.href=v==='movidesk'?'geral.html':v+'.html'; }
 
 let D=null, charts={};
 async function carregar(){
