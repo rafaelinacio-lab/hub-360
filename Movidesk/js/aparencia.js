@@ -105,5 +105,22 @@
         if (e.key !== LS) return;
         try { aplicar(JSON.parse(e.newValue || 'null')); } catch (_) { /* valor inválido */ }
     });
+    // ── barras de rolagem: visíveis, finas e discretas em TODO o sistema (cards, gráficos, tabelas, listas, modais e a própria tela) ──
+    // Antes cada tela escondia as barras (*{scrollbar-width:none}); aqui as propriedades padrão têm !important para valer sobre qualquer
+    // regra local. A cor é um cinza translúcido (serve nos temas claro e escuro). Não vale para quem tem a classe .no-scrollbar (opt-out
+    // pontual) nem para telas com html.sem-barras (modo TV, que rola sozinho).
+    (function barras() {
+        if (document.getElementById('hub-barras-css')) return;
+        var st = document.createElement('style'); st.id = 'hub-barras-css';
+        st.textContent =
+            'html:not(.sem-barras),html:not(.sem-barras) *:not(.no-scrollbar){scrollbar-width:thin!important;scrollbar-color:var(--hub-sb,rgba(120,128,150,.42)) transparent!important;-ms-overflow-style:auto!important}' +
+            'html:not(.sem-barras) *:not(.no-scrollbar)::-webkit-scrollbar,html:not(.sem-barras)::-webkit-scrollbar{display:block!important;width:8px!important;height:8px!important;background:transparent!important}' +
+            'html:not(.sem-barras) *:not(.no-scrollbar)::-webkit-scrollbar-track{background:transparent!important}' +
+            'html:not(.sem-barras) *:not(.no-scrollbar)::-webkit-scrollbar-thumb,html:not(.sem-barras)::-webkit-scrollbar-thumb{background:var(--hub-sb,rgba(120,128,150,.42))!important;border-radius:999px!important;border:2px solid transparent!important;background-clip:content-box!important}' +
+            'html:not(.sem-barras) *:not(.no-scrollbar)::-webkit-scrollbar-thumb:hover{background:var(--hub-sb-hover,rgba(120,128,150,.75))!important;background-clip:content-box!important}' +
+            'html:not(.sem-barras) *:not(.no-scrollbar)::-webkit-scrollbar-corner{background:transparent!important}';
+        (document.head || document.documentElement).appendChild(st);
+    })();
+
     window.HubAparencia = { aplicar: aplicar, guardar: guardar, FONTES: Object.keys(FONTES) };
 })();

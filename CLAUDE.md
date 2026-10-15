@@ -42,7 +42,7 @@ Reincidências (IA), Curadoria, Ouvidoria, GCC, Satisfação, Jira e Configuraç
 ## Convenções de código
 - Siga o estilo do arquivo vizinho (comentários em português, nomes em português no domínio). Não adicione dependências sem necessidade.
 - Rotas novas: `authMiddleware` + `requireTabAccess('aba')`; escrita com checagem de perfil e `rateLimit` quando consome IA/Movidesk.
-- Front sem build: JS/HTML puro; esconda barras de rolagem como nas outras telas; tema claro/escuro por variáveis CSS.
+- Front sem build: JS/HTML puro; barras de rolagem visíveis, finas e discretas (já aplicadas em todas as telas por `js/aparencia.js`; opt-out pontual com a classe `.no-scrollbar`, e `html.sem-barras` no modo TV) — não esconda barras; tema claro/escuro por variáveis CSS.
 
 ## Deploy (VM OCI)
 ```bash

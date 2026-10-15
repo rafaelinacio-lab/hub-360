@@ -120,7 +120,7 @@ body.tv{overflow:hidden}
 // Modo TV pela URL (a TV roda sem filtros na tela): ?tv=1  ?k=chave (link da TV, sem login)  ?vertical=agrotitan  ?equipe=Nome  ?classificacao=Nome|todas  ?ano=todos  ?mes=todos  ?tema=claro
 const Q=new URLSearchParams(location.search), TV=Q.get('tv')==='1', CHAVE_TV=Q.get('k')||'';
 const API=`${location.origin}/api`, BREVE_MIN=240, POR_PAG=TV?600:200;
-if(TV){ document.body.classList.add('tv'); if(Q.get('tema')!=='claro') document.documentElement.className='dark'; }
+if(TV){ document.body.classList.add('tv'); if(Q.get('tema')!=='claro') document.documentElement.className='dark'; document.documentElement.classList.add('sem-barras'); }
 const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
 async function api(ep){ const k=CHAVE_TV?`${ep.includes('?')?'&':'?'}k=${encodeURIComponent(CHAVE_TV)}`:''; const r=await fetch(`${API}${ep}${k}`,{headers:tok()?{Authorization:`Bearer ${tok()}`}:{},cache:'no-store'}); if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); } return r.json(); }
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
