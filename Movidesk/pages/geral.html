@@ -535,6 +535,7 @@ body:not(.visao-st) .so-st{display:none!important}
 .cc-painel:not(.cc-aberto) > .chart-sub{display:none}
 .cc-painel:not(.cc-aberto) .cc-corpo{max-height:210px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
 .cc-painel .vs-leg{margin-bottom:6px}
+#versoes-panel.vs-chart:not(.cc-aberto) .cc-corpo{max-height:380px}   /* gráfico de versões: cabe inteiro mesmo recolhido */
 .vs-modo{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:auto}
 .vs-modo button{border:0;background:transparent;color:var(--t2);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;cursor:pointer}
 .vs-modo button[aria-pressed="true"]{background:var(--t1);color:var(--surface)}
@@ -1871,28 +1872,76 @@ function versoesDesenhar(){
     </tr></thead><tbody>${linhas}</tbody></table></div>
     <p class="vs-nota">Variação = ritmo diário de chamados depois ÷ antes. Alta (vermelho) a partir de +30%. Coincidir no tempo não prova que a versão causou os chamados: use os números de "citam" e "após a atualização" para confirmar, e abra a lista para ler os chamados. O produto de cada versão sai do projeto do Jira (arquivo <code>server/data/versoes-servico.json</code>).</p>`;
   const nota=`<p class="vs-nota">Só entram chamados de Suporte Técnico do produto, abertos depois do lançamento (dentro dos ${j} dias da janela) que têm ligação com a versão: citam o número dela, estão marcados "Situação Reportada Após a Atualização" ou estão vinculados às tarefas que ela entregou. Um chamado com mais de um sinal conta uma vez. Clique no número para ler os chamados.</p>`;
-  const max=Math.max(1,...comMapa.map(v=>v.relacionados||0));
-  const larg=x=>Math.max(x>0?2:0,Math.round(x/max*100));
-  const dd=v=>String(v.lancada).split('-').reverse().join('/').slice(0,5);
-  const graf=comMapa.map(v=>{
-    const rel=v.relacionados||0;
-    const sinais=[v.citaVersao?`${n(v.citaVersao)} citam a versão`:'',v.causaApos?`${n(v.causaApos)} após a atualização`:'',v.vincDepois?`${n(v.vincDepois)} vinculados às tarefas`:''].filter(Boolean).join(' · ');
-    const tip=`${v.nome}: ${n(rel)} chamado(s) abertos depois do lançamento com relação à versão, entre ${n(v.depois)} abertos nos ${j} dias depois`+(v.janelaCompleta?'':' (janela ainda em andamento)');
-    return `<div class="vs-g-row" title="${escAttr(tip)}">
-      <div class="vs-g-nome"><span class="vs-nome">${esc(v.nome)}</span><span class="vs-sub">${dd(v)} · ${esc(v.servicos.join(', '))}${v.janelaCompleta?'':' · em andamento'}</span></div>
-      <div class="vs-g-barras"><div class="vs-g-linha depois"><span class="vs-g-barra" style="width:${larg(rel)}%"></span>${rel>0?`<button type="button" class="vs-g-val" onclick="versaoAbrir('${escAttr(v.id)}','relacionados')" title="Ver os chamados relacionados à versão">${n(rel)}</button>`:`<span class="vs-g-val">0</span>`}</div></div>
-      <span class="vs-parcial" style="text-align:right">${sinais?esc(sinais):`de ${n(v.depois)} abertos no período`}</span>
-    </div>`;
-  }).join('');
   const semMapa=vs.length-comMapa.length;
-  const graficoHtml=comMapa.length?`<div class="vs-leg"><span><i style="background:var(--orange)"></i>Chamados abertos depois do lançamento com relação à versão (${j} dias)</span></div><div class="vs-g">${graf}</div>${semMapa?`<p class="vs-nota">${n(semMapa)} versão(ões) sem produto mapeado no Movidesk não aparecem no gráfico (veja na tabela).</p>`:''}${nota}`:`<p class="chart-sub" style="text-align:left">Nenhuma das versões do período tem produto mapeado no Movidesk. Veja a tabela.</p>`;
+  const graficoHtml=comMapa.length?`<div class="tv-legend" id="vs-legend" style="justify-content:flex-end"></div><div class="chart-wrap" style="height:270px"><canvas id="vsChart"></canvas><div class="tv-tip" id="vs-tip"></div></div>${semMapa?`<p class="vs-nota">${n(semMapa)} versão(ões) sem produto mapeado no Movidesk não aparecem no gráfico (veja na tabela).</p>`:''}${nota}`:`<p class="chart-sub" style="text-align:left">Nenhuma das versões do período tem produto mapeado no Movidesk. Veja a tabela.</p>`;
+  destroyChart('vsChart');
+  const pn=document.getElementById('versoes-panel'); if(pn) pn.classList.toggle('vs-chart',_vsModo!=='tabela'&&comMapa.length>0);
   corpo.innerHTML=_vsModo==='tabela'?tabelaHtml:graficoHtml;
   const bg=document.getElementById('vs-m-graf'), bt=document.getElementById('vs-m-tab');
   if(bg&&bt){ bg.setAttribute('aria-pressed',String(_vsModo!=='tabela')); bt.setAttribute('aria-pressed',String(_vsModo==='tabela')); }
+  if(_vsModo!=='tabela'&&comMapa.length) versoesGrafico(comMapa,j);
 }
 let _vsModo='grafico';
 try{ if(localStorage.getItem('hub_geral_versoes_modo')==='tabela') _vsModo='tabela'; }catch(_){}
 function versoesModo(m){ _vsModo=m; try{ localStorage.setItem('hub_geral_versoes_modo',m); }catch(_){} versoesDesenhar(); }
+// Gráfico no estilo "Evolução mensal por urgência": uma linha por PRODUTO, versões em ordem de lançamento no eixo X e, no Y, os chamados
+// relacionados à versão (abertos depois do lançamento, dentro da janela, com ligação com ela). Pílulas com o total por produto e dica
+// com o detalhe da versão; clicar no ponto abre os chamados.
+function versoesGrafico(vs,j){
+  const cv=document.getElementById('vsChart'); if(!cv||typeof Chart==='undefined') return;
+  const col=chartColors(), surface=cssVar('--surface');
+  const lista=[...vs].sort((a,b)=>String(a.lancada).localeCompare(String(b.lancada))||String(a.nome).localeCompare(String(b.nome)));
+  const prods=[...new Set(lista.map(v=>v.servicos.join(', ')))];
+  const tot=p=>lista.filter(v=>v.servicos.join(', ')===p).reduce((t,v)=>t+(v.relacionados||0),0);
+  prods.sort((a,b)=>tot(b)-tot(a));
+  const PAL=['#e85d04','#2fbf8a','#4f9cf0','#a855f7','#f5a524','#ec4899','#14b8a6','#ef4444'];
+  const cor=p=>PAL[prods.indexOf(p)%PAL.length];
+  const n=x=>Number(x||0).toLocaleString('pt-BR');
+  const dd=v=>String(v.lancada).split('-').reverse().slice(0,2).join('/');
+  const leg=document.getElementById('vs-legend');
+  if(leg) leg.innerHTML=prods.map(p=>{ const vv=lista.filter(v=>v.servicos.join(', ')===p); return `<span class="tv-pill" title="${escAttr(p)}: ${n(tot(p))} chamados relacionados em ${vv.length} versão(ões)"><i style="background:${cor(p)}"></i>${esc(p)} <small>${n(tot(p))} · ${vv.length} vers.</small></span>`; }).join('');
+  const tipEl=document.getElementById('vs-tip');
+  const externo=({chart,tooltip})=>{
+    if(!tipEl) return;
+    if(tooltip.opacity===0){ tipEl.style.opacity=0; return; }
+    const v=lista[tooltip.dataPoints[0].dataIndex], p=v.servicos.join(', ');
+    const sinais=[v.citaVersao?`${n(v.citaVersao)} citam a versão`:'',v.causaApos?`${n(v.causaApos)} marcados “após a atualização”`:'',v.vincDepois?`${n(v.vincDepois)} ligados às tarefas`:''].filter(Boolean).join(' · ');
+    const pct=v.variacaoPct;
+    tipEl.innerHTML=`<div class="tv-tip-mes" style="color:var(--t1);letter-spacing:.06em">${esc(v.nome)}</div>`+
+      `<div class="tv-tip-blk"><div class="tv-tip-row"><span class="tv-tip-nome" style="color:${cor(p)}">${esc(p)}</span><span class="tv-tip-val">${n(v.relacionados)} relacionados</span></div>`+
+      `<div class="tv-tip-sub"><span>Lançada em ${esc(String(v.lancada).split('-').reverse().join('/'))}${v.janelaCompleta?'':' · janela em andamento'}</span><span>${n(v.tarefas)} tarefa(s)</span></div>`+
+      `<div class="tv-tip-sub"><span>${sinais||'Nenhum sinal direto com a versão'}</span></div>`+
+      `<div class="tv-tip-sub"><span>${n(v.antes)} chamados nos ${j} dias antes → ${n(v.depois)} nos ${j} dias depois</span>${pct!=null?`<span class="${pct>=30?'tv-ruim':pct<=-10?'tv-bom':''}">${pct>0?'+':''}${Math.round(pct)}%</span>`:''}</div></div>`;
+    const wrap=chart.canvas.parentElement, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+    let x=tooltip.caretX+16; if(x+w>wrap.clientWidth) x=tooltip.caretX-w-16;
+    tipEl.style.left=Math.max(0,x)+'px';
+    tipEl.style.top=Math.min(Math.max(0,tooltip.caretY-h/2),Math.max(0,wrap.clientHeight-h))+'px';
+    tipEl.style.opacity=1;
+  };
+  _charts.vsChart=new Chart(cv,{
+    type:'line',
+    data:{ labels:lista.map(dd), datasets:prods.map(p=>({
+      label:p, data:lista.map(v=>v.servicos.join(', ')===p?(v.relacionados||0):null),
+      borderColor:cor(p),backgroundColor:cor(p),fill:false,cubicInterpolationMode:'monotone',borderWidth:2.5,spanGaps:true,   // monotone: a curva não passa de 0 nem estoura os picos
+      pointRadius:4,pointHoverRadius:7,pointBackgroundColor:surface,pointBorderColor:cor(p),pointBorderWidth:2,pointHoverBackgroundColor:cor(p),pointHitRadius:12,
+    })) },
+    plugins:[pluginCruz()],
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:6,right:12}},
+      plugins:{ legend:{display:false}, tooltip:{enabled:false,external:externo} },
+      scales:{
+        y:{min:0,grace:'10%',grid:{color:col.border},border:{display:false},ticks:{color:col.t3,precision:0}},
+        x:{grid:{display:false},border:{display:false},ticks:{color:col.t2,font:{weight:600},autoSkip:true,maxRotation:0}},
+      },
+      interaction:{mode:'nearest',axis:'x',intersect:false},
+      onHover:(evt,els)=>{ evt.native.target.style.cursor=els.length?'pointer':'default'; },
+      onClick:(evt,els,chart)=>{
+        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:false,axis:'x'},false).filter(h=>chart.data.datasets[h.datasetIndex].data[h.index]!=null);
+        if(!hit.length) return;
+        const v=lista[hit[0].index]; if(v&&(v.relacionados||0)>0) versaoAbrir(v.id,'relacionados');
+      },
+    }
+  });
+}
 async function versaoAbrir(versaoId,tipo){
   const v=(_versoes&&_versoes.versoes||[]).find(x=>String(x.id)===String(versaoId)); if(!v) return;
   const rotulo={relacionados:`abertos nos ${_versoes.janela} dias depois do lançamento com relação à versão`,depois:`abertos nos ${_versoes.janela} dias depois do lançamento`,citaversao:'citam o número da versão',cita:'falam de atualização ou nova versão',causa:'marcados "Situação Reportada Após a Atualização"',vinculados:'vinculados às tarefas da versão'}[tipo]||tipo;
