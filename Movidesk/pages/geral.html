@@ -1092,7 +1092,7 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-1">
+    <div class="hrow c-1" id="versoes-linha" style="display:none">   <!-- por enquanto só admin (applyRolePermissions) -->
       <div class="chart-panel so-st" id="versoes-panel">
         <p class="chart-title">Versões lançadas × chamados</p>
         <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Para cada versão lançada: quantos chamados de Suporte Técnico do produto, abertos depois do lançamento, têm relação com ela (citam a versão, foram marcados como "após a atualização" ou estão ligados às tarefas que ela entregou).</p>
@@ -1106,7 +1106,7 @@ body.modal-open{overflow:hidden}
       </div>
     </div>
 
-    <div class="hrow c-1">
+    <div class="hrow c-1" id="repasses-linha" style="display:none">   <!-- por enquanto só admin (applyRolePermissions) -->
       <div class="chart-panel" id="repasses-panel">
         <p class="chart-title">Repasses entre equipes</p>
         <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Chamados que mudaram de equipe (por exemplo, entraram pelo Suporte Técnico e foram para Produto). Não segue os filtros do topo. O histórico existe a partir da implantação deste card; repasses anteriores não estão nos dados.</p>
@@ -1757,6 +1757,7 @@ document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.ta
 
 // ── Card "Repasses entre equipes" ──
 // Dados de GET /api/repasses (histórico de troca de equipe gravado por gatilho em silver.ticket). Não segue os filtros do topo.
+let _ehAdmin=false;   // os cards Repasses e Versões são só do admin por enquanto
 let _repasses=null, _repassesSeq=0, _repassesCarregando=false, _repassesTodos=false;
 function repassesDe(){
   const v=document.getElementById('rp-periodo').value, d=new Date();
@@ -1764,7 +1765,7 @@ function repassesDe(){
   return new Date(Date.now()-Number(v)*86400000).toISOString().slice(0,10);
 }
 async function repassesCarregar(forcar,soEquipe){
-  const corpo=document.getElementById('rp-corpo'); if(!corpo) return;
+  const corpo=document.getElementById('rp-corpo'); if(!corpo||!_ehAdmin) return;
   if(_repasses&&!forcar) return;
   if(_repassesCarregando) return;
   _repassesCarregando=true; const seq=++_repassesSeq; _repassesTodos=false;
@@ -1804,7 +1805,7 @@ function versoesDesde(){
   return new Date(Date.now()-Number(v)*86400000).toISOString().slice(0,10);
 }
 async function versoesCarregar(forcar){
-  const corpo=document.getElementById('vs-corpo'); if(!corpo||_visao!=='st') return;
+  const corpo=document.getElementById('vs-corpo'); if(!corpo||_visao!=='st'||!_ehAdmin) return;
   if(_versoes&&!forcar) return;
   if(_versoesCarregando) return;
   _versoesCarregando=true; const seq=++_versoesSeq;
@@ -4201,6 +4202,12 @@ async function applyRolePermissions(){
     const me=await api('/auth/me');
     // Card "SLA por equipe": só perfis admin e diretoria
     if(['admin','diretoria'].includes(me.role)) document.getElementById('slaEquipe-linha')?.style.removeProperty('display');
+    if(me.role==='admin'){
+      _ehAdmin=true;
+      document.getElementById('versoes-linha')?.style.removeProperty('display');
+      document.getElementById('repasses-linha')?.style.removeProperty('display');
+      repassesCarregar(false); versoesCarregar(false);
+    }
     if(me.role!=='admin'){
       document.getElementById('btn-atualizar')?.style.setProperty('display','none');
       document.getElementById('btn-sync')?.style.setProperty('display','none');

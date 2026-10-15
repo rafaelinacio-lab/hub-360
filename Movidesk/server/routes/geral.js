@@ -327,7 +327,15 @@ router.get('/tarefas-jira', authMiddleware, requireTabAccess('movidesk'), async 
 // ?janela=7|14|30 (dias antes e depois) &desde=AAAA-MM-DD (padrão: últimos 60 dias). Cache de 10 min por escopo de vertical.
 const versoesChamados = require('../utils/versoesChamados');
 const _versoesCache = new Map();
-router.get('/versoes-chamados', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+// Por enquanto só admin vê o card Versões × chamados (também no servidor, não só na tela)
+async function soAdmin(req, res, next) {
+  try {
+    const r = await db.query(`SELECT r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user && req.user.id]);
+    if (r.rows[0] && r.rows[0].name === 'admin') return next();
+    res.status(403).json({ error: 'Esta visão está disponível só para administradores por enquanto.' });
+  } catch (e) { res.status(500).json({ error: 'Erro ao verificar o perfil' }); }
+}
+router.get('/versoes-chamados', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const esc = await escopoDoRequest(req);
     const janela = [7, 14, 30].includes(Number(req.query.janela)) ? Number(req.query.janela) : 14;
@@ -345,7 +353,7 @@ router.get('/versoes-chamados', authMiddleware, requireTabAccess('movidesk'), as
   }
 });
 // Os chamados por trás de um número do card (linhas completas, no mesmo formato da lista do Painel Geral)
-router.get('/versoes-chamados/lista', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+router.get('/versoes-chamados/lista', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const esc = await escopoDoRequest(req);
     const ids = await versoesChamados.idsDoItem({ esc, versaoId: String(req.query.versao || ''), tipo: String(req.query.tipo || ''), janela: req.query.janela, pertence });

@@ -11,11 +11,20 @@ const { authMiddleware } = require('./auth');
 const { requireTabAccess } = require('./config');
 const { escopoVertical, filtrarLinhas } = require('../utils/verticalScope');
 
+// Por enquanto só admin vê esta visão (também no servidor, não só na tela)
+async function soAdmin(req, res, next) {
+  try {
+    const r = await db.query(`SELECT r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [req.user && req.user.id]);
+    if (r.rows[0] && r.rows[0].name === 'admin') return next();
+    res.status(403).json({ error: 'Esta visão está disponível só para administradores por enquanto.' });
+  } catch (e) { res.status(500).json({ error: 'Erro ao verificar o perfil' }); }
+}
+
 const ymd = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
 const MAX_DIAS = 366;
 const LIMITE_LISTA = 1000;
 
-router.get('/', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+router.get('/', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (req, res) => {
   try {
     const hoje = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);   // Brasília
     let ate = ymd(req.query.ate) || hoje;
