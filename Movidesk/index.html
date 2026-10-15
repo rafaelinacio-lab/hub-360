@@ -837,7 +837,7 @@
                                 <h3 class="config-card-title">Pessoas</h3>
                                 <p class="config-card-help">Gerencie quem acessa a plataforma</p>
                             </div>
-                            <button class="pessoas-btn-novo" id="btnNovaPessoa">+ Novo Usuário</button>
+                            <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="pessoas-btn-novo" id="btnImportarPessoas" type="button" onclick="pessoasImportarAbrir()" style="background:transparent;color:inherit;border:1px solid var(--border,#cbd5e1)" title="Cadastrar várias pessoas de uma vez a partir de uma planilha Excel ou CSV">⬆ Importar planilha</button><button class="pessoas-btn-novo" id="btnNovaPessoa">+ Novo Usuário</button></span>
                         </div>
                         <div class="pessoas-filters">
                             <input type="text" id="pessoasSearch" class="pessoas-filter-input" placeholder="Buscar por nome ou e-mail…" oninput="pessoasApplyFilters()">
@@ -1431,7 +1431,41 @@
                 </div>
             </div>
 
-            <!-- ===== VIEW: DASHBOARD ===== -->
+            <!-- Modal: importar pessoas por planilha (js/pessoasImportar.js) -->
+            <div id="pessoaImportModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="piTitulo">
+                <div class="pm-box" style="width:min(1040px,94vw);max-width:none;max-height:90vh;display:flex;flex-direction:column">
+                    <div class="pm-header"><span id="piTitulo">Importar pessoas por planilha</span><button class="pm-close" type="button" onclick="pessoasImportarFechar()" aria-label="Fechar">&times;</button></div>
+                    <div class="pm-form" style="overflow:auto;display:flex;flex-direction:column;gap:12px">
+                        <div id="piPasso1">
+                            <p style="margin:0 0 8px">Envie um arquivo <b>.xlsx</b> ou <b>.csv</b> com uma pessoa por linha e as colunas <b>Nome</b>, <b>E-mail</b>, <b>Perfil</b> (admin, supervisor, atendente ou sem perfil) e <b>Verticais</b> (opcional; várias separadas por ponto e vírgula). O login é feito com a conta Google corporativa, então não há senha.</p>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                                <input type="file" id="piArquivo" accept=".xlsx,.csv,.txt" onchange="pessoasImportarLer(this.files[0])">
+                                <button type="button" class="pm-btn pm-btn-cancel" onclick="pessoasImportarModelo('xlsx')">⬇ Modelo .xlsx</button>
+                                <button type="button" class="pm-btn pm-btn-cancel" onclick="pessoasImportarModelo('csv')">⬇ Modelo .csv</button>
+                            </div>
+                        </div>
+                        <div id="piPasso2" style="display:none;flex-direction:column;gap:10px">
+                            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+                                <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="piEmail" checked> Enviar e-mail de boas-vindas</label>
+                                <label style="display:flex;gap:6px;align-items:center">Se o e-mail já estiver cadastrado:
+                                    <select id="piExistentes" onchange="pessoasImportarRevisar()"><option value="ignorar">ignorar</option><option value="atualizar">atualizar nome, perfil e verticais</option></select></label>
+                                <label style="display:flex;gap:6px;align-items:center">Perfil quando a coluna estiver vazia:
+                                    <select id="piPerfilPadrao" onchange="pessoasImportarRevisar()"></select></label>
+                            </div>
+                            <div id="piResumo" style="font-weight:600"></div>
+                            <div style="overflow:auto;max-height:42vh;border:1px solid var(--border,#e2e8f0);border-radius:10px"><table class="pessoas-table" style="width:100%"><thead><tr><th>#</th><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Verticais</th><th>Situação</th></tr></thead><tbody id="piLinhas"></tbody></table></div>
+                        </div>
+                        <div id="piErro" class="pm-error" style="display:none;"></div>
+                        <div class="pm-actions">
+                            <button type="button" class="pm-btn pm-btn-cancel" id="piBaixarRes" style="display:none" onclick="pessoasImportarBaixarResultado()">⬇ Baixar resultado</button>
+                            <button type="button" class="pm-btn pm-btn-cancel" onclick="pessoasImportarFechar()" id="piFechar">Cancelar</button>
+                            <button type="button" class="pm-btn pm-btn-save" id="piImportar" style="display:none" onclick="pessoasImportarExecutar()">Importar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== VIEW: DASHBOARD =====
             <div id="dashboardView" class="app-view">
             <div class="dashboard-layout">
 
@@ -1922,6 +1956,7 @@
     <script src="js/ticket-workspace.js"></script>
     <script src="js/curadoria.js"></script>
     <script src="js/pessoas.js"></script>
+    <script src="js/pessoasImportar.js"></script>
     <script src="js/emailConfig.js"></script>
     <script src="js/reincFeedback.js"></script>
     <script src="js/aparenciaConfig.js"></script>

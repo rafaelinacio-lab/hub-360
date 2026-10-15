@@ -99,6 +99,59 @@ router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
   }
 });
 
+// POST /api/pessoas/importar — cadastro em massa (planilha lida no navegador; chega em lotes de até 50 linhas)
+// body: { pessoas:[{ nome, email, perfil, verticais }], enviarEmail, atualizarExistentes }
+// Devolve uma linha de resultado por pessoa: criado | atualizado | ignorado | erro (+ motivo e situação do e-mail de boas-vindas).
+const PERFIL_ROTULOS = { admin: 'admin', administrador: 'admin', supervisor: 'supervisor', atendente: 'atendente', guest: 'guest', 'sem perfil': 'guest' };
+const importarLimiter = rateLimit({ name: 'pessoas/importar', windowMs: 10 * 60 * 1000, max: 60, keyFn: (req) => `u:${req.user && req.user.id}` });
+const MAX_LOTE_IMPORTACAO = 50;
+router.post('/importar', authMiddleware, requireRole('admin'), importarLimiter, async (req, res) => {
+  const lista = Array.isArray(req.body && req.body.pessoas) ? req.body.pessoas : null;
+  if (!lista || !lista.length) return res.status(400).json({ error: 'Nenhuma pessoa enviada.' });
+  if (lista.length > MAX_LOTE_IMPORTACAO) return res.status(400).json({ error: `Envie no máximo ${MAX_LOTE_IMPORTACAO} pessoas por vez.` });
+  const enviarEmail = req.body.enviarEmail === true, atualizar = req.body.atualizarExistentes === true;
+  try {
+    const roles = new Map((await db.query('SELECT id, name FROM roles')).rows.map((r) => [String(r.name).toLowerCase(), r]));
+    const resultados = [], vistos = new Set();
+    for (const p of lista) {
+      const email = String(p && p.email || '').toLowerCase().trim(), nome = String(p && p.nome || '').replace(/\s+/g, ' ').trim();
+      const r = { email, nome, status: 'erro', motivo: '' };
+      resultados.push(r);
+      if (!nome || !email) { r.motivo = 'Nome e e-mail são obrigatórios'; continue; }
+      if (!validateEmail(email)) { r.motivo = 'E-mail inválido'; continue; }
+      if (vistos.has(email)) { r.status = 'ignorado'; r.motivo = 'E-mail repetido no arquivo'; continue; }
+      vistos.add(email);
+      const rotulo = semAcentoV(p.perfil) || 'atendente';
+      const role = roles.get(PERFIL_ROTULOS[rotulo] || rotulo);
+      if (!role) { r.motivo = `Perfil inválido: ${String(p.perfil).trim()}`; continue; }
+      const vert = normalizarVerticais(p.verticais);
+      if (vert.invalidas) { r.motivo = `Vertical inválida: ${vert.invalidas.join(', ')}`; continue; }
+      try {
+        const ex = (await db.query('SELECT id FROM users WHERE lower(email) = $1', [email])).rows[0];
+        if (ex) {
+          if (!atualizar) { r.status = 'ignorado'; r.motivo = 'Já cadastrado'; continue; }
+          await db.query('UPDATE users SET name = $1, role_id = $2, vertical = $3 WHERE id = $4', [nome, role.id, vert.lista || null, ex.id]);
+          r.status = 'atualizado'; continue;
+        }
+        await db.query('INSERT INTO users (email, name, vertical, role_id, is_active, first_access) VALUES ($1, $2, $3, $4, TRUE, FALSE)', [email, nome, vert.lista || null, role.id]);
+        r.status = 'criado';
+        if (enviarEmail) {
+          const env = await enviarBoasVindas({ nome, email, perfil: role.name, verticais: vert.lista });
+          r.envio = env.ok ? 'enviado' : env.motivo;
+        }
+      } catch (err) {
+        r.status = 'erro'; r.motivo = (err.message || '').includes('duplicate') ? 'Já cadastrado' : 'Erro ao gravar';
+        console.error('POST /pessoas/importar linha:', err.message);
+      }
+    }
+    console.log(`[pessoas] importação por ${req.user && (req.user.email || req.user.id)}: ${resultados.filter((x) => x.status === 'criado').length} criada(s), ${resultados.filter((x) => x.status === 'atualizado').length} atualizada(s), ${resultados.filter((x) => x.status === 'erro').length} erro(s)`);
+    return res.json({ resultados });
+  } catch (err) {
+    console.error('POST /pessoas/importar error:', err.message);
+    return res.status(500).json({ error: 'Erro ao importar' });
+  }
+});
+
 // POST /api/pessoas/:id/reenviar-boas-vindas — reenvia o e-mail de boas-vindas (admin)
 const reenvioLimiter = rateLimit({ name: 'pessoas/boas-vindas', windowMs: 10 * 60 * 1000, max: 20, keyFn: (req) => `u:${req.user && req.user.id}` });
 router.post('/:id/reenviar-boas-vindas', authMiddleware, requireRole('admin'), reenvioLimiter, async (req, res) => {
