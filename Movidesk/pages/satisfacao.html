@@ -193,6 +193,10 @@ input,select{font-family:inherit}
   user-select:none;
 }
 .ms-item:hover{background:var(--surface-mid)}
+.ms-acoes{position:sticky;top:0;z-index:1;display:flex;gap:6px;padding:4px 10px 6px;background:var(--surface)}
+.ms-busca + .ms-acoes{top:40px}
+.ms-acoes button{border:1px solid var(--border);background:var(--surface-mid,transparent);color:var(--t1);border-radius:7px;font:inherit;font-size:11.5px;font-weight:600;padding:4px 9px;cursor:pointer}
+.ms-acoes button:hover{border-color:var(--orange)}
 .ms-item input[type=checkbox]{
   accent-color:var(--orange);width:14px;height:14px;
   cursor:pointer;flex-shrink:0;margin:0;
@@ -1087,6 +1091,8 @@ function updateMsLabel(id,allLabel){
   const lbl=document.querySelector(`#${id} .ms-lbl`);
   const btn=document.querySelector(`#${id} .ms-btn`);
   if(!vals.length){lbl.textContent=allLabel;btn.classList.remove('ms-active');return;}
+  const totalItens=document.querySelectorAll(`#${id} .ms-item`).length;
+  if(totalItens>1&&vals.length===totalItens){ lbl.textContent=`${allLabel.split(':')[0]}: todos (${totalItens})`; btn.classList.add('ms-active'); return; }
   if(vals.length===1){
     const span=[...document.querySelectorAll(`#${id} .ms-item`)].find(el=>el.querySelector('input').value===vals[0])?.querySelector('span');
     lbl.textContent=span?span.textContent:vals[0];
@@ -1107,6 +1113,19 @@ function populateMs(id,items,allLabel,onChange){
   drop.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
     updateMsLabel(id,allLabel); onChange();
   }));
+  // "Selecionar todos" / "Limpar": valem para as opções visíveis (com busca digitada, só as que casam) e redesenham uma vez só
+  if(items.length>1){
+    const ac=document.createElement('div'); ac.className='ms-acoes';
+    ac.innerHTML='<button type="button" data-a="todos">Selecionar todos</button><button type="button" data-a="nenhum">Limpar</button>';
+    ac.addEventListener('click',e=>{
+      e.stopPropagation();
+      const b=e.target.closest('button'); if(!b) return;
+      const marcar=b.dataset.a==='todos';
+      drop.querySelectorAll('.ms-item').forEach(it=>{ if(it.style.display!=='none') it.querySelector('input').checked=marcar; });
+      updateMsLabel(id,allLabel); onChange();
+    });
+    drop.prepend(ac);
+  }
   updateMsLabel(id,allLabel);
 }
 
