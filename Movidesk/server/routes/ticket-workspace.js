@@ -18,6 +18,7 @@ const { authMiddleware } = require('./auth');
 const { escopoVertical, pertence } = require('../utils/verticalScope');
 const { rateLimit, rateLimitDinamico } = require('../utils/rateLimit');
 const cfg = require('../utils/aiSettings');
+const { lerChamadoDoBanco } = require('../utils/chamadoDoBanco');
 const { chamarIA, configurada: iaConfigurada, IaError, REGRAS, dados, conversaEmTexto, limitar, dataBr } = require('../utils/ai');
 
 const router = express.Router();
@@ -434,7 +435,10 @@ router.post('/:id/workspace/ia/cliente', requireLeitura, exigirChamadoNoEscopo, 
   const id = idValido(req.params.id);
   if (!id) return res.status(400).json({ error: 'Número de chamado inválido' });
   try {
-    const t = await lerTicketAoVivo(id);
+    // A análise do cliente lê do BANCO (silver.*); só busca ao vivo no Movidesk quando o banco não tem a informação do chamado.
+    let t = null;
+    try { t = await lerChamadoDoBanco(id); } catch (e) { console.warn('[ia] leitura do chamado no banco falhou, usando o Movidesk:', e.message); }
+    if (!t) { t = await lerTicketAoVivo(id); if (t) t.fonte = 'movidesk'; }
     if (!t) return res.status(404).json({ error: 'Chamado não encontrado no Movidesk' });
     const S = await cfg.obter(), C = S.cliente;
     const hist = await historicoDaOrganizacao(id, C);
@@ -454,7 +458,7 @@ ${conversaEmTexto(t.acoes, C.contextoCaracteres)}`) + '\n\n' + dados('HISTORICO'
       [`chamados_ultimos_${C.mesesHistorico}_meses`]: hist.tickets12m, [`reabertos_${C.mesesHistorico}_meses`]: hist.reabertos12m, tempo_medio_de_resolucao_horas: hist.tempoMedioResolucaoH,
       [`chamados_do_gcc_${C.mesesHistorico}_meses`]: hist.tocouGcc12m, servicos_mais_frequentes: hist.servicosFrequentes, assuntos_recentes: hist.assuntosRecentes,
     }, null, 1));
-    const r = await chamarIA({ source: 'ticket_analise_cliente', system, user, maxTokens: 800, temperature: cfg.temperatura(C.criatividade), userEmail: req.user.email, meta: { ticket: id } });
+    const r = await chamarIA({ source: 'ticket_analise_cliente', system, user, maxTokens: 800, temperature: cfg.temperatura(C.criatividade), userEmail: req.user.email, meta: { ticket: id, fonte: t.fonte } });
     const pick = (v, ok, pad) => (ok.includes(String(v).toLowerCase()) ? String(v).toLowerCase() : pad);
     res.json({
       resumo: limitar(r.resumo, 700),
@@ -465,6 +469,7 @@ ${conversaEmTexto(t.acoes, C.contextoCaracteres)}`) + '\n\n' + dados('HISTORICO'
       perfil: limitar(r.perfil_do_cliente, 300),
       recomendacoes: (Array.isArray(r.recomendacoes) ? r.recomendacoes : []).slice(0, 4).map(x => limitar(x, 260)),
       historico: hist,
+      fonte: t.fonte,
     });
   } catch (e) { erroIA(res, e); }
 });
