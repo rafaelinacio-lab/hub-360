@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pendentes</title>
+<title>Painel TV</title>
 <script src="../js/ui-version.js"></script>
 <script>
   (function(){
@@ -74,30 +74,39 @@ td{padding:7px 8px;border-bottom:1px solid var(--b);vertical-align:middle}
 .mais{text-align:center;padding:10px}
 .rod{display:flex;justify-content:space-between;color:var(--t3);font-size:11px;font-weight:600;gap:12px;flex-wrap:wrap}
 .erro{background:var(--redbg);color:var(--red);border-radius:10px;padding:10px 14px;font-weight:700;display:none}
+/* Modo TV (?tv=1): tela cheia sem controles, escala pela tela, a lista rola sozinha e atualiza a cada minuto */
+body.tv{overflow:hidden}
+.tv-relogio{display:none;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+.tv .tv-relogio{display:block}
+.tv .pd-top .md-tabs,.tv .pd-top .bt,.tv .tool .srch,.tv .tool .pill,.tv #colunas,.tv .mais,.tv .chip,.tv .rod{display:none}
+.tv .pd{zoom:var(--z,1);height:calc(100vh / var(--z,1));min-height:0;overflow:hidden;padding:12px 20px 10px;gap:10px}
+.tv .pd-tab{flex:1;min-height:0}
+.tv .pd-tab .tw{flex:1;min-height:0;max-height:none;overflow:hidden}
 @media (max-width:1200px){.pd-kp{grid-template-columns:repeat(3,1fr)}.pd-mid{grid-template-columns:1fr 1fr}.pd-mid>.p:first-child{grid-column:1/-1}}
 @media (max-width:760px){.pd-kp{grid-template-columns:repeat(2,1fr)}.pd-mid{grid-template-columns:1fr}.srch{width:100%}}
 </style></head>
 <body>
 <div class="pd">
   <div class="pd-top">
-    <div><h1><span class="sym">pending_actions</span>Pendentes</h1><p id="sub">Carregando…</p></div>
+    <div><h1><span class="sym">tv</span>Painel TV</h1><p id="sub">Carregando…</p></div>
     <div class="sp"></div>
+    <div class="tv-relogio" id="relogio"></div>
     <div class="md-tabs">
       <button class="md-tab" onclick="mdSwitchTab('movidesk')"><span class="sym">dashboard</span>Painel Geral</button>
-      <button class="md-tab active" onclick="mdSwitchTab('pendentes')"><span class="sym">pending_actions</span>Pendentes</button>
       <button class="md-tab" onclick="mdSwitchTab('satisfacao')"><span class="sym">sentiment_satisfied</span>Satisfação</button>
       <button class="md-tab" onclick="mdSwitchTab('chats')"><span class="sym">forum</span>Chats</button>
-      <button class="md-tab" onclick="abrirPainelTV()"><span class="sym">tv</span>Painel TV</button>
+      <button class="md-tab active" onclick="mdSwitchTab('pendentes')"><span class="sym">tv</span>Painel TV</button>
     </div>
     <button class="bt" onclick="carregar()"><span class="sym">refresh</span>Atualizar</button>
     <button class="bt" onclick="exportarCsv()"><span class="sym">download</span>Exportar</button>
+    <button class="bt" onclick="abrirModoTv()" title="Abre esta tela em tela cheia, própria para a TV: rola a lista sozinha e atualiza a cada minuto"><span class="sym">tv_gen</span>Modo TV</button>
     <button class="bt p" onclick="salvarVisao()"><span class="sym">bookmark</span>Salvar visão</button>
   </div>
   <div class="erro" id="erro"></div>
   <div class="pd-filt" id="filtros"></div>
   <div class="pd-kp" id="kpis"></div>
   <div class="pd-mid" id="mid"></div>
-  <div class="p">
+  <div class="p pd-tab">
     <div class="tool"><h3>Chamados pendentes <small id="ord" style="margin-left:8px"></small></h3><div class="sp"></div>
       <input class="srch" id="busca" type="search" placeholder="Buscar por chamado, cliente, assunto ou responsável…" oninput="BUSCA=this.value;PAG=1;tabela()">
       <span class="pill on" data-p="todos" onclick="pilula('todos')">Todos</span><span class="pill" data-p="venc" onclick="pilula('venc')">Vencidos</span><span class="pill" data-p="ret" onclick="pilula('ret')">Sem retorno +7 d</span>
@@ -108,9 +117,12 @@ td{padding:7px 8px;border-bottom:1px solid var(--b);vertical-align:middle}
   <div class="rod"><span>Tempo e prazo em horas úteis líquidas · meta pela urgência (Crítica 4 h · Alta 8 h · Média 16 h · Baixa 24 h) · "Sem retorno" = dias corridos desde a última resposta pública (cliente ou atendente)</span><span id="rodir"></span></div>
 </div>
 <script>
-const API=`${location.origin}/api`, BREVE_MIN=240, POR_PAG=200;
+// Modo TV pela URL (a TV roda sem filtros na tela): ?tv=1  ?k=chave (link da TV, sem login)  ?vertical=agrotitan  ?equipe=Nome  ?classificacao=Nome|todas  ?ano=todos  ?mes=todos  ?tema=claro
+const Q=new URLSearchParams(location.search), TV=Q.get('tv')==='1', CHAVE_TV=Q.get('k')||'';
+const API=`${location.origin}/api`, BREVE_MIN=240, POR_PAG=TV?600:200;
+if(TV){ document.body.classList.add('tv'); if(Q.get('tema')!=='claro') document.documentElement.className='dark'; }
 const tok=()=>localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||'';
-async function api(ep){ const r=await fetch(`${API}${ep}`,{headers:{Authorization:`Bearer ${tok()}`},cache:'no-store'}); if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); } return r.json(); }
+async function api(ep){ const k=CHAVE_TV?`${ep.includes('?')?'&':'?'}k=${encodeURIComponent(CHAVE_TV)}`:''; const r=await fetch(`${API}${ep}${k}`,{headers:tok()?{Authorization:`Bearer ${tok()}`}:{},cache:'no-store'}); if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||r.statusText); } return r.json(); }
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nf=n=>Number(n||0).toLocaleString('pt-BR');
 const semAc=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
@@ -120,7 +132,8 @@ function mdSwitchTab(view){
   try{ if(window.parent&&window.parent!==window&&typeof window.parent.navigateTo==='function'){ window.parent.navigateTo(view); return; } }catch{}
   location.href=view==='movidesk'?'geral.html':view+'.html';
 }
-function abrirPainelTV(){ window.open('painel-tv.html','_blank'); }
+function abrirPainelTV(){ mdSwitchTab('pendentes'); }
+function abrirModoTv(){ window.open(`pendentes.html?tv=1${CHAVE_TV?`&k=${encodeURIComponent(CHAVE_TV)}`:''}`,'_blank'); }
 
 // ── dados derivados ──
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -268,10 +281,35 @@ function render(){
 async function carregar(){
   try{
     const resp=await api('/geral/pendentes');
-    ROWS=(resp.rows||[]).map(enriquecer); ATUALIZADO=new Date(); document.getElementById('erro').style.display='none';
+    ROWS=(resp.rows||[]).map(enriquecer); ATUALIZADO=new Date(); aplicarParametrosUrl(); document.getElementById('erro').style.display='none';
   }catch(e){ const el=document.getElementById('erro'); el.textContent='Não foi possível carregar os pendentes: '+e.message; el.style.display='block'; el.style.background='var(--redbg)'; el.style.color='var(--red)'; }
   render();
 }
-SEL=lerVisao()||padraoSel(); carregar(); setInterval(carregar,5*60*1000);
+// Filtros vindos da URL (só na 1ª carga): vertical (com os mesmos apelidos do Painel TV), equipe, classificação, ano e mês
+let _urlAplicada=false;
+function aplicarParametrosUrl(){
+  if(_urlAplicada) return; _urlAplicada=true;
+  const slug=t=>semAc(t).replace(/[^a-z0-9]+/g,' ').trim();
+  const ALIAS={'agrotitan':'agronegocio','agro':'agronegocio','petroshow':'combustiveis','talentrh':'sistema para rh','talent rh':'sistema para rh','talent':'sistema para rh','rh':'sistema para rh','viasuper':'supermercados','fisco':'fisco contabil','servicos fiscais':'fisco contabil','fiscal':'fisco contabil','oracle':'oracle cloud','bi':'analytics b i','analytics':'analytics b i','automacao':'automacao comercial','fazendas':'agrotitan fazendas','internos':'sistemas internos'};
+  const casar=(k,campo,valor,alvoFn)=>{ const a=[...new Set(ROWS.map(campo))].filter(x=>alvoFn(x)===valor); if(a.length) SEL[k]=new Set(a); };
+  const v=slug(Q.get('vertical')||''); if(v) casar('serv',r=>r._serv,ALIAS[v]||v,slug);
+  const e=semAc(Q.get('equipe')||''); if(e) casar('equipe',r=>r._equipe,e,semAc);
+  const c=semAc(Q.get('classificacao')||''); if(c&&c!=='todas') casar('cls',r=>r._cls,c,semAc);
+  if(Q.get('ano')==='todos') SEL.ano=new Set(); else if(/^\d{4}$/.test(Q.get('ano')||'')) SEL.ano=new Set([Q.get('ano')]);
+  if(Q.get('mes')==='todos') SEL.mes=new Set(); else if(/^(1[0-2]|[1-9])$/.test(Q.get('mes')||'')) SEL.mes=new Set([Q.get('mes')]);
+}
+// TV: escala pela tela, relógio e rolagem automática da lista (desce devagar, espera no fim e volta ao topo)
+function ajustarZoom(){ const z=Math.max(.8,Math.min(2.6,Math.min(innerWidth/1500,innerHeight/860))); document.documentElement.style.setProperty('--z',z.toFixed(3)); }
+function iniciarTv(){
+  ajustarZoom(); addEventListener('resize',ajustarZoom);
+  const rel=()=>{ const e=document.getElementById('relogio'); if(e) e.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }; rel(); setInterval(rel,20000);
+  let fase='desce', espera=60;
+  setInterval(()=>{
+    const tw=document.getElementById('tw'); if(!tw) return; const max=tw.scrollHeight-tw.clientHeight; if(max<=4) return;
+    if(espera>0){ espera--; return; }
+    if(fase==='desce'){ tw.scrollTop+=2; if(tw.scrollTop>=max-2){ fase='topo'; espera=70; } } else { tw.scrollTop=0; fase='desce'; espera=60; }
+  },50);
+}
+SEL=lerVisao()||padraoSel(); if(TV) iniciarTv(); carregar(); setInterval(carregar,TV?60*1000:5*60*1000);
 </script>
 </body></html>
