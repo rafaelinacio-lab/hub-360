@@ -1090,6 +1090,19 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
+      <div class="chart-panel" id="repasses-panel">
+        <p class="chart-title">Repasses entre equipes</p>
+        <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Chamados que mudaram de equipe (por exemplo, entraram pelo Suporte Técnico e foram para Produto). Não segue os filtros do topo. O histórico existe a partir da implantação deste card; repasses anteriores não estão nos dados.</p>
+        <div class="vs-topo">
+          <label>Período <select id="rp-periodo" onchange="repassesCarregar(true)"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="mes">Mês atual</option></select></label>
+          <label>Equipe <select id="rp-equipe" onchange="repassesCarregar(true,true)"><option value="">Todas (origem ou destino)</option></select></label>
+          <span class="kpi-antes" style="text-decoration:none;cursor:default" id="rp-conta"></span>
+        </div>
+        <div id="rp-corpo"><p class="chart-sub" style="text-align:left">Carregando os repasses…</p></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
       <div class="chart-panel" id="causas-panel">
         <p class="chart-title">Top 10 causas dos chamados</p>
         <p class="chart-sub" id="causas-sub" style="text-align:left">Sempre o ano atual. Causa identificada pela Curadoria lendo o chamado como um todo (assunto e todas as ações), não o campo Causa do Movidesk. Clique numa causa para ver os tickets.</p>
@@ -1725,6 +1738,46 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('jr-lin')){ e.preventDefault(); e.target.click(); } });
 
+// ── Card "Repasses entre equipes" ──
+// Dados de GET /api/repasses (histórico de troca de equipe gravado por gatilho em silver.ticket). Não segue os filtros do topo.
+let _repasses=null, _repassesSeq=0, _repassesCarregando=false, _repassesTodos=false;
+function repassesDe(){
+  const v=document.getElementById('rp-periodo').value, d=new Date();
+  if(v==='mes') return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  return new Date(Date.now()-Number(v)*86400000).toISOString().slice(0,10);
+}
+async function repassesCarregar(forcar,soEquipe){
+  const corpo=document.getElementById('rp-corpo'); if(!corpo) return;
+  if(_repasses&&!forcar) return;
+  if(_repassesCarregando) return;
+  _repassesCarregando=true; const seq=++_repassesSeq; _repassesTodos=false;
+  try{
+    const eq=document.getElementById('rp-equipe').value;
+    const r=await api(`/repasses?de=${repassesDe()}${eq?`&equipe=${encodeURIComponent(eq)}`:''}`,60000);
+    if(seq!==_repassesSeq) return;
+    _repasses=r;
+    if(!soEquipe){   // lista de equipes vem do período inteiro (sem filtro de equipe)
+      const sel=document.getElementById('rp-equipe'); const atual=sel.value;
+      sel.innerHTML='<option value="">Todas (origem ou destino)</option>'+(r.equipes||[]).map(e=>`<option value="${escAttr(e)}">${esc(e)}</option>`).join('');
+      sel.value=(r.equipes||[]).includes(atual)?atual:'';
+    }
+    repassesDesenhar();
+  }catch(e){ if(seq===_repassesSeq) corpo.innerHTML=`<p class="chart-sub" style="text-align:left;color:var(--bad,#dc2626)">Não foi possível carregar: ${esc(e.message)}</p>`; }
+  finally{ _repassesCarregando=false; }
+}
+function repassesDesenhar(){
+  const corpo=document.getElementById('rp-corpo'), conta=document.getElementById('rp-conta'); if(!corpo||!_repasses) return;
+  const n=x=>Number(x||0).toLocaleString('pt-BR'), r=_repasses;
+  if(conta) conta.textContent=`${n(r.resumo.repasses)} repasse(s) · ${n(r.resumo.chamados)} chamado(s)`;
+  if(!r.resumo.repasses){ corpo.innerHTML=`<p class="chart-sub" style="text-align:left">Não há chamados repassados entre equipes no período${document.getElementById('rp-equipe').value?' para esta equipe':''}.${r.desde?` O histórico começa em ${esc(new Date(r.desde).toLocaleDateString('pt-BR'))}.`:' O histórico ainda não tem registros.'}</p>`; return; }
+  const pares=r.pares.slice(0,10).map(p=>`<tr><td>${esc(p.de)} <span style="color:var(--t3)">→</span> ${esc(p.para)}</td><td class="n"><b>${n(p.total)}</b></td></tr>`).join('');
+  const lista=_repassesTodos?r.chamados:r.chamados.slice(0,30);
+  const linhas=lista.map(c=>`<tr><td><a href="${ticketUrl(c.ticket_id)}" target="_blank" rel="noopener">#${esc(c.ticket_id)}</a></td><td>${esc(c.assunto||'—')}</td><td>${esc(c.de)} <span style="color:var(--t3)">→</span> ${esc(c.para)}</td><td>${esc(c.status||'—')}</td><td>${esc(new Date(c.criado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</td></tr>`).join('');
+  corpo.innerHTML=`<div class="rolagem" style="overflow-x:auto"><table class="vs-tab"><thead><tr><th>De → Para</th><th class="n">Repasses</th></tr></thead><tbody>${pares}</tbody></table></div>
+    <div class="rolagem" style="overflow-x:auto;margin-top:12px"><table class="vs-tab"><thead><tr><th>Chamado</th><th>Assunto</th><th>Repasse</th><th>Status</th><th>Quando</th></tr></thead><tbody>${linhas}</tbody></table></div>
+    ${r.chamados.length>30?`<p class="vs-nota"><a href="#" onclick="_repassesTodos=!_repassesTodos;repassesDesenhar();return false">${_repassesTodos?'Mostrar só os 30 mais recentes':`Mostrar todos os ${n(r.chamados.length)}${r.truncado?' (limite de 1000)':''}`}</a></p>`:''}`;
+}
+
 // ── Card "Versões lançadas × chamados" (visão Suporte Técnico) ──
 // Dados de GET /geral/versoes-chamados (versões do Jira × chamados de Suporte Técnico do produto). Não segue os filtros do topo: é por versão.
 let _versoes=null, _versoesSeq=0, _versoesCarregando=false;
@@ -2167,6 +2220,7 @@ function render(){
   renderSlaEquipe(resolvidosRows);
   renderTarefasJira(rowsCtx,pendentesRows);
   if(_visao==='st') versoesCarregar(false);
+  repassesCarregar(false);
   renderAgingChart(pendentesRows);
   renderTeamChart(rowsFull);
   renderUrgChart(rowsFull);

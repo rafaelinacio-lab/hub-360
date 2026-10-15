@@ -721,6 +721,54 @@ async function ensureTables() {
     // ela, o JOIN entre as duas tabelas quebra com "operator does not
     // exist: character varying = bigint".
     ['silver.ticket_satisfacao.ticket_id type fix', `ALTER TABLE silver.ticket_satisfacao ALTER COLUMN ticket_id TYPE bigint USING ticket_id::bigint`],
+    // Histórico de repasses entre equipes (aba Repasses). O Movidesk não devolve o histórico de equipe do chamado, então
+    // um gatilho em silver.ticket registra cada troca de ownerteam, seja qual for o gravador (carga, cron, Central do chamado).
+    // Só conta troca real: ignora diferença de maiúsculas/espaços no nome da equipe e a primeira gravação do chamado.
+    ['silver.ticket_equipe_historico (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_equipe_historico (
+        id         bigserial PRIMARY KEY,
+        ticket_id  bigint NOT NULL,
+        de_equipe  text NOT NULL,
+        para_equipe text NOT NULL,
+        trocado_em timestamptz NOT NULL DEFAULT NOW()
+      )
+    `],
+    ['silver.ticket_equipe_historico.ix_trocado_em', `CREATE INDEX IF NOT EXISTS ix_ticket_equipe_historico_trocado_em ON silver.ticket_equipe_historico (trocado_em)`],
+    ['silver.ticket_equipe_historico.ix_ticket', `CREATE INDEX IF NOT EXISTS ix_ticket_equipe_historico_ticket ON silver.ticket_equipe_historico (ticket_id)`],
+    ['silver.registrar_troca_equipe (função)', `
+      CREATE OR REPLACE FUNCTION silver.registrar_troca_equipe() RETURNS trigger AS $f$
+      BEGIN
+        BEGIN
+          IF NULLIF(btrim(OLD.ownerteam), '') IS NOT NULL AND NULLIF(btrim(NEW.ownerteam), '') IS NOT NULL
+             AND lower(btrim(OLD.ownerteam)) <> lower(btrim(NEW.ownerteam)) THEN
+            INSERT INTO silver.ticket_equipe_historico (ticket_id, de_equipe, para_equipe, trocado_em)
+            VALUES (NEW.ticket_id, btrim(OLD.ownerteam), btrim(NEW.ownerteam), NOW());
+          END IF;
+        EXCEPTION WHEN OTHERS THEN NULL;   -- o histórico nunca pode derrubar a gravação do chamado
+        END;
+        RETURN NEW;
+      END $f$ LANGUAGE plpgsql
+    `],
+    ['silver.ticket trg_troca_equipe', `
+      DO $t$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_troca_equipe' AND tgrelid = 'silver.ticket'::regclass) THEN
+          CREATE TRIGGER trg_troca_equipe AFTER UPDATE OF ownerteam ON silver.ticket
+            FOR EACH ROW WHEN (OLD.ownerteam IS DISTINCT FROM NEW.ownerteam)
+            EXECUTE FUNCTION silver.registrar_troca_equipe();
+        END IF;
+      END $t$
+    `],
+    // Aproveita o que o log de cargas já tinha visto antes do gatilho existir (uma vez, só com a tabela vazia)
+    ['silver.ticket_equipe_historico (aproveita log de cargas)', `
+      INSERT INTO silver.ticket_equipe_historico (ticket_id, de_equipe, para_equipe, trocado_em)
+      SELECT c.ticket_id, btrim(c.changed_fields->'ownerteam'->>'antes'), btrim(c.changed_fields->'ownerteam'->>'depois'), l.started_at
+        FROM silver.carga_log_ticket_change c JOIN silver.carga_log l ON l.id = c.carga_log_id
+       WHERE c.change_type = 'updated' AND c.changed_fields ? 'ownerteam'
+         AND NULLIF(btrim(c.changed_fields->'ownerteam'->>'antes'), '') IS NOT NULL
+         AND NULLIF(btrim(c.changed_fields->'ownerteam'->>'depois'), '') IS NOT NULL
+         AND lower(btrim(c.changed_fields->'ownerteam'->>'antes')) <> lower(btrim(c.changed_fields->'ownerteam'->>'depois'))
+         AND NOT EXISTS (SELECT 1 FROM silver.ticket_equipe_historico)
+    `],
   ];
 
   await db.withClient(async (client) => {
