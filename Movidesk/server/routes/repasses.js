@@ -57,7 +57,7 @@ router.get('/', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (re
       const [cfg, hist, info, ac] = await Promise.all([
         lerConfigEmCache(),
         db.query(`SELECT ticket_id::text AS id, de_equipe, para_equipe, trocado_em FROM silver.ticket_equipe_historico WHERE ticket_id = ANY($1::bigint[]) ORDER BY ticket_id, trocado_em, id`, [ids]),
-        db.query(`SELECT t.ticket_id::text AS id, t.createddate, t.urgency, COALESCE(t.resolved_in, t.closed_in) AS fechado_em, cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS fora_cliente
+        db.query(`SELECT t.ticket_id::text AS id, t.createddate, t.urgency, t.sla_solution_date AS prazo, COALESCE(t.resolved_in, t.closed_in) AS fechado_em, cf.valor_texto AS classificacao, COALESCE(cl.fora_sla, false) AS fora_cliente
                     FROM silver.ticket t
                     LEFT JOIN LATERAL (SELECT valor_texto FROM silver.ticket_campo_customizado WHERE ticket_id = t.ticket_id AND custom_field_id = 23946 AND NULLIF(btrim(valor_texto), '') IS NOT NULL ORDER BY item_ordem LIMIT 1) cf ON true
                     ${sqlLateralClienteFora('t')}
@@ -70,7 +70,7 @@ router.get('/', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (re
       const agora = new Date();
       info.rows.forEach((t) => {
         if (!t.createddate) return;
-        const l = linhaDoTempo({ id: t.id, criadoEm: t.createddate, urgencia: t.urgency, classificacao: t.classificacao, foraCliente: t.fora_cliente, fechadoEm: t.fechado_em },
+        const l = linhaDoTempo({ id: t.id, criadoEm: t.createddate, urgencia: t.urgency, classificacao: t.classificacao, foraCliente: t.fora_cliente, prazoMovidesk: t.prazo, fechadoEm: t.fechado_em },
           trs.get(t.id) || [], ev.get(t.id) || [], cfg, agora, desde);
         if (l) linhasDoTempo.set(t.id, l);
       });
@@ -84,7 +84,8 @@ router.get('/', authMiddleware, soAdmin, requireTabAccess('movidesk'), async (re
       l.min_origem = origem ? origem.min : null;
       l.acum_min = origem ? origem.acumMin : null;
       l.meta_h = lt.metaH;
-      l.vencido_no_repasse = lt.metaH == null || !origem ? null : origem.acumMin > lt.metaH * 60;
+      l.fonte_sla = lt.fonte; l.excesso_min = trsT[i] ? trsT[i].excessoMin : null;
+      l.vencido_no_repasse = !lt.fonte || !origem ? null : trsT[i].jaVencidaAoReceber;
       l.sla_atual = lt.sla; l.total_min = lt.totalMin; l.aberto = lt.aberto; l.inicio_estimado = lt.inicioEstimado;
       l.passagens = trsT.map((sg) => ({ equipe: sg.equipe, min: sg.min, estourouAqui: sg.estourouAqui, emAndamento: sg.emAndamento, estimada: sg.estimada }));
     });

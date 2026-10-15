@@ -2,11 +2,13 @@
 // Tempo de cada chamado com cada equipe e situação do SLA em cada repasse (card "Repasses entre equipes").
 // Linha do tempo = criação → 1º repasse (equipe de origem do 1º repasse) → … → solução (ou agora, se ainda aberto).
 // Tempo e SLA usam a régua do Hub: minutos úteis líquidos da política de SLA (janela de atendimento, sem fim de semana/feriado/pausa)
-// contra a meta da urgência (slaRegraHub.META_H). Só chamados de Suporte Técnico (sem cliente excluído) têm meta; os demais só têm tempo.
+// contra a meta da urgência (slaRegraHub.META_H) nos chamados de Suporte Técnico (sem cliente excluído). Nos demais, vale o prazo de solução do
+// próprio Movidesk (silver.ticket.sla_solution_date): já estava vencido no repasse se o repasse foi depois do prazo. Em ambos o excesso é medido em
+// HORAS ÚTEIS (janela de atendimento, sem fim de semana e feriado), nunca em horas corridas.
 const P = require('./slaPolitica');
 const { metaDe } = require('./slaRegraHub');
 
-// t: { id, criadoEm, urgencia, classificacao, foraCliente, fechadoEm|null }
+// t: { id, criadoEm, urgencia, classificacao, foraCliente, prazoMovidesk|null, fechadoEm|null }
 // trs: repasses do chamado em ordem [{ de, para, em }]; eventos: [{ em, status }]; desde: início do histórico (Date|null)
 function linhaDoTempo(t, trs, eventos, cfg, agora, desde) {
   if (!trs.length) return null;
@@ -14,6 +16,8 @@ function linhaDoTempo(t, trs, eventos, cfg, agora, desde) {
   const fim = t.fechadoEm ? new Date(t.fechadoEm).getTime() : agora.getTime();
   const meta = String(t.classificacao || '').trim() === 'Suporte Técnico' && !t.foraCliente ? metaDe(t.urgencia) : null;
   const metaMin = meta == null ? null : meta * 60;
+  const prazo = metaMin == null && t.prazoMovidesk ? new Date(t.prazoMovidesk).getTime() : null;
+  const fonte = metaMin != null ? 'hub' : prazo != null ? 'movidesk' : null;
   const cortes = [criado, ...trs.map((x) => Math.min(Math.max(new Date(x.em).getTime(), criado), fim)), fim];
   const equipes = [trs[0].de, ...trs.map((x) => x.para)];
   const inicioEstimado = !!desde && criado < new Date(desde).getTime();
@@ -22,10 +26,14 @@ function linhaDoTempo(t, trs, eventos, cfg, agora, desde) {
   for (let i = 0; i < equipes.length; i++) {
     const min = P.minutosLiquidos(cortes[i], cortes[i + 1], eventos, cfg);
     const acum = antes + min;
+    // 'hub': tempo líquido acumulado × meta da urgência · 'movidesk': instante × prazo de solução do Movidesk
+    const venceAntes = fonte === 'hub' ? antes > metaMin : fonte === 'movidesk' ? cortes[i] > prazo : null;
+    const venceDepois = fonte === 'hub' ? acum > metaMin : fonte === 'movidesk' ? cortes[i + 1] > prazo : null;
+    const excessoMin = fonte === 'hub' ? Math.max(0, antes - metaMin) : fonte === 'movidesk' && cortes[i] > prazo ? P.minutosUteis(prazo, cortes[i], cfg) : 0;   // úteis, no momento em que a equipe recebeu
     segs.push({
-      equipe: equipes[i], de: cortes[i], ate: cortes[i + 1], min, acumMin: acum,
-      jaVencidaAoReceber: metaMin != null && i > 0 ? antes > metaMin : null,      // chegou à equipe com a meta já estourada
-      estourouAqui: metaMin != null ? antes <= metaMin && acum > metaMin : null,  // a meta estourou enquanto estava com esta equipe
+      equipe: equipes[i], de: cortes[i], ate: cortes[i + 1], min, acumMin: acum, fonte, excessoMin,
+      jaVencidaAoReceber: fonte && i > 0 ? venceAntes : null,        // chegou à equipe com o SLA já estourado
+      estourouAqui: fonte ? !venceAntes && venceDepois : null,       // o SLA estourou enquanto estava com esta equipe
       emAndamento: i === equipes.length - 1 && !t.fechadoEm,
       estimada: i === 0 && inicioEstimado,   // o 1º trecho de quem foi criado antes do histórico pode ter passado por outra equipe sem registro
     });
@@ -33,7 +41,8 @@ function linhaDoTempo(t, trs, eventos, cfg, agora, desde) {
   }
   return {
     id: t.id, metaH: meta, totalMin: antes, aberto: !t.fechadoEm,
-    sla: metaMin == null ? 'fora' : antes > metaMin ? 'vencido' : 'no_prazo',
+    fonte,
+    sla: !fonte ? 'fora' : (fonte === 'hub' ? antes > metaMin : fim > prazo) ? 'vencido' : 'no_prazo',
     inicioEstimado,
     segs,
   };
