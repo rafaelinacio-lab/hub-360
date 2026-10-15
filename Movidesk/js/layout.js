@@ -74,7 +74,12 @@
         layout = layout || { ordem: [], cartoes: {} };
         var els = cartoes(), porId = {}; els.forEach(function (e) { porId[idDe(e)] = e; });
         var seq = (layout.ordem || []).filter(function (id) { return porId[id]; });
-        els.forEach(function (e) { if (seq.indexOf(idDe(e)) < 0) seq.push(idDe(e)); });
+        // card que não está na ordem salva (novo, ou antes agrupado em outro id, como os KPIs) entra logo depois do card que o precede na página, não no fim
+        els.forEach(function (e, i) {
+            var id = idDe(e); if (seq.indexOf(id) >= 0) return;
+            var prev = i ? seq.indexOf(idDe(els[i - 1])) : -1;
+            seq.splice(prev + 1, 0, id);
+        });
         estado.raiz.classList.add('hub-layout');
         seq.forEach(function (id, i) {
             var el = porId[id], c = (layout.cartoes || {})[id] || {};
