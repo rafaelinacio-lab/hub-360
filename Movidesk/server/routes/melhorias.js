@@ -48,6 +48,8 @@ const soAdmin = (req, res, next) => (req.eu.admin ? next() : res.status(403).jso
 async function evento(id, req, tipo, texto) {
   await db.query(`INSERT INTO public.melhoria_evento (melhoria_id, tipo, texto, autor_nome) VALUES ($1,$2,$3,$4)`, [id, tipo, texto || null, req.eu.nome]);
 }
+// quem não é admin só enxerga as sugestões que ele mesmo cadastrou
+const soMinhas = (req) => !req.eu.admin;
 const codigo = (id) => `MEL-${String(id).padStart(4, '0')}`;
 // a análise da IA é só do admin: nunca sai nas listas/detalhes comuns
 const fmt = (m, euId) => { const { analise_ia, analise_ia_em, analise_aprovada_por, analise_aprovada_em, ...resto } = m; return { ...resto, codigo: codigo(m.id), rotuloStatus: STATUS[m.status] || m.status, minha: m.criado_por === euId }; };
@@ -62,7 +64,7 @@ router.get('/', async (req, res) => {
     if (STATUS[req.query.status]) { params.push(req.query.status); where.push(`m.status = $${params.length}`); }
     if (req.query.area) { params.push(String(req.query.area)); where.push(`m.area = $${params.length}`); }
     if (TIPOS[req.query.tipo]) { params.push(req.query.tipo); where.push(`m.tipo = $${params.length}`); }
-    if (req.query.meus === '1') where.push('m.criado_por = $1');
+    if (req.query.meus === '1' || soMinhas(req)) where.push('m.criado_por = $1');
     const q = txt(req.query.q, 80).toLowerCase();
     if (q) { params.push(`%${q}%`); where.push(`(lower(m.titulo) LIKE $${params.length} OR lower(m.descricao) LIKE $${params.length} OR lower(COALESCE(m.criado_por_nome,'')) LIKE $${params.length})`); }
     const ordem = req.query.ordem === 'recentes' ? 'm.criado_em DESC' : 'votos DESC, m.criado_em DESC';
@@ -71,7 +73,7 @@ router.get('/', async (req, res) => {
              EXISTS (SELECT 1 FROM public.melhoria_voto v WHERE v.melhoria_id = m.id AND v.user_id = $1) AS eu_votei,
              (SELECT COUNT(*) FROM public.melhoria_comentario c WHERE c.melhoria_id = m.id AND (NOT c.interno OR ${req.eu.admin ? 'TRUE' : 'FALSE'}))::int AS n_comentarios
         FROM public.melhoria m ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY ${ordem} LIMIT 500`, params);
-    const cont = (await db.query(`SELECT status, COUNT(*)::int AS n FROM public.melhoria GROUP BY 1`)).rows;
+    const cont = (await db.query(`SELECT status, COUNT(*)::int AS n FROM public.melhoria ${soMinhas(req) ? 'WHERE criado_por = $1' : ''} GROUP BY 1`, soMinhas(req) ? [req.eu.id] : [])).rows;
     res.json({ melhorias: r.rows.map((m) => fmt(m, req.eu.id)), contagem: Object.fromEntries(cont.map((c) => [c.status, c.n])) });
   } catch (e) { erro(res, e); }
 });
@@ -81,7 +83,7 @@ router.get('/:id(\\d+)', async (req, res) => {
   try {
     const m = (await db.query(`SELECT m.*, (SELECT COUNT(*) FROM public.melhoria_voto v WHERE v.melhoria_id = m.id)::int AS votos,
         EXISTS (SELECT 1 FROM public.melhoria_voto v WHERE v.melhoria_id = m.id AND v.user_id = $2) AS eu_votei FROM public.melhoria m WHERE m.id = $1`, [id, req.eu.id])).rows[0];
-    if (!m) return res.status(404).json({ error: 'Sugestão não encontrada' });
+    if (!m || (soMinhas(req) && m.criado_por !== req.eu.id)) return res.status(404).json({ error: 'Sugestão não encontrada' });
     const com = (await db.query(`SELECT id, autor_nome, admin, interno, texto, criado_em FROM public.melhoria_comentario WHERE melhoria_id = $1 AND (NOT interno OR $2) ORDER BY id`, [id, req.eu.admin])).rows;
     const ev = (await db.query(`SELECT tipo, texto, autor_nome, criado_em FROM public.melhoria_evento WHERE melhoria_id = $1 ORDER BY id DESC`, [id])).rows;
     // notas internas nos eventos só aparecem para o admin
@@ -140,8 +142,8 @@ router.delete('/:id(\\d+)', async (req, res) => {
 router.post('/:id(\\d+)/voto', async (req, res) => {
   const id = idv(req.params.id);
   try {
-    const m = (await db.query(`SELECT status FROM public.melhoria WHERE id = $1`, [id])).rows[0];
-    if (!m) return res.status(404).json({ error: 'Sugestão não encontrada' });
+    const m = (await db.query(`SELECT status, criado_por FROM public.melhoria WHERE id = $1`, [id])).rows[0];
+    if (!m || (soMinhas(req) && m.criado_por !== req.eu.id)) return res.status(404).json({ error: 'Sugestão não encontrada' });
     if (['implantada', 'recusada'].includes(m.status)) return res.status(409).json({ error: 'Esta sugestão já foi encerrada.' });
     const del = await db.query(`DELETE FROM public.melhoria_voto WHERE melhoria_id = $1 AND user_id = $2 RETURNING 1`, [id, req.eu.id]);
     if (!del.rows[0]) await db.query(`INSERT INTO public.melhoria_voto (melhoria_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [id, req.eu.id]);
@@ -155,7 +157,7 @@ router.post('/:id(\\d+)/comentarios', limiteComentar, async (req, res) => {
   const interno = req.eu.admin && req.body?.interno === true;
   if (texto.length < 2) return res.status(400).json({ error: 'Escreva o comentário.' });
   try {
-    if (!(await db.query(`SELECT 1 FROM public.melhoria WHERE id = $1`, [id])).rows[0]) return res.status(404).json({ error: 'Sugestão não encontrada' });
+    if (!(await db.query(`SELECT 1 FROM public.melhoria WHERE id = $1 AND ($2 OR criado_por = $3)`, [id, req.eu.admin, req.eu.id])).rows[0]) return res.status(404).json({ error: 'Sugestão não encontrada' });
     await db.query(`INSERT INTO public.melhoria_comentario (melhoria_id, user_id, autor_nome, admin, interno, texto) VALUES ($1,$2,$3,$4,$5,$6)`, [id, req.eu.id, req.eu.nome, req.eu.admin, interno, texto]);
     await db.query(`UPDATE public.melhoria SET atualizado_em = NOW() WHERE id = $1`, [id]);
     res.status(201).json({ ok: true });

@@ -446,6 +446,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('mFundo').cl
 
 (async function init(){
   try{ CFG=await api('/config'); }catch(e){ aviso('aviso',e.message,'erro'); return; }
+  if(!CFG.eu.admin) $('chipMeus').hidden=true; // não-admin só vê as próprias sugestões
   $('fArea').innerHTML='<option value="">Todas as áreas</option>'+CFG.areas.map(a=>`<option>${esc(a)}</option>`).join('');
   $('fTipo').innerHTML='<option value="">Todos os tipos</option>'+Object.entries(CFG.tipos).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
   $('nTipo').innerHTML=Object.entries(CFG.tipos).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
