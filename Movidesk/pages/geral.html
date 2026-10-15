@@ -723,6 +723,15 @@ body.modal-open{overflow:hidden}
 #detail-modal .dtable td:nth-child(4),#detail-modal .dtable td:nth-child(5){white-space:normal}
 .modal-body .sla-pend{white-space:normal}
 .modal-box{overflow-x:hidden}
+/* KPIs: 9 cartões sempre em linhas completas e do mesmo tamanho (antes, auto-fit deixava 8+1, 7+2, 6+3 ou 4+4+1). O cartão do SLA (3º) ocupa 2 colunas
+   nas grades de 5 e de 2 colunas, para fechar 10 unidades = 2×5 e 5×2. Por largura da tela (a aba roda num iframe, então vale a largura dela). */
+html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-grid.k9{grid-template-columns:repeat(5,minmax(0,1fr))}
+#geral-dash .kpi-grid.k9{grid-auto-rows:1fr}   /* todas as linhas com a mesma altura */
+#geral-dash .kpi-grid.k9>.sla-hero{grid-column:span 2}
+@media (min-width:2100px){html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-grid.k9{grid-template-columns:repeat(9,minmax(0,1fr))}#geral-dash .kpi-grid.k9>.sla-hero{grid-column:auto}}
+@media (max-width:1000px){html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-grid.k9{grid-template-columns:repeat(3,minmax(0,1fr))}#geral-dash .kpi-grid.k9>.sla-hero{grid-column:auto}}
+@media (max-width:700px){html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-grid.k9{grid-template-columns:repeat(2,minmax(0,1fr))}#geral-dash .kpi-grid.k9>.sla-hero{grid-column:span 2}}
+@media (max-width:460px){html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-grid.k9{grid-template-columns:minmax(0,1fr)}#geral-dash .kpi-grid.k9>.sla-hero{grid-column:auto}}
 </style>
 <script src="../js/equipesTipo.js"></script>
 <link rel="stylesheet" href="../css/v2.css">
@@ -1125,14 +1134,6 @@ body.modal-open{overflow:hidden}
           <span class="kpi-antes" style="text-decoration:none;cursor:default" id="rp-conta"></span>
         </div>
         <div id="rp-corpo"><p class="chart-sub" style="text-align:left">Carregando os repasses…</p></div>
-      </div>
-    </div>
-
-    <div class="hrow c-1">
-      <div data-card="top-10-causas-dos-chamados" data-titulo="Top 10 causas dos chamados" class="chart-panel" id="causas-panel">
-        <p class="chart-title">Top 10 causas dos chamados</p>
-        <p class="chart-sub" id="causas-sub" style="text-align:left">Sempre o ano atual. Causa identificada pela Curadoria lendo o chamado como um todo (assunto e todas as ações), não o campo Causa do Movidesk. Clique numa causa para ver os tickets.</p>
-        <div id="causas-lista" class="rolagem"></div>
       </div>
     </div>
 
@@ -2276,10 +2277,6 @@ function render(){
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
   renderTemas(rowsFull);
-  // Top 10 causas: sempre o ANO ATUAL (chamados criados neste ano), com os demais filtros mas sem o corte de Ano/Mês do topo
-  const rowsCausasAno=rowsCtx.filter(r=>r.criado_em&&new Date(r.criado_em).getFullYear()===new Date().getFullYear());
-  window._rowsFullAtual=rowsCausasAno;
-  renderCausas(rowsCausasAno);
   renderImpactoSla(rowsResolv);
   renderSlaEquipe(resolvidosRows);
   renderTarefasJira(rowsCtx,pendentesRows);
@@ -3008,47 +3005,6 @@ async function renderTemas(rows){
 function abrirTema(tema){
   const rows=(window._temasBase||[]).filter(r=>_temasCache[r.ticket_id]===tema);
   openDetailModal(`Tema: ${tema}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
-}
-
-// ── Top 10 causas (diagnóstico da Curadoria sobre o histórico inteiro do chamado) ──
-let _causasSeq=0, _causasGrupos=[], _causasBase=null;
-async function renderCausas(rows){
-  const lista=document.getElementById('causas-lista'), sub=document.getElementById('causas-sub');
-  if(!lista) return;
-  const seq=++_causasSeq;
-  if(!rows.length){ lista.innerHTML='<p class="imp-vazio">Nenhum ticket do ano atual nos filtros escolhidos.</p>'; return; }
-  try{
-    if(!_causasBase){
-      lista.innerHTML='<p class="imp-vazio">Analisando as causas…</p>';
-      const r=await fetch(`${API}/geral/causas`,{headers:{Authorization:`Bearer ${tok()}`}});
-      const resp=await r.json().catch(()=>({}));
-      if(!r.ok) throw new Error(resp.error||`HTTP ${r.status}`);
-      _causasBase=resp;
-    }
-    if(seq!==_causasSeq) return;
-    // cruza a base da Curadoria com os chamados que o painel está mostrando agora (respeita todos os filtros)
-    const ids=new Set(rows.map(r=>String(r.ticket_id)));
-    const porCausa=new Map(); let comCausa=0;
-    for(const [id,i] of _causasBase.itens){ if(!ids.has(id)) continue; comCausa++; (porCausa.get(i)||porCausa.set(i,[]).get(i)).push(id); }
-    const n=x=>x.toLocaleString('pt-BR');
-    const cob=ids.size?comCausa/ids.size:0;
-    sub.textContent=`${n(comCausa)} de ${n(ids.size)} tickets de ${new Date().getFullYear()} têm causa diagnosticada (${fmtPct(cob)}) — a Curadoria lê o chamado inteiro (assunto e todas as ações); os demais ainda não passaram por ela. Clique numa causa para ver os tickets.`;
-    _causasGrupos=[...porCausa.entries()].map(([i,lst])=>({causa:_causasBase.causas[i],qtd:lst.length,ids:lst})).sort((a,b)=>b.qtd-a.qtd).slice(0,10);
-    if(!_causasGrupos.length){ lista.innerHTML=`<p class="imp-vazio">${esc(_causasBase.aviso||'Nenhum ticket do ano atual foi diagnosticado pela Curadoria ainda.')}</p>`; return; }
-    const max=_causasGrupos[0].qtd;
-    lista.innerHTML=_causasGrupos.map((g,i)=>`<div class="tm-row" onclick="abrirCausa(${i})" title="Clique para ver os tickets">
-      <div class="tm-rank" style="color:var(--brand-text)">${String(i+1).padStart(2,'0')}</div>
-      <div><div class="tm-nome">${esc(g.causa)}</div></div>
-      <div class="tm-trilho"><div class="tm-barra" style="width:${Math.max(2,g.qtd/max*100)}%;background:var(--brand)"></div></div>
-      <div class="tm-val"><b>${n(g.qtd)}</b><small>${fmtPct(g.qtd/comCausa)}</small></div>
-    </div>`).join('');
-  }catch(e){ if(seq===_causasSeq) lista.innerHTML=`<p class="imp-vazio">${esc(/^Não foi possível/.test(e.message)?e.message:'Não foi possível analisar as causas: '+e.message)}</p>`; }
-}
-function abrirCausa(i){
-  const g=_causasGrupos[i]; if(!g) return;
-  const set=new Set(g.ids);
-  const rows=(window._rowsFullAtual||[]).filter(r=>set.has(String(r.ticket_id)));
-  openDetailModal(`Causa: ${g.causa}`,`${rows.length.toLocaleString('pt-BR')} ticket${rows.length===1?'':'s'}`,rows);
 }
 
 // ── Evolução mensal por urgência (volume de tickets abertos no mês) ───
@@ -3887,10 +3843,6 @@ const INFO_CARDS={
   'impacto-cli-panel':{t:'Quem concentra o atraso',
     o:'O impacto no tempo médio de solução somado por cliente, equipe, responsável ou urgência.',
     c:['Usa o mesmo impacto de cada ticket do card "Impacto mensal de SLA por ticket" e soma por grupo.','Valor positivo = o grupo elevou a média de tempo de solução; negativo = reduziu.','Os 8 primeiros respondem por X% do desvio para cima (soma só dos grupos positivos).','Clique numa linha para ver os tickets do grupo.']},
-  'causas-panel':{t:'Top 10 causas dos chamados',
-    o:'As causas que mais aparecem nos chamados do período, segundo a análise da Curadoria.',
-    c:['A Curadoria (IA) lê o histórico inteiro de cada chamado — todas as ações do cliente e do atendente — e registra a causa (versão normalizada).','O painel agrupa os tickets filtrados pela mesma causa (ignorando maiúsculas, acentos e pontuação final) e mostra as 10 maiores.','% = tickets da causa ÷ tickets que já têm causa diagnosticada.','Chamados que ainda não passaram pela Curadoria não entram na conta; a cobertura aparece abaixo do título.','Clique numa causa para ver os tickets.'],
-    obs:'A qualidade depende do diagnóstico da Curadoria. '+FILTROS_TXT},
   'temas-panel':{t:'Temas mais recorrentes',
     o:'Os assuntos que mais aparecem nos chamados, descobertos a partir do texto do chamado e das ações.',
     c:['Para cada ticket criado no período, lê o assunto (peso dobrado) e o texto das 5 primeiras ações (até 1.500 caracteres cada).','Procura palavras-chave de cada tema (dicionário em server/data/temas-chamados.json; ex.: Fiscal = NF-e, CFOP, SPED, ICMS…).','O tema do ticket é o que tiver mais ocorrências; em caso de empate vale a ordem do dicionário. Cada ticket conta em um tema só.','Tickets sem nenhuma palavra do dicionário ficam sem tema e aparecem apenas no total analisado.','% = tickets do tema ÷ tickets analisados. A variação em pp compara a participação do tema no último mês do período com o mês anterior.','Clique num tema para ver os tickets.'],
