@@ -18,16 +18,34 @@ const {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   runBackfillCamposBasicos, runFixDadosRelacionados, runFixAutoresAcoes, runAtualizacaoInteligente,
-  enriquecimentoPendentes,
+  enriquecimentoPendentes, iniciarFilaHistoricos, filaHistoricos,
 } = require('../scripts/movidesk-loader');
 const loader  = {
   runFull, runIncremental, runOuvidoria, runGcc, runFixOrganizacao, cancelLoad, state: loaderState,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
   runBackfillCamposBasicos, runFixDadosRelacionados, runFixAutoresAcoes, runAtualizacaoInteligente,
-  enriquecimentoPendentes,
+  enriquecimentoPendentes, iniciarFilaHistoricos, filaHistoricos,
 };
 
 // ── POST /api/loader/full ─────────────────────────────────────────────────────
+// Fila de históricos de equipe/status (ownerHistories/statusHistories do Movidesk → silver.ticket_owner_historico/ticket_status_historico).
+// POST /historicos/iniciar {limite?} roda uma rodada agora (limite pequeno = teste); GET /historicos/status mostra o andamento.
+router.post('/historicos/iniciar', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const limite = Math.min(2000, Math.max(1, Math.round(Number(req.body && req.body.limite)) || 0)) || null;
+    res.json(await loader.iniciarFilaHistoricos({ limite }));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.get('/historicos/status', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const f = loader.filaHistoricos;
+    const r = await require('../db/remote').query(`SELECT COUNT(*)::int AS n FROM silver.ticket t
+       WHERE (t.historico_em IS NULL AND (t.createddate >= $1::date OR COALESCE(t.last_update, t.lastupdate) >= $1::date))
+          OR (t.historico_em IS NOT NULL AND t.historico_em < COALESCE(t.last_update, t.lastupdate))`, [process.env.HIST_DESDE || '2026-09-03']).catch(() => ({ rows: [{ n: null }] }));
+    res.json({ ...f, pendentes: r.rows[0].n });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
   if (loader.state.running) {
     return res.status(409).json({

@@ -557,6 +557,7 @@ async function ensureTables() {
       'reopened_in timestamptz',
       'jiraissuekey text',   // tarefa do Jira vinculada ao chamado (campo jiraIssueKey do Movidesk)
       'detalhes_em timestamptz',   // quando as ações/clientes/campos do chamado foram gravados (fila de detalhes em segundo plano)
+      'historico_em timestamptz',  // quando o histórico de equipe/status do chamado foi gravado (fila de históricos)
     ].map(col => {
       const [name] = col.split(' ');
       return [`silver.ticket.${name}`, `ALTER TABLE silver.ticket ADD COLUMN IF NOT EXISTS ${name} ${col.slice(name.length + 1)}`];
@@ -721,6 +722,24 @@ async function ensureTables() {
     // ela, o JOIN entre as duas tabelas quebra com "operator does not
     // exist: character varying = bigint".
     ['silver.ticket_satisfacao.ticket_id type fix', `ALTER TABLE silver.ticket_satisfacao ALTER COLUMN ticket_id TYPE bigint USING ticket_id::bigint`],
+    // Histórico de equipe e de status vindo do Movidesk (ownerHistories / statusHistories), usado pelo card Repasses e pela API do datalake.
+    // As tabelas já existiam (carga antiga, parada em 03/09/2026); a fila de históricos (iniciarFilaHistoricos) as mantém em dia.
+    ['silver.ticket_status_historico (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_status_historico (
+        ticket_id bigint NOT NULL, seq integer NOT NULL, status text, justificativa text,
+        alterado_em timestamptz NOT NULL, alterado_por text, permanencia_segundos bigint,
+        PRIMARY KEY (ticket_id, seq)
+      )
+    `],
+    ['silver.ticket_owner_historico (create)', `
+      CREATE TABLE IF NOT EXISTS silver.ticket_owner_historico (
+        ticket_id bigint NOT NULL, seq integer NOT NULL, owner_team text, alterado_em timestamptz NOT NULL,
+        permanencia_tempo_total_segundos numeric, permanencia_tempo_util_segundos numeric,
+        PRIMARY KEY (ticket_id, seq)
+      )
+    `],
+    ['silver.ticket_owner_historico.ix_alterado_em', `CREATE INDEX IF NOT EXISTS ix_ticket_owner_hist_alterado_em ON silver.ticket_owner_historico (alterado_em)`],
+    ['silver.ticket_owner_historico.ix_owner_team', `CREATE INDEX IF NOT EXISTS ix_ticket_owner_hist_owner_team ON silver.ticket_owner_historico (owner_team)`],
     // Histórico de repasses entre equipes (aba Repasses). O Movidesk não devolve o histórico de equipe do chamado, então
     // um gatilho em silver.ticket registra cada troca de ownerteam, seja qual for o gravador (carga, cron, Central do chamado).
     // Só conta troca real: ignora diferença de maiúsculas/espaços no nome da equipe e a primeira gravação do chamado.
@@ -2209,6 +2228,119 @@ async function iniciarEnriquecimentoPendentes() {
   return enriquecimentoPendentes;
 }
 
+// ── Fila de históricos (equipe e status) ───────────────────────────────────────────────────────────────────────
+// O Movidesk devolve ownerHistories (equipe, com o tempo total e em horário útil de cada passagem) e statusHistories por chamado. As tabelas
+// silver.ticket_owner_historico / silver.ticket_status_historico foram preenchidas por uma carga antiga que parou em 03/09/2026; esta fila as mantém:
+// pega os chamados criados/alterados desde HIST_DESDE sem histórico gravado (ou alterados depois dele), em lotes de 20 ids (limite de nós do OData),
+// UMA chamada por vez e passando pelo limitador do Movidesk — pouca carga e nunca junto da carga rápida de 15 min. Só grava equipe, status, justificativa,
+// data, nome de quem alterou e tempos (e-mails/telefones da resposta são descartados). Reinicia a lista de cada chamado a cada gravação (apaga e insere).
+const HIST_DESDE = process.env.HIST_DESDE || '2026-09-03';
+const HIST_LOTE = 20, HIST_MAX_POR_RODADA = 2000, HIST_PAUSA_MS = 700;
+const filaHistoricos = { rodando: false, fila: 0, feitos: 0, semHistorico: 0, naoEncontrados: 0, falhas: 0, lotes: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null, limite: null };
+
+async function salvarHistoricos(tickets, idsDoLote) {
+  const porId = new Map((tickets || []).filter((t) => t && t.id != null).map((t) => [String(t.id), t]));
+  const ids = [...porId.keys()].filter((i) => /^\d{1,18}$/.test(i));
+  if (!ids.length) return { gravados: 0, vazios: 0 };
+  const L = { s: [[], [], [], [], [], [], []], o: [[], [], [], [], [], []] };
+  let vazios = 0;
+  for (const id of ids) {
+    const t = porId.get(id);
+    const st = Array.isArray(t.statusHistories) ? t.statusHistories : [], ow = Array.isArray(t.ownerHistories) ? t.ownerHistories : [];
+    if (!st.length && !ow.length) vazios++;
+    st.forEach((h, i) => {
+      if (!h.changedDate) return;
+      const c = L.s; c[0].push(id); c[1].push(i + 1); c[2].push(h.status || null); c[3].push(h.justification || null); c[4].push(h.changedDate);
+      c[5].push((h.changedBy && h.changedBy.businessName) || null); c[6].push(h.permanencyTimeFullTime != null ? String(Math.round(h.permanencyTimeFullTime)) : null);
+    });
+    ow.forEach((h, i) => {
+      if (!h.changedDate) return;
+      const c = L.o; c[0].push(id); c[1].push(i + 1); c[2].push(h.ownerTeam || null); c[3].push(h.changedDate);
+      c[4].push(h.permanencyTimeFullTime != null ? String(h.permanencyTimeFullTime) : null); c[5].push(h.permanencyTimeWorkingTime != null ? String(h.permanencyTimeWorkingTime) : null);
+    });
+  }
+  await db.withClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      // só apaga o que será substituído: resposta sem histórico (falha passageira) nunca zera o que já está gravado
+      if (L.s[0].length) await client.query(`DELETE FROM silver.ticket_status_historico WHERE ticket_id = ANY($1::bigint[])`, [[...new Set(L.s[0])]]);
+      if (L.o[0].length) await client.query(`DELETE FROM silver.ticket_owner_historico WHERE ticket_id = ANY($1::bigint[])`, [[...new Set(L.o[0])]]);
+      if (L.s[0].length) await client.query(`
+        INSERT INTO silver.ticket_status_historico (ticket_id, seq, status, justificativa, alterado_em, alterado_por, permanencia_segundos)
+        SELECT u.a::bigint, u.b, u.c, u.d, u.e::timestamptz, u.f, u.g::bigint FROM unnest($1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]) AS u(a, b, c, d, e, f, g)
+        ON CONFLICT (ticket_id, seq) DO NOTHING`, L.s);
+      if (L.o[0].length) await client.query(`
+        INSERT INTO silver.ticket_owner_historico (ticket_id, seq, owner_team, alterado_em, permanencia_tempo_total_segundos, permanencia_tempo_util_segundos)
+        SELECT u.a::bigint, u.b, u.c, u.d::timestamptz, u.e::numeric, u.f::numeric FROM unnest($1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[]) AS u(a, b, c, d, e, f)
+        ON CONFLICT (ticket_id, seq) DO NOTHING`, L.o);
+      await client.query(`UPDATE silver.ticket SET historico_em = NOW() WHERE ticket_id = ANY($1::bigint[])`, [ids]);
+      await client.query('COMMIT');
+    } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
+  });
+  return { gravados: ids.length - vazios, vazios };
+}
+
+async function iniciarFilaHistoricos({ limite = null } = {}) {
+  if (filaHistoricos.rodando) return filaHistoricos;
+  Object.assign(filaHistoricos, { rodando: true, fila: 0, feitos: 0, semHistorico: 0, naoEncontrados: 0, falhas: 0, lotes: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null, limite });
+  (async () => {
+    try {
+      await ensureTables();   // garante historico_em e as tabelas de histórico
+      const token = await getMovideskToken();
+      const max = Math.min(HIST_MAX_POR_RODADA, limite || HIST_MAX_POR_RODADA);
+      const { rows } = await db.query(`
+        SELECT t.ticket_id::bigint AS id FROM silver.ticket t
+         WHERE (t.historico_em IS NULL AND (t.createddate >= $1::date OR COALESCE(t.last_update, t.lastupdate) >= $1::date))
+            OR (t.historico_em IS NOT NULL AND t.historico_em < COALESCE(t.last_update, t.lastupdate))
+         ORDER BY (t.basestatus IS NOT NULL AND NOT (t.basestatus = ANY($2::text[]))) DESC, COALESCE(t.last_update, t.lastupdate) DESC NULLS LAST LIMIT ${max}`, [HIST_DESDE, CLOSED_STATUSES]);
+      const ids = rows.map((r) => String(r.id));
+      filaHistoricos.fila = ids.length;
+      for (let i = 0; i < ids.length; i += HIST_LOTE) {
+        const lote = ids.slice(i, i + HIST_LOTE);
+        try {
+          const achados = new Map();
+          let faltam = lote;
+          for (const ep of ['/tickets', '/tickets/past']) {
+            if (!faltam.length) break;
+            const filtro = faltam.map((id) => `id eq ${id}`).join(' or ');
+            const resp = await fetchWithRetry(`${MOVI_BASE}${ep}?${qs({ token, '$select': 'id', '$filter': filtro, '$expand': 'ownerHistories,statusHistories', '$top': 100 })}`);
+            const data = await resp.json();
+            (Array.isArray(data) ? data : []).forEach((t) => { if (t && t.id != null) achados.set(String(t.id), t); });
+            faltam = lote.filter((id) => !achados.has(id));
+          }
+          const r = await salvarHistoricos([...achados.values()], lote);
+          filaHistoricos.feitos += r.gravados; filaHistoricos.semHistorico += r.vazios;
+          if (faltam.length) {   // não existem mais no Movidesk: marca para não voltar à fila
+            filaHistoricos.naoEncontrados += faltam.length;
+            await db.query(`UPDATE silver.ticket SET historico_em = NOW() WHERE ticket_id = ANY($1::bigint[])`, [faltam]).catch(() => {});
+          }
+          filaHistoricos.lotes++;
+        } catch (e) { filaHistoricos.falhas += lote.length; filaHistoricos.ultimoErro = e.message; }
+        await sleep(HIST_PAUSA_MS);
+      }
+      if (ids.length) console.log(`[loader] ✔ históricos de equipe/status: ${filaHistoricos.feitos} gravados, ${filaHistoricos.semHistorico} sem histórico, ${filaHistoricos.naoEncontrados} não encontrados, ${filaHistoricos.falhas} falha(s) em ${filaHistoricos.lotes} lote(s)`);
+    } catch (e) {
+      filaHistoricos.ultimoErro = e.message;
+      console.warn('[loader] fila de históricos falhou:', e.message);
+    } finally {
+      filaHistoricos.rodando = false; filaHistoricos.terminadoEm = new Date().toISOString();
+      // Sobrou fila (a rodada tem teto) e deu certo: emenda a próxima rodada (só no modo normal, não no teste com limite)
+      if (!filaHistoricos.limite && filaHistoricos.fila >= HIST_MAX_POR_RODADA && filaHistoricos.feitos > 0 && filaHistoricos.falhas * 2 < filaHistoricos.feitos) {
+        setTimeout(() => iniciarFilaHistoricos().catch(() => {}), 5000);
+      }
+    }
+  })();
+  return filaHistoricos;
+}
+// Agendador: 1ª rodada 3 min depois de subir e depois a cada 10 min, só se a anterior terminou (quem chama: server.js).
+let _histTimer = null;
+function iniciarAgendadorHistoricos() {
+  if (_histTimer || process.env.HIST_DESLIGADO === '1') return;
+  setTimeout(() => iniciarFilaHistoricos().catch(() => {}), 3 * 60 * 1000).unref();
+  _histTimer = setInterval(() => { if (!filaHistoricos.rodando) iniciarFilaHistoricos().catch(() => {}); }, 10 * 60 * 1000);
+  _histTimer.unref();
+}
+
 async function runPendentesRapido(task, cronJobId = null) {
   const mode         = `rapido:${task.id}`.slice(0, 20);
   const ownerTeamVal = String(task.owner_team || '').trim();
@@ -3406,5 +3538,6 @@ module.exports = {
   reconferirAbertosPresos,
   sincronizarTicket,
   runDelta, lerDelta, ensureDeltaTable, detalhesDelta,
+  iniciarFilaHistoricos, filaHistoricos, iniciarAgendadorHistoricos, salvarHistoricos,
   iniciarEnriquecimentoPendentes, enriquecimentoPendentes, iniciarConferenciaLista, conferenciaLista, escopoSql, CLOSED_STATUSES,
 };
