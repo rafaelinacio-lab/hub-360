@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
 <head>
-<script src="../js/ui-version.js"></script>
-<script src="../js/aparencia.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="../js/ui-version.js"></script>
+<script src="../js/aparencia.js"></script>
 <title>Jira — Indicadores</title>
 <script>
     // Tema compartilhado com o resto do painel (chave 'theme' do localStorage), aplicado antes do body pintar.
@@ -30,6 +30,10 @@
   --info-bg: #dbeafe; --info-c: #1e40af;
   --gc: rgba(0,0,0,.05); --tc: #888;
 }
+/* #panel-root é o wrapper da página inteira (não um card): sem borda/fundo/padding, para não sobrar moldura nas laterais. */
+#panel-root{background:transparent;border:none;box-shadow:none;padding:0;margin-bottom:0;border-radius:0}
+/* O tema mora só na barra principal do Hub; o botão do dashboard original fica oculto. */
+#theme-btn{display:none}
 .nav-tabs{display:flex;gap:4px;background:var(--bg3);padding:3px;border-radius:8px;border:1px solid var(--border)}
 .nav-tab{padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:var(--text2)}
 .nav-tab.active{background:var(--bg2);color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1)}
@@ -276,30 +280,6 @@ tr.sel td{background:var(--info-bg)!important}
 .crit-baixo{color:#22c55e}
 @keyframes accFade{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 
-/* Esconde a barra de rolagem nativa (igual às outras abas embutidas) — o scroll continua funcionando. */
-html,body{scrollbar-width:none;-ms-overflow-style:none}
-html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
-*{scrollbar-width:none;-ms-overflow-style:none}
-*::-webkit-scrollbar{display:none}
-/* Backlog: onde há rolagem de fato (tabela de issues, lista por responsável e listas dos filtros) a barra aparece — fina, discreta e
-   suave: o polegar só ganha cor ao passar o mouse na área, e a rolagem é amortecida. Fora disso as barras continuam escondidas. */
-#view-aberto .sb-suave, #view-aberto .ms-dropdown{
-  scrollbar-width:thin; scrollbar-color:transparent transparent;
-  scroll-behavior:smooth; overscroll-behavior:contain;
-}
-#view-aberto .sb-suave:hover, #view-aberto .ms-dropdown:hover{ scrollbar-color:rgba(120,126,150,.45) transparent; }
-#view-aberto .sb-suave::-webkit-scrollbar, #view-aberto .ms-dropdown::-webkit-scrollbar{ display:block; width:6px; height:6px; }
-#view-aberto .sb-suave::-webkit-scrollbar-track, #view-aberto .ms-dropdown::-webkit-scrollbar-track{ background:transparent; }
-#view-aberto .sb-suave::-webkit-scrollbar-corner, #view-aberto .ms-dropdown::-webkit-scrollbar-corner{ background:transparent; }
-#view-aberto .sb-suave::-webkit-scrollbar-thumb, #view-aberto .ms-dropdown::-webkit-scrollbar-thumb{
-  background:rgba(120,126,150,.0); border-radius:999px; transition:background .25s ease;
-}
-#view-aberto .sb-suave:hover::-webkit-scrollbar-thumb, #view-aberto .ms-dropdown:hover::-webkit-scrollbar-thumb{ background:rgba(120,126,150,.40); }
-#view-aberto .sb-suave::-webkit-scrollbar-thumb:hover, #view-aberto .ms-dropdown::-webkit-scrollbar-thumb:hover{ background:rgba(99,102,241,.75); }
-/* #panel-root é o wrapper da página inteira (não um card): sem borda/fundo/padding, para não sobrar moldura nas laterais. */
-#panel-root{background:transparent;border:none;box-shadow:none;padding:0;margin-bottom:0;border-radius:0}
-/* O tema mora só na barra principal do Hub; o botão do dashboard original fica oculto. */
-#theme-btn{display:none}
 </style>
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">
@@ -410,9 +390,6 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
           </select>
           <select id="_s_tmes" onchange="renderTasks()">
             <option value="">Todos meses</option>
-            <option value="2026-01">Jan</option><option value="2026-02">Fev</option>
-            <option value="2026-03">Mar</option><option value="2026-04">Abr</option>
-            <option value="2026-05">Mai</option>
           </select>
           <select id="_s_tproj" onchange="renderTasks()"><option value="">Todos projetos</option></select>
           <select id="_s_tsquad" onchange="renderTasks()"><option value="">Todos squads</option></select>
@@ -499,7 +476,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
 
     <!-- Envelhecimento do Backlog — tempo em aberto por faixa de idade -->
     <div class="cbox" style="margin-bottom:12px">
-      <div class="ctitle">⏳ Envelhecimento do Backlog — tempo em aberto por faixa <span style="font-weight:400;color:var(--text3)">(clique numa barra para filtrar)</span></div>
+      <div class="ctitle">⏳ Envelhecimento do Backlog — tempo em aberto por faixa <span style="font-weight:400;color:var(--text3)">(clique numa barra para ver as tarefas)</span></div>
       <div style="position:relative;height:230px"><canvas id="chartAbIdade"></canvas></div>
     </div>
 
@@ -509,7 +486,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
         <div style="font-size:11px;font-weight:600;color:var(--text2)">🗂️ Issues — Detalhamento</div>
         <span id="ab-detail-count" style="font-size:11px;color:var(--text3);white-space:nowrap"></span>
       </div>
-      <div class="sb-suave" style="overflow-x:auto;max-height:480px;overflow-y:auto">
+      <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
         <table class="ttbl" id="ab-detail-table">
           <thead style="position:sticky;top:0;z-index:2"><tr>
             <th onclick="sortAbDetail('chave')"          style="cursor:pointer;white-space:nowrap;user-select:none">Chave <span id="abd-sort-chave"></span></th>
@@ -533,7 +510,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
       </div>
     </div>
 
-    <div id="resp-list-wrap" class="sb-suave" style="max-height:620px;overflow-y:auto;padding-right:4px;margin-top:16px">
+    <div id="resp-list-wrap" style="max-height:620px;overflow-y:auto;padding-right:4px;margin-top:16px">
       <div id="resp-list"><p style="color:var(--text3);text-align:center;padding:20px">Carregando tarefas em aberto...</p></div>
     </div>
   </div><!-- /view-aberto -->
@@ -541,6 +518,11 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
   <!-- ── PAINEL SIMPLES DE BUGS ── -->
   <div id="view-bugsimples" style="display:none">
     <style>
+      .tdc-clk{cursor:pointer}.tdc-clk:hover{text-decoration:underline;filter:brightness(1.25)}
+      .qa-clk{cursor:pointer}.qa-clk:hover{text-decoration:underline;filter:brightness(1.2)}
+      .ind-clk{cursor:pointer}.ind-clk:hover{text-decoration:underline;filter:brightness(1.2)}
+      .bs-clk{cursor:pointer}.bs-clk:hover{text-decoration:underline;filter:brightness(1.2)}
+      #sup-tbl-body td.sup-clk{cursor:pointer}#sup-tbl-body td.sup-clk:hover{text-decoration:underline;filter:brightness(1.25)}
       .kpi.bs-card{cursor:pointer;transition:transform .12s,box-shadow .12s}.kpi.bs-card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.28)}
       .bs-fun{display:grid;grid-template-columns:minmax(150px,230px) 1fr 86px;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px}.bs-fun:hover{background:var(--bg2)}.bs-fun.dim{opacity:.45;cursor:default}.bs-fun.dim:hover{background:transparent}
       .bs-fun-det{font-size:9px;color:var(--text3);line-height:1.35;margin-top:1px}.bs-fun-track{display:flex;justify-content:center;height:16px;background:transparent}.bs-fun-bar{height:100%;border-radius:4px;min-width:3px}
@@ -670,6 +652,17 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
       </div>
     </div>
   </div><!-- /view-bugsimples -->
+
+  <!-- Janela: tarefas da faixa de envelhecimento do Backlog -->
+  <div id="ab-modal" onclick="if(event.target===this)abFecharModal()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);width:min(1440px,100%);max-height:88vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div><div id="ab-modal-titulo" style="font-size:14px;font-weight:800"></div><div id="ab-modal-count" style="font-size:11px;color:var(--text3);margin-top:2px"></div></div>
+        <button onclick="abFecharModal()" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">✕ Fechar</button>
+      </div>
+      <div style="overflow:auto;padding:0 8px 8px"><table class="ttbl" id="ab-modal-tab"></table></div>
+    </div>
+  </div>
 
   <!-- ── PAINEL DE VERSÕES ── -->
   <div id="view-versoes" style="display:none">
@@ -871,7 +864,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
     <div class="sup-filters">
       <div class="sup-filter-row">
         <select id="sup-fil-ano" onchange="renderSup()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg2);color:var(--text)">
-          <option value="2026" selected>2026</option>
+          <option value="" selected></option>
         </select>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-mes" onclick="toggleMS('sup-mes',event)">Mês: Todos</div><div class="ms-dropdown" id="ms-sup-mes"><div id="ms-sup-mes-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-mes')">Limpar</button><button onclick="selectAllMSSup('sup-mes')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-seg" onclick="toggleMS('sup-seg',event)">Segmento: Todos</div><div class="ms-dropdown" id="ms-sup-seg"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-seg',this.value)"></div><div id="ms-sup-seg-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-seg')">Limpar</button><button onclick="selectAllMSSup('sup-seg')">Todos</button></div></div></div>
@@ -888,10 +881,10 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
 
     <!-- KPIs -->
     <div class="sup-kpi-row">
-      <div class="sup-kpi sup-kpi-ab"><div class="sup-kpi-icon">✦</div><div class="sup-kpi-lbl">Abertos</div><div class="sup-kpi-val" id="sup-kv-ab">—</div><div class="sup-kpi-sub">por data de criação</div></div>
-      <div class="sup-kpi sup-kpi-res"><div class="sup-kpi-icon">✔</div><div class="sup-kpi-lbl">Resolvidos</div><div class="sup-kpi-val" id="sup-kv-res">—</div><div class="sup-kpi-sub">por data de resolução</div></div>
-      <div class="sup-kpi sup-kpi-pend"><div class="sup-kpi-icon">⏳</div><div class="sup-kpi-lbl">Pendentes</div><div class="sup-kpi-val" id="sup-kv-pend">—</div><div class="sup-kpi-sub">no backlog</div></div>
-      <div class="sup-kpi sup-kpi-rep"><div class="sup-kpi-icon">✕</div><div class="sup-kpi-lbl">Reprovados</div><div class="sup-kpi-val" id="sup-kv-rep">—</div><div class="sup-kpi-sub">análise reprovada</div></div>
+      <div class="sup-kpi sup-kpi-ab" style="cursor:pointer" title="Clique para ver as issues deste grupo" onclick="fxCard('ab')"><div class="sup-kpi-icon">✦</div><div class="sup-kpi-lbl">Abertos</div><div class="sup-kpi-val" id="sup-kv-ab">—</div><div class="sup-kpi-sub">por data de criação</div></div>
+      <div class="sup-kpi sup-kpi-res" style="cursor:pointer" title="Clique para ver as issues deste grupo" onclick="fxCard('res')"><div class="sup-kpi-icon">✔</div><div class="sup-kpi-lbl">Resolvidos</div><div class="sup-kpi-val" id="sup-kv-res">—</div><div class="sup-kpi-sub">por data de resolução</div></div>
+      <div class="sup-kpi sup-kpi-pend" style="cursor:pointer" title="Clique para ver as issues deste grupo" onclick="fxCard('pend')"><div class="sup-kpi-icon">⏳</div><div class="sup-kpi-lbl">Pendentes</div><div class="sup-kpi-val" id="sup-kv-pend">—</div><div class="sup-kpi-sub">no backlog</div></div>
+      <div class="sup-kpi sup-kpi-rep" style="cursor:pointer" title="Clique para ver as issues deste grupo" onclick="fxCard('rep')"><div class="sup-kpi-icon">✕</div><div class="sup-kpi-lbl">Reprovados</div><div class="sup-kpi-val" id="sup-kv-rep">—</div><div class="sup-kpi-sub">análise reprovada</div></div>
     </div>
 
     <!-- Gráficos -->
@@ -913,15 +906,15 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
             <th class="col-grp-bugs" onclick="supSortTable('bugs_ab')">Abertos ↕</th>
             <th onclick="supSortTable('bugs_ext')">Externos ↕</th>
             <th onclick="supSortTable('bugs_int')">Internos ↕</th>
-            <th onclick="supSortTable('bugs_rep')">Reprovados ↕</th>
-            <th onclick="supSortTable('bugs_proc')">Procedentes ↕</th>
+            <th title="Bugs abertos no ano que foram reprovados na análise" onclick="supSortTable('bugs_rep')">Reprovados ↕</th>
+            <th title="Abertos − Reprovados (= Externos + Internos)" onclick="supSortTable('bugs_proc')">Procedentes ↕</th>
             <th onclick="supSortTable('bugs_res')">Resolvidos ↕</th>
             <th onclick="supSortTable('bugs_pend2')">Pend. Detalhe ↕</th>
             <th class="col-grp-mel" onclick="supSortTable('mel_ab')">Abertas ↕</th>
             <th onclick="supSortTable('mel_ext')">Externas ↕</th>
             <th onclick="supSortTable('mel_int')">Internas ↕</th>
-            <th onclick="supSortTable('mel_rep')">Reprovadas ↕</th>
-            <th onclick="supSortTable('mel_proc')">Procedentes ↕</th>
+            <th title="Melhorias abertas no ano que foram reprovadas na análise" onclick="supSortTable('mel_rep')">Reprovadas ↕</th>
+            <th title="Abertas − Reprovadas" onclick="supSortTable('mel_proc')">Procedentes ↕</th>
             <th onclick="supSortTable('mel_res')">Resolvidas ↕</th>
             <th onclick="supSortTable('mel_pend2')">Pend. Detalhe ↕</th>
           </tr>
@@ -953,7 +946,16 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
   <!-- Lista detalhada de Issues — Fluxo -->
   <div class="panel" style="padding:10px;margin-top:12px;margin-bottom:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-wrap:wrap">
-      <div style="font-size:11px;font-weight:600;color:var(--text2)">🗂️ Issues — Detalhamento</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:600;color:var(--text2)">🗂️ Issues — Detalhamento</span>
+        <div id="fx-visao" style="display:flex;gap:4px;flex-wrap:wrap">
+          <div class="ms-btn active" data-v="ab"  onclick="setFxVisao('ab')"   title="Criadas no ano — mesmo grupo do cartão Abertos">Abertos</div>
+          <div class="ms-btn" data-v="res" onclick="setFxVisao('res')"  title="Resolvidas no ano — mesmo grupo do cartão Resolvidos">Resolvidos</div>
+          <div class="ms-btn" data-v="rep" onclick="setFxVisao('rep')"  title="Análise reprovada — mesmo grupo do cartão Reprovados">Reprovados</div>
+          <div class="ms-btn" data-v="pend" onclick="setFxVisao('pend')" title="Backlog — mesmo grupo do cartão Pendentes (não olha o mês)">Pendentes</div>
+          <div class="ms-btn" data-v="todas" onclick="setFxVisao('todas')" title="Criadas ou resolvidas no ano, sem repetir">Todas</div>
+        </div>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <input type="text" id="fluxo-issues-search" placeholder="🔍 Buscar chave, resumo, cliente..." oninput="renderFluxoIssuesTable()"
           style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg2);color:var(--text);min-width:220px">
@@ -1292,7 +1294,6 @@ function jiraFetch(file, opts){
     });
   } catch(e){}
 })();
-
 // Aplica tema salvo imediatamente para evitar flash de tema errado
 (function(){
   try {
@@ -1312,9 +1313,21 @@ const CC={AR:'#2563eb',AT:'#22c55e',DEV:'#d97706',AT_TEC:'#7c3aed'};
 const CL={AR:'Analista de Requisitos',AT:'Analista de Testes',DEV:'Desenvolvedor',AT_TEC:'Análise Técnica'};
 const CP1={AR:'Pts Requisitos',AT:'Pts Requisitos',DEV:'Pts Desenvolvimento',AT_TEC:'Pts Desenvolvimento'};
 const CP2={AR:'Pts Testes',   AT:'Pts Testes',   DEV:'Pts Anál. Técnica',AT_TEC:'Pts Anál. Técnica'};
+// ── Indicadores: tarefas de cada profissional (as mesmas do número "Tarefas": cargo principal, fonte issues_raw.json) ──
+const IND_CAMPO={AR:'ar',AT:'at',DEV:'dev',AT_TEC:'at_tec'};
+let _INDIDX=null;
+function indIdx(){ const R=window.ISSUES_RAW||[]; if(_INDIDX&&_INDIDX.n===R.length) return _INDIDX.m;
+  const m={ar:{},at:{},dev:{},at_tec:{}}; R.forEach(x=>{ for(const k in m){ if(x[k]) (m[k][x[k]]=m[k][x[k]]||[]).push(x); } }); _INDIDX={n:R.length,m}; return m; }
+const indMk=t=>(t.mes||'').slice(5,7)||(t.mes||'').slice(0,2)||'';
+function indMain(d,mesFiltro){ const L=(indIdx()[IND_CAMPO[d.cargo]]||{})[d.nome]||[]; return mesFiltro?L.filter(t=>mesFiltro.includes(indMk(t))):L; }
 const TC={'Melhoria':'#22c55e','Bug':'#a78bfa','Epic':'#fb923c','Nova Funcionalidade':'#f472b6','Subtarefa':'#38bdf8','Tarefa':'#14b8a6','Teste Automatizado':'#6366f1','Acompanhamento in-loco ':'#d97706'};
 const MES_NOMES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-let MESES=[], MK=[], ML={'2026-01':'Jan','2026-02':'Fev','2026-03':'Mar','2026-04':'Abr','2026-05':'Mai','2026-06':'Jun','2026-07':'Jul','2026-08':'Ago','2026-09':'Set','2026-10':'Out','2026-11':'Nov','2026-12':'Dez'};  // preenchidos dinamicamente após carga dos dados
+// O dashboard sempre acompanha o ano corrente (o extrator também): em 01/2027 passa a mostrar só 2027.
+const ANO_VIGENTE=new Date().getFullYear(), ANO_STR=String(ANO_VIGENTE);
+const pad2=n=>String(n).padStart(2,'0');
+const MES_CHAVE=Object.fromEntries(MES_NOMES.map((n,i)=>[n,`${ANO_STR}-${pad2(i+1)}`]));   // 'Jan' → '2026-01'
+const CHAVE_MES=Object.fromEntries(MES_NOMES.map((n,i)=>[`${ANO_STR}-${pad2(i+1)}`,n]));   // '2026-01' → 'Jan'
+let MESES=[], MK=[], ML={...CHAVE_MES};  // preenchidos dinamicamente após carga dos dados
 let MES_SEL = new Set();      // meses selecionados (vazio = todos)
 
 let DATA=[], sKey='pontos', sAsc=false, activeTab='all', selNome=null, curTasks=[], curCargo='';
@@ -1338,7 +1351,7 @@ function renderSupLista(){
   const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
   const q      = (document.getElementById('sup-srch-lista')||{value:''}).value.toLowerCase();
 
-  const MES_LABEL={'Jan':'2026-01','Fev':'2026-02','Mar':'2026-03','Abr':'2026-04','Mai':'2026-05'};
+  const MES_LABEL=MES_CHAVE;   // 12 meses (antes só ia até maio)
 
   let items = ABERTO.filter(t=>{
     if(!PROJS_SCOPE.has(t.projeto)) return false;
@@ -1638,6 +1651,40 @@ jiraFetch('dashboard_data.json?t='+Date.now())
       <small>Execute: <b>python -m http.server 8000</b> e acesse <b>http://localhost:8000/dashboard.html</b></small>`;
   });
 
+const indEscA=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const indA=(k,d,n)=>n>0?`onclick="event.stopPropagation();indCel('${k}',this)" data-n="${indEscA(d.nome)}" title="Clique para ver as tarefas"`:'';
+function indItem(t,d){ return {chave:t.chave,summary:t.summary,tipo:t.tipo,status:t.status,projeto:t.projeto,squad:t.squad,criado:t.criado,resolvido:t.resolvido,responsavel:d.nome}; }
+function indBugItem(b,d){ return {chave:b.chave,summary:b.summary,tipo:'Bug',projeto:b.projeto,squad:b.squad,criticidade:b.crit_bug,tipo_falha:b.tipo_falha,responsavel:d.nome}; }
+// devolve [titulo, itens, cfg] para o número clicado (k) de um profissional
+function indLista(k,d){
+  const mes=window._IND_MES, pts=(d._tarefasFiltradas||d.tarefas||[]);
+  const mapPts=t=>({...indItem(t,d),pontos:t.pontos,pts_p1:t.pts_p1,pts_p2:t.pts_p2});
+  const bugMain=d.cargo==='AR'?d.tarefas_bug_req:d.cargo==='AT'?d.tarefas_bug_test:d.tarefas_bug_dev;
+  const B={breq:['req','Requisitos'],btest:['test','Testes'],bdev:['dev','Desenvolvimento']};
+  if(k==='qtd') return [d.nome+' — tarefas como '+CL[d.cargo], indMain(d,mes).map(t=>indItem(t,d)), {}];
+  if(k==='pts') return [d.nome+' — pontos', pts.map(mapPts), {soma:['pontos','pontos'],extra:[['pts_p1',CP1[d.cargo]],['pts_p2',CP2[d.cargo]],['pontos','Pontos']]}];
+  if(k==='tx')  return [d.nome+' — bugs por falha ('+CL[d.cargo]+')', (bugMain||[]).map(b=>indBugItem(b,d)), {extra:[['tipo_falha','Tipo de falha']]}];
+  const [kk,lab]=B[k]; return [d.nome+' — bugs por falha de '+lab, (d['tarefas_bug_'+kk]||[]).map(b=>indBugItem(b,d)), {extra:[['tipo_falha','Tipo de falha']]}];
+}
+function indCel(k,el){ const d=(window._IND_ROWS||[]).find(r=>r.nome===el.dataset.n); if(!d) return; const [t,i,c]=indLista(k,d); ddAbrir(t,i,c); }
+function indDet(k){ const d=window._IND_DET; if(!d) return; const [t,i,c]=indLista(k,d); ddAbrir(t,i,c); }
+// gráficos do detalhe (compartilhados com o redesenho do tema)
+function indClickM(dd,raw,MESN){ return (e,els)=>{ if(!els.length) return; const i=els[0].index, m=MK[i];
+  const lst=(raw.tarefas||[]).filter(t=>indMk(t)===m).map(t=>({...indItem(t,dd),pontos:t.pontos,pts_p1:t.pts_p1,pts_p2:t.pts_p2}));
+  ddAbrir(dd.nome+' — pontos em '+MESN[i],lst,{soma:['pontos','pontos'],extra:[['pts_p1',CP1[dd.cargo]],['pts_p2',CP2[dd.cargo]],['pontos','Pontos']]}); }; }
+function indClickT(dd,raw,tipos){ return (e,els)=>{ if(!els.length) return; const l=tipos[els[0].index];
+  ddAbrir(dd.nome+' — tarefas do tipo '+l,indMain(raw,window._IND_MES).filter(t=>(t.tipo||'Outro')===l).map(t=>indItem(t,dd))); }; }
+const indHover=(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; };
+// cartões do topo: somam as listas de todos os profissionais exibidos
+function indKpi(k){
+  const rows=window._IND_ROWS||[]; let itens=[], cfg={};
+  if(k==='prof'){ ddAbrirLinhas('Indicadores — profissionais','profissional',[['nome','Profissional'],['cargo','Cargo'],['qtd_tarefas','Tarefas'],['pontos','Pontos'],['bugs_falha_req','Bugs Req'],['bugs_falha_test','Bugs Test'],['bugs_falha_dev','Bugs Dev']],rows.map(d=>({nome:d.nome,cargo:d.cargo,qtd_tarefas:d.qtd_tarefas,pontos:+d.pontos.toFixed(1),bugs_falha_req:d.bugs_falha_req||0,bugs_falha_test:d.bugs_falha_test||0,bugs_falha_dev:d.bugs_falha_dev||0}))); return; }
+  if(k==='tar') itens=rows.flatMap(d=>indMain(d,window._IND_MES).map(t=>({...indItem(t,d),cargo:d.cargo})));
+  else if(k==='pts'){ itens=rows.flatMap(d=>(d._tarefasFiltradas||d.tarefas||[]).map(t=>({...indItem(t,d),cargo:d.cargo,pontos:t.pontos}))); cfg={soma:['pontos','pontos'],extra:[['pontos','Pontos']]}; }
+  else { const kk={breq:'req',btest:'test',bdev:'dev'}[k]; itens=rows.flatMap(d=>(d['tarefas_bug_'+kk]||[]).map(b=>({...indBugItem(b,d),cargo:d.cargo}))); cfg={extra:[['tipo_falha','Tipo de falha']]}; }
+  const T={tar:'Indicadores — tarefas (por profissional)',pts:'Indicadores — pontos (por profissional)',breq:'Indicadores — bugs por falha de Requisitos',btest:'Indicadores — bugs por falha de Testes',bdev:'Indicadores — bugs por falha de Desenvolvimento'}[k];
+  ddAbrir(T,itens,{...cfg,extra:[['cargo','Cargo'],...(cfg.extra||[])]});
+}
 function renderKPIs(rows){
   const totT=rows.reduce((a,d)=>a+d.qtd_tarefas,0);
   const totP=rows.reduce((a,d)=>a+d.pontos,0);
@@ -1645,10 +1692,10 @@ function renderKPIs(rows){
   const totBT=rows.reduce((a,d)=>a+(d.bugs_falha_test||0),0);
   const totBD=rows.reduce((a,d)=>a+(d.bugs_falha_dev||0),0);
   document.getElementById('kpi-row').innerHTML=`
-    <div class="kpi"><div class="kl">Profissionais</div><div class="kv">${rows.length}</div></div>
-    <div class="kpi"><div class="kl">Total tarefas</div><div class="kv">${totT.toLocaleString('pt-BR')}</div></div>
-    <div class="kpi"><div class="kl">Total pontos</div><div class="kv">${fmtN(totP)}</div></div>
-    <div class="kpi"><div class="kl">Bugs ↗ Req / Test / Dev</div><div class="kv">${totBR} / ${totBT} / ${totBD}</div></div>`;
+    <div class="kpi bs-card" onclick="indKpi('prof')" title="Clique para ver os profissionais"><div class="kl">Profissionais</div><div class="kv">${rows.length}</div></div>
+    <div class="kpi bs-card" onclick="indKpi('tar')" title="Clique para ver as tarefas"><div class="kl">Total tarefas</div><div class="kv">${totT.toLocaleString('pt-BR')}</div></div>
+    <div class="kpi bs-card" onclick="indKpi('pts')" title="Clique para ver as tarefas e pontos"><div class="kl">Total pontos</div><div class="kv">${fmtN(totP)}</div></div>
+    <div class="kpi"><div class="kl">Bugs ↗ Req / Test / Dev</div><div class="kv"><span class="ind-clk" ${totBR>0?`onclick="indKpi('breq')"`:''} title="Bugs por falha de Requisitos">${totBR}</span> / <span class="ind-clk" ${totBT>0?`onclick="indKpi('btest')"`:''} title="Bugs por falha de Testes">${totBT}</span> / <span class="ind-clk" ${totBD>0?`onclick="indKpi('bdev')"`:''} title="Bugs por falha de Desenvolvimento">${totBD}</span></div></div>`;
 }
 
 function setTab(tab,btn){
@@ -1691,11 +1738,16 @@ function render(){
         return mesFiltro.includes(mk);
       });
       const pontos=tarefas.reduce((a,t)=>a+(t.pontos||0),0);
-      return {...d, pontos, qtd_tarefas:tarefas.length, _tarefasFiltradas:tarefas};
+      const fb=a=>(a||[]).filter(b=>mesFiltro.includes((b.mes||'').slice(5,7)||(b.mes||'').slice(0,2)||''));
+      const br=fb(d.tarefas_bug_req), bt=fb(d.tarefas_bug_test), bd=fb(d.tarefas_bug_dev);
+      const qtd=(window.ISSUES_RAW&&window.ISSUES_RAW.length)?indMain(d,mesFiltro).length:tarefas.length;   // mesma definição do total (cargo principal)
+      return {...d, pontos, qtd_tarefas:qtd, bugs_falha_req:br.length, bugs_falha_test:bt.length, bugs_falha_dev:bd.length,
+              tarefas_bug_req:br, tarefas_bug_test:bt, tarefas_bug_dev:bd, _tarefasFiltradas:tarefas};
     }).filter(d=>d.qtd_tarefas>0||!mesFiltro);
   }
 
   rows.sort((a,b)=>{const va=a[sKey]??0,vb=b[sKey]??0;return sAsc?(va>vb?1:-1):(va<vb?1:-1);});
+  window._IND_ROWS=rows; window._IND_MES=mesFiltro;
   renderKPIs(rows);
   const maxP=Math.max(...rows.map(d=>d.pontos),1);
   const maxT=Math.max(...rows.map(d=>d.qtd_tarefas),1);
@@ -1708,12 +1760,12 @@ function render(){
         <span style="margin-right:4px;font-size:10px;color:var(--text3);transition:transform .2s;display:inline-block;transform:${isOpen?'rotate(90deg)':'rotate(0deg)'}"">▶</span>
         ${d.nome}</td>
       <td><span class="bdg bdg-${d.cargo}">${d.cargo}</span></td>
-      <td class="r">${bar(d.qtd_tarefas,maxT,CC[d.cargo])}${d.qtd_tarefas}</td>
-      <td class="r" style="font-weight:600">${bar(d.pontos,maxP,CC[d.cargo])}${fmtN(d.pontos)}</td>
-      <td class="r">${bugFalhaPill(d)}</td>
-      <td class="r">${bugBadge(d.bugs_falha_req||0)}</td>
-      <td class="r">${bugBadge(d.bugs_falha_test||0)}</td>
-      <td class="r">${bugBadge(d.bugs_falha_dev||0)}</td>
+      <td class="r ind-clk" ${indA('qtd',d,d.qtd_tarefas)}>${bar(d.qtd_tarefas,maxT,CC[d.cargo])}${d.qtd_tarefas}</td>
+      <td class="r ind-clk" style="font-weight:600" ${indA('pts',d,d.pontos)}>${bar(d.pontos,maxP,CC[d.cargo])}${fmtN(d.pontos)}</td>
+      <td class="r ind-clk" ${indA('tx',d,(d.cargo==='AR'?d.bugs_falha_req:d.cargo==='AT'?d.bugs_falha_test:d.bugs_falha_dev)||0)}>${bugFalhaPill(d)}</td>
+      <td class="r ind-clk" ${indA('breq',d,d.bugs_falha_req||0)}>${bugBadge(d.bugs_falha_req||0)}</td>
+      <td class="r ind-clk" ${indA('btest',d,d.bugs_falha_test||0)}>${bugBadge(d.bugs_falha_test||0)}</td>
+      <td class="r ind-clk" ${indA('bdev',d,d.bugs_falha_dev||0)}>${bugBadge(d.bugs_falha_dev||0)}</td>
     </tr>
     ${isOpen?`<tr class="acc-row"><td colspan="8" style="padding:0;border-bottom:2px solid var(--indigo)">
       <div id="det" style="background:var(--bg2);padding:14px;animation:accFade .2s ease">
@@ -1743,7 +1795,7 @@ function render(){
             </select>
             <select id="tmes" onchange="renderTasks()">
               <option value="">Todos meses</option>
-              ${MK.map(m=>`<option value="2026-${m}">${ML[m]}</option>`).join('')}
+              ${MK.map(m=>`<option value="${ANO_STR}-${m}">${ML[m]}</option>`).join('')}
             </select>
             <select id="tproj" onchange="renderTasks()"><option value="">Todos projetos</option></select>
             <select id="tsquad" onchange="renderTasks()"><option value="">Todos squads</option></select>
@@ -1804,16 +1856,19 @@ function openDet(dRaw, doScroll){
     tarefasF.forEach(t=>{ const tp=t.tipo||'Outro'; tipoCountsF[tp]=(tipoCountsF[tp]||0)+1; });
     const filtraBugs = arr => (arr||[]).filter(b=>mesFiltro.includes(getMk(b)));
     const bugReqF=filtraBugs(dRaw.tarefas_bug_req), bugTestF=filtraBugs(dRaw.tarefas_bug_test), bugDevF=filtraBugs(dRaw.tarefas_bug_dev);
+    const mainF=(window.ISSUES_RAW&&window.ISSUES_RAW.length)?indMain(dRaw,mesFiltro):null;   // mesma definição do total
+    const tcF=mainF?(()=>{ const o={}; mainF.forEach(t=>{ const tp=t.tipo||'Outro'; o[tp]=(o[tp]||0)+1; }); return o; })():tipoCountsF;
     d = {...dRaw,
-      pontos:pontosF, qtd_tarefas:tarefasF.length,
-      finalizadas:finalizadasF, reprovadas:reprovadasF,
-      tarefas:tarefasF, tipo_counts:tipoCountsF,
+      pontos:pontosF, qtd_tarefas:mainF?mainF.length:tarefasF.length,
+      finalizadas:mainF?mainF.filter(t=>t.status==='Finalizada').length:finalizadasF,
+      reprovadas:mainF?mainF.filter(t=>t.status==='Análise Reprovada').length:reprovadasF,
+      tarefas:tarefasF, tipo_counts:tcF,
       bugs_falha_req:bugReqF.length, bugs_falha_test:bugTestF.length, bugs_falha_dev:bugDevF.length,
       tarefas_bug_req:bugReqF, tarefas_bug_test:bugTestF, tarefas_bug_dev:bugDevF
     };
   }
 
-  curCargo=d.cargo;
+  curCargo=d.cargo; window._IND_DET=d; window._IND_MES=mesFiltro;
   const col=CC[d.cargo];
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';
@@ -1826,17 +1881,17 @@ function openDet(dRaw, doScroll){
   const bugMain=d.cargo==='AR'?(d.bugs_falha_req||0):d.cargo==='AT'?(d.bugs_falha_test||0):(d.bugs_falha_dev||0);
   const txBug=d.qtd_tarefas>0?bugMain/d.qtd_tarefas*100:0;
   document.getElementById('dkpis').innerHTML=`
-    <div class="dk" style="border-color:${col}">
+    <div class="dk ind-clk" onclick="indDet('pts')" title="Clique para ver as tarefas e pontos" style="border-color:${col}">
       <div class="dkl">Pontos totais</div>
       <div class="dkv" style="color:${col}">${fmtN(d.pontos)}</div>
     </div>
-    <div class="dk" style="border-color:${txBug===0?'#22c55e':txBug<=5?'#f59e0b':'#ef4444'}">
+    <div class="dk ind-clk" ${bugMain>0?`onclick="indDet('tx')"`:''} title="Clique para ver os bugs" style="border-color:${txBug===0?'#22c55e':txBug<=5?'#f59e0b':'#ef4444'}">
       <div class="dkl">% Bugs Falha</div>
       <div class="dkv" style="color:${txBug===0?'#22c55e':txBug<=5?'#d97706':'#dc2626'}">${fmtN(txBug)}%</div>
     </div>
     <div class="dk">
       <div class="dkl">Bugs ↗ Req / Test / Dev</div>
-      <div class="dkv">${d.bugs_falha_req||0} / ${d.bugs_falha_test||0} / ${d.bugs_falha_dev||0}</div>
+      <div class="dkv"><span class="ind-clk" ${d.bugs_falha_req>0?`onclick="indDet('breq')"`:''}>${d.bugs_falha_req||0}</span> / <span class="ind-clk" ${d.bugs_falha_test>0?`onclick="indDet('btest')"`:''}>${d.bugs_falha_test||0}</span> / <span class="ind-clk" ${d.bugs_falha_dev>0?`onclick="indDet('bdev')"`:''}>${d.bugs_falha_dev||0}</span></div>
     </div>`;
 
   const vals=MK.map(m=>dRaw.monthly?.[m]||0);
@@ -1849,6 +1904,7 @@ function openDet(dRaw, doScroll){
       {label:'Pontuação',data:vals,backgroundColor:barColors,borderColor:col,borderWidth:1,borderRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
+      onClick:indClickM(d,dRaw,MESES), onHover:indHover,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtN(c.raw)}}},
       scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
               y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},beginAtZero:true}}}
@@ -1861,7 +1917,9 @@ function openDet(dRaw, doScroll){
   cT=new Chart(document.getElementById('chartT'),{
     type:'doughnut',
     data:{labels:tipos,datasets:[{data:tvals,backgroundColor:tcols,borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false}}}
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      onClick:indClickT(d,dRaw,tipos), onHover:indHover,
+      plugins:{legend:{display:false}}}
   });
   const totT=tvals.reduce((a,v)=>a+v,0);
   document.getElementById('tipo-leg').innerHTML=tipos.map((t,i)=>
@@ -1891,7 +1949,7 @@ function openDet(dRaw, doScroll){
   const tmesEl=document.getElementById('tmes');
   const mesesParaMostrar = mesFiltro ? MK.filter(m=>mesFiltro.includes(m)) : MK;
   tmesEl.innerHTML = '<option value="">Todos meses</option>' +
-    mesesParaMostrar.map(m=>`<option value="2026-${m}">${ML[m]}</option>`).join('');
+    mesesParaMostrar.map(m=>`<option value="${ANO_STR}-${m}">${ML[m]}</option>`).join('');
   tmesEl.value='';
   renderTasks();
   renderBugs(d);
@@ -1992,6 +2050,9 @@ function renderIndCharts(){
     if(fSeg   && ![...fSeg].includes(x.projeto))  return false;
     if(fTipo  && ![...fTipo].includes(x.tipo))    return false;
     if(fSquad && ![...fSquad].includes(x.squad||'')) return false;
+    if(!supClassOk(fClassBug,fClassMel,x.class_bug,x.class_melhoria,x.tipo)) return false;
+    if(fStatus   && !fStatus.has(x.status||'')) return false;
+    if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
     if(fProd){
       if(x.produto){
         if(!fProd.has(x.produto)) return false;
@@ -2011,7 +2072,7 @@ function renderIndCharts(){
     const m={};arr.forEach(v=>{if(v)m[v]=(m[v]||0)+1;});
     return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,n);
   };
-  const mkDonut=(canvasId,entries,legId,colors,ref)=>{
+  const mkDonut=(canvasId,entries,legId,colors,ref,onSel)=>{
     if(ref)ref.destroy();
     const labels=entries.map(e=>e[0]), vals=entries.map(e=>e[1]);
     const total=vals.reduce((a,v)=>a+v,0);
@@ -2026,16 +2087,21 @@ function renderIndCharts(){
       type:'doughnut',
       data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+        onClick:(e,els)=>{ if(onSel&&els.length) onSel(labels[els[0].index]); },
+        onHover:(e,els)=>{ e.native.target.style.cursor=(onSel&&els.length)?'pointer':'default'; },
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} (${Math.round(c.raw/total*100)}%)`}}}}
     });
   };
-  const mkHBar=(canvasId,entries,color,ref)=>{
+  const mkHBar=(canvasId,entries,color,ref,onSel)=>{
     if(ref)ref.destroy();
+    const fullLabels=entries.map(e=>e[0]);
     const labels=entries.map(e=>{let l=e[0];return l.length>28?l.slice(0,27)+'…':l;});
     return new Chart(document.getElementById(canvasId),{
       type:'bar',
       data:{labels,datasets:[{data:entries.map(e=>e[1]),backgroundColor:color,borderRadius:3,borderWidth:0}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        onClick:(e,els)=>{ if(onSel&&els.length) onSel(fullLabels[els[0].index]); },
+        onHover:(e,els)=>{ e.native.target.style.cursor=(onSel&&els.length)?'pointer':'default'; },
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} itens`}}},
         scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}},beginAtZero:true},
                 y:{grid:{display:false},ticks:{color:tc,font:{size:9}}}},
@@ -2045,23 +2111,23 @@ function renderIndCharts(){
 
   // Bugs: class_bug
   const bugs=raw.filter(x=>x.tipo==='Bug');
-  const cbEntries=topN(bugs.map(x=>x.class_bug).filter(Boolean));
+  const cbEntries=topN(bugs.map(x=>x.class_bug||SUP_SEM_CLASS));
   const cbCores=['#22c55e','#a78bfa','#38bdf8','#fb923c','#f472b6','#14b8a6','#6366f1','#d97706'];
-  cIndClassBug=mkDonut('chartIndClassBug',cbEntries,'ind-leg-bug',cbCores,cIndClassBug);
+  cIndClassBug=mkDonut('chartIndClassBug',cbEntries,'ind-leg-bug',cbCores,cIndClassBug,l=>fxDrill('Finalizados — bugs, classificação: '+l,'res',x=>x.tipo==='Bug'&&(x.class_bug||SUP_SEM_CLASS)===l));
 
   // Melhorias: class_melhoria
   const mels=raw.filter(x=>x.tipo==='Melhoria');
-  const cmEntries=topN(mels.map(x=>x.class_melhoria).filter(Boolean));
+  const cmEntries=topN(mels.map(x=>x.class_melhoria||SUP_SEM_CLASS));
   const cmCores=['#22c55e','#fb923c','#a78bfa','#38bdf8','#f472b6','#14b8a6','#6366f1','#d97706'];
-  cIndClassMel=mkDonut('chartIndClassMel',cmEntries,'ind-leg-mel',cmCores,cIndClassMel);
+  cIndClassMel=mkDonut('chartIndClassMel',cmEntries,'ind-leg-mel',cmCores,cIndClassMel,l=>fxDrill('Finalizadas — melhorias, classificação: '+l,'res',x=>x.tipo==='Melhoria'&&(x.class_melhoria||SUP_SEM_CLASS)===l));
 
   // Top 10
   const modulos =raw.map(x=>x.modulo).filter(Boolean);
   const rotinas =raw.map(x=>x.rotina).filter(Boolean);
   const clientes=raw.flatMap(x=>x.clientes||[]);
-  cIndMod=mkHBar('chartIndModulos', topN(modulos), '#22c55e', cIndMod);
-  cIndRot=mkHBar('chartIndRotinas', topN(rotinas), '#a78bfa', cIndRot);
-  cIndCli=mkHBar('chartIndClientes',topN(clientes),'#38bdf8', cIndCli);
+  cIndMod=mkHBar('chartIndModulos', topN(modulos), '#22c55e', cIndMod, l=>fxDrill('Finalizados — módulo: '+l,'res',x=>x.modulo===l));
+  cIndRot=mkHBar('chartIndRotinas', topN(rotinas), '#a78bfa', cIndRot, l=>fxDrill('Finalizados — rotina: '+l,'res',x=>x.rotina===l));
+  cIndCli=mkHBar('chartIndClientes',topN(clientes),'#38bdf8', cIndCli, l=>fxDrill('Finalizados — cliente: '+l,'res',x=>(x.clientes||[]).includes(l)));
 }
 
 function redrawCharts(d){
@@ -2079,6 +2145,7 @@ function redrawCharts(d){
       {label:'Pontuação',data:vals,backgroundColor:col+'99',borderColor:col,borderWidth:1,borderRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
+      onClick:indClickM(window._IND_DET||d,d,MESES), onHover:indHover,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtN(c.raw)}}},
       scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
               y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},beginAtZero:true}}}
@@ -2090,7 +2157,9 @@ function redrawCharts(d){
   cT=new Chart(document.getElementById('chartT'),{
     type:'doughnut',
     data:{labels:tipos,datasets:[{data:tvals,backgroundColor:tcols,borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false}}}
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      onClick:indClickT(window._IND_DET||d,d,tipos), onHover:indHover,
+      plugins:{legend:{display:false}}}
   });
 }
 
@@ -2106,8 +2175,53 @@ function abIdadeFaixa(t){
 }
 const AB_SEM_CLASS = 'Sem classificação';  // bugs sem Classificação de Bug preenchida
 const abBugSemClass = t => t.tipo==='Bug' && !t.class_bug;
+const abMelSemClass = t => t.tipo==='Melhoria' && !t.class_melhoria;
+// Mesma regra do Fluxo: cada classificação só vale para o seu tipo; com os dois ativos vale bug que bate OU melhoria que bate
+const abClassOk=(fB,fM,t)=>{
+  if(!fB&&!fM) return true;
+  const okB=!!fB&&t.tipo==='Bug'&&(fB.has(t.class_bug)||(fB.has(AB_SEM_CLASS)&&!t.class_bug));
+  const okM=!!fM&&t.tipo==='Melhoria'&&(fM.has(t.class_melhoria)||(fM.has(AB_SEM_CLASS)&&!t.class_melhoria));
+  return okB||okM;
+};
 let AB_SORT = {col:'dias_aberto', asc:false};  // ordenação da tabela de backlog
 
+// ── Janela com as tarefas de uma faixa do envelhecimento do Backlog ──
+const AB_JIRA='https://nimitz.atlassian.net/browse/';
+const AB_MOD={rows:[],col:'dias',dir:-1};
+function abAbrirFaixa(titulo,rows){
+  const hoje=new Date();
+  AB_MOD.rows=rows.map(t=>({...t,_d:t.criado?Math.max(0,Math.floor((hoje-new Date(t.criado))/86400000)):-1}));
+  AB_MOD.col='dias'; AB_MOD.dir=-1;
+  document.getElementById('ab-modal-titulo').textContent=titulo;
+  document.getElementById('ab-modal').style.display='flex';
+  abRenderModal();
+}
+function abFecharModal(){ document.getElementById('ab-modal').style.display='none'; }
+function abOrdModal(col){ if(AB_MOD.col===col) AB_MOD.dir*=-1; else { AB_MOD.col=col; AB_MOD.dir=(col==='dias'||col==='criado')?-1:1; } abRenderModal(); }
+function abRenderModal(){
+  const m=AB_MOD, esc=x=>String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const val=t=>m.col==='dias'?t._d:m.col==='criado'?(t.criado?new Date(t.criado).getTime():0):(t[m.col]||'').toString().toLowerCase();
+  m.rows.sort((a,b)=>{const A=val(a),B=val(b); return (A<B?-1:A>B?1:0)*m.dir;});
+  document.getElementById('ab-modal-count').textContent=m.rows.length.toLocaleString('pt-BR')+' tarefa'+(m.rows.length===1?'':'s');
+  const COLS=[['chave','Chave'],['summary','Resumo'],['status','Status'],['tipo','Tipo do Item'],['responsavel','Responsável'],['modulo','Módulo'],['criado','Aberto em'],['dias','Dias em aberto']];
+  const seta=c=>m.col===c?(m.dir>0?' ▲':' ▼'):'';
+  const dt=t=>t.criado?new Date(t.criado).toLocaleDateString('pt-BR'):'—';
+  document.getElementById('ab-modal-tab').innerHTML='<thead style="position:sticky;top:0;z-index:2"><tr>'+COLS.map(([c,l])=>`<th ${c==='dias'?'class="r" ':''}onclick="abOrdModal('${c}')" style="cursor:pointer;white-space:nowrap;user-select:none">${l}${seta(c)}</th>`).join('')+'</tr></thead><tbody>'+
+    (m.rows.length?m.rows.map(t=>`<tr><td style="font-family:monospace;white-space:nowrap"><a href="${AB_JIRA}${encodeURIComponent(t.chave)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">${esc(t.chave)}</a></td>
+      <td title="${esc(t.summary)}">${esc((t.summary||'').slice(0,58))}${(t.summary||'').length>58?'…':''}</td><td>${esc(t.status)}</td><td>${esc(t.tipo)}</td><td style="white-space:nowrap">${esc(t.responsavel)||'—'}</td><td title="${esc(t.modulo)}">${esc((t.modulo||'').slice(0,22))||'—'}</td>
+      <td style="white-space:nowrap">${dt(t)}</td><td class="r" style="white-space:nowrap;font-weight:700;color:${t._d>1095?'#ef4444':t._d>365?'#f97316':'var(--text)'}">${t._d<0?'—':t._d.toLocaleString('pt-BR')+' dia'+(t._d===1?'':'s')}</td></tr>`).join(''):'<tr><td colspan="8" style="padding:18px;text-align:center;color:var(--text3)">Nenhuma tarefa nesta faixa.</td></tr>')+'</tbody>';
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') abFecharModal(); });
+
+function abCard(k,arg){
+  const L=window._AB_FILT||[];
+  const m={total:['Backlog — total em aberto',L],
+    venc:['Backlog — prazo vencido',L.filter(t=>t.prazo_vencido),{sort:'_pz',dir:1}],
+    hoje:['Backlog — vence hoje/amanhã',L.filter(t=>t.dias_prazo!=null&&t.dias_prazo>=0&&t.dias_prazo<=1),{sort:'_pz',dir:1}],
+    sp:['Backlog — sem prazo definido',L.filter(t=>!t.prazo)],
+    tipo:['Backlog — tipo: '+arg,L.filter(t=>(t.tipo||'Outros')===arg)]}[k];
+  ddAbrir(m[0],m[1],m[2]);
+}
 function applyChartFilter(field, value){
   if(CHART_FILTER[field]===value) CHART_FILTER[field]=null;
   else CHART_FILTER[field]=value;
@@ -2134,7 +2248,7 @@ function renderChartsAberto(filtradas){
       backgroundColor:tipoColors.map((c,i)=>CHART_FILTER.tipo&&CHART_FILTER.tipo!==tipoLabels[i]?c+'55':c),
       borderWidth:0}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
-      onClick(e,els){ if(els.length){ const l=tipoLabels[els[0].index]; applyChartFilter('tipo',l); }else{ applyChartFilter('tipo',null); }},
+      onClick(e,els){ if(els.length){ const l=tipoLabels[els[0].index]; ddAbrir('Backlog — tipo: '+l, filtradas.filter(t=>(t.tipo||'Outros')===l)); }},
       plugins:{legend:{position:'right',labels:{color:tc,font:{size:10},boxWidth:12}},
                tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} (${Math.round(c.raw/filtradas.length*100)}%)`}}}}
   });
@@ -2149,7 +2263,7 @@ function renderChartsAberto(filtradas){
       backgroundColor:statusLabels.map(l=>CHART_FILTER.status&&CHART_FILTER.status!==l?'#22c55e55':'#22c55e'),
       borderRadius:3}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      onClick(e,els){ if(els.length){ const l=statusLabels[els[0].index]; applyChartFilter('status',l); }else{ applyChartFilter('status',null); }},
+      onClick(e,els){ if(els.length){ const l=statusLabels[els[0].index]; ddAbrir('Backlog — status: '+l, filtradas.filter(t=>(t.status||'—')===l)); }},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} tarefas`}}},
       scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},
               y:{grid:{display:false},ticks:{color:tc,font:{size:9}}}}}
@@ -2165,7 +2279,7 @@ function renderChartsAberto(filtradas){
       backgroundColor:projLabels.map(l=>CHART_FILTER.projeto&&CHART_FILTER.projeto!==l?'#22c55e55':'#22c55e'),
       borderRadius:3}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      onClick(e,els){ if(els.length){ const l=projLabels[els[0].index]; applyChartFilter('projeto',l); }else{ applyChartFilter('projeto',null); }},
+      onClick(e,els){ if(els.length){ const l=projLabels[els[0].index]; ddAbrir('Backlog — projeto: '+l, filtradas.filter(t=>(t.projeto||'—')===l)); }},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} tarefas`}}},
       scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},
               y:{grid:{display:false},ticks:{color:tc,font:{size:9}}}}}
@@ -2185,7 +2299,7 @@ function renderChartsAberto(filtradas){
         backgroundColor:bugColors.map((c,i)=>CHART_FILTER.class_bug&&CHART_FILTER.class_bug!==classBugLabels[i]?c+'55':c),
         borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
-        onClick(e,els){ if(els.length){ applyChartFilter('class_bug',classBugLabels[els[0].index]); }else{ applyChartFilter('class_bug',null); }},
+        onClick(e,els){ if(els.length){ const l=classBugLabels[els[0].index]; ddAbrir('Backlog — bugs, classificação: '+l, bugs.filter(t=>(t.class_bug||AB_SEM_CLASS)===l)); }},
         plugins:{
           legend:{position:'right',labels:{color:tc,font:{size:10},boxWidth:12}},
           tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} (${Math.round(c.raw/bugs.length*100)}%)`}},
@@ -2196,7 +2310,7 @@ function renderChartsAberto(filtradas){
 
   const melhorias = filtradas.filter(t=>t.tipo==='Melhoria');
   const classMelMap = {};
-  melhorias.forEach(t=>{ const k=t.class_melhoria||'Não informado'; classMelMap[k]=(classMelMap[k]||0)+1; });
+  melhorias.forEach(t=>{ const k=t.class_melhoria||AB_SEM_CLASS; classMelMap[k]=(classMelMap[k]||0)+1; });
   const classMelLabels = Object.keys(classMelMap).sort((a,b)=>classMelMap[b]-classMelMap[a]);
   const melColors = ['#22c55e','#6366f1','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#9ca3af'];
   if(cMel) cMel.destroy();
@@ -2208,7 +2322,7 @@ function renderChartsAberto(filtradas){
         backgroundColor:melColors.map((c,i)=>CHART_FILTER.class_mel&&CHART_FILTER.class_mel!==classMelLabels[i]?c+'55':c),
         borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
-        onClick(e,els){ if(els.length){ applyChartFilter('class_mel',classMelLabels[els[0].index]); }else{ applyChartFilter('class_mel',null); }},
+        onClick(e,els){ if(els.length){ const l=classMelLabels[els[0].index]; ddAbrir('Backlog — melhorias, classificação: '+l, melhorias.filter(t=>(t.class_melhoria||AB_SEM_CLASS)===l)); }},
         plugins:{
           legend:{position:'right',labels:{color:tc,font:{size:10},boxWidth:12}},
           tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} (${Math.round(c.raw/melhorias.length*100)}%)`}},
@@ -2238,10 +2352,9 @@ function renderChartsAberto(filtradas){
         onClick:(evt,els)=>{
           if(!els.length||!msKey) return;
           const val=fullLabels[els[0].index];
-          const state=MS_AB_STATE[msKey];
-          if(state.has(val)) state.delete(val); else { state.clear(); state.add(val); }
-          updateMSBtn2(msKey);
-          renderAberto();
+          const pred = msKey==='ab-modulo' ? (t=>t.modulo===val) : msKey==='ab-rotina' ? (t=>t.rotina===val) : (t=>(t.clientes||[]).includes(val));
+          const nome = msKey==='ab-modulo' ? 'módulo' : msKey==='ab-rotina' ? 'rotina' : 'cliente';
+          ddAbrir('Backlog — '+nome+': '+val, filtradas.filter(pred));
         },
         onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }
       }
@@ -2286,7 +2399,7 @@ function renderChartsAberto(filtradas){
       scales:{x:{grid:{display:false},ticks:{color:tc,font:{size:10}}},
               y:{grid:{color:gc},ticks:{color:tc,font:{size:9}},beginAtZero:true}},
       animation:{duration:300},
-      onClick:(e,els)=>{ applyChartFilter('idade', els.length?AB_IDADE_FAIXAS[els[0].index]:null); },
+      onClick:(e,els)=>{ if(!els.length) return; const fx=AB_IDADE_FAIXAS[els[0].index]; ddAbrir(`Backlog em aberto: ${fx}`, filtradas.filter(t=>abIdadeFaixa(t)===fx)); },
       onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }
     },
     plugins:[idadeLabelsPlugin]
@@ -2553,6 +2666,17 @@ function setView(view, btn){
 // Categorias DAX: bugs_ext, bugs_int, bugs_rep, mel_ext, mel_int, mel_rep, other
 // ══════════════════════════════════════════════════════════════════
 let SUP_DATA=[];
+// Bugs sem "Classificação de Bug" preenchida: opção própria no filtro (só vale para tipo Bug)
+const SUP_SEM_CLASS='Sem classificação';
+// Cada classificação vale SÓ para o seu tipo de item: Classificação de Bug → só Bug; Classificação de Melhoria → só Melhoria.
+// "Sem classificação" = item daquele tipo com o campo ainda vazio. Com os dois filtros ativos entram os bugs que batem
+// com o de bug OU as melhorias que batem com o de melhoria (um item não é dos dois tipos ao mesmo tempo).
+const supClassOk=(fCb,fCm,cb,cm,tipo)=>{
+  if(!fCb&&!fCm) return true;
+  const okB=!!fCb&&tipo==='Bug'&&(fCb.has(cb||'')||(fCb.has(SUP_SEM_CLASS)&&!cb));
+  const okM=!!fCm&&tipo==='Melhoria'&&(fCm.has(cm||'')||(fCm.has(SUP_SEM_CLASS)&&!cm));
+  return okB||okM;
+};
 
 // ── Fluxo state ──────────────────────────────────────────────
 let SUP_INIT=false;
@@ -2561,12 +2685,12 @@ let cSupMes=null, cSupTipo=null;
 const MS_SUP_ALL={};
 const MS_SUP_SEL={};
 
-let SUP_MES_LABEL={'2026-01':'Jan','2026-02':'Fev','2026-03':'Mar','2026-04':'Abr','2026-05':'Mai','2026-06':'Jun'};
-let SUP_MESES=['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
+let SUP_MES_LABEL={...CHAVE_MES};
+let SUP_MESES=Object.keys(CHAVE_MES);
 
 
 // ── Reconstrução de SUP_DATA / SUP_WEEKLY a partir dos JSONs ──────────────
-function buildSupData(itens_ab, itens_fe, backlog) {
+function buildSupData(itens_ab, itens_fe, backlog, projsScope) {
   const catBug=(tipo,status,cb)=>{
     if(tipo!=='Bug') return null;
     if(status==='Análise Reprovada') return 'bugs_rep';
@@ -2579,21 +2703,21 @@ function buildSupData(itens_ab, itens_fe, backlog) {
     if(status==='Análise Reprovada') return 'mel_rep';
     return 'mel_ext';
   };
-  const PROJS=new Set(itens_ab.map(x=>x.projeto));
+  const PROJS=projsScope||new Set(itens_ab.map(x=>x.projeto));
   const agg={};
   const key=(mc,mr,p,sq,pr,ti,ca,cb,cm,st)=>[mc,mr,p,sq,pr,ti,ca,cb,cm,st].join('|');
   const get=k=>{if(!agg[k])agg[k]={ab:0,res:0,pend:0,rep:0};return agg[k];};
 
   itens_ab.forEach(x=>{
     const mc=(x.criado||'').slice(0,7);
-    if(!mc.startsWith('2026'))return;
+    if(!mc.startsWith(ANO_STR))return;
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
     get(key(mc,'',x.projeto,x.squad||'',x.produto||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||'')).ab++;
   });
 
   itens_fe.forEach(x=>{
     const mr=(x.resolvido||'').slice(0,7);
-    if(!mr.startsWith('2026'))return;
+    if(!mr.startsWith(ANO_STR))return;
     const mc=(x.criado||'').slice(0,7);
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
     const r=get(key(mc,mr,x.projeto,x.squad||'',x.produto||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||''));
@@ -2615,8 +2739,8 @@ function buildSupData(itens_ab, itens_fe, backlog) {
   // Semanal
   const wk=d=>{if(!d||d.length<10)return null;const dt=new Date(d.slice(0,10));dt.setDate(dt.getDate()-dt.getDay()+1);return dt.toISOString().slice(0,10);};
   const ent={},sai={};
-  itens_ab.forEach(x=>{const w=wk(x.criado);if(w&&(x.criado||'').startsWith('2026')){ent[w]=(ent[w]||0)+1;}});
-  itens_fe.forEach(x=>{const w=wk(x.resolvido);if(w&&(x.resolvido||'').startsWith('2026')){sai[w]=(sai[w]||0)+1;}});
+  itens_ab.forEach(x=>{const w=wk(x.criado);if(w&&(x.criado||'').startsWith(ANO_STR)){ent[w]=(ent[w]||0)+1;}});
+  itens_fe.forEach(x=>{const w=wk(x.resolvido);if(w&&(x.resolvido||'').startsWith(ANO_STR)){sai[w]=(sai[w]||0)+1;}});
   const weeks=[...new Set([...Object.keys(ent),...Object.keys(sai)])].sort();
   const weekly=weeks.map(w=>({w,e:ent[w]||0,s:sai[w]||0}));
 
@@ -2655,7 +2779,7 @@ async function initSup(){
     [...abData.itens,...feData.itens].forEach(x=>{ if(x.produto) _addPP(x.produto, x.projeto); });
     (ddData.tarefas_abertas||[]).forEach(x=>{ (x.produtos||[]).forEach(p=>_addPP(p, x.projeto)); });
     // Atualizar filtros com meses disponíveis
-    const mesesDisp = [...new Set(r.rows.map(x=>x.mc||x.mr).filter(m=>m&&m.startsWith('2026')))].sort();
+    const mesesDisp = [...new Set(r.rows.map(x=>x.mc||x.mr).filter(m=>m&&m.startsWith(ANO_STR)))].sort();
     if(mesesDisp.length){
       SUP_MESES = mesesDisp;
       SUP_MES_LABEL = {};
@@ -2683,14 +2807,29 @@ async function initSup(){
   fill('sup-tipo', vals(r=>r.ti));
   fill('sup-squad',vals(r=>r.sq));
   fill('sup-prod', Object.keys(window._PROD_PROJETOS||{}).sort());
-  fill('sup-classbug', vals(r=>r.cb));
-  fill('sup-classmel', vals(r=>r.cm));
+  fill('sup-classbug', [...new Set(SUP_DATA.filter(r=>r.ti==='Bug').map(r=>r.cb).filter(Boolean))].sort().concat(SUP_DATA.some(r=>r.ti==='Bug'&&!r.cb)?[SUP_SEM_CLASS]:[]));
+  fill('sup-classmel', [...new Set(SUP_DATA.filter(r=>r.ti==='Melhoria').map(r=>r.cm).filter(Boolean))].sort().concat(SUP_DATA.some(r=>r.ti==='Melhoria'&&!r.cm)?[SUP_SEM_CLASS]:[]));
   fill('sup-status',   vals(r=>r.st));
   const clienteSet = new Set();
   [...(window._ABERTOS_ITENS||[]), ...(window._FECHADOS_ITENS||[]), ...(window._BACKLOG_ITENS||[])].forEach(x=>{
     (x.clientes||[]).forEach(c=>{ if(c) clienteSet.add(c); });
   });
   fill('sup-cliente', [...clienteSet].sort());
+}
+
+// Os dados agregados (SUP_DATA) não guardam o cliente. Quando há cliente(s) selecionado(s), reconstrói os
+// números só com as issues desses clientes, para cartões, gráficos e tabela respeitarem o filtro.
+let _SUP_ROWS_CACHE={key:'',rows:null};
+function supRows(){
+  const fC=supActiveFilter('sup-cliente');
+  if(!fC) return SUP_DATA;
+  const AB=window._ABERTOS_ITENS||[], FE=window._FECHADOS_ITENS||[], BL=window._BACKLOG_ITENS||[];
+  const key=[...fC].sort().join('|')+'#'+AB.length+':'+FE.length+':'+BL.length+':'+SUP_DATA.length;
+  if(_SUP_ROWS_CACHE.key===key && _SUP_ROWS_CACHE.rows) return _SUP_ROWS_CACHE.rows;
+  const tem=x=>(x.clientes||[]).some(c=>fC.has(c));
+  const r=buildSupData(AB.filter(tem), FE.filter(tem), BL.filter(tem), new Set(AB.map(x=>x.projeto)));
+  _SUP_ROWS_CACHE={key,rows:r.rows};
+  return r.rows;
 }
 
 // Trata "todos selecionados" (ou nenhum marcado) como equivalente a "sem filtro".
@@ -2701,7 +2840,9 @@ function supActiveFilter(key){
   const sel = MS_SUP_SEL[key];
   if(!sel || sel.size===0) return null;
   const all = MS_SUP_ALL[key]||[];
-  if(all.length && sel.size>=all.length) return null;
+  // Classificações de Bug/Melhoria: mesmo com todas as opções marcadas o filtro vale (itens de outros tipos ficam de fora)
+  const FILTRO_DE_CLASSIFICACAO = key==='sup-classbug' || key==='sup-classmel';
+  if(!FILTRO_DE_CLASSIFICACAO && all.length && sel.size>=all.length) return null;
   return sel;
 }
 
@@ -2735,7 +2876,8 @@ function updateMSBtnSup(key){
   const labels={'sup-mes':'Mês','sup-seg':'Segmento','sup-tipo':'Tipo','sup-squad':'Squad','sup-prod':'Produto','sup-classbug':'Classificação de Bug','sup-classmel':'Classificação de Melhoria','sup-status':'Status','sup-cliente':'Cliente'};
   const btn=document.getElementById('ms-btn-'+key);
   if(!btn) return;
-  if(sel.size===0||sel.size===all.length){btn.textContent=(labels[key]||key)+': Todos';btn.classList.remove('active');}
+  const colapsa=(key!=='sup-classbug'&&key!=='sup-classmel');   // nas classificações, "todas marcadas" é filtro ativo
+  if(sel.size===0||(colapsa&&sel.size===all.length)){btn.textContent=(labels[key]||key)+': Todos';btn.classList.remove('active');}
   else{btn.textContent=(labels[key]||key)+': '+sel.size+' sel.';btn.classList.add('active');}
 }
 function resetSupFilters(){
@@ -2749,13 +2891,12 @@ function resetSupFilters(){
 
 function getSupFiltered(){
   const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
-  return SUP_DATA.filter(r=>{
+  return supRows().filter(r=>{
     if(fMes   && !fMes.has(SUP_MES_LABEL[r.mc]||r.mc) && !fMes.has(SUP_MES_LABEL[r.mr]||r.mr)) return false;
     if(fSeg   && !fSeg.has(r.p))   return false;
     if(fTipo  && !fTipo.has(r.ti)) return false;
     if(fSquad && !fSquad.has(r.sq))return false;
-    if(fClassBug && !fClassBug.has(r.cb)) return false;
-    if(fClassMel && !fClassMel.has(r.cm)) return false;
+    if(!supClassOk(fClassBug,fClassMel,r.cb,r.cm,r.ti)) return false;
     if(fStatus   && !fStatus.has(r.st))   return false;
     if(fProd){
       // Se o item tem pr preenchido, filtra direto; senão filtra pelo projeto via mapeamento
@@ -2790,8 +2931,7 @@ function renderSupChartSemana(){
     if(fSeg   && ![...fSeg].includes(x.projeto||''))   return false;
     if(fTipo  && ![...fTipo].includes(x.tipo||''))     return false;
     if(fSquad && ![...fSquad].includes(x.squad||''))   return false;
-    if(fClassBug && !fClassBug.has(x.class_bug||''))   return false;
-    if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+    if(!supClassOk(fClassBug,fClassMel,x.class_bug,x.class_melhoria,x.tipo)) return false;
     if(fStatus   && !fStatus.has(x.status||''))        return false;
     if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
     if(fProd){
@@ -2801,7 +2941,7 @@ function renderSupChartSemana(){
     return true;
   };
 
-  const ML={'Jan':'2026-01','Fev':'2026-02','Mar':'2026-03','Abr':'2026-04','Mai':'2026-05','Jun':'2026-06'};
+  const ML=MES_CHAVE;
   const activeMeses = fMes ? [...fMes].map(l=>ML[l]).filter(Boolean) : null;
 
   const ent={}, sai={};
@@ -2838,6 +2978,10 @@ function renderSupChartSemana(){
     options:{
       responsive:true,
       maintainAspectRatio:false,
+      onClick:(e,els)=>{ if(!els.length) return; const i=els[0].index, d=els[0].datasetIndex, w=weeks[i];
+        const lista=(d===0?ab_itens:fe_itens).filter(itemFiltOk).filter(x=>wk(d===0?x.criado:x.resolvido)===w);
+        ddAbrir((d===0?'Entrou':'Saiu')+' na semana de '+labels[i],lista); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },
       plugins:{
         legend:{position:'top',align:'end',labels:{color:tc,font:{size:10},usePointStyle:true,pointStyle:'rectRounded',boxWidth:10,padding:14}},
         tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw.toLocaleString('pt-BR')}`},backgroundColor:'rgba(0,0,0,.85)',borderColor:'rgba(255,255,255,.1)',borderWidth:1,padding:10}
@@ -2864,24 +3008,32 @@ function renderSup(){
 // ── Fluxo: tabela detalhada de issues (abertos + fechados, únicos por chave) ──
 let FX_SORT={col:'criado', dir:-1};
 
-function getFluxoIssuesFiltered(){
+function getFluxoIssuesFiltered(visao,semBusca){
   const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
-  const itens  = window._FLUXO_ITENS_MERGED||[];
+  // A lista mostra o MESMO grupo dos cartões: Abertos (criados no ano), Resolvidos (resolvidos no ano),
+  // Reprovados, Pendentes (backlog, ignora o mês) ou Todas (criadas OU resolvidas no ano).
+  const V=visao||FX_VISAO;
+  const itens  = V==='pend' ? (window._BACKLOG_ITENS||[]) : (window._FLUXO_ITENS_MERGED||[]);
 
   let out = itens.filter(x=>{
-    if(fMes){
+    if(V==='ab'  && !(x.criado||'').startsWith(ANO_STR)) return false;
+    if((V==='res'||V==='rep') && !(x.resolvido||'').startsWith(ANO_STR)) return false;
+    if(V==='rep' && x.status!=='Análise Reprovada') return false;
+    if(fMes && V!=='pend'){
       const mc=(x.criado||'').slice(0,7), mr=(x.resolvido||'').slice(0,7);
       const mcLbl=SUP_MES_LABEL[mc]||mc, mrLbl=SUP_MES_LABEL[mr]||mr;
-      if(!fMes.has(mcLbl) && !fMes.has(mrLbl)) return false;
+      if(V==='ab'){ if(!fMes.has(mcLbl)) return false; }
+      else if(V==='res'||V==='rep'){ if(!fMes.has(mrLbl)) return false; }
+      else if(!fMes.has(mcLbl) && !fMes.has(mrLbl)) return false;
     }
     if(fSeg   && !fSeg.has(x.projeto||''))  return false;
     if(fTipo  && !fTipo.has(x.tipo||''))    return false;
     if(fSquad && !fSquad.has(x.squad||''))  return false;
-    if(fClassBug && !fClassBug.has(x.class_bug||''))     return false;
-    if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+    if(!supClassOk(fClassBug,fClassMel,x.class_bug,x.class_melhoria,x.tipo)) return false;
     if(fStatus   && !fStatus.has(x.status||''))          return false;
     if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
-    if(fProd){
+    if(fProd && V==='pend'){ const pr=(x.produtos||[]).concat(x.produto?[x.produto]:[]); if(![...fProd].some(p=>pr.includes(p))) return false; }
+    else if(fProd){
       if(x.produto){ if(!fProd.has(x.produto)) return false; }
       else { if(![...fProd].some(p=>(window._PROD_PROJETOS||{})[p]?.has(x.projeto))) return false; }
     }
@@ -2889,7 +3041,7 @@ function getFluxoIssuesFiltered(){
   });
 
   const q=(document.getElementById('fluxo-issues-search')?.value||'').trim().toLowerCase();
-  if(q){
+  if(q && !semBusca){
     out = out.filter(x=>
       (x.chave||'').toLowerCase().includes(q) ||
       (x.summary||'').toLowerCase().includes(q) ||
@@ -2899,6 +3051,33 @@ function getFluxoIssuesFiltered(){
   return out;
 }
 
+// Detalhamento: abre as tarefas que formam o número clicado, respeitando TODOS os filtros da aba
+function fxDrill(titulo,visao,pred){ ddAbrir(titulo,getFluxoIssuesFiltered(visao,true).filter(pred||(()=>true))); }
+function fxCard(v){ fxDrill('Fluxo — '+{ab:'Abertos',res:'Resolvidos',pend:'Pendentes',rep:'Reprovados'}[v],v); }
+const FX_NAO_REP=x=>x.status!=='Análise Reprovada', FX_REP=x=>x.status==='Análise Reprovada', FX_INT=x=>(x.class_bug||'').startsWith('Interno');
+const FX_COL={
+  bugs_ab:['Bugs abertos','ab',x=>x.tipo==='Bug'],
+  bugs_ext:['Bugs externos','ab',x=>x.tipo==='Bug'&&FX_NAO_REP(x)&&!FX_INT(x)],
+  bugs_int:['Bugs internos','ab',x=>x.tipo==='Bug'&&FX_NAO_REP(x)&&FX_INT(x)],
+  bugs_rep:['Bugs reprovados (abertos no ano)','ab',x=>x.tipo==='Bug'&&FX_REP(x)],
+  bugs_proc:['Bugs procedentes','ab',x=>x.tipo==='Bug'&&FX_NAO_REP(x)],
+  bugs_res:['Bugs resolvidos','res',x=>x.tipo==='Bug'],
+  bugs_pend2:['Bugs pendentes','pend',x=>x.tipo==='Bug'&&FX_NAO_REP(x)],
+  mel_ab:['Melhorias abertas','ab',x=>x.tipo==='Melhoria'],
+  mel_ext:['Melhorias externas','ab',x=>x.tipo==='Melhoria'&&FX_NAO_REP(x)],
+  mel_int:['Melhorias internas','ab',()=>false],
+  mel_rep:['Melhorias reprovadas (abertas no ano)','ab',x=>x.tipo==='Melhoria'&&FX_REP(x)],
+  mel_proc:['Melhorias procedentes','ab',x=>x.tipo==='Melhoria'&&FX_NAO_REP(x)],
+  mel_res:['Melhorias resolvidas','res',x=>x.tipo==='Melhoria'],
+  mel_pend2:['Melhorias pendentes','pend',x=>x.tipo==='Melhoria'&&FX_NAO_REP(x)]};
+function fxCel(k,seg){ const c=FX_COL[k]; if(!c) return; fxDrill((seg||'Total')+' — '+c[0],c[1],x=>c[2](x)&&(!seg||x.projeto===seg)); }
+let FX_VISAO='ab';   // população da lista: ab | res | rep | pend | todas
+function setFxVisao(v,rolar){
+  FX_VISAO=v;
+  document.querySelectorAll('#fx-visao .ms-btn').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  renderFluxoIssuesTable();
+  if(rolar){ const el=document.getElementById('fluxo-issues-table'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }
+}
 function sortFluxoIssues(col){
   if(FX_SORT.col===col) FX_SORT.dir*=-1;
   else { FX_SORT.col=col; FX_SORT.dir=-1; }
@@ -2968,8 +3147,7 @@ function renderSupKPIs(data){
       if(fSeg   && ![...fSeg].includes(x.projeto||''))    return false;
       if(fTipo  && ![...fTipo].includes(x.tipo||''))      return false;
       if(fSquad && ![...fSquad].includes(x.squad||''))    return false;
-      if(fClassBug && !fClassBug.has(x.class_bug||''))    return false;
-      if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+      if(!supClassOk(fClassBug,fClassMel,x.class_bug,x.class_melhoria,x.tipo)) return false;
         if(fStatus   && !fStatus.has(x.status||''))         return false;
       if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
       if(fProd){
@@ -3003,12 +3181,13 @@ function renderSupChartMes(data){
   const fProd2  = supActiveFilter('sup-prod');
   const fClassBug2 = supActiveFilter('sup-classbug');
   const fClassMel2 = supActiveFilter('sup-classmel');
-  const baseData = SUP_DATA.filter(r=>{
+  const fStatus2 = supActiveFilter('sup-status');
+  const baseData = supRows().filter(r=>{
     if(fSeg2   && !fSeg2.has(r.p))    return false;
     if(fTipo2  && !fTipo2.has(r.ti))  return false;
     if(fSquad2 && !fSquad2.has(r.sq)) return false;
-    if(fClassBug2 && !fClassBug2.has(r.cb)) return false;
-    if(fClassMel2 && !fClassMel2.has(r.cm)) return false;
+    if(!supClassOk(fClassBug2,fClassMel2,r.cb,r.cm,r.ti)) return false;
+    if(fStatus2 && !fStatus2.has(r.st)) return false;
     if(fProd2){
       if(r.pr){ if(!fProd2.has(r.pr)) return false; }
       else { if(![...fProd2].some(p=>(window._PROD_PROJETOS||{})[p]?.has(r.p))) return false; }
@@ -3032,6 +3211,11 @@ function renderSupChartMes(data){
   const dataRep =activeMeses.map(m=>byMes[m]?.rep||0);
 
   const opts={responsive:true,maintainAspectRatio:false,
+    onClick:(e,els)=>{ if(!els.length) return; const i=els[0].index, d=els[0].datasetIndex, m=activeMeses[i], L=labels[i], noMes=dt=>(dt||'').slice(0,7)===m;
+      if(d===0) fxDrill('Abertos em '+L,'ab',x=>noMes(x.criado));
+      else if(d===1) fxDrill('Resolvidos em '+L,'res',x=>noMes(x.resolvido));
+      else fxDrill('Reprovados em '+L,'res',x=>noMes(x.resolvido)&&x.status==='Análise Reprovada'&&(x.tipo==='Bug'||x.tipo==='Melhoria')); },
+    onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },
     plugins:{
       legend:{position:'top',align:'end',labels:{color:tc,font:{size:10},usePointStyle:true,pointStyle:'rectRounded',boxWidth:10,padding:14}},
       tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw.toLocaleString('pt-BR')}`},
@@ -3081,6 +3265,8 @@ function renderSupChartTipo(data){
       }]
     },
     options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      onClick:(e,els)=>{ if(els.length){ const l=entries[els[0].index][0]; fxDrill('Abertos — tipo: '+l,'ab',x=>x.tipo===l); } },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },
       plugins:{
         legend:{position:'right',labels:{color:tc,font:{size:9},usePointStyle:true,pointStyle:'circle',boxWidth:7,padding:8,
           generateLabels:chart=>{
@@ -3107,12 +3293,13 @@ function renderSupTable(data){
   const fProd2  = supActiveFilter('sup-prod');
   const fClassBug2 = supActiveFilter('sup-classbug');
   const fClassMel2 = supActiveFilter('sup-classmel');
-  const baseData = SUP_DATA.filter(r=>{
+  const fStatus2 = supActiveFilter('sup-status');
+  const baseData = supRows().filter(r=>{
     if(fSeg2   && !fSeg2.has(r.p))    return false;
     if(fTipo2  && !fTipo2.has(r.ti))  return false;
     if(fSquad2 && !fSquad2.has(r.sq)) return false;
-    if(fClassBug2 && !fClassBug2.has(r.cb)) return false;
-    if(fClassMel2 && !fClassMel2.has(r.cm)) return false;
+    if(!supClassOk(fClassBug2,fClassMel2,r.cb,r.cm,r.ti)) return false;
+    if(fStatus2 && !fStatus2.has(r.st)) return false;
     if(fProd2){
       if(r.pr){ if(!fProd2.has(r.pr)) return false; }
       else { if(![...fProd2].some(p=>(window._PROD_PROJETOS||{})[p]?.has(r.p))) return false; }
@@ -3146,13 +3333,13 @@ function renderSupTable(data){
     }
     if(ca==='bugs_ext'){  if(abOk) pr.bugs_ext+=r.ab; pr.bugs_pend2+=r.pend; }
     else if(ca==='bugs_int'){ if(abOk) pr.bugs_int+=r.ab; pr.bugs_pend2+=r.pend; }
-    else if(ca==='bugs_rep'){ if(resOk) pr.bugs_rep+=r.res; }
+    else if(ca==='bugs_rep'){ if(abOk) pr.bugs_rep+=r.ab; }
     else if(ca==='mel_ext'){  if(abOk) pr.mel_ext+=r.ab; pr.mel_pend2+=r.pend; }
     else if(ca==='mel_int'){  if(abOk) pr.mel_int+=r.ab; pr.mel_pend2+=r.pend; }
-    else if(ca==='mel_rep'){  if(resOk) pr.mel_rep+=r.res; }
+    else if(ca==='mel_rep'){  if(abOk) pr.mel_rep+=r.ab; }
   });
 
-  // Procedentes = Abertos - Reprovados
+  // Reprovados = abertos no ano que foram reprovados · Procedentes = Abertos − Reprovados (= Externos + Internos)
   Object.values(byProj).forEach(pr=>{
     pr.bugs_proc = Math.max(0, pr.bugs_ab - pr.bugs_rep);
     pr.mel_proc  = Math.max(0, pr.mel_ab  - pr.mel_rep);
@@ -3173,26 +3360,15 @@ function renderSupTable(data){
   rows.forEach(r=>Object.keys(totals).forEach(k=>{if(k!=='seg')totals[k]+=r[k]||0;}));
 
   const fmt=n=>(n||0).toLocaleString('pt-BR');
-  const rowHtml=(r,isTot)=>`<tr class="${isTot?'stotal':''}">
-    <td>${r.seg}</td>
-    <td class="col-grp-bugs sup-c-rep">${fmt(r.bugs_ab)}</td>
-    <td class="sup-c-rep">${fmt(r.bugs_ext)}</td>
-    <td class="sup-c-int">${fmt(r.bugs_int)}</td>
-    <td class="sup-c-rep">${fmt(r.bugs_rep)}</td>
-    <td class="sup-c-res">${fmt(r.bugs_proc)}</td>
-    <td class="sup-c-res">${fmt(r.bugs_res)}</td>
-    <td class="sup-c-dim">${fmt(r.bugs_pend2)}</td>
-    <td class="col-grp-mel sup-c-ab">${fmt(r.mel_ab)}</td>
-    <td class="sup-c-int">${fmt(r.mel_ext)}</td>
-    <td class="sup-c-int">${fmt(r.mel_int)}</td>
-    <td class="sup-c-rep">${fmt(r.mel_rep)}</td>
-    <td class="sup-c-res">${fmt(r.mel_proc)}</td>
-    <td class="sup-c-res">${fmt(r.mel_res)}</td>
-    <td class="sup-c-dim">${fmt(r.mel_pend2)}</td>
-  </tr>`;
+  const COLS_T=[['bugs_ab','col-grp-bugs sup-c-rep'],['bugs_ext','sup-c-rep'],['bugs_int','sup-c-int'],['bugs_rep','sup-c-rep'],['bugs_proc','sup-c-res'],['bugs_res','sup-c-res'],['bugs_pend2','sup-c-dim'],
+    ['mel_ab','col-grp-mel sup-c-ab'],['mel_ext','sup-c-int'],['mel_int','sup-c-int'],['mel_rep','sup-c-rep'],['mel_proc','sup-c-res'],['mel_res','sup-c-res'],['mel_pend2','sup-c-dim']];
+  const escT=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const rowHtml=(r,isTot)=>`<tr class="${isTot?'stotal':''}"><td>${r.seg}</td>`+
+    COLS_T.map(([k,cls])=>(r[k]>0&&k!=='mel_int')?`<td class="${cls} sup-clk" data-k="${k}" data-s="${isTot?'':escT(r.seg)}" title="Clique para ver as tarefas">${fmt(r[k])}</td>`:`<td class="${cls}">${fmt(r[k])}</td>`).join('')+'</tr>';
 
-  document.getElementById('sup-tbl-body').innerHTML=
-    rows.map(r=>rowHtml(r,false)).join('')+rowHtml(totals,true);
+  const tbody=document.getElementById('sup-tbl-body');
+  tbody.innerHTML=rows.map(r=>rowHtml(r,false)).join('')+rowHtml(totals,true);
+  tbody.onclick=e=>{ const td=e.target.closest('td[data-k]'); if(td) fxCel(td.dataset.k,td.dataset.s); };
 }
 
 
@@ -3214,9 +3390,10 @@ function initAberto(json){
   fillAB('ab-modulo', [...new Set(ABERTO.map(t=>t.modulo).filter(Boolean))].sort());
   fillAB('ab-rotina', [...new Set(ABERTO.map(t=>t.rotina).filter(Boolean))].sort());
   fillAB('ab-cliente',[...new Set(ABERTO.flatMap(t=>t.clientes||[]).filter(Boolean))].sort());
-  fillAB('ab-classbug',[...new Set(ABERTO.map(t=>t.class_bug).filter(Boolean))].sort()
+  fillAB('ab-classbug',[...new Set(ABERTO.filter(t=>t.tipo==='Bug').map(t=>t.class_bug).filter(Boolean))].sort()
     .concat(ABERTO.some(t=>t.tipo==='Bug'&&!t.class_bug) ? [AB_SEM_CLASS] : []));
-  fillAB('ab-classmel',[...new Set(ABERTO.map(t=>t.class_melhoria).filter(Boolean))].sort());
+  fillAB('ab-classmel',[...new Set(ABERTO.filter(t=>t.tipo==='Melhoria').map(t=>t.class_melhoria).filter(Boolean))].sort()
+    .concat(ABERTO.some(abMelSemClass) ? [AB_SEM_CLASS] : []));
   fillAB('ab-gut',[...new Set(ABERTO.map(t=>t.gut_resultado ?? t.gut).filter(v=>v!=null&&v!==''))]
     .map(String).sort((a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0)));
 }
@@ -3228,7 +3405,8 @@ function abActiveFilter(key){
   const sel = MS_AB_STATE[key];
   if(!sel || sel.size===0) return null;
   const all = MS_AB_ALL_VALS[key]||[];
-  if(all.length && sel.size>=all.length) return null;
+  // Classificações: com todas marcadas o filtro continua valendo (só entram itens com classificação / bugs sem classificação)
+  if(key!=='ab-classbug' && key!=='ab-classmel' && all.length && sel.size>=all.length) return null;
   return sel;
 }
 
@@ -3305,8 +3483,7 @@ function renderAberto(){
     if(fRot   && !fRot.has(t.rotina))         return false;
     if(fProdA && !(t.produtos||[]).some(p=>fProdA.has(p)))     return false;
     if(fCli   && !(t.clientes||[]).some(c=>fCli.has(c)))       return false;
-    if(fClassBugA && !(fClassBugA.has(t.class_bug) || (fClassBugA.has(AB_SEM_CLASS) && abBugSemClass(t)))) return false;
-    if(fClassMelA && !fClassMelA.has(t.class_melhoria)) return false;
+    if(!abClassOk(fClassBugA,fClassMelA,t)) return false;
     if(fGutA  && !fGutA.has(String(t.gut_resultado ?? t.gut ?? ''))) return false;
     if(prazo==='vencido'   && !t.prazo_vencido)  return false;
     if(prazo==='hoje'      && !(t.dias_prazo!=null && t.dias_prazo>=0 && t.dias_prazo<=1)) return false;
@@ -3314,8 +3491,7 @@ function renderAberto(){
     if(CHART_FILTER.tipo      && t.tipo!==CHART_FILTER.tipo)           return false;
     if(CHART_FILTER.status    && t.status!==CHART_FILTER.status)       return false;
     if(CHART_FILTER.projeto   && t.projeto!==CHART_FILTER.projeto)     return false;
-    if(CHART_FILTER.class_bug && !(t.class_bug===CHART_FILTER.class_bug || (CHART_FILTER.class_bug===AB_SEM_CLASS && abBugSemClass(t)))) return false;
-    if(CHART_FILTER.class_mel && t.class_melhoria!==CHART_FILTER.class_mel) return false;
+    if(!abClassOk(CHART_FILTER.class_bug?new Set([CHART_FILTER.class_bug]):null, CHART_FILTER.class_mel?new Set([CHART_FILTER.class_mel]):null, t)) return false;
     if(CHART_FILTER.idade     && abIdadeFaixa(t)!==CHART_FILTER.idade) return false;
     if(q){
       const hay = (t.responsavel||'')+(t.chave||'')+(t.summary||'');
@@ -3335,18 +3511,19 @@ function renderAberto(){
     .sort((a,b)=>b[1]-a[1])
     .map(([tp,n])=>`
       <span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);
-        border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600">
+        border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();abCard('tipo','${tp.replace(/'/g,"\\'")}')" title="Clique para ver as tarefas deste tipo">
         <span style="width:8px;height:8px;border-radius:50%;background:${tipoCores[tp]||'#9ca3af'}"></span>
         ${tp} <span style="color:var(--text2)">${n}</span>
       </span>`).join('');
 
+  window._AB_FILT=filtradas;   // base dos cartões clicáveis (abCard)
   document.getElementById('kpi-aberto').innerHTML=`
-    <div class="kpi"><div class="kl">Total em aberto</div><div class="kv">${filtradas.length.toLocaleString('pt-BR')}</div>
+    <div class="kpi bs-card" onclick="abCard('total')" title="Clique para ver as tarefas"><div class="kl">Total em aberto</div><div class="kv">${filtradas.length.toLocaleString('pt-BR')}</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${tipoHtml}</div>
     </div>
-    <div class="kpi"><div class="kl">Prazo vencido</div><div class="kv" style="color:var(--red)">${venc}</div></div>
-    <div class="kpi"><div class="kl">Vence hoje/amanhã</div><div class="kv" style="color:#d97706">${hoje}</div></div>
-    <div class="kpi"><div class="kl">Sem prazo definido</div><div class="kv" style="color:var(--text3)">${sp}</div></div>`;
+    <div class="kpi bs-card" onclick="abCard('venc')" title="Clique para ver as tarefas"><div class="kl">Prazo vencido</div><div class="kv" style="color:var(--red)">${venc}</div></div>
+    <div class="kpi bs-card" onclick="abCard('hoje')" title="Clique para ver as tarefas"><div class="kl">Vence hoje/amanhã</div><div class="kv" style="color:#d97706">${hoje}</div></div>
+    <div class="kpi bs-card" onclick="abCard('sp')" title="Clique para ver as tarefas"><div class="kl">Sem prazo definido</div><div class="kv" style="color:var(--text3)">${sp}</div></div>`;
 
   const grupos = {};
   filtradas.forEach(t=>{
@@ -3598,6 +3775,7 @@ function renderTDC(){
   const fAnt = filtradas.filter(t=>+t.ano===ANO_ANT);
   const fAt  = filtradas.filter(t=>+t.ano===ANO_AT);
   const atual = fAt;
+  const tdcAbrir=(titulo,pred)=>ddAbrir(titulo,filtradas.filter(pred));   // detalhamento: bugs que formam o número clicado
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';
   const tc=dark?'#9ba3bf':'#666';
@@ -3632,6 +3810,10 @@ function renderTDC(){
   if(_t('tdc-count-at'))   _t('tdc-count-at').textContent  =fAt.length.toLocaleString('pt-BR');
   if(_t('tdc-var-ant'))  _t('tdc-var-ant').innerHTML =`vs ${ANO_AT2} &nbsp;${varHtml(vAntAnt2)}`;
   if(_t('tdc-var-at'))   _t('tdc-var-at').innerHTML  =`vs ${ANO_ANT} &nbsp;${varHtml(vAtAnt)}`;
+  [['tdc-count-ant2',ANO_AT2],['tdc-count-ant',ANO_ANT],['tdc-count-at',ANO_AT]].forEach(([id,y])=>{
+    const card=_t(id)&&_t(id).parentElement; if(!card) return;
+    card.style.cursor='pointer'; card.title='Clique para ver os bugs';
+    card.onclick=()=>tdcAbrir('TDC — bugs de '+y,t=>+t.ano===y); });
 
   const critMap={};
   atual.forEach(t=>{ const k=t.criticidade||'Sem Criticidade Inf...'; critMap[k]=(critMap[k]||0)+1; });
@@ -3645,19 +3827,22 @@ function renderTDC(){
     data:{labels:critLabels,datasets:[{data:critLabels.map(l=>critMap[l]||0),
       backgroundColor:critLabels.map(l=>critCores[l]||'#9ca3af'),borderWidth:0}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      onClick:(e,els)=>{ if(els.length){ const l=critLabels[els[0].index]; tdcAbrir('TDC '+ANO_AT+' — criticidade: '+l,t=>+t.ano===ANO_AT&&(t.criticidade||'Sem Criticidade Inf...')===l); } },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>
         `${c.label}: ${c.raw} (${atual.length?Math.round(c.raw/atual.length*100):0}%)`}}}}
   });
   const legEl=document.getElementById('tdc-crit-legend');
   if(legEl) legEl.innerHTML=critLabels.map(l=>{
     const n=critMap[l]||0,pct=atual.length?Math.round(n/atual.length*100):0;
-    return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+    return `<div data-l="${l.replace(/"/g,'&quot;')}" title="Clique para ver os bugs" style="display:flex;align-items:center;gap:4px;margin-bottom:3px;cursor:pointer">
       <span style="width:8px;height:8px;border-radius:50%;background:${critCores[l]||'#9ca3af'};flex-shrink:0"></span>
       <span style="font-size:10px;color:${tc};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l}</span>
       <span style="font-size:10px;font-weight:600;color:${tc};white-space:nowrap;margin-left:4px">${n} (${pct}%)</span>
     </div>`;
   }).join('');
 
+  if(legEl) legEl.onclick=e=>{ const r=e.target.closest('[data-l]'); if(!r) return; const l=r.dataset.l; tdcAbrir('TDC '+ANO_AT+' — criticidade: '+l,t=>+t.ano===ANO_AT&&(t.criticidade||'Sem Criticidade Inf...')===l); };
   const segCount={};
   atual.forEach(t=>{ const s=t.segmento||'—'; segCount[s]=(segCount[s]||0)+1; });
   const segBarLabels=Object.entries(segCount).sort((a,b)=>b[1]-a[1]).map(([s])=>s);
@@ -3672,6 +3857,8 @@ function renderTDC(){
     data:{labels:segBarLabels,datasets:[{data:segBarLabels.map(s=>segCount[s]),
       backgroundColor:'#22c55e',borderWidth:0,borderRadius:2}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      onClick:(e,els)=>{ if(els.length){ const sg=segBarLabels[els[0].index]; tdcAbrir('TDC '+ANO_AT+' — segmento: '+sg,t=>+t.ano===ANO_AT&&(t.segmento||'—')===sg); } },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} bugs`}}},
       scales:{x:{display:false,beginAtZero:true},y:{grid:{display:false},ticks:{color:tc,font:{size:10}}}},
       layout:{padding:{right:40}}
@@ -3732,6 +3919,8 @@ function renderTDC(){
   const bvTotAnt=Object.values(bvMap).reduce((a,v)=>a+v.yAnt,0);
   const bvTotAt =Object.values(bvMap).reduce((a,v)=>a+v.yAt, 0);
   const th='padding:5px 8px;border-bottom:.5px solid var(--border2);color:var(--text);font-size:11px';
+  const escA=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const D=(g,seg,y,n)=>n>0?`data-g="${g}" data-s="${escA(seg)}" data-y="${y}" class="tdc-clk" title="Clique para ver os bugs"`:'';
   const sep='border-right:2px solid var(--border)';
   document.getElementById('tdc-seg-tbody').innerHTML=segRows.map(([seg,v])=>{
     const vpAnt=v.yAt2>0?(v.yAnt-v.yAt2)/v.yAt2*100:null;
@@ -3741,31 +3930,34 @@ function renderTDC(){
     const bvpAt =bv.yAnt>0?(bv.yAt -bv.yAnt)/bv.yAnt*100:null;
     return `<tr class="tdc-seg-row">
       <td style="${th};font-weight:600">${seg}</td>
-      <td style="${th};text-align:right">${v.yAt2}</td>
-      <td style="${th};text-align:right">${v.yAnt}</td>
+      <td style="${th};text-align:right" ${D('ext',seg,ANO_AT2,v.yAt2)}>${v.yAt2}</td>
+      <td style="${th};text-align:right" ${D('ext',seg,ANO_ANT,v.yAnt)}>${v.yAnt}</td>
       <td style="${th};text-align:right">${varHtml(vpAnt)}</td>
-      <td style="${th};text-align:right;font-weight:600">${v.yAt}</td>
+      <td style="${th};text-align:right;font-weight:600" ${D('ext',seg,ANO_AT,v.yAt)}>${v.yAt}</td>
       <td style="${th};text-align:right;${sep}">${varHtml(vpAt)}</td>
-      <td style="${th};text-align:right">${bv.yAt2}</td>
-      <td style="${th};text-align:right">${bv.yAnt}</td>
+      <td style="${th};text-align:right" ${D('ver',seg,ANO_AT2,bv.yAt2)}>${bv.yAt2}</td>
+      <td style="${th};text-align:right" ${D('ver',seg,ANO_ANT,bv.yAnt)}>${bv.yAnt}</td>
       <td style="${th};text-align:right">${varHtml(bvpAnt)}</td>
-      <td style="${th};text-align:right;font-weight:600">${bv.yAt}</td>
+      <td style="${th};text-align:right;font-weight:600" ${D('ver',seg,ANO_AT,bv.yAt)}>${bv.yAt}</td>
       <td style="${th};text-align:right">${varHtml(bvpAt)}</td>
     </tr>`;
   }).join('')+`<tr class="tdc-seg-row tdc-seg-total">
     <td style="${th}">Total</td>
-    <td style="${th};text-align:right">${totAt2}</td>
-    <td style="${th};text-align:right">${totAnt}</td>
+    <td style="${th};text-align:right" ${D('ext','',ANO_AT2,totAt2)}>${totAt2}</td>
+    <td style="${th};text-align:right" ${D('ext','',ANO_ANT,totAnt)}>${totAnt}</td>
     <td style="${th};text-align:right">${varHtml(totAt2>0?(totAnt-totAt2)/totAt2*100:null)}</td>
-    <td style="${th};text-align:right">${totAt}</td>
+    <td style="${th};text-align:right" ${D('ext','',ANO_AT,totAt)}>${totAt}</td>
     <td style="${th};text-align:right;${sep}">${varHtml(totAnt>0?(totAt-totAnt)/totAnt*100:null)}</td>
-    <td style="${th};text-align:right">${bvTotAt2}</td>
-    <td style="${th};text-align:right">${bvTotAnt}</td>
+    <td style="${th};text-align:right" ${D('ver','',ANO_AT2,bvTotAt2)}>${bvTotAt2}</td>
+    <td style="${th};text-align:right" ${D('ver','',ANO_ANT,bvTotAnt)}>${bvTotAnt}</td>
     <td style="${th};text-align:right">${varHtml(bvTotAt2>0?(bvTotAnt-bvTotAt2)/bvTotAt2*100:null)}</td>
-    <td style="${th};text-align:right">${bvTotAt}</td>
+    <td style="${th};text-align:right" ${D('ver','',ANO_AT,bvTotAt)}>${bvTotAt}</td>
     <td style="${th};text-align:right">${varHtml(bvTotAnt>0?(bvTotAt-bvTotAnt)/bvTotAnt*100:null)}</td>
   </tr>`;
 
+  document.getElementById('tdc-seg-tbody').onclick=e=>{ const td=e.target.closest('td[data-g]'); if(!td) return;
+    const g=td.dataset.g, sg=td.dataset.s, y=+td.dataset.y;
+    tdcAbrir((sg||'Total')+' — '+(g==='ext'?'bugs externos':'bugs gerados em versões')+' '+y,t=>+t.ano===y&&(!sg||(t.segmento||'—')===sg)&&(g==='ext'||isVersao(t.bug_gerado))); };
   const MNS=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const MKK=['01','02','03','04','05','06','07','08','09','10','11','12'];
   const byAt2t={}, byAntt={}, byAtt={};
@@ -3789,7 +3981,9 @@ function renderTDC(){
       {label:String(ANO_ANT),data:MKK.map(m=>byAntt[m]||0),backgroundColor:'#6366f1',borderRadius:3,borderWidth:0},
       {label:String(ANO_AT), data:MKK.map(m=>byAtt[m] ||0),backgroundColor:'#22c55e',borderRadius:3,borderWidth:0},
     ]},
-    options:barOpts
+    options:{...barOpts,
+      onClick:(e,els)=>{ if(!els.length) return; const y=[ANO_AT2,ANO_ANT,ANO_AT][els[0].datasetIndex], i=els[0].index; tdcAbrir(`Bugs externos — ${MNS[i]}/${y}`,t=>t.mes_ano===`${y}-${MKK[i]}`); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }}
   });
 
   const bvAt2m={}, bvAntm={}, bvAtm={};
@@ -3808,7 +4002,9 @@ function renderTDC(){
       {label:String(ANO_ANT),data:MKK.map(m=>bvAntm[m]||0),backgroundColor:'#6366f1',borderRadius:3,borderWidth:0},
       {label:String(ANO_AT), data:MKK.map(m=>bvAtm[m] ||0),backgroundColor:'#22c55e',borderRadius:3,borderWidth:0},
     ]},
-    options:barOpts
+    options:{...barOpts,
+      onClick:(e,els)=>{ if(!els.length) return; const y=[ANO_AT2,ANO_ANT,ANO_AT][els[0].datasetIndex], i=els[0].index; tdcAbrir(`Bugs gerados em versões — ${MNS[i]}/${y}`,t=>isVersao(t.bug_gerado)&&t.mes_ano===`${y}-${MKK[i]}`); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }}
   });
 
   document.getElementById('tdc-count').textContent=`${filtradas.length} bug${filtradas.length!==1?'s':''}`;
@@ -3825,8 +4021,9 @@ function renderTDC(){
   const modulos =fAt.map(x=>x.modulo).filter(Boolean);
   const rotinas =fAt.map(x=>x.rotina).filter(Boolean);
 
-  const mkHBar=(canvasId,entries,cRef,color)=>{
+  const mkHBar=(canvasId,entries,cRef,color,onSel)=>{
     if(cRef)cRef.destroy();
+    const fullLabels=entries.map(e=>e[0]);
     const labels=entries.map(e=>{
       // Clean up labels: remove codes like "AG - " prefix if too long
       let l=e[0]; if(l.length>28) l=l.substring(0,27)+'…'; return l;
@@ -3835,6 +4032,8 @@ function renderTDC(){
       type:'bar',
       data:{labels,datasets:[{data:entries.map(e=>e[1]),backgroundColor:color,borderRadius:3,borderWidth:0}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        onClick:(e,els)=>{ if(onSel&&els.length) onSel(fullLabels[els[0].index]); },
+        onHover:(e,els)=>{ e.native.target.style.cursor=(onSel&&els.length)?'pointer':'default'; },
         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} bugs`}}},
         scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}},beginAtZero:true},
                 y:{grid:{display:false},ticks:{color:tc,font:{size:9}}}},
@@ -3842,9 +4041,9 @@ function renderTDC(){
     });
   };
 
-  cTDCClientes=mkHBar('chartTDCClientes',topN(clientes),cTDCClientes,'#38bdf8');
-  cTDCModulos =mkHBar('chartTDCModulos', topN(modulos), cTDCModulos, '#22c55e');
-  cTDCRotinas =mkHBar('chartTDCRotinas', topN(rotinas), cTDCRotinas, '#a78bfa');
+  cTDCClientes=mkHBar('chartTDCClientes',topN(clientes),cTDCClientes,'#38bdf8',l=>tdcAbrir(`TDC ${ANO_AT} — cliente: ${l}`,t=>+t.ano===ANO_AT&&(t.clientes||[]).includes(l)));
+  cTDCModulos =mkHBar('chartTDCModulos', topN(modulos), cTDCModulos, '#22c55e',l=>tdcAbrir(`TDC ${ANO_AT} — módulo: ${l}`,t=>+t.ano===ANO_AT&&t.modulo===l));
+  cTDCRotinas =mkHBar('chartTDCRotinas', topN(rotinas), cTDCRotinas, '#a78bfa',l=>tdcAbrir(`TDC ${ANO_AT} — rotina: ${l}`,t=>+t.ano===ANO_AT&&t.rotina===l));
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -4927,6 +5126,34 @@ function qaApplyMesFilter(lista){
   }).filter(d => d.qtd_tarefas > 0 || d.bugs_prog > 0);  // esconde quem não teve nada nos meses selecionados
 }
 
+// ── Qualidade: detalhamento (tarefas que formam cada número) ──
+const qaEscA=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const qaA=(k,d,n)=>n>0?`onclick="event.stopPropagation();qaCel('${k}',this)" data-n="${qaEscA(d.nome)}" title="Clique para ver as tarefas"`:'';
+function qaItem(t,d){ return {chave:t.chave,summary:t.summary,tipo:t.tipo,status:t.status,projeto:t.projeto,squad:t.squad,responsavel:d.nome,reprov_codigo:t.reprov_codigo||0,reprov_interna:t.reprov_interna||0}; }
+function qaBugItem(b,d){ return {chave:b.chave,summary:b.summary,tipo:'Bug',projeto:b.projeto,squad:b.squad,criticidade:b.crit_bug,tipo_falha:b.tipo_falha,responsavel:d.nome}; }
+// [titulo, itens, cfg] do número clicado (k) de um desenvolvedor
+function qaLista(k,d){
+  const T=d.tarefas||[];
+  if(k==='qtd') return [d.nome+' — tarefas', T.map(t=>qaItem(t,d)), {extra:[['reprov_codigo','Reprov. código'],['reprov_interna','Reprov. teste']]}];
+  if(k==='cod') return [d.nome+' — reprovações em revisão de código', T.filter(t=>t.reprov_codigo>0).map(t=>qaItem(t,d)), {soma:['reprov_codigo','reprovações'],extra:[['reprov_codigo','Reprov. código']]}];
+  if(k==='int') return [d.nome+' — reprovações em teste interno', T.filter(t=>t.reprov_interna>0).map(t=>qaItem(t,d)), {soma:['reprov_interna','reprovações'],extra:[['reprov_interna','Reprov. teste']]}];
+  return [d.nome+' — bugs por falha de programação', (d.bugs_tarefas||[]).map(b=>qaBugItem(b,d)), {extra:[['tipo_falha','Tipo de falha']]}];
+}
+function qaCelObj(k,d){ const [t,i,c]=qaLista(k,d); ddAbrir(t,i,c); }
+function qaCel(k,el){ const d=(QA_LAST_LISTA||[]).find(x=>x.nome===el.dataset.n); if(d) qaCelObj(k,d); }
+function qaKpi(k){
+  const L=QA_LAST_LISTA||[];
+  if(k==='dev'){ ddAbrirLinhas('Qualidade — desenvolvedores','desenvolvedor',[['nome','Desenvolvedor'],['qtd_tarefas','Tarefas'],['rep_codigo','Reprov. código'],['rep_interna','Reprov. teste'],['bugs_prog','Bugs falha prog.']],L.map(d=>({nome:d.nome,qtd_tarefas:d.qtd_tarefas,rep_codigo:d.rep_codigo,rep_interna:d.rep_interna,bugs_prog:d.bugs_prog}))); return; }
+  if(k==='cod') ddAbrir('Qualidade — reprovações em revisão de código',L.flatMap(d=>(d.tarefas||[]).filter(t=>t.reprov_codigo>0).map(t=>qaItem(t,d))),{soma:['reprov_codigo','reprovações'],extra:[['reprov_codigo','Reprov. código']]});
+  else if(k==='int') ddAbrir('Qualidade — reprovações em teste',L.flatMap(d=>(d.tarefas||[]).filter(t=>t.reprov_interna>0).map(t=>qaItem(t,d))),{soma:['reprov_interna','reprovações'],extra:[['reprov_interna','Reprov. teste']]});
+  else ddAbrir('Qualidade — bugs por falha de programação',L.flatMap(d=>(d.bugs_tarefas||[]).map(b=>qaBugItem(b,d))),{extra:[['tipo_falha','Tipo de falha']]});
+}
+// "Desenvolvida na semana": os registros só têm chave/dev/projeto — completa resumo e status com as demais fontes
+let _QA_INFO=null;
+function qaInfo(ch){ if(!_QA_INFO){ _QA_INFO={}; [window._BACKLOG_ITENS,window._ABERTOS_ITENS,window._FECHADOS_ITENS].forEach(a=>(a||[]).forEach(x=>{ if(x.chave&&!_QA_INFO[x.chave]) _QA_INFO[x.chave]=x; })); } return _QA_INFO[ch]||{}; }
+function qaSemItem(r){ const i=qaInfo(r.chave); return {chave:r.chave,summary:i.summary,tipo:i.tipo,status:i.status,projeto:r.projeto||i.projeto,squad:r.squad,responsavel:r.dev}; }
+function qaSemAbrir(titulo,regs){ ddAbrir(titulo,regs.map(qaSemItem)); }
+function qaSemDev(dev){ const val=new Set(qaUltimasSemanas(12)); qaSemAbrir('Desenvolvidas nas últimas 12 semanas — '+dev, qaFilteredSemana().filter(r=>r.dev===dev&&val.has(r.semana))); }
 function renderQualidade(){
   if(!document.getElementById('view-qualidade')) return;
   let lista = qaCurrentList();
@@ -4950,10 +5177,10 @@ function renderQualidade(){
   const totalRepInterna = lista.reduce((s,d)=>s+d.rep_interna,0);
   const totalBugsProg = lista.reduce((s,d)=>s+d.bugs_prog,0);
   document.getElementById('qa-kpi-row').innerHTML = `
-    <div class="kpi"><div class="kl">Desenvolvedores</div><div class="kv">${lista.length}</div></div>
-    <div class="kpi"><div class="kl">Reprovadas Revisão de Código</div><div class="kv" style="color:var(--red)">${totalRepCodigo}</div></div>
-    <div class="kpi"><div class="kl">Reprov. Testes</div><div class="kv" style="color:var(--red)">${totalRepInterna}</div></div>
-    <div class="kpi"><div class="kl">Bugs Falha Programação</div><div class="kv" style="color:var(--orange)">${totalBugsProg}</div></div>`;
+    <div class="kpi bs-card" onclick="qaKpi('dev')" title="Clique para ver os desenvolvedores"><div class="kl">Desenvolvedores</div><div class="kv">${lista.length}</div></div>
+    <div class="kpi bs-card" ${totalRepCodigo>0?`onclick="qaKpi('cod')"`:''} title="Clique para ver as tarefas"><div class="kl">Reprovadas Revisão de Código</div><div class="kv" style="color:var(--red)">${totalRepCodigo}</div></div>
+    <div class="kpi bs-card" ${totalRepInterna>0?`onclick="qaKpi('int')"`:''} title="Clique para ver as tarefas"><div class="kl">Reprov. Testes</div><div class="kv" style="color:var(--red)">${totalRepInterna}</div></div>
+    <div class="kpi bs-card" ${totalBugsProg>0?`onclick="qaKpi('ext')"`:''} title="Clique para ver os bugs"><div class="kl">Bugs Falha Programação</div><div class="kv" style="color:var(--orange)">${totalBugsProg}</div></div>`;
 
   document.getElementById('qa-count').textContent = `${lista.length} desenvolvedor(es)`;
   QA_LAST_LISTA = lista;
@@ -4964,13 +5191,13 @@ function renderQualidade(){
       <td style="font-weight:600">
         <span style="margin-right:4px;font-size:10px;color:var(--text3);display:inline-block;transform:${isOpen?'rotate(90deg)':'rotate(0deg)'}">▶</span>
         ${d.nome}</td>
-      <td style="text-align:right">${d.qtd_tarefas}</td>
-      <td style="text-align:right">${d.rep_codigo}</td>
-      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_codigo>20?'var(--red)':d.tx_qualidade_codigo>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_codigo,1)}%</td>
-      <td style="text-align:right">${d.rep_interna}</td>
-      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_interna>20?'var(--red)':d.tx_qualidade_interna>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_interna,1)}%</td>
-      <td style="text-align:right">${d.bugs_prog}</td>
-      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_externa>20?'var(--red)':d.tx_qualidade_externa>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_externa,1)}%</td>
+      <td style="text-align:right" class="qa-clk" ${qaA('qtd',d,d.qtd_tarefas)}>${d.qtd_tarefas}</td>
+      <td style="text-align:right" class="qa-clk" ${qaA('cod',d,d.rep_codigo)}>${d.rep_codigo}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_codigo>20?'var(--red)':d.tx_qualidade_codigo>10?'var(--orange)':'var(--green)'}" class="qa-clk" ${qaA('cod',d,d.rep_codigo)}>${fmtN(d.tx_qualidade_codigo,1)}%</td>
+      <td style="text-align:right" class="qa-clk" ${qaA('int',d,d.rep_interna)}>${d.rep_interna}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_interna>20?'var(--red)':d.tx_qualidade_interna>10?'var(--orange)':'var(--green)'}" class="qa-clk" ${qaA('int',d,d.rep_interna)}>${fmtN(d.tx_qualidade_interna,1)}%</td>
+      <td style="text-align:right" class="qa-clk" ${qaA('ext',d,d.bugs_prog)}>${d.bugs_prog}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_externa>20?'var(--red)':d.tx_qualidade_externa>10?'var(--orange)':'var(--green)'}" class="qa-clk" ${qaA('ext',d,d.bugs_prog)}>${fmtN(d.tx_qualidade_externa,1)}%</td>
     </tr>${isOpen ? qaRenderDetail(d) : ''}`;
   }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:16px">Nenhum dado para o filtro selecionado.</td></tr>`;
 
@@ -5081,11 +5308,13 @@ function renderQaCharts(lista){
   const top = (key) => [...lista].sort((a,b)=>b[key]-a[key]).slice(0,10);
   const mkBarData = (key, color) => {
     const t = top(key);
-    return { labels: t.map(d=>d.nome), values: t.map(d=>d[key]), color };
+    return { labels: t.map(d=>d.nome), values: t.map(d=>d[key]), color, devs: t };
   };
-  const opts = (label='Reprov.') => ({
+  const opts = (label='Reprov.',onSel) => ({
     indexAxis:'y',
     responsive:true, maintainAspectRatio:false,
+    onClick:(e,els)=>{ if(onSel&&els.length) onSel(els[0].index); },
+    onHover:(e,els)=>{ e.native.target.style.cursor=(onSel&&els.length)?'pointer':'default'; },
     plugins:{ legend:{display:false},
       tooltip:{ callbacks:{ label:(ctx)=>` ${label}: ${ctx.parsed.x}` } } },
     scales:{ x:{ beginAtZero:true, ticks:{color:tc, font:{size:10}, precision:0}, grid:{color:gc} },
@@ -5097,7 +5326,7 @@ function renderQaCharts(lista){
   const dInt = mkBarData('rep_interna', '#d97706');
   const dExt = mkBarData('bugs_prog', '#7c3aed');
 
-  const renderOrEmpty = (canvasId, data, prevRef, tooltipLabel) => {
+  const renderOrEmpty = (canvasId, data, prevRef, tooltipLabel, kind) => {
     const canvas = document.getElementById(canvasId);
     const empty  = document.getElementById(`${canvasId}-empty`);
     const semDados = !data.values.length || data.values.every(v => !v);
@@ -5111,13 +5340,13 @@ function renderQaCharts(lista){
     if(empty)  empty.style.display  = 'none';
     return new Chart(canvas, {
       type:'bar', data:{ labels:data.labels, datasets:[{data:data.values, backgroundColor:data.color, borderRadius:4}] },
-      options: opts(tooltipLabel)
+      options: opts(tooltipLabel, i=>qaCelObj(kind,data.devs[i]))
     });
   };
 
-  qaChartCodigo   = renderOrEmpty('qaChartCodigo',   dCod, qaChartCodigo,  'Reprov. Código');
-  qaChartInterna  = renderOrEmpty('qaChartInterna',  dInt, qaChartInterna, 'Reprov. Teste');
-  qaChartExterna  = renderOrEmpty('qaChartExterna',  dExt, qaChartExterna, 'Bugs');
+  qaChartCodigo   = renderOrEmpty('qaChartCodigo',   dCod, qaChartCodigo,  'Reprov. Código','cod');
+  qaChartInterna  = renderOrEmpty('qaChartInterna',  dInt, qaChartInterna, 'Reprov. Teste','int');
+  qaChartExterna  = renderOrEmpty('qaChartExterna',  dExt, qaChartExterna, 'Bugs','ext');
   }catch(e){ console.warn('Erro ao renderizar gráficos de Qualidade:', e); }
 }
 
@@ -5174,6 +5403,8 @@ function renderDevBugRankChart(lista){
       data:{ labels: top.map(b=>b.chave_origem), datasets:[{ data: top.map(b=>b.qtd_bugs), backgroundColor:'#dc2626', borderRadius:4 }] },
       options:{
         indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        onClick:(e,els)=>{ if(els.length) window.open('https://nimitz.atlassian.net/browse/'+top[els[0].index].chave_origem,'_blank','noopener'); },
+        onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },
         plugins:{ legend:{display:false},
           tooltip:{ callbacks:{
             title:(items)=> top[items[0].dataIndex].summary || items[0].label,
@@ -5262,6 +5493,8 @@ function renderDevWeekly(){
     data: { labels: semanas.map(fmtSemanaLabel), datasets: [{ label: devSemanaSelDev || 'Tarefas', data: totais, backgroundColor: barColor, borderRadius:4 }] },
     options: {
       responsive:true, maintainAspectRatio:false,
+      onClick:(e,els)=>{ if(!els.length) return; const i=els[0].index; qaSemAbrir('Desenvolvidas na semana de '+fmtSemanaLabel(semanas[i])+(devSemanaSelDev?' — '+devSemanaSelDev:''), filtrada.filter(r=>r.semana===semanas[i])); },
+      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; },
       plugins:{ legend:{display:false},
         tooltip:{ callbacks:{
           title:(items)=>`Semana de ${items[0].label}`,
@@ -5308,7 +5541,7 @@ function renderDevWeeklyTable(){
     const nomeEsc = r.dev.replace(/'/g,"\\'");
     return `<tr onclick="devSemanaSelectDev('${nomeEsc}')" style="cursor:pointer${isSel?';background:rgba(99,102,241,.15)':''}">
       <td style="${isSel?'font-weight:700;color:var(--indigo)':''}">${r.dev}</td>
-      <td style="text-align:right;font-weight:600">${r.qtd}</td>
+      <td style="text-align:right;font-weight:600" class="qa-clk" title="Clique para ver as tarefas" onclick="event.stopPropagation();qaSemDev('${nomeEsc}')">${r.qtd}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="2" style="text-align:center;color:var(--text3);padding:12px">Nenhum resultado para o filtro selecionado.</td></tr>';
 }
@@ -5439,7 +5672,7 @@ function bsAbrir(titulo, rows, sortCol, sortDir, opts){
   // atraso: dias que já passaram do prazo (só para quem tem prazo e já venceu)
   const lista=rows.map(x=>{ const pd=x.prazo?bsDia(x.prazo):null;
     const dd=x.criado?bsDiasEntre(x.criado,x.resolvido||hoje):-1, sla=BS_SLA[x.crit]||null;
-    return {...x, fechado:!!x.resolvido, dias:dd, prazoD:pd, atraso:pd?(x.prazoVenc?Math.max(1,bsDiasEntre(pd,hoje)):0):null, sla, alemSla:(sla&&dd>=0)?dd-sla:null}; });
+    return {...x, fechado:!!x.resolvido, dias:dd, prazoD:pd, atraso:pd?(x.prazoVenc?Math.max(1,bsDiasEntre(pd,hoje)):0):null, restam:(pd&&!x.prazoVenc)?Math.max(0,bsDiasEntre(hoje,pd)):null, sla, alemSla:(sla&&dd>=0)?dd-sla:null}; });
   const nF=lista.filter(x=>x.fechado).length;
   const diasLabel = nF===0 ? 'Dias em aberto' : nF===lista.length ? 'Dias para resolver' : 'Dias (aberto / até fechar)';
   BS.modal={titulo, rows:lista, col:sortCol||'criado', dir:sortCol?(sortDir||1):1, diasLabel, misto:(nF>0&&nF<lista.length), temPrazo:lista.some(x=>x.prazo), temSla:!!(opts&&opts.sla)};
@@ -5447,24 +5680,34 @@ function bsAbrir(titulo, rows, sortCol, sortDir, opts){
   bsRenderModal();
 }
 function bsFechar(){ document.getElementById('bs-modal').style.display='none'; }
+// Prazo em texto: vencido → "Vencido há N dias" · no prazo → "Vence hoje / amanhã / Faltam N dias"
+function bsPrazoTxt(x){
+  if(!x.prazo||x.fechado) return '<span style="color:var(--text3)">—</span>';
+  const pl=n=>n+' dia'+(n===1?'':'s');
+  if(x.prazoVenc) return `<b style="color:#ef4444">Vencido há ${pl(x.atraso)}</b>`;
+  const r=x.restam||0;
+  if(r===0) return '<b style="color:#d97706">Vence hoje</b>';
+  if(r===1) return '<b style="color:#d97706">Vence amanhã</b>';
+  return `<span style="color:${r<=7?'#d97706':'#16a34a'};font-weight:600">Faltam ${pl(r)}</span>`;
+}
 function bsOrdenar(col){ const m=BS.modal; if(m.col===col) m.dir*=-1; else {m.col=col; m.dir=(col==='atraso'||col==='alemSla')?-1:1;} bsRenderModal(); }
 function bsRenderModal(){
   const m=BS.modal; if(!m) return;
-  const v=x=>m.col==='criado'?(x.criado?x.criado.getTime():0):m.col==='crit'?BS_CRIT_ORDEM.indexOf(x.crit):m.col==='dias'?x.dias:m.col==='atraso'?(x.atraso==null?-1:x.atraso):m.col==='alemSla'?(x.alemSla==null?-99999:x.alemSla):(x[m.col]||'').toString().toLowerCase();
+  const v=x=>m.col==='criado'?(x.criado?x.criado.getTime():0):m.col==='crit'?BS_CRIT_ORDEM.indexOf(x.crit):m.col==='dias'?x.dias:m.col==='atraso'?(x.atraso==null?-99999:(x.prazoVenc?x.atraso:-(x.restam||0))):m.col==='alemSla'?(x.alemSla==null?-99999:x.alemSla):(x[m.col]||'').toString().toLowerCase();
   m.rows.sort((a,b)=>{const A=v(a),B=v(b); return (A<B?-1:A>B?1:0)*m.dir;});
   document.getElementById('bs-modal-titulo').textContent=m.titulo;
   document.getElementById('bs-modal-count').textContent=bsN(m.rows.length)+' bug'+(m.rows.length===1?'':'s');
   const seta=c=>m.col===c?(m.dir>0?' ▲':' ▼'):'';
   const f=d=>d?d.toLocaleDateString('pt-BR'):'—';
   document.getElementById('bs-modal-tab').innerHTML=
-    '<thead style="position:sticky;top:0;z-index:2"><tr>'+BS_COLS.flatMap(c=>c[0]==='dias'?[c,...(m.temPrazo?[['atraso','Dias após o prazo']]:[]),...(m.temSla?[['alemSla','Dias além do SLA']]:[])]:[c]).map(([c,l])=>`<th onclick="bsOrdenar('${c}')" style="cursor:pointer;white-space:nowrap;user-select:none">${c==='dias'?m.diasLabel:l}${seta(c)}</th>`).join('')+'</tr></thead><tbody>'+
+    '<thead style="position:sticky;top:0;z-index:2"><tr>'+BS_COLS.flatMap(c=>c[0]==='dias'?[c,...(m.temPrazo?[['atraso','Prazo']]:[]),...(m.temSla?[['alemSla','Dias além do SLA']]:[])]:[c]).map(([c,l])=>`<th onclick="bsOrdenar('${c}')" style="cursor:pointer;white-space:nowrap;user-select:none">${c==='dias'?m.diasLabel:l}${seta(c)}</th>`).join('')+'</tr></thead><tbody>'+
     (m.rows.length?m.rows.map(x=>`<tr>
       <td style="font-family:monospace;white-space:nowrap"><a href="https://nimitz.atlassian.net/browse/${encodeURIComponent(x.chave)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${bsEsc(x.chave)}</a></td>
       <td>${bsEsc(x.projeto)}</td>
       <td title="${bsEsc(x.summary)}">${bsEsc((x.summary||'').slice(0,85))}${(x.summary||'').length>85?'…':''}</td>
       <td style="white-space:nowrap">${f(x.criado)}</td>
       <td style="white-space:nowrap;font-weight:700;color:${x.dias>365?'#ef4444':x.dias>90?'#f97316':x.dias>30?'#eab308':'#22c55e'}">${x.dias<0?'—':bsN(x.dias)+' dia'+(x.dias===1?'':'s')}${m.misto&&x.dias>=0?` <span style="font-weight:500;font-size:10px;color:var(--text3)">${x.fechado?'(levou)':'(aberto)'}</span>`:''}</td>
-      ${m.temPrazo?`<td style="white-space:nowrap" title="${x.prazo?'Prazo: '+f(x.prazoD):'Sem prazo definido'}">${x.prazo?(x.atraso>0?`<b style="color:#ef4444">${bsN(x.atraso)} dia${x.atraso===1?'':'s'}</b>`:'<span style="color:var(--text3)">no prazo</span>'):'<span style="color:var(--text3)">—</span>'}</td>`:''}
+      ${m.temPrazo?`<td style="white-space:nowrap" title="${x.prazo?'Prazo: '+f(x.prazoD):'Sem prazo definido'}">${bsPrazoTxt(x)}</td>`:''}
       ${m.temSla?`<td style="white-space:nowrap" title="${x.sla?'SLA: '+x.sla+' dias':'Sem SLA para esta criticidade'}">${x.sla?(x.alemSla>0?`<b style="color:#ef4444">${bsN(x.alemSla)} dia${x.alemSla===1?'':'s'}</b>`:'<span style="color:var(--text3)">dentro</span>'):'<span style="color:var(--text3)">—</span>'}</td>`:''}
       <td><span style="background:${BS_CRIT_COR[x.crit]||'#9ca3af'};color:#fff;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:600;white-space:nowrap">${x.crit}</span></td>
       <td style="white-space:nowrap">${bsEsc(x.resp)}</td></tr>`).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Nenhum bug nesta barra.</td></tr>')+'</tbody>';
@@ -5680,13 +5923,20 @@ function bsRender(){
   document.getElementById('bs-tab-crit').innerHTML =
     `<thead><tr><th>Criticidade</th><th class="r">Resolvidos</th><th class="r">Levaram (média)</th><th class="r">Levaram (mais demorado)</th><th class="r">Ainda abertos</th><th class="r">Esperando (média)</th><th class="r">Esperando (mais antigo)</th></tr></thead><tbody>`+
     crits.map(c=>{const f=diasFe(c), a=diasAb(c);
+      const fl=D.saiu.filter(x=>x.crit===c&&x.criado&&x.resolvido), al=D.pend.filter(x=>x.crit===c&&x.criado);
+      const cf=bsReg(()=>bsAbrir(`Bugs já resolvidos — criticidade ${c}`,fl)), ca=bsReg(()=>bsAbrir(`Bugs ainda abertos — criticidade ${c}`,al));
+      const k=(n,id)=>n?`class="r bs-clk" onclick="bsAct(${id})" title="Clique para ver os bugs"`:'class="r"';
       return `<tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${BS_CRIT_COR[c]||'#9ca3af'};margin-right:5px"></span><b>${c}</b></td>
-        <td class="r">${bsN(f.length)}</td><td class="r">${f.length?bsHumano(Math.round(bsAvg(f))):'—'}</td><td class="r">${f.length?bsHumano(Math.max(...f)):'—'}</td>
-        <td class="r">${bsN(a.length)}</td><td class="r">${a.length?bsHumano(Math.round(bsAvg(a))):'—'}</td><td class="r">${a.length?bsHumano(Math.max(...a)):'—'}</td></tr>`;}).join('')+
+        <td ${k(f.length,cf)}>${bsN(f.length)}</td><td ${k(f.length,cf)}>${f.length?bsHumano(Math.round(bsAvg(f))):'—'}</td><td ${k(f.length,cf)}>${f.length?bsHumano(Math.max(...f)):'—'}</td>
+        <td ${k(a.length,ca)}>${bsN(a.length)}</td><td ${k(a.length,ca)}>${a.length?bsHumano(Math.round(bsAvg(a))):'—'}</td><td ${k(a.length,ca)}>${a.length?bsHumano(Math.max(...a)):'—'}</td></tr>`;}).join('')+
     (()=>{ const f=D.saiu.filter(x=>x.criado&&x.resolvido).map(x=>bsDiasEntre(x.criado,x.resolvido)), a=D.pend.filter(x=>x.criado).map(x=>bsDiasEntre(x.criado,hoje));
       const t='style="font-weight:800;border-top:2px solid var(--border);background:var(--bg3)"';
-      return `<tr><td ${t}>Σ Total</td><td class="r" ${t}>${bsN(D.saiu.length)}</td><td class="r" ${t}>${f.length?bsHumano(Math.round(bsAvg(f))):'—'}</td><td class="r" ${t}>${f.length?bsHumano(Math.max(...f)):'—'}</td>
-        <td class="r" ${t}>${bsN(D.pend.length)}</td><td class="r" ${t}>${a.length?bsHumano(Math.round(bsAvg(a))):'—'}</td><td class="r" ${t}>${a.length?bsHumano(Math.max(...a)):'—'}</td></tr>`; })()+'</tbody>';
+      const fT=D.saiu.filter(x=>x.criado&&x.resolvido), aT=D.pend.filter(x=>x.criado);
+      const iSaiu=bsReg(()=>bsAbrir('Bugs já resolvidos — todas as criticidades',D.saiu)), iFe=bsReg(()=>bsAbrir('Bugs já resolvidos — todas as criticidades',fT));
+      const iPend=bsReg(()=>bsAbrir('Bugs ainda abertos — todas as criticidades',D.pend)), iAb=bsReg(()=>bsAbrir('Bugs ainda abertos — todas as criticidades',aT));
+      const kt=(n,id)=>n?`class="r bs-clk" onclick="bsAct(${id})" title="Clique para ver os bugs"`:'class="r"';
+      return `<tr><td ${t}>Σ Total</td><td ${kt(D.saiu.length,iSaiu)} ${t}>${bsN(D.saiu.length)}</td><td ${kt(f.length,iFe)} ${t}>${f.length?bsHumano(Math.round(bsAvg(f))):'—'}</td><td ${kt(f.length,iFe)} ${t}>${f.length?bsHumano(Math.max(...f)):'—'}</td>
+        <td ${kt(D.pend.length,iPend)} ${t}>${bsN(D.pend.length)}</td><td ${kt(a.length,iAb)} ${t}>${a.length?bsHumano(Math.round(bsAvg(a))):'—'}</td><td ${kt(a.length,iAb)} ${t}>${a.length?bsHumano(Math.max(...a)):'—'}</td></tr>`; })()+'</tbody>';
 
   bsOrigem(tc,gc);
   bsEtapas(D); bsTempo(D,tc,gc); bsMotivos(D,tc,gc); bsReprovMod(D,tc,gc);
@@ -5841,9 +6091,10 @@ function bsReprovMod(D,tc,gc){
 function bsFila30(D){
   const hoje=new Date(), ano=hoje.getFullYear(), dsj=bsDiasEntre(new Date(ano,0,1),hoje), j=Math.max(1,Math.min(30,dsj));
   const ini=new Date(hoje.getTime()-j*86400000);
-  const ent=D.entrou.filter(x=>x.criado&&x.criado>=ini).length, sai=D.saiu.filter(x=>x.resolvido&&x.resolvido>=ini).length, rep=D.reprov.filter(x=>x.resolvido&&x.resolvido>=ini).length;
+  const entL=D.entrou.filter(x=>x.criado&&x.criado>=ini), saiL=D.saiu.filter(x=>x.resolvido&&x.resolvido>=ini), repL=D.reprov.filter(x=>x.resolvido&&x.resolvido>=ini);
+  const ent=entL.length, sai=saiL.length, rep=repL.length;
   const saldo=ent-sai-rep, lim=ent*BS_LIM.filaEstavel/100;
-  return {j,ent,sai,rep,saldo,dir:saldo>lim?1:saldo<-lim?-1:0};
+  return {j,ent,sai,rep,saldo,dir:saldo>lim?1:saldo<-lim?-1:0,entL,saiL,repL};
 }
 function bsDecisao(D){
   const hoje=new Date(), ano=hoje.getFullYear(), DIA=86400000, G='#22c55e', Y='#f59e0b', R='#ef4444', B='#8b5cf6';
@@ -5935,17 +6186,18 @@ function bsSegRisco(){
 
   const barra=(v,cor)=>`<div style="display:inline-block;vertical-align:middle;width:46px;height:6px;border-radius:3px;background:var(--border);margin-right:6px;overflow:hidden"><div style="height:100%;width:${Math.min(100,v)}%;background:${cor}"></div></div>`;
   const corPf=v=>v>=L.foraSlaVermelho?R:v>=L.foraSlaAmarelo?Y:G, corPv=v=>v>=L.vencVermelho?R:v>=L.vencAmarelo?Y:G;
+  const ck=(n,fn)=>n>0?`onclick="event.stopPropagation();bsAct(${bsReg(fn)})" title="Clique para ver os bugs"`:'';
   document.getElementById('bs-tab-seg').innerHTML=
     '<thead><tr><th>Segmento</th><th>Situação</th><th class="r">Pendentes</th><th>Fora do SLA</th><th>Prazo vencido</th><th class="r">Parados +1 ano</th><th class="r">Fila (30 dias)</th><th>Por quê</th></tr></thead><tbody>'+
     rows.map(r=>{ const F=r.F, dif=F.saldo, seta=r.cresce?`<b style="color:${R}">↑ +${bsN(dif)}</b>`:dif<0?`<b style="color:${G}">↓ ${bsN(dif)}</b>`:`<span style="color:var(--text3)">${dif>0?'+':''}${bsN(dif)}</span>`;
       const alvo=r.fora.length?r.fora:r.sub.pend, id=bsReg(()=>bsAbrir(r.fora.length?`${r.sg} — bugs pendentes fora do SLA`:`${r.sg} — bugs pendentes`,alvo,r.fora.length?'alemSla':null,-1,{sla:r.fora.length>0}));
       return `<tr style="cursor:pointer" onclick="bsAct(${id})"><td style="font-weight:700">${bsEsc(r.sg)}</td>
         <td><span class="bs-slachip" style="background:${r.nivel.c}">${r.nivel.n}</span></td>
-        <td class="r">${bsN(r.pend)}</td>
-        <td style="white-space:nowrap">${barra(r.pf,corPf(r.pf))}<b>${bsN(r.fora.length)}</b> <span style="color:var(--text3)">· ${Math.round(r.pf)}%</span></td>
-        <td style="white-space:nowrap">${barra(r.pv,corPv(r.pv))}<b>${bsN(r.venc.length)}</b> <span style="color:var(--text3)">· ${Math.round(r.pv)}%</span></td>
-        <td class="r">${bsN(r.velhos.length)}</td>
-        <td class="r" title="entraram ${bsN(F.ent)} · saíram ${bsN(F.sai+F.rep)}">${seta}</td>
+        <td class="r bs-clk" ${ck(r.pend,()=>bsAbrir(`${r.sg} — bugs pendentes`,r.sub.pend))}>${bsN(r.pend)}</td>
+        <td class="bs-clk" style="white-space:nowrap" ${ck(r.fora.length,()=>bsAbrir(`${r.sg} — bugs pendentes fora do SLA`,r.fora,'alemSla',-1,{sla:true}))}>${barra(r.pf,corPf(r.pf))}<b>${bsN(r.fora.length)}</b> <span style="color:var(--text3)">· ${Math.round(r.pf)}%</span></td>
+        <td class="bs-clk" style="white-space:nowrap" ${ck(r.venc.length,()=>bsAbrir(`${r.sg} — bugs pendentes com prazo vencido`,r.venc,'atraso',-1))}>${barra(r.pv,corPv(r.pv))}<b>${bsN(r.venc.length)}</b> <span style="color:var(--text3)">· ${Math.round(r.pv)}%</span></td>
+        <td class="r bs-clk" ${ck(r.velhos.length,()=>bsAbrir(`${r.sg} — bugs pendentes parados há mais de 1 ano`,r.velhos))}>${bsN(r.velhos.length)}</td>
+        <td class="r bs-clk" ${ck(F.ent+F.sai+F.rep,()=>bsAbrir(`${r.sg} — fila dos últimos ${F.j} dias: entraram ${bsN(F.ent)} · saíram ${bsN(F.sai+F.rep)}`,[...F.entL,...F.saiL,...F.repL]))} title="entraram ${bsN(F.ent)} · saíram ${bsN(F.sai+F.rep)} — clique para ver">${seta}</td>
         <td style="color:var(--text2);font-size:11px">${r.nivel.o===0?'amostra pequena':(r.motivos.join(' · ')||'—')}</td></tr>`; }).join('')+'</tbody>';
 }
 
@@ -6146,7 +6398,7 @@ function vsRender(){
     kpi('🚀',`Versões lançadas em ${ano}`,bsN(L.length),VS.aprox?'datas aproximadas':'datas oficiais do Jira','#6366f1',()=>{ VS.mes=null; vsRender(); document.getElementById('vs-sec-tab').scrollIntoView({behavior:'smooth'}); })+
     kpi('⏳','Média de dias até o lançamento',dd.length?bsN(bsAvg(dd)):'—',dd.length?`mediana ${bsN(bsMed(dd))} dias · da criação ao lançamento`:'sem data de início','#3b82f6',dd.length?()=>{ VS.ord={col:'dias',dir:-1}; VS.mes=null; vsRender(); document.getElementById('vs-sec-tab').scrollIntoView({behavior:'smooth'}); }:null)+
     kpi('✅','Tarefas entregues em versões',bsN(totT),'soma das tarefas das versões lançadas','#22c55e',()=>vsAbrir(`Tarefas entregues em versões lançadas em ${ano}`,todas))+
-    kpi('⚖️','Média de tarefas por versão',L.length?(totT/L.length).toLocaleString('pt-BR',{maximumFractionDigits:1}):'—','tarefas ÷ versões','#f59e0b',null);
+    kpi('⚖️','Média de tarefas por versão',L.length?(totT/L.length).toLocaleString('pt-BR',{maximumFractionDigits:1}):'—','tarefas ÷ versões','#f59e0b',L.length?()=>vsAbrirVersoes(`Versões lançadas em ${ano} — da que mais entregou tarefas para a que menos`,[...L].sort((a,b)=>b.tarefas.length-a.tarefas.length||b.data.getTime()-a.data.getTime())):null);
 
   const ms=VS_NM.slice(0,mAt+1), pillBg=dark?'#22263a':'#fff', pillTx=dark?'#f3f4f6':'#111827';
   const lblV={id:'vsLblV',afterDatasetsDraw(ch){ const {ctx}=ch; ctx.save(); ctx.font='700 11px sans-serif'; ctx.fillStyle=tc; ctx.textAlign='center'; ctx.textBaseline='bottom';
@@ -6182,7 +6434,103 @@ function vsRender(){
     (vis.length?vis.map(v=>vsLinha(v,vsReg(()=>vsAbrir(`Versão ${v.nome}`,v.tarefas)))).join(''):'<tr><td colspan="9" style="padding:18px;text-align:center;color:var(--text3)">Nenhuma versão neste filtro.</td></tr>')+'</tbody>';
 }
 </script>
+
+<!-- Janela única de detalhamento: lista as tarefas que formam um número/coluna/fatia clicada -->
+<div id="dd-modal" onclick="if(event.target===this)ddFechar()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);width:min(1440px,100%);max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <div><div id="dd-titulo" style="font-size:14px;font-weight:800"></div><div id="dd-count" style="font-size:11px;color:var(--text3);margin-top:2px"></div></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input id="dd-busca" type="text" placeholder="🔍 Buscar chave, resumo, responsável…" oninput="ddRender()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg3);color:var(--text);min-width:220px">
+        <button id="dd-voltar" onclick="ddVoltar()" style="display:none;padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">← Voltar</button>
+        <button onclick="ddCsv()" title="Baixar a lista (CSV, abre no Excel)" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">⬇️ CSV</button>
+        <button onclick="ddFechar()" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">✕ Fechar</button>
+      </div>
+    </div>
+    <div style="overflow:auto;padding:0 8px 8px"><table class="ttbl" id="dd-tab"></table></div>
+  </div>
+</div>
+<script>
+// ══ Detalhamento genérico: ddAbrir(titulo, itens, {cols, sort, voltar}) ══
+const DD_JIRA='https://nimitz.atlassian.net/browse/';
+let DD_FE=null;
+const DD={rows:[],col:'_d',dir:-1,titulo:'',voltar:null,cols:[],extra:null,soma:null,linhas:null};
+const ddDt=v=>{ if(!v) return null; if(v instanceof Date) return v; const d=new Date(String(v).slice(0,10)+'T00:00:00'); return isNaN(d)?null:d; };
+const ddEsc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ddFmt=d=>d?d.toLocaleDateString('pt-BR'):'—';
+function ddAbrir(titulo,itens,cfg){
+  cfg=cfg||{}; const hoje=new Date();
+  DD.titulo=titulo; DD.voltar=cfg.voltar||null; DD.extra=cfg.extra||null; DD.soma=cfg.soma||null; DD.linhas=null;
+  // Dias: tarefa aberta → dias em aberto até hoje · resolvida → dias até resolver · fechada sem data conhecida → "—" (nunca conta como aberta)
+  const FECHADAS=/^(finalizada|an[aá]lise reprovada|reprovada( pela an[aá]lise| an[aá]lise)?|bug reprovado|erro n[aã]o confirmado|tarefa abortada|cancelad[oa])$/i;
+  const srcs=[window._FECHADOS_ITENS,window.ISSUES_RAW], kk=srcs.map(a=>(a||[]).length).join(':');   // datas de resolução conhecidas
+  if(!DD_FE||DD_FE._k!==kk){ DD_FE={}; srcs.forEach(a=>(a||[]).forEach(x=>{ if(x.chave&&x.resolvido&&!DD_FE[x.chave]) DD_FE[x.chave]=x.resolvido; })); DD_FE._k=kk; }
+  DD.rows=(itens||[]).map(x=>{ const fechada=FECHADAS.test((x.status||'').trim());
+    const cr=ddDt(x.criado), rs=ddDt(x.resolvido||(fechada?DD_FE[x.chave]:null));
+    return {...x,_cr:cr,_rs:rs,_fech:fechada,_d:cr?((rs||!fechada)?Math.max(0,Math.floor(((rs||hoje)-cr)/86400000)):null):null,
+      _resp:x.responsavel||x.dev||x.nome||null,_crit:x.criticidade||x.crit_bug||x.crit||null,_proj:x.projeto||x.segmento||null,
+      _pz:(!fechada&&x.prazo)?(x.dias_prazo!=null?x.dias_prazo:Math.round((ddDt(x.prazo)-new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate()))/86400000)):null}; });
+  const tem=k=>DD.rows.some(r=>r[k]!=null&&r[k]!=='');
+  const nAb=DD.rows.filter(r=>!r._fech).length, nRes=DD.rows.filter(r=>r._rs).length;
+  const lblD=nAb===DD.rows.length?'Dias em aberto':(nAb===0?'Dias para resolver':'Dias (em aberto · até resolver)');
+  DD.cols=[['chave','Chave'],['summary','Resumo'],['tipo','Tipo'],['status','Status'],['_proj','Projeto'],['_resp','Responsável'],['_crit','Criticidade'],['_pz','Prazo'],['_cr','Aberto em'],['_rs','Resolvido em'],['_d',lblD]]
+    .filter(([k])=>k==='chave'||tem(k)).concat((cfg.extra||[]).filter(([k])=>tem(k)));
+  DD.col=cfg.sort||(tem('_d')?'_d':'chave'); DD.dir=cfg.dir||((DD.col==='_d')?-1:1);
+  document.getElementById('dd-busca').value='';
+  document.getElementById('dd-voltar').style.display=DD.voltar?'':'none';
+  document.getElementById('dd-modal').style.display='flex';
+  ddRender();
+}
+// Lista de linhas livres (ex.: profissionais): ddAbrirLinhas(titulo, 'profissional', [[chave,rótulo],...], itens)
+function ddAbrirLinhas(titulo,unidade,cols,itens){
+  ddAbrir(titulo,[]); DD.linhas=unidade;
+  DD.rows=itens.map(x=>({...x,_d:null})); DD.cols=cols; DD.col=cols[0][0]; DD.dir=1;
+  DD.titulo=titulo; ddRender();
+}
+function ddFechar(){ document.getElementById('dd-modal').style.display='none'; }
+function ddVoltar(){ if(DD.voltar) DD.voltar(); }
+function ddOrd(c){ if(DD.col===c) DD.dir*=-1; else { DD.col=c; DD.dir=(c==='_d'||c==='_cr'||c==='_rs'||c==='pontos')?-1:1; } ddRender(); }
+function ddFiltradas(){
+  const q=(document.getElementById('dd-busca').value||'').trim().toLowerCase();
+  let r=DD.rows; if(q) r=r.filter(x=>[x.chave,x.summary,x._resp,x.tipo,x.status,x._proj,x.nome,x.cargo].join(' ').toLowerCase().includes(q));
+  const v=x=>{ const a=x[DD.col]; if(DD.col==='_pz'&&a==null) return 9e9; return a instanceof Date?a.getTime():(typeof a==='number'?a:String(a==null?'':a).toLowerCase()); };
+  return [...r].sort((a,b)=>{ const A=v(a),B=v(b); return (A<B?-1:A>B?1:0)*DD.dir; });
+}
+function ddRender(){
+  const LIM=5000, todas=ddFiltradas(), rows=todas.slice(0,LIM), seta=c=>DD.col===c?(DD.dir>0?' ▲':' ▼'):'';
+  document.getElementById('dd-titulo').textContent=DD.titulo;
+  const somaTxt=DD.soma?' · '+todas.reduce((a,r)=>a+(+r[DD.soma[0]]||0),0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' '+DD.soma[1]:'';
+  document.getElementById('dd-count').textContent=todas.length.toLocaleString('pt-BR')+' '+(DD.linhas?DD.linhas:'tarefa')+(todas.length===1?'':'s')+somaTxt+(todas.length>LIM?` · mostrando as primeiras ${LIM.toLocaleString('pt-BR')} (use a busca ou baixe o CSV para ver todas)`:'');
+  const cel=(r,k)=>{ const v=r[k];
+    if(k==='chave'&&!DD.linhas) return `<td style="font-family:monospace;white-space:nowrap"><a href="${DD_JIRA}${encodeURIComponent(v)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">${ddEsc(v)}</a></td>`;
+    if(k==='summary') return `<td title="${ddEsc(v)}">${ddEsc((v||'').slice(0,80))}${(v||'').length>80?'…':''}</td>`;
+    if(k==='_pz'){ if(v==null) return '<td style="color:var(--text3)">—</td>';
+      const pl=n=>n+' dia'+(n===1?'':'s'), tt=r.prazo?'Prazo: '+ddFmt(ddDt(r.prazo)):'';
+      const txt=v<0?`<b style="color:#ef4444">Vencido há ${pl(-v)}</b>`:v===0?'<b style="color:#d97706">Vence hoje</b>':v===1?'<b style="color:#d97706">Vence amanhã</b>':`<span style="color:${v<=7?'#d97706':'#16a34a'};font-weight:600">Faltam ${pl(v)}</span>`;
+      return `<td style="white-space:nowrap" title="${tt}">${txt}</td>`; }
+    if(k==='_cr'||k==='_rs') return `<td style="white-space:nowrap">${ddFmt(v)}</td>`;
+    if(k==='_d') return `<td class="r" style="white-space:nowrap;font-weight:700;color:${r._fech?'var(--text)':v>365?'#ef4444':v>90?'#f97316':'var(--text)'}" title="${r._fech?(r._rs?'Dias entre a abertura e a resolução':'Tarefa já fechada; a data de resolução não está nos dados'):'Dias em aberto até hoje'}">${v==null?'—':v.toLocaleString('pt-BR')+' dia'+(v===1?'':'s')}</td>`;
+    if(typeof v==='number') return `<td class="r">${v.toLocaleString('pt-BR',{maximumFractionDigits:1})}</td>`;
+    return `<td style="white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis" title="${ddEsc(v)}">${ddEsc(v)||'—'}</td>`; };
+  document.getElementById('dd-tab').innerHTML='<thead style="position:sticky;top:0;z-index:2"><tr>'+DD.cols.map(([k,l])=>`<th ${k==='_d'||k==='pontos'?'class="r" ':''}onclick="ddOrd('${k}')" style="cursor:pointer;white-space:nowrap;user-select:none">${l}${seta(k)}</th>`).join('')+'</tr></thead><tbody>'+
+    (rows.length?rows.map(r=>'<tr>'+DD.cols.map(([k])=>cel(r,k)).join('')+'</tr>').join(''):`<tr><td colspan="${DD.cols.length}" style="padding:18px;text-align:center;color:var(--text3)">Nenhuma tarefa neste grupo.</td></tr>`)+'</tbody>';
+}
+function ddCsv(){
+  const rows=ddFiltradas(), cols=DD.cols, q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const val=(r,k)=>{ const v=r[k]; return v instanceof Date?v.toLocaleDateString('pt-BR'):v; };
+  const csv='\ufeff'+[cols.map(([,l])=>q(l)).join(';'),...rows.map(r=>cols.map(([k])=>q(val(r,k))).join(';'))].join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=(DD.titulo.replace(/[^\wÀ-ÿ]+/g,'_').slice(0,60)||'tarefas')+'.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') ddFechar(); });
+</script>
+<script>
+// Ajusta os trechos de HTML que mostravam o ano fixo
+(function(){
+  document.title='Dashboard Indicadores '+ANO_VIGENTE;
+  const a=document.getElementById('sup-fil-ano'); if(a) a.innerHTML=`<option value="${ANO_VIGENTE}" selected>${ANO_VIGENTE}</option>`;
+  const t=document.getElementById('_s_tmes'); if(t) t.innerHTML='<option value="">Todos meses</option>'+MES_NOMES.map((n,i)=>`<option value="${ANO_VIGENTE}-${pad2(i+1)}">${n}</option>`).join('');
+})();
+</script>
 <script src="/js/telemetria.js"></script>
-<script src="/js/busca-aba.js"></script>
 </body>
 </html>
