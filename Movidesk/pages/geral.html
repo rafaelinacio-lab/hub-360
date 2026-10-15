@@ -526,6 +526,7 @@ body:not(.visao-st) .so-st{display:none!important}
 .vs-var.alta{background:rgba(220,38,38,.14);color:#dc2626} .vs-var.queda{background:rgba(22,163,74,.14);color:#15803d} .vs-var.igual{background:rgba(127,127,127,.14);color:var(--t2)}
 .vs-parcial{font-size:11px;color:var(--t3)}
 .vs-nota{font-size:11.5px;color:var(--t3);margin:10px 0 0}
+.rp-ruim{color:#dc2626;font-weight:800}
 .vs-modo{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:auto}
 .vs-modo button{border:0;background:transparent;color:var(--t2);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;cursor:pointer}
 .vs-modo button[aria-pressed="true"]{background:var(--t1);color:var(--surface)}
@@ -1109,7 +1110,7 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-1" id="repasses-linha" style="display:none">   <!-- por enquanto só admin (applyRolePermissions) -->
       <div class="chart-panel" id="repasses-panel">
         <p class="chart-title">Repasses entre equipes</p>
-        <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Chamados que mudaram de equipe (por exemplo, entraram pelo Suporte Técnico e foram para Produto). Não segue os filtros do topo. O histórico existe a partir da implantação deste card; repasses anteriores não estão nos dados.</p>
+        <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Chamados que mudaram de equipe (por exemplo, entraram pelo Suporte Técnico e foram para Produto): quanto tempo ficaram com cada equipe e se o SLA já estava estourado quando foram repassados. Não segue os filtros do topo. O histórico existe a partir da implantação deste card; repasses anteriores não estão nos dados.</p>
         <div class="vs-topo">
           <label>Período <select id="rp-periodo" onchange="repassesCarregar(true)"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="mes">Mês atual</option></select></label>
           <label>Equipe <select id="rp-equipe" onchange="repassesCarregar(true,true)"><option value="">Todas (origem ou destino)</option></select></label>
@@ -1788,11 +1789,24 @@ function repassesDesenhar(){
   const n=x=>Number(x||0).toLocaleString('pt-BR'), r=_repasses;
   if(conta) conta.textContent=`${n(r.resumo.repasses)} repasse(s) · ${n(r.resumo.chamados)} chamado(s)`;
   if(!r.resumo.repasses){ corpo.innerHTML=`<p class="chart-sub" style="text-align:left">Não há chamados repassados entre equipes no período${document.getElementById('rp-equipe').value?' para esta equipe':''}.${r.desde?` O histórico começa em ${esc(new Date(r.desde).toLocaleDateString('pt-BR'))}.`:' O histórico ainda não tem registros.'}</p>`; return; }
+  const hh=min=>min==null?'—':(min/60).toLocaleString('pt-BR',{maximumFractionDigits:1})+' h';
   const pares=r.pares.slice(0,10).map(p=>`<tr><td>${esc(p.de)} <span style="color:var(--t3)">→</span> ${esc(p.para)}</td><td class="n"><b>${n(p.total)}</b></td></tr>`).join('');
+  const porEq=(r.por_equipe||[]).filter(e=>e.passagens).slice(0,15).map(e=>`<tr><td>${esc(e.equipe)}</td><td class="n">${n(e.passagens)}</td><td class="n">${e.horasMediana.toLocaleString('pt-BR')} h</td><td class="n">${e.horasMedias.toLocaleString('pt-BR')} h</td><td class="n" title="Chamados que a equipe recebeu com a meta de SLA já estourada, entre os que têm meta">${e.entradas?`<span class="${e.entradasVencidas?'rp-ruim':''}">${n(e.entradasVencidas)}</span> de ${n(e.entradas)}`:'—'}</td><td class="n" title="Chamados cuja meta de SLA estourou enquanto estavam com a equipe, entre os que têm meta">${e.comMeta?`<span class="${e.estouraram?'rp-ruim':''}">${n(e.estouraram)}</span> de ${n(e.comMeta)}`:'—'}</td></tr>`).join('');
+  const estim=(r.por_equipe||[]).reduce((t,e)=>t+(e.estimadas||0),0);
   const lista=_repassesTodos?r.chamados:r.chamados.slice(0,30);
-  const linhas=lista.map(c=>`<tr><td><a href="${ticketUrl(c.ticket_id)}" target="_blank" rel="noopener">#${esc(c.ticket_id)}</a></td><td>${esc(c.assunto||'—')}</td><td>${esc(c.de)} <span style="color:var(--t3)">→</span> ${esc(c.para)}</td><td>${esc(c.status||'—')}</td><td>${esc(new Date(c.criado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</td></tr>`).join('');
+  const slaCel=c=>{
+    if(c.meta_h==null) return '<span class="vs-parcial">sem meta</span>';
+    if(c.vencido_no_repasse==null) return '—';
+    const txt=`${hh(c.acum_min)} de ${c.meta_h} h`;
+    return c.vencido_no_repasse?`<span class="vs-var alta" title="O chamado já estava com a meta de SLA estourada quando foi repassado">já vencido · ${txt}</span>`:`<span class="vs-var igual" title="Dentro da meta de SLA no momento do repasse">no prazo · ${txt}</span>`;
+  };
+  const linhas=lista.map(c=>`<tr><td><a href="${ticketUrl(c.ticket_id)}" target="_blank" rel="noopener">#${esc(c.ticket_id)}</a></td><td>${esc(c.assunto||'—')}</td><td>${esc(c.de)} <span style="color:var(--t3)">→</span> ${esc(c.para)}</td><td class="n" title="Horas úteis líquidas com a equipe de origem${c.inicio_estimado?' (chamado criado antes do histórico: pode ter passado por outra equipe sem registro)':''}">${c.inicio_estimado&&(c.passagens||[])[0]&&(c.passagens[0].estimada)?'~':''}${hh(c.min_origem)}</td><td>${slaCel(c)}</td><td>${esc(c.status||'—')}</td><td>${esc(new Date(c.criado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</td></tr>`).join('');
   corpo.innerHTML=`<div class="rolagem" style="overflow-x:auto"><table class="vs-tab"><thead><tr><th>De → Para</th><th class="n">Repasses</th></tr></thead><tbody>${pares}</tbody></table></div>
-    <div class="rolagem" style="overflow-x:auto;margin-top:12px"><table class="vs-tab"><thead><tr><th>Chamado</th><th>Assunto</th><th>Repasse</th><th>Status</th><th>Quando</th></tr></thead><tbody>${linhas}</tbody></table></div>
+    <p class="chart-title" style="margin:16px 0 4px;font-size:13px">Tempo e SLA por equipe</p>
+    <div class="rolagem" style="overflow-x:auto"><table class="vs-tab"><thead><tr><th>Equipe</th><th class="n">Passagens</th><th class="n" title="Tempo líquido (janela de atendimento, sem fim de semana, feriado e pausa) que o chamado ficou com a equipe">Mediana</th><th class="n">Média</th><th class="n">Recebeu já vencido</th><th class="n">Estourou com a equipe</th></tr></thead><tbody>${porEq}</tbody></table></div>
+    <p class="vs-nota">Tempo = horas úteis líquidas da política de SLA. Meta pela urgência (Crítica 4 h, Alta 8 h, Média 16 h, Baixa 24 h), só em chamados de Suporte Técnico fora das exceções; os outros têm tempo, mas não meta.${estim?` ${n(estim)} trecho(s) de chamados criados antes do histórico ficaram fora destas contas (podem ter passado por outra equipe sem registro).`:''}</p>
+    <p class="chart-title" style="margin:16px 0 4px;font-size:13px">Chamados repassados</p>
+    <div class="rolagem" style="overflow-x:auto"><table class="vs-tab"><thead><tr><th>Chamado</th><th>Assunto</th><th>Repasse</th><th class="n">Tempo na origem</th><th>SLA no repasse</th><th>Status</th><th>Quando</th></tr></thead><tbody>${linhas}</tbody></table></div>
     ${r.chamados.length>30?`<p class="vs-nota"><a href="#" onclick="_repassesTodos=!_repassesTodos;repassesDesenhar();return false">${_repassesTodos?'Mostrar só os 30 mais recentes':`Mostrar todos os ${n(r.chamados.length)}${r.truncado?' (limite de 1000)':''}`}</a></p>`:''}`;
 }
 
