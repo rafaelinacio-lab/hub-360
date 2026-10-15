@@ -141,6 +141,7 @@ app.use('/api/extrator', require('./routes/tokens').extrator);   // sem login: s
 app.use('/api/tokens', require('./routes/tokens'));
 app.use('/api/sla-horas', require('./routes/slaHoras'));
 app.use('/api/email-config', require('./routes/emailConfig'));
+app.use('/api/layout', require('./routes/layout'));   // Layout dos cards de cada aba (GET logado, PUT só admin)
 app.use('/api/aparencia', require('./routes/aparencia'));   // Configurações → Aparência (GET público, PUT só admin)   // Configurações → E-mail (SMTP), só admin
 app.use('/api/inicio', inicioRoutes);   // tela inicial personalizada (todos os perfis)
 // Para as telas de GCC/Satisfação avisarem qual vertical está em uso

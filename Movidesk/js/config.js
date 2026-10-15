@@ -885,6 +885,7 @@ function switchConfigTab(tab) {
     if (tab === 'email' && typeof emailCfgCarregar === 'function') emailCfgCarregar();
     if (tab === 'reincfeedback' && typeof rfCarregar === 'function') rfCarregar();
     if (tab === 'aparencia' && typeof apCarregar === 'function') apCarregar();
+    if (tab === 'layout' && typeof layoutCfgCarregar === 'function') layoutCfgCarregar();
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
     if (tab === 'tokens' && typeof tokensCarregar === 'function') tokensCarregar();
     if (tab === 'slahoras' && typeof slaHorasCarregar === 'function') slaHorasCarregar();

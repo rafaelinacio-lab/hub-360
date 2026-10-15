@@ -224,6 +224,9 @@
                     <button class="cfg-tab-btn" data-tab="aparencia" onclick="switchConfigTab('aparencia')">
                         <span class="material-symbols-outlined">palette</span> Aparência
                     </button>
+                    <button class="cfg-tab-btn" data-tab="layout" onclick="switchConfigTab('layout')">
+                        <span class="material-symbols-outlined">dashboard_customize</span> Layout das abas
+                    </button>
                     <button class="cfg-tab-btn" data-tab="reincfeedback" onclick="switchConfigTab('reincfeedback')">
                         <span class="material-symbols-outlined">fact_check</span> Feedback das reincidências
                     </button>
@@ -795,6 +798,15 @@
                             <button class="config-btn config-btn-muted" type="button" onclick="apCarregar()">Descartar mudanças</button>
                         </div>
                         <div id="apStatus" class="config-status" style="margin-top:8px"></div>
+                    </div>
+                </div>
+                <!-- ABA: Layout das abas (só admin) -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-layout">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Layout das abas</h3>
+                        <p class="config-card-help">Mude a disposição, a largura e a altura dos cards de cada aba, ou oculte os que não usa. Clique em “Editar layout”: a aba abre em modo de edição, onde você arrasta os cards e escolhe o tamanho de cada um; ao salvar, vale para todos os usuários. “Restaurar padrão” devolve a aba ao layout original.</p>
+                        <div id="layoutLista"></div>
+                        <div id="layoutStatus" class="config-status" style="margin-top:8px"></div>
                     </div>
                 </div>
                 <!-- ABA: Feedback das reincidências (só admin) -->
@@ -1913,6 +1925,7 @@
     <script src="js/emailConfig.js"></script>
     <script src="js/reincFeedback.js"></script>
     <script src="js/aparenciaConfig.js"></script>
+    <script src="js/layoutConfig.js"></script>
     <script src="js/cfgTabsScroll.js"></script>
     <script src="js/avisos.js"></script>
     <script src="js/delta.js"></script>

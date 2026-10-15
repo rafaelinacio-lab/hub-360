@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="../js/ui-version.js"></script>
 <script src="../js/aparencia.js"></script>
+<script src="../js/layout.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
 /* ═══ Tokens ══════════════════════════════════════════════════════════ */
@@ -846,7 +847,7 @@ body.modal-open{overflow:hidden}
 
   <div class="dash-wrap" id="geral-dash">
     <p class="section-label">Totais do período</p>
-    <div class="kpi-grid k9">
+    <div data-card="kpis" data-titulo="Indicadores (KPIs)" class="kpi-grid k9">
       <div data-tone="orange" class="stat-card">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg></span>Abertos</p>
         <div class="kpi-main"><p class="value" id="k-abertos">0</p><span class="kpi-spark" id="sp-abertos"></span></div>
@@ -899,7 +900,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel">
+      <div data-card="evolucao-mensal-abertos-vs-resolvido" data-titulo="Evolução mensal: abertos vs resolvidos" class="chart-panel">
         <div class="tv-head">
           <div>
             <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 2px">Evolução mensal: abertos vs resolvidos</p>
@@ -912,17 +913,17 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-3">
-      <div class="chart-panel">
+      <div data-card="clientes-com-mais-chamados" data-titulo="Clientes com mais chamados" class="chart-panel">
         <p class="chart-title">Clientes com mais chamados</p>
         <p class="chart-sub" style="text-align:left">Participação no volume do período · clique para ver os chamados</p>
         <div class="bkv" id="clientChart"></div>
       </div>
-      <div class="chart-panel">
+      <div data-card="por-classificacao" data-titulo="Por classificação" class="chart-panel">
         <p class="chart-title">Por classificação</p>
         <p class="chart-sub" style="text-align:left">Participação no volume do período · clique para ver os chamados</p>
         <div class="bkv" id="classChart"></div>
       </div>
-      <div class="chart-panel">
+      <div data-card="volume-por-equipe" data-titulo="Volume por equipe" class="chart-panel">
         <p class="chart-title">Volume por equipe</p>
         <p class="chart-sub" style="text-align:left">Participação no volume do período · clique para ver os chamados</p>
         <div class="bkv" id="teamChart"></div>
@@ -930,7 +931,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1" id="slaEquipe-linha" style="display:none">   <!-- só admin e diretoria (applyRolePermissions) -->
-      <div class="chart-panel">
+      <div data-card="sla-por-equipe" data-titulo="SLA por equipe" class="chart-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
           <p class="chart-title" style="margin:0">SLA por equipe</p>
           <!-- filtros só deste card (não mexem no resto do painel) -->
@@ -972,7 +973,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div data-tone="red" class="stat-card bk-sit">
+      <div data-card="situacao-do-backlog" data-titulo="Situação do backlog" data-tone="red" class="stat-card bk-sit">
         <p class="label"><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg></span>Backlog por situação de prazo</p>
         <span id="k-backlog-vencido" hidden>0</span>
         <p class="bk-total"><b class="num" id="bk-total">0</b><span>chamados pendentes</span></p>
@@ -983,7 +984,7 @@ body.modal-open{overflow:hidden}
           <p>Pendentes = chamados em aberto (todos os anos). Sem prazo = sem data de solução de SLA. Vencido = prazo anterior a agora. Com prazo, sem vencer = o restante, incluindo os que vencem hoje ou amanhã.</p>
         </details>
       </div>
-      <div class="data-panel danger">
+      <div data-card="backlog-vencido-por-equipe" data-titulo="Backlog vencido por equipe" class="data-panel danger">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px">
           <p class="panel-title" style="margin:0">Backlog vencido por equipe</p>
           <!-- filtro só desta tabela (não mexe no resto do painel) -->
@@ -1005,7 +1006,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel">
+      <div data-card="evolucao-mensal-por-urgencia-sla-e-h" data-titulo="Evolução mensal por urgência: SLA e horas" class="chart-panel">
       <p class="tv-eyebrow">Análise de urgência</p>
       <p class="chart-title" style="font-size:20px;color:var(--t1);margin:0 0 4px">Evolução mensal por urgência: SLA e horas</p>
       <p class="chart-sub" style="text-align:left;margin:0 0 10px">SLA cumprido (%) e tempo médio de solução em horas úteis de cada urgência, por mês de resolução. Passe sobre um mês para comparar com o anterior.</p>
@@ -1015,7 +1016,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel" id="sla-evo-panel">
+      <div data-card="evolucao-mensal-do-atingimento-do-sl" data-titulo="Evolução mensal do atingimento do SLA" class="chart-panel" id="sla-evo-panel">
       <div class="sl-head">
         <div>
           <p class="tv-eyebrow">Visão global de desempenho</p>
@@ -1036,7 +1037,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel" id="impacto-panel">
+      <div data-card="impacto-mensal-de-sla-por-ticket" data-titulo="Impacto mensal de SLA por ticket" class="chart-panel" id="impacto-panel">
         <p class="chart-title">Impacto mensal de SLA por ticket</p>
         <p class="chart-sub">Quais chamados mais puxaram a média do tempo de solução para cima ou para baixo. O traço de cada barra marca a meta da urgência.</p>
         <div class="imp-chips" id="impacto-chips"></div>
@@ -1047,12 +1048,12 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div class="chart-panel" id="impacto-cima-panel">
+      <div data-card="impacto-para-cima" data-titulo="Puxaram a média para cima" class="chart-panel" id="impacto-cima-panel">
         <p class="chart-title"><span class="imp-pos">▲</span> Puxaram a média para cima</p>
         <p class="chart-sub">Chamados que mais elevaram o tempo médio de solução. O traço marca a meta da urgência.</p>
         <div class="rolagem imp-lista" id="impacto-cima"></div>
       </div>
-      <div class="chart-panel" id="impacto-baixo-panel">
+      <div data-card="impacto-para-baixo" data-titulo="Puxaram a média para baixo" class="chart-panel" id="impacto-baixo-panel">
         <p class="chart-title"><span class="imp-neg">▼</span> Puxaram a média para baixo</p>
         <p class="chart-sub">Chamados que mais reduziram o tempo médio de solução.</p>
         <div class="rolagem imp-lista" id="impacto-baixo"></div>
@@ -1060,7 +1061,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel" id="impacto-cli-panel">
+      <div data-card="quem-concentra-o-atraso" data-titulo="Quem concentra o atraso" class="chart-panel" id="impacto-cli-panel">
         <p class="chart-title">Quem concentra o atraso</p>
         <p class="chart-sub">Impacto somado no SLA do período, por grupo. Clique numa linha para ver os tickets.</p>
         <div class="imp-chips" id="impacto-grupo-chips"></div>
@@ -1069,12 +1070,12 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-2">
-      <div class="chart-panel">
+      <div data-card="tickets-por-urgencia" data-titulo="Tickets por urgência" class="chart-panel">
         <p class="chart-title">Tickets por urgência</p>
         <p class="chart-sub" style="text-align:left">Distribuição dos tickets abertos no período.</p>
         <div class="donut-row"><div class="chart-wrap"><canvas id="urgChart"></canvas></div><ul class="donut-leg" id="urgChart-leg"></ul></div>
       </div>
-      <div class="chart-panel">
+      <div data-card="envelhecimento-do-backlog" data-titulo="Envelhecimento do backlog" class="chart-panel">
         <p class="chart-title">Envelhecimento do backlog</p>
         <p class="chart-sub" style="text-align:left">Tempo em aberto por faixa de dias (só pendentes).</p>
         <div class="chart-wrap" style="height:220px"><canvas id="agingChart"></canvas></div>
@@ -1082,7 +1083,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel" id="resp-panel">
+      <div data-card="responsaveis-por-volume" data-titulo="Responsáveis por volume" class="chart-panel" id="resp-panel">
         <p class="chart-title">Responsáveis por volume</p>
         <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Clique em um colaborador para abrir o detalhe do período (abertos, resolvidos, SLA e comparação).</p>
         <div class="rsp-wrap">
@@ -1092,7 +1093,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel so-st" id="jira-panel">
+      <div data-card="tarefas-do-jira-chamados" data-titulo="Tarefas do Jira × chamados" class="chart-panel so-st" id="jira-panel">
         <p class="chart-title">Tarefas do Jira × chamados</p>
         <p class="chart-sub" id="jira-sub" style="text-align:left;margin:-6px 0 10px">Cada tarefa do Jira e os chamados do Movidesk vinculados a ela. Clique numa tarefa para ver os chamados.</p>
         <div class="jr-topo"><input type="search" id="jira-busca" placeholder="Buscar por tarefa, resumo, responsável ou projeto…" aria-label="Buscar tarefa do Jira" oninput="jiraBuscar()"><span class="kpi-antes" style="text-decoration:none;cursor:default" id="jira-conta"></span></div>
@@ -1101,7 +1102,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1" id="versoes-linha" style="display:none">   <!-- por enquanto só admin (applyRolePermissions) -->
-      <div class="chart-panel so-st" id="versoes-panel">
+      <div data-card="versoes-lancadas-chamados" data-titulo="Versões lançadas × chamados" class="chart-panel so-st" id="versoes-panel">
         <p class="chart-title">Versões lançadas × chamados</p>
         <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Para cada versão lançada: quantos chamados de Suporte Técnico do produto, abertos depois do lançamento, têm relação com ela (citam a versão, foram marcados como "após a atualização" ou estão ligados às tarefas que ela entregou).</p>
         <div class="vs-topo">
@@ -1115,7 +1116,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1" id="repasses-linha" style="display:none">   <!-- por enquanto só admin (applyRolePermissions) -->
-      <div class="chart-panel" id="repasses-panel">
+      <div data-card="repasses-entre-equipes" data-titulo="Repasses entre equipes" class="chart-panel" id="repasses-panel">
         <p class="chart-title">Repasses entre equipes</p>
         <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Chamados que mudaram de equipe (por exemplo, entraram pelo Suporte Técnico e foram para Produto): quanto tempo ficaram com cada equipe e se o SLA já estava estourado quando foram repassados. Não segue os filtros do topo. O histórico existe a partir da implantação deste card; repasses anteriores não estão nos dados.</p>
         <div class="vs-topo">
@@ -1128,7 +1129,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel" id="causas-panel">
+      <div data-card="top-10-causas-dos-chamados" data-titulo="Top 10 causas dos chamados" class="chart-panel" id="causas-panel">
         <p class="chart-title">Top 10 causas dos chamados</p>
         <p class="chart-sub" id="causas-sub" style="text-align:left">Sempre o ano atual. Causa identificada pela Curadoria lendo o chamado como um todo (assunto e todas as ações), não o campo Causa do Movidesk. Clique numa causa para ver os tickets.</p>
         <div id="causas-lista" class="rolagem"></div>
@@ -1136,7 +1137,7 @@ body.modal-open{overflow:hidden}
     </div>
 
     <div class="hrow c-1">
-      <div class="chart-panel" id="pico-panel">
+      <div data-card="horarios-de-pico" data-titulo="Horários de pico" class="chart-panel" id="pico-panel">
         <p class="chart-title">Horários de pico</p>
         <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador). Clique numa célula para ver os chamados.</p>
         <div class="pico" id="pico-grid"></div>
@@ -4252,6 +4253,7 @@ async function applyRolePermissions(){
   });
 })();
 
+HubLayout.iniciar('geral','#geral-dash');   // layout dos cards (Configurações → Layout das abas)
 loadGeral();
 applyRolePermissions();
 

@@ -97,7 +97,9 @@ function loadEmbeddedPage(view) {
         console.warn(`[loadEmbeddedPage] View desconhecida: "${view}". Redirecionando para dashboard.`);
     }
 
-    const src = EMBED_PAGE_ROUTES[normalizedView] || EMBED_PAGE_ROUTES.dashboard;
+    let src = EMBED_PAGE_ROUTES[normalizedView] || EMBED_PAGE_ROUTES.dashboard;
+    // Configurações → Layout das abas: abre a aba em modo de edição do layout (só admin; o servidor também confere ao salvar)
+    if (window._hubEditarLayout && window._hubEditarLayout === normalizedView) { src += '?editarLayout=1'; window._hubEditarLayout = null; }
     if (frame.getAttribute('src') !== src) {
         document.body.classList.remove('nav-oculta');
         frame.setAttribute('src', src);
@@ -841,3 +843,11 @@ function setupDarkMode() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
 }
+
+// Configurações → Layout das abas: abre a aba pedida em modo de edição (js/layout.js dentro da aba cuida do resto).
+window.hubEditarLayout = function (view) {
+    window._hubEditarLayout = String(view || '').trim().toLowerCase();
+    const frame = document.getElementById('embeddedPageFrame');
+    if (frame) frame.removeAttribute('src');   // força recarregar a aba com o parâmetro, mesmo que ela já esteja aberta
+    navigateTo(window._hubEditarLayout);
+};
