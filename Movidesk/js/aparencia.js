@@ -122,5 +122,23 @@
         (document.head || document.documentElement).appendChild(st);
     })();
 
+    // ── roda do mouse em cards/gráficos que só rolam na horizontal: a roda (vertical) passa a mover o conteúdo para o lado ──
+    // Sem isso a roda só rola a página e o card só anda arrastando a barra. Nas pontas do card a roda volta a rolar a página.
+    document.addEventListener('wheel', function (e) {
+        if (e.ctrlKey || e.shiftKey || e.defaultPrevented || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+        if (document.documentElement.classList.contains('sem-barras')) return;
+        for (var el = e.target; el && el.nodeType === 1 && el !== document.documentElement; el = el.parentElement) {
+            var cs = getComputedStyle(el);
+            var ox = cs.overflowX === 'auto' || cs.overflowX === 'scroll';
+            var oy = cs.overflowY === 'auto' || cs.overflowY === 'scroll';
+            if (oy && el.scrollHeight > el.clientHeight + 1) return; // rola na vertical: o navegador já trata
+            if (ox && el.scrollWidth > el.clientWidth + 1) {
+                var max = el.scrollWidth - el.clientWidth, dx = e.deltaMode === 1 ? e.deltaY * 32 : e.deltaY;
+                if ((dx < 0 && el.scrollLeft <= 0) || (dx > 0 && el.scrollLeft >= max - 1)) return;
+                el.scrollLeft += dx; e.preventDefault(); return;
+            }
+        }
+    }, { passive: false });
+
     window.HubAparencia = { aplicar: aplicar, guardar: guardar, FONTES: Object.keys(FONTES) };
 })();
