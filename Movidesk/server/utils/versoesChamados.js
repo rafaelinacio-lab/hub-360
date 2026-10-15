@@ -4,6 +4,8 @@
 //   - antes × depois: chamados de Suporte Técnico do produto abertos nos N dias ANTES e nos N dias DEPOIS do lançamento (ritmo por dia);
 //   - citam a versão ou a atualização: no assunto ou na 1ª ação do chamado aparece o número da versão ou frases como "após a atualização";
 //   - marcados "após a atualização": campo Causa do Movidesk (148916) = "Situação Reportada Após a Atualização";
+//   - RELACIONADOS (o que o gráfico mostra): chamados abertos DEPOIS do lançamento, dentro da janela, que têm ligação com ESTA versão — citam o número dela,
+//     estão marcados "após a atualização" ou estão vinculados às tarefas que ela entregou (sem contar duas vezes o chamado que tem mais de um sinal);
 //   - vinculados às tarefas da versão: chamados ligados (jiraIssueKey) às tarefas que a versão entregou — a demanda que ela atendeu.
 // Versões vêm do versoes_data.json do extrator do Jira (mesma pasta da aba Jira); o produto vem de server/data/versoes-servico.json.
 const fs = require('fs');
@@ -12,6 +14,7 @@ const db = require('../db/remote');
 
 const JIRA_DATA_DIR = path.resolve(__dirname, '../../', process.env.JIRA_DATA_DIR || '../Jira');
 const MAPA = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '../data/versoes-servico.json'), 'utf8')); } catch { return {}; } })();
+const SEM_CHAVE = '§§sem-chave§§';
 const CAUSA_APOS = 'Situação Reportada Após a Atualização';
 const RX_CITA = '(ap(o|ó)s|depois).{0,25}(atualiz|vers(ao|ão))|nova vers(ao|ão)|atualizamos|atualizei|atualizou|vers(ao|ão) nova';
 
@@ -34,6 +37,7 @@ function tokensDaVersao(nome) {
   }
   return [...out].filter((t) => t.length >= 6);
 }
+const chavesDe = (v) => { const k = [...new Set((v.tarefas || []).map((t) => String(t.chave).toUpperCase()).filter(Boolean))]; return k.length ? k : [SEM_CHAVE]; };
 const projetoPrincipal = (v) => {
   const c = {}; (v.tarefas || []).forEach((t) => { if (t.projeto) c[t.projeto] = (c[t.projeto] || 0) + 1; });
   const e = Object.entries(c).sort((a, b) => b[1] - a[1])[0];
@@ -81,23 +85,26 @@ async function calcular({ esc, janela = 14, desde, pertence }) {
     if (servicos) {
       const r = await db.query(`
         WITH t0 AS (
-          SELECT t.ticket_id, t.createddate, lower(COALESCE(t.subject, '')) AS assunto, (t.createddate >= $2::date) AS depois
+          SELECT t.ticket_id, t.createddate, lower(COALESCE(t.subject, '')) AS assunto, (t.createddate >= $2::date) AS depois,
+                 (upper(t.jiraissuekey) = ANY($7::text[])) AS vinc
             FROM silver.ticket t JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946 AND cf.valor_texto = 'Suporte Técnico'
            WHERE t.createddate >= $2::date - make_interval(days => $3::int) AND t.createddate < $2::date + make_interval(days => $3::int)
              AND btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) = ANY($1::text[])),
         d AS (
-          SELECT t0.ticket_id, t0.depois,
+          SELECT t0.ticket_id, t0.depois, t0.vinc,
                  t0.assunto || ' ' || COALESCE((SELECT lower(a.descricao) FROM silver.ticket_acao a WHERE a.ticket_id = t0.ticket_id ORDER BY a.acao_id LIMIT 1), '') AS txt,
                  (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t0.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa
             FROM t0)
         SELECT COUNT(*) FILTER (WHERE NOT depois)::int AS antes, COUNT(*) FILTER (WHERE depois)::int AS depois,
                COUNT(*) FILTER (WHERE depois AND txt ~ $4)::int AS cita_atualizacao,
                COUNT(*) FILTER (WHERE depois AND EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0))::int AS cita_versao,
-               COUNT(*) FILTER (WHERE depois AND causa LIKE lower($6) || '%')::int AS causa_apos
-          FROM d`, [servicos, v.release_date, j, RX_CITA, tokens.length ? tokens : ['§§sem-versao§§'], CAUSA_APOS]);
+               COUNT(*) FILTER (WHERE depois AND causa LIKE lower($6) || '%')::int AS causa_apos,
+               COUNT(*) FILTER (WHERE depois AND vinc)::int AS vinc_depois,
+               COUNT(*) FILTER (WHERE depois AND (EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0) OR causa LIKE lower($6) || '%' OR vinc))::int AS relacionados
+          FROM d`, [servicos, v.release_date, j, RX_CITA, tokens.length ? tokens : ['§§sem-versao§§'], CAUSA_APOS, chavesDe(v)]);
       const x = r.rows[0] || {};
       const diasDepois = Math.min(j, Math.max(1, item.diasDecorridos));
-      Object.assign(item, { antes: x.antes, depois: x.depois, citaAtualizacao: x.cita_atualizacao, citaVersao: x.cita_versao, causaApos: x.causa_apos,
+      Object.assign(item, { antes: x.antes, depois: x.depois, citaAtualizacao: x.cita_atualizacao, citaVersao: x.cita_versao, causaApos: x.causa_apos, vincDepois: x.vinc_depois, relacionados: x.relacionados,
         ritmoAntes: x.antes / j, ritmoDepois: x.depois / diasDepois, janelaCompleta: item.diasDecorridos >= j });
       item.variacaoPct = item.ritmoAntes > 0 ? Math.round((item.ritmoDepois / item.ritmoAntes - 1) * 100) : null;
     }
@@ -119,20 +126,22 @@ async function idsDoItem({ esc, versaoId, tipo, janela = 14, desde, pertence }) 
     return (await db.query(`SELECT ticket_id::text AS id FROM silver.ticket WHERE upper(jiraissuekey) = ANY($1::text[]) ${cond} ORDER BY createddate DESC LIMIT 500`, [chaves, ...(cond ? [esc.verticais] : [])])).rows.map((x) => x.id);
   }
   if (!servicos) return [];
-  const filtro = { depois: 'TRUE', cita: 'txt ~ $4', citaversao: 'EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0)', causa: 'causa LIKE lower($6) || \'%\'' }[tipo];
+  const filtro = { depois: 'TRUE', cita: 'txt ~ $4', citaversao: 'EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0)', causa: 'causa LIKE lower($6) || \'%\'',
+    relacionados: '(EXISTS (SELECT 1 FROM unnest($5::text[]) k WHERE position(k IN txt) > 0) OR causa LIKE lower($6) || \'%\' OR vinc)' }[tipo];
   if (!filtro) return [];
   const tokens = tokensDaVersao(v.nome);
   const r = await db.query(`
     WITH d AS (
       SELECT t.ticket_id, t.createddate,
              lower(COALESCE(t.subject, '')) || ' ' || COALESCE((SELECT lower(a.descricao) FROM silver.ticket_acao a WHERE a.ticket_id = t.ticket_id ORDER BY a.acao_id LIMIT 1), '') AS txt,
-             (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa
+             (SELECT lower(c2.valor_texto) FROM silver.ticket_campo_customizado c2 WHERE c2.ticket_id = t.ticket_id AND c2.custom_field_id = 148916 LIMIT 1) AS causa,
+             (upper(t.jiraissuekey) = ANY($7::text[])) AS vinc
         FROM silver.ticket t JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946 AND cf.valor_texto = 'Suporte Técnico'
        WHERE t.createddate >= $2::date AND t.createddate < $2::date + make_interval(days => $3::int)
          AND btrim(split_part(COALESCE(t.service_full, ''), ' > ', 1)) = ANY($1::text[]))
-    SELECT ticket_id::text AS id FROM d WHERE ${filtro} AND $4::text IS NOT NULL AND $5::text[] IS NOT NULL AND $6::text IS NOT NULL   -- cita todos os parâmetros: o Postgres exige que a consulta use todos
+    SELECT ticket_id::text AS id FROM d WHERE ${filtro} AND $4::text IS NOT NULL AND $5::text[] IS NOT NULL AND $6::text IS NOT NULL AND $7::text[] IS NOT NULL   -- cita todos os parâmetros: o Postgres exige que a consulta use todos
      ORDER BY createddate DESC LIMIT 500`,
-  [servicos, v.release_date, j, RX_CITA, tokens.length ? tokens : ['§§sem-versao§§'], CAUSA_APOS]);
+  [servicos, v.release_date, j, RX_CITA, tokens.length ? tokens : ['§§sem-versao§§'], CAUSA_APOS, chavesDe(v)]);
   return r.rows.map((x) => x.id);
 }
 

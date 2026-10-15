@@ -532,7 +532,7 @@ body:not(.visao-st) .so-st{display:none!important}
 .vs-leg{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--t2);margin:2px 0 10px}
 .vs-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .vs-g{--c-antes:#94a3b8;--c-depois:var(--orange);display:flex;flex-direction:column}
-.vs-g-row{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr) auto;gap:6px 16px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--border)}
+.vs-g-row{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr) minmax(120px,240px);gap:6px 16px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--border)}
 .vs-g-nome{min-width:0}.vs-g-nome .vs-nome{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vs-g-barras{display:flex;flex-direction:column;gap:3px;min-width:0}
 .vs-g-linha{display:flex;align-items:center;gap:8px;height:12px}
@@ -1095,7 +1095,7 @@ body.modal-open{overflow:hidden}
     <div class="hrow c-1">
       <div class="chart-panel so-st" id="versoes-panel">
         <p class="chart-title">Versões lançadas × chamados</p>
-        <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Os chamados que estão entrando têm relação com as versões que lançamos? Para cada versão: os chamados de Suporte Técnico do produto nos dias antes e depois do lançamento, quantos citam a versão ou a atualização, quantos foram marcados como "após a atualização" e quantos estão ligados às tarefas que a versão entregou.</p>
+        <p class="chart-sub" style="text-align:left;margin:-6px 0 10px">Para cada versão lançada: quantos chamados de Suporte Técnico do produto, abertos depois do lançamento, têm relação com ela (citam a versão, foram marcados como "após a atualização" ou estão ligados às tarefas que ela entregou).</p>
         <div class="vs-topo">
           <label>Período <select id="vs-periodo" onchange="versoesCarregar(true)"><option value="30">Últimos 30 dias</option><option value="60" selected>Últimos 60 dias</option><option value="90">Últimos 90 dias</option><option value="mes">Mês atual</option></select></label>
           <label>Comparar <select id="vs-janela" onchange="versoesCarregar(true)"><option value="7">7 dias antes × depois</option><option value="14" selected>14 dias antes × depois</option><option value="30">30 dias antes × depois</option></select></label>
@@ -1844,24 +1844,22 @@ function versoesDesenhar(){
     <th class="n" title="Citam o número da versão / falam de atualização ou nova versão (assunto e 1ª ação)">Citam versão / atualização</th><th class="n" title='Marcados com a causa "Situação Reportada Após a Atualização"'>"Após a atualização"</th><th class="n" title="Chamados ligados às tarefas que a versão entregou (demanda que ela atendeu)">Vinculados às tarefas</th>
     </tr></thead><tbody>${linhas}</tbody></table></div>
     <p class="vs-nota">Variação = ritmo diário de chamados depois ÷ antes. Alta (vermelho) a partir de +30%. Coincidir no tempo não prova que a versão causou os chamados: use os números de "citam" e "após a atualização" para confirmar, e abra a lista para ler os chamados. O produto de cada versão sai do projeto do Jira (arquivo <code>server/data/versoes-servico.json</code>).</p>`;
-  const nota=`<p class="vs-nota">Variação = ritmo diário de chamados depois ÷ antes. Alta (vermelho) a partir de +30%. Coincidir no tempo não prova que a versão causou os chamados: clique no número "depois" para ler os chamados e use a tabela para ver quantos citam a versão.</p>`;
-  const max=Math.max(1,...comMapa.map(v=>Math.max(v.antes||0,v.depois||0)));
+  const nota=`<p class="vs-nota">Só entram chamados de Suporte Técnico do produto, abertos depois do lançamento (dentro dos ${j} dias da janela) que têm ligação com a versão: citam o número dela, estão marcados "Situação Reportada Após a Atualização" ou estão vinculados às tarefas que ela entregou. Um chamado com mais de um sinal conta uma vez. Clique no número para ler os chamados.</p>`;
+  const max=Math.max(1,...comMapa.map(v=>v.relacionados||0));
   const larg=x=>Math.max(x>0?2:0,Math.round(x/max*100));
   const dd=v=>String(v.lancada).split('-').reverse().join('/').slice(0,5);
   const graf=comMapa.map(v=>{
-    const pct=v.variacaoPct, cls=pct==null?'igual':pct>=30?'alta':pct<=-10?'queda':'igual';
-    const tip=`${v.nome}: ${n(v.antes)} chamados nos ${j} dias antes → ${n(v.depois)} nos ${j} dias depois`+(v.ritmoAntes!=null?` (ritmo ${v.ritmoAntes.toLocaleString('pt-BR',{maximumFractionDigits:1})} → ${v.ritmoDepois.toLocaleString('pt-BR',{maximumFractionDigits:1})} por dia)`:'')+(v.janelaCompleta?'':' · janela depois ainda em andamento');
+    const rel=v.relacionados||0;
+    const sinais=[v.citaVersao?`${n(v.citaVersao)} citam a versão`:'',v.causaApos?`${n(v.causaApos)} após a atualização`:'',v.vincDepois?`${n(v.vincDepois)} vinculados às tarefas`:''].filter(Boolean).join(' · ');
+    const tip=`${v.nome}: ${n(rel)} chamado(s) abertos depois do lançamento com relação à versão, entre ${n(v.depois)} abertos nos ${j} dias depois`+(v.janelaCompleta?'':' (janela ainda em andamento)');
     return `<div class="vs-g-row" title="${escAttr(tip)}">
       <div class="vs-g-nome"><span class="vs-nome">${esc(v.nome)}</span><span class="vs-sub">${dd(v)} · ${esc(v.servicos.join(', '))}${v.janelaCompleta?'':' · em andamento'}</span></div>
-      <div class="vs-g-barras">
-        <div class="vs-g-linha antes"><span class="vs-g-barra" style="width:${larg(v.antes)}%"></span><span class="vs-g-val">${n(v.antes)}</span></div>
-        <div class="vs-g-linha depois"><span class="vs-g-barra" style="width:${larg(v.depois)}%"></span>${v.depois>0?`<button type="button" class="vs-g-val" onclick="versaoAbrir('${escAttr(v.id)}','depois')" title="Ver os chamados abertos depois do lançamento">${n(v.depois)}</button>`:`<span class="vs-g-val">0</span>`}</div>
-      </div>
-      ${pct!=null?`<span class="vs-var ${cls}">${pct>0?'+':''}${Math.round(pct)}%</span>`:'<span class="vs-parcial">—</span>'}
+      <div class="vs-g-barras"><div class="vs-g-linha depois"><span class="vs-g-barra" style="width:${larg(rel)}%"></span>${rel>0?`<button type="button" class="vs-g-val" onclick="versaoAbrir('${escAttr(v.id)}','relacionados')" title="Ver os chamados relacionados à versão">${n(rel)}</button>`:`<span class="vs-g-val">0</span>`}</div></div>
+      <span class="vs-parcial" style="text-align:right">${sinais?esc(sinais):`de ${n(v.depois)} abertos no período`}</span>
     </div>`;
   }).join('');
   const semMapa=vs.length-comMapa.length;
-  const graficoHtml=comMapa.length?`<div class="vs-leg" aria-hidden="false"><span><i style="background:#94a3b8"></i>${j} dias antes do lançamento</span><span><i style="background:var(--orange)"></i>${j} dias depois</span></div><div class="vs-g">${graf}</div>${semMapa?`<p class="vs-nota">${n(semMapa)} versão(ões) sem produto mapeado no Movidesk não aparecem no gráfico (veja na tabela).</p>`:''}${nota}`:`<p class="chart-sub" style="text-align:left">Nenhuma das versões do período tem produto mapeado no Movidesk. Veja a tabela.</p>`;
+  const graficoHtml=comMapa.length?`<div class="vs-leg"><span><i style="background:var(--orange)"></i>Chamados abertos depois do lançamento com relação à versão (${j} dias)</span></div><div class="vs-g">${graf}</div>${semMapa?`<p class="vs-nota">${n(semMapa)} versão(ões) sem produto mapeado no Movidesk não aparecem no gráfico (veja na tabela).</p>`:''}${nota}`:`<p class="chart-sub" style="text-align:left">Nenhuma das versões do período tem produto mapeado no Movidesk. Veja a tabela.</p>`;
   corpo.innerHTML=_vsModo==='tabela'?tabelaHtml:graficoHtml;
   const bg=document.getElementById('vs-m-graf'), bt=document.getElementById('vs-m-tab');
   if(bg&&bt){ bg.setAttribute('aria-pressed',String(_vsModo!=='tabela')); bt.setAttribute('aria-pressed',String(_vsModo==='tabela')); }
@@ -1871,7 +1869,7 @@ try{ if(localStorage.getItem('hub_geral_versoes_modo')==='tabela') _vsModo='tabe
 function versoesModo(m){ _vsModo=m; try{ localStorage.setItem('hub_geral_versoes_modo',m); }catch(_){} versoesDesenhar(); }
 async function versaoAbrir(versaoId,tipo){
   const v=(_versoes&&_versoes.versoes||[]).find(x=>String(x.id)===String(versaoId)); if(!v) return;
-  const rotulo={depois:`abertos nos ${_versoes.janela} dias depois do lançamento`,citaversao:'citam o número da versão',cita:'falam de atualização ou nova versão',causa:'marcados "Situação Reportada Após a Atualização"',vinculados:'vinculados às tarefas da versão'}[tipo]||tipo;
+  const rotulo={relacionados:`abertos nos ${_versoes.janela} dias depois do lançamento com relação à versão`,depois:`abertos nos ${_versoes.janela} dias depois do lançamento`,citaversao:'citam o número da versão',cita:'falam de atualização ou nova versão',causa:'marcados "Situação Reportada Após a Atualização"',vinculados:'vinculados às tarefas da versão'}[tipo]||tipo;
   openDetailModal(`Versão ${v.nome}`,'Carregando os chamados…',[]);
   try{
     const r=await api(`/geral/versoes-chamados/lista?versao=${encodeURIComponent(versaoId)}&tipo=${tipo}&janela=${_versoes.janela}`,60000);
