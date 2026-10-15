@@ -527,6 +527,13 @@ body:not(.visao-st) .so-st{display:none!important}
 .vs-parcial{font-size:11px;color:var(--t3)}
 .vs-nota{font-size:11.5px;color:var(--t3);margin:10px 0 0}
 .rp-ruim{color:#dc2626;font-weight:800}
+/* Cards Tarefas do Jira, Versões e Repasses: compactos (altura limitada, rolagem interna); o botão do título expande */
+.cc-painel .chart-title{display:flex;align-items:center;gap:10px}
+.cc-btn{margin-left:auto;border:1px solid var(--border);background:transparent;color:var(--t2);border-radius:8px;font:inherit;font-size:12px;font-weight:600;padding:3px 10px;cursor:pointer}
+.cc-btn:hover{background:var(--surface-mid,rgba(127,127,127,.12))}
+.cc-painel:not(.cc-aberto) > .chart-sub{display:none}
+.cc-painel:not(.cc-aberto) .cc-corpo{max-height:210px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--border-hi) transparent}
+.cc-painel .vs-leg{margin-bottom:6px}
 .vs-modo{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:auto}
 .vs-modo button{border:0;background:transparent;color:var(--t2);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;cursor:pointer}
 .vs-modo button[aria-pressed="true"]{background:var(--t1);color:var(--surface)}
@@ -4230,6 +4237,21 @@ async function applyRolePermissions(){
 }
 
 // ── boot ─────────────────────────────────────────────────────────────
+// Cards compactos: Tarefas do Jira, Versões e Repasses começam recolhidos (altura limitada); o estado fica salvo no navegador
+(function cartoesCompactos(){
+  const CARDS=[['jira-panel','jira-lista'],['versoes-panel','vs-corpo'],['repasses-panel','rp-corpo']];
+  CARDS.forEach(([pid,cid])=>{
+    const pn=document.getElementById(pid), cp=document.getElementById(cid), tt=pn&&pn.querySelector('.chart-title'); if(!pn||!cp||!tt) return;
+    pn.classList.add('cc-painel'); cp.classList.add('cc-corpo');
+    const chave='hub_geral_cc_'+pid; let aberto=false;
+    try{ aberto=localStorage.getItem(chave)==='1'; }catch(_){}
+    const b=document.createElement('button'); b.type='button'; b.className='cc-btn';
+    const aplicar=()=>{ pn.classList.toggle('cc-aberto',aberto); b.textContent=aberto?'Recolher ▴':'Expandir ▾'; b.setAttribute('aria-expanded',String(aberto)); };
+    b.onclick=()=>{ aberto=!aberto; try{ localStorage.setItem(chave,aberto?'1':'0'); }catch(_){} aplicar(); };
+    tt.appendChild(b); aplicar();
+  });
+})();
+
 loadGeral();
 applyRolePermissions();
 
