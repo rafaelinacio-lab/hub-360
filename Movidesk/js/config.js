@@ -887,6 +887,7 @@ function switchConfigTab(tab) {
     if (tab === 'aparencia' && typeof apCarregar === 'function') apCarregar();
     if (tab === 'layout' && typeof layoutCfgCarregar === 'function') layoutCfgCarregar();
     if (tab === 'avisos' && typeof avisosCarregar === 'function') avisosCarregar();
+    if (tab === 'automacoes' && typeof automacoesCarregar === 'function') automacoesCarregar();
     if (tab === 'tokens' && typeof tokensCarregar === 'function') tokensCarregar();
     if (tab === 'slahoras' && typeof slaHorasCarregar === 'function') slaHorasCarregar();
     if (typeof deltaParar === 'function') deltaParar();

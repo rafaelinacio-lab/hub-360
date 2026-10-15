@@ -451,3 +451,11 @@ Com o filtro **Serviço** só em serviços do Analytics, ou quando a lista mostr
 - Ações anteriores ao ajuste do carregador de 25/09/2026 estão sem `criado_por_profile_type` (62% das públicas dos últimos 120 dias). O perfil é reconstruído: 1º pelo perfil mais frequente da mesma pessoa nas ações dos últimos 180 dias (cache de 30 min), 2º pelo nome entre os clientes do chamado.
 - Não traz anexos/imagens (só existem no Movidesk); a análise não usa. A tela principal da Central do chamado, a sugestão de resposta e a correção de texto continuam lendo ao vivo.
 - Limite: mensagem recém-chegada pode demorar até o próximo ciclo de carga (~15 min) para aparecer na análise.
+
+## Automações
+Configurações → Automações (só admin). Dispara a **análise do cliente por IA** como **nota interna** em chamados abertos do Movidesk.
+- `server/utils/analiseCliente.js`: `analisarCliente(id)` (lê do banco; a Central do chamado e as Automações usam a mesma função).
+- `server/utils/automacoes.js`: motor. Gatilho **webhook** (`POST /api/webhooks/automacao/<código de 48 hex>`, público; responde 202 e processa numa fila em memória, um chamado por vez; aceita `id`/`ticketId`/`ticket.id` no JSON ou `?id=`) e gatilho **agendado** (a cada `intervalo_min`, procura no banco abertos que casam com as condições; tick de 60 s).
+- Condições: status aberto, equipe, serviço (prefixo), classificação (campo 23946), urgência, criado nos últimos N dias (padrão 3, máx. 30), aberto há pelo menos X h (só agendado). Só chamados abertos; nunca fechados.
+- Segurança: módulo e regras nascem **desligados/em simulação** (simulação faz a análise e guarda no histórico, sem escrever no Movidesk); `UNIQUE (automacao_id, ticket_id)` em `public.automacao_execucao` = uma ação por chamado por regra; `max_por_ciclo`; nota em nome do agente escolhido; falhas são refeitas até 3 vezes na 1ª hora.
+- Tabelas (criadas sozinhas): `public.automacao_estado`, `public.automacao`, `public.automacao_execucao`. Rotas: `/api/automacoes/*` (admin; inclui "testar" sem gravar e "executar" num chamado). Front: `js/automacoes.js`.

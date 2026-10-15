@@ -233,6 +233,9 @@
                     <button class="cfg-tab-btn" data-tab="avisos" onclick="switchConfigTab('avisos')">
                         <span class="material-symbols-outlined">campaign</span> Avisos automáticos
                     </button>
+                    <button class="cfg-tab-btn" data-tab="automacoes" onclick="switchConfigTab('automacoes')">
+                        <span class="material-symbols-outlined">bolt</span> Automações
+                    </button>
                     <button class="cfg-tab-btn" data-tab="telemetria" onclick="switchConfigTab('telemetria')">
                         <span class="material-symbols-outlined">monitoring</span> Telemetria
                     </button>
@@ -823,6 +826,9 @@
                         <div id="rfStatus" class="config-status"></div>
                         <div id="rfLista"></div>
                     </div>
+                </div>
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-automacoes">
+                    <div id="auRoot"><p class="config-card-help">Carregando…</p></div>
                 </div>
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-avisos">
                     <div id="avRoot"><p class="config-card-help">Carregando…</p></div>
@@ -1963,6 +1969,7 @@
     <script src="js/layoutConfig.js"></script>
     <script src="js/cfgTabsScroll.js"></script>
     <script src="js/avisos.js"></script>
+    <script src="js/automacoes.js"></script>
     <script src="js/delta.js"></script>
     <script src="js/tokens.js"></script>
     <script src="js/slahoras.js"></script>
