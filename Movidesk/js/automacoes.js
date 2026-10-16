@@ -86,6 +86,7 @@ function auLinha(r) {
           <p class="config-card-help" style="margin:0">Quando: ${auResumoCondicoes(r.condicoes)}</p>
           <p class="config-card-help" style="margin:4px 0 0">${gat}</p></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="config-btn config-btn-muted" onclick="auEditar(${r.id})">Editar</button>
+          <button class="config-btn" onclick="auRodarAgora(${r.id})" title="Procura agora os chamados abertos que atendem às condições e aplica a ação (respeita o modo: simulação não grava no Movidesk)">Rodar agora</button>
           <button class="config-btn config-btn-muted" onclick="auTestar(${r.id})">Testar em um chamado</button>
           <button class="config-btn config-btn-muted" onclick="auExcluir(${r.id})">Excluir</button></div>
       </div><div id="auTeste${r.id}"></div></div>`;
@@ -238,4 +239,24 @@ function auVerTexto(id) {
     document.getElementById('auTextoHist').innerHTML = `<div style="margin-top:10px;padding:12px;border:1px dashed var(--border,#ccc);border-radius:12px">
       <p class="config-card-help" style="margin:0 0 6px"><b>#${auEsc(h.ticket_id)}</b> — nota ${h.status === 'enviado' ? 'gravada' : 'simulada'}</p>
       <pre style="white-space:pre-wrap;margin:0;font:inherit">${auEsc(h.texto).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')}</pre></div>`;
+}
+
+// Rodar agora: varredura imediata (mesma do gatilho agendado). Mostra antes quantos chamados casam e pede confirmação.
+async function auRodarAgora(id) {
+    const r = AU.dados.regras.find((x) => x.id === id), alvo = document.getElementById(`auTeste${id}`);
+    alvo.innerHTML = '<p class="config-card-help">Calculando…</p>';
+    try {
+        const p = await auApi('/previa', 'POST', { condicoes: r.condicoes, id, gatilho: 'agendado' });
+        const real = r.modo === 'ativo', n = Math.min(p.casam, r.max_por_ciclo);
+        if (!p.casam) { alvo.innerHTML = '<p class="config-card-help">Nenhum chamado aberto atende às condições agora.</p>'; return; }
+        const msg = real
+            ? `Vai GRAVAR notas internas de verdade em ${n} chamado(s) agora (${p.casam} atendem às condições; o limite por rodada é ${r.max_por_ciclo}). Confirmar?`
+            : `Simulação: vai analisar ${n} chamado(s) (${p.casam} atendem às condições) e guardar o resultado no histórico, sem escrever no Movidesk. Confirmar?`;
+        if (!confirm(msg)) { alvo.innerHTML = ''; return; }
+        alvo.innerHTML = '<p class="config-card-help">Rodando… cada chamado leva alguns segundos (análise por IA).</p>';
+        const d = await auApi(`/regras/${id}/rodar`, 'POST');
+        await automacoesCarregar();
+        const novo = document.getElementById(`auTeste${id}`);
+        if (novo) novo.innerHTML = `<p class="config-card-help">Pronto: ${d.resumo.processados} chamado(s) processado(s) (${d.modo === 'ativo' ? 'gravado no Movidesk' : 'simulação'}). Veja o resultado no histórico abaixo.</p>`;
+    } catch (e) { alvo.innerHTML = `<p class="config-status error">${auEsc(e.message)}</p>`; }
 }

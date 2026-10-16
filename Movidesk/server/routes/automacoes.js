@@ -163,6 +163,19 @@ router.post('/regras/:id/testar', limiteIA, async (req, res) => {
   } catch (e) { res.status(e.status || 500).json({ error: e.message || 'Erro no teste' }); }
 });
 
+router.post('/regras/:id/rodar', limiteIA, async (req, res) => {
+  const id = idOk(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Automação inválida' });
+  try {
+    const regra = (await db.query(`SELECT * FROM public.automacao WHERE id = $1`, [id])).rows[0];
+    if (!regra) return res.status(404).json({ error: 'Automação não encontrada' });
+    const c = au.normalizarCondicoes(regra.condicoes);
+    if (regra.modo === 'ativo' && !(c.equipes.length || c.servicos.length || c.classificacoes.length)) return res.status(400).json({ error: 'Para gravar de verdade, a regra precisa ter ao menos uma Equipe, um Serviço ou uma Classificação.' });
+    if (regra.modo === 'ativo' && !regra.agente_id) return res.status(400).json({ error: 'Escolha o agente autor da nota antes de gravar de verdade.' });
+    res.json({ ok: true, modo: regra.modo, resumo: await au.rodarAgora(regra) });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message || 'Erro ao rodar' }); }
+});
+
 router.post('/regras/:id/executar', limiteIA, async (req, res) => {
   try {
     const x = await regraEChamado(req, res); if (!x) return;

@@ -206,20 +206,30 @@ async function buscarCandidatos(c, regraId, origem = 'agendado') {
   return { total: cand.rows.length, casam: cand.rows.filter((t) => !motivoDeNaoCasar(t, c, origem)) };
 }
 
-async function rodarRegraAgendada(regra) {
+async function rodarRegraAgendada(regra, origem = 'agendado') {
   const c = normalizarCondicoes(regra.condicoes);
   const resumo = { candidatos: 0, processados: 0, ignorados: 0 };
   // Pré-filtro no SQL (barato): abertos, criados na janela e ainda não tratados por esta regra. O resto das condições é conferido em memória.
-  const { total, casam } = await buscarCandidatos(c, regra.id);
+  const { total, casam } = await buscarCandidatos(c, regra.id, origem === 'manual' ? 'agendado' : origem);
   resumo.candidatos = total; resumo.ignorados = total - casam.length;
   const cand = { rows: casam };
   const limite = Math.max(1, Math.min(50, regra.max_por_ciclo || 10));
   for (const t of cand.rows) {
     if (resumo.processados >= limite) break;
-    const r = await executarNoChamado(regra, t, 'agendado');
+    const r = await executarNoChamado(regra, t, origem);
     if (r.status !== 'ja_tratado') resumo.processados++;
   }
   await db.query(`UPDATE public.automacao SET ultimo_ciclo = NOW(), ultimo_resumo = $2::jsonb WHERE id = $1`, [regra.id, JSON.stringify(resumo)]);
+  return resumo;
+}
+
+// "Rodar agora": mesma varredura do gatilho agendado, na hora, respeitando o modo da regra (simulação não escreve no Movidesk),
+// as condições e o limite por rodada. Funciona também com a regra/módulo desligados (é uma ação deliberada do admin). Uma rodada por vez.
+async function rodarAgora(regra) {
+  if (rodando) throw new Error('Já existe uma rodada em andamento. Aguarde alguns instantes e tente de novo.');
+  if (!(await iaConfigurada().catch(() => false))) throw new Error('A chave da OpenAI não está configurada.');
+  rodando = true;
+  try { return await rodarRegraAgendada(regra, 'manual'); } finally { rodando = false; }
 }
 
 // ── Gatilho webhook (fila em memória, um chamado por vez) ───────────────
@@ -282,5 +292,5 @@ function iniciar() {
 
 module.exports = {
   iniciar, garantirTabelas, lerEstado, gravarEstado, normalizarCondicoes, CONDICOES_PADRAO, ACOES, ABERTOS,
-  lerChamado, buscarCandidatos, motivoDeNaoCasar, executarNoChamado, textoDaAnalise, enfileirar, ticketDoPayload, cicloAgendado,
+  lerChamado, buscarCandidatos, motivoDeNaoCasar, executarNoChamado, textoDaAnalise, enfileirar, ticketDoPayload, cicloAgendado, rodarAgora,
 };
