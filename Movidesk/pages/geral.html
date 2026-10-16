@@ -1153,7 +1153,7 @@ html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-
     <div class="hrow c-1">
       <div data-card="horarios-de-pico" data-titulo="Horários de pico" class="chart-panel" id="pico-panel">
         <p class="chart-title">Horários de pico</p>
-        <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador). Clique numa célula para ver os chamados.</p>
+        <p class="chart-sub" style="text-align:left">Aberturas por dia da semana e hora (07h–19h, horário do navegador) na <b id="pico-sem">semana atual</b>. Clique numa célula para ver os chamados.</p>
         <div class="pico" id="pico-grid"></div>
       </div>
     </div>
@@ -1161,7 +1161,7 @@ html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-
     <div class="hrow c-1">
       <div data-card="horarios-de-pico-analistas" data-titulo="Horários de pico por analista" class="chart-panel" id="pico-an-panel">
         <p class="chart-title">Horários de pico por analista</p>
-        <p class="chart-sub" style="text-align:left">Aberturas dos chamados de cada responsável por hora (07h–19h, horário do navegador), ordenadas pelo total. Sem filtro de Serviço no menu, escolha o serviço aqui no card; com filtro no menu, ele é respeitado. Clique numa célula para ver os chamados.</p>
+        <p class="chart-sub" style="text-align:left">Aberturas dos chamados de cada responsável por hora (07h–19h, horário do navegador) na <b id="pico-an-sem">semana atual</b>, ordenadas pelo total. Sem filtro de Serviço no menu, escolha o serviço aqui no card; com filtro no menu, ele é respeitado. Clique numa célula para ver os chamados.</p>
         <div class="pico-an-filtro" id="pico-an-filtro" style="display:none"><label for="pico-an-serv">Serviço</label><select id="pico-an-serv" onchange="picoAnServ(this.value)"></select></div>
         <div id="pico-an-wrap"><div class="pico an" id="pico-an-grid"></div></div>
       </div>
@@ -2355,8 +2355,10 @@ function render(){
 
   renderClassChart(rowsFull);
   renderKpiExtras();
-  renderPico(rowsFull);
-  renderPicoAn(rowsFull);
+  // Horários de pico: sempre a SEMANA ATUAL (segunda 00h até agora), respeitando os filtros do menu (menos Ano/Mês).
+  _picoSem=rowsCtx.filter(r=>r.criado_em&&new Date(r.criado_em)>=inicioSemana());
+  renderPico(_picoSem);
+  renderPicoAn(_picoSem);
   renderTrendChart(rowsCtx);
   renderUrgTrendChart(rowsCtx);
   renderSlaEvolucao(rowsCtx);
@@ -3360,15 +3362,19 @@ function renderBacklogLista(vencidos){
   el.innerHTML=top.map(r=>`<button type="button" class="bk-item" title="${escAttr(r.assunto||'')} · vencido há ${diasVencido(r)} dia(s)" onclick="openTicketModal('${escAttr(r.ticket_id)}')"><i></i><span class="t">${esc(r.assunto||'Sem assunto')}</span><span class="r">${esc((r.responsavel||'—').split(' ')[0])}</span></button>`).join('');
 }
 
-// ── Horários de pico: aberturas por dia da semana x hora ───────────────
+// ── Horários de pico: aberturas por dia da semana x hora (semana atual) ───────────────
+let _picoSem=[];
+function inicioSemana(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d; }   // segunda-feira 00h local
+function rotuloSemana(){ const a=inicioSemana(), b=new Date(a.getTime()+6*864e5), f=d=>d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}); return `semana de ${f(a)} a ${f(b)}`; }
 const PICO_H0=7, PICO_H1=19, PICO_DIAS=[[1,'Seg'],[2,'Ter'],[3,'Qua'],[4,'Qui'],[5,'Sex'],[6,'Sáb'],[0,'Dom']];
 function renderPico(rows){
   const box=document.getElementById('pico-grid'); if(!box) return;
+  const rs=document.getElementById('pico-sem'); if(rs) rs.textContent=rotuloSemana();
   const n=PICO_H1-PICO_H0+1;
   const m={}; PICO_DIAS.forEach(([d])=>{ m[d]=Array(n).fill(0); });
   let max=0;
   rows.forEach(r=>{ if(!r.criado_em) return; const d=new Date(r.criado_em), h=d.getHours(); if(h<PICO_H0||h>PICO_H1) return; const v=++m[d.getDay()][h-PICO_H0]; if(v>max) max=v; });
-  if(!max){ box.style.display='block'; box.innerHTML='<p class="rec-vazio">Sem aberturas no período.</p>'; return; }
+  if(!max){ box.style.display='block'; box.innerHTML='<p class="rec-vazio">Sem aberturas na semana atual.</p>'; return; }
   box.style.display='';
   let h='<span></span>'+Array.from({length:n},(_,i)=>`<span class="h">${PICO_H0+i}h</span>`).join('');
   PICO_DIAS.forEach(([d,nome])=>{
@@ -3382,7 +3388,7 @@ function renderPico(rows){
 }
 function picoAbrir(dia,hora){
   const nome=(PICO_DIAS.find(x=>x[0]===dia)||[0,''])[1];
-  const l=_rowsFull.filter(r=>{ if(!r.criado_em) return false; const d=new Date(r.criado_em); return d.getDay()===dia&&d.getHours()===hora; });
+  const l=_picoSem.filter(r=>{ if(!r.criado_em) return false; const d=new Date(r.criado_em); return d.getDay()===dia&&d.getHours()===hora; });
   openDetailModal(`Aberturas: ${nome} às ${hora}h`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l);
 }
 
@@ -3395,6 +3401,7 @@ function picoAnServ(v){ _picoAnServ=v||''; renderPicoAn(_picoAnRows,true); }
 function renderPicoAn(rows,interno){
   const box=document.getElementById('pico-an-grid'); if(!box) return;
   if(!interno) _picoAnRows=rows;
+  const rs=document.getElementById('pico-an-sem'); if(rs) rs.textContent=rotuloSemana();
   const filtradoNoMenu=getMsValues('f-serv').length>0;
   const vert=r=>String(r.servico||'').split(' > ')[0].trim()||'Sem serviço';
   const fWrap=document.getElementById('pico-an-filtro'), sel=document.getElementById('pico-an-serv'), wrap=document.getElementById('pico-an-wrap');
@@ -3418,7 +3425,7 @@ function renderPicoAn(rows,interno){
     const v=++o.h[h-PICO_H0]; o.t++; if(v>max) max=v;
   });
   const nomes=Object.keys(por).sort((a,b)=>por[b].t-por[a].t||a.localeCompare(b,'pt-BR'));
-  if(!max){ box.style.display='block'; box.innerHTML='<p class="rec-vazio">Sem aberturas com analista no período.</p>'; return; }
+  if(!max){ box.style.display='block'; box.innerHTML='<p class="rec-vazio">Sem aberturas com analista na semana atual.</p>'; return; }
   box.style.display='';
   let h='<span></span>'+Array.from({length:n},(_,i)=>`<span class="h">${PICO_H0+i}h</span>`).join('')+'<span class="h">Total</span>';
   nomes.forEach(nome=>{
