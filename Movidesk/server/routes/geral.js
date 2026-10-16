@@ -623,18 +623,19 @@ const SLA_LIQUIDO_MAX_IDS = 3000;
 router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
   let ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : [])
     .map(i => String(i).trim()).filter(i => /^\d{1,18}$/.test(i)))];
-  if (!ids.length) return res.json({ minutos: {} });
+  const incluirAbertos = req.body?.incluirAbertos === true;
+  if (!ids.length) return res.json({ minutos: {}, abertos: {} });
   if (ids.length > SLA_LIQUIDO_MAX_IDS) {
     return res.status(400).json({ error: `Máximo de ${SLA_LIQUIDO_MAX_IDS} tickets por chamada` });
   }
   try {
     ids = await idsNoEscopo(await escopoDoRequest(req), ids);   // só o que o perfil pode ver (vertical)
-    if (!ids.length) return res.json({ minutos: {} });
+    if (!ids.length) return res.json({ minutos: {}, abertos: {} });
     const [tRes, aRes] = await Promise.all([
       db.query(
         `SELECT ticket_id::varchar AS id, createddate AS criado_em, resolved_in AS resolvido_em
          FROM silver.ticket
-         WHERE ticket_id = ANY($1::bigint[]) AND resolved_in IS NOT NULL`,
+         WHERE ticket_id = ANY($1::bigint[]) ${incluirAbertos ? '' : 'AND resolved_in IS NOT NULL'}`,
         [ids]
       ),
       db.query(
@@ -651,15 +652,16 @@ router.post('/sla-liquido', authMiddleware, requireTabAccess('movidesk'), async 
       acoesPorTicket.get(a.id).push({ createdDate: a.criado_em, status: a.status });
     }
     const cfg = await configSla();
-    const minutos = {};
+    const minutos = {}, abertos = {};
     for (const t of tRes.rows) {
-      const ini = parseData(t.criado_em), fim = parseData(t.resolvido_em);
+      const ini = parseData(t.criado_em), fim = parseData(t.resolvido_em) || (incluirAbertos ? new Date() : null);
       if (!ini || !fim) continue;
       // minutosLiquidos começa em "novo" na abertura e segue as mudanças de status das ações.
       const eventos = (acoesPorTicket.get(t.id) || []).map(a => ({ em: a.createdDate, status: a.status }));
-      minutos[t.id] = slaPolitica.minutosLiquidos(ini, fim, eventos, cfg);
+      // ainda aberto (só com incluirAbertos): tempo líquido até AGORA, devolvido à parte (muda a cada minuto; não pode ir para o cache do cliente)
+      (t.resolvido_em ? minutos : abertos)[t.id] = slaPolitica.minutosLiquidos(ini, fim, eventos, cfg);
     }
-    res.json({ minutos });
+    res.json({ minutos, abertos });
   } catch (error) {
     console.error('Erro ao calcular SLA líquido do painel geral:', error);
     res.status(500).json({ error: 'Erro ao calcular o tempo de solução' });

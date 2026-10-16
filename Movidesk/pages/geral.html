@@ -3671,7 +3671,7 @@ function renderRespChart(rows){
   if(!lista||!det) return;
   // Clique na linha: expande, logo abaixo, os tickets abertos no período desse responsável separados por urgência (de novo: recolhe).
   // O detalhe completo do período (abertos, resolvidos, SLA e comparação) continua num botão dentro da lista.
-  lista.addEventListener('click',e=>{
+  lista.addEventListener('click',async e=>{
     if(e.target.closest('.imp-exp-tr')) return;
     const tr=e.target.closest('tr[data-n]'); if(!tr) return;
     // recolhe: remove todas as linhas de expansão que vêm logo abaixo
@@ -3679,7 +3679,18 @@ function renderRespChart(rows){
       while(tr.nextElementSibling&&tr.nextElementSibling.classList.contains('imp-exp-tr')) tr.nextElementSibling.remove();
       tr.classList.remove('fixo'); return;
     }
+    if(tr._carregando) return;
     const nome=tr.dataset.n, agora=Date.now(), nc=tr.children.length;
+    const meus=_respRows.filter(r=>(r.responsavel||'Não informado')===nome);
+    // Tempo SEMPRE em horas úteis líquidas (regra do Hub: expediente, sem fim de semana/feriado/pausa), inclusive dos tickets ainda abertos
+    // (aí é o tempo líquido até agora, buscado na hora e sem cache). Nunca horas corridas.
+    tr._carregando=true; tr.classList.add('fixo');
+    let minAb={};
+    try{
+      const r=await fetch(`${API}/geral/sla-liquido`,{method:'POST',headers:{Authorization:`Bearer ${tok()}`,'Content-Type':'application/json'},body:JSON.stringify({ids:meus.map(x=>x.ticket_id),incluirAbertos:true})});
+      if(r.ok){ const d=await r.json(); Object.entries(d.minutos||{}).forEach(([i,m])=>{ _impactoMinutos[i]=m; }); minAb=d.abertos||{}; }
+    }catch(_){ /* sem o servidor: mostra sem tempo, em vez de horas corridas */ }
+    tr._carregando=false;
     // SLA cumprido DESTA urgência para o colaborador (mesma conta e mesmo visual da coluna "SLA cumprido": resolvidos do período com prazo ÷ dentro do prazo)
     const slaUrg=(resp,u)=>{
       const l=_rowsResolv.filter(r=>(r.responsavel||'Não informado')===resp&&(r.urgencia||'Sem urgência')===u&&elegivelSla(r)&&temMinutosSla(r));
@@ -3687,13 +3698,11 @@ function renderRespChart(rows){
       const ok=l.filter(dentroSla).length, pct=ok/l.length*100;
       return `<div class="rsp-sla" title="${ok.toLocaleString('pt-BR')} de ${l.length.toLocaleString('pt-BR')} resolvidos dentro do prazo"><span>${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span><span class="trilho"><i style="width:${pct}%;background:${pct>=90?cssVar('--green'):cssVar('--orange')}"></i></span></div>`;
     };
-    const itens=_respRows.filter(r=>(r.responsavel||'Não informado')===nome).map(r=>{
-      const fim=r.resolvido_em&&isResolvido(r)?new Date(r.resolvido_em).getTime():agora, horas=Math.max(0,(fim-new Date(r.criado_em).getTime())/36e5);
-      // Tempo pela régua do Hub (horas úteis líquidas: expediente, sem fim de semana/feriado/pausa) contra a meta da urgência, quando já calculado;
-      // senão, as horas corridas desde a abertura (rotuladas "corridas").
-      const meta=metaDe(r), liq=temMinutosSla(r)?_impactoMinutos[r.ticket_id]/60:null;
-      const c2=liq!=null&&meta!=null?`${fmtH(liq)} / ${meta}h`:`${fmtH(horas)} corridas`;
-      return {r,k:liq!=null?liq:horas,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2,cls2:liq!=null&&meta!=null&&liq>meta?'imp-pos':''};
+    const minDe=r=>minAb[r.ticket_id]!=null?minAb[r.ticket_id]:(_impactoMinutos[r.ticket_id]!=null?_impactoMinutos[r.ticket_id]:null);
+    const itens=meus.map(r=>{
+      const meta=metaDe(r), m=minDe(r), liq=m!=null?m/60:null;
+      const c2=liq==null?'—':meta!=null?`${fmtH(liq)} / ${meta}h`:`${fmtH(liq)} úteis`;
+      return {r,k:liq!=null?liq:-1,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2,cls2:liq!=null&&meta!=null&&liq>meta?'imp-pos':''};
     });
     tr.classList.add('fixo');
     // Uma linha por urgência, NAS MESMAS COLUNAS da tabela: o nome sob "Responsável" e "n · x%" sob "Abertos" (alinhado ao número/% do total).
@@ -3714,7 +3723,7 @@ function renderRespChart(rows){
         linhas[linhas.length-1].hidden=true;
       });
     }
-    linhas.push(mk(`<td colspan="${nc}" style="padding:2px 8px 0;font-size:11px;color:var(--t3)">Tempo de cada ticket: horas úteis líquidas (expediente, sem pausas) / meta de solução da urgência no SLA do Hub — Crítica 4h · Alta 8h · Média 16h · Baixa 24h (só Suporte Técnico). Sem prazo calculado, aparecem as horas corridas desde a abertura.</td>`));
+    linhas.push(mk(`<td colspan="${nc}" style="padding:2px 8px 0;font-size:11px;color:var(--t3)">Tempo de cada ticket: sempre em horas úteis líquidas (expediente, sem fim de semana, feriado nem pausas; nos abertos, até agora) / meta de solução da urgência no SLA do Hub — Crítica 4h · Alta 8h · Média 16h · Baixa 24h (só Suporte Técnico).</td>`));
     linhas.push(mk(`<td colspan="${nc}" style="padding:2px 8px 8px"><button type="button" class="mais" data-det="${escAttr(nome)}">Abrir o detalhe do período (abertos, resolvidos, SLA e comparação)</button></td>`));
     tr.after(...linhas);
     linhas.forEach(x=>{
