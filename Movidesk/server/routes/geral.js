@@ -623,6 +623,54 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
 });
 
 
+// ===== Campos do Movidesk como colunas do Painel TV =====
+// Catálogo dos campos conhecidos (a API do Movidesk não devolve o NOME dos campos personalizados; o resto aparece só pelo número).
+const CATALOGO_CAMPOS = {
+  23946: 'Classificação de Ticket', 22000: 'Tipo de Manifesto', 22003: 'Manifesto Procedente', 38595: 'Manifesto direcionado a',
+  24523: 'GCC - Locus Externo', 24986: 'GCC - Locus Interno', 26214: 'GCC - MRR', 26215: 'GCC - Data', 43724: 'GCC - Data Rescisão',
+  58049: 'GCC - Data Reversão', 59012: 'GCC - Real Motivo', 61982: 'GCC - Tipo de Locus', 87894: 'GCC - Tipo Rescisão',
+  216954: 'GCC - Tipo de Rescisão Parcial', 216958: 'GCC - Módulos', 98697: 'GCC - Verticais Insatisfação',
+  250810: 'Data Início Implantação (Analytics)', 26105: 'Valor do Orçamento (R$) (Analytics)',
+};
+let _camposCache = { ate: 0, v: null };
+// GET /geral/campos-movidesk — campos personalizados que existem nos chamados abertos (com quantos chamados têm valor) e o nome, quando conhecido
+router.get('/campos-movidesk', acessoPainelTv, async (req, res) => {
+  try {
+    if (_camposCache.v && Date.now() < _camposCache.ate) return res.json(_camposCache.v);
+    const closed = OPEN_EXCLUDED_STATUSES.map((x) => `'${x}'`).join(',');
+    const r = await db.query(`
+      SELECT cf.custom_field_id::text AS id, COUNT(DISTINCT cf.ticket_id)::int AS n
+        FROM silver.ticket_campo_customizado cf JOIN silver.ticket t ON t.ticket_id = cf.ticket_id
+       WHERE t.basestatus NOT IN (${closed}) AND NULLIF(btrim(cf.valor_texto), '') IS NOT NULL
+       GROUP BY 1 ORDER BY 2 DESC LIMIT 300`);
+    const vistos = new Set(r.rows.map((x) => x.id));
+    const campos = r.rows.map((x) => ({ id: x.id, nome: CATALOGO_CAMPOS[x.id] || null, n: x.n }));
+    Object.entries(CATALOGO_CAMPOS).forEach(([id, nome]) => { if (!vistos.has(id)) campos.push({ id, nome, n: 0 }); });
+    const v = { campos };
+    _camposCache = { ate: Date.now() + 10 * 60 * 1000, v };
+    res.json(v);
+  } catch (e) { console.error('[geral] campos-movidesk:', e.message); res.json({ campos: Object.entries(CATALOGO_CAMPOS).map(([id, nome]) => ({ id, nome, n: 0 })) }); }
+});
+// POST /geral/campos-valores { ids: [chamados], campos: [ids dos campos] } → { valores: { chamado: { campo: "valor" } } }
+router.post('/campos-valores', acessoPainelTv, async (req, res) => {
+  try {
+    let ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : []).map((i) => String(i).trim()).filter((i) => /^\d{1,18}$/.test(i)))];
+    const campos = [...new Set((Array.isArray(req.body?.campos) ? req.body.campos : []).map((i) => String(i).trim()).filter((i) => /^\d{1,12}$/.test(i)))].slice(0, 12);
+    if (!ids.length || !campos.length) return res.json({ valores: {} });
+    if (ids.length > 5000) return res.status(400).json({ error: 'Máximo de 5000 chamados por consulta' });
+    ids = await idsNoEscopo(await escopoDoRequest(req), ids);
+    if (!ids.length) return res.json({ valores: {} });
+    const r = await db.query(`
+      SELECT ticket_id::text AS id, custom_field_id::text AS campo, string_agg(DISTINCT NULLIF(btrim(valor_texto), ''), ', ') AS valor
+        FROM silver.ticket_campo_customizado
+       WHERE ticket_id = ANY($1::bigint[]) AND custom_field_id = ANY($2::bigint[])
+       GROUP BY 1, 2`, [ids, campos]);
+    const valores = {};
+    for (const x of r.rows) if (x.valor) (valores[x.id] = valores[x.id] || {})[x.campo] = x.valor;
+    res.json({ valores });
+  } catch (e) { console.error('[geral] campos-valores:', e.message); res.status(500).json({ error: 'Erro ao buscar os campos' }); }
+});
+
 // ===== POST /geral/sla-liquido =====
 // Tempo de SOLUÇÃO líquido de tickets já resolvidos: da abertura (createddate) até
 // a resolução (resolved_in), só em horário útil (seg-sex 07:45-12:00 e 13:30-18:00)
