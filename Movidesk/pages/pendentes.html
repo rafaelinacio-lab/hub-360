@@ -299,7 +299,7 @@ function quebra(titulo,tipo,f,chave,max){
 }
 function desenharMid(f){
   const el=document.getElementById('mid');
-  el.innerHTML=quebra('Por equipe','equipe',f,r=>r._equipe,5)+quebra('Por classificação','cls',f,r=>r._cls,5)+quebra('Por cliente · top 5','cliente',f,r=>r._cli,5)+quebra('Por responsável · top 5','resp',f,r=>r._resp,5);
+  el.innerHTML=quebra('Por cliente · top 5','cliente',f,r=>r._cli,5)+quebra('Por classificação','cls',f,r=>r._cls,5)+quebra('Por equipe','equipe',f,r=>r._equipe,5)+quebra('Por responsável · top 5','resp',f,r=>r._resp,5);
 }
 
 // ── modal com os chamados (ao clicar nos cards, na barra e nas linhas das quebras) ──
