@@ -388,7 +388,7 @@ function desenharColunas(){
   const disp=(CAMPOS_DISP||[]).filter(c=>!jaTem.has(c.id)&&(!q||semAc(`${c.id} ${c.nome||''}`).includes(q))).slice(0,40);
   const ehNumero=/^\d{1,12}$/.test(CAMPOS_BUSCA.trim())&&!jaTem.has(CAMPOS_BUSCA.trim());
   box.className='ms'+(aberto?' open':''); box.dataset.k='cols';
-  box.innerHTML=`<span class="pill" onclick="abrirMs('cols');carregarCamposDisp().then(desenharColunas)">Colunas ▾</span>
+  box.innerHTML=`<span class="pill" onclick="event.stopPropagation();abrirMs('cols');if(CAMPOS_DISP===null) carregarCamposDisp().then(desenharColunas)">Colunas ▾</span>
    <div class="dd" style="left:auto;right:0;width:340px" onclick="event.stopPropagation()">
      <div class="lst">
        <div class="col-sec">Colunas da fila</div>
