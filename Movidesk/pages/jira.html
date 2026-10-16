@@ -16,6 +16,38 @@
     })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// Gráficos de barras (todas as abas): o valor aparece em cima de cada barra; sem régua do eixo de valores e sem linhas de grade ao fundo.
+// Gráficos com muitas barras (> 60, ex.: Sprint por tarefa) ficam como estavam, porque não cabe número em cada barra.
+Chart.register({id:'valoresBarrasAuto',
+  _ok(chart){ return chart.config.type==='bar' && (chart.data.labels||[]).length<=60; },
+  _proprio(chart){ return (chart.config.plugins||[]).some(p=>p&&p.id&&p.id!=='valoresBarrasAuto'&&/Lbl|Labels|valorNasBarras/i.test(p.id)); },
+  beforeUpdate(chart){
+    if(!this._ok(chart)) return;
+    const horiz=chart.options.indexAxis==='y', eixoValor=horiz?'x':'y', sc=chart.options.scales||(chart.options.scales={});
+    Object.keys(sc).forEach(id=>{ const a=sc[id]; if(!a) return;
+      a.grid.display=false;   // sem as linhas de grade ao fundo
+      if(!id.startsWith(eixoValor)) return;
+      a.ticks.display=false; a.border.display=false;
+      if(!this._proprio(chart)&&a.grace==null) a.grace=horiz?'10%':'18%'; });
+    if(horiz&&!this._proprio(chart)){ const lp=chart.options.layout.padding, obj=(lp&&typeof lp==='object'), g=k=>obj?(+lp[k]||0):(+lp||0);
+      chart.options.layout.padding={top:g('top'),left:g('left'),bottom:g('bottom'),right:Math.max(38,g('right'))}; }
+  },
+  afterDatasetsDraw(chart){
+    if(!this._ok(chart)||this._proprio(chart)) return;
+    const ctx=chart.ctx, horiz=chart.options.indexAxis==='y', cor=Chart.defaults.color||'#9ca3af';
+    const fmt=v=>Number(v).toLocaleString('pt-BR',{maximumFractionDigits:1});
+    const denso=(chart.data.labels||[]).length*chart.data.datasets.length>40;
+    ctx.save(); ctx.fillStyle=cor; ctx.textBaseline='middle';
+    chart.data.datasets.forEach((ds,di)=>{ if(!chart.isDatasetVisible(di)) return; const meta=chart.getDatasetMeta(di);
+      meta.data.forEach((bar,i)=>{ const v=ds.data[i]; if(v==null||isNaN(+v)||+v===0) return; const txt=fmt(v);
+        if(horiz){ ctx.font='10px sans-serif'; ctx.textAlign='left'; ctx.fillText(txt,Math.max(bar.x,bar.base)+5,bar.y); }
+        else { const topo=Math.min(bar.y,bar.base); ctx.font=(denso?'8px':'10px')+' sans-serif';
+          if(ctx.measureText(txt).width>bar.width-1){ ctx.save(); ctx.translate(bar.x,topo-4); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillText(txt,0,0); ctx.restore(); }
+          else { ctx.textAlign='center'; ctx.fillText(txt,bar.x,topo-7); } } }); });
+    ctx.restore(); }
+});
+</script>
 <style>
 :root {
   --bg:      #f4f5f7; --bg2: #fff; --bg3: #f8f9fa;
@@ -283,7 +315,8 @@ tr.sel td{background:var(--info-bg)!important}
 </style>
 <script src="../js/ordenar-tabelas.js" defer></script>
 <link rel="stylesheet" href="../css/sem-animacao.css">
-<script src="../js/permExportar.js"></script></head>
+<script src="../js/permExportar.js"></script>
+</head>
 <body>
 
 <div class="panel" id="panel-root">
@@ -3973,18 +4006,36 @@ function renderTDC(){
              tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw} bugs`}}},
     scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},
             y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},beginAtZero:true}}};
-  if(cTDCTemporal) cTDCTemporal.destroy();
-  cTDCTemporal=new Chart(document.getElementById('chartTDCTemporal'),{
-    type:'bar',
-    data:{labels:MNS,datasets:[
-      {label:String(ANO_AT2),data:MKK.map(m=>byAt2t[m]||0),backgroundColor:'#a78bfa',borderRadius:3,borderWidth:0},
-      {label:String(ANO_ANT),data:MKK.map(m=>byAntt[m]||0),backgroundColor:'#6366f1',borderRadius:3,borderWidth:0},
-      {label:String(ANO_AT), data:MKK.map(m=>byAtt[m] ||0),backgroundColor:'#22c55e',borderRadius:3,borderWidth:0},
-    ]},
-    options:{...barOpts,
-      onClick:(e,els)=>{ if(!els.length) return; const y=[ANO_AT2,ANO_ANT,ANO_AT][els[0].datasetIndex], i=els[0].index; tdcAbrir(`Bugs externos — ${MNS[i]}/${y}`,t=>t.mes_ano===`${y}-${MKK[i]}`); },
-      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }}
-  });
+  // ── Barras por mês e ano, com o valor em cada barra e um grupo "Total" no final ──
+  // As barras de Total usam uma escala própria (eixo da direita) para não achatar as barras mensais.
+  const valorNasBarras={id:'valorNasBarras',afterDatasetsDraw(ch){
+    const ctx=ch.ctx; ctx.save(); ctx.fillStyle=tc; ctx.textBaseline='middle';
+    ch.data.datasets.forEach((ds,di)=>{ const meta=ch.getDatasetMeta(di); if(meta.hidden||!ch.isDatasetVisible(di)) return;
+      meta.data.forEach((bar,i)=>{ const v=ds.data[i]; if(v==null||v===0) return; const txt=String(v).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+        if(ds._total){ ctx.font='bold 11px sans-serif'; ctx.save(); ctx.translate(bar.x,bar.y-5); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillText(txt,0,0); ctx.restore(); }
+        else { ctx.font='9px sans-serif'; ctx.save(); ctx.translate(bar.x,bar.y-4); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillText(txt,0,0); ctx.restore(); } }); });
+    ctx.restore(); }};
+  const mkAnoBars=(canvasId,ref,mapas,titulo,predAno)=>{
+    if(ref) ref.destroy();
+    const anos=[ANO_AT2,ANO_ANT,ANO_AT], cores=['#a78bfa','#6366f1','#22c55e'];
+    const mensal=mapas.map(m=>MKK.map(k=>m[k]||0)), totais=mensal.map(a=>a.reduce((x,y)=>x+y,0));
+    const ds=[]; anos.forEach((y,n)=>ds.push({label:String(y),data:[...mensal[n],null],backgroundColor:cores[n],borderRadius:3,borderWidth:0,stack:'a'+n,yAxisID:'y'}));
+    anos.forEach((y,n)=>ds.push({label:'Total '+y,data:[...MKK.map(()=>null),totais[n]],backgroundColor:cores[n],borderRadius:3,borderWidth:0,stack:'a'+n,yAxisID:'y2',_total:true}));
+    return new Chart(document.getElementById(canvasId),{type:'bar',plugins:[valorNasBarras],
+      data:{labels:[...MNS,'Total'],datasets:ds},
+      options:{...barOpts,
+        plugins:{...barOpts.plugins,
+          legend:{labels:{color:tc,font:{size:10},usePointStyle:true,boxWidth:10,filter:it=>it.datasetIndex<3}},
+          tooltip:{filter:it=>it.raw!=null,callbacks:{label:c=>`${c.dataset.label}: ${c.raw} bugs`}}},
+        scales:{x:barOpts.scales.x,
+          y:{...barOpts.scales.y,grace:'14%',ticks:{display:false},border:{display:false}},   // sem a régua: os valores já estão nas barras
+          y2:{position:'right',display:false,beginAtZero:true,grace:'26%',grid:{display:false}}},
+        onClick:(e,els)=>{ if(!els.length) return; const y=anos[els[0].datasetIndex%3], i=els[0].index;
+          if(i===MKK.length) tdcAbrir(`${titulo} — total de ${y}`,t=>predAno(t,y));
+          else tdcAbrir(`${titulo} — ${MNS[i]}/${y}`,t=>predAno(t,y)&&t.mes_ano===`${y}-${MKK[i]}`); },
+        onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }}});
+  };
+  cTDCTemporal=mkAnoBars('chartTDCTemporal',cTDCTemporal,[byAt2t,byAntt,byAtt],'Bugs externos',(t,y)=>t.mes_ano&&+t.mes_ano.split('-')[0]===y);
 
   const bvAt2m={}, bvAntm={}, bvAtm={};
   filtradas.filter(t=>isVersao(t.bug_gerado)).forEach(t=>{
@@ -3994,18 +4045,7 @@ function renderTDC(){
     if(+y===ANO_ANT) bvAntm[m]=(bvAntm[m]||0)+1;
     if(+y===ANO_AT)  bvAtm[m] =(bvAtm[m] ||0)+1;
   });
-  if(cTDCLinha) cTDCLinha.destroy();
-  cTDCLinha=new Chart(document.getElementById('chartTDCLinha'),{
-    type:'bar',
-    data:{labels:MNS,datasets:[
-      {label:String(ANO_AT2),data:MKK.map(m=>bvAt2m[m]||0),backgroundColor:'#a78bfa',borderRadius:3,borderWidth:0},
-      {label:String(ANO_ANT),data:MKK.map(m=>bvAntm[m]||0),backgroundColor:'#6366f1',borderRadius:3,borderWidth:0},
-      {label:String(ANO_AT), data:MKK.map(m=>bvAtm[m] ||0),backgroundColor:'#22c55e',borderRadius:3,borderWidth:0},
-    ]},
-    options:{...barOpts,
-      onClick:(e,els)=>{ if(!els.length) return; const y=[ANO_AT2,ANO_ANT,ANO_AT][els[0].datasetIndex], i=els[0].index; tdcAbrir(`Bugs gerados em versões — ${MNS[i]}/${y}`,t=>isVersao(t.bug_gerado)&&t.mes_ano===`${y}-${MKK[i]}`); },
-      onHover:(e,els)=>{ e.native.target.style.cursor=els.length?'pointer':'default'; }}
-  });
+  cTDCLinha=mkAnoBars('chartTDCLinha',cTDCLinha,[bvAt2m,bvAntm,bvAtm],'Bugs gerados em versões',(t,y)=>isVersao(t.bug_gerado)&&t.mes_ano&&+t.mes_ano.split('-')[0]===y);
 
   document.getElementById('tdc-count').textContent=`${filtradas.length} bug${filtradas.length!==1?'s':''}`;
   renderTDCList(filtradas);
@@ -6441,9 +6481,8 @@ function vsRender(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
       <div><div id="dd-titulo" style="font-size:14px;font-weight:800"></div><div id="dd-count" style="font-size:11px;color:var(--text3);margin-top:2px"></div></div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <input id="dd-busca" type="text" placeholder="🔍 Buscar chave, resumo, responsável…" oninput="ddRender()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg3);color:var(--text);min-width:220px">
+        <input id="dd-busca" type="text" placeholder="🔍 Buscar chave, resumo, responsável…" oninput="DD.lim=5000;ddRender()" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg3);color:var(--text);min-width:220px">
         <button id="dd-voltar" onclick="ddVoltar()" style="display:none;padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">← Voltar</button>
-        <button onclick="ddCsv()" title="Baixar a lista (CSV, abre no Excel)" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">⬇️ CSV</button>
         <button onclick="ddFechar()" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">✕ Fechar</button>
       </div>
     </div>
@@ -6454,13 +6493,13 @@ function vsRender(){
 // ══ Detalhamento genérico: ddAbrir(titulo, itens, {cols, sort, voltar}) ══
 const DD_JIRA='https://nimitz.atlassian.net/browse/';
 let DD_FE=null;
-const DD={rows:[],col:'_d',dir:-1,titulo:'',voltar:null,cols:[],extra:null,soma:null,linhas:null};
+const DD={lim:5000,rows:[],col:'_d',dir:-1,titulo:'',voltar:null,cols:[],extra:null,soma:null,linhas:null};
 const ddDt=v=>{ if(!v) return null; if(v instanceof Date) return v; const d=new Date(String(v).slice(0,10)+'T00:00:00'); return isNaN(d)?null:d; };
 const ddEsc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ddFmt=d=>d?d.toLocaleDateString('pt-BR'):'—';
 function ddAbrir(titulo,itens,cfg){
   cfg=cfg||{}; const hoje=new Date();
-  DD.titulo=titulo; DD.voltar=cfg.voltar||null; DD.extra=cfg.extra||null; DD.soma=cfg.soma||null; DD.linhas=null;
+  DD.lim=5000; DD.titulo=titulo; DD.voltar=cfg.voltar||null; DD.extra=cfg.extra||null; DD.soma=cfg.soma||null; DD.linhas=null;
   // Dias: tarefa aberta → dias em aberto até hoje · resolvida → dias até resolver · fechada sem data conhecida → "—" (nunca conta como aberta)
   const FECHADAS=/^(finalizada|an[aá]lise reprovada|reprovada( pela an[aá]lise| an[aá]lise)?|bug reprovado|erro n[aã]o confirmado|tarefa abortada|cancelad[oa])$/i;
   const srcs=[window._FECHADOS_ITENS,window.ISSUES_RAW], kk=srcs.map(a=>(a||[]).length).join(':');   // datas de resolução conhecidas
@@ -6497,10 +6536,10 @@ function ddFiltradas(){
   return [...r].sort((a,b)=>{ const A=v(a),B=v(b); return (A<B?-1:A>B?1:0)*DD.dir; });
 }
 function ddRender(){
-  const LIM=5000, todas=ddFiltradas(), rows=todas.slice(0,LIM), seta=c=>DD.col===c?(DD.dir>0?' ▲':' ▼'):'';
+  const LIM=DD.lim, todas=ddFiltradas(), rows=todas.slice(0,LIM), seta=c=>DD.col===c?(DD.dir>0?' ▲':' ▼'):'';
   document.getElementById('dd-titulo').textContent=DD.titulo;
   const somaTxt=DD.soma?' · '+todas.reduce((a,r)=>a+(+r[DD.soma[0]]||0),0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' '+DD.soma[1]:'';
-  document.getElementById('dd-count').textContent=todas.length.toLocaleString('pt-BR')+' '+(DD.linhas?DD.linhas:'tarefa')+(todas.length===1?'':'s')+somaTxt+(todas.length>LIM?` · mostrando as primeiras ${LIM.toLocaleString('pt-BR')} (use a busca ou baixe o CSV para ver todas)`:'');
+  document.getElementById('dd-count').textContent=todas.length.toLocaleString('pt-BR')+' '+(DD.linhas?DD.linhas:'tarefa')+(todas.length===1?'':'s')+somaTxt+(todas.length>LIM?` · mostrando ${LIM.toLocaleString('pt-BR')} (use "Mostrar mais" no fim da lista)`:'');
   const cel=(r,k)=>{ const v=r[k];
     if(k==='chave'&&!DD.linhas) return `<td style="font-family:monospace;white-space:nowrap"><a href="${DD_JIRA}${encodeURIComponent(v)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">${ddEsc(v)}</a></td>`;
     if(k==='summary') return `<td title="${ddEsc(v)}">${ddEsc((v||'').slice(0,80))}${(v||'').length>80?'…':''}</td>`;
@@ -6513,14 +6552,9 @@ function ddRender(){
     if(typeof v==='number') return `<td class="r">${v.toLocaleString('pt-BR',{maximumFractionDigits:1})}</td>`;
     return `<td style="white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis" title="${ddEsc(v)}">${ddEsc(v)||'—'}</td>`; };
   document.getElementById('dd-tab').innerHTML='<thead style="position:sticky;top:0;z-index:2"><tr>'+DD.cols.map(([k,l])=>`<th ${k==='_d'||k==='pontos'?'class="r" ':''}onclick="ddOrd('${k}')" style="cursor:pointer;white-space:nowrap;user-select:none">${l}${seta(k)}</th>`).join('')+'</tr></thead><tbody>'+
-    (rows.length?rows.map(r=>'<tr>'+DD.cols.map(([k])=>cel(r,k)).join('')+'</tr>').join(''):`<tr><td colspan="${DD.cols.length}" style="padding:18px;text-align:center;color:var(--text3)">Nenhuma tarefa neste grupo.</td></tr>`)+'</tbody>';
+    (rows.length?rows.map(r=>'<tr>'+DD.cols.map(([k])=>cel(r,k)).join('')+'</tr>').join('')+(todas.length>LIM?`<tr><td colspan="${DD.cols.length}" style="text-align:center;padding:12px"><button onclick="ddMais()" style="padding:6px 16px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);cursor:pointer;font-size:12px">Mostrar mais ${Math.min(5000,todas.length-LIM).toLocaleString('pt-BR')} (faltam ${(todas.length-LIM).toLocaleString('pt-BR')})</button></td></tr>`:''):`<tr><td colspan="${DD.cols.length}" style="padding:18px;text-align:center;color:var(--text3)">Nenhuma tarefa neste grupo.</td></tr>`)+'</tbody>';
 }
-function ddCsv(){
-  const rows=ddFiltradas(), cols=DD.cols, q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
-  const val=(r,k)=>{ const v=r[k]; return v instanceof Date?v.toLocaleDateString('pt-BR'):v; };
-  const csv='\ufeff'+[cols.map(([,l])=>q(l)).join(';'),...rows.map(r=>cols.map(([k])=>q(val(r,k))).join(';'))].join('\r\n');
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=(DD.titulo.replace(/[^\wÀ-ÿ]+/g,'_').slice(0,60)||'tarefas')+'.csv'; a.click(); URL.revokeObjectURL(a.href);
-}
+function ddMais(){ DD.lim+=5000; ddRender(); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') ddFechar(); });
 </script>
 <script>
