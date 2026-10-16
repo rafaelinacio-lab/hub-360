@@ -55,6 +55,7 @@ html,body{overflow-x:hidden}
 table.fixa{table-layout:fixed;width:100%}
 table.fixa td,table.fixa th{overflow:hidden;text-overflow:ellipsis}
 table.fixa td b{white-space:nowrap}
+table.fixa td .bk-pz{overflow:visible;padding:4px 9px;font-size:11.5px}
 table.fixa td.cl b,table.fixa td.cl small{display:block;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 table.fixa .av{min-width:0}table.fixa .av>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}table.fixa .av small{overflow:hidden;text-overflow:ellipsis}
 table.fixa .bk-ua{min-width:0;flex-wrap:nowrap}table.fixa .bk-ua>div{flex:none}table.fixa .bk-ua>small{flex:1;min-width:0}
@@ -430,7 +431,7 @@ const COLS_BASE=[
  {k:'id',t:'Chamado',w:7,fixa:true,ord:'id',cel:r=>`<td class="id"><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a></td>`},
  {k:'cli',t:'Cliente · assunto',w:19,ord:'cli',cel:r=>`<td class="cl"><b title="${esc(r._cli)}">${esc(r._cli)}</b><small title="${esc(r.assunto)}">${esc(r.assunto||'—')}</small></td>`},
  {k:'resp',t:'Responsável',w:14,ord:'resp',cel:r=>`<td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>`},
- {k:'prz',t:'Prazo',w:7,ord:'prz',cel:r=>`<td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span></td>`},
+ {k:'prz',t:'Prazo',w:11,ord:'prz',cel:r=>`<td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span></td>`},
  {k:'ab',t:'Aberto',w:8.5,ord:'ab',cel:r=>`<td><b>${hTxt(dEsp(r))}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${diasCorridos(dEsp(r))}</small></td>`},
  {k:'venc',t:'Vencimento',w:14,ord:'venc',cel:r=>`<td>${(()=>{ const v=vencimento(r); return `<b style="color:${v.c}">${esc(v.t)}</b>${v.s?`<small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:normal;overflow:visible">${esc(v.s)}</small>`:''}`; })()}</td>`},
  {k:'ua',t:'Última ação',w:27,ord:'ua',cel:r=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
@@ -453,11 +454,11 @@ function salvarColunas(){ try{ localStorage.setItem('hub_tv_cols',JSON.stringify
 const fmtCf=v=>{ if(v==null||v==='') return ''; const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); if(!m) return String(v); return (m[4]==='00'&&m[5]==='00')?`${m[3]}/${m[2]}/${m[1]}`:`${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`; };
 const cfAtivos=()=>CF_COLS.filter(c=>c.on);
 function colunasVisiveis(){
-  const base=COLS_BASE.filter(c=>c.fixa||!COLS_OFF.has(c.k)), cf=cfAtivos().map(c=>({k:`cf:${c.id}`,t:c.nome,w:11,ord:`cf:${c.id}`,cf:c.id,cel:r=>{ const v=fmtCf((r._cf||{})[c.id]); return `<td title="${esc(v||'')}">${v?esc(v):'<span style="color:var(--t3)">—</span>'}</td>`; }}));
+  const base=COLS_BASE.filter(c=>c.fixa||!COLS_OFF.has(c.k)), cf=cfAtivos().map(c=>({k:`cf:${c.id}`,t:c.nome,w:10,ord:`cf:${c.id}`,cf:c.id,cel:r=>{ const v=fmtCf((r._cf||{})[c.id]); return `<td title="${esc(v||'')}">${v?esc(v):'<span style="color:var(--t3)">—</span>'}</td>`; }}));
   const i=base.findIndex(c=>c.k==='ua'); return i<0?[...base,...cf]:[...base.slice(0,i),...cf,...base.slice(i)];
 }
 const colgrupo=cols=>{ const tot=cols.reduce((a,c)=>a+c.w,0); return '<colgroup>'+cols.map(c=>`<col style="width:${(c.w/tot*100).toFixed(2)}%">`).join('')+'</colgroup>'; };
-const thCol=c=>c.k==='prz'?`<th class="ord ${SIT_FILTRO?'on':''}" onclick="cicloPrazo()" title="Clique para ver cada situação do prazo, uma por vez">Prazo${SIT_FILTRO?`: ${SIT[SIT_FILTRO][0]} <span class="ar">✕</span>`:' <span class="ar">⇅</span>'}</th>`:c.ord?`<th class="ord ${ORD.k===c.ord?'on':''}" onclick="ordenar('${c.ord}')" title="Clique para ordenar">${esc(c.t)}${ORD.k===c.ord?`<span class="ar">${ORD.d<0?'▼':'▲'}</span>`:''}</th>`:`<th>${esc(c.t)}</th>`;
+const thCol=c=>c.k==='prz'?`<th class="ord ${SIT_FILTRO?'on':''}" onclick="cicloPrazo()" title="Clique para ver cada situação do prazo, uma por vez">${SIT_FILTRO?`${({venc:'Vencido',breve:'Em breve',prazo:'No prazo',paus:'Pausado',fora:'Sem prazo'})[SIT_FILTRO]} <span class="ar">✕</span>`:'Prazo'}${SIT_FILTRO?'':' <span class="ar">⇅</span>'}</th>`:c.ord?`<th class="ord ${ORD.k===c.ord?'on':''}" onclick="ordenar('${c.ord}')" title="Clique para ordenar">${esc(c.t)}${ORD.k===c.ord?`<span class="ar">${ORD.d<0?'▼':'▲'}</span>`:''}</th>`:`<th>${esc(c.t)}</th>`;
 const thFila=cols=>'<thead><tr>'+cols.map(thCol).join('')+'</tr></thead>';
 const linhaChamado=cols=>(r,i)=>`<tr>${cols.map(c=>c.cel(r,i)).join('')}</tr>`;
 // valores dos campos do Movidesk (uma consulta por atualização, em lotes)
