@@ -193,23 +193,29 @@ async function cicloAgendado() {
   } finally { rodando = false; }
 }
 
-async function rodarRegraAgendada(regra) {
-  const c = normalizarCondicoes(regra.condicoes);
-  const resumo = { candidatos: 0, processados: 0, ignorados: 0 };
-  // Pré-filtro no SQL (barato): abertos, criados na janela e ainda não tratados por esta regra. O resto das condições é conferido em memória.
+// Chamados abertos, criados na janela, que atendem às condições e ainda não foram tratados pela regra (regraId pode ser null na prévia).
+async function buscarCandidatos(c, regraId, origem = 'agendado') {
   const cand = await db.query(`
     SELECT t.ticket_id::text AS id, t.subject, t.status, t.basestatus, t.urgency, t.ownerteam, t.service_full, t.createddate,
            (SELECT string_agg(DISTINCT cf.valor_texto, ', ') FROM silver.ticket_campo_customizado cf
              WHERE cf.ticket_id = t.ticket_id::bigint AND cf.custom_field_id::text = '${CF_CLASSIFICACAO}') AS classificacao
       FROM silver.ticket t
      WHERE t.basestatus = ANY($1) AND t.createddate >= NOW() - ($2 || ' days')::interval
-       AND NOT EXISTS (SELECT 1 FROM public.automacao_execucao e WHERE e.automacao_id = $3 AND e.ticket_id = t.ticket_id::bigint)
-     ORDER BY t.createddate DESC LIMIT 500`, [ABERTOS, String(c.criadoUltimosDias), regra.id]);
-  resumo.candidatos = cand.rows.length;
+       AND ($3::int IS NULL OR NOT EXISTS (SELECT 1 FROM public.automacao_execucao e WHERE e.automacao_id = $3 AND e.ticket_id = t.ticket_id::bigint))
+     ORDER BY t.createddate DESC LIMIT 2000`, [ABERTOS, String(c.criadoUltimosDias), regraId]);
+  return { total: cand.rows.length, casam: cand.rows.filter((t) => !motivoDeNaoCasar(t, c, origem)) };
+}
+
+async function rodarRegraAgendada(regra) {
+  const c = normalizarCondicoes(regra.condicoes);
+  const resumo = { candidatos: 0, processados: 0, ignorados: 0 };
+  // Pré-filtro no SQL (barato): abertos, criados na janela e ainda não tratados por esta regra. O resto das condições é conferido em memória.
+  const { total, casam } = await buscarCandidatos(c, regra.id);
+  resumo.candidatos = total; resumo.ignorados = total - casam.length;
+  const cand = { rows: casam };
   const limite = Math.max(1, Math.min(50, regra.max_por_ciclo || 10));
   for (const t of cand.rows) {
     if (resumo.processados >= limite) break;
-    if (motivoDeNaoCasar(t, c, 'agendado')) { resumo.ignorados++; continue; }
     const r = await executarNoChamado(regra, t, 'agendado');
     if (r.status !== 'ja_tratado') resumo.processados++;
   }
@@ -276,5 +282,5 @@ function iniciar() {
 
 module.exports = {
   iniciar, garantirTabelas, lerEstado, gravarEstado, normalizarCondicoes, CONDICOES_PADRAO, ACOES, ABERTOS,
-  lerChamado, motivoDeNaoCasar, executarNoChamado, textoDaAnalise, enfileirar, ticketDoPayload, cicloAgendado,
+  lerChamado, buscarCandidatos, motivoDeNaoCasar, executarNoChamado, textoDaAnalise, enfileirar, ticketDoPayload, cicloAgendado,
 };

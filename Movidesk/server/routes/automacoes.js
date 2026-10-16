@@ -62,6 +62,9 @@ function lerRegra(b) {
     max_por_ciclo: Math.min(50, Math.max(1, Math.round(Number(b.max_por_ciclo) || 10))),
   };
   if (!regra.nome) return { erro: 'Dê um nome à automação.' };
+  // Trava de segurança: gravar de verdade exige delimitar o alcance (equipe, serviço ou classificação); sem isso a regra pegaria TODOS os abertos.
+  const c = regra.condicoes;
+  if (regra.ativo && regra.modo === 'ativo' && !(c.equipes.length || c.servicos.length || c.classificacoes.length)) return { erro: 'Para gravar de verdade, informe ao menos uma Equipe, um Serviço ou uma Classificação — sem isso a regra valeria para todos os chamados abertos.' };
   if (regra.modo === 'ativo' && !regra.agente_id) return { erro: 'Para gravar de verdade no Movidesk, escolha o agente em nome de quem a nota será registrada.' };
   return { regra };
 }
@@ -201,6 +204,15 @@ router.get('/equipes', async (req, res) => {
     const r = await db.query(`SELECT ownerteam AS v FROM silver.ticket WHERE ownerteam IS NOT NULL AND ownerteam <> '' AND createddate >= NOW() - INTERVAL '12 months' GROUP BY 1 ORDER BY 1 LIMIT 300`);
     res.json({ equipes: r.rows.map((x) => x.v) });
   } catch (e) { res.status(500).json({ error: 'Erro ao listar as equipes' }); }
+});
+
+// Prévia: quantos chamados abertos atendem às condições AGORA (e alguns exemplos). Não grava nada.
+router.post('/previa', async (req, res) => {
+  try {
+    const c = au.normalizarCondicoes(req.body?.condicoes);
+    const { total, casam } = await au.buscarCandidatos(c, idOk(req.body?.id), req.body?.gatilho === 'webhook' ? 'webhook' : 'agendado');
+    res.json({ janela: total, casam: casam.length, exemplos: casam.slice(0, 8).map((t) => ({ id: t.id, assunto: t.subject, equipe: t.ownerteam, classificacao: t.classificacao })) });
+  } catch (e) { res.status(500).json({ error: 'Erro ao calcular a prévia' }); }
 });
 
 router.get('/urgencias', async (req, res) => {

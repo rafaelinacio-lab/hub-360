@@ -144,6 +144,7 @@ async function auFormulario() {
             <datalist id="auLista_${k}">${(AU.listas[k] || []).map((x) => `<option value="${auEsc(x)}">`).join('')}</datalist></div>`).join('')}
           <label>Somente chamados criados nos últimos <input type="number" id="auDias" class="config-input" style="width:80px" min="1" max="30" value="${c.criadoUltimosDias || 3}"> dia(s)
             <span class="config-card-help">(proteção: a automação não mexe em chamado antigo)</span></label></div>
+        <div><button class="config-btn config-btn-muted" type="button" onclick="auPrevia()">Ver quantos chamados atendem agora</button> <div id="auPreviaTxt" class="config-card-help" style="margin-top:6px"></div></div>
         <select id="auAgente" class="config-input"><option value="">— Agente autor da nota (obrigatório para gravar de verdade) —</option>
           ${AU.agentes.map((a) => `<option value="${auEsc(a.id)}" ${a.id === r.agente_id ? 'selected' : ''}>${auEsc(a.nome)}</option>`).join('')}</select>
         ${AU.erroAgentes ? `<p class="config-status error">${auEsc(AU.erroAgentes)}</p>` : ''}
@@ -170,16 +171,41 @@ function auGatilhoMudou() {
         ? 'O Hub consulta o banco (atualizado pela carga a cada 15 min) e age nos chamados abertos que atendem às condições e ainda não foram tratados por esta automação.'
         : 'Ao salvar, o Hub gera um endereço secreto (aparece na lista abaixo). No Movidesk, crie um gatilho/automação de “chamado novo” que faça uma requisição <b>POST</b> nesse endereço com o número do chamado (campo <code>id</code> no JSON, ou <code>?id=</code> na URL). O Hub responde na hora e processa em fila.';
 }
+// Texto digitado nos campos de lista e não confirmado com Enter também conta (antes era descartado em silêncio).
+function auAbsorverPendentes() {
+    for (const [k] of AU_CAMPOS) {
+        const inp = document.getElementById(`auIn_${k}`), v = inp && inp.value.trim();
+        if (v && !AU.editando.condicoes[k].includes(v)) AU.editando.condicoes[k].push(v);
+        if (inp) inp.value = '';
+        auChips(k);
+    }
+}
+function auCondicoesDoForm() {
+    auAbsorverPendentes();
+    return { ...AU.editando.condicoes, status: [...document.querySelectorAll('.auSt:checked')].map((x) => x.value), criadoUltimosDias: Number(document.getElementById('auDias').value), abertoHaMinHoras: Number(document.getElementById('auMinH').value) };
+}
+async function auPrevia() {
+    const alvo = document.getElementById('auPreviaTxt');
+    alvo.textContent = 'Calculando…';
+    try {
+        const d = await auApi('/previa', 'POST', { condicoes: auCondicoesDoForm(), id: AU.editando.id, gatilho: document.getElementById('auGatilho').value });
+        alvo.innerHTML = `<b>${d.casam}</b> chamado(s) aberto(s) atendem a estas condições agora (de ${d.janela} abertos na janela de dias).` + (d.exemplos.length ? '<br>' + d.exemplos.map((e) => `#${auEsc(e.id)} — ${auEsc(e.equipe || 'sem equipe')} — ${auEsc((e.assunto || '').slice(0, 70))}`).join('<br>') : '');
+        return d;
+    } catch (e) { alvo.textContent = e.message; return null; }
+}
 async function auSalvar() {
     const r = AU.editando, st = document.getElementById('auFormStatus');
     const sel = document.getElementById('auAgente');
     const corpo = {
         nome: document.getElementById('auNome').value, acao: document.getElementById('auAcao').value, gatilho: document.getElementById('auGatilho').value,
         intervalo_min: Number(document.getElementById('auIntervalo').value), max_por_ciclo: Number(document.getElementById('auMax').value),
-        condicoes: { ...r.condicoes, status: [...document.querySelectorAll('.auSt:checked')].map((x) => x.value), criadoUltimosDias: Number(document.getElementById('auDias').value), abertoHaMinHoras: Number(document.getElementById('auMinH').value) },
+        condicoes: auCondicoesDoForm(),
         agente_id: sel.value, agente_nome: sel.value ? sel.options[sel.selectedIndex].text : '', modo: document.getElementById('auModo').value, ativo: document.getElementById('auAtivo').checked,
     };
-    if (corpo.modo === 'ativo' && corpo.ativo && !confirm('Esta automação vai gravar notas internas de verdade nos chamados do Movidesk que atenderem às condições. Confirmar?')) return;
+    if (corpo.modo === 'ativo' && corpo.ativo) {
+        const d = await auPrevia();
+        if (!d || !confirm(`Esta automação vai gravar notas internas de verdade em até ${d.casam} chamado(s) abertos que atendem às condições agora (e nos próximos que chegarem), ${corpo.gatilho === 'agendado' ? `no máximo ${corpo.max_por_ciclo} a cada ${corpo.intervalo_min} min` : 'via webhook'}. Confirmar?`)) return;
+    }
     try { await auApi(r.id ? `/regras/${r.id}` : '/regras', r.id ? 'PUT' : 'POST', corpo); await automacoesCarregar(); }
     catch (e) { st.className = 'config-status error'; st.textContent = e.message; }
 }
