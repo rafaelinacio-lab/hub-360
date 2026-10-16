@@ -148,6 +148,10 @@ function enriquecer(r){
   const meta=Number(r.sla_meta_h)||0, aberto=Number(r.sla_aberto_min)||0;
   r._rest=meta?meta*60-aberto:null;   // minutos úteis restantes (negativo = excesso)
   r._sit=r.sla_hub==='vencido'?'venc':r.sla_hub==='pausado'?'paus':r.sla_hub==='no_prazo'?(r._rest!=null&&r._rest<=BREVE_MIN?'breve':'prazo'):'fora';
+  // Fora da régua do Hub (equipe sem "Suporte" no nome, cliente interno…) mas COM previsão de solução no Movidesk: vale o prazo do Movidesk
+  // (mesma regra da tela Início): parado = pausado; previsão passada = vencido; senão, no prazo. "Sem prazo" só quando não há previsão.
+  r._mdk=false;
+  if(r._sit==='fora'&&r.sla_solucao){ r._mdk=true; r._sit=r.base_status==='Stopped'?'paus':ms(r.sla_solucao)<agora?'venc':'prazo'; }
   r._dAb=Math.max(0,Math.floor((agora-ms(r.criado_em))/864e5));
   const pub=Math.max(ms(r.ultima_publica_agente),ms(r.ultima_publica_cliente))||ms(r.criado_em);
   r._ret=Math.max(0,Math.floor((agora-pub)/864e5));
@@ -157,7 +161,8 @@ function enriquecer(r){
 }
 const SIT={venc:['Vencido','var(--red)'],breve:['Vence em breve','var(--am)'],paus:['Pausado','var(--gy)'],prazo:['No prazo','var(--gr)'],fora:['Sem prazo','#a3acb9']};
 const hUteis=m=>{ const h=Math.abs(m)/60; return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h úteis`; };
-const prazoTxt=r=>r._sit==='venc'?(r._rest!=null?`há ${hUteis(r._rest)}`:''):(r._sit==='breve'||r._sit==='prazo')&&r._rest!=null?`${hUteis(r._rest)} restantes`:r._sit==='paus'?'relógio parado':r.sla_solucao?`previsão ${new Date(r.sla_solucao).toLocaleDateString('pt-BR')}`:'—';
+const dtMdk=r=>new Date(r.sla_solucao).toLocaleDateString('pt-BR');
+const prazoTxt=r=>r._mdk?(r._sit==='paus'?'relógio parado · prazo do Movidesk':`${r._sit==='venc'?'venceu em':'previsão'} ${dtMdk(r)} · prazo do Movidesk`):r._sit==='venc'?(r._rest!=null?`há ${hUteis(r._rest)}`:''):(r._sit==='breve'||r._sit==='prazo')&&r._rest!=null?`${hUteis(r._rest)} restantes`:r._sit==='paus'?'relógio parado':r.sla_solucao?`previsão ${new Date(r.sla_solucao).toLocaleDateString('pt-BR')}`:'—';
 
 // ── filtros (multi-seleção, com "Selecionar todos"; Ano e Mês começam no atual) ──
 const DIM=[['equipe','Equipe',r=>r._equipe],['resp','Responsável',r=>r._resp],['serv','Serviço',r=>r._serv],['cli','Cliente',r=>r._cli],['cls','Classificação',r=>r._cls],['ano','Ano',r=>r._ano==null?'':String(r._ano)],['mes','Mês',r=>r._mes==null?'':String(r._mes)]];

@@ -146,6 +146,8 @@ function cat(r){
   if(h==='vencido') return 'venc';
   if(h==='pausado') return 'paus';
   if(h==='no_prazo'){ const rest=(Number(r.sla_meta_h)||0)*60-(Number(r.sla_aberto_min)||0); return rest<=BREVE_MIN?'breve':'prazo'; }
+  // fora da régua do Hub, mas com previsão de solução no Movidesk: vale o prazo do Movidesk (parado = pausado; passada = vencido; senão no prazo)
+  if(r.sla_solucao) return r.base_status==='Stopped'?'paus':new Date(r.sla_solucao).getTime()<Date.now()?'venc':'prazo';
   return 'fora';
 }
 const COR={venc:'var(--venc)',breve:'var(--breve)',paus:'var(--paus)',prazo:'var(--prazo)',fora:'var(--fora)'};
