@@ -238,8 +238,8 @@ function enriquecer(r){
 const DIM=[['equipe','Equipe',r=>r._equipe],['resp','Responsável',r=>r._resp],['serv','Serviço',r=>r._serv],['cli','Cliente',r=>r._cli],['cls','Classificação',r=>r._cls]];
 let SEL={};
 const padraoSel=()=>{ const s={}; DIM.forEach(([k])=>s[k]=new Set()); return s; };
-function lerVisao(){ try{ const v=JSON.parse(localStorage.getItem('hub_pendentes_visao')||'null'); if(!v) return null; const s=padraoSel(); DIM.forEach(([k])=>{ if(Array.isArray(v[k])) s[k]=new Set(v[k].map(String)); }); return s; }catch{ return null; } }
-function salvarVisao(){ try{ const o={}; DIM.forEach(([k])=>o[k]=[...SEL[k]]); localStorage.setItem('hub_pendentes_visao',JSON.stringify(o)); aviso('Visão salva neste navegador.'); }catch{} }
+function lerVisao(){ try{ const v=JSON.parse(localStorage.getItem('hub_pendentes_visao')||'null'); if(!v) return null; const s=padraoSel(); DIM.forEach(([k])=>{ if(k!=='serv'&&Array.isArray(v[k])) s[k]=new Set(v[k].map(String)); }); return s; }catch{ return null; } }   // Serviço nunca vem pré-filtrado: só por link (?vertical=) ou escolhido na hora
+function salvarVisao(){ try{ const o={}; DIM.forEach(([k])=>{ if(k!=='serv') o[k]=[...SEL[k]]; }); localStorage.setItem('hub_pendentes_visao',JSON.stringify(o)); aviso('Visão salva neste navegador.'); }catch{} }
 function aviso(t){ const e=document.getElementById('erro'); e.textContent=t; e.style.display='block'; e.style.background='var(--grbg)'; e.style.color='var(--gr)'; setTimeout(()=>{e.style.display='none';},2500); }
 function rotuloDim(k,v){ return k==='mes'?MESES[Number(v)-1]||v:v; }
 const passa=(r,exceto)=>visaoOk(r)&&DIM.every(([k,,f])=>k===exceto||!SEL[k].size||SEL[k].has(f(r)));
