@@ -926,7 +926,8 @@ router.get('/sla-evolucao', authMiddleware, requireTabAccess('movidesk'), async 
       const lista = (v) => (Array.isArray(v) ? v.slice(0, 200).map((x) => String(x).slice(0, 200)) : []);
       if (j && typeof j === 'object') { fl = { equipe: lista(j.equipe), resp: lista(j.resp), serv: lista(j.serv), cli: lista(j.cli), cls: lista(j.cls), status: lista(j.status) }; if (!Object.values(fl).some((a) => a.length)) fl = null; }
     } catch { fl = null; }
-    const chaveF = fl ? ':f=' + require('crypto').createHash('sha1').update(JSON.stringify(fl)).digest('hex').slice(0, 12) : '';
+    const visaoSt = String(req.query.v || '') === 'st';   // visão Suporte Técnico do painel: além da classificação e da equipe, a CATEGORIA do chamado também é Suporte Técnico
+    const chaveF = (visaoSt ? ':v=st' : '') + (fl ? ':f=' + require('crypto').createHash('sha1').update(JSON.stringify(fl)).digest('hex').slice(0, 12) : '');
     await cacheResposta.responder(req, res, 'sla-evo:12' + chaveEscopo(esc) + chaveF, CACHE_PAINEL_MS, async () => {
       const b = new Date(Date.now() - 3 * 3600 * 1000);   // relógio de Brasília em campos UTC
       const meses = [];
@@ -938,7 +939,7 @@ router.get('/sla-evolucao', authMiddleware, requireTabAccess('movidesk'), async 
       const r = await db.query(`
         SELECT t.ticket_id::text AS ticket_id, to_char(t.resolved_in AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') AS mk,
                t.urgency AS urgencia, t.ownerteam AS equipe, t.service_full AS servico, cf.valor_texto AS classificacao,
-               t.owner_name AS responsavel, tc.organizacao_nome AS organizacao,
+               t.owner_name AS responsavel, tc.organizacao_nome AS organizacao, t.category AS categoria,
                COALESCE(cl.fora_sla, false) AS sla_fora_cliente, sl.minutos
           FROM silver.ticket t
           LEFT JOIN silver.ticket_organizacao tc ON tc.ticket_id = t.ticket_id
@@ -957,6 +958,7 @@ router.get('/sla-evolucao', authMiddleware, requireTabAccess('movidesk'), async 
       for (const x of filtrarEscopo(esc, r.rows || [])) {
         const o = por.get(x.mk);
         if (!o || !passa(x) || !slaHub.elegivel(x)) continue;
+        if (visaoSt && String(x.categoria || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() !== 'suporte tecnico') continue;
         o.total++;
         if (x.minutos / 60 <= slaHub.metaDe(x.urgencia)) o.dentro++; else o.fora.push(x.ticket_id);
       }

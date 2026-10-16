@@ -3035,9 +3035,9 @@ async function renderSlaEvolucao(rows){
   let evo;
   try{
     const fl={equipe:getMsValues('f-equipe'),resp:getMsValues('f-resp'),serv:getMsValues('f-serv'),cli:getMsValues('f-cliente'),cls:getMsValues('f-class'),status:getMsValues('f-status')};
-    const fq=Object.values(fl).some(a=>a.length)?JSON.stringify(fl):'';
+    const fq0=Object.values(fl).some(a=>a.length)?JSON.stringify(fl):'', fq=fq0+(_visao==='st'?'|st':'');   // na visão Suporte Técnico a categoria também tem de ser Suporte Técnico (como no card SLA)
     if(_slaEvoDados&&_slaEvoDados.fq===fq&&Date.now()-_slaEvoDados.em<60000) evo=_slaEvoDados.v;
-    else { if(status) status.textContent='Calculando a evolução dos últimos 12 meses…'; evo=await api('/geral/sla-evolucao'+(fq?`?f=${encodeURIComponent(fq)}`:''),120000); _slaEvoDados={em:Date.now(),v:evo,fq}; }
+    else { if(status) status.textContent='Calculando a evolução dos últimos 12 meses…'; evo=await api('/geral/sla-evolucao'+(fq0||_visao==='st'?`?${[fq0?`f=${encodeURIComponent(fq0)}`:'',_visao==='st'?'v=st':''].filter(Boolean).join('&')}`:''),120000); _slaEvoDados={em:Date.now(),v:evo,fq}; }
   }catch(e){ if(seq===_slaEvoSeq&&status) status.textContent=`Não foi possível calcular o SLA: ${e.message}`; return; }
   if(seq!==_slaEvoSeq) return;
   if(status) status.textContent='';
