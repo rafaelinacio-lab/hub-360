@@ -51,6 +51,14 @@ html,body{overflow-x:hidden}
 .bk-pill.cli{color:var(--cli);border-color:color-mix(in srgb,var(--cli) 60%,transparent)}.bk-pill.cli.on{background:var(--cli);color:#1a1a1a}
 .bk-pill.age{color:var(--age);border-color:color-mix(in srgb,var(--age) 60%,transparent)}.bk-pill.age.on{background:var(--age);color:#fff}
 .ord{cursor:pointer;user-select:none}.ord:hover{color:var(--t1)}.ord.on{color:var(--or)}.ord .ar{margin-left:4px;font-size:9px}
+/* fila: colunas com largura fixa (somam 100%) para caber sempre na largura da tela, sem rolagem horizontal nem corte */
+table.fixa{table-layout:fixed;width:100%}
+table.fixa td,table.fixa th{overflow:hidden;text-overflow:ellipsis}
+table.fixa td b{white-space:nowrap}
+table.fixa td.cl b,table.fixa td.cl small{display:block;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.fixa .av{min-width:0}table.fixa .av>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}table.fixa .av small{overflow:hidden;text-overflow:ellipsis}
+table.fixa .bk-ua{min-width:0;flex-wrap:nowrap}table.fixa .bk-ua>div{flex:none}table.fixa .bk-ua>small{flex:1;min-width:0}
+.tw{overflow-x:hidden!important}
 .bk-n{width:26px;height:26px;border-radius:50%;background:var(--s2);display:inline-grid;place-items:center;font-weight:800;font-size:12px;color:var(--t2)}
 .bk-pz{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:800;font-size:12px;white-space:nowrap}
 .bk-pz.venc{background:var(--redbg);color:var(--red)}.bk-pz.breve{background:transparent;color:var(--red);border:1px solid var(--red)}.bk-pz.prazo{background:var(--grbg);color:var(--gr)}.bk-pz.paus,.bk-pz.fora{background:var(--gybg);color:var(--gy)}
@@ -179,7 +187,7 @@ body.tv{overflow:hidden}
   </div>
   <div class="rod"><span></span><span id="rodir"></span></div>
 </div>
-  <div class="bk-ov" id="bk-ov" onclick="if(event.target===this)fecharModalBk()"><div class="bk-md" role="dialog" aria-modal="true"><div class="bk-md-h"><h3 id="bk-md-t"></h3><small id="bk-md-s"></small><button type="button" onclick="fecharModalBk()">Fechar ✕</button></div><div class="bk-md-b"><table id="bk-md-tab"></table></div></div></div>
+  <div class="bk-ov" id="bk-ov" onclick="if(event.target===this)fecharModalBk()"><div class="bk-md" role="dialog" aria-modal="true"><div class="bk-md-h"><h3 id="bk-md-t"></h3><small id="bk-md-s"></small><button type="button" onclick="fecharModalBk()">Fechar ✕</button></div><div class="bk-md-b"><table id="bk-md-tab" class="fixa"></table></div></div></div>
 <script>
 // Modo TV pela URL (a TV roda sem filtros na tela): ?tv=1  ?k=chave (link da TV, sem login)  ?vertical=agrotitan  ?equipe=Nome  ?classificacao=Nome|todas  ?ano=todos  ?mes=todos  ?tema=claro
 const Q=new URLSearchParams(location.search), TV=Q.get('tv')==='1', CHAVE_TV=Q.get('k')||'';
@@ -323,7 +331,7 @@ function abrirModalBk(chave){
   const rows=g.rows.slice().sort((a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb));
   document.getElementById('bk-md-t').textContent=g.titulo;
   document.getElementById('bk-md-s').textContent=`${loc(rows.length)} chamado${rows.length===1?'':'s'}`;
-  document.getElementById('bk-md-tab').innerHTML=TH_CHAMADOS+`<tbody>${rows.map(linhaChamado).join('')||'<tr><td colspan="8" class="vazio">Nenhum chamado.</td></tr>'}</tbody>`;
+  document.getElementById('bk-md-tab').innerHTML=COLGRUPO+TH_CHAMADOS+`<tbody>${rows.map(linhaChamado).join('')||'<tr><td colspan="8" class="vazio">Nenhum chamado.</td></tr>'}</tbody>`;
   document.getElementById('bk-ov').classList.add('on');
 }
 function fecharModalBk(){ document.getElementById('bk-ov').classList.remove('on'); }
@@ -380,16 +388,17 @@ const linhaChamado=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r
       <td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>
       <td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span></td>
       <td><b>${hTxt(Math.max(0,(Date.now()-new Date(r.criado_em).getTime())/36e5))}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${diasCorridos(Math.max(0,(Date.now()-new Date(r.criado_em).getTime())/36e5))}</small></td>
-      <td>${(()=>{ const v=vencimento(r); return `<b style="color:${v.c}">${esc(v.t)}</b>${v.s?`<small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${esc(v.s)}</small>`:''}`; })()}</td>
+      <td>${(()=>{ const v=vencimento(r); return `<b style="color:${v.c}">${esc(v.t)}</b>${v.s?`<small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:normal;overflow:visible">${esc(v.s)}</small>`:''}`; })()}</td>
       <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><div style="display:flex;flex-direction:column;gap:2px"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b>${t?`<small style="text-align:left;margin-left:26px;font-weight:600">${subAcao(t)}</small>`:''}</div><small>${esc(nome||'—')}</small></span></td>
     </tr>`; };
+const COLGRUPO='<colgroup><col style="width:3.5%"><col style="width:7%"><col style="width:19%"><col style="width:14%"><col style="width:7%"><col style="width:8.5%"><col style="width:14%"><col style="width:27%"></colgroup>';
 const TH_CHAMADOS='<thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Vencimento</th><th>Última ação</th></tr></thead>';
 function tabela(){
   const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), f=F();
   const nCli=f.filter(r=>ladoDe(r)==='cli').length;
   document.getElementById('bk-pills').innerHTML=`<button type="button" class="bk-pill${PILULA==='todos'?' on':''}" onclick="filtroLado('todos')">Todos ${loc(f.length)}</button><button type="button" class="bk-pill cli${PILULA==='cli'?' on':''}" onclick="filtroLado('cli')">Cliente ${loc(nCli)}</button><button type="button" class="bk-pill age${PILULA==='age'?' on':''}" onclick="filtroLado('age')">Agente ${loc(f.length-nCli)}</button>`;
   document.getElementById('ord').textContent=ORD.k?`ordenado por ${(COLS_TH.find(c=>c[2]===ORD.k)||[])[1].toLowerCase()} ${ORD.d<0?'↓':'↑'}`:'';
-  document.getElementById('tw').innerHTML=`<table>${thFila()}
+  document.getElementById('tw').innerHTML=`<table class="fixa">${COLGRUPO}${thFila()}
     <tbody>${vis.map(linhaChamado).join('')||`<tr><td colspan="8" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
   document.getElementById('mais').innerHTML=l.length>vis.length?`<button class="bt" onclick="PAG++;tabela()">Mostrar mais ${Math.min(POR_PAG,l.length-vis.length)} (faltam ${nf(l.length-vis.length)})</button>`:'';
   document.getElementById('rodir').textContent=`Mostrando ${nf(vis.length)} de ${nf(l.length)}`+(ATUALIZADO?` · atualizado ${ATUALIZADO.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'');
