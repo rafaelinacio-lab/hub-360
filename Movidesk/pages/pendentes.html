@@ -223,9 +223,9 @@ function enriquecer(r){
 }
 
 // ── filtros (multi-seleção, com "Selecionar todos"; Ano e Mês começam no atual) ──
-const DIM=[['equipe','Equipe',r=>r._equipe],['resp','Responsável',r=>r._resp],['serv','Serviço',r=>r._serv],['cli','Cliente',r=>r._cli],['cls','Classificação',r=>r._cls],['ano','Ano',r=>r._ano==null?'':String(r._ano)],['mes','Mês',r=>r._mes==null?'':String(r._mes)]];
+const DIM=[['equipe','Equipe',r=>r._equipe],['resp','Responsável',r=>r._resp],['serv','Serviço',r=>r._serv],['cli','Cliente',r=>r._cli],['cls','Classificação',r=>r._cls]];
 let SEL={};
-const padraoSel=()=>{ const s={}; DIM.forEach(([k])=>s[k]=new Set()); s.ano=new Set([String(HOJE.getFullYear())]); s.mes=new Set([String(HOJE.getMonth()+1)]); return s; };
+const padraoSel=()=>{ const s={}; DIM.forEach(([k])=>s[k]=new Set()); return s; };
 function lerVisao(){ try{ const v=JSON.parse(localStorage.getItem('hub_pendentes_visao')||'null'); if(!v) return null; const s=padraoSel(); DIM.forEach(([k])=>{ if(Array.isArray(v[k])) s[k]=new Set(v[k].map(String)); }); return s; }catch{ return null; } }
 function salvarVisao(){ try{ const o={}; DIM.forEach(([k])=>o[k]=[...SEL[k]]); localStorage.setItem('hub_pendentes_visao',JSON.stringify(o)); aviso('Visão salva neste navegador.'); }catch{} }
 function aviso(t){ const e=document.getElementById('erro'); e.textContent=t; e.style.display='block'; e.style.background='var(--grbg)'; e.style.color='var(--gr)'; setTimeout(()=>{e.style.display='none';},2500); }
@@ -240,7 +240,7 @@ function desenharFiltros(){
   const box=document.getElementById('filtros'); const abertos=[...box.querySelectorAll('.ms.open')].map(e=>e.dataset.k);
   box.innerHTML=DIM.map(([k,nome])=>{ const sel=[...SEL[k]]; const lbl=!sel.length?'Todos':sel.length===1?rotuloDim(k,sel[0]):`${sel.length} selecionados`;
     return `<div class="ms${abertos.includes(k)?' open':''}" data-k="${k}"><div class="f ${sel.length?'on':''}" onclick="abrirMs('${k}')">${nome}: <b>${esc(lbl)}</b><span class="sym">expand_more</span></div><div class="dd" id="dd-${k}"></div></div>`; }).join('')+
-    `<div class="chip" onclick="limparFiltros()">✕ Limpar filtros</div>`;
+    (DIM.some(([k])=>SEL[k].size)?`<div class="chip" onclick="limparFiltros()">✕ Limpar filtros</div>`:'');
   DIM.forEach(([k])=>preencherMs(k));
 }
 function preencherMs(k){
@@ -333,7 +333,7 @@ function exportarCsv(){
 }
 function render(){
   desenharFiltros(); const f=F(); desenharKpis(f); desenharMid(f); tabela();
-  const filtros=[]; ['ano','mes'].forEach(k=>{ if(SEL[k].size) filtros.push([...SEL[k]].map(v=>rotuloDim(k,v)).join(', ')); });
+  const filtros=[];
   const fc=[FOCO.equipe,FOCO.cls,FOCO.cliente].filter(Boolean);
   document.getElementById('sub').innerHTML=`${nf(f.length)} chamado(s) pendente(s)${filtros.length?` · abertos em ${esc(filtros.join(' / '))}`:''}${fc.length?` · foco: ${esc(fc.join(' + '))} <a href="#" onclick="FOCO={equipe:null,cls:null,cliente:null};PAG=1;render();return false" style="color:var(--or)">limpar foco</a>`:''}`;
 }
@@ -354,8 +354,6 @@ function aplicarParametrosUrl(){
   const v=slug(Q.get('vertical')||''); if(v) casar('serv',r=>r._serv,ALIAS[v]||v,slug);
   const e=semAc(Q.get('equipe')||''); if(e) casar('equipe',r=>r._equipe,e,semAc);
   const c=semAc(Q.get('classificacao')||''); if(c&&c!=='todas') casar('cls',r=>r._cls,c,semAc);
-  if(Q.get('ano')==='todos') SEL.ano=new Set(); else if(/^\d{4}$/.test(Q.get('ano')||'')) SEL.ano=new Set([Q.get('ano')]);
-  if(Q.get('mes')==='todos') SEL.mes=new Set(); else if(/^(1[0-2]|[1-9])$/.test(Q.get('mes')||'')) SEL.mes=new Set([Q.get('mes')]);
 }
 // TV: escala pela tela, relógio e rolagem automática da lista (desce devagar, espera no fim e volta ao topo)
 function ajustarZoom(){ const z=Math.max(.8,Math.min(2.6,Math.min(innerWidth/1500,innerHeight/860))); document.documentElement.style.setProperty('--z',z.toFixed(3)); }
