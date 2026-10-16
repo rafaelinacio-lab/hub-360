@@ -50,6 +50,7 @@ html,body{margin:0;min-height:100%;background:var(--bg);color:var(--t1);font-fam
 .bk-pill.on{background:var(--t1);color:var(--s);border-color:var(--t1)}
 .bk-pill.cli{color:var(--cli);border-color:color-mix(in srgb,var(--cli) 60%,transparent)}.bk-pill.cli.on{background:var(--cli);color:#1a1a1a}
 .bk-pill.age{color:var(--age);border-color:color-mix(in srgb,var(--age) 60%,transparent)}.bk-pill.age.on{background:var(--age);color:#fff}
+.ord{cursor:pointer;user-select:none}.ord:hover{color:var(--t1)}.ord.on{color:var(--or)}.ord .ar{margin-left:4px;font-size:9px}
 .bk-n{width:26px;height:26px;border-radius:50%;background:var(--s2);display:inline-grid;place-items:center;font-weight:800;font-size:12px;color:var(--t2)}
 .bk-pz{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:800;font-size:12px;white-space:nowrap}
 .bk-pz.venc{background:var(--redbg);color:var(--red)}.bk-pz.breve{background:transparent;color:var(--red);border:1px solid var(--red)}.bk-pz.prazo{background:var(--grbg);color:var(--gr)}.bk-pz.paus,.bk-pz.fora{background:var(--gybg);color:var(--gy)}
@@ -333,8 +334,19 @@ function linhasTabela(){
   if(PILULA==='cli'||PILULA==='age') l=l.filter(r=>ladoDe(r)===PILULA);
   const q=semAc(BUSCA).trim(); if(q) l=l.filter(r=>semAc(`${r.ticket_id} ${r._cli} ${r.assunto} ${r._resp} ${r._equipe}`).includes(q));
   // quem aguarda o AGENTE (o cliente falou por último) vem primeiro; depois vencidos; depois os mais antigos
-  return l.sort((a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb));
+  const prio=(a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb);
+  if(!ORD.k) return l.sort(prio);   // sem ordenação escolhida: fila de prioridade
+  const kf=CHAVE_ORD[ORD.k];
+  return l.sort((a,b)=>{ const x=kf(a), y=kf(b); return (x<y?-1:x>y?1:0)*ORD.d||prio(a,b); });
 }
+// Ordenação pelo clique no cabeçalho da fila (clique de novo inverte; o 3º clique volta à prioridade)
+let ORD={k:null,d:1};
+const SIT_ORD={venc:0,breve:1,prazo:2,paus:3,fora:4};
+const minVenc=r=>r._sit==='paus'?1e12:r._mdk?(new Date(r.sla_solucao).getTime()-Date.now())/6e4:r._rest!=null?r._rest:1e12+1;   // minutos até vencer (negativo = vencido)
+const CHAVE_ORD={id:r=>Number(r.ticket_id),cli:r=>semAc(r._cli+' '+(r.assunto||'')),resp:r=>semAc(r._resp),prz:r=>SIT_ORD[r._sit]??9,ab:r=>r._dAb,venc:minVenc,ua:r=>tUlt(r)};
+const COLS_TH=[['n','#',null],['id','Chamado','id'],['cli','Cliente · assunto','cli'],['resp','Responsável','resp'],['prz','Prazo','prz'],['ab','Aberto','ab'],['venc','Vencimento','venc'],['ua','Última ação','ua']];
+function ordenar(k){ const d0=(k==='ab'||k==='ua')?-1:1; if(ORD.k===k){ if(ORD.d===d0) ORD.d=-d0; else ORD={k:null,d:1}; } else ORD={k,d:d0}; PAG=1; tabela(); }
+const thFila=()=>'<thead><tr>'+COLS_TH.map(([c,t,o])=>o?`<th class="ord ${ORD.k===o?'on':''}" onclick="ordenar('${o}')" title="Clique para ordenar">${t}${ORD.k===o?`<span class="ar">${ORD.d<0?'▼':'▲'}</span>`:''}</th>`:`<th>${t}</th>`).join('')+'</tr></thead>';
 // Vencimento: quanto já venceu (ou quanto falta). Pela régua do Hub em horas úteis (1 dia útil = 8 h 45 min de expediente);
 // pelo prazo do Movidesk em dias corridos até/desde a previsão.
 const DIA_UTIL_H=8.75;
@@ -363,8 +375,8 @@ function tabela(){
   const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), f=F();
   const nCli=f.filter(r=>ladoDe(r)==='cli').length;
   document.getElementById('bk-pills').innerHTML=`<button type="button" class="bk-pill${PILULA==='todos'?' on':''}" onclick="filtroLado('todos')">Todos ${loc(f.length)}</button><button type="button" class="bk-pill cli${PILULA==='cli'?' on':''}" onclick="filtroLado('cli')">Cliente ${loc(nCli)}</button><button type="button" class="bk-pill age${PILULA==='age'?' on':''}" onclick="filtroLado('age')">Agente ${loc(f.length-nCli)}</button>`;
-  document.getElementById('ord').textContent='';
-  document.getElementById('tw').innerHTML=`<table>${TH_CHAMADOS}
+  document.getElementById('ord').textContent=ORD.k?`ordenado por ${(COLS_TH.find(c=>c[2]===ORD.k)||[])[1].toLowerCase()} ${ORD.d<0?'↓':'↑'}`:'';
+  document.getElementById('tw').innerHTML=`<table>${thFila()}
     <tbody>${vis.map(linhaChamado).join('')||`<tr><td colspan="8" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
   document.getElementById('mais').innerHTML=l.length>vis.length?`<button class="bt" onclick="PAG++;tabela()">Mostrar mais ${Math.min(POR_PAG,l.length-vis.length)} (faltam ${nf(l.length-vis.length)})</button>`:'';
   document.getElementById('rodir').textContent=`Mostrando ${nf(vis.length)} de ${nf(l.length)}`+(ATUALIZADO?` · atualizado ${ATUALIZADO.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'');
