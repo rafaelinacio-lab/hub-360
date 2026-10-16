@@ -2734,7 +2734,7 @@ const flagDe=(r,t)=>{ const x=r&&r.organizacao_id!=null?(_flagsCli[t]||{})[r.org
 const flagBadge=(r,t,rot,nome)=>{ const x=flagDe(r,t); if(!x) return ''; const u=x.u?new Date(x.u).toLocaleDateString('pt-BR'):'';
   return ` <span class="fl-badge ${t}" title="Cliente com ${x.n} chamado${x.n===1?'':'s'} de ${nome} nos últimos 12 meses${x.ab?` (${x.ab} em aberto)`:''}${u?` · último em ${u}`:''}">${rot}</span>`; };
 const flagsBadge=r=>flagBadge(r,'gcc','GCC','GCC (Gestão de Combate ao Churn)')+flagBadge(r,'ouv','Ouvidoria','Ouvidoria');
-const cliBadges=r=>htBadge(r)+flagsBadge(r);
+const cliBadges=r=>flagsBadge(r);   // a bolha de horas técnicas (htBadge) foi removida a pedido; o bloco de horas do modal continua
 async function carregarFlagsCli(){ try{ const d=await api('/geral/flags-clientes',30000); _flagsCli={gcc:d.gcc||{},ouv:d.ouv||{}}; }catch(_){ _flagsCli={gcc:{},ouv:{}}; } }
 async function carregarSaldosHT(){ try{ _saldosHT=(await api('/geral/horas-tecnicas',30000)).saldos||{}; }catch(_){ _saldosHT={}; } }
 const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
