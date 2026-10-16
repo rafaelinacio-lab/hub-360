@@ -25,6 +25,14 @@ html,body{margin:0;min-height:100%;background:var(--bg);color:var(--t1);font-fam
 .pd{padding:16px 24px 18px;display:flex;flex-direction:column;gap:12px;min-height:100vh}
 .pd-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .pd-top h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}.pd-top h1 .sym{color:var(--or);font-size:24px}
+.visao-tv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+.visao-tv .rot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.visao-tv .seg{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--bd,rgba(127,127,127,.25));border-radius:10px}
+.visao-tv .seg button{border:0;background:transparent;color:var(--t2);font:600 12px/1 inherit;font-family:inherit;padding:7px 14px;border-radius:7px;cursor:pointer}
+.visao-tv .seg button:hover:not(.on){background:rgba(127,127,127,.12)}
+.visao-tv .seg button.on{background:var(--or);color:#fff}
+.visao-tv .nota{font-size:11px;color:var(--t3)}
+.tv .visao-tv{display:none}
 .pd-top p{margin:2px 0 0;color:var(--t3);font-size:12px}
 .sp{flex:1}
 .md-tabs{display:flex;gap:3px;background:var(--s2);padding:3px;border-radius:10px;border:1px solid var(--b);flex-shrink:0}
@@ -84,11 +92,11 @@ body.tv{overflow:hidden}
 .tv .pd-tab .tw{flex:1;min-height:0;max-height:none;overflow:hidden}
 @media (max-width:1200px){.pd-kp{grid-template-columns:repeat(3,1fr)}.pd-mid{grid-template-columns:1fr 1fr}.pd-mid>.p:first-child{grid-column:1/-1}}
 @media (max-width:760px){.pd-kp{grid-template-columns:repeat(2,1fr)}.pd-mid{grid-template-columns:1fr}.srch{width:100%}}
-</style><script src="../js/permExportar.js"></script></head>
+</style><script src="../js/permExportar.js"></script><script src="../js/equipesTipo.js"></script></head>
 <body>
 <div class="pd">
   <div class="pd-top">
-    <div><h1><span class="sym">tv</span>Painel TV</h1><p id="sub">Carregando…</p></div>
+    <div><h1><span class="sym">tv</span><span id="tit">Painel TV</span></h1><p id="sub">Carregando…</p></div>
     <div class="sp"></div>
     <div class="tv-relogio" id="relogio"></div>
     <div class="md-tabs">
@@ -103,6 +111,9 @@ body.tv{overflow:hidden}
     <button class="bt p" onclick="salvarVisao()"><span class="sym">bookmark</span>Salvar visão</button>
   </div>
   <div class="erro" id="erro"></div>
+  <div class="visao-tv" id="visao-tv" role="tablist" aria-label="Visão do Painel TV"><span class="rot">Visão</span>
+    <div class="seg"><button type="button" data-v="geral" onclick="escolherVisaoTv('geral')">Geral</button><button type="button" data-v="produto" onclick="escolherVisaoTv('produto')" title="Só equipes de Produto (Equipe Técnica). Prazo pela previsão de solução do Movidesk">Produto</button><button type="button" data-v="st" onclick="escolherVisaoTv('st')" title="Só chamados de Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h)">Suporte Técnico</button></div>
+    <span class="nota" id="visao-nota"></span></div>
   <div class="pd-filt" id="filtros"></div>
   <div class="pd-kp" id="kpis"></div>
   <div class="pd-mid" id="mid"></div>
@@ -133,11 +144,29 @@ function mdSwitchTab(view){
   location.href=view==='movidesk'?'geral.html':view+'.html';
 }
 function abrirPainelTV(){ mdSwitchTab('pendentes'); }
-function abrirModoTv(){ window.open(`pendentes.html?tv=1${CHAVE_TV?`&k=${encodeURIComponent(CHAVE_TV)}`:''}`,'_blank'); }
+function abrirModoTv(){ window.open(`pendentes.html?tv=1&visao=${VISAO}${CHAVE_TV?`&k=${encodeURIComponent(CHAVE_TV)}`:''}`,'_blank'); }
 
 // ── dados derivados ──
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const HOJE=new Date();
+// ── Visão do Painel TV (como no Painel Geral): Geral | Produto | Suporte Técnico. Também por link: ?visao=geral|produto|st ──
+const VISOES_TV={geral:'Geral',produto:'Produto',st:'Suporte Técnico'};
+const NOTAS_VISAO={geral:'',produto:'Equipes de Produto · prazo pela previsão de solução do Movidesk (sem a régua de SLA do Hub)',st:'Classificação, categoria e equipe de suporte · SLA pela régua do Hub'};
+let VISAO=(()=>{ const q=Q.get('visao'); if(VISOES_TV[q]) return q; try{ const v=localStorage.getItem('hub_tv_visao'); if(VISOES_TV[v]) return v; }catch{} return 'geral'; })();
+const semAcV=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+const equipeContaNoSlaTv=e=>!/^franquia\b/i.test(String(e||'').trim())&&(/suporte/i.test(e||'')||String(e||'').trim().toLowerCase()==='analytics - b.i');
+function visaoOk(r){
+  if(VISAO==='produto') return !!window.hubTipoEquipe&&window.hubTipoEquipe(r.equipe,r.classificacao)==='produto';
+  if(VISAO==='st') return semAcV(r.classificacao)==='suporte tecnico'&&semAcV(r.categoria)==='suporte tecnico'&&equipeContaNoSlaTv(r.equipe);
+  return true;
+}
+function pintarVisaoTv(){
+  document.querySelectorAll('#visao-tv .seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===VISAO));
+  const n=document.getElementById('visao-nota'); if(n) n.textContent=NOTAS_VISAO[VISAO]||'';
+  const t=document.getElementById('tit'); if(t) t.textContent=`Painel TV · ${VISOES_TV[VISAO]}`;
+  document.title=`Painel TV · ${VISOES_TV[VISAO]}`;
+}
+function escolherVisaoTv(v){ if(!VISOES_TV[v]||v===VISAO) return; VISAO=v; try{ localStorage.setItem('hub_tv_visao',v); }catch{} PAG=1; pintarVisaoTv(); render(); }
 let ROWS=[], FOCO={sit:null,cliente:null,resp:null}, BUSCA='', PILULA='todos', PAG=1, ORD={k:'ret',d:-1}, ATUALIZADO=null;
 const URG={Crítica:1,Alta:2,Média:3,Baixa:4}, URGC={Crítica:'u1',Alta:'u2',Média:'u3',Baixa:'u4'};
 function enriquecer(r){
@@ -172,7 +201,7 @@ function lerVisao(){ try{ const v=JSON.parse(localStorage.getItem('hub_pendentes
 function salvarVisao(){ try{ const o={}; DIM.forEach(([k])=>o[k]=[...SEL[k]]); localStorage.setItem('hub_pendentes_visao',JSON.stringify(o)); aviso('Visão salva neste navegador.'); }catch{} }
 function aviso(t){ const e=document.getElementById('erro'); e.textContent=t; e.style.display='block'; e.style.background='var(--grbg)'; e.style.color='var(--gr)'; setTimeout(()=>{e.style.display='none';},2500); }
 function rotuloDim(k,v){ return k==='mes'?MESES[Number(v)-1]||v:v; }
-const passa=(r,exceto)=>DIM.every(([k,,f])=>k===exceto||!SEL[k].size||SEL[k].has(f(r)));
+const passa=(r,exceto)=>visaoOk(r)&&DIM.every(([k,,f])=>k===exceto||!SEL[k].size||SEL[k].has(f(r)));
 function opcoes(k){ const f=DIM.find(d=>d[0]===k)[2], m=new Map(); ROWS.forEach(r=>{ if(!passa(r,k)) return; const v=f(r); if(v!=='') m.set(v,(m.get(v)||0)+1); });
   let l=[...m.entries()]; if(k==='ano') l.sort((a,b)=>b[0]-a[0]); else if(k==='mes') l.sort((a,b)=>a[0]-b[0]); else l.sort((a,b)=>String(a[0]).localeCompare(String(b[0]),'pt'));
   // mantém selecionados que sumiram da lista (ex.: mês atual sem chamados)
@@ -233,9 +262,9 @@ function foco(t,v){ FOCO[t]=FOCO[t]===v?null:v; PAG=1; render(); }
 function pilula(p){ PILULA=p; PAG=1; document.querySelectorAll('.pill[data-p]').forEach(e=>e.classList.toggle('on',e.dataset.p===p)); tabela(); }
 
 // ── tabela ──
-const COLS=[['dot','',null,true],['id','Chamado','id',true],['cli','Cliente · assunto','cli',true],['resp','Responsável','resp',true],['urg','Urgência','urg',true],['ab','Aberto há','ab',true],['ret','Sem retorno','ret',true],['ua','Última ação','ua',true],['dep','Aguardando retorno','dep',true],['st','Status · justificativa','st',true],['prz','Prazo (SLA)','prz',true]];
+const COLS=[['dot','',null,true],['id','Chamado','id',true],['cli','Cliente · assunto','cli',true],['resp','Responsável','resp',true],['urg','Urgência','urg',true],['ab','Aberto há','ab',true],['ret','Sem retorno','ret',true],['ua','Última ação','ua',true],['st','Status · justificativa','st',true],['prz','Prazo (SLA)','prz',true]];
 let COLS_OFF=new Set(JSON.parse(localStorage.getItem('hub_pendentes_cols_off')||'[]'));
-const CHAVE={id:r=>Number(r.ticket_id),cli:r=>semAc(r._cli+' '+(r.assunto||'')),resp:r=>semAc(r._resp),urg:r=>URG[r.urgencia]||9,ab:r=>r._dAb,ret:r=>r._ret,ua:r=>Math.max(r._ag||0,r._cl||0),dep:r=>(r._ag||r._cl)?((r._cl||0)>=(r._ag||0)?1:2):3,st:r=>semAc((r.status_movidesk||'')+' '+(r.justificativa||'')),prz:r=>r._sit==='venc'?-1e9+(r._rest||0):r._rest==null?1e9:r._rest};
+const CHAVE={id:r=>Number(r.ticket_id),cli:r=>semAc(r._cli+' '+(r.assunto||'')),resp:r=>semAc(r._resp),urg:r=>URG[r.urgencia]||9,ab:r=>r._dAb,ret:r=>r._ret,ua:r=>Math.max(r._ag||0,r._cl||0),st:r=>semAc((r.status_movidesk||'')+' '+(r.justificativa||'')),prz:r=>r._sit==='venc'?-1e9+(r._rest||0):r._rest==null?1e9:r._rest};
 function linhasTabela(){
   let l=F();
   if(FOCO.sit) l=l.filter(r=>r._sit===FOCO.sit); if(FOCO.cliente) l=l.filter(r=>r._cli===FOCO.cliente); if(FOCO.resp) l=l.filter(r=>r._resp===FOCO.resp);
@@ -252,13 +281,13 @@ function celAcao(r){
   const cliente=cl>=ag, nome=cliente?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
   const extra='';
   const cor=cliente?'var(--or)':'var(--gr)';
-  return `<td title="${esc(new Date(t).toLocaleString('pt-BR'))}"><span class="ur" style="background:color-mix(in srgb,${cor} 16%,transparent);color:${cor}">${cliente?'Cliente':'Agente'}</span> <b style="margin-left:4px">há ${tempoAcao(t)}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${esc(nome||'—')}${extra}</small></td>`;
+  return `<td title="${esc(new Date(t).toLocaleString('pt-BR'))}"><span class="ur" style="background:color-mix(in srgb,${cor} 16%,transparent);color:${cor}">${cliente?'Cliente':'Agente'}</span> <b style="margin-left:4px">há ${tempoAcao(t)}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${esc(nome||'—')}${extra}</small><small style="display:block;margin-top:3px;font-weight:800;white-space:nowrap;color:${cliente?'var(--or)':'var(--az)'}">Pendente de retorno do ${cliente?'agente':'cliente'}</small></td>`;
 }
 const heat=d=>d>=10?'var(--red)':d>=7?'var(--am)':'var(--gr)';
 const ini=n=>String(n).split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
 function tabela(){
   const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), cols=COLS.filter(c=>!COLS_OFF.has(c[0]));
-  const ROT={id:'Chamado',cli:'Cliente · assunto',resp:'Responsável',urg:'Urgência',ab:'Aberto há',ret:'Sem retorno',ua:'Última ação',dep:'Aguardando retorno',st:'Status · justificativa',prz:'Prazo (SLA)'};
+  const ROT={id:'Chamado',cli:'Cliente · assunto',resp:'Responsável',urg:'Urgência',ab:'Aberto há',ret:'Sem retorno',ua:'Última ação',st:'Status · justificativa',prz:'Prazo (SLA)'};
   document.getElementById('ord').textContent=`ordenado por ${(ROT[ORD.k]||'').toLowerCase()} ${ORD.d<0?'↓':'↑'}`;
   const cel={
     dot:r=>`<td><span class="dot" style="--c:${SIT[r._sit][1]}"></span></td>`,
@@ -269,11 +298,6 @@ function tabela(){
     ab:r=>`<td><div class="dias" title="Dias corridos desde a abertura">${r._dAb} d<span style="--bar:var(--az)"><i style="width:${Math.min(100,r._dAb/60*100)}%"></i></span></div></td>`,
     ret:r=>`<td><div class="dias" style="color:${heat(r._ret)}" title="Dias corridos desde a última resposta pública (cliente ou atendente)">${r._ret} d<span style="--bar:${heat(r._ret)}"><i style="width:${Math.min(100,r._ret/14*100)}%"></i></span></div></td>`,
     ua:r=>celAcao(r),
-    dep:r=>{ // quem precisa responder: última ação pública do agente → depende do CLIENTE; do cliente → depende do AGENTE
-      const ag=r._ag||0, cl=r._cl||0; if(!ag&&!cl) return `<td><span style="color:var(--t3)">—</span></td>`;
-      const cliente=ag>cl, cor=cliente?'var(--az)':'var(--or)';
-      return `<td title="${cliente?'A última ação pública foi do agente: o chamado aguarda retorno do cliente':'A última ação pública foi do cliente: o chamado aguarda retorno do agente'}"><span class="ur" style="background:color-mix(in srgb,${cor} 16%,transparent);color:${cor};white-space:nowrap">${cliente?'Aguarda cliente':'Aguarda agente'}</span></td>`;
-    },
     st:r=>`<td class="st"><b>${esc(r.status_movidesk||'—')}</b><small title="${esc(r.justificativa)}">${esc(r.justificativa||'')}</small></td>`,
     prz:r=>`<td><span class="sr sr-${r._sit}">${SIT[r._sit][0]}</span><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${esc(prazoTxt(r))}</small></td>`,
   };
@@ -333,6 +357,6 @@ function iniciarTv(){
     if(fase==='desce'){ tw.scrollTop+=2; if(tw.scrollTop>=max-2){ fase='topo'; espera=70; } } else { tw.scrollTop=0; fase='desce'; espera=60; }
   },50);
 }
-SEL=lerVisao()||padraoSel(); if(TV) iniciarTv(); carregar(); setInterval(carregar,TV?60*1000:5*60*1000);
+SEL=lerVisao()||padraoSel(); pintarVisaoTv(); if(TV) iniciarTv(); carregar(); setInterval(carregar,TV?60*1000:5*60*1000);
 </script>
 </body></html>

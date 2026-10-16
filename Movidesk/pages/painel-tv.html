@@ -240,7 +240,7 @@ function dependeDe(r){
   if(!t) return '';
   const m=Math.max(0,Math.round((Date.now()-t)/60000)), tempo=m<60?`${m} min`:m<2880?`${Math.round(m/60)} h`:`${Math.floor(m/1440)} d`;
   const cliente=ag>cl;
-  return `<small class="dep ${cliente?'dep-cli':'dep-ag'}">Aguardando ${cliente?'o cliente':'o agente'} · há ${tempo}</small>`;
+  return `<small class="dep ${cliente?'dep-cli':'dep-ag'}">Pendente de retorno do ${cliente?'cliente':'agente'} · há ${tempo}</small>`;
 }
 function telaAtencao(){
   const venc=ROWS.filter(r=>cat(r)==='venc').map(r=>({r,c:'venc',txt:`Vencido há ${fmtH((Number(r.sla_aberto_min)||0)-(Number(r.sla_meta_h)||0)*60)}`,ord:-((Number(r.sla_aberto_min)||0)-(Number(r.sla_meta_h)||0)*60)}));
