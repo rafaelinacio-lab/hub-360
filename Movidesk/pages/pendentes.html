@@ -332,6 +332,7 @@ function linhasTabela(){
   let l=F();
   if(FOCO.equipe) l=l.filter(r=>r._equipe===FOCO.equipe); if(FOCO.cls) l=l.filter(r=>r._cls===FOCO.cls); if(FOCO.cliente) l=l.filter(r=>r._cli===FOCO.cliente);
   if(PILULA==='cli'||PILULA==='age') l=l.filter(r=>ladoDe(r)===PILULA);
+  if(SIT_FILTRO) l=l.filter(r=>r._sit===SIT_FILTRO);
   const q=semAc(BUSCA).trim(); if(q) l=l.filter(r=>semAc(`${r.ticket_id} ${r._cli} ${r.assunto} ${r._resp} ${r._equipe}`).includes(q));
   // quem aguarda o AGENTE (o cliente falou por último) vem primeiro; depois vencidos; depois os mais antigos
   const prio=(a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb);
@@ -340,13 +341,16 @@ function linhasTabela(){
   return l.sort((a,b)=>{ const x=kf(a), y=kf(b); return (x<y?-1:x>y?1:0)*ORD.d||prio(a,b); });
 }
 // Ordenação pelo clique no cabeçalho da fila (clique de novo inverte; o 3º clique volta à prioridade)
-let ORD={k:null,d:1};
+let ORD={k:null,d:1}, SIT_FILTRO=null;
 const SIT_ORD={venc:0,breve:1,prazo:2,paus:3,fora:4};
 const minVenc=r=>r._sit==='paus'?1e12:r._mdk?(new Date(r.sla_solucao).getTime()-Date.now())/6e4:r._rest!=null?r._rest:1e12+1;   // minutos até vencer (negativo = vencido)
 const CHAVE_ORD={id:r=>Number(r.ticket_id),cli:r=>semAc(r._cli+' '+(r.assunto||'')),resp:r=>semAc(r._resp),prz:r=>SIT_ORD[r._sit]??9,ab:r=>r._dAb,venc:minVenc,ua:r=>tUlt(r)};
 const COLS_TH=[['n','#',null],['id','Chamado','id'],['cli','Cliente · assunto','cli'],['resp','Responsável','resp'],['prz','Prazo','prz'],['ab','Aberto','ab'],['venc','Vencimento','venc'],['ua','Última ação','ua']];
+// Clique em "Prazo": percorre as situações como FILTRO (Vencido → Vence em breve → No prazo → Pausado → Sem prazo → todas), para ver cada uma inteira
+const CICLO_PRAZO=['venc','breve','prazo','paus','fora',null];
+function cicloPrazo(){ SIT_FILTRO=CICLO_PRAZO[(CICLO_PRAZO.indexOf(SIT_FILTRO)+1)%CICLO_PRAZO.length]; PAG=1; tabela(); }
 function ordenar(k){ const d0=(k==='ab'||k==='ua')?-1:1; if(ORD.k===k){ if(ORD.d===d0) ORD.d=-d0; else ORD={k:null,d:1}; } else ORD={k,d:d0}; PAG=1; tabela(); }
-const thFila=()=>'<thead><tr>'+COLS_TH.map(([c,t,o])=>o?`<th class="ord ${ORD.k===o?'on':''}" onclick="ordenar('${o}')" title="Clique para ordenar">${t}${ORD.k===o?`<span class="ar">${ORD.d<0?'▼':'▲'}</span>`:''}</th>`:`<th>${t}</th>`).join('')+'</tr></thead>';
+const thFila=()=>'<thead><tr>'+COLS_TH.map(([c,t,o])=>o==='prz'?`<th class="ord ${SIT_FILTRO?'on':''}" onclick="cicloPrazo()" title="Clique para ver cada situação do prazo, uma por vez">Prazo${SIT_FILTRO?`: ${SIT[SIT_FILTRO][0]} <span class="ar">✕</span>`:' <span class="ar">⇅</span>'}</th>`:o?`<th class="ord ${ORD.k===o?'on':''}" onclick="ordenar('${o}')" title="Clique para ordenar">${t}${ORD.k===o?`<span class="ar">${ORD.d<0?'▼':'▲'}</span>`:''}</th>`:`<th>${t}</th>`).join('')+'</tr></thead>';
 // Vencimento: quanto já venceu (ou quanto falta). Pela régua do Hub em horas úteis (1 dia útil = 8 h 45 min de expediente);
 // pelo prazo do Movidesk em dias corridos até/desde a previsão.
 const DIA_UTIL_H=8.75;
