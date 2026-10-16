@@ -645,6 +645,12 @@ async function ensureTables() {
         atualizado_em    timestamptz NOT NULL DEFAULT NOW()
       )
     `],
+    // Razão social e CNPJ da organização (corporateName/cpfCnpj do /persons do Movidesk, preenchidos por sincronizarDadosOrganizacoes).
+    // O nome fantasia é o próprio organizacao_nome (businessName). O CNPJ fica só com dígitos pra busca com ou sem pontuação.
+    ['silver.ticket_organizacao.razao_social', 'ALTER TABLE silver.ticket_organizacao ADD COLUMN IF NOT EXISTS razao_social text'],
+    ['silver.ticket_organizacao.cnpj', 'ALTER TABLE silver.ticket_organizacao ADD COLUMN IF NOT EXISTS cnpj text'],
+    ['silver.ticket_organizacao idx organizacao_id', 'CREATE INDEX IF NOT EXISTS ticket_organizacao_organizacao_id_idx ON silver.ticket_organizacao (organizacao_id)'],
+    ['silver.ticket_organizacao idx cnpj', 'CREATE INDEX IF NOT EXISTS ticket_organizacao_cnpj_idx ON silver.ticket_organizacao (cnpj) WHERE cnpj IS NOT NULL'],
     // Vertical DEDUZIDA dos chamados de GCC cujo campo "GCC - Verticais
     // Insatisfação" (CF 98697) está vazio no Movidesk — ver
     // refreshGccVerticalInferida(). Fica numa tabela à parte de propósito: a
@@ -3352,11 +3358,68 @@ async function refreshTicketOrganizacao() {
       UPDATE silver.ticket_organizacao o SET organizacao_id = a.org_id, organizacao_nome = a.org_nome, atualizado_em = NOW()
         FROM alvo a WHERE o.ticket_id = a.ticket_id`, [DOMINIOS_NAO_ORG]);
     if (ded.rowCount) console.log(`[loader] ✔ organização deduzida (pessoa/domínio) em ${ded.rowCount} chamado(s)`);
+    // Chamados novos entram sem razão social/CNPJ: copia do que a mesma organização já tem (só banco, sem chamar o Movidesk;
+    // a carga de verdade vem de sincronizarDadosOrganizacoes). Só preenche o que está vazio.
+    const dados = await db.query(`
+      UPDATE silver.ticket_organizacao o SET razao_social = x.razao_social, cnpj = x.cnpj
+        FROM (SELECT DISTINCT ON (organizacao_id) organizacao_id, razao_social, cnpj
+                FROM silver.ticket_organizacao
+               WHERE organizacao_id IS NOT NULL AND (razao_social IS NOT NULL OR cnpj IS NOT NULL)
+               ORDER BY organizacao_id, atualizado_em DESC) x
+       WHERE o.organizacao_id = x.organizacao_id AND o.razao_social IS NULL AND o.cnpj IS NULL`);
+    if (dados.rowCount) console.log(`[loader] ✔ razão social/CNPJ copiados para ${dados.rowCount} chamado(s) novo(s)`);
   } catch (e) {
     console.error('[loader] refreshTicketOrganizacao falhou:', e.message);
   } finally {
     _refreshingOrganizacao = false;
   }
+}
+
+// Razão social e CNPJ das organizações: o silver só guardava id e nome fantasia (businessName). Lê as empresas (personType 2) do /persons
+// do Movidesk — corporateName = razão social, cpfCnpj = CNPJ (guardado só com dígitos) — e grava em silver.ticket_organizacao pelo
+// organizacao_id (o mesmo id da organização no chamado). Só regrava o que mudou. Roda no boot (atrasado) e a cada 24 h (ver server.js);
+// os chamados novos recebem os dados na própria refreshTicketOrganizacao. `limite` (nº de empresas) serve pra teste.
+const ORG_PAGE = 100, ORG_LOTE_UPDATE = 200;
+const orgSync = { rodando: false, lidas: 0, atualizadas: 0, linhas: 0, iniciadoEm: null, terminadoEm: null, ultimoErro: null };
+async function sincronizarDadosOrganizacoes({ limite = null } = {}) {
+  if (orgSync.rodando) return orgSync;
+  Object.assign(orgSync, { rodando: true, lidas: 0, atualizadas: 0, linhas: 0, iniciadoEm: new Date().toISOString(), terminadoEm: null, ultimoErro: null });
+  try {
+    await ensureTables();
+    const token = await getMovideskToken();
+    const orgs = new Map();
+    for (let skip = 0; !limite || orgs.size < limite; skip += ORG_PAGE) {
+      const url = `${MOVI_BASE}/persons?${qs({ token, '$select': 'id,businessName,corporateName,cpfCnpj', '$filter': 'personType eq 2', '$top': ORG_PAGE, '$skip': skip, '$orderby': 'id asc' })}`;
+      const lote = await (await fetchWithRetry(url)).json();
+      if (!Array.isArray(lote) || !lote.length) break;
+      for (const p of lote) {
+        if (p.id == null) continue;
+        const digitos = String(p.cpfCnpj || '').replace(/\D/g, '');
+        orgs.set(String(p.id), { razao: String(p.corporateName || '').trim() || null, cnpj: digitos.length >= 11 ? digitos : null });
+      }
+      if (lote.length < ORG_PAGE) break;
+    }
+    const ids = [...orgs.keys()].slice(0, limite || undefined);
+    orgSync.lidas = ids.length;
+    for (let i = 0; i < ids.length; i += ORG_LOTE_UPDATE) {
+      const lote = ids.slice(i, i + ORG_LOTE_UPDATE);
+      const r = await db.query(`
+        UPDATE silver.ticket_organizacao o SET razao_social = v.razao, cnpj = v.cnpj
+          FROM (SELECT unnest($1::text[]) AS id, unnest($2::text[]) AS razao, unnest($3::text[]) AS cnpj) v
+         WHERE o.organizacao_id = v.id AND (o.razao_social IS DISTINCT FROM v.razao OR o.cnpj IS DISTINCT FROM v.cnpj)`,
+      [lote, lote.map((id) => orgs.get(id).razao), lote.map((id) => orgs.get(id).cnpj)]);
+      orgSync.linhas += r.rowCount;
+      await sleep(300);   // atualização em lotes e com pausa: uma organização grande tem milhares de chamados, e o banco é compartilhado
+    }
+    orgSync.atualizadas = orgSync.lidas;
+    console.log(`[loader] ✔ razão social/CNPJ: ${orgSync.lidas} empresa(s) lida(s) do Movidesk, ${orgSync.linhas} linha(s) de silver.ticket_organizacao atualizada(s)`);
+  } catch (e) {
+    orgSync.ultimoErro = e.message;
+    console.warn('[loader] sincronizarDadosOrganizacoes falhou:', e.message);
+  } finally {
+    orgSync.rodando = false; orgSync.terminadoEm = new Date().toISOString();
+  }
+  return orgSync;
 }
 
 function cancelLoad() {
@@ -3529,7 +3592,7 @@ function stopSatisfacaoSync() {
 module.exports = {
   runFull, runIncremental, runGeral, runOuvidoria, runGcc, runCustom, runFixOrganizacao, cancelLoad, ensureTables, state,
   runSatisfacaoSync, stopSatisfacaoSync, satisfacaoState,
-  refreshTicketOrganizacao,
+  refreshTicketOrganizacao, sincronizarDadosOrganizacoes, orgSync,
   refreshGccVerticalInferida,
   runBackfillCamposBasicos,
   runFixDadosRelacionados,

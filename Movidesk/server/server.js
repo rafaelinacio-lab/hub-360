@@ -264,6 +264,14 @@ setInterval(() => {
   movideskLoader.refreshTicketOrganizacao().catch(() => {});
 }, 30 * 60 * 1000);
 
+// Razão social e CNPJ das organizações (vêm do /persons do Movidesk). Depois do refresh do boot (que garante as colunas) e a cada 24 h.
+setTimeout(() => {
+  movideskLoader.sincronizarDadosOrganizacoes().catch(() => {});
+}, ATRASO_BOOT_MS + 3 * 60 * 1000).unref();
+setInterval(() => {
+  movideskLoader.sincronizarDadosOrganizacoes().catch(() => {});
+}, 24 * 60 * 60 * 1000);
+
 // silver.gcc_vertical_inferida — vertical deduzida (serviço/texto) dos chamados
 // de GCC sem "Verticais Insatisfação" no Movidesk. Recalcula no boot e a cada
 // 30 min (chamado que ganha a vertical real no Movidesk sai da tabela sozinho).

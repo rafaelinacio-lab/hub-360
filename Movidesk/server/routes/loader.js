@@ -46,6 +46,16 @@ router.get('/historicos/status', authMiddleware, requireRole('admin', 'superviso
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Razão social e CNPJ das organizações (silver.ticket_organizacao). POST /organizacoes/sincronizar {limite?} roda agora (limite = nº de
+// empresas, bom pra teste); GET /organizacoes/status mostra o andamento da última rodada.
+router.post('/organizacoes/sincronizar', authMiddleware, requireRole('admin'), (req, res) => {
+  const limite = Math.min(100000, Math.max(1, Math.round(Number(req.body && req.body.limite)) || 0)) || null;
+  const jaRodando = loader.orgSync.rodando;
+  if (!jaRodando) loader.sincronizarDadosOrganizacoes({ limite }).catch(() => {});
+  res.json({ started: !jaRodando, ...loader.orgSync });
+});
+router.get('/organizacoes/status', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => res.json(loader.orgSync));
+
 router.post('/full', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
   if (loader.state.running) {
     return res.status(409).json({
