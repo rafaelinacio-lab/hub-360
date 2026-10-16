@@ -65,10 +65,12 @@
   .prazo-msg { margin-top:calc(var(--u)*4); font-size:calc(var(--u)*3.4); font-weight:700; text-align:center; }
   /* 6 — lista de atenção */
   .lista { flex:1; display:flex; flex-direction:column; gap:calc(var(--u)*1.3); }
-  .item { flex:1; display:grid; grid-template-columns:calc(var(--u)*17) minmax(0,1fr) calc(var(--u)*34); align-items:center; gap:calc(var(--u)*2.4); padding:0 calc(var(--u)*3); border-left:calc(var(--u)*.8) solid var(--c); }
+  .item { flex:1; display:grid; grid-template-columns:calc(var(--u)*17) minmax(0,1fr) calc(var(--u)*46); align-items:center; gap:calc(var(--u)*2.4); padding:0 calc(var(--u)*3); border-left:calc(var(--u)*.8) solid var(--c); }
   .i-id { font-size:calc(var(--u)*3.2); font-weight:800; font-variant-numeric:tabular-nums; }
   .i-cli { font-size:calc(var(--u)*3.2); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .i-cli small { display:block; font-size:calc(var(--u)*2); font-weight:500; color:var(--t3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .i-st small.dep { display:block; white-space:nowrap; font-size:calc(var(--u)*2); font-weight:700; margin-top:calc(var(--u)*.4); color:var(--t2); }
+  .i-st small.dep-cli { color:var(--azul); } .i-st small.dep-ag { color:var(--marca); }
   .i-st { font-size:calc(var(--u)*3); font-weight:800; text-align:right; color:var(--c); }
   /* páginas dentro de uma tela (listas longas) */
   .pg { display:none; flex:1; min-height:0; flex-direction:column; }
@@ -232,13 +234,21 @@ function telaUrg(){
 }
 function fmtH(min){ min=Math.max(1,Math.round(min)); if(min<60) return `${min} min`; const h=min/60; if(h<24) return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h`; return `${Math.floor(h/24)} d`; }
 const abrev=(t,n=34)=>{ t=String(t||'').trim(); return t.length>n?t.slice(0,n-1)+'…':t; };
+// De quem depende o retorno: última ação PÚBLICA do agente → aguarda o CLIENTE; do cliente → aguarda o AGENTE (há quanto tempo)
+function dependeDe(r){
+  const ag=r.ultima_acao_agente?new Date(r.ultima_acao_agente).getTime():0, cl=r.ultima_acao_cliente?new Date(r.ultima_acao_cliente).getTime():0, t=Math.max(ag,cl);
+  if(!t) return '';
+  const m=Math.max(0,Math.round((Date.now()-t)/60000)), tempo=m<60?`${m} min`:m<2880?`${Math.round(m/60)} h`:`${Math.floor(m/1440)} d`;
+  const cliente=ag>cl;
+  return `<small class="dep ${cliente?'dep-cli':'dep-ag'}">Aguardando ${cliente?'o cliente':'o agente'} · há ${tempo}</small>`;
+}
 function telaAtencao(){
   const venc=ROWS.filter(r=>cat(r)==='venc').map(r=>({r,c:'venc',txt:`Vencido há ${fmtH((Number(r.sla_aberto_min)||0)-(Number(r.sla_meta_h)||0)*60)}`,ord:-((Number(r.sla_aberto_min)||0)-(Number(r.sla_meta_h)||0)*60)}));
   const sem=ROWS.filter(r=>!respDe(r)&&cat(r)!=='venc').map(r=>({r,c:'breve',txt:'Sem responsável',ord:1e9-(Number(r.sla_aberto_min)||0)}));
   const breve=ROWS.filter(r=>cat(r)==='breve'&&respDe(r)).map(r=>({r,c:'breve',txt:`Vence em ${fmtH((Number(r.sla_meta_h)||0)*60-(Number(r.sla_aberto_min)||0))}`,ord:2e9+((Number(r.sla_meta_h)||0)*60-(Number(r.sla_aberto_min)||0))}));
   const lista=[...venc.sort((a,b)=>a.ord-b.ord),...sem.sort((a,b)=>a.ord-b.ord),...breve.sort((a,b)=>a.ord-b.ord)].slice(0,18);
   if(!lista.length) return '<div class="vazio" style="color:var(--prazo)">Nenhum chamado exige atenção agora</div>';
-  return comPaginas(paginar(lista,6),pg=>`<div class="lista">${pg.map(x=>`<div class="painel item" style="--c:${COR[x.c]}"><div class="i-id">#${esc(x.r.ticket_id)}</div><div class="i-cli">${esc(abrev(x.r.organizacao||x.r.cliente_nome||'Não informado'))}<small>${esc(abrev(x.r.assunto||'',60))}</small></div><div class="i-st">${esc(x.txt)}</div></div>`).join('')}</div>`);
+  return comPaginas(paginar(lista,6),pg=>`<div class="lista">${pg.map(x=>`<div class="painel item" style="--c:${COR[x.c]}"><div class="i-id">#${esc(x.r.ticket_id)}</div><div class="i-cli">${esc(abrev(x.r.organizacao||x.r.cliente_nome||'Não informado'))}<small>${esc(abrev(x.r.assunto||'',60))}</small></div><div class="i-st">${esc(x.txt)}${dependeDe(x.r)}</div></div>`).join('')}</div>`);
 }
 function telaAnalista(){
   const lista=(ANALISTAS||[]).map(a=>({nome:a.responsavel,dentro:a.dentro||0,fora:a.fora||0,venc:a.vencidos||0,pend:a.pendentes||0})).filter(a=>a.dentro+a.fora>0).sort((a,b)=>(b.dentro+b.fora)-(a.dentro+a.fora));
