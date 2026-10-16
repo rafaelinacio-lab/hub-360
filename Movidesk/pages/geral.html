@@ -266,6 +266,13 @@ input,select{font-family:inherit}
 .imp-exp .ug:last-child{margin-bottom:0}
 .imp-exp .uh{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:var(--t2);margin-bottom:3px;cursor:pointer;list-style:none;user-select:none}
 .imp-exp .uh::-webkit-details-marker{display:none}
+.rsp-lista tr.urg-h{cursor:pointer;background:var(--surface-low)}
+.rsp-lista tr.urg-h:hover{background:var(--surface-mid)}
+.rsp-lista tr.imp-exp-tr td{border-bottom:0;padding-top:4px;padding-bottom:4px}
+.rsp-lista .urg-nome{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:var(--t2)}
+.rsp-lista .urg-nome .car{display:inline-block;width:10px;color:var(--t3);transition:transform .15s}
+.rsp-lista tr.urg-h.aberto .car{transform:rotate(90deg)}
+.rsp-lista .urg-nome .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
 .imp-exp .upct{color:var(--t1);font-variant-numeric:tabular-nums}
 .imp-exp .ucomp{display:flex;height:8px;border-radius:999px;overflow:hidden;gap:2px;margin:0 0 8px}
 .imp-exp .ucomp i{display:block;min-width:3px}
@@ -2953,7 +2960,7 @@ function urgListaHtml(itens,somaFn){
 // Liga os cliques da lista expandida: abrir o ticket e "Ver os N tickets" (modal com todos da urgência).
 function urgLigar(exp,itens,tituloModal){
   exp.querySelectorAll('.it').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); openTicketModal(b.dataset.id); }));
-  exp.querySelectorAll('.mais').forEach(b=>b.addEventListener('click',e=>{
+  exp.querySelectorAll('.mais[data-u]').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation();
     const u=b.dataset.u, l=itens.filter(x=>(x.r.urgencia||'Sem urgência')===u).sort((x,y)=>y.k-x.k), rows=l.map(x=>x.r); rows.forEach(r=>{ _rowsById[r.ticket_id]=r; });
     openDetailModal(`${tituloModal} · urgência ${u}`,`${l.length.toLocaleString('pt-BR')} tickets`,rows,{ordenar:()=>0});
@@ -3667,19 +3674,42 @@ function renderRespChart(rows){
   lista.addEventListener('click',e=>{
     if(e.target.closest('.imp-exp-tr')) return;
     const tr=e.target.closest('tr[data-n]'); if(!tr) return;
-    const prox=tr.nextElementSibling;
-    if(prox&&prox.classList.contains('imp-exp-tr')){ prox.remove(); tr.classList.remove('fixo'); return; }
-    const nome=tr.dataset.n, agora=Date.now();
+    // recolhe: remove todas as linhas de expansão que vêm logo abaixo
+    if(tr.nextElementSibling&&tr.nextElementSibling.classList.contains('imp-exp-tr')){
+      while(tr.nextElementSibling&&tr.nextElementSibling.classList.contains('imp-exp-tr')) tr.nextElementSibling.remove();
+      tr.classList.remove('fixo'); return;
+    }
+    const nome=tr.dataset.n, agora=Date.now(), nc=tr.children.length;
     const itens=_respRows.filter(r=>(r.responsavel||'Não informado')===nome).map(r=>{
       const fim=r.resolvido_em&&isResolvido(r)?new Date(r.resolvido_em).getTime():agora, horas=Math.max(0,(fim-new Date(r.criado_em).getTime())/36e5);
       return {r,k:horas,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2:fmtH(horas)};
     });
     tr.classList.add('fixo');
-    const ex=document.createElement('tr'); ex.className='imp-exp-tr';
-    ex.innerHTML=`<td colspan="${tr.children.length}" style="padding:0 8px 8px"><div class="imp-exp" style="margin:4px 0 0">${itens.length?urgListaHtml(itens):'<p class="rec-vazio">Nenhum ticket aberto no período.</p>'}<div style="margin-top:8px"><button type="button" class="mais" data-det="${escAttr(nome)}">Abrir o detalhe do período (abertos, resolvidos, SLA e comparação)</button></div></div></td>`;
-    tr.after(ex);
-    urgLigar(ex,itens,`Responsável: ${nome}`);
-    ex.querySelector('[data-det]').addEventListener('click',ev=>{ ev.stopPropagation(); respAbrir(nome); });
+    // Uma linha por urgência, NAS MESMAS COLUNAS da tabela: o nome sob "Responsável" e "n · x%" sob "Abertos" (alinhado ao número/% do total).
+    const g={}; itens.forEach(x=>{ const u=x.r.urgencia||'Sem urgência'; (g[u]=g[u]||[]).push(x); });
+    const ordem=[...URG_ORDEM.filter(u=>g[u]),...Object.keys(g).filter(u=>!URG_ORDEM.includes(u)).sort()], total=itens.length;
+    const pc=n=>`${(n/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+    const linhas=[];
+    const mk=(html,cls)=>{ const x=document.createElement('tr'); x.className='imp-exp-tr '+(cls||''); x.innerHTML=html; return x; };
+    if(!total) linhas.push(mk(`<td colspan="${nc}"><p class="rec-vazio">Nenhum ticket aberto no período.</p></td>`));
+    else{
+      linhas.push(mk(`<td colspan="${nc}" style="padding:6px 8px 2px"><div class="ucomp" style="margin:0">${ordem.map(u=>`<i style="flex:${g[u].length};background:${IMP_COR_URG[u]||'#9aa3b2'}" title="${escAttr(u)}: ${g[u].length.toLocaleString('pt-BR')} · ${pc(g[u].length)}"></i>`).join('')}</div></td>`));
+      ordem.forEach(u=>{
+        const l=g[u].slice().sort((x,y)=>y.k-x.k); l.forEach(x=>{ _rowsById[x.r.ticket_id]=x.r; });
+        linhas.push(mk(`<td></td><td><span class="urg-nome"><span class="car">›</span><i class="dot" style="background:${IMP_COR_URG[u]||'#9aa3b2'}"></i>${esc(u)}</span></td><td class="n"><b>${l.length.toLocaleString('pt-BR')}</b> <small style="color:var(--t3);font-weight:600">· ${pc(l.length)}</small></td><td colspan="${nc-3}"></td>`,'urg-h'));
+        linhas.push(mk(`<td colspan="${nc}" style="padding:0 8px 6px"><div class="imp-exp" style="margin:0 0 0 28px">`+
+          l.slice(0,URG_POR_GRUPO).map(x=>`<button type="button" class="it" data-id="${escAttr(x.r.ticket_id)}" title="${escAttr(x.r.assunto||'')}"><span class="id">#${esc(x.r.ticket_id)}</span><span class="as">${esc(x.r.assunto||'Sem assunto')}</span><span class="tp">${esc(x.c1)}</span><span class="im">${esc(x.c2)}</span></button>`).join('')+
+          (l.length>URG_POR_GRUPO?`<button type="button" class="mais" data-u="${escAttr(u)}">Ver os ${l.length.toLocaleString('pt-BR')} tickets</button>`:'')+`</div></td>`,'urg-i'));
+        linhas[linhas.length-1].hidden=true;
+      });
+    }
+    linhas.push(mk(`<td colspan="${nc}" style="padding:2px 8px 8px"><button type="button" class="mais" data-det="${escAttr(nome)}">Abrir o detalhe do período (abertos, resolvidos, SLA e comparação)</button></td>`));
+    tr.after(...linhas);
+    linhas.forEach(x=>{
+      if(x.classList.contains('urg-h')) x.addEventListener('click',ev=>{ ev.stopPropagation(); const i=x.nextElementSibling; i.hidden=!i.hidden; x.classList.toggle('aberto',!i.hidden); });
+      urgLigar(x,itens,`Responsável: ${nome}`);
+    });
+    linhas[linhas.length-1].querySelector('[data-det]').addEventListener('click',ev=>{ ev.stopPropagation(); respAbrir(nome); });
   });
   lista.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr[data-n]')){ e.preventDefault(); e.target.closest('tr[data-n]').click(); } });
   det.addEventListener('click',e=>{
