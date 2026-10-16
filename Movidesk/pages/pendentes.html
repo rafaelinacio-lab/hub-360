@@ -126,6 +126,16 @@ body.tv{overflow:hidden}
 .tv .pd-tab .tw{flex:1;min-height:0;max-height:none;overflow:hidden}
 @media (max-width:1200px){.pd-kp{grid-template-columns:repeat(3,1fr)}.pd-mid{grid-template-columns:1fr 1fr}.pd-mid>.p:first-child{grid-column:1/-1}}
 @media (max-width:760px){.pd-kp{grid-template-columns:repeat(2,1fr)}.pd-mid{grid-template-columns:1fr}.srch{width:100%}}
+
+.bk-ov{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:24px}
+.bk-ov.on{display:flex}
+.bk-md{background:var(--s);color:var(--t1);border:1px solid var(--b);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);width:min(1280px,100%);max-height:90vh;display:flex;flex-direction:column}
+.bk-md-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--b)}
+.bk-md-h h3{margin:0;font-size:16px;font-weight:800}.bk-md-h small{color:var(--t3);font-weight:600}
+.bk-md-h button{margin-left:auto;border:1px solid var(--bh);background:var(--s2);color:var(--t1);border-radius:9px;padding:7px 12px;font:700 12px Manrope;cursor:pointer}
+.bk-md-b{overflow:auto;padding:0 12px 12px}
+.bk-clk{cursor:pointer}.bk-clk:hover{filter:brightness(1.06);outline:2px solid color-mix(in srgb,var(--or) 55%,transparent);outline-offset:-2px}
+.tv .bk-clk{cursor:default}
 </style><script src="../js/permExportar.js"></script></head>
 <body>
 <div class="pd">
@@ -145,6 +155,7 @@ body.tv{overflow:hidden}
     <button class="bt p" onclick="salvarVisao()"><span class="sym">bookmark</span>Salvar visão</button>
   </div>
   <div class="erro" id="erro"></div>
+  <div class="bk-ov" id="bk-ov" onclick="if(event.target===this)fecharModalBk()"><div class="bk-md" role="dialog" aria-modal="true"><div class="bk-md-h"><h3 id="bk-md-t"></h3><small id="bk-md-s"></small><button type="button" onclick="fecharModalBk()">Fechar ✕</button></div><div class="bk-md-b"><table id="bk-md-tab"></table></div></div></div>
   <div class="visao-tv" id="visao-tv" role="tablist" aria-label="Visão do Painel TV"><span class="rot">Visão</span>
     <div class="seg"><button type="button" data-v="geral" onclick="escolherVisaoTv('geral')">Geral</button><button type="button" data-v="st" onclick="escolherVisaoTv('st')" title="Só chamados de Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h)">Suporte Técnico</button></div>
     <span class="nota" id="visao-nota"></span></div>
@@ -268,26 +279,41 @@ function tempoAcao(ms){ const m=Math.max(0,Math.round((Date.now()-ms)/60000)); r
 function desenharKpis(f){
   const n=f.length, nCli=f.filter(r=>ladoDe(r)==='cli').length, nAge=n-nCli, pc=v=>`${(n?v/n*100:0).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
   const venc=f.filter(r=>r._sit==='venc').length, ret7=f.filter(r=>r._ret>=7), maisAnt=ret7.reduce((m,r)=>Math.max(m,r._ret),0), cli=new Set(f.map(r=>r._cli)).size;
-  const k=(c,ic,l,v,d)=>`<div class="bk-k ${c}"><div class="l">${icone(ic)}${l}</div><div class="v">${loc(v)}</div><div class="d">${d}</div></div>`;
+  BK.pend={titulo:'Pendentes',rows:f}; BK.cli={titulo:'Última ação: cliente (aguarda o agente)',rows:f.filter(r=>ladoDe(r)==='cli')}; BK.age={titulo:'Última ação: agente (aguarda o cliente)',rows:f.filter(r=>ladoDe(r)==='age')}; BK.venc={titulo:'Vencidos',rows:f.filter(r=>r._sit==='venc')}; BK.ret7={titulo:'Sem retorno há 7 dias ou mais',rows:ret7};
+  const k=(c,ic,l,v,d,bk)=>`<div class="bk-k bk-clk ${c}" data-bk="${bk}" title="Clique para ver os chamados"><div class="l">${icone(ic)}${l}</div><div class="v">${loc(v)}</div><div class="d">${d}</div></div>`;
   document.getElementById('kpis').innerHTML=
-    k('','pending_actions','Pendentes',n,`chamados em aberto · ${loc(cli)} cliente${cli===1?'':'s'}`)+
-    k('cli','person','Última ação: cliente',nCli,`${pc(nCli)} do backlog · aguarda o agente`)+
-    k('age','support_agent','Última ação: agente',nAge,`${pc(nAge)} do backlog · aguarda o cliente`)+
-    k('venc','','Vencidos',venc,`${pc(venc)} da fila`)+
-    k('','mark_email_unread','Sem retorno +7 dias',ret7.length,ret7.length?`mais antigo: ${maisAnt} d`:'nenhum agora');
-  document.getElementById('bk-split').innerHTML=n?`<div class="bk-split"><i style="flex:${nCli};background:var(--cli)"></i><i style="flex:${nAge};background:var(--age)"></i></div><div class="bk-split-l"><span style="color:var(--cli)">Cliente · ${loc(nCli)}</span><span style="color:var(--age)">Agente · ${loc(nAge)}</span></div>`:'';
+    k('','pending_actions','Pendentes',n,`chamados em aberto · ${loc(cli)} cliente${cli===1?'':'s'}`,'pend')+
+    k('cli','person','Última ação: cliente',nCli,`${pc(nCli)} do backlog · aguarda o agente`,'cli')+
+    k('age','support_agent','Última ação: agente',nAge,`${pc(nAge)} do backlog · aguarda o cliente`,'age')+
+    k('venc','','Vencidos',venc,`${pc(venc)} da fila`,'venc')+
+    k('','mark_email_unread','Sem retorno +7 dias',ret7.length,ret7.length?`mais antigo: ${maisAnt} d`:'nenhum agora','ret7');
+  document.getElementById('bk-split').innerHTML=n?`<div class="bk-split"><i class="bk-clk" data-bk="cli" title="Ver chamados em que o cliente falou por último" style="flex:${nCli};background:var(--cli)"></i><i class="bk-clk" data-bk="age" title="Ver chamados em que o agente falou por último" style="flex:${nAge};background:var(--age)"></i></div><div class="bk-split-l"><span style="color:var(--cli)">Cliente · ${loc(nCli)}</span><span style="color:var(--age)">Agente · ${loc(nAge)}</span></div>`:'';
   return {n,nCli,nAge};
 }
 function quebra(titulo,tipo,f,chave,max){
   const por={}; f.forEach(r=>{ const k=chave(r); const o=por[k]||(por[k]={cli:0,age:0}); o[ladoDe(r)]++; });
   const lista=Object.entries(por).map(([k,o])=>[k,o,o.cli+o.age]).sort((a,b)=>b[2]-a[2]).slice(0,max), mx=Math.max(1,...lista.map(x=>x[2]));
-  return `<div class="bk-box"><h4>${titulo}<small><em style="color:var(--cli);font-style:normal">cliente</em> / <span style="color:var(--age)">agente</span></small></h4>`+(lista.length?lista.map(([k,o,t])=>`<div class="bk-r ${FOCO[tipo]===k?'on':''}" data-t="${tipo}" data-n="${esc(k)}" title="${esc(k)} · clique para filtrar a fila"><div class="n">${esc(k)}</div><div class="b" style="width:${(t/mx*100).toFixed(1)}%"><i style="flex:${o.cli};background:var(--cli)"></i><i style="flex:${o.age};background:var(--age)"></i></div><div class="q"><em>${loc(o.cli)}</em> / <span>${loc(o.age)}</span><b>${loc(t)}</b></div></div>`).join(''):'<div class="vazio">Sem chamados</div>')+`</div>`;
+  lista.forEach(([k])=>{ BK[`${tipo}:${k}`]={titulo:`${titulo.replace(/ · top 5/,'')}: ${k}`,rows:f.filter(r=>chave(r)===k)}; });
+  return `<div class="bk-box"><h4>${titulo}<small><em style="color:var(--cli);font-style:normal">cliente</em> / <span style="color:var(--age)">agente</span></small></h4>`+(lista.length?lista.map(([k,o,t])=>`<div class="bk-r" data-bk="${esc(tipo+':'+k)}" title="${esc(k)} · clique para ver os chamados"><div class="n">${esc(k)}</div><div class="b" style="width:${(t/mx*100).toFixed(1)}%"><i style="flex:${o.cli};background:var(--cli)"></i><i style="flex:${o.age};background:var(--age)"></i></div><div class="q"><em>${loc(o.cli)}</em> / <span>${loc(o.age)}</span><b>${loc(t)}</b></div></div>`).join(''):'<div class="vazio">Sem chamados</div>')+`</div>`;
 }
 function desenharMid(f){
   const el=document.getElementById('mid');
   el.innerHTML=quebra('Por equipe','equipe',f,r=>r._equipe,5)+quebra('Por classificação','cls',f,r=>r._cls,5)+quebra('Por cliente · top 5','cliente',f,r=>r._cli,5);
-  el.querySelectorAll('.bk-r').forEach(x=>x.addEventListener('click',()=>foco(x.dataset.t,x.dataset.n)));
 }
+
+// ── modal com os chamados (ao clicar nos cards, na barra e nas linhas das quebras) ──
+const BK={};   // chave -> { titulo, rows }
+function abrirModalBk(chave){
+  const g=BK[chave]; if(!g||TV) return;
+  const rows=g.rows.slice().sort((a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb));
+  document.getElementById('bk-md-t').textContent=g.titulo;
+  document.getElementById('bk-md-s').textContent=`${loc(rows.length)} chamado${rows.length===1?'':'s'}`;
+  document.getElementById('bk-md-tab').innerHTML=TH_CHAMADOS+`<tbody>${rows.map(linhaChamado).join('')||'<tr><td colspan="7" class="vazio">Nenhum chamado.</td></tr>'}</tbody>`;
+  document.getElementById('bk-ov').classList.add('on');
+}
+function fecharModalBk(){ document.getElementById('bk-ov').classList.remove('on'); }
+addEventListener('keydown',e=>{ if(e.key==='Escape') fecharModalBk(); });
+document.addEventListener('click',e=>{ const el=e.target.closest('[data-bk]'); if(el) abrirModalBk(el.dataset.bk); });
 function foco(t,v){ FOCO[t]=FOCO[t]===v?null:v; PAG=1; render(); }
 function filtroLado(l){ PILULA=l; PAG=1; tabela(); }
 
@@ -305,12 +331,7 @@ function linhasTabela(){
   // quem aguarda o AGENTE (o cliente falou por último) vem primeiro; depois vencidos; depois os mais antigos
   return l.sort((a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb));
 }
-function tabela(){
-  const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), f=F();
-  const nCli=f.filter(r=>ladoDe(r)==='cli').length;
-  document.getElementById('bk-pills').innerHTML=`<button type="button" class="bk-pill${PILULA==='todos'?' on':''}" onclick="filtroLado('todos')">Todos ${loc(f.length)}</button><button type="button" class="bk-pill cli${PILULA==='cli'?' on':''}" onclick="filtroLado('cli')">Cliente ${loc(nCli)}</button><button type="button" class="bk-pill age${PILULA==='age'?' on':''}" onclick="filtroLado('age')">Agente ${loc(f.length-nCli)}</button>`;
-  document.getElementById('ord').textContent='';
-  const linha=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
+const linhaChamado=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
     return `<tr>
       <td><span class="bk-n">${i+1}</span></td>
       <td class="id"><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a></td>
@@ -320,8 +341,14 @@ function tabela(){
       <td><b>${r._dAb} d</b></td>
       <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b><small>${esc(nome||'—')}</small><small style="color:${lado==='cli'?'var(--cli)':'var(--age)'}">Pendente de retorno do ${lado==='cli'?'agente':'cliente'}</small></span></td>
     </tr>`; };
+const TH_CHAMADOS='<thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Última ação</th></tr></thead>';
+function tabela(){
+  const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), f=F();
+  const nCli=f.filter(r=>ladoDe(r)==='cli').length;
+  document.getElementById('bk-pills').innerHTML=`<button type="button" class="bk-pill${PILULA==='todos'?' on':''}" onclick="filtroLado('todos')">Todos ${loc(f.length)}</button><button type="button" class="bk-pill cli${PILULA==='cli'?' on':''}" onclick="filtroLado('cli')">Cliente ${loc(nCli)}</button><button type="button" class="bk-pill age${PILULA==='age'?' on':''}" onclick="filtroLado('age')">Agente ${loc(f.length-nCli)}</button>`;
+  document.getElementById('ord').textContent='';
   document.getElementById('tw').innerHTML=`<table><thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Última ação</th></tr></thead>
-    <tbody>${vis.map(linha).join('')||`<tr><td colspan="7" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
+    <tbody>${vis.map(linhaChamado).join('')||`<tr><td colspan="7" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
   document.getElementById('mais').innerHTML=l.length>vis.length?`<button class="bt" onclick="PAG++;tabela()">Mostrar mais ${Math.min(POR_PAG,l.length-vis.length)} (faltam ${nf(l.length-vis.length)})</button>`:'';
   document.getElementById('rodir').textContent=`Mostrando ${nf(vis.length)} de ${nf(l.length)}`+(ATUALIZADO?` · atualizado ${ATUALIZADO.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'');
 }
