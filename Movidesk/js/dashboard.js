@@ -1334,7 +1334,8 @@ function buildUltimasAcoes(ticket) {
         <span class="action-pill action-pill-${rot.toLowerCase()}"><span class="sla-icon">${ico}</span><span>${rot}</span></span>
         <b>há ${escapeHtml(dshIdade(data))}</b>
         <span style="color:var(--text-muted,#8a94a6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">· ${escapeHtml(nome || '—')}${extra}</span>
-    </div>`;
+    </div>
+    <div style="margin-top:4px;font-size:11.5px;font-weight:700;color:${cliente ? 'var(--orange,#ff8a2b)' : 'var(--blue,#4f9cf0)'}" title="${cliente ? 'A última ação pública foi do cliente: aguarda retorno do agente' : 'A última ação pública foi do agente: aguarda retorno do cliente'}">⏳ Retorno de: ${cliente ? 'agente' : 'cliente'}</div>`;
 }
 
 function buildFirstResponsePlaceholder(ticketId, lastActionAuthor, lastActionOrigin, ownerName) {
