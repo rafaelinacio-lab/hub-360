@@ -312,7 +312,7 @@ function abrirModalBk(chave){
   const rows=g.rows.slice().sort((a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb));
   document.getElementById('bk-md-t').textContent=g.titulo;
   document.getElementById('bk-md-s').textContent=`${loc(rows.length)} chamado${rows.length===1?'':'s'}`;
-  document.getElementById('bk-md-tab').innerHTML=TH_CHAMADOS+`<tbody>${rows.map(linhaChamado).join('')||'<tr><td colspan="7" class="vazio">Nenhum chamado.</td></tr>'}</tbody>`;
+  document.getElementById('bk-md-tab').innerHTML=TH_CHAMADOS+`<tbody>${rows.map(linhaChamado).join('')||'<tr><td colspan="8" class="vazio">Nenhum chamado.</td></tr>'}</tbody>`;
   document.getElementById('bk-ov').classList.add('on');
 }
 function fecharModalBk(){ document.getElementById('bk-ov').classList.remove('on'); }
@@ -335,31 +335,44 @@ function linhasTabela(){
   // quem aguarda o AGENTE (o cliente falou por último) vem primeiro; depois vencidos; depois os mais antigos
   return l.sort((a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb));
 }
+// Vencimento: quanto já venceu (ou quanto falta). Pela régua do Hub em horas úteis (1 dia útil = 8 h 45 min de expediente);
+// pelo prazo do Movidesk em dias corridos até/desde a previsão.
+const DIA_UTIL_H=8.75;
+function fmtUteis(min){ const h=Math.abs(min)/60; if(h<DIA_UTIL_H) return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h`; const d=Math.floor(h/DIA_UTIL_H), r=Math.round(h-d*DIA_UTIL_H); return r?`${d} d ${r} h`:`${d} d`; }
+function fmtCorrido(ms){ const h=Math.abs(ms)/36e5; if(h<24) return `${Math.max(1,Math.round(h))} h`; return `${Math.floor(h/24)} d`; }
+function vencimento(r){
+  if(r._sit==='paus') return {t:'Pausado',s:'relógio parado',c:'var(--gy)'};
+  if(r._mdk){ const ms=new Date(r.sla_solucao).getTime()-Date.now(); return ms<0?{t:`Vencido há ${fmtCorrido(ms)}`,s:`venceu em ${dtMdk(r)}`,c:'var(--red)'}:{t:`Faltam ${fmtCorrido(ms)}`,s:`previsão ${dtMdk(r)}`,c:r._sit==='breve'?'var(--am)':'var(--gr)'}; }
+  if(r._rest==null) return r.sla_solucao?{t:'—',s:`previsão ${dtMdk(r)}`,c:'var(--t3)'}:{t:'—',s:'',c:'var(--t3)'};
+  if(r._rest<0) return {t:`Vencido há ${fmtUteis(r._rest)}`,s:'úteis de atraso',c:'var(--red)'};
+  return {t:`Faltam ${fmtUteis(r._rest)}`,s:'úteis para vencer',c:r._sit==='breve'?'var(--am)':'var(--gr)'};
+}
 const linhaChamado=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
     return `<tr>
       <td><span class="bk-n">${i+1}</span></td>
       <td class="id"><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a></td>
       <td class="cl"><b title="${esc(r._cli)}">${esc(r._cli)}</b><small title="${esc(r.assunto)}">${esc(r.assunto||'—')}</small></td>
       <td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>
-      <td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span><small style="display:block;color:var(--t3);margin-top:3px;font-weight:600">${esc(prazoTxt(r))}</small></td>
+      <td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span></td>
       <td><b>${r._dAb} d</b></td>
+      <td>${(()=>{ const v=vencimento(r); return `<b style="color:${v.c}">${esc(v.t)}</b>${v.s?`<small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${esc(v.s)}</small>`:''}`; })()}</td>
       <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b><small>${esc(nome||'—')}</small></span></td>
     </tr>`; };
-const TH_CHAMADOS='<thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Última ação</th></tr></thead>';
+const TH_CHAMADOS='<thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Vencimento</th><th>Última ação</th></tr></thead>';
 function tabela(){
   const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), f=F();
   const nCli=f.filter(r=>ladoDe(r)==='cli').length;
   document.getElementById('bk-pills').innerHTML=`<button type="button" class="bk-pill${PILULA==='todos'?' on':''}" onclick="filtroLado('todos')">Todos ${loc(f.length)}</button><button type="button" class="bk-pill cli${PILULA==='cli'?' on':''}" onclick="filtroLado('cli')">Cliente ${loc(nCli)}</button><button type="button" class="bk-pill age${PILULA==='age'?' on':''}" onclick="filtroLado('age')">Agente ${loc(f.length-nCli)}</button>`;
   document.getElementById('ord').textContent='';
-  document.getElementById('tw').innerHTML=`<table><thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Última ação</th></tr></thead>
-    <tbody>${vis.map(linhaChamado).join('')||`<tr><td colspan="7" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
+  document.getElementById('tw').innerHTML=`<table>${TH_CHAMADOS}
+    <tbody>${vis.map(linhaChamado).join('')||`<tr><td colspan="8" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
   document.getElementById('mais').innerHTML=l.length>vis.length?`<button class="bt" onclick="PAG++;tabela()">Mostrar mais ${Math.min(POR_PAG,l.length-vis.length)} (faltam ${nf(l.length-vis.length)})</button>`:'';
   document.getElementById('rodir').textContent=`Mostrando ${nf(vis.length)} de ${nf(l.length)}`+(ATUALIZADO?` · atualizado ${ATUALIZADO.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'');
 }
 function exportarCsv(){
-  const l=linhasTabela(), cab=['Chamado','Cliente','Assunto','Equipe','Responsável','Urgência','Aberto em','Dias em aberto','Dias sem retorno','Última ação pública','Pendente de retorno do','Status','Justificativa','Prazo'];
+  const l=linhasTabela(), cab=['Chamado','Cliente','Assunto','Equipe','Responsável','Urgência','Aberto em','Dias em aberto','Dias sem retorno','Última ação pública','Pendente de retorno do','Status','Justificativa','Prazo','Vencimento'];
   const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
-  const linhas=l.map(r=>[r.ticket_id,r._cli,r.assunto,r._equipe,r._resp,r.urgencia,r.criado_em?new Date(r.criado_em).toLocaleDateString('pt-BR'):'',r._dAb,r._ret,ladoDe(r)==='cli'?'Cliente':'Agente',ladoDe(r)==='cli'?'agente':'cliente',r.status_movidesk,r.justificativa,SIT[r._sit][0]].map(q).join(';'));
+  const linhas=l.map(r=>[r.ticket_id,r._cli,r.assunto,r._equipe,r._resp,r.urgencia,r.criado_em?new Date(r.criado_em).toLocaleDateString('pt-BR'):'',r._dAb,r._ret,ladoDe(r)==='cli'?'Cliente':'Agente',ladoDe(r)==='cli'?'agente':'cliente',r.status_movidesk,r.justificativa,SIT[r._sit][0],(()=>{ const v=vencimento(r); return v.t+(v.s?` (${v.s})`:''); })()].map(q).join(';'));
   const blob=new Blob(['﻿'+[cab.map(q).join(';'),...linhas].join('\r\n')],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`pendentes-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 function render(){
