@@ -294,9 +294,9 @@ const ladoDe=r=>(!(r._ag||0)&&!(r._cl||0))||(r._cl||0)>=(r._ag||0)?'cli':'age'; 
 const tUlt=r=>Math.max(r._ag||0,r._cl||0);
 // Métricas de tempo: SEMPRE em horas, com o equivalente em dias como subtexto (dias corridos para abertura/última ação; dias úteis de 8 h 45 min para o prazo pela régua do Hub)
 const fmtN=(v,dec)=>Number(v).toLocaleString('pt-BR',{maximumFractionDigits:dec});
-const hTxt=h=>`${fmtN(h,h<10?1:0)} h`;
-const diasCorridos=h=>`${fmtN(h/24,1)} d`;
-const diasUteis=h=>`${fmtN(h/8.75,1)} d úteis`;
+const hTxt=h=>`${fmtN(h,h<10?1:0)}\u00a0h`;   // espaço sem quebra: o "h" nunca desce para a linha de baixo
+const diasCorridos=h=>`${fmtN(h/24,1)}\u00a0d`;
+const diasUteis=h=>`${fmtN(h/8.75,1)}\u00a0d\u00a0úteis`;
 function tempoAcao(ms){ return hTxt(Math.max(0,(Date.now()-ms)/36e5)); }
 function subAcao(ms){ return diasCorridos(Math.max(0,(Date.now()-ms)/36e5)); }
 function desenharKpis(f){
@@ -309,7 +309,7 @@ function desenharKpis(f){
     k('cli','person','Última ação: cliente',nCli,`${pc(nCli)} do backlog · aguarda o agente`,'cli')+
     k('age','support_agent','Última ação: agente',nAge,`${pc(nAge)} do backlog · aguarda o cliente`,'age')+
     k('venc','','Vencidos',venc,`${pc(venc)} da fila`,'venc')+
-    k('','mark_email_unread','Sem retorno +7 dias',ret7.length,ret7.length?`mais antigo: ${hTxt(maisAnt*24)} (${maisAnt} d)`:'nenhum agora','ret7');
+    k('','mark_email_unread','Sem retorno +7 dias',ret7.length,ret7.length?`mais antigo: ${hTxt(maisAnt*24)} (${maisAnt}\u00a0d)`:'nenhum agora','ret7');
   document.getElementById('bk-split').innerHTML=n?`<div class="bk-split"><i class="bk-clk" data-bk="cli" title="Ver chamados em que o cliente falou por último" style="flex:${nCli};background:var(--cli)"></i><i class="bk-clk" data-bk="age" title="Ver chamados em que o agente falou por último" style="flex:${nAge};background:var(--age)"></i></div><div class="bk-split-l"><span style="color:var(--cli)">Cliente · ${loc(nCli)}</span><span style="color:var(--age)">Agente · ${loc(nAge)}</span></div>`:'';
   return {n,nCli,nAge};
 }
