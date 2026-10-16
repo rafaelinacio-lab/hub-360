@@ -302,8 +302,8 @@ const tUlt=r=>Math.max(r._ag||0,r._cl||0);
 // Métricas de tempo: SEMPRE em horas, com o equivalente em dias como subtexto (dias corridos para abertura/última ação; dias úteis de 8 h 45 min para o prazo pela régua do Hub)
 const fmtN=(v,dec)=>Number(v).toLocaleString('pt-BR',{maximumFractionDigits:dec});
 const hTxt=h=>`${fmtN(h,h<10?1:0)}\u00a0h`;   // espaço sem quebra: o "h" nunca desce para a linha de baixo
-const diasCorridos=h=>`${fmtN(h/24,1)}\u00a0d`;
-const diasUteis=h=>`${fmtN(h/8.75,1)}\u00a0d\u00a0úteis`;
+const diasCorridos=h=>{ const d=Math.floor(h/24); return d<1?'< 1\u00a0d':`${d}\u00a0d`; };   // dias inteiros e simples (a hora já é a métrica principal)
+const diasUteis=h=>{ const d=Math.floor(h/8.75); return d<1?'< 1\u00a0d\u00a0úteis':`${d}\u00a0d\u00a0úteis`; };
 function tempoAcao(ms){ return hTxt(Math.max(0,(Date.now()-ms)/36e5)); }
 function subAcao(ms){ return diasCorridos(Math.max(0,(Date.now()-ms)/36e5)); }
 function desenharKpis(f){
