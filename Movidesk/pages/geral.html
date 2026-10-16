@@ -264,7 +264,10 @@ input,select{font-family:inherit}
 .imp-exp{margin:2px 0 10px 28px;padding:8px 10px;border-radius:10px;background:var(--surface-low)}
 .imp-exp .ug{margin:0 0 8px}
 .imp-exp .ug:last-child{margin-bottom:0}
-.imp-exp .uh{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:var(--t2);margin-bottom:3px}
+.imp-exp .uh{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:var(--t2);margin-bottom:3px;cursor:pointer;list-style:none;user-select:none}
+.imp-exp .uh::-webkit-details-marker{display:none}
+.imp-exp .uh .car{display:inline-block;width:10px;color:var(--t3);transition:transform .15s}
+.imp-exp details[open]>.uh .car{transform:rotate(90deg)}
 .imp-exp .uh i{width:9px;height:9px;border-radius:50%;display:inline-block}
 .imp-exp .uh small{font-weight:600;color:var(--t3)}
 .imp-exp .it{display:grid;grid-template-columns:70px minmax(0,1fr) 110px 76px;gap:8px;align-items:center;width:100%;padding:3px 6px;border:0;border-radius:6px;background:transparent;text-align:left;font-size:12px;color:var(--t1);cursor:pointer}
@@ -2935,9 +2938,10 @@ function urgListaHtml(itens,somaFn){
   return ordem.map(u=>{
     const l=g[u].slice().sort((x,y)=>y.k-x.k);
     l.forEach(x=>{ _rowsById[x.r.ticket_id]=x.r; });
-    return `<div class="ug"><div class="uh"><i style="background:${IMP_COR_URG[u]||'#9aa3b2'}"></i>${esc(u)} <small>${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}${somaFn?` · ${somaFn(l)}`:''}</small></div>`+
+    // <details>: cada urgência nasce recolhida; o cabeçalho abre/fecha
+    return `<details class="ug"><summary class="uh"><span class="car">›</span><i style="background:${IMP_COR_URG[u]||'#9aa3b2'}"></i>${esc(u)} <small>${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}${somaFn?` · ${somaFn(l)}`:''}</small></summary>`+
       l.slice(0,URG_POR_GRUPO).map(x=>`<button type="button" class="it" data-id="${escAttr(x.r.ticket_id)}" title="${escAttr(x.r.assunto||'')}"><span class="id">#${esc(x.r.ticket_id)}</span><span class="as">${esc(x.r.assunto||'Sem assunto')}</span><span class="tp">${esc(x.c1||'')}</span><span class="im ${x.cls2||''}">${esc(x.c2||'')}</span></button>`).join('')+
-      (l.length>URG_POR_GRUPO?`<button type="button" class="mais" data-u="${escAttr(u)}">Ver os ${l.length.toLocaleString('pt-BR')} tickets</button>`:'')+`</div>`;
+      (l.length>URG_POR_GRUPO?`<button type="button" class="mais" data-u="${escAttr(u)}">Ver os ${l.length.toLocaleString('pt-BR')} tickets</button>`:'')+`</details>`;
   }).join('');
 }
 // Liga os cliques da lista expandida: abrir o ticket e "Ver os N tickets" (modal com todos da urgência).
@@ -3661,8 +3665,8 @@ function renderRespChart(rows){
     if(prox&&prox.classList.contains('imp-exp-tr')){ prox.remove(); tr.classList.remove('fixo'); return; }
     const nome=tr.dataset.n, agora=Date.now();
     const itens=_respRows.filter(r=>(r.responsavel||'Não informado')===nome).map(r=>{
-      const fim=r.resolvido_em&&isResolvido(r)?new Date(r.resolvido_em).getTime():agora, dias=Math.max(0,Math.floor((fim-new Date(r.criado_em).getTime())/864e5));
-      return {r,k:dias,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2:`${dias} d`};
+      const fim=r.resolvido_em&&isResolvido(r)?new Date(r.resolvido_em).getTime():agora, horas=Math.max(0,(fim-new Date(r.criado_em).getTime())/36e5);
+      return {r,k:horas,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2:fmtH(horas)};
     });
     tr.classList.add('fixo');
     const ex=document.createElement('tr'); ex.className='imp-exp-tr';
