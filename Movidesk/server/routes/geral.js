@@ -638,13 +638,16 @@ router.get('/campos-movidesk', acessoPainelTv, async (req, res) => {
   try {
     if (_camposCache.v && Date.now() < _camposCache.ate) return res.json(_camposCache.v);
     const closed = OPEN_EXCLUDED_STATUSES.map((x) => `'${x}'`).join(',');
+    // Nome do campo: dicionário do banco (silver.dim_campo_customizado); campos marcados como SENSÍVEIS nunca são oferecidos
     const r = await db.query(`
-      SELECT cf.custom_field_id::text AS id, COUNT(DISTINCT cf.ticket_id)::int AS n
-        FROM silver.ticket_campo_customizado cf JOIN silver.ticket t ON t.ticket_id = cf.ticket_id
-       WHERE t.basestatus NOT IN (${closed}) AND NULLIF(btrim(cf.valor_texto), '') IS NOT NULL
+      SELECT cf.custom_field_id::text AS id, COUNT(DISTINCT cf.ticket_id)::int AS n, MAX(d.nome_campo) AS nome
+        FROM silver.ticket_campo_customizado cf
+        JOIN silver.ticket t ON t.ticket_id = cf.ticket_id
+        LEFT JOIN silver.dim_campo_customizado d ON d.custom_field_id = cf.custom_field_id
+       WHERE t.basestatus NOT IN (${closed}) AND NULLIF(btrim(cf.valor_texto), '') IS NOT NULL AND COALESCE(d.sensivel, false) = false
        GROUP BY 1 ORDER BY 2 DESC LIMIT 300`);
     const vistos = new Set(r.rows.map((x) => x.id));
-    const campos = r.rows.map((x) => ({ id: x.id, nome: CATALOGO_CAMPOS[x.id] || null, n: x.n }));
+    const campos = r.rows.map((x) => ({ id: x.id, nome: x.nome || CATALOGO_CAMPOS[x.id] || null, n: x.n }));
     Object.entries(CATALOGO_CAMPOS).forEach(([id, nome]) => { if (!vistos.has(id)) campos.push({ id, nome, n: 0 }); });
     const v = { campos };
     _camposCache = { ate: Date.now() + 10 * 60 * 1000, v };
@@ -657,6 +660,8 @@ router.post('/campos-valores', acessoPainelTv, async (req, res) => {
     let ids = [...new Set((Array.isArray(req.body?.ids) ? req.body.ids : []).map((i) => String(i).trim()).filter((i) => /^\d{1,18}$/.test(i)))];
     const campos = [...new Set((Array.isArray(req.body?.campos) ? req.body.campos : []).map((i) => String(i).trim()).filter((i) => /^\d{1,12}$/.test(i)))].slice(0, 12);
     if (!ids.length || !campos.length) return res.json({ valores: {} });
+    campos.splice(0, campos.length, ...(await db.query(`SELECT custom_field_id::text AS id FROM silver.dim_campo_customizado WHERE custom_field_id = ANY($1::bigint[]) AND COALESCE(sensivel, false) = true`, [campos])).rows.reduce((a, x) => a.filter((c) => c !== x.id), campos.slice()));   // nunca devolve campos sensíveis
+    if (!campos.length) return res.json({ valores: {} });
     if (ids.length > 5000) return res.status(400).json({ error: 'Máximo de 5000 chamados por consulta' });
     ids = await idsNoEscopo(await escopoDoRequest(req), ids);
     if (!ids.length) return res.json({ valores: {} });
