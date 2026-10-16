@@ -42,6 +42,8 @@ html,body{margin:0;min-height:100%;background:var(--bg);color:var(--t1);font-fam
 @media (max-width:1100px){.bk-grid{grid-template-columns:1fr}}
 .bk-box{border:1px solid var(--b);border-radius:16px;padding:16px 18px;background:var(--s);box-shadow:var(--sh)}
 .bk-box h4{margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t2)}.bk-box h4 small{font-size:11px;font-weight:700;text-transform:none;letter-spacing:0}
+.bk-lst{max-height:190px;overflow-y:auto;margin:0 -6px;padding:0 6px}
+.tv .bk-lst{max-height:190px;overflow:hidden}   /* TV: sem mouse, fica o top 5 */
 .bk-r{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr) auto;gap:12px;align-items:center;padding:7px 6px;border-radius:9px;cursor:pointer;font-size:13.5px}.bk-r:hover,.bk-r.on{background:var(--s2)}
 .bk-r .n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bk-r .b{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--s2)}.bk-r .b i{display:block;height:100%}
 .bk-r .q{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:800;text-align:right}.bk-r .q em{font-style:normal;color:var(--cli)}.bk-r .q span{color:var(--age)}.bk-r .q b{margin-left:10px;font-size:15px}
@@ -311,11 +313,11 @@ function quebra(titulo,tipo,f,chave,max){
   const por={}; f.forEach(r=>{ const k=chave(r); const o=por[k]||(por[k]={cli:0,age:0}); o[ladoDe(r)]++; });
   const lista=Object.entries(por).map(([k,o])=>[k,o,o.cli+o.age]).sort((a,b)=>b[2]-a[2]).slice(0,max), mx=Math.max(1,...lista.map(x=>x[2]));
   lista.forEach(([k])=>{ BK[`${tipo}:${k}`]={titulo:`${titulo.replace(/ · top 5/,'')}: ${k}`,rows:f.filter(r=>chave(r)===k)}; });
-  return `<div class="bk-box"><h4>${titulo}<small><em style="color:var(--cli);font-style:normal">cliente</em> / <span style="color:var(--age)">agente</span></small></h4>`+(lista.length?lista.map(([k,o,t])=>`<div class="bk-r" data-bk="${esc(tipo+':'+k)}" title="${esc(k)} · clique para ver os chamados"><div class="n">${esc(k)}</div><div class="b" style="width:${(t/mx*100).toFixed(1)}%"><i style="flex:${o.cli};background:var(--cli)"></i><i style="flex:${o.age};background:var(--age)"></i></div><div class="q"><em>${loc(o.cli)}</em> / <span>${loc(o.age)}</span><b>${loc(t)}</b></div></div>`).join(''):'<div class="vazio">Sem chamados</div>')+`</div>`;
+  return `<div class="bk-box"><h4>${titulo}${lista.length>5?` <small style="margin-left:6px">${loc(lista.length)}</small>`:''}<small style="margin-left:auto"><em style="color:var(--cli);font-style:normal">cliente</em> / <span style="color:var(--age)">agente</span></small></h4><div class="bk-lst">`+(lista.length?lista.map(([k,o,t])=>`<div class="bk-r" data-bk="${esc(tipo+':'+k)}" title="${esc(k)} · clique para ver os chamados"><div class="n">${esc(k)}</div><div class="b" style="width:${(t/mx*100).toFixed(1)}%"><i style="flex:${o.cli};background:var(--cli)"></i><i style="flex:${o.age};background:var(--age)"></i></div><div class="q"><em>${loc(o.cli)}</em> / <span>${loc(o.age)}</span><b>${loc(t)}</b></div></div>`).join(''):'<div class="vazio">Sem chamados</div>')+`</div></div>`;
 }
 function desenharMid(f){
   const el=document.getElementById('mid');
-  el.innerHTML=quebra('Por cliente · top 5','cliente',f,r=>r._cli,5)+quebra('Por classificação','cls',f,r=>r._cls,5)+quebra('Por equipe','equipe',f,r=>r._equipe,5)+quebra('Por responsável · top 5','resp',f,r=>r._resp,5);
+  el.innerHTML=quebra('Por cliente','cliente',f,r=>r._cli,Infinity)+quebra('Por classificação','cls',f,r=>r._cls,Infinity)+quebra('Por equipe','equipe',f,r=>r._equipe,Infinity)+quebra('Por responsável','resp',f,r=>r._resp,Infinity);
 }
 
 // ── modal com os chamados (ao clicar nos cards, na barra e nas linhas das quebras) ──
