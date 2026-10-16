@@ -399,6 +399,9 @@ input,select{font-family:inherit}
 .pico.an .d{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;color:var(--t2)}
 .pico.an .tot{text-align:center;color:var(--t2);font-variant-numeric:tabular-nums}
 #pico-an-wrap{max-height:560px;overflow-y:auto;padding-right:4px}
+#pico-an-wrap.compacto{max-height:230px}
+.pico-an-filtro{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:12px;color:var(--t3);font-weight:700}
+.pico-an-filtro select{background:var(--surface-low);color:var(--t1);border:1px solid var(--border,transparent);border-radius:8px;padding:5px 8px;font:inherit;font-weight:600;max-width:260px}
 /* horários de pico */
 .pico{display:grid;grid-template-columns:34px repeat(13,minmax(0,1fr));gap:4px;align-items:center;font-size:11px;color:var(--t3);font-weight:700}
 .pico .h{text-align:center}
@@ -1158,7 +1161,8 @@ html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-
     <div class="hrow c-1">
       <div data-card="horarios-de-pico-analistas" data-titulo="Horários de pico por analista" class="chart-panel" id="pico-an-panel">
         <p class="chart-title">Horários de pico por analista</p>
-        <p class="chart-sub" style="text-align:left">Aberturas dos chamados de cada responsável por hora (07h–19h, horário do navegador), ordenadas pelo total. Clique numa célula para ver os chamados.</p>
+        <p class="chart-sub" style="text-align:left">Aberturas dos chamados de cada responsável por hora (07h–19h, horário do navegador), ordenadas pelo total. Sem filtro de Serviço no menu, escolha o serviço aqui no card; com filtro no menu, ele é respeitado. Clique numa célula para ver os chamados.</p>
+        <div class="pico-an-filtro" id="pico-an-filtro" style="display:none"><label for="pico-an-serv">Serviço</label><select id="pico-an-serv" onchange="picoAnServ(this.value)"></select></div>
         <div id="pico-an-wrap"><div class="pico an" id="pico-an-grid"></div></div>
       </div>
     </div>
@@ -3384,8 +3388,27 @@ function picoAbrir(dia,hora){
 
 // ── Horários de pico por analista: responsável x hora (mesma visão, uma linha por analista) ──
 function nomeCurto(n){ const p=String(n||'').trim().split(/\s+/); return p.length>1?`${p[0]} ${p[p.length-1]}`:p[0]||''; }
-function renderPicoAn(rows){
+let _picoAnRows=[], _picoAnServ='';
+function picoAnServ(v){ _picoAnServ=v||''; renderPicoAn(_picoAnRows,true); }
+// Sem filtro de Serviço no menu principal: o card fica compacto e ganha um filtro próprio (vertical = 1º nível do serviço).
+// Com filtro no menu principal: ele já chega filtrado (rows), o filtro do card some e a lista usa a altura cheia.
+function renderPicoAn(rows,interno){
   const box=document.getElementById('pico-an-grid'); if(!box) return;
+  if(!interno) _picoAnRows=rows;
+  const filtradoNoMenu=getMsValues('f-serv').length>0;
+  const vert=r=>String(r.servico||'').split(' > ')[0].trim()||'Sem serviço';
+  const fWrap=document.getElementById('pico-an-filtro'), sel=document.getElementById('pico-an-serv'), wrap=document.getElementById('pico-an-wrap');
+  wrap.classList.toggle('compacto',!filtradoNoMenu);
+  if(filtradoNoMenu){ fWrap.style.display='none'; _picoAnServ=''; }
+  else{
+    const cont={}; rows.forEach(r=>{ if(r.responsavel&&r.criado_em){ const v=vert(r); cont[v]=(cont[v]||0)+1; } });
+    const vs=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]||a.localeCompare(b,'pt-BR'));
+    if(_picoAnServ&&!vs.includes(_picoAnServ)) _picoAnServ='';
+    fWrap.style.display='';
+    sel.innerHTML='<option value="">Todos os serviços</option>'+vs.map(v=>`<option value="${escAttr(v)}"${v===_picoAnServ?' selected':''}>${esc(v)} (${cont[v].toLocaleString('pt-BR')})</option>`).join('');
+    if(_picoAnServ) rows=rows.filter(r=>vert(r)===_picoAnServ);
+  }
+  _picoAnVis=rows;
   const n=PICO_H1-PICO_H0+1, por={};
   let max=0;
   rows.forEach(r=>{
@@ -3407,8 +3430,9 @@ function renderPicoAn(rows){
   });
   box.innerHTML=h;
 }
+let _picoAnVis=[];
 function picoAnAbrir(nome,hora){
-  const l=_rowsFull.filter(r=>r.responsavel===nome&&r.criado_em&&new Date(r.criado_em).getHours()===hora);
+  const l=_picoAnVis.filter(r=>r.responsavel===nome&&r.criado_em&&new Date(r.criado_em).getHours()===hora);
   openDetailModal(`Aberturas de ${nome} às ${hora}h`,`${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}`,l);
 }
 
