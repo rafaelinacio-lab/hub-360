@@ -17,13 +17,47 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}
-:root{--bg:#f2f1ee;--s:#fff;--s2:#f7f6f3;--b:#e5e3de;--bh:#cac8c2;--t1:#1a1917;--t2:#57554f;--t3:#9b9892;--or:var(--orange,#e85d04);--orbg:#fff3ec;--red:#dc2626;--redbg:#fee2e2;--am:#b45309;--ambg:#fef3c7;--gr:#15803d;--grbg:#dcfce7;--gy:#6b7280;--gybg:#eceef1;--az:#2563eb;--azbg:#dbeafe;--sh:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(60,50,30,.06)}
-html.dark{--bg:#0f1117;--s:#1a1d27;--s2:#1e2232;--b:#2a2d3a;--bh:#3a3e50;--t1:#e8e8e2;--t2:#a8a8a0;--t3:#75756e;--or:var(--orange,#fb923c);--orbg:#3a2010;--red:#f87171;--redbg:#3b1515;--am:#fbbf24;--ambg:#33270a;--gr:#4ade80;--grbg:#12301c;--gy:#9aa3b2;--gybg:#272b38;--az:#60a5fa;--azbg:#14264a;--sh:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
+:root{--bg:#f2f1ee;--s:#fff;--s2:#f7f6f3;--b:#e5e3de;--bh:#cac8c2;--t1:#1a1917;--t2:#57554f;--t3:#9b9892;--or:var(--orange,#e85d04);--cli:#d19a00;--age:#2f7fd8;--orbg:#fff3ec;--red:#dc2626;--redbg:#fee2e2;--am:#b45309;--ambg:#fef3c7;--gr:#15803d;--grbg:#dcfce7;--gy:#6b7280;--gybg:#eceef1;--az:#2563eb;--azbg:#dbeafe;--sh:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(60,50,30,.06)}
+html.dark{--cli:#e9b730;--age:#4f9cf0;--bg:#0f1117;--s:#1a1d27;--s2:#1e2232;--b:#2a2d3a;--bh:#3a3e50;--t1:#e8e8e2;--t2:#a8a8a0;--t3:#75756e;--or:var(--orange,#fb923c);--orbg:#3a2010;--red:#f87171;--redbg:#3b1515;--am:#fbbf24;--ambg:#33270a;--gr:#4ade80;--grbg:#12301c;--gy:#9aa3b2;--gybg:#272b38;--az:#60a5fa;--azbg:#14264a;--sh:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--t1);font-family:Manrope,system-ui,sans-serif;font-size:13px}
 *{scrollbar-width:thin;scrollbar-color:var(--bh) transparent}
 .sym{font-family:'Material Symbols Outlined';font-weight:400;font-size:18px;line-height:1;font-style:normal;vertical-align:middle}
 .pd{padding:16px 24px 18px;display:flex;flex-direction:column;gap:12px;min-height:100vh}
 .pd-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}.brand i{width:34px;height:34px;border-radius:9px;background:var(--or);color:#fff;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:18px}
+.brand b{font-size:20px;font-weight:800;letter-spacing:-.01em}.brand-sep{width:1px;height:20px;background:var(--b)}.brand-sub{color:var(--t2);font-weight:600;font-size:13px}.brand-sub em{font-style:normal;color:var(--t1)}
+.bk-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:1100px){.bk-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bk-k{border:1px solid var(--b);border-radius:16px;padding:16px 18px;background:var(--s);box-shadow:var(--sh)}
+.bk-k .l{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t2)}.bk-k .l .sym{font-size:19px}
+.bk-k .v{font-size:44px;font-weight:800;line-height:1.05;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.bk-k .d{font-size:12.5px;color:var(--t2);margin-top:4px;font-weight:600}
+.bk-k.cli{border-color:color-mix(in srgb,var(--cli) 60%,transparent);background:color-mix(in srgb,var(--cli) 10%,var(--s))}.bk-k.cli .l,.bk-k.cli .v{color:var(--cli)}
+.bk-k.age{border-color:color-mix(in srgb,var(--age) 60%,transparent);background:color-mix(in srgb,var(--age) 10%,var(--s))}.bk-k.age .l,.bk-k.age .v{color:var(--age)}
+.bk-k.venc .v{color:var(--red)}
+.bk-split{display:flex;gap:4px;height:14px;border-radius:999px;overflow:hidden}.bk-split i{display:block;height:100%}
+.bk-split-l{display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-top:5px}
+.bk-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:1100px){.bk-grid{grid-template-columns:1fr}}
+.bk-box{border:1px solid var(--b);border-radius:16px;padding:16px 18px;background:var(--s);box-shadow:var(--sh)}
+.bk-box h4{margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t2)}.bk-box h4 small{font-size:11px;font-weight:700;text-transform:none;letter-spacing:0}
+.bk-r{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr) auto;gap:12px;align-items:center;padding:7px 6px;border-radius:9px;cursor:pointer;font-size:13.5px}.bk-r:hover,.bk-r.on{background:var(--s2)}
+.bk-r .n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bk-r .b{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--s2)}.bk-r .b i{display:block;height:100%}
+.bk-r .q{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:800;text-align:right}.bk-r .q em{font-style:normal;color:var(--cli)}.bk-r .q span{color:var(--age)}.bk-r .q b{margin-left:10px;font-size:15px}
+.bk-pills{display:flex;gap:8px;flex-wrap:wrap}
+.bk-pill{border:1px solid var(--bh);background:transparent;color:var(--t2);font:800 13px Manrope;padding:9px 16px;border-radius:999px;cursor:pointer}
+.bk-pill.on{background:var(--t1);color:var(--s);border-color:var(--t1)}
+.bk-pill.cli{color:var(--cli);border-color:color-mix(in srgb,var(--cli) 60%,transparent)}.bk-pill.cli.on{background:var(--cli);color:#1a1a1a}
+.bk-pill.age{color:var(--age);border-color:color-mix(in srgb,var(--age) 60%,transparent)}.bk-pill.age.on{background:var(--age);color:#fff}
+.bk-n{width:26px;height:26px;border-radius:50%;background:var(--s2);display:inline-grid;place-items:center;font-weight:800;font-size:12px;color:var(--t2)}
+.bk-pz{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:800;font-size:12px;white-space:nowrap}
+.bk-pz.venc{background:var(--redbg);color:var(--red)}.bk-pz.breve{background:transparent;color:var(--red);border:1px solid var(--red)}.bk-pz.prazo{background:var(--grbg);color:var(--gr)}.bk-pz.paus,.bk-pz.fora{background:var(--gybg);color:var(--gy)}
+.bk-ua{display:inline-flex;flex-direction:column;gap:3px;padding:7px 14px;border-radius:12px;border:1px solid;min-width:210px}
+.bk-ua b{display:flex;align-items:center;gap:8px;font-size:14px}.bk-ua b span{font-weight:600;color:var(--t1)}
+.bk-ua small{font-size:11px;font-weight:700;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+.bk-ua.cli{color:var(--cli);border-color:color-mix(in srgb,var(--cli) 60%,transparent);background:color-mix(in srgb,var(--cli) 8%,transparent)}
+.bk-ua.age{color:var(--age);border-color:color-mix(in srgb,var(--age) 60%,transparent);background:color-mix(in srgb,var(--age) 8%,transparent)}
+.tv .bk-pills,.tv .tool .srch{display:none}
 .pd-top h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}.pd-top h1 .sym{color:var(--or);font-size:24px}
 .visao-tv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
 .visao-tv .rot{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
@@ -96,7 +130,7 @@ body.tv{overflow:hidden}
 <body>
 <div class="pd">
   <div class="pd-top">
-    <div><h1><span class="sym">tv</span><span id="tit">Painel TV</span></h1><p id="sub">Carregando…</p></div>
+    <div><div class="brand"><i>H</i><b>Hub&nbsp;360</b><span class="brand-sep"></span><span class="brand-sub">Backlog de chamados · <em id="tit">Geral</em></span></div><p id="sub">Carregando…</p></div>
     <div class="sp"></div>
     <div class="tv-relogio" id="relogio"></div>
     <div class="md-tabs">
@@ -115,13 +149,13 @@ body.tv{overflow:hidden}
     <div class="seg"><button type="button" data-v="geral" onclick="escolherVisaoTv('geral')">Geral</button><button type="button" data-v="st" onclick="escolherVisaoTv('st')" title="Só chamados de Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h)">Suporte Técnico</button></div>
     <span class="nota" id="visao-nota"></span></div>
   <div class="pd-filt" id="filtros"></div>
-  <div class="pd-kp" id="kpis"></div>
-  <div class="pd-mid" id="mid"></div>
+  <div class="bk-kpis" id="kpis"></div>
+  <div id="bk-split"></div>
+  <div class="bk-grid" id="mid"></div>
   <div class="p pd-tab">
-    <div class="tool"><h3>Chamados pendentes <small id="ord" style="margin-left:8px"></small></h3><div class="sp"></div>
+    <div class="tool"><h3>Fila de prioridade <small id="ord" style="margin-left:8px"></small></h3><div class="sp"></div>
       <input class="srch" id="busca" type="search" placeholder="Buscar por chamado, cliente, assunto ou responsável…" oninput="BUSCA=this.value;PAG=1;tabela()">
-      <span class="pill on" data-p="todos" onclick="pilula('todos')">Todos</span><span class="pill" data-p="venc" onclick="pilula('venc')">Vencidos</span><span class="pill" data-p="ret" onclick="pilula('ret')">Sem retorno +7 d</span>
-      <div class="ms" id="colunas"></div></div>
+      <div class="bk-pills" id="bk-pills"></div></div>
     <div class="tw" id="tw"></div>
     <div class="mais" id="mais"></div>
   </div>
@@ -162,11 +196,11 @@ function visaoOk(r){
 function pintarVisaoTv(){
   document.querySelectorAll('#visao-tv .seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===VISAO));
   const n=document.getElementById('visao-nota'); if(n) n.textContent=NOTAS_VISAO[VISAO]||'';
-  const t=document.getElementById('tit'); if(t) t.textContent=`Painel TV · ${VISOES_TV[VISAO]}`;
+  const t=document.getElementById('tit'); if(t) t.textContent=VISOES_TV[VISAO];
   document.title=`Painel TV · ${VISOES_TV[VISAO]}`;
 }
 function escolherVisaoTv(v){ if(!VISOES_TV[v]||v===VISAO) return; VISAO=v; try{ localStorage.setItem('hub_tv_visao',v); }catch{} PAG=1; pintarVisaoTv(); render(); }
-let ROWS=[], FOCO={sit:null,cliente:null,resp:null}, BUSCA='', PILULA='todos', PAG=1, ORD={k:'ret',d:-1}, ATUALIZADO=null;
+let ROWS=[], FOCO={equipe:null,cls:null,cliente:null}, BUSCA='', PILULA='todos', PAG=1, ATUALIZADO=null;
 const URG={Crítica:1,Alta:2,Média:3,Baixa:4}, URGC={Crítica:'u1',Alta:'u2',Média:'u3',Baixa:'u4'};
 function enriquecer(r){
   const ms=v=>v?new Date(v).getTime():0, agora=Date.now();
@@ -187,10 +221,6 @@ function enriquecer(r){
   r._ag=ms(r.ultima_acao_agente); r._cl=ms(r.ultima_acao_cliente)||ms(r.ultima_publica_cliente);   // última ação de cada lado (agente: resposta ou nota interna)
   return r;
 }
-const SIT={venc:['Vencido','var(--red)'],breve:['Vence em breve','var(--am)'],paus:['Pausado','var(--gy)'],prazo:['No prazo','var(--gr)'],fora:['Sem prazo','#a3acb9']};
-const hUteis=m=>{ const h=Math.abs(m)/60; return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h úteis`; };
-const dtMdk=r=>new Date(r.sla_solucao).toLocaleDateString('pt-BR');
-const prazoTxt=r=>r._mdk?(r._sit==='paus'?'relógio parado · prazo do Movidesk':`${r._sit==='venc'?'venceu em':'previsão'} ${dtMdk(r)} · prazo do Movidesk`):r._sit==='venc'?(r._rest!=null?`há ${hUteis(r._rest)}`:''):(r._sit==='breve'||r._sit==='prazo')&&r._rest!=null?`${hUteis(r._rest)} restantes`:r._sit==='paus'?'relógio parado':r.sla_solucao?`previsão ${new Date(r.sla_solucao).toLocaleDateString('pt-BR')}`:'—';
 
 // ── filtros (multi-seleção, com "Selecionar todos"; Ano e Mês começam no atual) ──
 const DIM=[['equipe','Equipe',r=>r._equipe],['resp','Responsável',r=>r._resp],['serv','Serviço',r=>r._serv],['cli','Cliente',r=>r._cli],['cls','Classificação',r=>r._cls],['ano','Ano',r=>r._ano==null?'':String(r._ano)],['mes','Mês',r=>r._mes==null?'':String(r._mes)]];
@@ -226,103 +256,86 @@ document.addEventListener('click',e=>{ if(!e.target.closest('.ms')) document.que
 function filtrarOps(k,v){ const q=semAc(v).trim(); document.querySelectorAll(`#dd-${k} label`).forEach(l=>{ l.style.display=!q||l.dataset.t.includes(q)?'':'none'; }); }
 function alternarOp(k,cb){ if(cb.checked) SEL[k].add(cb.value); else SEL[k].delete(cb.value); PAG=1; render(); }
 function marcarMs(k,marcar){ document.querySelectorAll(`#dd-${k} label`).forEach(l=>{ if(l.style.display==='none') return; const cb=l.querySelector('input'); if(marcar) SEL[k].add(cb.value); else SEL[k].delete(cb.value); }); PAG=1; render(); }
-function limparFiltros(){ SEL=padraoSel(); FOCO={sit:null,cliente:null,resp:null}; BUSCA=''; document.getElementById('busca').value=''; PILULA='todos'; PAG=1; render(); }
+function limparFiltros(){ SEL=padraoSel(); FOCO={equipe:null,cls:null,cliente:null}; BUSCA=''; document.getElementById('busca').value=''; PILULA='todos'; PAG=1; render(); }
 
-// ── desenho ──
+// ── desenho: "Backlog de chamados" (pendentes pela última ação pública: cliente × agente) ──
 const F=()=>ROWS.filter(r=>passa(r));
 function icone(n){ return `<span class="sym">${n}</span>`; }
-function kpi(l,v,d,c,cb,ic){ return `<div class="k" style="--c:${c};--cb:${cb}"><div class="l">${l}<i>${icone(ic)}</i></div><div class="v">${v}</div><div class="d">${d}</div></div>`; }
+const loc=v=>Number(v||0).toLocaleString('pt-BR');
+const ladoDe=r=>(!(r._ag||0)&&!(r._cl||0))||(r._cl||0)>=(r._ag||0)?'cli':'age';   // sem ação pública: vale a abertura (cliente)
+const tUlt=r=>Math.max(r._ag||0,r._cl||0);
+function tempoAcao(ms){ const m=Math.max(0,Math.round((Date.now()-ms)/60000)); return m<60?`${m} min`:m<2880?`${Math.round(m/60)} h`:`${Math.floor(m/1440)} d`; }
 function desenharKpis(f){
-  const n=f.length, c={venc:0,breve:0,paus:0,prazo:0,fora:0}; f.forEach(r=>c[r._sit]++);
-  const ret7=f.filter(r=>r._ret>=7), maisAnt=ret7.reduce((m,r)=>Math.max(m,r._ret),0);
-  const media=n?f.reduce((t,r)=>t+(Number(r.acoes_count)||0),0)/n:0, cli=new Set(f.map(r=>r._cli)).size;
+  const n=f.length, nCli=f.filter(r=>ladoDe(r)==='cli').length, nAge=n-nCli, pc=v=>`${(n?v/n*100:0).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+  const venc=f.filter(r=>r._sit==='venc').length, ret7=f.filter(r=>r._ret>=7), maisAnt=ret7.reduce((m,r)=>Math.max(m,r._ret),0), cli=new Set(f.map(r=>r._cli)).size;
+  const k=(c,ic,l,v,d)=>`<div class="bk-k ${c}"><div class="l">${icone(ic)}${l}</div><div class="v">${loc(v)}</div><div class="d">${d}</div></div>`;
   document.getElementById('kpis').innerHTML=
-    kpi('Pendentes',nf(n),'chamados em aberto','var(--t1)','var(--s2)','pending_actions')+
-    kpi('Vencidos',nf(c.venc),n?`${(c.venc/n*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% da fila`:'—','var(--red)','var(--redbg)','priority_high')+
-    kpi('Vencem em breve',nf(c.breve),'nas próximas 4 h úteis','var(--am)','var(--ambg)','timer')+
-    kpi('Sem retorno +7 dias',nf(ret7.length),ret7.length?`mais antigo: ${maisAnt} d`:'nenhum agora','var(--or)','var(--orbg)','mark_email_unread')+
-    kpi('Média de ações',media.toLocaleString('pt-BR',{maximumFractionDigits:1}),'por chamado','var(--az)','var(--azbg)','sync_alt')+
-    kpi('Clientes',nf(cli),'com chamado pendente','var(--gr)','var(--grbg)','mood');
-  return c;
+    k('','pending_actions','Pendentes',n,`chamados em aberto · ${loc(cli)} cliente${cli===1?'':'s'}`)+
+    k('cli','person','Última ação: cliente',nCli,`${pc(nCli)} do backlog · aguarda o agente`)+
+    k('age','support_agent','Última ação: agente',nAge,`${pc(nAge)} do backlog · aguarda o cliente`)+
+    k('venc','','Vencidos',venc,`${pc(venc)} da fila`)+
+    k('','mark_email_unread','Sem retorno +7 dias',ret7.length,ret7.length?`mais antigo: ${maisAnt} d`:'nenhum agora');
+  document.getElementById('bk-split').innerHTML=n?`<div class="bk-split"><i style="flex:${nCli};background:var(--cli)"></i><i style="flex:${nAge};background:var(--age)"></i></div><div class="bk-split-l"><span style="color:var(--cli)">Cliente · ${loc(nCli)}</span><span style="color:var(--age)">Agente · ${loc(nAge)}</span></div>`:'';
+  return {n,nCli,nAge};
 }
-function barras(lista,mx,cor,tipo,sel){ return lista.map(([nome,t,v])=>`<div class="r ${sel===nome?'on':''}" onclick="foco('${tipo}',this.dataset.n)" data-n="${esc(nome)}" title="${esc(nome)}"><div class="n">${esc(nome)}</div><div class="tr"><i style="width:${v/mx*100}%;background:var(--red)"></i><i style="width:${(t-v)/mx*100}%;background:${cor}"></i></div><div class="v">${t}<small>${v?v+' venc.':''}</small></div></div>`).join(''); }
-function topo(f,fn,n){ const m=new Map(); f.forEach(r=>{ const k=fn(r); const o=m.get(k)||[k,0,0]; o[1]++; if(r._sit==='venc') o[2]++; m.set(k,o); }); const l=[...m.values()].sort((a,b)=>b[1]-a[1]); return {top:l.slice(0,n),total:l.length}; }
-function desenharMid(f,c){
-  const n=f.length, ordem=['venc','breve','paus','prazo','fora']; let ac=0;
-  const grad=n?ordem.map(k=>{ const a=ac/n*100; ac+=c[k]; return `${SIT[k][1]} ${a}% ${ac/n*100}%`; }).join(','):'var(--s2) 0 100%';
-  const cl=topo(f,r=>r._cli,7), rp=topo(f,r=>r._resp,6);
-  document.getElementById('mid').innerHTML=
-   `<div class="p"><h3>Situação do prazo <small>clique para filtrar</small></h3><div class="don"><div class="ring" style="background:conic-gradient(${grad})"><div><span style="margin:0"><b>${nf(n)}</b><span>pendentes</span></span></div></div>
-    <div class="lg">${ordem.filter(k=>c[k]>0||k==='venc').map(k=>`<div class="${FOCO.sit===k?'on':''}" style="--c:${SIT[k][1]}" onclick="foco('sit','${k}')"><i></i>${SIT[k][0]}<b>${nf(c[k])}</b><small>${n?(c[k]/n*100).toLocaleString('pt-BR',{maximumFractionDigits:1}):0}%</small></div>`).join('')}</div></div></div>
-    <div class="p"><h3>Clientes com mais chamados <small>top ${cl.top.length} de ${nf(cl.total)}</small></h3><div class="br">${cl.top.length?barras(cl.top,Math.max(1,cl.top[0][1]),'var(--az)','cliente',FOCO.cliente):'<div class="vazio">Sem chamados</div>'}</div><div class="leg"><span><i style="background:var(--red)"></i>Vencidos</span><span><i style="background:var(--az)"></i>Demais</span></div></div>
-    <div class="p"><h3>Responsáveis <small>fila por pessoa · ${nf(rp.total)}</small></h3><div class="br">${rp.top.length?barras(rp.top,Math.max(1,rp.top[0][1]),'var(--gr)','resp',FOCO.resp):'<div class="vazio">Sem chamados</div>'}</div><div class="leg"><span><i style="background:var(--red)"></i>Vencidos</span><span><i style="background:var(--gr)"></i>Demais</span></div></div>`;
+function quebra(titulo,tipo,f,chave,max){
+  const por={}; f.forEach(r=>{ const k=chave(r); const o=por[k]||(por[k]={cli:0,age:0}); o[ladoDe(r)]++; });
+  const lista=Object.entries(por).map(([k,o])=>[k,o,o.cli+o.age]).sort((a,b)=>b[2]-a[2]).slice(0,max), mx=Math.max(1,...lista.map(x=>x[2]));
+  return `<div class="bk-box"><h4>${titulo}<small><em style="color:var(--cli);font-style:normal">cliente</em> / <span style="color:var(--age)">agente</span></small></h4>`+(lista.length?lista.map(([k,o,t])=>`<div class="bk-r ${FOCO[tipo]===k?'on':''}" data-t="${tipo}" data-n="${esc(k)}" title="${esc(k)} · clique para filtrar a fila"><div class="n">${esc(k)}</div><div class="b" style="width:${(t/mx*100).toFixed(1)}%"><i style="flex:${o.cli};background:var(--cli)"></i><i style="flex:${o.age};background:var(--age)"></i></div><div class="q"><em>${loc(o.cli)}</em> / <span>${loc(o.age)}</span><b>${loc(t)}</b></div></div>`).join(''):'<div class="vazio">Sem chamados</div>')+`</div>`;
+}
+function desenharMid(f){
+  const el=document.getElementById('mid');
+  el.innerHTML=quebra('Por equipe','equipe',f,r=>r._equipe,5)+quebra('Por classificação','cls',f,r=>r._cls,5)+quebra('Por cliente · top 5','cliente',f,r=>r._cli,5);
+  el.querySelectorAll('.bk-r').forEach(x=>x.addEventListener('click',()=>foco(x.dataset.t,x.dataset.n)));
 }
 function foco(t,v){ FOCO[t]=FOCO[t]===v?null:v; PAG=1; render(); }
-function pilula(p){ PILULA=p; PAG=1; document.querySelectorAll('.pill[data-p]').forEach(e=>e.classList.toggle('on',e.dataset.p===p)); tabela(); }
+function filtroLado(l){ PILULA=l; PAG=1; tabela(); }
 
-// ── tabela ──
-const COLS=[['dot','',null,true],['id','Chamado','id',true],['cli','Cliente · assunto','cli',true],['resp','Responsável','resp',true],['urg','Urgência','urg',true],['ab','Aberto há','ab',true],['ret','Sem retorno','ret',true],['ua','Última ação','ua',true],['st','Status · justificativa','st',true],['prz','Prazo (SLA)','prz',true]];
-let COLS_OFF=new Set(JSON.parse(localStorage.getItem('hub_pendentes_cols_off')||'[]'));
-const CHAVE={id:r=>Number(r.ticket_id),cli:r=>semAc(r._cli+' '+(r.assunto||'')),resp:r=>semAc(r._resp),urg:r=>URG[r.urgencia]||9,ab:r=>r._dAb,ret:r=>r._ret,ua:r=>Math.max(r._ag||0,r._cl||0),st:r=>semAc((r.status_movidesk||'')+' '+(r.justificativa||'')),prz:r=>r._sit==='venc'?-1e9+(r._rest||0):r._rest==null?1e9:r._rest};
+// ── fila de prioridade ──
+const SIT={venc:['Vencido','var(--red)'],breve:['Vence em breve','var(--am)'],paus:['Pausado','var(--gy)'],prazo:['No prazo','var(--gr)'],fora:['Sem prazo','#a3acb9']};
+const hUteis=m=>{ const h=Math.abs(m)/60; return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h úteis`; };
+const dtMdk=r=>new Date(r.sla_solucao).toLocaleDateString('pt-BR');
+const prazoTxt=r=>r._mdk?(r._sit==='paus'?'relógio parado · prazo do Movidesk':`${r._sit==='venc'?'venceu em':'previsão'} ${dtMdk(r)} · prazo do Movidesk`):r._sit==='venc'?(r._rest!=null?`há ${hUteis(r._rest)}`:''):(r._sit==='breve'||r._sit==='prazo')&&r._rest!=null?`${hUteis(r._rest)} restantes`:r._sit==='paus'?'relógio parado':r.sla_solucao?`previsão ${new Date(r.sla_solucao).toLocaleDateString('pt-BR')}`:'—';
+const ini=n=>String(n).split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
 function linhasTabela(){
   let l=F();
-  if(FOCO.sit) l=l.filter(r=>r._sit===FOCO.sit); if(FOCO.cliente) l=l.filter(r=>r._cli===FOCO.cliente); if(FOCO.resp) l=l.filter(r=>r._resp===FOCO.resp);
-  if(PILULA==='venc') l=l.filter(r=>r._sit==='venc'); if(PILULA==='ret') l=l.filter(r=>r._ret>=7);
+  if(FOCO.equipe) l=l.filter(r=>r._equipe===FOCO.equipe); if(FOCO.cls) l=l.filter(r=>r._cls===FOCO.cls); if(FOCO.cliente) l=l.filter(r=>r._cli===FOCO.cliente);
+  if(PILULA==='cli'||PILULA==='age') l=l.filter(r=>ladoDe(r)===PILULA);
   const q=semAc(BUSCA).trim(); if(q) l=l.filter(r=>semAc(`${r.ticket_id} ${r._cli} ${r.assunto} ${r._resp} ${r._equipe}`).includes(q));
-  const kf=CHAVE[ORD.k]||CHAVE.ret; return l.sort((a,b)=>{ const x=kf(a),y=kf(b); return (x<y?-1:x>y?1:0)*ORD.d||(b._ret-a._ret); });
+  // quem aguarda o AGENTE (o cliente falou por último) vem primeiro; depois vencidos; depois os mais antigos
+  return l.sort((a,b)=>(ladoDe(a)===ladoDe(b)?0:ladoDe(a)==='cli'?-1:1)||((b._sit==='venc'?1:0)-(a._sit==='venc'?1:0))||(b._dAb-a._dAb));
 }
-// "há 3 h" / "há 2 d" (corrido, só para dizer quanto tempo faz); o lado que agiu por último fica em destaque
-function tempoAcao(ms){ const m=Math.max(0,Math.round((Date.now()-ms)/60000)); return m<60?`${m} min`:m<2880?`${Math.round(m/60)} h`:`${Math.floor(m/1440)} d`; }
-// Última ação do CHAMADO: de quem foi (cliente ou agente), há quanto tempo e quem fez.
-function celAcao(r){
-  const ag=r._ag||0, cl=r._cl||0, t=Math.max(ag,cl);
-  if(!t) return `<td><span style="color:var(--t3)">—</span></td>`;
-  const cliente=cl>=ag, nome=cliente?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
-  const extra='';
-  const cor=cliente?'var(--or)':'var(--gr)';
-  return `<td title="${esc(new Date(t).toLocaleString('pt-BR'))}"><span class="ur" style="background:color-mix(in srgb,${cor} 16%,transparent);color:${cor}">${cliente?'Cliente':'Agente'}</span> <b style="margin-left:4px">há ${tempoAcao(t)}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${esc(nome||'—')}${extra}</small><small style="display:block;margin-top:3px;font-weight:800;white-space:nowrap;color:${cliente?'var(--or)':'var(--az)'}">Pendente de retorno do ${cliente?'agente':'cliente'}</small></td>`;
-}
-const heat=d=>d>=10?'var(--red)':d>=7?'var(--am)':'var(--gr)';
-const ini=n=>String(n).split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
 function tabela(){
-  const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), cols=COLS.filter(c=>!COLS_OFF.has(c[0]));
-  const ROT={id:'Chamado',cli:'Cliente · assunto',resp:'Responsável',urg:'Urgência',ab:'Aberto há',ret:'Sem retorno',ua:'Última ação',st:'Status · justificativa',prz:'Prazo (SLA)'};
-  document.getElementById('ord').textContent=`ordenado por ${(ROT[ORD.k]||'').toLowerCase()} ${ORD.d<0?'↓':'↑'}`;
-  const cel={
-    dot:r=>`<td><span class="dot" style="--c:${SIT[r._sit][1]}"></span></td>`,
-    id:r=>`<td class="id"><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a></td>`,
-    cli:r=>`<td class="cl"><b title="${esc(r._cli)}">${esc(r._cli)}</b><small title="${esc(r.assunto)}">${esc(r.assunto||'—')}</small></td>`,
-    resp:r=>`<td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>`,
-    urg:r=>`<td><span class="ur ${URGC[r.urgencia]||'u4'}">${esc(r.urgencia||'—')}</span></td>`,
-    ab:r=>`<td><div class="dias" title="Dias corridos desde a abertura">${r._dAb} d<span style="--bar:var(--az)"><i style="width:${Math.min(100,r._dAb/60*100)}%"></i></span></div></td>`,
-    ret:r=>`<td><div class="dias" style="color:${heat(r._ret)}" title="Dias corridos desde a última resposta pública (cliente ou atendente)">${r._ret} d<span style="--bar:${heat(r._ret)}"><i style="width:${Math.min(100,r._ret/14*100)}%"></i></span></div></td>`,
-    ua:r=>celAcao(r),
-    st:r=>`<td class="st"><b>${esc(r.status_movidesk||'—')}</b><small title="${esc(r.justificativa)}">${esc(r.justificativa||'')}</small></td>`,
-    prz:r=>`<td><span class="sr sr-${r._sit}">${SIT[r._sit][0]}</span><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${esc(prazoTxt(r))}</small></td>`,
-  };
-  document.getElementById('tw').innerHTML=`<table><thead><tr>${cols.map(([k,t,o])=>`<th class="${o&&ORD.k===o?'on':''}" ${o?`onclick="ordenar('${o}')"`:''} title="${o?'Clique para ordenar':''}">${t}${o&&ORD.k===o?`<span class="ar">${ORD.d<0?'▼':'▲'}</span>`:''}</th>`).join('')}</tr></thead>
-    <tbody>${vis.map(r=>`<tr>${cols.map(c=>cel[c[0]](r)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
+  const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), f=F();
+  const nCli=f.filter(r=>ladoDe(r)==='cli').length;
+  document.getElementById('bk-pills').innerHTML=`<button type="button" class="bk-pill${PILULA==='todos'?' on':''}" onclick="filtroLado('todos')">Todos ${loc(f.length)}</button><button type="button" class="bk-pill cli${PILULA==='cli'?' on':''}" onclick="filtroLado('cli')">Cliente ${loc(nCli)}</button><button type="button" class="bk-pill age${PILULA==='age'?' on':''}" onclick="filtroLado('age')">Agente ${loc(f.length-nCli)}</button>`;
+  document.getElementById('ord').textContent='';
+  const linha=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
+    return `<tr>
+      <td><span class="bk-n">${i+1}</span></td>
+      <td class="id"><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a></td>
+      <td class="cl"><b title="${esc(r._cli)}">${esc(r._cli)}</b><small title="${esc(r.assunto)}">${esc(r.assunto||'—')}</small></td>
+      <td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>
+      <td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span><small style="display:block;color:var(--t3);margin-top:3px;font-weight:600">${esc(prazoTxt(r))}</small></td>
+      <td><b>${r._dAb} d</b></td>
+      <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b><small>${esc(nome||'—')}</small><small style="color:${lado==='cli'?'var(--cli)':'var(--age)'}">Pendente de retorno do ${lado==='cli'?'agente':'cliente'}</small></span></td>
+    </tr>`; };
+  document.getElementById('tw').innerHTML=`<table><thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Última ação</th></tr></thead>
+    <tbody>${vis.map(linha).join('')||`<tr><td colspan="7" class="vazio">Nenhum chamado com esses filtros.</td></tr>`}</tbody></table>`;
   document.getElementById('mais').innerHTML=l.length>vis.length?`<button class="bt" onclick="PAG++;tabela()">Mostrar mais ${Math.min(POR_PAG,l.length-vis.length)} (faltam ${nf(l.length-vis.length)})</button>`:'';
   document.getElementById('rodir').textContent=`Mostrando ${nf(vis.length)} de ${nf(l.length)}`+(ATUALIZADO?` · atualizado ${ATUALIZADO.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'');
-  // colunas
-  const co=document.getElementById('colunas'); const abertoC=co.classList.contains('open');
-  co.className='ms'+(abertoC?' open':''); co.dataset.k='cols';
-  co.innerHTML=`<span class="pill" onclick="abrirMs('cols')">Colunas ▾</span><div class="dd" style="left:auto;right:0;min-width:200px">${COLS.filter(c=>c[0]!=='dot').map(c=>`<label><input type="checkbox" ${COLS_OFF.has(c[0])?'':'checked'} onchange="alternarCol('${c[0]}',this.checked)"><span>${esc(ROT[c[0]]||c[1])}</span></label>`).join('')}</div>`;
 }
-function alternarCol(k,on){ if(on) COLS_OFF.delete(k); else COLS_OFF.add(k); try{ localStorage.setItem('hub_pendentes_cols_off',JSON.stringify([...COLS_OFF])); }catch{} tabela(); document.getElementById('colunas').classList.add('open'); }
-function ordenar(k){ if(ORD.k===k) ORD.d=-ORD.d; else ORD={k,d:(k==='cli'||k==='resp'||k==='st')?1:-1}; tabela(); }
 function exportarCsv(){
-  const l=linhasTabela(), cab=['Chamado','Cliente','Assunto','Equipe','Responsável','Urgência','Aberto em','Dias em aberto','Dias sem retorno','Status','Justificativa','Prazo','Horas úteis (restantes; negativo = excesso)'];
+  const l=linhasTabela(), cab=['Chamado','Cliente','Assunto','Equipe','Responsável','Urgência','Aberto em','Dias em aberto','Dias sem retorno','Última ação pública','Pendente de retorno do','Status','Justificativa','Prazo'];
   const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
-  const linhas=l.map(r=>[r.ticket_id,r._cli,r.assunto,r._equipe,r._resp,r.urgencia,r.criado_em?new Date(r.criado_em).toLocaleDateString('pt-BR'):'',r._dAb,r._ret,r.status_movidesk,r.justificativa,SIT[r._sit][0],r._rest==null?'':(r._rest/60).toFixed(1).replace('.',',')].map(q).join(';'));
+  const linhas=l.map(r=>[r.ticket_id,r._cli,r.assunto,r._equipe,r._resp,r.urgencia,r.criado_em?new Date(r.criado_em).toLocaleDateString('pt-BR'):'',r._dAb,r._ret,ladoDe(r)==='cli'?'Cliente':'Agente',ladoDe(r)==='cli'?'agente':'cliente',r.status_movidesk,r.justificativa,SIT[r._sit][0]].map(q).join(';'));
   const blob=new Blob(['﻿'+[cab.map(q).join(';'),...linhas].join('\r\n')],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`pendentes-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
-
 function render(){
-  desenharFiltros(); const f=F(); const c=desenharKpis(f); desenharMid(f,c); tabela();
+  desenharFiltros(); const f=F(); desenharKpis(f); desenharMid(f); tabela();
   const filtros=[]; ['ano','mes'].forEach(k=>{ if(SEL[k].size) filtros.push([...SEL[k]].map(v=>rotuloDim(k,v)).join(', ')); });
-  const fc=[FOCO.sit&&SIT[FOCO.sit][0],FOCO.cliente,FOCO.resp].filter(Boolean);
-  document.getElementById('sub').innerHTML=`${nf(f.length)} chamado(s) pendente(s)${filtros.length?` · abertos em ${esc(filtros.join(' / '))}`:''}${fc.length?` · foco: ${esc(fc.join(' + '))} <a href="#" onclick="FOCO={sit:null,cliente:null,resp:null};PAG=1;render();return false" style="color:var(--or);font-weight:800">✕ tirar foco</a>`:''}`;
+  const fc=[FOCO.equipe,FOCO.cls,FOCO.cliente].filter(Boolean);
+  document.getElementById('sub').innerHTML=`${nf(f.length)} chamado(s) pendente(s)${filtros.length?` · abertos em ${esc(filtros.join(' / '))}`:''}${fc.length?` · foco: ${esc(fc.join(' + '))} <a href="#" onclick="FOCO={equipe:null,cls:null,cliente:null};PAG=1;render();return false" style="color:var(--or)">limpar foco</a>`:''}`;
 }
 async function carregar(){
   try{
