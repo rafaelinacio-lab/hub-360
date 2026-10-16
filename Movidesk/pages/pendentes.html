@@ -449,9 +449,11 @@ function lerColunas(){
   try{ const v=JSON.parse(localStorage.getItem('hub_tv_cols')||'null'); if(v){ COLS_OFF=new Set((v.off||[]).filter(k=>COLS_BASE.some(c=>c.k===k&&!c.fixa))); CF_COLS=(v.cf||[]).filter(c=>/^\d+$/.test(String(c.id))).map(c=>({id:String(c.id),nome:String(c.nome||`Campo ${c.id}`).slice(0,60),on:c.on!==false})); } }catch{}
 }
 function salvarColunas(){ try{ localStorage.setItem('hub_tv_cols',JSON.stringify({off:[...COLS_OFF],cf:CF_COLS})); }catch{} }
+// Valores de data do Movidesk chegam em ISO (2022-06-10T00:00:00.000Z): mostra dd/mm/aaaa (e hora, quando houver)
+const fmtCf=v=>{ if(v==null||v==='') return ''; const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); if(!m) return String(v); return (m[4]==='00'&&m[5]==='00')?`${m[3]}/${m[2]}/${m[1]}`:`${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`; };
 const cfAtivos=()=>CF_COLS.filter(c=>c.on);
 function colunasVisiveis(){
-  const base=COLS_BASE.filter(c=>c.fixa||!COLS_OFF.has(c.k)), cf=cfAtivos().map(c=>({k:`cf:${c.id}`,t:c.nome,w:11,ord:`cf:${c.id}`,cf:c.id,cel:r=>{ const v=(r._cf||{})[c.id]; return `<td title="${esc(v||'')}">${v?esc(v):'<span style="color:var(--t3)">—</span>'}</td>`; }}));
+  const base=COLS_BASE.filter(c=>c.fixa||!COLS_OFF.has(c.k)), cf=cfAtivos().map(c=>({k:`cf:${c.id}`,t:c.nome,w:11,ord:`cf:${c.id}`,cf:c.id,cel:r=>{ const v=fmtCf((r._cf||{})[c.id]); return `<td title="${esc(v||'')}">${v?esc(v):'<span style="color:var(--t3)">—</span>'}</td>`; }}));
   const i=base.findIndex(c=>c.k==='ua'); return i<0?[...base,...cf]:[...base.slice(0,i),...cf,...base.slice(i)];
 }
 const colgrupo=cols=>{ const tot=cols.reduce((a,c)=>a+c.w,0); return '<colgroup>'+cols.map(c=>`<col style="width:${(c.w/tot*100).toFixed(2)}%">`).join('')+'</colgroup>'; };
@@ -486,7 +488,7 @@ function tabela(){
 function exportarCsv(){
   const l=linhasTabela(), cab=['Chamado','Cliente','Assunto','Equipe','Responsável','Urgência','Aberto em','Dias em aberto','Dias sem retorno','Última ação pública','Pendente de retorno do','Status','Justificativa','Prazo','Vencimento',...cfAtivos().map(c=>c.nome)];
   const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
-  const linhas=l.map(r=>[r.ticket_id,r._cli,r.assunto,r._equipe,r._resp,r.urgencia,r.criado_em?new Date(r.criado_em).toLocaleDateString('pt-BR'):'',r._dAb,r._ret,ladoDe(r)==='cli'?'Cliente':'Agente',ladoDe(r)==='cli'?'agente':'cliente',r.status_movidesk,r.justificativa,SIT[r._sit][0],(()=>{ const v=vencimento(r); return v.t+(v.s?` (${v.s})`:''); })(),...cfAtivos().map(c=>(r._cf||{})[c.id]||'')].map(q).join(';'));
+  const linhas=l.map(r=>[r.ticket_id,r._cli,r.assunto,r._equipe,r._resp,r.urgencia,r.criado_em?new Date(r.criado_em).toLocaleDateString('pt-BR'):'',r._dAb,r._ret,ladoDe(r)==='cli'?'Cliente':'Agente',ladoDe(r)==='cli'?'agente':'cliente',r.status_movidesk,r.justificativa,SIT[r._sit][0],(()=>{ const v=vencimento(r); return v.t+(v.s?` (${v.s})`:''); })(),...cfAtivos().map(c=>fmtCf((r._cf||{})[c.id]))].map(q).join(';'));
   const blob=new Blob(['﻿'+[cab.map(q).join(';'),...linhas].join('\r\n')],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`pendentes-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 function render(){
