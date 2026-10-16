@@ -280,7 +280,13 @@ function icone(n){ return `<span class="sym">${n}</span>`; }
 const loc=v=>Number(v||0).toLocaleString('pt-BR');
 const ladoDe=r=>(!(r._ag||0)&&!(r._cl||0))||(r._cl||0)>=(r._ag||0)?'cli':'age';   // sem ação pública: vale a abertura (cliente)
 const tUlt=r=>Math.max(r._ag||0,r._cl||0);
-function tempoAcao(ms){ const m=Math.max(0,Math.round((Date.now()-ms)/60000)); return m<60?`${m} min`:m<2880?`${Math.round(m/60)} h`:`${Math.floor(m/1440)} d`; }
+// Métricas de tempo: SEMPRE em horas, com o equivalente em dias como subtexto (dias corridos para abertura/última ação; dias úteis de 8 h 45 min para o prazo pela régua do Hub)
+const fmtN=(v,dec)=>Number(v).toLocaleString('pt-BR',{maximumFractionDigits:dec});
+const hTxt=h=>`${fmtN(h,h<10?1:0)} h`;
+const diasCorridos=h=>`${fmtN(h/24,1)} d`;
+const diasUteis=h=>`${fmtN(h/8.75,1)} d úteis`;
+function tempoAcao(ms){ return hTxt(Math.max(0,(Date.now()-ms)/36e5)); }
+function subAcao(ms){ return diasCorridos(Math.max(0,(Date.now()-ms)/36e5)); }
 function desenharKpis(f){
   const n=f.length, nCli=f.filter(r=>ladoDe(r)==='cli').length, nAge=n-nCli, pc=v=>`${(n?v/n*100:0).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
   const venc=f.filter(r=>r._sit==='venc').length, ret7=f.filter(r=>r._ret>=7), maisAnt=ret7.reduce((m,r)=>Math.max(m,r._ret),0), cli=new Set(f.map(r=>r._cli)).size;
@@ -291,7 +297,7 @@ function desenharKpis(f){
     k('cli','person','Última ação: cliente',nCli,`${pc(nCli)} do backlog · aguarda o agente`,'cli')+
     k('age','support_agent','Última ação: agente',nAge,`${pc(nAge)} do backlog · aguarda o cliente`,'age')+
     k('venc','','Vencidos',venc,`${pc(venc)} da fila`,'venc')+
-    k('','mark_email_unread','Sem retorno +7 dias',ret7.length,ret7.length?`mais antigo: ${maisAnt} d`:'nenhum agora','ret7');
+    k('','mark_email_unread','Sem retorno +7 dias',ret7.length,ret7.length?`mais antigo: ${hTxt(maisAnt*24)} (${maisAnt} d)`:'nenhum agora','ret7');
   document.getElementById('bk-split').innerHTML=n?`<div class="bk-split"><i class="bk-clk" data-bk="cli" title="Ver chamados em que o cliente falou por último" style="flex:${nCli};background:var(--cli)"></i><i class="bk-clk" data-bk="age" title="Ver chamados em que o agente falou por último" style="flex:${nAge};background:var(--age)"></i></div><div class="bk-split-l"><span style="color:var(--cli)">Cliente · ${loc(nCli)}</span><span style="color:var(--age)">Agente · ${loc(nAge)}</span></div>`:'';
   return {n,nCli,nAge};
 }
@@ -354,14 +360,13 @@ const thFila=()=>'<thead><tr>'+COLS_TH.map(([c,t,o])=>o==='prz'?`<th class="ord 
 // Vencimento: quanto já venceu (ou quanto falta). Pela régua do Hub em horas úteis (1 dia útil = 8 h 45 min de expediente);
 // pelo prazo do Movidesk em dias corridos até/desde a previsão.
 const DIA_UTIL_H=8.75;
-function fmtUteis(min){ const h=Math.abs(min)/60; if(h<DIA_UTIL_H) return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h`; const d=Math.floor(h/DIA_UTIL_H), r=Math.round(h-d*DIA_UTIL_H); return r?`${d} d ${r} h`:`${d} d`; }
-function fmtCorrido(ms){ const h=Math.abs(ms)/36e5; if(h<24) return `${Math.max(1,Math.round(h))} h`; return `${Math.floor(h/24)} d`; }
 function vencimento(r){
   if(r._sit==='paus') return {t:'Pausado',s:'relógio parado',c:'var(--gy)'};
-  if(r._mdk){ const ms=new Date(r.sla_solucao).getTime()-Date.now(); return ms<0?{t:`Vencido há ${fmtCorrido(ms)}`,s:`venceu em ${dtMdk(r)}`,c:'var(--red)'}:{t:`Faltam ${fmtCorrido(ms)}`,s:`previsão ${dtMdk(r)}`,c:r._sit==='breve'?'var(--am)':'var(--gr)'}; }
+  if(r._mdk){ const ms=new Date(r.sla_solucao).getTime()-Date.now(), h=Math.abs(ms)/36e5; return ms<0?{t:`Vencido há ${hTxt(h)}`,s:`${diasCorridos(h)} · venceu em ${dtMdk(r)}`,c:'var(--red)'}:{t:`Faltam ${hTxt(h)}`,s:`${diasCorridos(h)} · previsão ${dtMdk(r)}`,c:r._sit==='breve'?'var(--am)':'var(--gr)'}; }
   if(r._rest==null) return r.sla_solucao?{t:'—',s:`previsão ${dtMdk(r)}`,c:'var(--t3)'}:{t:'—',s:'',c:'var(--t3)'};
-  if(r._rest<0) return {t:`Vencido há ${fmtUteis(r._rest)}`,s:'úteis de atraso',c:'var(--red)'};
-  return {t:`Faltam ${fmtUteis(r._rest)}`,s:'úteis para vencer',c:r._sit==='breve'?'var(--am)':'var(--gr)'};
+  const h=Math.abs(r._rest)/60;   // horas úteis líquidas
+  if(r._rest<0) return {t:`Vencido há ${hTxt(h)}`,s:`${diasUteis(h)} de atraso`,c:'var(--red)'};
+  return {t:`Faltam ${hTxt(h)}`,s:`${diasUteis(h)} para vencer`,c:r._sit==='breve'?'var(--am)':'var(--gr)'};
 }
 const linhaChamado=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
     return `<tr>
@@ -370,9 +375,9 @@ const linhaChamado=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r
       <td class="cl"><b title="${esc(r._cli)}">${esc(r._cli)}</b><small title="${esc(r.assunto)}">${esc(r.assunto||'—')}</small></td>
       <td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>
       <td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span></td>
-      <td><b>${r._dAb} d</b></td>
+      <td><b>${hTxt(Math.max(0,(Date.now()-new Date(r.criado_em).getTime())/36e5))}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${diasCorridos(Math.max(0,(Date.now()-new Date(r.criado_em).getTime())/36e5))}</small></td>
       <td>${(()=>{ const v=vencimento(r); return `<b style="color:${v.c}">${esc(v.t)}</b>${v.s?`<small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${esc(v.s)}</small>`:''}`; })()}</td>
-      <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b><small>${esc(nome||'—')}</small></span></td>
+      <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><div style="display:flex;flex-direction:column;gap:2px"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b>${t?`<small style="text-align:left;margin-left:26px;font-weight:600">${subAcao(t)}</small>`:''}</div><small>${esc(nome||'—')}</small></span></td>
     </tr>`; };
 const TH_CHAMADOS='<thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Vencimento</th><th>Última ação</th></tr></thead>';
 function tabela(){
