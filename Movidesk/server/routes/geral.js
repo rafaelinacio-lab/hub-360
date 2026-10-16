@@ -201,7 +201,18 @@ const LAST_PUBLIC_ACTION_JOIN = `
           criado_por_profile_type = '2'
           OR (criado_por_profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')
         )
-      ) AS ultima_publica_cliente
+      ) AS ultima_publica_cliente,
+      -- última ação do AGENTE (resposta pública ou nota interna) e do CLIENTE, com o autor (Painel TV)
+      (ARRAY_AGG(criado_em ORDER BY criado_em DESC) FILTER (WHERE
+          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_agente,
+      (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC) FILTER (WHERE
+          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_agente_por,
+      (ARRAY_AGG(COALESCE(is_public, false) ORDER BY criado_em DESC) FILTER (WHERE
+          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_agente_publica,
+      (ARRAY_AGG(criado_em ORDER BY criado_em DESC) FILTER (WHERE
+          criado_por_profile_type = '2' OR (criado_por_profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_cliente,
+      (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC) FILTER (WHERE
+          criado_por_profile_type = '2' OR (criado_por_profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_cliente_por
     FROM silver.ticket_acao
     WHERE ticket_id = p.ticket_id::bigint
   ) ap ON true
@@ -400,7 +411,7 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
     const esc = await escopoDoRequest(req);
     await cacheResposta.responder(req, res, 'pendentes' + chaveEscopo(esc), CACHE_PAINEL_MS, async () => {
       const result = await db.query(`
-        SELECT p.*, ap.ultima_publica_agente, ap.ultima_publica_cliente
+        SELECT p.*, ap.ultima_publica_agente, ap.ultima_publica_cliente, ap.ultima_acao_agente, ap.ultima_acao_agente_por, ap.ultima_acao_agente_publica, ap.ultima_acao_cliente, ap.ultima_acao_cliente_por
         FROM (${LIST_SELECT} WHERE t.basestatus NOT IN (${closedList})) p
         ${LAST_PUBLIC_ACTION_JOIN}
         ORDER BY p.criado_em DESC
