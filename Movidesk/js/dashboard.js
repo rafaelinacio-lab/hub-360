@@ -1316,6 +1316,26 @@ function formatMinutesAsText(totalMinutes) {
     return `${hours}h ${rest}min`;
 }
 
+// Última ação do AGENTE (resposta pública ou nota interna) e do CLIENTE: quando foi, quem fez e quem agiu por último.
+function buildUltimasAcoes(ticket) {
+    const dAg = getTicketValue(ticket, 'lastAgentActionDate', 'lastagentactiondate', null);
+    const dCl = getTicketValue(ticket, 'lastClientActionDate', 'lastclientactiondate', null);
+    const nAg = getTicketValue(ticket, 'lastAgentActionBy', 'lastagentactionby', '');
+    const nCl = getTicketValue(ticket, 'lastClientActionBy', 'lastclientactionby', '');
+    const pub = getTicketValue(ticket, 'lastAgentActionPublic', 'lastagentactionpublic', false);
+    // Sem as datas por autor (outras fontes de dados): mantém o aviso antigo de quem agiu por último
+    if (!dAg && !dCl) return `<div style="margin-top: 6px;">${buildFirstResponsePlaceholder(ticket.id, getTicketValue(ticket, 'lastActionCreatedByBusinessName', 'lastactioncreatedbybusinessname', ''), getTicketValue(ticket, 'lastActionOrigin', 'lastactionorigin', ''), '')}</div>`;
+    const ultimo = dCl && (!dAg || new Date(dCl) > new Date(dAg)) ? 'cliente' : 'agente';
+    const linha = (rot, ico, data, nome, extra, destaque) => `<div title="${data ? escapeHtml(new Date(data).toLocaleString('pt-BR')) : ''}" style="display:flex;gap:6px;align-items:baseline;margin-top:4px;font-size:12px;${destaque ? 'font-weight:700;' : ''}">
+        <span>${ico}</span><span style="min-width:48px;color:var(--text-muted,#8a94a6)">${rot}</span>
+        ${data ? `<b>há ${escapeHtml(dshIdade(data))}</b><span style="color:var(--text-muted,#8a94a6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">· ${escapeHtml(nome || '—')}${extra}</span>` : '<span style="color:var(--text-muted,#8a94a6)">sem registro</span>'}
+    </div>`;
+    return `<div style="margin-top:4px">
+        ${linha('Agente', '👨\u200d💼', dAg, nAg, dAg ? (pub ? ' (resposta)' : ' (nota interna)') : '', ultimo === 'agente')}
+        ${linha('Cliente', '👤', dCl, nCl, '', ultimo === 'cliente')}
+    </div>`;
+}
+
 function buildFirstResponsePlaceholder(ticketId, lastActionAuthor, lastActionOrigin, ownerName) {
     const author = lastActionAuthor || 'Não registrado';
     let originLabel = 'Agente';
@@ -1514,9 +1534,7 @@ function createCardHTML(ticket) {
                 <div class="card-info-row">
                     <div class="card-info-col">
                         <span class="card-info-label">ÚLT. AÇÃO:</span>
-                        <div style="margin-top: 6px;">
-                            ${buildFirstResponsePlaceholder(ticket.id, getTicketValue(ticket, 'lastActionCreatedByBusinessName', 'lastactioncreatedbybusinessname', ''), getTicketValue(ticket, 'lastActionOrigin', 'lastactionorigin', ''), ownerName)}
-                        </div>
+                        ${buildUltimasAcoes(ticket)}
                     </div>
                     <div class="card-info-col">
                         <span class="card-info-label">CLIENTE:</span>

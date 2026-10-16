@@ -115,6 +115,11 @@ function normalizeTicketRow(row = {}) {
     updatedAt: row.updatedAt ?? row.updatedat ?? null,
     lastActionCreatedByBusinessName: row.lastActionCreatedByBusinessName ?? row.lastactioncreatedbybusinessname ?? '',
     lastActionOrigin: row.lastActionOrigin ?? row.lastactionorigin ?? '',
+    lastAgentActionDate: row.lastAgentActionDate ?? row.lastagentactiondate ?? null,
+    lastAgentActionBy: row.lastAgentActionBy ?? row.lastagentactionby ?? '',
+    lastAgentActionPublic: row.lastAgentActionPublic ?? row.lastagentactionpublic ?? false,
+    lastClientActionDate: row.lastClientActionDate ?? row.lastclientactiondate ?? null,
+    lastClientActionBy: row.lastClientActionBy ?? row.lastclientactionby ?? '',
     cf_classificacao_de_ticket: row.cf_classificacao_de_ticket ?? '',
     urgencia: row.urgencia ?? '',
     actionsJson: row.actionsJson ?? row.actionsjson ?? null,
@@ -1180,7 +1185,15 @@ async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewe
       COALESCE(org.organizacao_nome, t.clientorganization)   AS clientname,
       COALESCE(ac.total, 0)                                  AS actionscount,
       ac.ultima_em                                           AS lastactiondate,
-      ac.ultima_por                                          AS lastactioncreatedbybusinessname
+      ac.ultima_por                                          AS lastactioncreatedbybusinessname,
+      ag.criado_em                                           AS lastagentactiondate,
+      ag.criado_por_nome                                     AS lastagentactionby,
+      COALESCE(ag.is_public, false)                          AS lastagentactionpublic,
+      cl.criado_em                                           AS lastclientactiondate,
+      cl.criado_por_nome                                     AS lastclientactionby,
+      CASE WHEN cl.criado_em IS NULL AND ag.criado_em IS NULL THEN ''
+           WHEN cl.criado_em IS NOT NULL AND (ag.criado_em IS NULL OR cl.criado_em > ag.criado_em) THEN 'Customer'
+           ELSE 'Attendant' END                                AS lastactionorigin
     FROM silver.ticket t
     LEFT JOIN silver.ticket_organizacao org ON org.ticket_id = t.ticket_id::bigint
     LEFT JOIN LATERAL (
@@ -1189,6 +1202,20 @@ async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewe
              (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC))[1] AS ultima_por
         FROM silver.ticket_acao WHERE ticket_id = t.ticket_id::bigint
     ) ac ON true
+    -- última ação do AGENTE (pública ou nota interna) e do CLIENTE: mesmo critério de quem é quem do Painel Geral (perfil do autor;
+    -- sem perfil, pelo e-mail: @viasoft.com.br = agente)
+    LEFT JOIN LATERAL (
+      SELECT criado_em, criado_por_nome, is_public FROM silver.ticket_acao
+       WHERE ticket_id = t.ticket_id::bigint
+         AND (criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br'))
+       ORDER BY criado_em DESC LIMIT 1
+    ) ag ON true
+    LEFT JOIN LATERAL (
+      SELECT criado_em, criado_por_nome FROM silver.ticket_acao
+       WHERE ticket_id = t.ticket_id::bigint
+         AND (criado_por_profile_type = '2' OR (criado_por_profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br'))
+       ORDER BY criado_em DESC LIMIT 1
+    ) cl ON true
     WHERE ${where.join(' AND ')}
     ORDER BY t.createddate DESC NULLS LAST
     LIMIT ${DASHBOARD_MAX_ROWS}`, params);
