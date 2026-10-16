@@ -92,7 +92,7 @@ body.tv{overflow:hidden}
 .tv .pd-tab .tw{flex:1;min-height:0;max-height:none;overflow:hidden}
 @media (max-width:1200px){.pd-kp{grid-template-columns:repeat(3,1fr)}.pd-mid{grid-template-columns:1fr 1fr}.pd-mid>.p:first-child{grid-column:1/-1}}
 @media (max-width:760px){.pd-kp{grid-template-columns:repeat(2,1fr)}.pd-mid{grid-template-columns:1fr}.srch{width:100%}}
-</style><script src="../js/permExportar.js"></script><script src="../js/equipesTipo.js"></script></head>
+</style><script src="../js/permExportar.js"></script></head>
 <body>
 <div class="pd">
   <div class="pd-top">
@@ -112,7 +112,7 @@ body.tv{overflow:hidden}
   </div>
   <div class="erro" id="erro"></div>
   <div class="visao-tv" id="visao-tv" role="tablist" aria-label="Visão do Painel TV"><span class="rot">Visão</span>
-    <div class="seg"><button type="button" data-v="geral" onclick="escolherVisaoTv('geral')">Geral</button><button type="button" data-v="produto" onclick="escolherVisaoTv('produto')" title="Só equipes de Produto (Equipe Técnica). Prazo pela previsão de solução do Movidesk">Produto</button><button type="button" data-v="st" onclick="escolherVisaoTv('st')" title="Só chamados de Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h)">Suporte Técnico</button></div>
+    <div class="seg"><button type="button" data-v="geral" onclick="escolherVisaoTv('geral')">Geral</button><button type="button" data-v="st" onclick="escolherVisaoTv('st')" title="Só chamados de Suporte Técnico (régua de SLA do Hub: 4/8/16/24 h)">Suporte Técnico</button></div>
     <span class="nota" id="visao-nota"></span></div>
   <div class="pd-filt" id="filtros"></div>
   <div class="pd-kp" id="kpis"></div>
@@ -149,14 +149,13 @@ function abrirModoTv(){ window.open(`pendentes.html?tv=1&visao=${VISAO}${CHAVE_T
 // ── dados derivados ──
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const HOJE=new Date();
-// ── Visão do Painel TV (como no Painel Geral): Geral | Produto | Suporte Técnico. Também por link: ?visao=geral|produto|st ──
-const VISOES_TV={geral:'Geral',produto:'Produto',st:'Suporte Técnico'};
-const NOTAS_VISAO={geral:'',produto:'Equipes de Produto · prazo pela previsão de solução do Movidesk (sem a régua de SLA do Hub)',st:'Classificação, categoria e equipe de suporte · SLA pela régua do Hub'};
+// ── Visão do Painel TV (como no Painel Geral): Geral | Suporte Técnico. Também por link: ?visao=geral|st ──
+const VISOES_TV={geral:'Geral',st:'Suporte Técnico'};
+const NOTAS_VISAO={geral:'',st:'Classificação, categoria e equipe de suporte · SLA pela régua do Hub'};
 let VISAO=(()=>{ const q=Q.get('visao'); if(VISOES_TV[q]) return q; try{ const v=localStorage.getItem('hub_tv_visao'); if(VISOES_TV[v]) return v; }catch{} return 'geral'; })();
 const semAcV=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
 const equipeContaNoSlaTv=e=>!/^franquia\b/i.test(String(e||'').trim())&&(/suporte/i.test(e||'')||String(e||'').trim().toLowerCase()==='analytics - b.i');
 function visaoOk(r){
-  if(VISAO==='produto') return !!window.hubTipoEquipe&&window.hubTipoEquipe(r.equipe,r.classificacao)==='produto';
   if(VISAO==='st') return semAcV(r.classificacao)==='suporte tecnico'&&semAcV(r.categoria)==='suporte tecnico'&&equipeContaNoSlaTv(r.equipe);
   return true;
 }
