@@ -266,6 +266,9 @@ input,select{font-family:inherit}
 .imp-exp .ug:last-child{margin-bottom:0}
 .imp-exp .uh{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:var(--t2);margin-bottom:3px;cursor:pointer;list-style:none;user-select:none}
 .imp-exp .uh::-webkit-details-marker{display:none}
+.imp-exp .upct{color:var(--t1);font-variant-numeric:tabular-nums}
+.imp-exp .ucomp{display:flex;height:8px;border-radius:999px;overflow:hidden;gap:2px;margin:0 0 8px}
+.imp-exp .ucomp i{display:block;min-width:3px}
 .imp-exp .uh .car{display:inline-block;width:10px;color:var(--t3);transition:transform .15s}
 .imp-exp details[open]>.uh .car{transform:rotate(90deg)}
 .imp-exp .uh i{width:9px;height:9px;border-radius:50%;display:inline-block}
@@ -2935,11 +2938,14 @@ const URG_ORDEM=['Crítica','Alta','Média','Baixa'], URG_POR_GRUPO=12;
 function urgListaHtml(itens,somaFn){
   const g={}; itens.forEach(x=>{ const u=x.r.urgencia||'Sem urgência'; (g[u]=g[u]||[]).push(x); });
   const ordem=[...URG_ORDEM.filter(u=>g[u]),...Object.keys(g).filter(u=>!URG_ORDEM.includes(u)).sort()];
-  return ordem.map(u=>{
+  const total=itens.length, pc=n=>`${(n/total*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+  // composição: barra segmentada com a fatia de cada urgência no total do grupo/colaborador
+  const barra=`<div class="ucomp" title="Composição por urgência">${ordem.map(u=>`<i style="flex:${g[u].length};background:${IMP_COR_URG[u]||'#9aa3b2'}" title="${escAttr(u)}: ${g[u].length.toLocaleString('pt-BR')} · ${pc(g[u].length)}"></i>`).join('')}</div>`;
+  return barra+ordem.map(u=>{
     const l=g[u].slice().sort((x,y)=>y.k-x.k);
     l.forEach(x=>{ _rowsById[x.r.ticket_id]=x.r; });
     // <details>: cada urgência nasce recolhida; o cabeçalho abre/fecha
-    return `<details class="ug"><summary class="uh"><span class="car">›</span><i style="background:${IMP_COR_URG[u]||'#9aa3b2'}"></i>${esc(u)} <small>${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}${somaFn?` · ${somaFn(l)}`:''}</small></summary>`+
+    return `<details class="ug"><summary class="uh"><span class="car">›</span><i style="background:${IMP_COR_URG[u]||'#9aa3b2'}"></i>${esc(u)} <b class="upct">${pc(l.length)}</b> <small>${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'} do total${somaFn?` · ${somaFn(l)}`:''}</small></summary>`+
       l.slice(0,URG_POR_GRUPO).map(x=>`<button type="button" class="it" data-id="${escAttr(x.r.ticket_id)}" title="${escAttr(x.r.assunto||'')}"><span class="id">#${esc(x.r.ticket_id)}</span><span class="as">${esc(x.r.assunto||'Sem assunto')}</span><span class="tp">${esc(x.c1||'')}</span><span class="im ${x.cls2||''}">${esc(x.c2||'')}</span></button>`).join('')+
       (l.length>URG_POR_GRUPO?`<button type="button" class="mais" data-u="${escAttr(u)}">Ver os ${l.length.toLocaleString('pt-BR')} tickets</button>`:'')+`</details>`;
   }).join('');
