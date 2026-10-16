@@ -245,7 +245,7 @@ function celAcao(r){
   const ag=r._ag||0, cl=r._cl||0, t=Math.max(ag,cl);
   if(!t) return `<td><span style="color:var(--t3)">—</span></td>`;
   const cliente=cl>=ag, nome=cliente?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;
-  const extra=cliente?'':(r.ultima_acao_agente_publica?' · resposta':' · nota interna');
+  const extra='';
   const cor=cliente?'var(--or)':'var(--gr)';
   return `<td title="${esc(new Date(t).toLocaleString('pt-BR'))}"><span class="ur" style="background:color-mix(in srgb,${cor} 16%,transparent);color:${cor}">${cliente?'Cliente':'Agente'}</span> <b style="margin-left:4px">há ${tempoAcao(t)}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${esc(nome||'—')}${extra}</small></td>`;
 }

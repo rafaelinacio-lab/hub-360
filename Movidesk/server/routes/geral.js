@@ -202,13 +202,13 @@ const LAST_PUBLIC_ACTION_JOIN = `
           OR (criado_por_profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')
         )
       ) AS ultima_publica_cliente,
-      -- última ação do AGENTE (resposta pública ou nota interna) e do CLIENTE, com o autor (Painel TV)
-      (ARRAY_AGG(criado_em ORDER BY criado_em DESC) FILTER (WHERE
-          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_agente,
-      (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC) FILTER (WHERE
-          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_agente_por,
-      (ARRAY_AGG(COALESCE(is_public, false) ORDER BY criado_em DESC) FILTER (WHERE
-          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_agente_publica,
+      -- última ação PÚBLICA do AGENTE (nota interna não conta) e do CLIENTE, com o autor (Painel TV)
+      (ARRAY_AGG(criado_em ORDER BY criado_em DESC) FILTER (WHERE is_public AND (
+          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br'))))[1] AS ultima_acao_agente,
+      (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC) FILTER (WHERE is_public AND (
+          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br'))))[1] AS ultima_acao_agente_por,
+      (ARRAY_AGG(COALESCE(is_public, false) ORDER BY criado_em DESC) FILTER (WHERE is_public AND (
+          criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br'))))[1] AS ultima_acao_agente_publica,
       (ARRAY_AGG(criado_em ORDER BY criado_em DESC) FILTER (WHERE
           criado_por_profile_type = '2' OR (criado_por_profile_type IS NULL AND criado_por_email IS NOT NULL AND criado_por_email NOT ILIKE '%@viasoft.com.br')))[1] AS ultima_acao_cliente,
       (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC) FILTER (WHERE

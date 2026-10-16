@@ -1316,7 +1316,7 @@ function formatMinutesAsText(totalMinutes) {
     return `${hours}h ${rest}min`;
 }
 
-// Última ação do chamado: de quem foi (cliente ou agente), há quanto tempo e quem fez (resposta pública ou nota interna, no caso do agente).
+// Última ação PÚBLICA do chamado (nota interna não conta): de quem foi (cliente ou agente), há quanto tempo e quem fez.
 function buildUltimasAcoes(ticket) {
     const dAg = getTicketValue(ticket, 'lastAgentActionDate', 'lastagentactiondate', null);
     const dCl = getTicketValue(ticket, 'lastClientActionDate', 'lastclientactiondate', null);
@@ -1329,7 +1329,7 @@ function buildUltimasAcoes(ticket) {
     const cliente = dCl && (!dAg || new Date(dCl) > new Date(dAg));
     const data = cliente ? dCl : dAg, nome = cliente ? nCl : nAg;
     const rot = cliente ? 'Cliente' : 'Agente', ico = cliente ? '👤' : '👨\u200d💼';
-    const extra = cliente ? '' : (pub ? ' (resposta)' : ' (nota interna)');
+    const extra = '';
     return `<div title="${escapeHtml(new Date(data).toLocaleString('pt-BR'))}" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;font-size:12px">
         <span class="action-pill action-pill-${rot.toLowerCase()}"><span class="sla-icon">${ico}</span><span>${rot}</span></span>
         <b>há ${escapeHtml(dshIdade(data))}</b>

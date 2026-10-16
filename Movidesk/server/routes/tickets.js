@@ -1202,11 +1202,11 @@ async function fetchDashboardTicketsFromDb({ equipesDoUsuario, conditions, viewe
              (ARRAY_AGG(criado_por_nome ORDER BY criado_em DESC))[1] AS ultima_por
         FROM silver.ticket_acao WHERE ticket_id = t.ticket_id::bigint
     ) ac ON true
-    -- última ação do AGENTE (pública ou nota interna) e do CLIENTE: mesmo critério de quem é quem do Painel Geral (perfil do autor;
+    -- última ação PÚBLICA do AGENTE (nota interna não conta) e do CLIENTE: mesmo critério de quem é quem do Painel Geral (perfil do autor;
     -- sem perfil, pelo e-mail: @viasoft.com.br = agente)
     LEFT JOIN LATERAL (
       SELECT criado_em, criado_por_nome, is_public FROM silver.ticket_acao
-       WHERE ticket_id = t.ticket_id::bigint
+       WHERE ticket_id = t.ticket_id::bigint AND is_public
          AND (criado_por_profile_type IN ('1','3') OR (criado_por_profile_type IS NULL AND criado_por_email ILIKE '%@viasoft.com.br'))
        ORDER BY criado_em DESC LIMIT 1
     ) ag ON true
