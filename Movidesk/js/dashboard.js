@@ -1316,7 +1316,7 @@ function formatMinutesAsText(totalMinutes) {
     return `${hours}h ${rest}min`;
 }
 
-// Última ação do AGENTE (resposta pública ou nota interna) e do CLIENTE: quando foi, quem fez e quem agiu por último.
+// Última ação do chamado: de quem foi (cliente ou agente), há quanto tempo e quem fez (resposta pública ou nota interna, no caso do agente).
 function buildUltimasAcoes(ticket) {
     const dAg = getTicketValue(ticket, 'lastAgentActionDate', 'lastagentactiondate', null);
     const dCl = getTicketValue(ticket, 'lastClientActionDate', 'lastclientactiondate', null);
@@ -1325,14 +1325,15 @@ function buildUltimasAcoes(ticket) {
     const pub = getTicketValue(ticket, 'lastAgentActionPublic', 'lastagentactionpublic', false);
     // Sem as datas por autor (outras fontes de dados): mantém o aviso antigo de quem agiu por último
     if (!dAg && !dCl) return `<div style="margin-top: 6px;">${buildFirstResponsePlaceholder(ticket.id, getTicketValue(ticket, 'lastActionCreatedByBusinessName', 'lastactioncreatedbybusinessname', ''), getTicketValue(ticket, 'lastActionOrigin', 'lastactionorigin', ''), '')}</div>`;
-    const ultimo = dCl && (!dAg || new Date(dCl) > new Date(dAg)) ? 'cliente' : 'agente';
-    const linha = (rot, ico, data, nome, extra, destaque) => `<div title="${data ? escapeHtml(new Date(data).toLocaleString('pt-BR')) : ''}" style="display:flex;gap:6px;align-items:baseline;margin-top:4px;font-size:12px;${destaque ? 'font-weight:700;' : ''}">
-        <span>${ico}</span><span style="min-width:48px;color:var(--text-muted,#8a94a6)">${rot}</span>
-        ${data ? `<b>há ${escapeHtml(dshIdade(data))}</b><span style="color:var(--text-muted,#8a94a6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">· ${escapeHtml(nome || '—')}${extra}</span>` : '<span style="color:var(--text-muted,#8a94a6)">sem registro</span>'}
-    </div>`;
-    return `<div style="margin-top:4px">
-        ${linha('Agente', '👨\u200d💼', dAg, nAg, dAg ? (pub ? ' (resposta)' : ' (nota interna)') : '', ultimo === 'agente')}
-        ${linha('Cliente', '👤', dCl, nCl, '', ultimo === 'cliente')}
+    // Última ação do CHAMADO: de quem foi (cliente ou agente), há quanto tempo e quem fez
+    const cliente = dCl && (!dAg || new Date(dCl) > new Date(dAg));
+    const data = cliente ? dCl : dAg, nome = cliente ? nCl : nAg;
+    const rot = cliente ? 'Cliente' : 'Agente', ico = cliente ? '👤' : '👨\u200d💼';
+    const extra = cliente ? '' : (pub ? ' (resposta)' : ' (nota interna)');
+    return `<div title="${escapeHtml(new Date(data).toLocaleString('pt-BR'))}" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;font-size:12px">
+        <span class="action-pill action-pill-${rot.toLowerCase()}"><span class="sla-icon">${ico}</span><span>${rot}</span></span>
+        <b>há ${escapeHtml(dshIdade(data))}</b>
+        <span style="color:var(--text-muted,#8a94a6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">· ${escapeHtml(nome || '—')}${extra}</span>
     </div>`;
 }
 
