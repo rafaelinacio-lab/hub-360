@@ -258,6 +258,21 @@ input,select{font-family:inherit}
 .imp-nota b{color:var(--t1)}
 .imp-top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .imp-kpis{display:flex;flex-wrap:wrap;gap:8px}
+.imp-g.aberto{background:var(--surface-low)}
+.imp-g .imp-seta{display:inline-block;margin-left:6px;color:var(--t3);transition:transform .15s}
+.imp-g.aberto .imp-seta{transform:rotate(90deg)}
+.imp-exp{margin:2px 0 10px 28px;padding:8px 10px;border-radius:10px;background:var(--surface-low)}
+.imp-exp .ug{margin:0 0 8px}
+.imp-exp .ug:last-child{margin-bottom:0}
+.imp-exp .uh{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:var(--t2);margin-bottom:3px}
+.imp-exp .uh i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.imp-exp .uh small{font-weight:600;color:var(--t3)}
+.imp-exp .it{display:grid;grid-template-columns:70px minmax(0,1fr) 110px 76px;gap:8px;align-items:center;width:100%;padding:3px 6px;border:0;border-radius:6px;background:transparent;text-align:left;font-size:12px;color:var(--t1);cursor:pointer}
+.imp-exp .it:hover{background:color-mix(in srgb,var(--brand,var(--orange)) 12%,transparent)}
+.imp-exp .it .id{color:var(--t3);font-variant-numeric:tabular-nums}
+.imp-exp .it .as{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-exp .it .tp,.imp-exp .it .im{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.imp-exp .mais{background:none;border:0;color:var(--brand,var(--orange));font-size:11.5px;font-weight:700;cursor:pointer;padding:3px 6px}
 .imp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media (max-width:1100px){.imp-grid{grid-template-columns:1fr}}
 .imp-sub{font-size:12px;font-weight:700;margin:0 0 6px}
@@ -1088,7 +1103,7 @@ html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-
     <div class="hrow c-1">
       <div data-card="quem-concentra-o-atraso" data-titulo="Quem concentra o atraso" class="chart-panel" id="impacto-cli-panel">
         <p class="chart-title">Quem concentra o atraso</p>
-        <p class="chart-sub">Impacto somado no SLA do período, por grupo. Clique numa linha para ver os tickets.</p>
+        <p class="chart-sub">Impacto somado no SLA do período, por grupo. Clique numa linha para expandir os tickets, separados por urgência.</p>
         <div class="imp-chips" id="impacto-grupo-chips"></div>
         <div class="rolagem imp-grupos" id="impacto-grupos"></div>
       </div>
@@ -1110,7 +1125,7 @@ html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-
     <div class="hrow c-1">
       <div data-card="responsaveis-por-volume" data-titulo="Responsáveis por volume" class="chart-panel" id="resp-panel">
         <p class="chart-title">Responsáveis por volume</p>
-        <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Clique em um colaborador para abrir o detalhe do período (abertos, resolvidos, SLA e comparação).</p>
+        <p class="chart-sub" id="resp-sub" style="text-align:left;margin:-6px 0 12px">Clique em um colaborador para expandir os tickets abertos no período, separados por urgência; de lá abre o detalhe (abertos, resolvidos, SLA e comparação).</p>
         <div class="rsp-wrap">
           <div id="respChart" class="rsp-lista rolagem"></div>
         </div>
@@ -2893,15 +2908,45 @@ function renderImpactoGrupos(){
   const max=Math.max(...lista.map(o=>Math.abs(o.soma)),0.0001);
   const totalPos=lista.filter(o=>o.soma>0).reduce((a,o)=>a+o.soma,0), top8=lista.slice(0,8).filter(o=>o.soma>0).reduce((a,o)=>a+o.soma,0);
   const sub=document.querySelector('#impacto-cli-panel .chart-sub');
-  if(sub) sub.textContent=`Impacto somado no SLA do período, por ${IMP_GRUPOS[_impGrupo][0].toLowerCase()}.${totalPos?` Os 8 primeiros respondem por ${fmtPct(top8/totalPos)} do desvio para cima.`:''} Clique numa linha para ver os tickets.`;
+  if(sub) sub.textContent=`Impacto somado no SLA do período, por ${IMP_GRUPOS[_impGrupo][0].toLowerCase()}.${totalPos?` Os 8 primeiros respondem por ${fmtPct(top8/totalPos)} do desvio para cima.`:''} Clique numa linha para expandir os tickets, separados por urgência.`;
   box.innerHTML=lista.slice(0,RANK_MAX).map((o,i)=>`<div class="imp-g" data-k="${escAttr(o.k)}" title="${o.n.toLocaleString('pt-BR')} tickets · tempo médio ${fmtH(o.h/o.n)}">
-    <span class="imp-gi">${i+1}</span><span class="imp-gn">${esc(o.k)}</span>
+    <span class="imp-gi">${i+1}</span><span class="imp-gn">${esc(o.k)}<span class="imp-seta">›</span></span>
     <div class="imp-bul"><i style="width:${Math.max(2,Math.abs(o.soma)/max*100).toFixed(1)}%;background:${o.soma>0?'linear-gradient(90deg,#ff8a2b,#ee6f82)':'#2fbf8a'}"></i></div>
     <span class="imp-val ${o.soma>0?'imp-pos':'imp-neg'}">${fmtHImp(o.soma)}</span></div>`).join('');
+  // Clique na linha: expande, logo abaixo, a lista dos tickets do grupo separada por urgência (clique de novo recolhe).
   box.querySelectorAll('.imp-g').forEach(el=>el.addEventListener('click',()=>{
     const o=por[el.dataset.k]; if(!o) return;
-    const rows=o.itens.slice().sort((a,b)=>b.imp-a.imp).map(x=>x.r); rows.forEach(r=>{ _rowsById[r.ticket_id]=r; });
-    openDetailModal(`${IMP_GRUPOS[_impGrupo][0]}: ${o.k}`,`${o.n.toLocaleString('pt-BR')} tickets · impacto ${fmtHImp(o.soma)}`,rows,{ordenar:(a,b)=>0});
+    const prox=el.nextElementSibling;
+    if(prox&&prox.classList.contains('imp-exp')){ prox.remove(); el.classList.remove('aberto'); return; }
+    el.classList.add('aberto');
+    const itens=o.itens.map(x=>({r:x.r,k:x.imp,c1:fmtH(x.h),c2:fmtHImp(x.imp),cls2:x.imp>0?'imp-pos':'imp-neg'}));
+    const exp=document.createElement('div'); exp.className='imp-exp';
+    exp.innerHTML=urgListaHtml(itens,l=>`impacto ${fmtHImp(l.reduce((a,x)=>a+x.k,0))}`);
+    el.after(exp);
+    urgLigar(exp,itens,`${IMP_GRUPOS[_impGrupo][0]}: ${o.k}`);
+  }));
+}
+// Lista de tickets separada por urgência (usada ao expandir uma linha de "Quem concentra o atraso" e de "Responsáveis por volume").
+// itens: [{r (linha do ticket), k (número p/ ordenar, maior primeiro), c1 (texto), c2 (texto), cls2 (classe da 2ª coluna)}]
+const URG_ORDEM=['Crítica','Alta','Média','Baixa'], URG_POR_GRUPO=12;
+function urgListaHtml(itens,somaFn){
+  const g={}; itens.forEach(x=>{ const u=x.r.urgencia||'Sem urgência'; (g[u]=g[u]||[]).push(x); });
+  const ordem=[...URG_ORDEM.filter(u=>g[u]),...Object.keys(g).filter(u=>!URG_ORDEM.includes(u)).sort()];
+  return ordem.map(u=>{
+    const l=g[u].slice().sort((x,y)=>y.k-x.k);
+    l.forEach(x=>{ _rowsById[x.r.ticket_id]=x.r; });
+    return `<div class="ug"><div class="uh"><i style="background:${IMP_COR_URG[u]||'#9aa3b2'}"></i>${esc(u)} <small>${l.length.toLocaleString('pt-BR')} ticket${l.length===1?'':'s'}${somaFn?` · ${somaFn(l)}`:''}</small></div>`+
+      l.slice(0,URG_POR_GRUPO).map(x=>`<button type="button" class="it" data-id="${escAttr(x.r.ticket_id)}" title="${escAttr(x.r.assunto||'')}"><span class="id">#${esc(x.r.ticket_id)}</span><span class="as">${esc(x.r.assunto||'Sem assunto')}</span><span class="tp">${esc(x.c1||'')}</span><span class="im ${x.cls2||''}">${esc(x.c2||'')}</span></button>`).join('')+
+      (l.length>URG_POR_GRUPO?`<button type="button" class="mais" data-u="${escAttr(u)}">Ver os ${l.length.toLocaleString('pt-BR')} tickets</button>`:'')+`</div>`;
+  }).join('');
+}
+// Liga os cliques da lista expandida: abrir o ticket e "Ver os N tickets" (modal com todos da urgência).
+function urgLigar(exp,itens,tituloModal){
+  exp.querySelectorAll('.it').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); openTicketModal(b.dataset.id); }));
+  exp.querySelectorAll('.mais').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const u=b.dataset.u, l=itens.filter(x=>(x.r.urgencia||'Sem urgência')===u).sort((x,y)=>y.k-x.k), rows=l.map(x=>x.r); rows.forEach(r=>{ _rowsById[r.ticket_id]=r; });
+    openDetailModal(`${tituloModal} · urgência ${u}`,`${l.length.toLocaleString('pt-BR')} tickets`,rows,{ordenar:()=>0});
   }));
 }
 
@@ -3572,8 +3617,10 @@ function respFechar(){
   document.getElementById('resp-modal').classList.remove('show');
   syncModalBodyLock();
 }
+let _respRows=[];
 function renderRespChart(rows){
   const box=document.getElementById('respChart'); if(!box) return;
+  _respRows=rows;
   const por={};
   rows.forEach(r=>{ const p=r.responsavel||'Não informado'; (por[p]=por[p]||{criados:0}).criados++; });
   // resolvidos e SLA do período: pela data de RESOLUÇÃO, como os cards do topo
@@ -3605,8 +3652,26 @@ function renderRespChart(rows){
 (function ligarResponsaveis(){
   const lista=document.getElementById('respChart'), det=document.getElementById('resp-detalhe');
   if(!lista||!det) return;
-  lista.addEventListener('click',e=>{ const tr=e.target.closest('tr[data-n]'); if(tr) respAbrir(tr.dataset.n); });
-  lista.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.closest('tr[data-n]')){ e.preventDefault(); e.target.closest('tr[data-n]').click(); } });
+  // Clique na linha: expande, logo abaixo, os tickets abertos no período desse responsável separados por urgência (de novo: recolhe).
+  // O detalhe completo do período (abertos, resolvidos, SLA e comparação) continua num botão dentro da lista.
+  lista.addEventListener('click',e=>{
+    if(e.target.closest('.imp-exp-tr')) return;
+    const tr=e.target.closest('tr[data-n]'); if(!tr) return;
+    const prox=tr.nextElementSibling;
+    if(prox&&prox.classList.contains('imp-exp-tr')){ prox.remove(); tr.classList.remove('fixo'); return; }
+    const nome=tr.dataset.n, agora=Date.now();
+    const itens=_respRows.filter(r=>(r.responsavel||'Não informado')===nome).map(r=>{
+      const fim=r.resolvido_em&&isResolvido(r)?new Date(r.resolvido_em).getTime():agora, dias=Math.max(0,Math.floor((fim-new Date(r.criado_em).getTime())/864e5));
+      return {r,k:dias,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2:`${dias} d`};
+    });
+    tr.classList.add('fixo');
+    const ex=document.createElement('tr'); ex.className='imp-exp-tr';
+    ex.innerHTML=`<td colspan="${tr.children.length}" style="padding:0 8px 8px"><div class="imp-exp" style="margin:4px 0 0">${itens.length?urgListaHtml(itens):'<p class="rec-vazio">Nenhum ticket aberto no período.</p>'}<div style="margin-top:8px"><button type="button" class="mais" data-det="${escAttr(nome)}">Abrir o detalhe do período (abertos, resolvidos, SLA e comparação)</button></div></div></td>`;
+    tr.after(ex);
+    urgLigar(ex,itens,`Responsável: ${nome}`);
+    ex.querySelector('[data-det]').addEventListener('click',ev=>{ ev.stopPropagation(); respAbrir(nome); });
+  });
+  lista.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr[data-n]')){ e.preventDefault(); e.target.closest('tr[data-n]').click(); } });
   det.addEventListener('click',e=>{
     const b=e.target.closest('[data-ver]'); if(!b) return;
     const nome=b.dataset.ver;
