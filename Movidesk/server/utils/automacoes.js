@@ -206,7 +206,29 @@ async function buscarCandidatos(c, regraId, origem = 'agendado') {
   return { total: cand.rows.length, casam: cand.rows.filter((t) => !motivoDeNaoCasar(t, c, origem)) };
 }
 
+// O banco só recebe chamado novo quando a carga roda (a cada ~15 min). Para a automação não ficar "cega" para o que acabou de chegar,
+// antes da varredura pergunta ao Movidesk os ids criados nas últimas horas e grava no banco (mesmo gravador da carga) os que faltam.
+// Uma consulta leve ($select=id) e no máximo SYNC_MAX gravações por vez (cota de 150 req/min compartilhada com o contêiner). Feito no máx. 1x/min.
+const SYNC_MAX = 15;
+let _ultimaSync = 0;
+async function sincronizarRecentes() {
+  if (Date.now() - _ultimaSync < 60 * 1000) return 0;
+  _ultimaSync = Date.now();
+  try {
+    const desde = new Date(Date.now() - 3 * 3600 * 1000).toISOString().replace(/\.\d+Z$/, 'Z');
+    const lista = await movidesk('GET', '/tickets', { query: { $select: 'id', $filter: `createdDate ge ${desde}`, $orderby: 'createdDate desc', $top: 100 } });
+    const ids = (Array.isArray(lista) ? lista : []).map((t) => Number(t.id)).filter(Boolean);
+    if (!ids.length) return 0;
+    const ja = new Set((await db.query(`SELECT ticket_id::bigint AS id FROM silver.ticket WHERE ticket_id::bigint = ANY($1)`, [ids])).rows.map((x) => Number(x.id)));
+    const faltam = ids.filter((i) => !ja.has(i)).slice(0, SYNC_MAX);
+    let n = 0;
+    for (const id of faltam) { try { if (await require('../scripts/movidesk-loader').sincronizarTicket(id)) n++; } catch (e) { console.warn('[automacoes] sincronizar recente', id, e.message); } }
+    return n;
+  } catch (e) { console.warn('[automacoes] não consegui buscar chamados recentes no Movidesk:', e.message); return 0; }
+}
+
 async function rodarRegraAgendada(regra, origem = 'agendado') {
+  await sincronizarRecentes();
   const c = normalizarCondicoes(regra.condicoes);
   const resumo = { candidatos: 0, processados: 0, ignorados: 0 };
   // Pré-filtro no SQL (barato): abertos, criados na janela e ainda não tratados por esta regra. O resto das condições é conferido em memória.
@@ -292,5 +314,5 @@ function iniciar() {
 
 module.exports = {
   iniciar, garantirTabelas, lerEstado, gravarEstado, normalizarCondicoes, CONDICOES_PADRAO, ACOES, ABERTOS,
-  lerChamado, buscarCandidatos, motivoDeNaoCasar, executarNoChamado, textoDaAnalise, enfileirar, ticketDoPayload, cicloAgendado, rodarAgora,
+  lerChamado, buscarCandidatos, motivoDeNaoCasar, executarNoChamado, textoDaAnalise, enfileirar, ticketDoPayload, cicloAgendado, rodarAgora, sincronizarRecentes,
 };
