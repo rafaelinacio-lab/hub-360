@@ -426,6 +426,47 @@ input,select{font-family:inherit}
 @media (max-width:1180px){.hrow.c-3,.hrow.c-4-8,.hrow.c-8-4{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:900px){.hrow.c-2{grid-template-columns:minmax(0,1fr)}}
 .hrow>.chart-panel,.hrow>.data-panel,.hrow>.stat-card{margin:0}
+/* backlog por última ação (cliente × agente) */
+.bua-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:6px 0 12px}
+@media (max-width:1100px){.bua-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bua-k{border:1px solid var(--border);border-radius:14px;padding:14px 16px;background:var(--surface-low)}
+.bua-k .l{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)}
+.bua-k .v{font-size:34px;font-weight:800;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
+.bua-k .d{font-size:12px;color:var(--t3);margin-top:3px}
+.bua-k.cli{border-color:color-mix(in srgb,#e9b730 55%,transparent);background:color-mix(in srgb,#e9b730 9%,transparent)}.bua-k.cli .l,.bua-k.cli .v{color:#e9b730}
+.bua-k.age{border-color:color-mix(in srgb,#4f9cf0 55%,transparent);background:color-mix(in srgb,#4f9cf0 9%,transparent)}.bua-k.age .l,.bua-k.age .v{color:#4f9cf0}
+.bua-k.venc .v{color:#ee6f82}.bua-k.ret .v{color:var(--t1)}
+.bua-split{display:flex;gap:4px;height:14px;border-radius:999px;overflow:hidden;margin:2px 0 4px}
+.bua-split i{display:block;height:100%}
+.bua-split-l{display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;margin-bottom:14px}
+.bua-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+@media (max-width:1100px){.bua-grid{grid-template-columns:1fr}}
+.bua-box{border:1px solid var(--border);border-radius:14px;padding:14px 16px;background:var(--surface-low)}
+.bua-box h4{margin:0 0 8px;display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--t2)}
+.bua-box h4 small{font-size:10.5px;font-weight:700;text-transform:none;letter-spacing:0}
+.bua-r{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr) auto;gap:10px;align-items:center;padding:5px 0;font-size:12.5px}
+.bua-r .n{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bua-r .b{display:flex;height:9px;border-radius:999px;overflow:hidden;background:var(--surface-mid,rgba(127,127,127,.15))}
+.bua-r .b i{display:block;height:100%}
+.bua-r .q{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700;text-align:right}
+.bua-r .q em{font-style:normal;color:#e9b730}.bua-r .q span{color:#4f9cf0}.bua-r .q b{margin-left:8px;color:var(--t1)}
+.bua-pills{display:flex;gap:8px;flex-wrap:wrap}
+.bua-pill{border:1px solid var(--border);background:transparent;color:var(--t2);font:700 12px/1 inherit;font-family:inherit;padding:8px 14px;border-radius:999px;cursor:pointer}
+.bua-pill.on{background:var(--t1);color:var(--bg2,#fff)}
+.bua-pill.cli{color:#e9b730;border-color:color-mix(in srgb,#e9b730 55%,transparent)}.bua-pill.age{color:#4f9cf0;border-color:color-mix(in srgb,#4f9cf0 55%,transparent)}
+.bua-pill.cli.on{background:#e9b730;color:#1a1a1a}.bua-pill.age.on{background:#4f9cf0;color:#fff}
+.bua-tab{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+.bua-tab th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);font-weight:700;padding:8px 8px;border-bottom:1px solid var(--border)}
+.bua-tab td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.bua-tab tbody tr{cursor:pointer}.bua-tab tbody tr:hover{background:var(--surface-mid)}
+.bua-tab .cl b{display:block}.bua-tab .cl small{color:var(--t3)}
+.bua-tab .pz{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700}
+.bua-tab .pz.v{background:color-mix(in srgb,#ee6f82 18%,transparent);color:#ee6f82}.bua-tab .pz.p{background:color-mix(in srgb,#8794ad 18%,transparent);color:#8794ad}.bua-tab .pz.ok{background:color-mix(in srgb,#2fbf8a 18%,transparent);color:#2fbf8a}
+.bua-tab .ua{display:inline-flex;gap:8px;align-items:center;padding:6px 12px;border-radius:10px;border:1px solid;font-weight:700;white-space:nowrap}
+.bua-tab .ua.cli{color:#e9b730;border-color:color-mix(in srgb,#e9b730 55%,transparent);background:color-mix(in srgb,#e9b730 9%,transparent)}
+.bua-tab .ua.age{color:#4f9cf0;border-color:color-mix(in srgb,#4f9cf0 55%,transparent);background:color-mix(in srgb,#4f9cf0 9%,transparent)}
+.bua-tab .ua span{color:var(--t1);font-weight:600}
+.bua-mais{display:block;margin:12px auto 0}
 /* horários de pico por analista: mesma grade, uma linha por responsável (+ total) */
 .pico.an{grid-template-columns:minmax(110px,150px) repeat(13,minmax(0,1fr)) 46px}
 .pico.an .d{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;color:var(--t2)}
@@ -1179,6 +1220,14 @@ html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-
           <span class="kpi-antes" style="text-decoration:none;cursor:default" id="rp-conta"></span>
         </div>
         <div id="rp-corpo"><p class="chart-sub" style="text-align:left">Carregando os repasses…</p></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1">
+      <div data-card="backlog-por-ultima-acao" data-titulo="Backlog por última ação" class="chart-panel" id="bua-panel">
+        <p class="chart-title">Backlog por última ação</p>
+        <p class="chart-sub" style="text-align:left">Chamados pendentes pela última ação <b>pública</b>: <b style="color:#e9b730">Cliente</b> = o cliente falou por último e aguarda o agente; <b style="color:#4f9cf0">Agente</b> = o agente falou por último e aguarda o cliente. Segue os filtros do painel.</p>
+        <div id="bua-corpo"></div>
       </div>
     </div>
 
@@ -2406,6 +2455,7 @@ function render(){
   renderClientChart(rowsFull);
   renderRespChart(rowsFull);
   renderEquipesVencidoTable(pendentesRows);
+  renderBacklogUA(pendentesRows);
   igualarAlturaGrid();
   buscarSlaFaltantes(render);   // SLA (régua do Hub): busca o tempo dos que faltam e redesenha
 }
@@ -3434,6 +3484,49 @@ function renderBacklogLista(vencidos){
   const top=vencidos.slice().sort((a,b)=>new Date(a.sla_solucao)-new Date(b.sla_solucao)).slice(0,3);
   top.forEach(r=>{ _rowsById[r.ticket_id]=r; });
   el.innerHTML=top.map(r=>`<button type="button" class="bk-item" title="${escAttr(r.assunto||'')} · vencido há ${diasVencido(r)} dia(s)" onclick="openTicketModal('${escAttr(r.ticket_id)}')"><i></i><span class="t">${esc(r.assunto||'Sem assunto')}</span><span class="r">${esc((r.responsavel||'—').split(' ')[0])}</span></button>`).join('');
+}
+
+// ── Backlog por última ação (cliente × agente): visão do backlog pendente por quem falou por último (só ação pública) ──
+let _buaFiltro='todos', _buaMais=1, _buaRows=[];
+const buaT=(r)=>{ const ag=r.ultima_acao_agente?new Date(r.ultima_acao_agente).getTime():0, cl=r.ultima_acao_cliente?new Date(r.ultima_acao_cliente).getTime():0; return {ag,cl,t:Math.max(ag,cl),lado:(!ag&&!cl)||cl>=ag?'cli':'age'}; };   // sem ação pública: vale a abertura (cliente)
+const buaFmtT=(ms)=>{ const m=Math.max(0,Math.round((Date.now()-ms)/60000)); return m<60?`${m} min`:m<2880?`${Math.round(m/60)} h`:`${Math.floor(m/1440)} d`; };
+function buaFiltro(f){ _buaFiltro=f; _buaMais=1; renderBacklogUA(_buaRows); }
+function renderBacklogUA(rows){
+  const box=document.getElementById('bua-corpo'); if(!box) return;
+  _buaRows=rows||[];
+  const n=_buaRows.length;
+  if(!n){ box.innerHTML='<p class="rec-vazio">Nenhum chamado pendente com esses filtros.</p>'; return; }
+  const L=_buaRows.map(r=>({r,u:buaT(r)}));
+  const nCli=L.filter(x=>x.u.lado==='cli').length, nAge=n-nCli, pc=v=>`${(v/n*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
+  const venc=L.filter(x=>isVencido(x.r)).length, ret7=L.filter(x=>x.u.t&&Date.now()-x.u.t>=7*864e5), maisAnt=ret7.reduce((m,x)=>Math.max(m,Math.floor((Date.now()-x.u.t)/864e5)),0);
+  const orgs=new Set(L.map(x=>x.r.organizacao_id||x.r.organizacao).filter(Boolean)).size;
+  const loc=v=>v.toLocaleString('pt-BR');
+  const kpi=(c,l,v,d)=>`<div class="bua-k ${c}"><div class="l">${l}</div><div class="v">${loc(v)}</div><div class="d">${d}</div></div>`;
+  const breakdown=(titulo,chave,max)=>{
+    const por={}; L.forEach(x=>{ const k=chave(x.r)||'Não informado'; const o=por[k]||(por[k]={cli:0,age:0}); o[x.u.lado]++; });
+    const lista=Object.entries(por).map(([k,o])=>[k,o,o.cli+o.age]).sort((a,b)=>b[2]-a[2]).slice(0,max), mx=Math.max(1,...lista.map(x=>x[2]));
+    return `<div class="bua-box"><h4>${titulo}<small><em style="color:#e9b730;font-style:normal">cliente</em> / <span style="color:#4f9cf0">agente</span></small></h4>`+lista.map(([k,o,t])=>`<div class="bua-r"><div class="n" title="${escAttr(k)}">${esc(k)}</div><div class="b" style="width:${(t/mx*100).toFixed(1)}%"><i style="flex:${o.cli};background:#e9b730"></i><i style="flex:${o.age};background:#4f9cf0"></i></div><div class="q"><em>${loc(o.cli)}</em> / <span>${loc(o.age)}</span><b>${loc(t)}</b></div></div>`).join('')+`</div>`;
+  };
+  // fila de prioridade: quem aguarda o AGENTE primeiro (cliente falou por último), depois vencidos e mais antigos
+  const fila=L.filter(x=>_buaFiltro==='todos'||x.u.lado===_buaFiltro).sort((a,b)=>(a.u.lado===b.u.lado?0:a.u.lado==='cli'?-1:1)||((isVencido(b.r)?1:0)-(isVencido(a.r)?1:0))||(b.r.criado_em>a.r.criado_em?-1:1)||0);
+  const vis=fila.slice(0,10*_buaMais);
+  vis.forEach(x=>{ _rowsById[x.r.ticket_id]=x.r; });
+  const pz=r=>isVencido(r)?'<span class="pz v">Vencido</span>':r.sla_hub==='pausado'?'<span class="pz p">Pausado</span>':r.sla_solucao||r.sla_hub==='no_prazo'?'<span class="pz ok">No prazo</span>':'<span style="color:var(--t3)">—</span>';
+  box.innerHTML=`<div class="bua-kpis">
+      ${kpi('', 'Pendentes', n, `chamados em aberto · ${loc(orgs)} cliente${orgs===1?'':'s'}`)}
+      ${kpi('cli','Última ação: cliente', nCli, `${pc(nCli)} do backlog · aguarda o agente`)}
+      ${kpi('age','Última ação: agente', nAge, `${pc(nAge)} do backlog · aguarda o cliente`)}
+      ${kpi('venc','Vencidos', venc, `${pc(venc)} da fila`)}
+      ${kpi('ret','Sem retorno +7 dias', ret7.length, ret7.length?`mais antigo: ${maisAnt} d`:'nenhum agora')}
+    </div>
+    <div class="bua-split"><i style="flex:${nCli};background:#e9b730"></i><i style="flex:${nAge};background:#4f9cf0"></i></div>
+    <div class="bua-split-l"><span style="color:#e9b730">Cliente · ${loc(nCli)}</span><span style="color:#4f9cf0">Agente · ${loc(nAge)}</span></div>
+    <div class="bua-grid">${breakdown('Por equipe',r=>limpaEquipe(r.equipe),6)}${breakdown('Por classificação',r=>classificacaoDe(r),6)}${breakdown('Por cliente · top 5',r=>r.organizacao,5)}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><p class="chart-title" style="margin:0">Fila de prioridade</p>
+      <div class="bua-pills"><button type="button" class="bua-pill${_buaFiltro==='todos'?' on':''}" onclick="buaFiltro('todos')">Todos ${loc(n)}</button><button type="button" class="bua-pill cli${_buaFiltro==='cli'?' on':''}" onclick="buaFiltro('cli')">Cliente ${loc(nCli)}</button><button type="button" class="bua-pill age${_buaFiltro==='age'?' on':''}" onclick="buaFiltro('age')">Agente ${loc(nAge)}</button></div></div>
+    <div class="rolagem" style="overflow-x:auto"><table class="bua-tab"><thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Última ação</th></tr></thead><tbody>`+
+    vis.map((x,i)=>`<tr onclick="openTicketModal('${escAttr(x.r.ticket_id)}')"><td>${i+1}</td><td><b>#${esc(x.r.ticket_id)}</b></td><td class="cl"><b>${esc(x.r.organizacao||'—')}</b><small>${esc((x.r.assunto||'').slice(0,70))}</small></td><td>${esc(x.r.responsavel||'—')}</td><td>${pz(x.r)}</td><td><b>${diasEmAberto(x.r)} d</b></td><td><span class="ua ${x.u.lado}">${x.u.lado==='cli'?'Cliente':'Agente'} <span>${x.u.t?`há ${buaFmtT(x.u.t)}`:'abertura'}</span></span></td></tr>`).join('')+
+    `</tbody></table></div>`+(fila.length>vis.length?`<button type="button" class="bua-pill bua-mais" onclick="_buaMais++;renderBacklogUA(_buaRows)">Mostrar mais ${Math.min(10,fila.length-vis.length)} (faltam ${loc(fila.length-vis.length)})</button>`:'');
 }
 
 // ── Horários de pico: aberturas por dia da semana x hora (semana atual) ───────────────
