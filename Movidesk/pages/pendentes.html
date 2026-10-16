@@ -321,7 +321,7 @@ function filtroLado(l){ PILULA=l; PAG=1; tabela(); }
 const SIT={venc:['Vencido','var(--red)'],breve:['Vence em breve','var(--am)'],paus:['Pausado','var(--gy)'],prazo:['No prazo','var(--gr)'],fora:['Sem prazo','#a3acb9']};
 const hUteis=m=>{ const h=Math.abs(m)/60; return `${h.toLocaleString('pt-BR',{maximumFractionDigits:h<10?1:0})} h úteis`; };
 const dtMdk=r=>new Date(r.sla_solucao).toLocaleDateString('pt-BR');
-const prazoTxt=r=>r._mdk?(r._sit==='paus'?'relógio parado · prazo do Movidesk':`${r._sit==='venc'?'venceu em':'previsão'} ${dtMdk(r)} · prazo do Movidesk`):r._sit==='venc'?(r._rest!=null?`há ${hUteis(r._rest)}`:''):(r._sit==='breve'||r._sit==='prazo')&&r._rest!=null?`${hUteis(r._rest)} restantes`:r._sit==='paus'?'relógio parado':r.sla_solucao?`previsão ${new Date(r.sla_solucao).toLocaleDateString('pt-BR')}`:'—';
+const prazoTxt=r=>r._mdk?(r._sit==='paus'?'relógio parado':`${r._sit==='venc'?'venceu em':'previsão'} ${dtMdk(r)}`):r._sit==='venc'?(r._rest!=null?`há ${hUteis(r._rest)}`:''):(r._sit==='breve'||r._sit==='prazo')&&r._rest!=null?`${hUteis(r._rest)} restantes`:r._sit==='paus'?'relógio parado':r.sla_solucao?`previsão ${new Date(r.sla_solucao).toLocaleDateString('pt-BR')}`:'—';
 const ini=n=>String(n).split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
 function linhasTabela(){
   let l=F();
