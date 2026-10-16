@@ -280,7 +280,7 @@ input,select{font-family:inherit}
 .imp-exp details[open]>.uh .car{transform:rotate(90deg)}
 .imp-exp .uh i{width:9px;height:9px;border-radius:50%;display:inline-block}
 .imp-exp .uh small{font-weight:600;color:var(--t3)}
-.imp-exp .it{display:grid;grid-template-columns:70px minmax(0,1fr) 110px 76px;gap:8px;align-items:center;width:100%;padding:3px 6px;border:0;border-radius:6px;background:transparent;text-align:left;font-size:12px;color:var(--t1);cursor:pointer}
+.imp-exp .it{display:grid;grid-template-columns:70px minmax(0,1fr) 110px 150px;gap:8px;align-items:center;width:100%;padding:3px 6px;border:0;border-radius:6px;background:transparent;text-align:left;font-size:12px;color:var(--t1);cursor:pointer}
 .imp-exp .it:hover{background:color-mix(in srgb,var(--brand,var(--orange)) 12%,transparent)}
 .imp-exp .it .id{color:var(--t3);font-variant-numeric:tabular-nums}
 .imp-exp .it .as{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -3689,7 +3689,11 @@ function renderRespChart(rows){
     };
     const itens=_respRows.filter(r=>(r.responsavel||'Não informado')===nome).map(r=>{
       const fim=r.resolvido_em&&isResolvido(r)?new Date(r.resolvido_em).getTime():agora, horas=Math.max(0,(fim-new Date(r.criado_em).getTime())/36e5);
-      return {r,k:horas,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2:fmtH(horas)};
+      // Tempo pela régua do Hub (horas úteis líquidas: expediente, sem fim de semana/feriado/pausa) contra a meta da urgência, quando já calculado;
+      // senão, as horas corridas desde a abertura (rotuladas "corridas").
+      const meta=metaDe(r), liq=temMinutosSla(r)?_impactoMinutos[r.ticket_id]/60:null;
+      const c2=liq!=null&&meta!=null?`${fmtH(liq)} / ${meta}h`:`${fmtH(horas)} corridas`;
+      return {r,k:liq!=null?liq:horas,c1:(ST_BADGE[r.base_status]||[r.status_movidesk||r.base_status||'—'])[0],c2,cls2:liq!=null&&meta!=null&&liq>meta?'imp-pos':''};
     });
     tr.classList.add('fixo');
     // Uma linha por urgência, NAS MESMAS COLUNAS da tabela: o nome sob "Responsável" e "n · x%" sob "Abertos" (alinhado ao número/% do total).
@@ -3705,11 +3709,12 @@ function renderRespChart(rows){
         const l=g[u].slice().sort((x,y)=>y.k-x.k); l.forEach(x=>{ _rowsById[x.r.ticket_id]=x.r; });
         linhas.push(mk(`<td></td><td><span class="urg-nome"><span class="car">›</span><i class="dot" style="background:${IMP_COR_URG[u]||'#9aa3b2'}"></i>${esc(u)}</span></td><td class="n"><b>${l.length.toLocaleString('pt-BR')}</b> <small style="color:var(--t3);font-weight:600">· ${pc(l.length)}</small></td><td></td><td></td><td class="n">${slaUrg(nome,u)}</td><td colspan="${Math.max(0,nc-6)}"></td>`,'urg-h'));
         linhas.push(mk(`<td colspan="${nc}" style="padding:0 8px 6px"><div class="imp-exp" style="margin:0 0 0 28px">`+
-          l.slice(0,URG_POR_GRUPO).map(x=>`<button type="button" class="it" data-id="${escAttr(x.r.ticket_id)}" title="${escAttr(x.r.assunto||'')}"><span class="id">#${esc(x.r.ticket_id)}</span><span class="as">${esc(x.r.assunto||'Sem assunto')}</span><span class="tp">${esc(x.c1)}</span><span class="im">${esc(x.c2)}</span></button>`).join('')+
+          l.slice(0,URG_POR_GRUPO).map(x=>`<button type="button" class="it" data-id="${escAttr(x.r.ticket_id)}" title="${escAttr(x.r.assunto||'')}"><span class="id">#${esc(x.r.ticket_id)}</span><span class="as">${esc(x.r.assunto||'Sem assunto')}</span><span class="tp">${esc(x.c1)}</span><span class="im ${x.cls2||''}">${esc(x.c2)}</span></button>`).join('')+
           (l.length>URG_POR_GRUPO?`<button type="button" class="mais" data-u="${escAttr(u)}">Ver os ${l.length.toLocaleString('pt-BR')} tickets</button>`:'')+`</div></td>`,'urg-i'));
         linhas[linhas.length-1].hidden=true;
       });
     }
+    linhas.push(mk(`<td colspan="${nc}" style="padding:2px 8px 0;font-size:11px;color:var(--t3)">Tempo de cada ticket: horas úteis líquidas (expediente, sem pausas) / meta de solução da urgência no SLA do Hub — Crítica 4h · Alta 8h · Média 16h · Baixa 24h (só Suporte Técnico). Sem prazo calculado, aparecem as horas corridas desde a abertura.</td>`));
     linhas.push(mk(`<td colspan="${nc}" style="padding:2px 8px 8px"><button type="button" class="mais" data-det="${escAttr(nome)}">Abrir o detalhe do período (abertos, resolvidos, SLA e comparação)</button></td>`));
     tr.after(...linhas);
     linhas.forEach(x=>{
