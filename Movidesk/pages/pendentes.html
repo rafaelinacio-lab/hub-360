@@ -384,7 +384,7 @@ function desenharColunas(){
   const aberto=box.classList.contains('open');
   const q=semAc(CAMPOS_BUSCA);
   const jaTem=new Set(CF_COLS.map(c=>c.id));
-  const disp=(CAMPOS_DISP||[]).filter(c=>!jaTem.has(c.id)&&(!q||semAc(`${c.id} ${c.nome||''}`).includes(q))).slice(0,30);
+  const disp=(CAMPOS_DISP||[]).filter(c=>!jaTem.has(c.id)&&(!q||semAc(`${c.id} ${c.nome||''}`).includes(q))).slice(0,40);
   const ehNumero=/^\d{1,12}$/.test(CAMPOS_BUSCA.trim())&&!jaTem.has(CAMPOS_BUSCA.trim());
   box.className='ms'+(aberto?' open':''); box.dataset.k='cols';
   box.innerHTML=`<span class="pill" onclick="abrirMs('cols');carregarCamposDisp().then(desenharColunas)">Colunas ▾</span>
@@ -397,7 +397,7 @@ function desenharColunas(){
        <div class="col-sec">Adicionar campo</div>
        <input type="search" placeholder="Buscar pelo nome ou digitar o número do campo…" value="${esc(CAMPOS_BUSCA)}" oninput="CAMPOS_BUSCA=this.value;desenharColunas();const i=document.querySelector('#bk-cols input[type=search]');i.focus();i.setSelectionRange(i.value.length,i.value.length)">
        ${ehNumero?`<button type="button" class="col-add" onclick="adicionarCampo('${CAMPOS_BUSCA.trim()}',null)">+ Adicionar o campo ${esc(CAMPOS_BUSCA.trim())}</button>`:''}
-       ${CAMPOS_DISP===null?'<div class="col-vazio">Carregando campos…</div>':disp.map(c=>`<button type="button" class="col-add" onclick="adicionarCampo('${c.id}',${c.nome?`'${esc(c.nome).replace(/'/g,'')}'`:'null'})">+ ${esc(c.nome||'Campo '+c.id)} <small style="color:var(--t3)">${c.n?`${loc(c.n)} chamados`:''}</small></button>`).join('')||'<div class="col-vazio">Nada encontrado.</div>'}
+       ${CAMPOS_DISP===null?'<div class="col-vazio">Carregando campos…</div>':disp.map(c=>`<button type="button" class="col-add" onclick="adicionarCampo('${c.id}',${c.nome?`'${esc(c.nome).replace(/'/g,'')}'`:'null'})">+ ${esc(c.nome||'Campo '+c.id)} <small style="color:var(--t3)">${[c.tipo,c.n?`${loc(c.n)} chamados`:''].filter(Boolean).join(' · ')}</small></button>`).join('')||'<div class="col-vazio">Nada encontrado.</div>'}
      </div>
      <div class="ft"><button type="button" onclick="restaurarColunas()">Restaurar padrão</button></div>
    </div>`;

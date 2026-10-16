@@ -624,35 +624,32 @@ router.get('/chat-diagnostico', authMiddleware, requireRole('admin'), async (req
 
 
 // ===== Campos do Movidesk como colunas do Painel TV =====
-// Catálogo dos campos conhecidos (a API do Movidesk não devolve o NOME dos campos personalizados; o resto aparece só pelo número).
-const CATALOGO_CAMPOS = {
-  23946: 'Classificação de Ticket', 22000: 'Tipo de Manifesto', 22003: 'Manifesto Procedente', 38595: 'Manifesto direcionado a',
-  24523: 'GCC - Locus Externo', 24986: 'GCC - Locus Interno', 26214: 'GCC - MRR', 26215: 'GCC - Data', 43724: 'GCC - Data Rescisão',
-  58049: 'GCC - Data Reversão', 59012: 'GCC - Real Motivo', 61982: 'GCC - Tipo de Locus', 87894: 'GCC - Tipo Rescisão',
-  216954: 'GCC - Tipo de Rescisão Parcial', 216958: 'GCC - Módulos', 98697: 'GCC - Verticais Insatisfação',
-  250810: 'Data Início Implantação (Analytics)', 26105: 'Valor do Orçamento (R$) (Analytics)',
-};
 let _camposCache = { ate: 0, v: null };
-// GET /geral/campos-movidesk — campos personalizados que existem nos chamados abertos (com quantos chamados têm valor) e o nome, quando conhecido
+// GET /geral/campos-movidesk — campos ATIVOS de chamado do Movidesk (lista oficial em server/data/campos-movidesk.json, exportada do Movidesk) com
+// quantos chamados abertos têm valor; campos marcados como sensíveis no dicionário do banco nunca são oferecidos
+function camposOficiais() {
+  try { return JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '../data/campos-movidesk.json'), 'utf8')); } catch { return []; }
+}
 router.get('/campos-movidesk', acessoPainelTv, async (req, res) => {
   try {
     if (_camposCache.v && Date.now() < _camposCache.ate) return res.json(_camposCache.v);
     const closed = OPEN_EXCLUDED_STATUSES.map((x) => `'${x}'`).join(',');
-    // Nome do campo: dicionário do banco (silver.dim_campo_customizado); campos marcados como SENSÍVEIS nunca são oferecidos
-    const r = await db.query(`
-      SELECT cf.custom_field_id::text AS id, COUNT(DISTINCT cf.ticket_id)::int AS n, MAX(d.nome_campo) AS nome
-        FROM silver.ticket_campo_customizado cf
-        JOIN silver.ticket t ON t.ticket_id = cf.ticket_id
-        LEFT JOIN silver.dim_campo_customizado d ON d.custom_field_id = cf.custom_field_id
-       WHERE t.basestatus NOT IN (${closed}) AND NULLIF(btrim(cf.valor_texto), '') IS NOT NULL AND COALESCE(d.sensivel, false) = false
-       GROUP BY 1 ORDER BY 2 DESC LIMIT 300`);
-    const vistos = new Set(r.rows.map((x) => x.id));
-    const campos = r.rows.map((x) => ({ id: x.id, nome: x.nome || CATALOGO_CAMPOS[x.id] || null, n: x.n }));
-    Object.entries(CATALOGO_CAMPOS).forEach(([id, nome]) => { if (!vistos.has(id)) campos.push({ id, nome, n: 0 }); });
+    const [cont, sens] = await Promise.all([
+      db.query(`
+        SELECT cf.custom_field_id::text AS id, COUNT(DISTINCT cf.ticket_id)::int AS n
+          FROM silver.ticket_campo_customizado cf JOIN silver.ticket t ON t.ticket_id = cf.ticket_id
+         WHERE t.basestatus NOT IN (${closed}) AND NULLIF(btrim(cf.valor_texto), '') IS NOT NULL
+         GROUP BY 1`),
+      db.query(`SELECT custom_field_id::text AS id FROM silver.dim_campo_customizado WHERE COALESCE(sensivel, false) = true`).catch(() => ({ rows: [] })),
+    ]);
+    const n = new Map(cont.rows.map((x) => [x.id, x.n])), sensiveis = new Set(sens.rows.map((x) => x.id));
+    const campos = camposOficiais().filter((c) => c.ativo && c.campoPara === 'Ticket' && c.tipo !== 'Arquivo' && !sensiveis.has(c.id))
+      .map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo, n: n.get(c.id) || 0 }))
+      .sort((a, b) => b.n - a.n || a.nome.localeCompare(b.nome, 'pt-BR'));
     const v = { campos };
     _camposCache = { ate: Date.now() + 10 * 60 * 1000, v };
     res.json(v);
-  } catch (e) { console.error('[geral] campos-movidesk:', e.message); res.json({ campos: Object.entries(CATALOGO_CAMPOS).map(([id, nome]) => ({ id, nome, n: 0 })) }); }
+  } catch (e) { console.error('[geral] campos-movidesk:', e.message); res.json({ campos: [] }); }
 });
 // POST /geral/campos-valores { ids: [chamados], campos: [ids dos campos] } → { valores: { chamado: { campo: "valor" } } }
 router.post('/campos-valores', acessoPainelTv, async (req, res) => {

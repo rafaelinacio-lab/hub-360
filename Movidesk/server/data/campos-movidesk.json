@@ -1,0 +1,3670 @@
+[
+{
+"id": "149706",
+"nome": "Data que foi gerado o financeiro",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "72413",
+"nome": "A eficácia do serviço foi atendida?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155938",
+"nome": "A situação ocorre em outra base?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "67575",
+"nome": "AC - 2020 (R$)",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "67576",
+"nome": "AC - 2021 (R$)",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "67577",
+"nome": "AC - Acordado (R$)",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "78467",
+"nome": "Ação",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "69614",
+"nome": "Acresce na Mensalidade",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "172975",
+"nome": "Agente da Ouvidoria",
+"tipo": "Lista de agentes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "45115",
+"nome": "AGRO - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "44276",
+"nome": "AGROTITAN - Desenvolvimento",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "232647",
+"nome": "Agrotitan - Modulo/Rotina(Legado)",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "39259",
+"nome": "Agrotitan Fazendas - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "69612",
+"nome": "Alteração ou Inclusão de rotina?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219378",
+"nome": "Ambiente",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "240113",
+"nome": "Analise IA",
+"tipo": "Texto HTML",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "224110",
+"nome": "Analista de Suporte:",
+"tipo": "Lista de agentes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "77281",
+"nome": "Analista de Triagem",
+"tipo": "Lista de agentes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "37169",
+"nome": "Analista/Desenvolvedor responsável",
+"tipo": "Lista de agentes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "140075",
+"nome": "Analytics",
+"tipo": "Arquivo",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "32751",
+"nome": "Anexo Marketing",
+"tipo": "Arquivo",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218974",
+"nome": "Ao constar esse item na proposta, ele exige que tenha algum outro junto?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214839",
+"nome": "Área",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188436",
+"nome": "Área / Vertical de Atuação do Consultor Técnico",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188239",
+"nome": "Área da Estimativa",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177241",
+"nome": "Área de Negócio",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123523",
+"nome": "Área do Serviço",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "230757",
+"nome": "Área que Reportou",
+"tipo": "Lista de agentes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "49708",
+"nome": "Assessor: Descrição solução",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "49707",
+"nome": "Assessor: Tipos",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "146876",
+"nome": "Assunto",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "230909",
+"nome": "Atendentes Envolvidos",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "77399",
+"nome": "Atendimento em plantão?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "170236",
+"nome": "Atendimento Específico",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71486",
+"nome": "Atendimento Financeiro",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "80757",
+"nome": "Atendimento Interno",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "232234",
+"nome": "Atendimento Interno Franquia",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "21928",
+"nome": "Avaliação de Melhoria",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "224103",
+"nome": "Avaliação Procedente",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229105",
+"nome": "Bairro",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "73907",
+"nome": "Bug procedente?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "77418",
+"nome": "Cadastro de: (Franquias ou Consultores)",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "180036",
+"nome": "Caracteristica do Atendimento",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183835",
+"nome": "Carga horaria estimada",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "249582",
+"nome": "Carteira",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "71427",
+"nome": "Case de sucesso?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "153167",
+"nome": "Catalogo Operações",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "105334",
+"nome": "Categorias Atendimentos Cloud",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "148916",
+"nome": "Causa",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187506",
+"nome": "CEP",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "72103",
+"nome": "Cidade",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187507",
+"nome": "Cidade do Usuário.",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "32313",
+"nome": "Classificação Chamado Consultor",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "38028",
+"nome": "Classificação de chamado : Tipos",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "83250",
+"nome": "Classificação de Recusa",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "23946",
+"nome": "Classificação de Ticket",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "61200",
+"nome": "Cliente",
+"tipo": "Lista de clientes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "84296",
+"nome": "Cliente Atendido Pelo Consultor",
+"tipo": "Lista de clientes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155765",
+"nome": "Cliente de Franquia",
+"tipo": "Lista de clientes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "67737",
+"nome": "Cliente em Implantação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "151807",
+"nome": "Cliente franquia - Carteira",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "128047",
+"nome": "Cliente Pós Go Live?",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "228945",
+"nome": "CNPJ",
+"tipo": "Expressão regular",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "146383",
+"nome": "CNPJ da Empresa",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "28062",
+"nome": "CNPJ de Faturamento",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "67606",
+"nome": "CNPJ do Cliente",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123589",
+"nome": "CNPJ para Faturamento",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229102",
+"nome": "Código Cliente",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219376",
+"nome": "Colaborador",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175705",
+"nome": "Com quem falou",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214845",
+"nome": "Comercializado?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229104",
+"nome": "Complemento",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177121",
+"nome": "CONDIÇÕES DE PAGAMENTO (COPIAR PARA A PROPOSTA/TERMO NO CAMPO OBSERVAÇÕES GERAIS DO TERMO):",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123384",
+"nome": "Conhece um produto que já possua essa funcionalidade?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215295",
+"nome": "Considerar cálculo percentual?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "55863",
+"nome": "CONSTRU - Módulo x Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "54937",
+"nome": "Consultor Atendimento",
+"tipo": "Lista de pessoas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175706",
+"nome": "Contato",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "145548",
+"nome": "Contato whatsapp do responsável",
+"tipo": "Telefone",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "90204",
+"nome": "Contrato Novo?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "26106",
+"nome": "Controle de Orçamento",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "151626",
+"nome": "Conversão para implantação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "80898",
+"nome": "Correções KORP",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "228809",
+"nome": "CPF",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187502",
+"nome": "CPF do Colaborador",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "133577",
+"nome": "CPF do usuário do cartão",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177141",
+"nome": "CRM - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187000",
+"nome": "CTPS",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "65237",
+"nome": "Data - Análise",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "65418",
+"nome": "Data de Entrega",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "209747",
+"nome": "Data de Faturamento",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188437",
+"nome": "Data de Inicio da Prestação de Serviço",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229099",
+"nome": "Data de Nascimento",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "133579",
+"nome": "Data de nascimento do usuário do cartão",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "111728",
+"nome": "Data de Providência",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "196927",
+"nome": "Data de Reativação do Faturamento",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "211683",
+"nome": "Data de Transição",
+"tipo": "Data",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "175925",
+"nome": "Data de vencimento",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "161755",
+"nome": "Data do Contrato:",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177876",
+"nome": "Data do Go Live",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "69610",
+"nome": "Data Entrega Acordada com Cliente",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "160908",
+"nome": "Data envio taxa de análise",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "250810",
+"nome": "Data Inicio Implantação",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "235778",
+"nome": "Data Migração",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "197654",
+"nome": "Data Primeiro Retorno",
+"tipo": "Data e hora",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183836",
+"nome": "Data sugerida para o serviço",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "100966",
+"nome": "Definição de Público/alunos",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "156091",
+"nome": "Demanda atendimento Viasoft",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "103256",
+"nome": "Demanda de Melhoria Personalizada",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "227770",
+"nome": "Departamento",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "187763",
+"nome": "Departamento de atuação",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215328",
+"nome": "Descontar comissão franquia?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218956",
+"nome": "Desconto máximo que pode ser dado sobre os valores bases (tab A) acima?",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "222756",
+"nome": "Desconto MRR",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "222755",
+"nome": "Desconto SETUP/IMPLANTAÇÃO",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214838",
+"nome": "Descrição do Item",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "130109",
+"nome": "Direciona Sistemas Internos:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "159598",
+"nome": "Direciona Suporte HOK",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "221326",
+"nome": "Direcionar Cadastro de Item para Bitrix",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "221325",
+"nome": "Direcionar Cadastro de Item para NetSuite",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "185202",
+"nome": "Direcionar para Área:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "208262",
+"nome": "Direcionar Reset",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "85399",
+"nome": "Direcionar Ticket",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "192944",
+"nome": "DIRETOR RESPONSÁVEL",
+"tipo": "Lista de agentes",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "178894",
+"nome": "É Bug?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214841",
+"nome": "É reset online?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177239",
+"nome": "É uma operação comercial para clientes da base VIASOFT?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "73734",
+"nome": "Em quais equipes de atendimento o novo colaborador deve ser incluido?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "145287",
+"nome": "Em qual segmento será implantado o novo módulo?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "228810",
+"nome": "E-mail",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "101284",
+"nome": "E-Mail Cliente",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71432",
+"nome": "E-mail Decisor",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "73736",
+"nome": "E-mail do agente:",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188435",
+"nome": "E-mail do Consultor Técnico",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71435",
+"nome": "E-mail do Proprietário",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71440",
+"nome": "E-mail do Supervisor",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62057",
+"nome": "E-mail executivo de negócios/comercial",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "158638",
+"nome": "E-mail Executivo:",
+"tipo": "E-mail",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "113382",
+"nome": "Empresa",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "176875",
+"nome": "Empresa de faturamento",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "68245",
+"nome": "Empresas Concorrentes",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187504",
+"nome": "Endereço",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "133583",
+"nome": "Endereço completo do usuário do cartão",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "186667",
+"nome": "ENN - AC PROPOSTA",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "186668",
+"nome": "ENN - LDU PROPOSTA",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177490",
+"nome": "ENN Valor de AC",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177491",
+"nome": "ENN Valor de LDU",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177493",
+"nome": "ENN Valor de Personalização Final",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177494",
+"nome": "ENN Valor de Personalização Tx Análise",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177492",
+"nome": "ENN Valor de Serviço",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "81872",
+"nome": "Entrega de Cartões",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229406",
+"nome": "Enviado para Viasoft",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "180127",
+"nome": "Enviar para outro Integrante S.I",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177992",
+"nome": "Enviar Ticket de Canais",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "160524",
+"nome": "Enviar Ticket Novo Cliente para Implantação:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "160006",
+"nome": "Enviar ticket para a Implantação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "179062",
+"nome": "Enviar Ticket para Debug",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "196188",
+"nome": "Enviar Ticket para ENN",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "230908",
+"nome": "Equipe Responsável",
+"tipo": "Lista de agentes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219385",
+"nome": "Especifique as requisições do atendimento",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219384",
+"nome": "Especifique o objetivo do backup",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174957",
+"nome": "Especifique o segmento/setor, ramo de atuação. Com o que a empresa trabalha?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "124719",
+"nome": "Especifique o segmento/setor, ramo de atuação. Com o que a empresa trabalha?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71422",
+"nome": "Estado",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "161514",
+"nome": "Estimativa",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "102937",
+"nome": "Estimativa de Entrega",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "51900",
+"nome": "Estimativa de Entrega Forlog",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "51898",
+"nome": "Estimativa de Esforço Forlog",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "64488",
+"nome": "Estimativa de Horas",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "86349",
+"nome": "Etapas de Migração",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123509",
+"nome": "Executivo da Venda",
+"tipo": "Lista de pessoas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "138312",
+"nome": "Expectativa para início do uso do módulo:",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "212008",
+"nome": "Fato",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "85271",
+"nome": "Fator de Descontentamento",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "65352",
+"nome": "Favoritar Ticket",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187764",
+"nome": "Ferramenta(s) de IA que pretende utilizar",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "41230",
+"nome": "Ferramentas",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "237256",
+"nome": "FILT  - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175078",
+"nome": "Finalidade da demanda?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "60740",
+"nome": "FISCO - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "179551",
+"nome": "Fluxo",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155913",
+"nome": "Foi passível de simulação?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "156098",
+"nome": "Foi realizado algum procedimento técnico:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219381",
+"nome": "Foi verificado com a equipe a necessidade, viabilidade e disponibilidade do backup?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "145288",
+"nome": "Foi verificado se o módulo solicitado tem dependência de outros módulos? Caso tenha, foi solicitado a liberação para o cliente?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "51913",
+"nome": "FORLOG - Priorização",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214844",
+"nome": "Forma de cálculo",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137048",
+"nome": "Forma que deseja que ocorra a implantação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215304",
+"nome": "Formula de calculo de MRR",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "232251",
+"nome": "Franquia",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "241074",
+"nome": "Franquia Atende",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "117738",
+"nome": "Franquia Viasoft",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "155782",
+"nome": "Franquia Viasoft",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175076",
+"nome": "Franquia.old",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "125937",
+"nome": "GCC - AC Real",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "26215",
+"nome": "GCC - Data",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "94219",
+"nome": "GCC - Data do Contrato",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "43724",
+"nome": "GCC - Data Rescisão",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "78145",
+"nome": "GCC - Data Rescisão Programada",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "58049",
+"nome": "GCC - Data Reversão",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "102445",
+"nome": "GCC - Data Solicitação de Rescisão",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "24523",
+"nome": "GCC - Locus Externo",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "24986",
+"nome": "GCC - Locus Interno",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "216958",
+"nome": "GCC - Módulos",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "26214",
+"nome": "GCC - MRR",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "92847",
+"nome": "GCC - MRR pós churn",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "151926",
+"nome": "GCC - Produto",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "59012",
+"nome": "GCC - Real Motivo",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "96401",
+"nome": "GCC - Sistema Que Irá Utilizar",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "61982",
+"nome": "GCC - Tipo de Locus",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "216954",
+"nome": "GCC - Tipo de Rescisão Parcial",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "87894",
+"nome": "GCC - Tipo Rescisão",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "98697",
+"nome": "GCC - Verticais Insatisfação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "134591",
+"nome": "Gerar GCC para Validação de Cálculo",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "83512",
+"nome": "Gerar Ticket Para Financeiro",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137443",
+"nome": "Gerar ticket para implantação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "198836",
+"nome": "Gerar ticket para Implantação Analytics",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "126275",
+"nome": "Gerar Ticket para Infra Oracle Cloud",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "153176",
+"nome": "Gerar Ticket para Infra Oracle Cloud.",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155766",
+"nome": "Gerar ticket para o suporte Viasoft",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218096",
+"nome": "Gerar ticket para Transição Suporte Produto",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "192945",
+"nome": "GERENTE RESPONSÁVEL",
+"tipo": "Lista de agentes",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "160456",
+"nome": "Grupo do Cliente",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "219383",
+"nome": "Há alguma consideração adicional que devemos ter ao realizar este backup",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "40590",
+"nome": "Horas - Marketing (hh:mm)",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "103499",
+"nome": "Horas - Prime",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "235779",
+"nome": "Horas Negociadas",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "162185",
+"nome": "Horas Totais",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "235780",
+"nome": "Horas Utilizadas",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "162184",
+"nome": "Horas Viasoft",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218422",
+"nome": "Houve solicitação de backup ao cliente?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "212007",
+"nome": "IA Absorve",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "240310",
+"nome": "IA Atende",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "242042",
+"nome": "IA Atende Cloud",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "245078",
+"nome": "ID NLU",
+"tipo": "URL",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155907",
+"nome": "Identificado algum procedimento técnico?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "145285",
+"nome": "Informe a expectativa do cliente em relação ao módulo, descrevendo o que ele deseja resolver/melhorar",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "191272",
+"nome": "Informe as rotinas que serão impactadas com a melhoria.",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218963",
+"nome": "Informe o descritivo do módulo",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177118",
+"nome": "INFRA VIASOFT R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "64209",
+"nome": "Inicio do Atendimento do Consultor",
+"tipo": "Data e hora",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71615",
+"nome": "Insatisfação:",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "72435",
+"nome": "Justificativa (Clique fora do campo para envio da mensagem!)",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "46674",
+"nome": "Key Accounts:",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "174020",
+"nome": "Liberação para quem?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "69653",
+"nome": "Liberação sem Custo?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177877",
+"nome": "Link do projeto de implantação",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "153169",
+"nome": "Link Documentação",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "32742",
+"nome": "Links para Materiais de Referência",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174022",
+"nome": "Lista com Nome e E-mail de quem precisa do acesso",
+"tipo": "Arquivo",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "85899",
+"nome": "Lista de Clientes - CS",
+"tipo": "Lista de clientes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "185655",
+"nome": "Local do problema",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "161890",
+"nome": "Locus Externo Insatisfação:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "161758",
+"nome": "Locus Interno Insatisfação:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174968",
+"nome": "Mais alguma vertical será negociada nesta conta? Qual?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "38595",
+"nome": "Manifesto direcionado a",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "22003",
+"nome": "Manifesto Procedente",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "68845",
+"nome": "Modalidade - NELA",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "157722",
+"nome": "Módulo - Multivertical",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218950",
+"nome": "Módulo ou serviço?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "161756",
+"nome": "Módulo/Rotina:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "56115",
+"nome": "Módulos - Automação Comercial",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "60132",
+"nome": "Módulos - Voors",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "92055",
+"nome": "Módulos - Voors- Implantação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229411",
+"nome": "Motivo",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "227833",
+"nome": "Motivo da Improcedência Reabertura:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "224109",
+"nome": "Motivo da Improcedência:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "224107",
+"nome": "Motivo da Insatisfação:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "227837",
+"nome": "Motivo da procedência Reabertura:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155848",
+"nome": "Motivo da Recusa - SERVIÇOS",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174963",
+"nome": "Motivo da troca de sistema?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "235811",
+"nome": "Motivo Indisponibilidade",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "68136",
+"nome": "Motivos da Renegociação Reajuste Anual",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "161754",
+"nome": "MRR Cliente R$:",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "85123",
+"nome": "Na sua avaliação esse descontentamento pode levar a uma rescisão?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188441",
+"nome": "Nível de contrato",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215293",
+"nome": "Nº máximo de usuários",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215292",
+"nome": "Nº mínimo de usuários",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "228812",
+"nome": "Nome completo",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "133580",
+"nome": "Nome completo da mãe do usuário do cartão",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188434",
+"nome": "Nome completo do Consultor Técnico",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "133576",
+"nome": "Nome completo do usuário do cartão",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137065",
+"nome": "Nome da empresa",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174956",
+"nome": "Nome da Empresa (Prospect Cliente )",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "85270",
+"nome": "Nome da pessoa para contato",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71429",
+"nome": "Nome Decisor",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "73735",
+"nome": "Nome do agente:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155792",
+"nome": "Nome do cliente",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175681",
+"nome": "Nome do cliente",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "101285",
+"nome": "Nome do cliente atendido pela franquia:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174021",
+"nome": "Nome do cliente",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174023",
+"nome": "Nome do curso",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "75645",
+"nome": "Nome do Especialista",
+"tipo": "Lista de agentes",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215289",
+"nome": "Nome do Item",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "146384",
+"nome": "Nome do participante:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71433",
+"nome": "Nome do Proprietário",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "124718",
+"nome": "Nome do Prospect",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "145547",
+"nome": "Nome do responsável pela migração (cliente)",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71428",
+"nome": "Nome do Supervisor",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229100",
+"nome": "Nome Fantasia",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "73982",
+"nome": "Novo cliente?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "196401",
+"nome": "Número da Ficha",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "153663",
+"nome": "Número da Nota",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177104",
+"nome": "NÚMERO DA PROPOSTA/TERMO:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187505",
+"nome": "Número do endereço",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "156979",
+"nome": "O cliente está em TMS?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155912",
+"nome": "O fato gerador acontece em outra base ou apenas no banco do cliente:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155909",
+"nome": "O fato gerador acontece em todas as máquinas?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155937",
+"nome": "O fato gerador acontece em todos usuários?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155910",
+"nome": "O fato gerador acontece na última versão?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218961",
+"nome": "O módulo exige agrônomo na proposta?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218962",
+"nome": "O módulo exige contador na proposta?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183834",
+"nome": "Objetivo do Serviço",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "100969",
+"nome": "Objetivos",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174024",
+"nome": "Observação",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "98699",
+"nome": "Observação - Inteligência de mercado",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "203973",
+"nome": "Observação Isenção",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174959",
+"nome": "Onde a empresa se localiza?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177106",
+"nome": "OPERAÇÕES ENVOLVIDAS",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "149689",
+"nome": "Orçamento",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "87375",
+"nome": "Orçamento Aprovado Em:",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "227093",
+"nome": "Orçamento Status",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "70837",
+"nome": "Orçamento valido até:",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "245945",
+"nome": "Origem",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "162570",
+"nome": "Origem da demanda",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187765",
+"nome": "Origem e exemplos de dados que pretende enviar para IA",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "154883",
+"nome": "Ouvidoria - Produto",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "83397",
+"nome": "Parcelamento:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "146019",
+"nome": "Passou-se 15 dias após a implantação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218970",
+"nome": "Percentual de comissão sobre LDU para colaboradores",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218964",
+"nome": "Percentual de comissão sobre LDU para franquia",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218972",
+"nome": "Percentual de comissão sobre MRR para colaboradores",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218965",
+"nome": "Percentual de comissão sobre MRR para franquia",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218973",
+"nome": "Percentual de comissão sobre SETUP/IMPLANTAÇÃO para colaboradores",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188438",
+"nome": "Percentual de Horas Cobradas",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215309",
+"nome": "Percentual máximo de desconto atendimento continuo proposta",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215301",
+"nome": "Percentual máximo de desconto na LDU proposta",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "158903",
+"nome": "Perfil Antigo:",
+"tipo": "Texto de uma linha",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "177116",
+"nome": "PERSONALIZAÇÃO R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "179986",
+"nome": "Pessoa Solicitante",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "59777",
+"nome": "PETRO - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "81781",
+"nome": "Petroshow - Módulo Fiscal",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62140",
+"nome": "Petroshow - Rotinas - Módulo Armazenadora",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62141",
+"nome": "Petroshow - Rotinas - Módulo Comanda",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62137",
+"nome": "Petroshow - Rotinas - Módulo Comodato",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62130",
+"nome": "Petroshow - Rotinas - Módulo Financeiro",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62129",
+"nome": "Petroshow - Rotinas - Módulo Gerencial",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62133",
+"nome": "Petroshow - Rotinas - Módulo Logística",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62142",
+"nome": "Petroshow - Rotinas - Módulo Mobile",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62138",
+"nome": "Petroshow - Rotinas - Módulo PDV",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62127",
+"nome": "Petroshow - Rotinas - Módulo Viasoft3c_XE",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62139",
+"nome": "Petroshow - Rotinas - Módulo WEB",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "93839",
+"nome": "Petroshow - Rotinas VsBackupPro",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187002",
+"nome": "PIS",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "212006",
+"nome": "Plantão",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "191273",
+"nome": "Por quais motivos as rotinas do sistema não atendem ao processo solicitado?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183028",
+"nome": "Por que o sistema não atende hoje?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71425",
+"nome": "Possui Base de Homologação",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188442",
+"nome": "Possui minimo garantido?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "32743",
+"nome": "Prazo final para protótipo",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "32744",
+"nome": "Prazo final sugestivo para entrega",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "69654",
+"nome": "Prazo liberação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "164446",
+"nome": "Prazo Max Análise",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137043",
+"nome": "Precisa replicar para todos?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "100968",
+"nome": "Pré-requisitos",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123376",
+"nome": "Produto",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177114",
+"nome": "PRODUTO AGROTITAN R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177111",
+"nome": "PRODUTO CONSTRUSHOW R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177107",
+"nome": "PRODUTO CRM R$:",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177109",
+"nome": "PRODUTO FISCO CONTÁBIL R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177110",
+"nome": "PRODUTO PETROSHOW R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177108",
+"nome": "PRODUTO TALENTRH R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183837",
+"nome": "Profissionais envolvidos",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "125479",
+"nome": "Próxima reunião com o cliente",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183029",
+"nome": "Quais alterações deverão ser realizadas no sistema?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218966",
+"nome": "Quais franquias estão aptas para a comissão?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174960",
+"nome": "Quais módulos serão adquiridos?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183016",
+"nome": "Quais os benefícios esperados com a personalização?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "191271",
+"nome": "Quais os benefícios esperados com o desenvolvimento da melhoria?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183025",
+"nome": "Quais rotinas serão impactadas com a melhoria?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174965",
+"nome": "Quais são as expectativas do Prospect?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174964",
+"nome": "Quais são os principais problemas que o prospect pretende resolver ?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "191270",
+"nome": "Qual a finalidade da melhoria?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174967",
+"nome": "Qual a vertical principal que será negociada nesta conta?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218958",
+"nome": "Qual B.U pertence?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218960",
+"nome": "Qual equipe/diretoria deve ser apropriada a receita?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "156978",
+"nome": "Qual o ambiente do cliente?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137008",
+"nome": "Qual o módulo?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183015",
+"nome": "Qual o objetivo da personalização?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219382",
+"nome": "Qual o objetivo do uso deste backup?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219380",
+"nome": "Qual o período desejado para o backup?",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177103",
+"nome": "QUAL O TIPO DE MIGRAÇÃO?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218985",
+"nome": "Qual o valor e qual a unidade de medida?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177240",
+"nome": "Qual operação?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123380",
+"nome": "Qual problema sua sugestão resolve?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "145286",
+"nome": "Qual/Quais segmentos o cliente atua? E para qual o mesmo pretende implantar o processo?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175924",
+"nome": "Quantidade de parcelas",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218957",
+"nome": "Quantidade mínima de comercialização",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "148079",
+"nome": "Quanto a importação de dados, selecione abaixo:",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137041",
+"nome": "Quantos estabelecimentos o cliente possui:",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137037",
+"nome": "Quantos usuários:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "174961",
+"nome": "Quantos usuários?",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71423",
+"nome": "Ramo da empresa",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229101",
+"nome": "Ramo de Atividade",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219379",
+"nome": "Razão Social Cliente",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "145546",
+"nome": "Razão Social do Cliente",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "227765",
+"nome": "Reabertura Procedente ?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "38105",
+"nome": "REAG",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "68839",
+"nome": "Reajuste Acordado Com Cliente",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "238351",
+"nome": "Rede",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "148381",
+"nome": "Rescisão Oracle Cloud",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "235805",
+"nome": "Resolução Indisponibilidade",
+"tipo": "Data e hora",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "62426",
+"nome": "Resolvido Automaticamente",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "211684",
+"nome": "Resumo de Reunião",
+"tipo": "Texto com várias linhas",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "187503",
+"nome": "RG do Colaborador",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "133578",
+"nome": "RG do usuário do cartão",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "156980",
+"nome": "Rotina do sistema:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "239482",
+"nome": "Satisfação:",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175682",
+"nome": "Segmento",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "228892",
+"nome": "Segmento Petroshow",
+"tipo": "Seleção múltipla",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "219375",
+"nome": "Seleção de tipo de atendimento",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "152164",
+"nome": "Selecione o módulo:",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "239481",
+"nome": "Sentimento:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137051",
+"nome": "Será liberado demonstração do módulo para o cliente?",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "187001",
+"nome": "SERIE",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123493",
+"nome": "Serviço a Ser Contratado",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "164743",
+"nome": "Serviço a Ser Contratado Fisco Contábil",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "149714",
+"nome": "Serviço Executado",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "149711",
+"nome": "Serviço Executado Cloud",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "26848",
+"nome": "Serviços Necessários",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "185654",
+"nome": "Setor",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "32750",
+"nome": "Setor Solicitante",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123495",
+"nome": "Setor Venda Ativa",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "148729",
+"nome": "Sistema",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "30853",
+"nome": "Sistema Interno",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214846",
+"nome": "Sistema Padrão",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "153420",
+"nome": "Situação Cliente:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "78466",
+"nome": "Situação:",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "31451",
+"nome": "Softwares que deverão ser atualizados:",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "130364",
+"nome": "Solicitação Relacionada a",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "72281",
+"nome": "Solicitado auxilio do Suporte Especialista?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "67594",
+"nome": "Status Negociação",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123378",
+"nome": "Sugestão De",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "85125",
+"nome": "Sugestão de ação para solução do problema ou situação de risco",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "219377",
+"nome": "Supervisor",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "192946",
+"nome": "SUPERVISOR RESPONSÁVEL",
+"tipo": "Lista de agentes",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "59786",
+"nome": "TalentRH - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "229041",
+"nome": "TalentRh - Modulo/Rotina(Legado)",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "154803",
+"nome": "Taxa de análise (R$)",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "146385",
+"nome": "Telefone",
+"tipo": "Telefone",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71431",
+"nome": "Telefone Decisor",
+"tipo": "Telefone",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71434",
+"nome": "Telefone do Proprietário",
+"tipo": "Telefone",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71460",
+"nome": "Telefone do Supervisor",
+"tipo": "Telefone",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "133581",
+"nome": "Telefone do usuário do cartão",
+"tipo": "Telefone",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "210596",
+"nome": "Terceiros",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175921",
+"nome": "Termo/Proposta",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "102476",
+"nome": "Teste Validação GCC",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "118965",
+"nome": "Ticket - Prime DB",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "75874",
+"nome": "Ticket filho:",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155793",
+"nome": "Ticket:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175923",
+"nome": "Tipo",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "65219",
+"nome": "Tipo - análise",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "213189",
+"nome": "Tipo Atendimento",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71667",
+"nome": "Tipo de ajuste Serviço",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71670",
+"nome": "Tipo de ajuste:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214534",
+"nome": "Tipo de Atendimento Franquia",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "67743",
+"nome": "Tipo de Bug",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "154451",
+"nome": "Tipo de Chamado - Nimitz",
+"tipo": "Seleção múltipla",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214035",
+"nome": "Tipo de Infra Do Cliente",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "88767",
+"nome": "Tipo de Infra do Cliente:",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "22000",
+"nome": "Tipo de Manifesto",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177102",
+"nome": "Tipo de Oportunidade - ENN",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "148615",
+"nome": "Tipo de Serviço",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "191264",
+"nome": "Tipo de Serviço Solicitado:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183833",
+"nome": "Tipo de Serviço:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "137109",
+"nome": "Tipo de Solicitação:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "216175",
+"nome": "Tipo de Venda/Cobrança",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214840",
+"nome": "Tipo Empresa",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "185657",
+"nome": "Tipo Facilities",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "84442",
+"nome": "Tipos de Serviço",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "77260",
+"nome": "Triagem Acertou Urgência?",
+"tipo": "Seleção única",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "173931",
+"nome": "Triagem Automática",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "74069",
+"nome": "Triagem de Destino:",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "202728",
+"nome": "Triagem Ouvidoria",
+"tipo": "Lista de agentes",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "71621",
+"nome": "Ultimo Contato",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "53239",
+"nome": "Último Retorno TALENTRH",
+"tipo": "Data",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "183832",
+"nome": "Unidade de Negócios Solicitante",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "161757",
+"nome": "Unidade Insatisfação:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "185288",
+"nome": "Urgência Raiz",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "156199",
+"nome": "Usuário Certificado?",
+"tipo": "Lista de valores",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "71461",
+"nome": "Valor - AC",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215299",
+"nome": "Valor base (tab A) de LDU a partir do segundo usuário ou CNPJ",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215297",
+"nome": "Valor base (tab A) de LDU do primeiro usuário ou CNPJ",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218953",
+"nome": "Valor base (tab A) de SETUP/IMPLANTAÇÃO a partir do segundo usuário ou CNPJ",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218951",
+"nome": "Valor base (tab A) de SETUP/IMPLANTAÇÃO do primeiro usuário ou CNPJ",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218955",
+"nome": "Valor base (tab A) do MRR a partir do segundo usuário ou CNPJ",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "218954",
+"nome": "Valor base (tab A) do MRR do primeiro usuário ou CNPJ",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123492",
+"nome": "Valor Base Serviço Contratado",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "64210",
+"nome": "Valor da Hora Técnica - R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "153652",
+"nome": "Valor da Nota (R$)",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188439",
+"nome": "Valor das Horas não Cobradas",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177105",
+"nome": "VALOR DE AC DOS MÓDULOS ORACLE CLOUD",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215306",
+"nome": "Valor do 1º usuário atendimento continuo",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "71424",
+"nome": "Valor do AC",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "188440",
+"nome": "Valor do Km Rodado: R$ 1,26/km para veículos de motor até 1.5 litros R$ 1,35/km para veículos de motor superiores a 1.6 litros.",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "26105",
+"nome": "Valor do Orçamento (R$)",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123496",
+"nome": "Valor Final Serviço Contratado",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "175922",
+"nome": "Valor R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177120",
+"nome": "VALOR TOTAL PARA O SETUP ACIMA R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215308",
+"nome": "Valor usuário adicional atendimento continuo",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "233096",
+"nome": "Versão Atual do Sistema",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "155908",
+"nome": "Versão do cliente:",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "55410",
+"nome": "Versão Entrega",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "215290",
+"nome": "Vertical",
+"tipo": "Texto de uma linha",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "68134",
+"nome": "Vertical Atendida",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "214049",
+"nome": "Vertical Integração Forlog",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "222693",
+"nome": "Vertical Relacionamento",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "29433",
+"nome": "Vertical Viasoft:",
+"tipo": "Seleção múltipla",
+"campoPara": "Pessoa",
+"ativo": true
+},
+{
+"id": "145551",
+"nome": "Vertical Viasoft:",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "97141",
+"nome": "Vertical/Área",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177115",
+"nome": "VIASOFT ANALYTICS R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "59021",
+"nome": "VIASUPER - Módulo X Rotina",
+"tipo": "Lista de valores",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "123381",
+"nome": "Você vê aplicação na carteira atual? Em quais casos?",
+"tipo": "Texto com várias linhas",
+"campoPara": "Ticket",
+"ativo": true
+},
+{
+"id": "177119",
+"nome": "VX R$",
+"tipo": "Numérico",
+"campoPara": "Ticket",
+"ativo": true
+}
+]
