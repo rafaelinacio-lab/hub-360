@@ -103,6 +103,7 @@ table.fixa .bk-ua{min-width:0;flex-wrap:nowrap}table.fixa .bk-ua>div{flex:none}t
 .dd input[type=checkbox]:checked{background:var(--or);border-color:var(--or)}.dd input[type=checkbox]:checked::after{content:'';width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
 .dd .ft{flex:none;display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--b)}
 .dd .ft button{flex:1;border:1px solid var(--b);background:var(--s2);color:var(--t1);border-radius:9px;font:700 13px Manrope;padding:10px 0;cursor:pointer}.dd .ft button:hover{border-color:var(--or)}
+.dd .ft button.prim{background:var(--or);border-color:var(--or);color:#fff}
 .chip{border:1px dashed var(--or);color:var(--or);border-radius:999px;padding:6px 11px;font-weight:700;background:var(--orbg);cursor:pointer}
 .pd-kp{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
 .k{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:12px 14px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:3px;border-left:4px solid var(--c)}
@@ -400,7 +401,7 @@ function desenharColunas(){
        ${ehNumero?`<button type="button" class="col-add" onclick="adicionarCampo('${CAMPOS_BUSCA.trim()}',null)">+ Adicionar o campo ${esc(CAMPOS_BUSCA.trim())}</button>`:''}
        ${CAMPOS_DISP===null?'<div class="col-vazio">Carregando campos…</div>':disp.map(c=>`<button type="button" class="col-add" onclick="adicionarCampo('${c.id}',${c.nome?`'${esc(c.nome).replace(/'/g,'')}'`:'null'})">+ ${esc(c.nome||'Campo '+c.id)} <small style="color:var(--t3)">${[c.tipo,c.n?`${loc(c.n)} chamados`:''].filter(Boolean).join(' · ')}</small></button>`).join('')||'<div class="col-vazio">Nada encontrado.</div>'}
      </div>
-     <div class="ft"><button type="button" onclick="restaurarColunas()">Restaurar padrão</button></div>
+     <div class="ft"><button type="button" onclick="restaurarColunas()">Restaurar padrão</button><button type="button" class="prim" onclick="salvarEFecharColunas()">Salvar e fechar</button></div>
    </div>`;
 }
 function aplicarColunas(){ salvarColunas(); desenharColunas(); tabela(); }
@@ -412,6 +413,7 @@ function adicionarCampo(id,nome){
   if(!CF_COLS.some(c=>c.id===id)) CF_COLS.push({id,nome:nome.slice(0,60),on:true});
   CAMPOS_BUSCA=''; aplicarColunas(); carregarCampos().then(tabela);
 }
+function salvarEFecharColunas(){ salvarColunas(); const b=document.getElementById('bk-cols'); if(b) b.classList.remove('open'); aviso('Colunas salvas neste navegador.'); }
 function restaurarColunas(){ COL_PADRAO(); aplicarColunas(); }
 // Vencimento: quanto já venceu (ou quanto falta). Pela régua do Hub em horas úteis (1 dia útil = 8 h 45 min de expediente);
 // pelo prazo do Movidesk em dias corridos até/desde a previsão.
