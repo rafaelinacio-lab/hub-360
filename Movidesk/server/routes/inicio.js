@@ -1,7 +1,7 @@
 'use strict';
 // Tela "Início": o que a pessoa vê ao abrir o Hub — saudação do dia, resumo DELA e da EQUIPE (= vertical(es) em Pessoas;
 // sem vertical = Hub inteiro), "o que mudou desde a última visita" e atalhos pelo uso real. Vale para TODOS os perfis.
-//   GET /api/inicio?escopo=equipe|hub   (hub só para quem não é filtrado por vertical: admin ou perfil sem vertical)
+//   GET /api/inicio?escopo=equipe|hub  (quem está em 2+ verticais também recebe `equipes`: um resumo por vertical)   (hub só para quem não é filtrado por vertical: admin ou perfil sem vertical)
 // Regras: SLA e "vencido" pela RÉGUA DO HUB (utils/slaRegraHub.js + política de SLA); equipe = chamados de Suporte Técnico
 // do escopo; o usuário só recebe os próprios números e agregados da equipe. Cada seção que falhar volta null — a tela
 // nunca cai por causa de uma parte. Tabela nova: public.hub_inicio_visita (a de saudações fica em utils/inicioSaudacao.js).
@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/remote');
 const { authMiddleware } = require('./auth');
-const { escopoVertical, pertence, norm } = require('../utils/verticalScope');
+const { escopoVertical, pertence, norm, lerAliases } = require('../utils/verticalScope');
 const slaHub = require('../utils/slaRegraHub');
 const P = require('../utils/slaPolitica');
 const { lerConfigEmCache } = require('../utils/slaHorasCore');
@@ -435,6 +435,12 @@ router.get('/', authMiddleware, async (req, res) => {
     const meuR = G ? await secao('meu', async () => resumoDele(G, meusIds, agoraMs)) : null;
     const equipeR = G ? await secao('equipe', async () => resumoEquipe(G, esc, alvos, agoraMs)) : null;
     const meu = meuR ? meuR.resumo : null;
+    // Pessoa em mais de uma vertical: além do resumo somado (equipe), uma visão de CADA vertical (cada uma vale também pelos nomes equivalentes).
+    const proprias = verticais;   // as verticais PRÓPRIAS do perfil (sem os nomes equivalentes)
+    const porVertical = G && !usarHub && proprias.length > 1 ? await secao('equipes', async () => {
+      const mapa = await lerAliases(), porNome = new Map(Object.entries(mapa).map(([k, v]) => [norm(k), v]));
+      return proprias.map((v) => { const e1 = { verticais: [...new Set([v, ...(porNome.get(norm(v)) || [])])] }; return { rotulo: v, escopo: 'equipe', ...resumoEquipe(G, e1, alvosDe(e1), agoraMs).resumo }; });
+    }) : null;
 
     // saudação do dia: começa já (só precisa da fila dele) e roda junto com atalhos e "desde a última visita".
     // Nunca derruba a tela: sem tabela/IA, usa o banco de frases só em memória.
@@ -462,7 +468,7 @@ router.get('/', authMiddleware, async (req, res) => {
       usuario: { nome: u.name || '', primeiroNome: contexto.primeiroNome, papel, verticais, temVertical, podeVerHub },
       saudacao: { texto: sd.texto, periodo: contexto.periodo, dia: contexto.dia, origem: sd.origem },
       visita: { primeira: visita.primeira, anterior: visita.anterior, diasDesde: visita.diasDesde, sequencia: visita.sequencia, ultimaAba: visita.ultimaAba },
-      meu, equipe, desdeUltimaVisita: desde, atalhos: atalhos || [], dicas: dicasDe({ meu, equipe, desde }),
+      meu, equipe, equipes: porVertical, desdeUltimaVisita: desde, atalhos: atalhos || [], dicas: dicasDe({ meu, equipe, desde }),
       _ms: Date.now() - t0,
     });
   } catch (e) {

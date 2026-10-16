@@ -337,12 +337,20 @@ function renderEquipe(d){
   const el = $('secEquipe'), q = d.equipe;
   if (q == null) { el.hidden = true; return; }
   el.hidden = false;
-  const ab = num(q.entraramHoje) || 0, fe = num(q.fecharamHoje) || 0, tot = ab + fe;
-  const pa = tot ? Math.round(ab / tot * 100) : 50;
   const seg = d.usuario?.podeVerHub
     ? `<div class="seg" role="group" aria-label="Escopo do resumo"><button type="button" data-esc="equipe" aria-pressed="${S.escopo === 'equipe'}">Equipe</button><button type="button" data-esc="hub" aria-pressed="${S.escopo === 'hub'}">Hub inteiro</button></div>` : '';
+  // Em 2+ verticais: um bloco por vertical (cada uma com seus números); senão, o bloco único de sempre.
+  const multi = Array.isArray(d.equipes) && d.equipes.length > 1;
+  const blocos = multi ? d.equipes : [q];
+  el.innerHTML = blocos.map((x, i) => blocoEquipe(x, i === 0 ? seg : '', multi)).join('');
+  tornarClicaveis(el);
+  el.querySelectorAll('[data-esc]').forEach((b) => b.addEventListener('click', () => trocarEscopo(b.dataset.esc)));
+}
+function blocoEquipe(q, seg, multi){
+  const ab = num(q.entraramHoje) || 0, fe = num(q.fecharamHoje) || 0, tot = ab + fe;
+  const pa = tot ? Math.round(ab / tot * 100) : 50;
   const venc = num(q.vencidos) || 0;
-  el.innerHTML = `<div class="sec-head"><div><h2>Sua equipe — ${esc(q.rotulo || 'Hub inteiro')}</h2><p>${q.classificacao ? `Chamados de ${esc(q.classificacao)}` : 'Todos os chamados da equipe'}</p></div>${seg}</div>
+  return `<div class="sec-head"${multi ? ' style="margin-top:18px"' : ''}><div><h2>Sua equipe — ${esc(q.rotulo || 'Hub inteiro')}</h2><p>${q.classificacao ? `Chamados de ${esc(q.classificacao)}` : 'Todos os chamados da equipe'}</p></div>${seg}</div>
     <div class="grid g5">
       ${card(I.pessoas, 'Pendentes', nf(q.pendentes || 0), `${nf(q.noPrazo || 0)} no prazo · ${nf(q.pausados || 0)} pausados`, 'blue')}
       ${card(I.alerta, 'Vencidos', `${nf(venc)}<span style="font-size:.5em;font-weight:700;color:var(--t3)"> · ${pct(q.pctVencido)}</span>`, venc ? 'do backlog com o prazo de SLA passado' : 'nenhum vencido', venc ? 'bad' : 'good')}
@@ -351,8 +359,6 @@ function renderEquipe(d){
         <div class="vs-bar" aria-hidden="true"><i class="a" style="width:${pa}%"></i><i class="f" style="width:${100 - pa}%"></i></div></div>
       ${card(I.escudo, 'SLA do mês', pct(q.slaMes), subSla((num(q.baseSlaMes) > 0) ? `sobre ${nf(q.baseSlaMes)} resolvidos${q.baseSlaMovidesk > 0 ? ` (${nf(q.baseSlaMovidesk)} pelo SLA do Movidesk)` : ''}` : 'ainda sem resolvidos no mês', num(q.slaMes) != null ? (q.slaMes >= META_SLA ? ' · atingida' : ` · faltam ${nf(META_SLA - q.slaMes, 1)} pp`) : ''), tomSla(q.slaMes), deltaPp(q.slaMes, q.slaMesAnterior))}
     </div>`;
-  tornarClicaveis(el);
-  el.querySelectorAll('[data-esc]').forEach((b) => b.addEventListener('click', () => trocarEscopo(b.dataset.esc)));
 }
 
 function renderDesde(d){
