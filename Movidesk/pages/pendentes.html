@@ -52,7 +52,7 @@ html,body{margin:0;min-height:100%;background:var(--bg);color:var(--t1);font-fam
 .bk-n{width:26px;height:26px;border-radius:50%;background:var(--s2);display:inline-grid;place-items:center;font-weight:800;font-size:12px;color:var(--t2)}
 .bk-pz{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:800;font-size:12px;white-space:nowrap}
 .bk-pz.venc{background:var(--redbg);color:var(--red)}.bk-pz.breve{background:transparent;color:var(--red);border:1px solid var(--red)}.bk-pz.prazo{background:var(--grbg);color:var(--gr)}.bk-pz.paus,.bk-pz.fora{background:var(--gybg);color:var(--gy)}
-.bk-ua{display:inline-flex;flex-direction:column;gap:3px;padding:7px 14px;border-radius:12px;border:1px solid;min-width:210px}
+.bk-ua{display:inline-flex;flex-direction:column;gap:3px;padding:7px 14px;border-radius:12px;border:1px solid;min-width:190px}
 .bk-ua b{display:flex;align-items:center;gap:8px;font-size:14px}.bk-ua b span{font-weight:600;color:var(--t1)}
 .bk-ua small{font-size:11px;font-weight:700;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
 .bk-ua.cli{color:var(--cli);border-color:color-mix(in srgb,var(--cli) 60%,transparent);background:color-mix(in srgb,var(--cli) 8%,transparent)}
@@ -339,7 +339,7 @@ const linhaChamado=(r,i)=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r
       <td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>
       <td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span><small style="display:block;color:var(--t3);margin-top:3px;font-weight:600">${esc(prazoTxt(r))}</small></td>
       <td><b>${r._dAb} d</b></td>
-      <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b><small>${esc(nome||'—')}</small><small style="color:${lado==='cli'?'var(--cli)':'var(--age)'}">Pendente de retorno do ${lado==='cli'?'agente':'cliente'}</small></span></td>
+      <td title="${t?esc(new Date(t).toLocaleString('pt-BR')):''}"><span class="bk-ua ${lado}"><b>${icone(lado==='cli'?'person':'support_agent')}${lado==='cli'?'Cliente':'Agente'} <span>${t?`há ${tempoAcao(t)}`:'abertura'}</span></b><small>${esc(nome||'—')}</small></span></td>
     </tr>`; };
 const TH_CHAMADOS='<thead><tr><th>#</th><th>Chamado</th><th>Cliente · assunto</th><th>Responsável</th><th>Prazo</th><th>Aberto</th><th>Última ação</th></tr></thead>';
 function tabela(){
