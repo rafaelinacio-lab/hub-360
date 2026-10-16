@@ -134,7 +134,8 @@
         if (t.closest('textarea,input,select,[contenteditable],[data-roda-propria]')) return;
         for (var el = t; el && el.nodeType === 1 && el !== document.body && el !== document.documentElement; el = el.parentElement) {
             var cs = getComputedStyle(el);
-            if (cs.position === 'fixed' || ((cs.position === 'absolute') && /(auto|scroll)/.test(cs.overflowY))) return; // modal / lista suspensa
+            // modal / lista suspensa: elemento fixo, ou absoluto que rola sozinho OU que contém uma lista com rolagem (ex.: menus de filtro e de colunas)
+            if (cs.position === 'fixed' || (cs.position === 'absolute' && (scrolls.length || /(auto|scroll)/.test(cs.overflowY)))) return;
             if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) scrolls.push(el);
         }
         if (!scrolls.length) return; // nada com barra aqui: o navegador rola a página
