@@ -37,7 +37,8 @@ html,body{margin:0;min-height:100%;background:var(--bg);color:var(--t1);font-fam
 .bk-k.venc .v{color:var(--red)}
 .bk-split{display:flex;gap:4px;height:14px;border-radius:999px;overflow:hidden}.bk-split i{display:block;height:100%}
 .bk-split-l{display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-top:5px}
-.bk-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.bk-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:1500px){.bk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:1100px){.bk-grid{grid-template-columns:1fr}}
 .bk-box{border:1px solid var(--b);border-radius:16px;padding:16px 18px;background:var(--s);box-shadow:var(--sh)}
 .bk-box h4{margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t2)}.bk-box h4 small{font-size:11px;font-weight:700;text-transform:none;letter-spacing:0}
@@ -298,7 +299,7 @@ function quebra(titulo,tipo,f,chave,max){
 }
 function desenharMid(f){
   const el=document.getElementById('mid');
-  el.innerHTML=quebra('Por equipe','equipe',f,r=>r._equipe,5)+quebra('Por classificação','cls',f,r=>r._cls,5)+quebra('Por cliente · top 5','cliente',f,r=>r._cli,5);
+  el.innerHTML=quebra('Por equipe','equipe',f,r=>r._equipe,5)+quebra('Por classificação','cls',f,r=>r._cls,5)+quebra('Por cliente · top 5','cliente',f,r=>r._cli,5)+quebra('Por responsável · top 5','resp',f,r=>r._resp,5);
 }
 
 // ── modal com os chamados (ao clicar nos cards, na barra e nas linhas das quebras) ──
