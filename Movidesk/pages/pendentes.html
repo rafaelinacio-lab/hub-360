@@ -233,7 +233,7 @@ function foco(t,v){ FOCO[t]=FOCO[t]===v?null:v; PAG=1; render(); }
 function pilula(p){ PILULA=p; PAG=1; document.querySelectorAll('.pill[data-p]').forEach(e=>e.classList.toggle('on',e.dataset.p===p)); tabela(); }
 
 // ── tabela ──
-const COLS=[['dot','',null,true],['id','Chamado','id',true],['cli','Cliente · assunto','cli',true],['resp','Responsável','resp',true],['urg','Urgência','urg',true],['ab','Aberto há','ab',true],['ret','Sem retorno','ret',true],['ua','Última ação','ua',true],['dep','Retorno de','dep',true],['st','Status · justificativa','st',true],['prz','Prazo (SLA)','prz',true]];
+const COLS=[['dot','',null,true],['id','Chamado','id',true],['cli','Cliente · assunto','cli',true],['resp','Responsável','resp',true],['urg','Urgência','urg',true],['ab','Aberto há','ab',true],['ret','Sem retorno','ret',true],['ua','Última ação','ua',true],['dep','Aguardando retorno','dep',true],['st','Status · justificativa','st',true],['prz','Prazo (SLA)','prz',true]];
 let COLS_OFF=new Set(JSON.parse(localStorage.getItem('hub_pendentes_cols_off')||'[]'));
 const CHAVE={id:r=>Number(r.ticket_id),cli:r=>semAc(r._cli+' '+(r.assunto||'')),resp:r=>semAc(r._resp),urg:r=>URG[r.urgencia]||9,ab:r=>r._dAb,ret:r=>r._ret,ua:r=>Math.max(r._ag||0,r._cl||0),dep:r=>(r._ag||r._cl)?((r._cl||0)>=(r._ag||0)?1:2):3,st:r=>semAc((r.status_movidesk||'')+' '+(r.justificativa||'')),prz:r=>r._sit==='venc'?-1e9+(r._rest||0):r._rest==null?1e9:r._rest};
 function linhasTabela(){
@@ -258,7 +258,7 @@ const heat=d=>d>=10?'var(--red)':d>=7?'var(--am)':'var(--gr)';
 const ini=n=>String(n).split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
 function tabela(){
   const l=linhasTabela(), vis=l.slice(0,PAG*POR_PAG), cols=COLS.filter(c=>!COLS_OFF.has(c[0]));
-  const ROT={id:'Chamado',cli:'Cliente · assunto',resp:'Responsável',urg:'Urgência',ab:'Aberto há',ret:'Sem retorno',ua:'Última ação',dep:'Retorno de',st:'Status · justificativa',prz:'Prazo (SLA)'};
+  const ROT={id:'Chamado',cli:'Cliente · assunto',resp:'Responsável',urg:'Urgência',ab:'Aberto há',ret:'Sem retorno',ua:'Última ação',dep:'Aguardando retorno',st:'Status · justificativa',prz:'Prazo (SLA)'};
   document.getElementById('ord').textContent=`ordenado por ${(ROT[ORD.k]||'').toLowerCase()} ${ORD.d<0?'↓':'↑'}`;
   const cel={
     dot:r=>`<td><span class="dot" style="--c:${SIT[r._sit][1]}"></span></td>`,
@@ -272,7 +272,7 @@ function tabela(){
     dep:r=>{ // quem precisa responder: última ação pública do agente → depende do CLIENTE; do cliente → depende do AGENTE
       const ag=r._ag||0, cl=r._cl||0; if(!ag&&!cl) return `<td><span style="color:var(--t3)">—</span></td>`;
       const cliente=ag>cl, cor=cliente?'var(--az)':'var(--or)';
-      return `<td title="${cliente?'A última ação pública foi do agente: o chamado aguarda retorno do cliente':'A última ação pública foi do cliente: o chamado aguarda retorno do agente'}"><span class="ur" style="background:color-mix(in srgb,${cor} 16%,transparent);color:${cor};white-space:nowrap">${cliente?'Cliente':'Agente'}</span></td>`;
+      return `<td title="${cliente?'A última ação pública foi do agente: o chamado aguarda retorno do cliente':'A última ação pública foi do cliente: o chamado aguarda retorno do agente'}"><span class="ur" style="background:color-mix(in srgb,${cor} 16%,transparent);color:${cor};white-space:nowrap">${cliente?'Aguarda cliente':'Aguarda agente'}</span></td>`;
     },
     st:r=>`<td class="st"><b>${esc(r.status_movidesk||'—')}</b><small title="${esc(r.justificativa)}">${esc(r.justificativa||'')}</small></td>`,
     prz:r=>`<td><span class="sr sr-${r._sit}">${SIT[r._sit][0]}</span><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${esc(prazoTxt(r))}</small></td>`,
