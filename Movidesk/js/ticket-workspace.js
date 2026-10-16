@@ -212,6 +212,10 @@
                     <button type="button" class="ws-btn" id="wsAplicarStatus">Alterar status</button>
                 </details>
             </div>
+            <div class="ws-secao" id="wsSla">
+                <h4>SLA</h4>
+                <div id="wsSlaBody" class="ws-dica">Carregando…</div>
+            </div>
             <div class="ws-secao" id="wsIncidente" style="display:none;">
                 <h4>Incidente</h4>
                 <div id="wsIncBody"></div>
@@ -443,12 +447,63 @@
         }
     }
 
+
+    // ── SLA: pedir para tirar o chamado do cálculo de SLA (Sistemas Internos aprova) ──
+    async function slaApi(caminho, metodo = 'GET', corpo) {
+        const resp = await fetch(`${API_BASE}/sla-exclusoes${caminho}`, { method: metodo, headers: authHeaders(corpo ? { 'Content-Type': 'application/json' } : {}), body: corpo ? JSON.stringify(corpo) : undefined });
+        const d = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(d.error || `HTTP ${resp.status}`);
+        return d;
+    }
+    async function carregarSla() {
+        const box = $('wsSlaBody'); if (!box || !_ws.id) return;
+        try {
+            const d = await slaApi(`/por-chamado/${_ws.id}`);
+            const p = d.pedido, dt = (v) => (v ? fmt(v) : '');
+            if (!p) {
+                if (!d.pede) { box.textContent = 'Dentro do cálculo de SLA.'; return; }
+                box.innerHTML = `Dentro do cálculo de SLA. <button type="button" class="ws-btn" id="wsSlaPedir">Tirar do SLA</button>
+                    <div id="wsSlaForm" style="display:none;margin-top:8px;display:none">
+                        <select id="wsSlaMotivo" aria-label="Motivo">${Object.entries(d.motivos).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
+                        <input type="text" id="wsSlaObs" maxlength="500" placeholder="Observação (obrigatória em “Outro”)" aria-label="Observação">
+                        <div class="ws-dica">${d.aprova ? 'Você aprova: o chamado sai do SLA na hora, com o registro de quem fez.' : 'O pedido precisa ser aprovado por Sistemas Internos para valer.'}</div>
+                        <button type="button" class="ws-btn ws-btn-primario" id="wsSlaEnviar">Solicitar</button>
+                    </div>`;
+                $('wsSlaPedir').addEventListener('click', () => { $('wsSlaForm').style.display = 'block'; $('wsSlaPedir').style.display = 'none'; });
+                $('wsSlaEnviar').addEventListener('click', () => executar($('wsSlaEnviar'), 'Enviando…', async () => {
+                    const r = await slaApi('', 'POST', { ticket: _ws.id, motivo: $('wsSlaMotivo').value, obs: $('wsSlaObs').value });
+                    if (!r.criados.length) throw new Error((r.ignorados[0] && r.ignorados[0].motivo) || 'Não foi possível registrar.');
+                    avisar(r.aprovadosNaHora ? 'Chamado fora do SLA.' : 'Pedido enviado para aprovação de Sistemas Internos.');
+                    await carregarSla();
+                }));
+                return;
+            }
+            const mot = esc(d.motivos[p.motivo] || p.motivo) + (p.obs ? ` — ${esc(p.obs)}` : '');
+            if (p.status === 'pendente') {
+                box.innerHTML = `<b>Pedido para tirar do SLA — aguardando aprovação de Sistemas Internos.</b><br>${mot}<br><small>${esc(p.solicitado_por_nome)} · ${dt(p.solicitado_em)}</small>
+                    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${d.aprova ? '<button type="button" class="ws-btn ws-btn-primario" data-sla="aprovar">Aprovar</button><button type="button" class="ws-btn" data-sla="recusar">Recusar</button>' : ''}<button type="button" class="ws-btn" data-sla="cancelar">Cancelar pedido</button></div>`;
+            } else {
+                box.innerHTML = `<b>Fora do SLA</b> — ${mot}<br><small>aprovado por ${esc(p.decidido_por_nome || '—')} · ${dt(p.decidido_em)}</small>
+                    ${d.aprova ? '<div style="margin-top:6px"><button type="button" class="ws-btn" data-sla="cancelar">Voltar ao SLA</button></div>' : ''}`;
+            }
+            box.querySelectorAll('[data-sla]').forEach((b) => b.addEventListener('click', () => executar(b, '…', async () => {
+                const a = b.dataset.sla;
+                if (a === 'recusar') { const o = prompt('Motivo da recusa:'); if (!o) return; await slaApi(`/${p.id}/decidir`, 'POST', { acao: 'recusar', obs: o }); }
+                else if (a === 'aprovar') await slaApi(`/${p.id}/decidir`, 'POST', { acao: 'aprovar' });
+                else await slaApi(`/${p.id}/cancelar`, 'POST', {});
+                avisar('Atualizado.');
+                await carregarSla();
+            })));
+        } catch (e) { box.textContent = 'Não consegui carregar a situação do SLA: ' + e.message; }
+    }
+
     function desenhar() {
         const d = _ws.dados;
         $('wsTitulo').textContent = `Chamado #${d.id}`;
         $('wsCabecalho').innerHTML = renderCabecalho(d);
         $('wsControles').innerHTML = renderControles(d, _ws.opcoes || {});
         ligarEventos();
+        carregarSla();
         desenharTimeline();
         carregarIncidente();
     }

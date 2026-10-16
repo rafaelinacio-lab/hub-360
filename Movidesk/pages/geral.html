@@ -434,6 +434,14 @@ input,select{font-family:inherit}
 @media (max-width:1180px){.hrow.c-3,.hrow.c-4-8,.hrow.c-8-4{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:900px){.hrow.c-2{grid-template-columns:minmax(0,1fr)}}
 .hrow>.chart-panel,.hrow>.data-panel,.hrow>.stat-card{margin:0}
+/* fora do SLA (pedidos) */
+.slx-form{display:grid;grid-template-columns:minmax(220px,2fr) minmax(180px,1fr) minmax(180px,1.4fr) auto;gap:8px;align-items:start;margin:8px 0}
+.slx-form textarea,.slx-form select,.slx-form input{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--surface-low);color:var(--t1);padding:9px 11px;font:inherit;font-size:13px;resize:vertical}
+.slx-filtros{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.slx-pill{border:1px solid var(--border);background:transparent;color:var(--t2);font:700 12px/1 inherit;font-family:inherit;padding:7px 13px;border-radius:999px;cursor:pointer}.slx-pill.on{background:var(--t1);color:var(--bg2,#fff)}
+.slx-tab{width:100%;border-collapse:collapse;font-size:13px}.slx-tab th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);padding:8px;border-bottom:1px solid var(--border)}.slx-tab td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.slx-st{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:700;font-size:11.5px}.slx-st.pendente{background:color-mix(in srgb,#e9b730 20%,transparent);color:#b8860b}.slx-st.aprovado{background:color-mix(in srgb,#2fbf8a 20%,transparent);color:#2fbf8a}.slx-st.recusado,.slx-st.cancelado,.slx-st.revertido{background:color-mix(in srgb,#8794ad 20%,transparent);color:#8794ad}
+.slx-bt{border:1px solid var(--border);background:var(--surface-low);color:var(--t1);border-radius:8px;font:700 12px inherit;font-family:inherit;padding:5px 10px;cursor:pointer;margin-right:4px}.slx-bt:hover{border-color:var(--orange)}
 /* horários de pico por analista: mesma grade, uma linha por responsável (+ total) */
 .pico.an{grid-template-columns:minmax(110px,150px) repeat(13,minmax(0,1fr)) 46px}
 .pico.an .d{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;color:var(--t2)}
@@ -1187,6 +1195,22 @@ html[data-ui="v2"] body:not(.tv-page) #geral-dash .kpi-grid.k9,#geral-dash .kpi-
           <span class="kpi-antes" style="text-decoration:none;cursor:default" id="rp-conta"></span>
         </div>
         <div id="rp-corpo"><p class="chart-sub" style="text-align:left">Carregando os repasses…</p></div>
+      </div>
+    </div>
+
+    <div class="hrow c-1" id="sla-ex-linha" style="display:none">
+      <div data-card="fora-do-sla" data-titulo="Fora do SLA (pedidos)" class="chart-panel" id="sla-ex-panel">
+        <p class="chart-title">Fora do SLA <span id="sla-ex-cont" class="chart-sub" style="margin-left:8px"></span></p>
+        <p class="chart-sub" style="text-align:left">Chamados que o suporte pede para ficar <b>fora do cálculo de SLA</b>. O pedido só vale depois de aprovado por <b>Sistemas Internos</b>; cada pedido guarda quem pediu, o motivo e quem decidiu.</p>
+        <div class="slx-form">
+          <textarea id="slx-tickets" rows="2" placeholder="Números dos chamados (separados por vírgula, espaço ou linha): 912001, 912006…"></textarea>
+          <select id="slx-motivo"></select>
+          <input id="slx-obs" type="text" maxlength="500" placeholder="Observação (obrigatória em “Outro”)">
+          <button type="button" class="btn-refresh" onclick="slxEnviar()">Solicitar</button>
+        </div>
+        <div id="slx-aviso" class="chart-sub" style="text-align:left;min-height:18px"></div>
+        <div class="slx-filtros" id="slx-filtros"></div>
+        <div class="rolagem" style="overflow-x:auto"><table class="slx-tab"><thead><tr><th>Chamado</th><th>Assunto</th><th>Equipe</th><th>Pedido por</th><th>Motivo</th><th>Situação</th><th></th></tr></thead><tbody id="slx-corpo"></tbody></table></div>
       </div>
     </div>
 
@@ -3444,6 +3468,53 @@ function renderBacklogLista(vencidos){
   el.innerHTML=top.map(r=>`<button type="button" class="bk-item" title="${escAttr(r.assunto||'')} · vencido há ${diasVencido(r)} dia(s)" onclick="openTicketModal('${escAttr(r.ticket_id)}')"><i></i><span class="t">${esc(r.assunto||'Sem assunto')}</span><span class="r">${esc((r.responsavel||'—').split(' ')[0])}</span></button>`).join('');
 }
 
+// ── Fora do SLA: pedidos (suporte pede, Sistemas Internos aprova) — rotas /sla-exclusoes ──
+let _slx={filtro:'pendente',aprova:false,motivos:{}};
+async function slxApi(caminho,metodo='GET',corpo){
+  const r=await fetch(`${API}/sla-exclusoes${caminho}`,{method:metodo,headers:{Authorization:`Bearer ${tok()}`,...(corpo?{'Content-Type':'application/json'}:{})},body:corpo?JSON.stringify(corpo):undefined,cache:'no-store'});
+  const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||`Falha (${r.status})`); return d;
+}
+async function slxCarregar(){
+  const linha=document.getElementById('sla-ex-linha'); if(!linha) return;
+  try{
+    const me=await slxApi('/me'); if(!me.pede){ linha.style.display='none'; return; }
+    linha.style.display=''; _slx.aprova=me.aprova; _slx.motivos=me.motivos;
+    const sel=document.getElementById('slx-motivo'); if(sel&&!sel.options.length) sel.innerHTML=Object.entries(me.motivos).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('');
+    await slxListar();
+  }catch(e){ linha.style.display='none'; }
+}
+async function slxListar(){
+  const d=await slxApi(`/${_slx.filtro&&_slx.filtro!=='todos'?`?status=${_slx.filtro}`:''}`);
+  const c=d.contagem||{};
+  document.getElementById('sla-ex-cont').textContent=`${c.pendente||0} pendente(s) · ${c.aprovado||0} aprovado(s)`;
+  document.getElementById('slx-filtros').innerHTML=[['pendente','Pendentes'],['aprovado','Aprovados'],['recusado','Recusados'],['revertido','Revertidos'],['todos','Todos']].map(([k,t])=>`<button type="button" class="slx-pill${_slx.filtro===k?' on':''}" onclick="_slx.filtro='${k}';slxListar()">${t}${c[k]!=null?` ${c[k]}`:''}</button>`).join('');
+  const dt=v=>v?new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+  document.getElementById('slx-corpo').innerHTML=(d.itens||[]).map(x=>{
+    const ac=x.status==='pendente'?(_slx.aprova?`<button class="slx-bt" onclick="slxDecidir(${x.id},'aprovar')">Aprovar</button><button class="slx-bt" onclick="slxDecidir(${x.id},'recusar')">Recusar</button>`:'')+`<button class="slx-bt" onclick="slxCancelar(${x.id},false)">Cancelar</button>`
+      :x.status==='aprovado'&&_slx.aprova?`<button class="slx-bt" onclick="slxCancelar(${x.id},true)">Voltar ao SLA</button>`:'';
+    return `<tr><td><b><a href="#" onclick="openTicketModal('${x.ticket_id}');return false">#${esc(x.ticket_id)}</a></b></td><td>${esc((x.assunto||'—').slice(0,80))}</td><td>${esc(x.equipe||'—')}</td><td>${esc(x.solicitado_por_nome||'—')}<br><small style="color:var(--t3)">${dt(x.solicitado_em)}</small></td>
+      <td>${esc(_slx.motivos[x.motivo]||x.motivo)}${x.obs?`<br><small style="color:var(--t3)">${esc(x.obs)}</small>`:''}</td>
+      <td><span class="slx-st ${x.status}">${x.status}</span>${x.decidido_por_nome?`<br><small style="color:var(--t3)">${esc(x.decidido_por_nome)} · ${dt(x.decidido_em)}${x.decisao_obs?` · ${esc(x.decisao_obs)}`:''}</small>`:''}</td><td>${ac}</td></tr>`;
+  }).join('')||'<tr><td colspan="7" style="color:var(--t3);padding:14px">Nenhum pedido nesta situação.</td></tr>';
+}
+async function slxEnviar(){
+  const av=document.getElementById('slx-aviso');
+  try{
+    const r=await slxApi('','POST',{tickets:document.getElementById('slx-tickets').value,motivo:document.getElementById('slx-motivo').value,obs:document.getElementById('slx-obs').value});
+    av.style.color='var(--green,#2fbf8a)'; av.textContent=`${r.criados.length} chamado(s) ${r.aprovadosNaHora?'fora do SLA':'enviado(s) para aprovação'}${r.ignorados.length?` · ignorado(s): ${r.ignorados.map(x=>`#${x.ticket} (${x.motivo})`).join(', ')}`:''}`;
+    if(r.criados.length){ document.getElementById('slx-tickets').value=''; document.getElementById('slx-obs').value=''; }
+    await slxListar();
+  }catch(e){ av.style.color='var(--red,#e5586c)'; av.textContent=e.message; }
+}
+async function slxDecidir(id,acao){
+  let obs=''; if(acao==='recusar'){ obs=prompt('Motivo da recusa:')||''; if(!obs) return; }
+  try{ await slxApi(`/${id}/decidir`,'POST',{acao,obs}); await slxListar(); }catch(e){ alert(e.message); }
+}
+async function slxCancelar(id,reverter){
+  if(reverter&&!confirm('Voltar este chamado ao cálculo de SLA?')) return;
+  try{ await slxApi(`/${id}/cancelar`,'POST',{}); await slxListar(); }catch(e){ alert(e.message); }
+}
+
 // ── Horários de pico: aberturas por dia da semana x hora (semana atual) ───────────────
 let _picoSem=[];
 function inicioSemana(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d; }   // segunda-feira 00h local
@@ -4461,6 +4532,7 @@ async function apiFetch(path,method='GET'){
 
 // "Atualizar" e "Sincronizar tickets" só aparecem pra perfil admin.
 async function applyRolePermissions(){
+  slxCarregar();
   try{
     const me=await api('/auth/me');
     // Card "SLA por equipe": só perfis admin e diretoria

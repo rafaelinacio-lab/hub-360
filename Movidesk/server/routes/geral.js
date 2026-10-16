@@ -473,6 +473,15 @@ router.get('/pendentes', acessoPainelTv, async (req, res) => {
           slaHub.marcarPendentes(rows, ev, cfg);
         }
       } catch (e) { console.warn('[geral] SLA (régua do Hub) dos pendentes falhou:', e.message); }
+      // Pedidos de exclusão do SLA (pendente / aprovado) para o painel mostrar o selo "Fora do SLA" ou "pedido pendente"
+      try {
+        const ids = rows.map(r => r.ticket_id).filter(id => /^\d{1,18}$/.test(String(id)));
+        if (ids.length) {
+          const x = await db.query(`SELECT ticket_id::text AS id, status, motivo FROM public.sla_exclusao WHERE status IN ('pendente','aprovado') AND ticket_id = ANY($1::bigint[])`, [ids]);
+          const m = new Map(x.rows.map(y => [y.id, y]));
+          rows.forEach(r => { const y = m.get(String(r.ticket_id)); if (y) { r.sla_exclusao = y.status; r.sla_exclusao_motivo = require('../utils/slaExclusao').MOTIVOS[y.motivo] || y.motivo; } });
+        }
+      } catch (e) { console.warn('[geral] pedidos de exclusão do SLA:', e.message); }
       // Movimento do dia (fuso de Brasília): chamados abertos hoje e resolvidos/fechados hoje, com os campos dos filtros.
       let hoje = [];
       try {

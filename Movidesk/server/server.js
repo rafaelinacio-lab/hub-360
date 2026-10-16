@@ -138,7 +138,8 @@ app.use('/api/repasses', repassesRoutes);
 app.use('/api/avisos-img', require('./routes/avisos').publico);   // imagens dos avisos (pública, só leitura)
 app.use('/api/avisos', require('./routes/avisos'));
 app.use('/api/webhooks', require('./routes/automacoes').publico);   // webhooks das Automações (sem login; código secreto na URL)
-app.use('/api/automacoes', require('./routes/automacoes'));   // Configurações → Automações (só admin)
+app.use('/api/automacoes', require('./routes/automacoes'));
+app.use('/api/sla-exclusoes', require('./routes/slaExclusoes'));   // pedidos para tirar chamados do SLA (suporte pede, Sistemas Internos aprova)   // Configurações → Automações (só admin)
 app.use('/api/extrator', require('./routes/tokens').extrator);   // sem login: só o extrator do Jira, com chave própria
 app.use('/api/tokens', require('./routes/tokens'));
 app.use('/api/sla-horas', require('./routes/slaHoras'));
@@ -292,6 +293,7 @@ setInterval(() => {
 // Avisos automáticos (mensagens para chamados novos de serviços configurados) — nasce desligado
 require('./utils/avisosAutomaticos').iniciar();
 require('./utils/automacoes').iniciar();
+require('./utils/slaExclusao').garantirTabela().catch((e) => console.error('[sla-exclusao] tabela:', e.message));
 require('./utils/slaLiquido').iniciar();
 movideskLoader.iniciarAgendadorHistoricos();   // históricos de equipe/status do Movidesk (rodada a cada 10 min, uma chamada por vez)   // tempo de SLA líquido por chamado, guardado para o Painel Geral (rodada a cada 2 min)
 require('./utils/slaHorasCore').iniciarAutomatico();   // lança as horas técnicas de crédito sozinho a cada fechamento de mês

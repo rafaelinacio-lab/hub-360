@@ -433,7 +433,7 @@ const COLS_BASE=[
  {k:'id',t:'Chamado',w:7,fixa:true,ord:'id',cel:r=>`<td class="id"><a href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener">#${esc(r.ticket_id)}</a></td>`},
  {k:'cli',t:'Cliente · assunto',w:19,ord:'cli',cel:r=>`<td class="cl"><b title="${esc(r._cli)}">${esc(r._cli)}</b><small title="${esc(r.assunto)}">${esc(r.assunto||'—')}</small></td>`},
  {k:'resp',t:'Responsável',w:14,ord:'resp',cel:r=>`<td><div class="av"><i>${esc(ini(r._resp))}</i><div>${esc(r._resp)}<small title="${esc(r._equipe)}">${esc(r._equipe)}</small></div></div></td>`},
- {k:'prz',t:'Prazo',w:11,ord:'prz',cel:r=>`<td><span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span></td>`},
+ {k:'prz',t:'Prazo',w:11,ord:'prz',cel:r=>`<td>${r.sla_exclusao==='aprovado'?`<span class="bk-pz fora" title="${esc('Fora do SLA · '+(r.sla_exclusao_motivo||''))}">Fora do SLA</span>`:`<span class="bk-pz ${r._sit}">${SIT[r._sit][0]}</span>`}${r.sla_exclusao==='pendente'?`<small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:normal" title="${esc(r.sla_exclusao_motivo||'')}">pedido de exclusão pendente</small>`:''}</td>`},
  {k:'ab',t:'Aberto',w:8.5,ord:'ab',cel:r=>`<td><b>${hTxt(dEsp(r))}</b><small style="display:block;color:var(--t3);margin-top:2px;font-weight:600">${diasCorridos(dEsp(r))}</small></td>`},
  {k:'venc',t:'Vencimento',w:14,ord:'venc',cel:r=>`<td>${(()=>{ const v=vencimento(r); return `<b style="color:${v.c}">${esc(v.t)}</b>${v.s?`<small style="display:block;color:var(--t3);margin-top:2px;font-weight:600;white-space:normal;overflow:visible">${esc(v.s)}</small>`:''}`; })()}</td>`},
  {k:'ua',t:'Última ação',w:27,ord:'ua',cel:r=>{ const lado=ladoDe(r), t=tUlt(r), nome=lado==='cli'?r.ultima_acao_cliente_por:r.ultima_acao_agente_por;

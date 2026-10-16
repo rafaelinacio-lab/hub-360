@@ -38,8 +38,10 @@ const sqlMetaH = (col) =>
 // Clientes que tiram o chamado do SLA (Coronel Vivida, MP Agrotech, AD Tech, ou só a Viasoft Informática como cliente).
 const sqlLateralClienteFora = (alias = 't') => `
   LEFT JOIN LATERAL (
-    SELECT BOOL_OR(x.n ~ '(VIASOFT CORONEL VIVIDA|MP AGROTECH|TECH NEGOCIOS|(^|[^A-Z])AD ?TECH)')
-        OR (BOOL_OR(x.n LIKE 'VIASOFT INFORMATICA%') AND BOOL_AND(x.n LIKE 'VIASOFT%' OR x.email ILIKE '%@viasoft.com.br')) AS fora_sla
+    SELECT COALESCE(BOOL_OR(x.n ~ '(VIASOFT CORONEL VIVIDA|MP AGROTECH|TECH NEGOCIOS|(^|[^A-Z])AD ?TECH)')
+        OR (BOOL_OR(x.n LIKE 'VIASOFT INFORMATICA%') AND BOOL_AND(x.n LIKE 'VIASOFT%' OR x.email ILIKE '%@viasoft.com.br')), false)
+        -- chamado com pedido de exclusão APROVADO por Sistemas Internos (public.sla_exclusao, utils/slaExclusao.js)
+        OR EXISTS (SELECT 1 FROM public.sla_exclusao e WHERE e.ticket_id = ${alias}.ticket_id AND e.status = 'aprovado') AS fora_sla
     FROM (
       SELECT UPPER(BTRIM(COALESCE(NULLIF(BTRIM(c.organizacao_nome), ''), c.nome, ''))) AS n, c.email
       FROM silver.ticket_cliente c
