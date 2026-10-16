@@ -294,6 +294,33 @@ router.get('/horas-tecnicas', authMiddleware, requireTabAccess('movidesk'), asyn
   }
 });
 
+// Clientes (organizações) com chamados de GCC (classificação "Gestão de Combate ao Churn") e/ou Ouvidoria nos últimos 12 meses:
+// o Painel Geral mostra uma bolha ao lado do cliente, como a das horas técnicas. { gcc: {orgId: {n, ab, u}}, ouv: {...} } (u = data do último).
+router.get('/flags-clientes', authMiddleware, requireTabAccess('movidesk'), async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT tc.organizacao_id::text AS id, CASE cf.valor_texto WHEN 'Ouvidoria' THEN 'ouv' ELSE 'gcc' END AS tipo,
+             COUNT(DISTINCT t.ticket_id)::int AS n,
+             COUNT(DISTINCT t.ticket_id) FILTER (WHERE t.basestatus IN ('New','InAttendance','Stopped','InProgress'))::int AS ab,
+             MAX(t.createddate) AS u
+        FROM silver.ticket t
+        JOIN silver.ticket_campo_customizado cf ON cf.ticket_id = t.ticket_id AND cf.custom_field_id = 23946
+             AND cf.valor_texto IN ('Ouvidoria', 'Gestão de Combate ao Churn')
+        JOIN (SELECT DISTINCT ticket_id, organizacao_id FROM silver.ticket_cliente
+               WHERE organizacao_id IS NOT NULL AND COALESCE(email, '') NOT ILIKE '%@viasoft.com.br') tc ON tc.ticket_id = t.ticket_id
+       WHERE t.createddate >= NOW() - INTERVAL '12 months'
+       GROUP BY 1, 2`);
+    const esc = await escopoVertical(req.user.id);
+    const ids = esc.filtrar ? (await require('../utils/slaHorasCore').orgsDoEscopo(esc)).ids : null;
+    const out = { gcc: {}, ouv: {} };
+    for (const x of r.rows) if (!ids || ids.has(String(x.id))) out[x.tipo][x.id] = { n: x.n, ab: x.ab, u: x.u };
+    res.json(out);
+  } catch (e) {
+    console.error('[geral] flags-clientes:', e.message);
+    res.json({ gcc: {}, ouv: {} });   // é um complemento: nunca derruba o painel
+  }
+});
+
 // Mudanças de status (ações) de vários chamados, num SELECT só: Map(id -> [{em, status}]) em ordem.
 async function eventosDosTickets(ids) {
   const ac = await db.query(

@@ -263,6 +263,9 @@ input,select{font-family:inherit}
 .imp-sub{font-size:12px;font-weight:700;margin:0 0 6px}
 .td-ht{margin:0 0 14px;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,#10b981 10%,transparent)}
 .td-ht .lbl{margin:0 0 2px}
+.fl-badge{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;cursor:help}
+.fl-badge.gcc{background:color-mix(in srgb,#ef4444 16%,transparent);color:#ef4444}
+.fl-badge.ouv{background:color-mix(in srgb,#8b5cf6 16%,transparent);color:#8b5cf6}
 .ht-badge{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;background:color-mix(in srgb,#10b981 16%,transparent);color:#10b981;white-space:nowrap;cursor:help}
 .imp-pos{color:#f87171}.imp-neg{color:var(--green)}
 .imp-vazio{padding:18px 8px;text-align:center;color:var(--t3);font-size:12px}
@@ -1599,7 +1602,7 @@ async function loadHistoricoCompleto(){
   const btn=document.getElementById('btn-carregar-tudo');
   if(btn){ btn.disabled=true; btn.textContent='Carregando (pode levar alguns minutos)…'; }
   try{
-    const [resp]=await Promise.all([api('/geral?todos=1',10*60*1000),fetchPendentesGlobal(),carregarSaldosHT()]);
+    const [resp]=await Promise.all([api('/geral?todos=1',10*60*1000),fetchPendentesGlobal(),carregarSaldosHT(),carregarFlagsCli()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
@@ -1631,7 +1634,7 @@ async function diagnosticarGeral(){
 }
 async function loadGeral(){
   try{
-    const [resp]=await Promise.all([api('/geral'),fetchPendentesGlobal(),carregarSaldosHT()]);
+    const [resp]=await Promise.all([api('/geral'),fetchPendentesGlobal(),carregarSaldosHT(),carregarFlagsCli()]);
     _rows=resp.rows||[];
     _janela=resp.janela??null;
     renderJanelaBanner();
@@ -2725,6 +2728,14 @@ const htBadge=r=>{ const x=htDe(r); return x?` <span class="ht-badge" title="Hor
 // Bloco do modal do chamado: o histórico de créditos concedidos ao cliente.
 const htBloco=r=>{ const x=htDe(r); if(!x) return ''; const creditos=(x.l||[]).map(c=>`<li>${esc(c.competencia||'—')}: <b>+${fmtHT(c.horas)} h</b>${c.validade?` <span style=\"color:var(--t3)\">(vence em ${new Date(c.validade+'T12:00:00').toLocaleDateString('pt-BR')})</span>`:''}</li>`).join('');
   return `<div class="td-ht"><p class="lbl">Horas técnicas do cliente</p><p class="val"><b>${fmtHT(x.c)} h</b> concedidas no total · ${fmtHT(x.u)} h usadas · <b>${fmtHT(x.h)} h disponíveis</b>${x.e?` · ${fmtHT(x.e)} h expiradas`:''}</p>${creditos?`<ul style="margin:6px 0 0 18px;padding:0;font-size:13px">${creditos}</ul>`:''}</div>`; };
+// Bolhas de GCC e Ouvidoria (GET /geral/flags-clientes): clientes com chamado dessas classificações nos últimos 12 meses.
+let _flagsCli={gcc:{},ouv:{}};
+const flagDe=(r,t)=>{ const x=r&&r.organizacao_id!=null?(_flagsCli[t]||{})[r.organizacao_id]:null; return x||null; };
+const flagBadge=(r,t,rot,nome)=>{ const x=flagDe(r,t); if(!x) return ''; const u=x.u?new Date(x.u).toLocaleDateString('pt-BR'):'';
+  return ` <span class="fl-badge ${t}" title="Cliente com ${x.n} chamado${x.n===1?'':'s'} de ${nome} nos últimos 12 meses${x.ab?` (${x.ab} em aberto)`:''}${u?` · último em ${u}`:''}">${rot}</span>`; };
+const flagsBadge=r=>flagBadge(r,'gcc','GCC','GCC (Gestão de Combate ao Churn)')+flagBadge(r,'ouv','Ouvidoria','Ouvidoria');
+const cliBadges=r=>htBadge(r)+flagsBadge(r);
+async function carregarFlagsCli(){ try{ const d=await api('/geral/flags-clientes',30000); _flagsCli={gcc:d.gcc||{},ouv:d.ouv||{}}; }catch(_){ _flagsCli={gcc:{},ouv:{}}; } }
 async function carregarSaldosHT(){ try{ _saldosHT=(await api('/geral/horas-tecnicas',30000)).saldos||{}; }catch(_){ _saldosHT={}; } }
 const META_SOLUCAO_H={'Crítica':4,'Alta':8,'Média':16,'Baixa':24};
 // A meta por urgência (documento de SLA) vale SÓ para a classificação Suporte Técnico; os demais seguem a previsão de solução do chamado.
@@ -3795,7 +3806,7 @@ const LISTAGEM_COLS=[
     get:r=>`#${r.ticket_id}`,
     html:r=>`<a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a>`,
     sort:r=>Number(r.ticket_id)||0},
-  {label:'Organização', get:r=>`${r.organizacao||'—'}${htDe(r)?` · ${htTexto(r)}`:''}`, html:r=>`${esc(r.organizacao||'—')}${htBadge(r)}`, sort:r=>(r.organizacao||'').toLowerCase()},
+  {label:'Organização', get:r=>`${r.organizacao||'—'}${htDe(r)?` · ${htTexto(r)}`:''}`, html:r=>`${esc(r.organizacao||'—')}${cliBadges(r)}`, sort:r=>(r.organizacao||'').toLowerCase()},
   {label:'Assunto', get:r=>r.assunto||'—', sort:r=>(r.assunto||'').toLowerCase()},
   {label:'Classificação', get:r=>classificacaoDe(r), sort:r=>classificacaoDe(r).toLowerCase()},
   {label:'Equipe', get:r=>r.equipe||'—', sort:r=>(r.equipe||'').toLowerCase()},
@@ -4097,7 +4108,7 @@ function openDetailModal(title,sub,rows,opts){
     tbody.innerHTML=visiveis.map(r=>`
         <tr class="clickable" onclick="openTicketModal('${escAttr(r.ticket_id)}')">
           <td><a class="ticket-link" href="${ticketUrl(r.ticket_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${esc(r.ticket_id)}</a></td>
-          <td>${esc(r.organizacao||'—')}${htBadge(r)}</td>
+          <td>${esc(r.organizacao||'—')}${cliBadges(r)}</td>
           <td>${esc(r.assunto||'—')}</td>
           <td>${esc(r.equipe||'—')}</td>
           <td>${esc(r.status_movidesk||r.base_status||'—')}</td>
@@ -4165,7 +4176,7 @@ function tlItem(a){
 function openTicketModal(ticketId){
   const r=_rowsById[ticketId]||{};
   document.getElementById('ticket-modal-title').textContent=`Ticket #${ticketId}`;
-  document.getElementById('ticket-modal-sub').innerHTML=`${esc(r.organizacao||'')}${htBadge(r)}`;
+  document.getElementById('ticket-modal-sub').innerHTML=`${esc(r.organizacao||'')}${cliBadges(r)}`;
   document.getElementById('ticket-modal-link').href=ticketUrl(ticketId);
   document.getElementById('ticket-modal-body').innerHTML=`${htBloco(r)}
     <div class="td-info-grid">
